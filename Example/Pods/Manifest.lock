@@ -1,0 +1,14 @@
+PODS:
+  - KlaviyoSwift (0.1.0)
+
+DEPENDENCIES:
+  - KlaviyoSwift (from `../`)
+
+EXTERNAL SOURCES:
+  KlaviyoSwift:
+    :path: ../
+
+SPEC CHECKSUMS:
+  KlaviyoSwift: abb67a755d8ee31f06f838c4a85515a6dd13601d
+
+COCOAPODS: 0.38.2

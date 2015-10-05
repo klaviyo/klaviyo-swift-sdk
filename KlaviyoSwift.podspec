@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoSwift"
   s.version          = "0.1.0"
-  s.summary          = "A short description of KlaviyoSwift."
+  s.summary          = "Incorporate Klaviyo's event and person tracking in iOS applications"
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -17,9 +17,10 @@ Pod::Spec.new do |s|
 #   * Write the description between the DESC delimiters below.
 #   * Finally, don't worry about the indent, CocoaPods strips it!  
   s.description      = <<-DESC
+                        Use the Klaviyo SDK to incorporate Klaviyo's event and person tracking functionality within iOS applications. Written in Swift.'
                        DESC
 
-  s.homepage         = "https://github.com/<GITHUB_USERNAME>/KlaviyoSwift"
+  s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   # s.screenshots     = "www.example.com/screenshots_1", "www.example.com/screenshots_2"
   s.license          = 'MIT'
   s.author           = { "Katy Keuper" => "katy.keuper@klaviyo.com" }

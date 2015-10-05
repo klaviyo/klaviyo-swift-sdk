@@ -1,0 +1,778 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		186A136B6751AB8FDBE16D2792A29247 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04B2834E17488026DC5833B7329B3C86 /* Foundation.framework */; };
+		1CA69E689B27A8720E964A31667E0CB5 /* Pods-KlaviyoSwift_Tests-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 99AFD57F7491458E5F2DA4D3D241106E /* Pods-KlaviyoSwift_Tests-dummy.m */; };
+		349657BCE10F654AB12DE9F4B76B720E /* Pods-KlaviyoSwift_Tests-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 40815CFCE522D8C9960C92A2B02DE237 /* Pods-KlaviyoSwift_Tests-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		505131F38533560803C7B02F3ADB170D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04B2834E17488026DC5833B7329B3C86 /* Foundation.framework */; };
+		56AC487B2A6552E9A116099D9FE71C57 /* KlaviyoSwift-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 7901225B2CB66AFD11BAAD4A3BA7C8F3 /* KlaviyoSwift-dummy.m */; };
+		5E2B183282195BD9ADA7EE9DC5F6EFAF /* Pods-KlaviyoSwift_Example-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C1462E40F53D6F2443A5DBA54A4CA34 /* Pods-KlaviyoSwift_Example-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7092E3397D6BAB284DFC436C5BE271D0 /* Pods-KlaviyoSwift_Example-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = DE2116A3F53BCC8217B9F5F1E9B1D7A4 /* Pods-KlaviyoSwift_Example-dummy.m */; };
+		7817918D0779B7CD5F167BFA2B8801D4 /* KlaviyoSwift-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D02AC191C2A2F5DDB729F81BF81F3020 /* KlaviyoSwift-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B9625997AE1ABD860BCEA8450B6ACFF5 /* KlaviyoSwift.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 53A4034657C749570070A834A933BA94 /* KlaviyoSwift.bundle */; };
+		DDE7255F08F5F093B4FE03EEB152A779 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04B2834E17488026DC5833B7329B3C86 /* Foundation.framework */; };
+		EBC49847B5C54C3A90349091CE1B47AB /* ReplaceMe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A137B801635566A9BC16B0F32D1019 /* ReplaceMe.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0B30364AE6E33FCC1103A4A55C38D1D7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6B27F427A55EF0FB7EC5CAFCF68D2CA5;
+			remoteInfo = KlaviyoSwift;
+		};
+		6B3135F8E8B95988B49304A861093232 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6B27F427A55EF0FB7EC5CAFCF68D2CA5;
+			remoteInfo = KlaviyoSwift;
+		};
+		F456715E83D5A25E7408F5DD68D1EB71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBD55D654940C747D43760D7F36A9E34;
+			remoteInfo = "KlaviyoSwift-KlaviyoSwift";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		00DC8628633F04881F2F5C9CA4B49D21 /* KlaviyoSwift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KlaviyoSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0227DDFCD97DCEDAD9F9E8F003D32CD8 /* Pods-KlaviyoSwift_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Tests.release.xcconfig"; sourceTree = "<group>"; };
+		04B2834E17488026DC5833B7329B3C86 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		0C1462E40F53D6F2443A5DBA54A4CA34 /* Pods-KlaviyoSwift_Example-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-KlaviyoSwift_Example-umbrella.h"; sourceTree = "<group>"; };
+		0C5BD688B562CDF27F0F28284952EFF5 /* Pods-KlaviyoSwift_Example-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-KlaviyoSwift_Example-acknowledgements.plist"; sourceTree = "<group>"; };
+		18A137B801635566A9BC16B0F32D1019 /* ReplaceMe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReplaceMe.swift; sourceTree = "<group>"; };
+		2E8759500B230FCAC8B262D78DC48E11 /* Pods_KlaviyoSwift_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_KlaviyoSwift_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		306D8838F3E452CFB477ED86364AD8EF /* Pods-KlaviyoSwift_Example.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = "Pods-KlaviyoSwift_Example.modulemap"; sourceTree = "<group>"; };
+		40815CFCE522D8C9960C92A2B02DE237 /* Pods-KlaviyoSwift_Tests-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-KlaviyoSwift_Tests-umbrella.h"; sourceTree = "<group>"; };
+		41106B1050037E1B5BA264A8E415D398 /* KlaviyoSwift-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "KlaviyoSwift-prefix.pch"; sourceTree = "<group>"; };
+		4F09C5A66F436DCF32220B8DBE9095D6 /* Pods-KlaviyoSwift_Example-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Example-frameworks.sh"; sourceTree = "<group>"; };
+		53A4034657C749570070A834A933BA94 /* KlaviyoSwift.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KlaviyoSwift.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		7546E147EA5A0605A6A5104776091307 /* Pods-KlaviyoSwift_Tests-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-KlaviyoSwift_Tests-acknowledgements.plist"; sourceTree = "<group>"; };
+		7901225B2CB66AFD11BAAD4A3BA7C8F3 /* KlaviyoSwift-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "KlaviyoSwift-dummy.m"; sourceTree = "<group>"; };
+		7BA9A635C85B3B532FB943F7CBE5BADE /* KlaviyoSwift.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = KlaviyoSwift.xcconfig; sourceTree = "<group>"; };
+		7D4ECB6BE7748C21C52C0FDAFC7E57CB /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		80BB722A8F19A4C693F888541EDA5B11 /* Pods-KlaviyoSwift_Tests.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = "Pods-KlaviyoSwift_Tests.modulemap"; sourceTree = "<group>"; };
+		8C26A77F9439DBA804D0D95E2CD74CC6 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		903238BE87A0725C5AA7386179022836 /* Pods-KlaviyoSwift_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Example.debug.xcconfig"; sourceTree = "<group>"; };
+		99AFD57F7491458E5F2DA4D3D241106E /* Pods-KlaviyoSwift_Tests-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-KlaviyoSwift_Tests-dummy.m"; sourceTree = "<group>"; };
+		A5C44F62C916987FD59D47507D56B8B9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AEDE491B0FF26B9CF2085A8D60046C21 /* Pods_KlaviyoSwift_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_KlaviyoSwift_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4B39B717F9AE1270A1565424D92FC96 /* KlaviyoSwift.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = KlaviyoSwift.modulemap; sourceTree = "<group>"; };
+		B7D5B412FEF739B73A307465D974D30B /* Pods-KlaviyoSwift_Example-resources.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Example-resources.sh"; sourceTree = "<group>"; };
+		B8E4DD0D2604E16927C9416A3F716928 /* Pods-KlaviyoSwift_Tests-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-KlaviyoSwift_Tests-acknowledgements.markdown"; sourceTree = "<group>"; };
+		BA115A61A9BA475AC2DB5B82C8C2C745 /* Pods-KlaviyoSwift_Example-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-KlaviyoSwift_Example-acknowledgements.markdown"; sourceTree = "<group>"; };
+		BA6428E9F66FD5A23C0A2E06ED26CD2F /* Podfile */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
+		C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "KlaviyoSwift-Private.xcconfig"; sourceTree = "<group>"; };
+		CA574A81F2470DC8A60F645D2012456E /* Pods-KlaviyoSwift_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Tests.debug.xcconfig"; sourceTree = "<group>"; };
+		D02AC191C2A2F5DDB729F81BF81F3020 /* KlaviyoSwift-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "KlaviyoSwift-umbrella.h"; sourceTree = "<group>"; };
+		D465BC7A78A6797125B2929D91DD1425 /* Pods-KlaviyoSwift_Tests-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Tests-frameworks.sh"; sourceTree = "<group>"; };
+		DE2116A3F53BCC8217B9F5F1E9B1D7A4 /* Pods-KlaviyoSwift_Example-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-KlaviyoSwift_Example-dummy.m"; sourceTree = "<group>"; };
+		E5F409C70474D2BC0DDEF2B0FC1B7D54 /* Pods-KlaviyoSwift_Tests-resources.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Tests-resources.sh"; sourceTree = "<group>"; };
+		E6789382A9A4ABEF5FFF987485E4C1C0 /* Pods-KlaviyoSwift_Example.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Example.release.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1AB1D6B52FCB39EDF7263223B5E36A44 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				186A136B6751AB8FDBE16D2792A29247 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5D837046C50A2A3A1E3C8E7E89B3AFA1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DDE7255F08F5F093B4FE03EEB152A779 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		757013D94F50157B960B473A37EEB787 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				505131F38533560803C7B02F3ADB170D /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAAE1E4533C9A07F5D36F6A8D46A2EE8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0A014C1A197C65985921DBDE2A891561 /* Pods-KlaviyoSwift_Example */ = {
+			isa = PBXGroup;
+			children = (
+				8C26A77F9439DBA804D0D95E2CD74CC6 /* Info.plist */,
+				306D8838F3E452CFB477ED86364AD8EF /* Pods-KlaviyoSwift_Example.modulemap */,
+				BA115A61A9BA475AC2DB5B82C8C2C745 /* Pods-KlaviyoSwift_Example-acknowledgements.markdown */,
+				0C5BD688B562CDF27F0F28284952EFF5 /* Pods-KlaviyoSwift_Example-acknowledgements.plist */,
+				DE2116A3F53BCC8217B9F5F1E9B1D7A4 /* Pods-KlaviyoSwift_Example-dummy.m */,
+				4F09C5A66F436DCF32220B8DBE9095D6 /* Pods-KlaviyoSwift_Example-frameworks.sh */,
+				B7D5B412FEF739B73A307465D974D30B /* Pods-KlaviyoSwift_Example-resources.sh */,
+				0C1462E40F53D6F2443A5DBA54A4CA34 /* Pods-KlaviyoSwift_Example-umbrella.h */,
+				903238BE87A0725C5AA7386179022836 /* Pods-KlaviyoSwift_Example.debug.xcconfig */,
+				E6789382A9A4ABEF5FFF987485E4C1C0 /* Pods-KlaviyoSwift_Example.release.xcconfig */,
+			);
+			name = "Pods-KlaviyoSwift_Example";
+			path = "Target Support Files/Pods-KlaviyoSwift_Example";
+			sourceTree = "<group>";
+		};
+		1225BA32E645A7D848C9929FD2A5C7AD /* Pods-KlaviyoSwift_Tests */ = {
+			isa = PBXGroup;
+			children = (
+				7D4ECB6BE7748C21C52C0FDAFC7E57CB /* Info.plist */,
+				80BB722A8F19A4C693F888541EDA5B11 /* Pods-KlaviyoSwift_Tests.modulemap */,
+				B8E4DD0D2604E16927C9416A3F716928 /* Pods-KlaviyoSwift_Tests-acknowledgements.markdown */,
+				7546E147EA5A0605A6A5104776091307 /* Pods-KlaviyoSwift_Tests-acknowledgements.plist */,
+				99AFD57F7491458E5F2DA4D3D241106E /* Pods-KlaviyoSwift_Tests-dummy.m */,
+				D465BC7A78A6797125B2929D91DD1425 /* Pods-KlaviyoSwift_Tests-frameworks.sh */,
+				E5F409C70474D2BC0DDEF2B0FC1B7D54 /* Pods-KlaviyoSwift_Tests-resources.sh */,
+				40815CFCE522D8C9960C92A2B02DE237 /* Pods-KlaviyoSwift_Tests-umbrella.h */,
+				CA574A81F2470DC8A60F645D2012456E /* Pods-KlaviyoSwift_Tests.debug.xcconfig */,
+				0227DDFCD97DCEDAD9F9E8F003D32CD8 /* Pods-KlaviyoSwift_Tests.release.xcconfig */,
+			);
+			name = "Pods-KlaviyoSwift_Tests";
+			path = "Target Support Files/Pods-KlaviyoSwift_Tests";
+			sourceTree = "<group>";
+		};
+		2C3BF4E18BE85E97444C193B701CE5FC /* Targets Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				0A014C1A197C65985921DBDE2A891561 /* Pods-KlaviyoSwift_Example */,
+				1225BA32E645A7D848C9929FD2A5C7AD /* Pods-KlaviyoSwift_Tests */,
+			);
+			name = "Targets Support Files";
+			sourceTree = "<group>";
+		};
+		2D6EFB94AB6E50E31D7410F035512356 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				A5C44F62C916987FD59D47507D56B8B9 /* Info.plist */,
+				B4B39B717F9AE1270A1565424D92FC96 /* KlaviyoSwift.modulemap */,
+				7BA9A635C85B3B532FB943F7CBE5BADE /* KlaviyoSwift.xcconfig */,
+				C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */,
+				7901225B2CB66AFD11BAAD4A3BA7C8F3 /* KlaviyoSwift-dummy.m */,
+				41106B1050037E1B5BA264A8E415D398 /* KlaviyoSwift-prefix.pch */,
+				D02AC191C2A2F5DDB729F81BF81F3020 /* KlaviyoSwift-umbrella.h */,
+			);
+			name = "Support Files";
+			path = "Example/Pods/Target Support Files/KlaviyoSwift";
+			sourceTree = "<group>";
+		};
+		3787C18FE71D3A8A844EABF62ACE10B3 /* Pod */ = {
+			isa = PBXGroup;
+			children = (
+				64416569C3D0D3D29F41E9D7CCC33291 /* Classes */,
+			);
+			path = Pod;
+			sourceTree = "<group>";
+		};
+		4D52D98423AD2721807F198EBAC05F5C /* Development Pods */ = {
+			isa = PBXGroup;
+			children = (
+				F5E57D31E8E62DE03501EA6F9D16104C /* KlaviyoSwift */,
+			);
+			name = "Development Pods";
+			sourceTree = "<group>";
+		};
+		53F661C0CA7190D2CF05023FB33D61E4 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				04B2834E17488026DC5833B7329B3C86 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		64416569C3D0D3D29F41E9D7CCC33291 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				18A137B801635566A9BC16B0F32D1019 /* ReplaceMe.swift */,
+			);
+			path = Classes;
+			sourceTree = "<group>";
+		};
+		7DB346D0F39D3F0E887471402A8071AB = {
+			isa = PBXGroup;
+			children = (
+				BA6428E9F66FD5A23C0A2E06ED26CD2F /* Podfile */,
+				4D52D98423AD2721807F198EBAC05F5C /* Development Pods */,
+				BC3CA7F9E30CC8F7E2DD044DD34432FC /* Frameworks */,
+				CCA510CFBEA2D207524CDA0D73C3B561 /* Products */,
+				2C3BF4E18BE85E97444C193B701CE5FC /* Targets Support Files */,
+			);
+			sourceTree = "<group>";
+		};
+		BC3CA7F9E30CC8F7E2DD044DD34432FC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				53F661C0CA7190D2CF05023FB33D61E4 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CCA510CFBEA2D207524CDA0D73C3B561 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				53A4034657C749570070A834A933BA94 /* KlaviyoSwift.bundle */,
+				00DC8628633F04881F2F5C9CA4B49D21 /* KlaviyoSwift.framework */,
+				AEDE491B0FF26B9CF2085A8D60046C21 /* Pods_KlaviyoSwift_Example.framework */,
+				2E8759500B230FCAC8B262D78DC48E11 /* Pods_KlaviyoSwift_Tests.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F5E57D31E8E62DE03501EA6F9D16104C /* KlaviyoSwift */ = {
+			isa = PBXGroup;
+			children = (
+				3787C18FE71D3A8A844EABF62ACE10B3 /* Pod */,
+				2D6EFB94AB6E50E31D7410F035512356 /* Support Files */,
+			);
+			name = KlaviyoSwift;
+			path = ../..;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		16E955B5A49E71E83F0B768F56282ECC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7817918D0779B7CD5F167BFA2B8801D4 /* KlaviyoSwift-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA60EFB847F9D22C1411CF3E3EDF92F3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E2B183282195BD9ADA7EE9DC5F6EFAF /* Pods-KlaviyoSwift_Example-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB047795584C91AD5B914711C8D1B498 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				349657BCE10F654AB12DE9F4B76B720E /* Pods-KlaviyoSwift_Tests-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4DC3F0A714DA4C1E09611ECA569AE143 /* Pods-KlaviyoSwift_Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2EF82AB5184949D6A584333168B7B483 /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Tests" */;
+			buildPhases = (
+				EF730FF8662F0A4D03E20C3A49957139 /* Sources */,
+				5D837046C50A2A3A1E3C8E7E89B3AFA1 /* Frameworks */,
+				EB047795584C91AD5B914711C8D1B498 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7054868CF860434DD710E40179764A6D /* PBXTargetDependency */,
+			);
+			name = "Pods-KlaviyoSwift_Tests";
+			productName = "Pods-KlaviyoSwift_Tests";
+			productReference = 2E8759500B230FCAC8B262D78DC48E11 /* Pods_KlaviyoSwift_Tests.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		6B27F427A55EF0FB7EC5CAFCF68D2CA5 /* KlaviyoSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C63D92CABFF87481954FD9EB6866024 /* Build configuration list for PBXNativeTarget "KlaviyoSwift" */;
+			buildPhases = (
+				773BE637895DFB53C192333A60019E72 /* Sources */,
+				757013D94F50157B960B473A37EEB787 /* Frameworks */,
+				C7DACB1A1D87FBD51044187E3CFF6D2A /* Resources */,
+				16E955B5A49E71E83F0B768F56282ECC /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				17CE102F461CB5304AB32BF1D90CC7D5 /* PBXTargetDependency */,
+			);
+			name = KlaviyoSwift;
+			productName = KlaviyoSwift;
+			productReference = 00DC8628633F04881F2F5C9CA4B49D21 /* KlaviyoSwift.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		EBD55D654940C747D43760D7F36A9E34 /* KlaviyoSwift-KlaviyoSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 076567408423BE2DC21A2BEA0DD30749 /* Build configuration list for PBXNativeTarget "KlaviyoSwift-KlaviyoSwift" */;
+			buildPhases = (
+				94353724C2A8F93D2EC5B8BD1FA5BC85 /* Sources */,
+				AAAE1E4533C9A07F5D36F6A8D46A2EE8 /* Frameworks */,
+				3D9920A6B0E5812E4C55699C747EECA8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "KlaviyoSwift-KlaviyoSwift";
+			productName = "KlaviyoSwift-KlaviyoSwift";
+			productReference = 53A4034657C749570070A834A933BA94 /* KlaviyoSwift.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		FF379E379ED366EFCA4216E6D9A99133 /* Pods-KlaviyoSwift_Example */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFB8D07AD04267BA4A9596701A10CA1C /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Example" */;
+			buildPhases = (
+				46CC25E246B386C0B45874CE6E185C42 /* Sources */,
+				1AB1D6B52FCB39EDF7263223B5E36A44 /* Frameworks */,
+				EA60EFB847F9D22C1411CF3E3EDF92F3 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C39D00B068A7F4198D449B45D67710D4 /* PBXTargetDependency */,
+			);
+			name = "Pods-KlaviyoSwift_Example";
+			productName = "Pods-KlaviyoSwift_Example";
+			productReference = AEDE491B0FF26B9CF2085A8D60046C21 /* Pods_KlaviyoSwift_Example.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D41D8CD98F00B204E9800998ECF8427E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 0700;
+				LastUpgradeCheck = 0700;
+			};
+			buildConfigurationList = 2D8E8EC45A3A1A1D94AE762CB5028504 /* Build configuration list for PBXProject "Pods" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 7DB346D0F39D3F0E887471402A8071AB;
+			productRefGroup = CCA510CFBEA2D207524CDA0D73C3B561 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6B27F427A55EF0FB7EC5CAFCF68D2CA5 /* KlaviyoSwift */,
+				EBD55D654940C747D43760D7F36A9E34 /* KlaviyoSwift-KlaviyoSwift */,
+				FF379E379ED366EFCA4216E6D9A99133 /* Pods-KlaviyoSwift_Example */,
+				4DC3F0A714DA4C1E09611ECA569AE143 /* Pods-KlaviyoSwift_Tests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3D9920A6B0E5812E4C55699C747EECA8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C7DACB1A1D87FBD51044187E3CFF6D2A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B9625997AE1ABD860BCEA8450B6ACFF5 /* KlaviyoSwift.bundle in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		46CC25E246B386C0B45874CE6E185C42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7092E3397D6BAB284DFC436C5BE271D0 /* Pods-KlaviyoSwift_Example-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		773BE637895DFB53C192333A60019E72 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				56AC487B2A6552E9A116099D9FE71C57 /* KlaviyoSwift-dummy.m in Sources */,
+				EBC49847B5C54C3A90349091CE1B47AB /* ReplaceMe.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94353724C2A8F93D2EC5B8BD1FA5BC85 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF730FF8662F0A4D03E20C3A49957139 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CA69E689B27A8720E964A31667E0CB5 /* Pods-KlaviyoSwift_Tests-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		17CE102F461CB5304AB32BF1D90CC7D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "KlaviyoSwift-KlaviyoSwift";
+			target = EBD55D654940C747D43760D7F36A9E34 /* KlaviyoSwift-KlaviyoSwift */;
+			targetProxy = F456715E83D5A25E7408F5DD68D1EB71 /* PBXContainerItemProxy */;
+		};
+		7054868CF860434DD710E40179764A6D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KlaviyoSwift;
+			target = 6B27F427A55EF0FB7EC5CAFCF68D2CA5 /* KlaviyoSwift */;
+			targetProxy = 0B30364AE6E33FCC1103A4A55C38D1D7 /* PBXContainerItemProxy */;
+		};
+		C39D00B068A7F4198D449B45D67710D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KlaviyoSwift;
+			target = 6B27F427A55EF0FB7EC5CAFCF68D2CA5 /* KlaviyoSwift */;
+			targetProxy = 6B3135F8E8B95988B49304A861093232 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0D63662B2978278A59EF754E302BFC91 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E6789382A9A4ABEF5FFF987485E4C1C0 /* Pods-KlaviyoSwift_Example.release.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Example;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		10DE1947DAC0ED28F6C0A9F9BD75D546 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = "RELEASE=1";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYMROOT = "${SRCROOT}/../build";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		552D02D5BA751AC2E8790D2811D496CA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				ONLY_ACTIVE_ARCH = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		5C584FC09538D76BB4DE76B712EE1020 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0227DDFCD97DCEDAD9F9E8F003D32CD8 /* Pods-KlaviyoSwift_Tests.release.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Tests;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		68F7D5BF86BD876A9EBEB1CE7EAF51D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA574A81F2470DC8A60F645D2012456E /* Pods-KlaviyoSwift_Tests.debug.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Tests;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		75D2F80826834EDDFD20D9DCF9EC2B45 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 0.1.0;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.0;
+				DYLIB_CURRENT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		9110ED4BE400BF3AA686F6992CE72857 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */;
+			buildSettings = {
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		CC68D9DA44AEF49A4842A3427F5DECAB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 903238BE87A0725C5AA7386179022836 /* Pods-KlaviyoSwift_Example.debug.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Example;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		CE9C9C5636692588AD9319158A4CE088 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */;
+			buildSettings = {
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+		D11541767C2F566164912C3E21B3101B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6FB7395AB3FAB1BBAFF890841381BE3 /* KlaviyoSwift-Private.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 0.1.0;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.0;
+				DYLIB_CURRENT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		076567408423BE2DC21A2BEA0DD30749 /* Build configuration list for PBXNativeTarget "KlaviyoSwift-KlaviyoSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9110ED4BE400BF3AA686F6992CE72857 /* Debug */,
+				CE9C9C5636692588AD9319158A4CE088 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2D8E8EC45A3A1A1D94AE762CB5028504 /* Build configuration list for PBXProject "Pods" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				552D02D5BA751AC2E8790D2811D496CA /* Debug */,
+				10DE1947DAC0ED28F6C0A9F9BD75D546 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2EF82AB5184949D6A584333168B7B483 /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				68F7D5BF86BD876A9EBEB1CE7EAF51D7 /* Debug */,
+				5C584FC09538D76BB4DE76B712EE1020 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C63D92CABFF87481954FD9EB6866024 /* Build configuration list for PBXNativeTarget "KlaviyoSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D11541767C2F566164912C3E21B3101B /* Debug */,
+				75D2F80826834EDDFD20D9DCF9EC2B45 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFB8D07AD04267BA4A9596701A10CA1C /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Example" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC68D9DA44AEF49A4842A3427F5DECAB /* Debug */,
+				0D63662B2978278A59EF754E302BFC91 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+}
