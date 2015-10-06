@@ -28,19 +28,19 @@ To run the example project, clone the repo, and run `pod install` from the Examp
 
 ```swift
 
-    Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
+Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
 
-    let klaviyo = Klaviyo.sharedInstance
+let klaviyo = Klaviyo.sharedInstance
 
-    let customerDictionary : NSMutableDictionary = NSMutableDictionary()
-    customerDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
-    customerDictionary[klaviyo.KLPersonFirstNameDictKey] = "John"
-    customerDictionary[klaviyo.KLPersonLastNameDictKey] = "Smith"
+let customerDictionary : NSMutableDictionary = NSMutableDictionary()
+customerDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
+customerDictionary[klaviyo.KLPersonFirstNameDictKey] = "John"
+customerDictionary[klaviyo.KLPersonLastNameDictKey] = "Smith"
 
-    let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
-    propertiesDictionary["Total Price"] = 10.99
-    propertiesDictionary["Items Purchased"] = ["Milk","Cheese", "Yogurt"]
-    Klaviyo.sharedInstance.trackEvent("Completed Checkout", customerProperties: customerDictionary, properties: propertiesDictionary)
+let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
+propertiesDictionary["Total Price"] = 10.99
+propertiesDictionary["Items Purchased"] = ["Milk","Cheese", "Yogurt"]
+Klaviyo.sharedInstance.trackEvent("Completed Checkout", customerProperties: customerDictionary, properties: propertiesDictionary)
 ```
 
 ## Argument Description
@@ -59,18 +59,18 @@ The `track` function can be called with anywhere between 1-4 arguments:
 
 As was shown in the event tracking example, special person and event properties can be used. This works in a similar manner to the [Klaviyo Analytics API](https://www.klaviyo.com/docs). These are special properties that can be utilized when identifying a user or event. They are:
     
-    *KLPersonEmailDictKey 
-    *KLPersonFirstNameDictKey
-    *KLPersonLastNameDictKey
-    *KLPersonPhoneNumberDictKey
-    *KLPersonTitleDictKey
-    *KLPersonOrganizationDictKey
-    *KLPersonCityDictKey
-    *KLPersonRegionDictKey
-    *KLPersonCountryDictKey
-    *KLPersonZipDictKey
-    *KLEventIDDictKey
-    *KLEventValueDictKey
+    KLPersonEmailDictKey 
+    KLPersonFirstNameDictKey
+    KLPersonLastNameDictKey
+    KLPersonPhoneNumberDictKey
+    KLPersonTitleDictKey
+    KLPersonOrganizationDictKey
+    KLPersonCityDictKey
+    KLPersonRegionDictKey
+    KLPersonCountryDictKey
+    KLPersonZipDictKey
+    KLEventIDDictKey
+    KLEventValueDictKey
 
 ## Author
 
