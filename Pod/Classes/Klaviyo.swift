@@ -1,6 +1,5 @@
 //
-//  Klaviyo2.swift
-//  TaskApplication
+//  Klaviyo.swift
 //
 //  Created by Katherine Keuper on 9/14/15.
 //  Copyright (c) 2015 Klaviyo. All rights reserved.

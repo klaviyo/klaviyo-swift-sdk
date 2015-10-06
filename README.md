@@ -10,7 +10,7 @@
 KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their functionality.
 
 ## Requirements
-*iOS 8.0
+*iOS >= 8.0
 *Swift 2.0 & XCode 7.0
 
 ## Installation with CocoaPods
@@ -26,9 +26,13 @@ pod "KlaviyoSwift"
 
 To run the example project, clone the repo, and run `pod install` from the Example directory first. 
 
-```swift
+Adding Klaviyo's tracking functionality requires just a few lines of code. To get started, add the following line to AppDelegate.swift, within application:didFinishLaunchingWithOptions:
 
+```swift 
 Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
+```
+
+```swift
 
 let klaviyo = Klaviyo.sharedInstance
 
@@ -58,8 +62,6 @@ personInfoDictionary[klaviyo.KLPersonZipDictKey] = "02215"
 klaviyo.trackPersonWithInfo(personInfoDictionary)
 ```
 
-Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
-
 ## Argument Description
 
 The `track` function can be called with anywhere between 1-4 arguments:
@@ -71,6 +73,8 @@ The `track` function can be called with anywhere between 1-4 arguments:
 `properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
 
 `eventDate` (optional) This is the timestamp (an NSDate) when the event occurred. You only need to include this if you're tracking past events. If you're tracking real time activity, you can ignore this argument.
+
+Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
 
 ## Special Properties
 
@@ -88,6 +92,12 @@ As was shown in the event tracking example, special person and event properties 
     KLPersonZipDictKey
     KLEventIDDictKey
     KLEventValueDictKey
+
+Lastly, cases where you wish to call `trackEvent` with only the eventName parameter and not have it result in anoynmous user tracking, you can use `setUpUserEmail` to configure your user's email address. By calling this once, usually upon application login, Klaviyo can track all subsequent events as tied to the given user. However, you are also free to override this functionality by passing in a customer properties dictionary at any given time:
+
+```swift
+    Klaviyo.sharedInstance.setUpUserEmail("john.smith@example.com")
+```
 
 ## Author
 
