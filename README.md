@@ -43,6 +43,23 @@ propertiesDictionary["Items Purchased"] = ["Milk","Cheese", "Yogurt"]
 Klaviyo.sharedInstance.trackEvent("Completed Checkout", customerProperties: customerDictionary, properties: propertiesDictionary)
 ```
 
+## Example Usage: Identifying traits of People
+
+Assuming that `setupWithPublicAPIKey` has already been implemented elsewhere in the application, you can identify traits about a person using `trackPersonWithInfo`:
+
+```swift
+let klaviyo = Klaviyo.sharedInstance
+
+let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
+personInfoDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
+personInfoDictionary[klaviyo.KLPersonZipDictKey] = "02215"
+
+
+klaviyo.trackPersonWithInfo(personInfoDictionary)
+```
+
+Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
+
 ## Argument Description
 
 The `track` function can be called with anywhere between 1-4 arguments:
