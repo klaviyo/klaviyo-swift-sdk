@@ -301,8 +301,8 @@ public class Klaviyo : NSObject {
         
         let returnDictionary = propertiesDictionary as! NSMutableDictionary
         
-        // Set user's email address, if known
-        if emailAddressExists() {
+        // Set user's email address, if known and not provided
+        if emailAddressExists() && returnDictionary[KLPersonEmailDictKey] == nil {
             returnDictionary[KLPersonEmailDictKey] = self.userEmail
         } else {
             returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
