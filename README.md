@@ -24,7 +24,11 @@ pod "KlaviyoSwift"
 
 ## Example Usage: Event Tracking
 
-To run the example project, clone the repo, and run `pod install` from the Example directory first. 
+To run the example project, clone the repo, and run `pod install` from the Example directory first. Make sure any .swift files using the Klaviyo SDK contain the import call.
+
+```swift
+import KlaviyoSwift
+```
 
 Adding Klaviyo's tracking functionality requires just a few lines of code. To get started, add the following line to AppDelegate.swift, within application:didFinishLaunchingWithOptions:
 
