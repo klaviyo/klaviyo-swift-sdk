@@ -22,24 +22,55 @@ it, simply add the following line to your Podfile:
 pod "KlaviyoSwift"
 ```
 
-## Usage
+## Example Usage: Event Tracking
 
-To run the example project, clone the repo, and run `pod install` from the Example directory first.
+To run the example project, clone the repo, and run `pod install` from the Example directory first. 
+
+```swift
+
+    Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
+
+    let klaviyo = Klaviyo.sharedInstance
+
+    let customerDictionary : NSMutableDictionary = NSMutableDictionary()
+    customerDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
+    customerDictionary[klaviyo.KLPersonFirstNameDictKey] = "John"
+    customerDictionary[klaviyo.KLPersonLastNameDictKey] = "Smith"
+
+    let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
+    propertiesDictionary["Total Price"] = 10.99
+    propertiesDictionary["Items Purchased"] = ["Milk","Cheese", "Yogurt"]
+    Klaviyo.sharedInstance.trackEvent("Completed Checkout", customerProperties: customerDictionary, properties: propertiesDictionary)
+```
+
+## Argument Description
+
+The `track` function can be called with anywhere between 1-4 arguments:
+
+`eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track and event.
+
+`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key.
+
+`properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
+
+`eventDate` (optional) This is the timestamp (an NSDate) when the event occurred. You only need to include this if you're tracking past events. If you're tracking real time activity, you can ignore this argument.
 
 ## Special Properties
 
-Referencing special people and event properties works in a similar manner to the [Klaviyo Analytics API](https://www.klaviyo.com/docs). These are special properties that can be utilized when identifying a user. They are:
+As was shown in the event tracking example, special person and event properties can be used. This works in a similar manner to the [Klaviyo Analytics API](https://www.klaviyo.com/docs). These are special properties that can be utilized when identifying a user or event. They are:
     
-    *$email
-    *$first_name
-    *$last_name
-    *$phone_number
-    *$title
-    *$organization
-    *$city
-    *$region
-    *$country
-    *$zip
+    *KLPersonEmailDictKey 
+    *KLPersonFirstNameDictKey
+    *KLPersonLastNameDictKey
+    *KLPersonPhoneNumberDictKey
+    *KLPersonTitleDictKey
+    *KLPersonOrganizationDictKey
+    *KLPersonCityDictKey
+    *KLPersonRegionDictKey
+    *KLPersonCountryDictKey
+    *KLPersonZipDictKey
+    *KLEventIDDictKey
+    *KLEventValueDictKey
 
 ## Author
 
