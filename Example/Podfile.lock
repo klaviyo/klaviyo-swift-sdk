@@ -9,6 +9,6 @@ EXTERNAL SOURCES:
     :path: ../
 
 SPEC CHECKSUMS:
-  KlaviyoSwift: abb67a755d8ee31f06f838c4a85515a6dd13601d
+  KlaviyoSwift: bcf6d99fe07969c0971130ee8df4801bb85515be
 
 COCOAPODS: 0.38.2

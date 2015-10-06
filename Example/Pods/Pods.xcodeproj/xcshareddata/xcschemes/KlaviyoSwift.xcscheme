@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D6872E51A61C262C3ED87CD8"
+               BlueprintIdentifier = "8EDDAB76945D5FA8E68F1F0C"
                BuildableName = "KlaviyoSwift.framework"
                BlueprintName = "KlaviyoSwift"
                ReferencedContainer = "container:Pods.xcodeproj">

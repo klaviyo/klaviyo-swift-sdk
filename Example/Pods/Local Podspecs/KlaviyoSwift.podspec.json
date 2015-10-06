@@ -1,9 +1,9 @@
 {
   "name": "KlaviyoSwift",
   "version": "0.1.0",
-  "summary": "A short description of KlaviyoSwift.",
-  "description": "",
-  "homepage": "https://github.com/<GITHUB_USERNAME>/KlaviyoSwift",
+  "summary": "Incorporate Klaviyo's event and person tracking in iOS applications",
+  "description": "Use the Klaviyo SDK to incorporate Klaviyo's event and person tracking functionality within iOS applications. Written in Swift.'",
+  "homepage": "https://github.com/klaviyo/klaviyo-swift-sdk",
   "license": "MIT",
   "authors": {
     "Katy Keuper": "katy.keuper@klaviyo.com"

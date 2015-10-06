@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoSwift"
   s.version          = "0.1.0"
-  s.summary          = "Incorporate Klaviyo's event and person tracking in iOS applications"
+  s.summary          = "Incorporate Klaviyo's event and person tracking functionality into iOS applications"
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
