@@ -76,7 +76,7 @@ The `track` function can be called with anywhere between 1-4 arguments:
 
 `eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track and event.
 
-`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key. Note that right now anonymous user tracking is not supported, but will be shortly. In the meantime, you MUST provide  $email or $id for tracking purposes.
+`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key.
 
 `properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
 
