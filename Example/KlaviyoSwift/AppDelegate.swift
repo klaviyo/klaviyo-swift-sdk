@@ -29,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let mainStoryboard = UIStoryboard(name: "Main", bundle: nil)
         
         
-        Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
+        Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY") //
         
         if zip == nil && email == nil {
             // show login page

@@ -44,8 +44,8 @@ public class Klaviyo : NSObject {
     /*
     Current API WorkAround: Update this once the $anonymous in place
     */
-    //let CustomerPropertiesIDDictKey = "$device_id"
-    let CustomerPropertiesIDDictKey = "$id"
+    let CustomerPropertiesIDDictKey = "$device_id"
+    //let CustomerPropertiesIDDictKey = "$id" // tracks anonymous users as an ID
     
     let CustomerPropertiesAppendDictKey = "$append"
     let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" //tokens for push notification [should be an array of potential entries]
