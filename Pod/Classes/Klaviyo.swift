@@ -44,7 +44,7 @@ public class Klaviyo : NSObject {
     /*
     Current API WorkAround: Update this once the $anonymous in place
     */
-    let CustomerPropertiesIDDictKey = "$device_id"
+    let CustomerPropertiesIDDictKey = "$anonymous"
     //let CustomerPropertiesIDDictKey = "$id" // tracks anonymous users as an ID
     
     let CustomerPropertiesAppendDictKey = "$append"
@@ -57,7 +57,7 @@ public class Klaviyo : NSObject {
     
     // Track person special info dict keys
     let KLPersonIDDictKey = "$id" // your unique identifier for a person
-    let KLPersonDeviceIDDictKey = "$anonymous"
+    let KLPersonDeviceIDDictKey = "$device_id"
     
     // Public Info Dictionary Keys
     public let KLPersonEmailDictKey = "$email" // email address
