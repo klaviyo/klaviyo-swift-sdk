@@ -15,10 +15,10 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 ## Installation Options
 
-1. Cocoapods (recommended)
+1. CocoaPods (recommended)
 2. Download a blank, pre-configured project, and get started from scratch. 
 
-## Cocoapods
+## CocoaPods
 KlaviyoSwift is available through [CocoaPods](http://cocoapods.org). To install
 it, simply add the following line to your Podfile:
 
