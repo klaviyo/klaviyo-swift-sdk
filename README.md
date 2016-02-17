@@ -11,7 +11,7 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 ## Requirements
 *iOS >= 8.0
-*Swift 2.0 & XCode 7.0
+*Swift 2.0 & Xcode 7.0
 
 ## Installation Options
 
