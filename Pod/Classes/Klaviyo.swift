@@ -10,14 +10,14 @@ import Foundation
 import UIKit
 
 public class Klaviyo : NSObject {
- 
+    
     /*
     Klaviyo Class Constants
     */
     
     // Create the singleton instance
     public static let sharedInstance = Klaviyo()
-
+    
     /*
     Klaviyo JSON Key Constants
     */
@@ -25,6 +25,7 @@ public class Klaviyo : NSObject {
     let KLEventTrackTokenJSONKey = "token"
     let KLEventTrackEventJSONKey = "event"
     let KLEventTrackCustomerPropetiesJSONKey = "customer_properties" //must use id or email
+    let KLEventTrackingServiceKey = "service"
     
     //Optional Event Tracking Properties
     let KLEventTrackPropertiesJSONKey = "properties"
@@ -34,6 +35,10 @@ public class Klaviyo : NSObject {
     // KL Definitions File: JSON Keys for Tracking People
     let KLPersonTrackTokenJSONKey = "token"
     let KLPersonPropertiesJSONKey = "properties" // same as customer properties
+    
+    // Push Notification Event Tracking
+    public let KLPersonReceivedPush = "Received Push"
+    public let KLPersonOpenedPush = "Opened Push"
     
     // KL Definitions File: API URL Constants
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
@@ -71,7 +76,7 @@ public class Klaviyo : NSObject {
     public let KLPersonCountryDictKey = "$country" // country they live in
     public let KLPersonZipDictKey = "$zip" // postal code where they live
     
-
+    
     
     /*
     Shared Instance Variables
@@ -103,7 +108,7 @@ public class Klaviyo : NSObject {
         super.init()
         
         // Dev warnings for incorrect iOS version
-         assert(isOperatingMinimumiOSVersion() == true, "operating outdated iOS version. requires >= ios 8")
+        assert(isOperatingMinimumiOSVersion() == true, "operating outdated iOS version. requires >= ios 8")
         // Dev warnings for nil api keys
         assert(apiKey == nil, "api key is nil")
         
@@ -118,12 +123,12 @@ public class Klaviyo : NSObject {
         reachability = Reachability(hostname: "www.klaviyo.com")
         
     }
-
-    /**
-    setupWithPublicAPIKey: sets up the Klaviyo iOS SDK for use in the application. Should be called once upon initial application setup in the AppDelegate didFinishLaunchingWithOptions: Requires an account ID, which can be accessed through Klaviyo.com.
     
-    - Parameter apiKey: string representation of the Klaviyo API Key
-    */
+    /**
+     setupWithPublicAPIKey: sets up the Klaviyo iOS SDK for use in the application. Should be called once upon initial application setup in the AppDelegate didFinishLaunchingWithOptions: Requires an account ID, which can be accessed through Klaviyo.com.
+     
+     - Parameter apiKey: string representation of the Klaviyo API Key
+     */
     public class func setupWithPublicAPIKey(apiKey : String) {
         sharedInstance.apiKey = apiKey
         sharedInstance.unarchive()
@@ -132,53 +137,66 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    setUpUserEmail: Register the current user's email address with Klaivyo. This can also be done via passing a dictionary containing a user's email to trackEvent.
-    
-    - Parameter userEmail: the user's email address
-    */
+     setUpUserEmail: Register the current user's email address with Klaivyo. This can also be done via passing a dictionary containing a user's email to trackEvent.
+     
+     - Parameter userEmail: the user's email address
+     */
     public func setUpUserEmail(userEmail :String) {
         self.userEmail = userEmail
     }
     
+    /**
+     handlePush: Extracts tracking information from received push notification and sends the data to Klaviyo for push-tracking
+     analystics.
+     
+     - Parameter userInfo: NSDictionary containing the push notification text & metadata
+     */
+    public func handlePush(userInfo: [NSObject: AnyObject]) {
+        if let metadata = userInfo["_k"] as? [String: String], let messageID = metadata["message_id"] {
+            let propertiesDictionary = NSMutableDictionary()
+            propertiesDictionary["message_id"] = messageID
+            trackEvent(KLPersonOpenedPush, properties: propertiesDictionary)
+        }
+    }
     
     /**
-    trackEvent: KL Event tracking for event name only
-    
-    - Parameter eventName: name of the event
-    */
+     trackEvent: KL Event tracking for event name only
+     
+     - Parameter eventName: name of the event
+     */
     public func trackEvent(eventName : String?) {
         trackEvent(eventName, properties: nil)
     }
     
     /**
-    trackEvent: KL Event tracking for event name and customer properties
-    
-    - Parameter eventName: name of the event
-    - Parameter properties: customerProperties
-    */
+     trackEvent: KL Event tracking for event name and customer properties
+     
+     - Parameter eventName: name of the event
+     - Parameter properties: customerProperties
+     */
     public func trackEvent(eventName : String?, properties : NSDictionary?) {
         trackEvent(eventName, customerProperties: nil, properties: properties)
     }
     
     /**
-    trackEvent: KL Event tracking for event name, customer & event properties
-    
-    - Parameter eventName: name of the event
-    - Parameter customerPropertiesDict: dictionary for user info
-    - Parameter properties: dictionary for event info
-    */
+     trackEvent: KL Event tracking for event name, customer & event properties
+     
+     - Parameter eventName: name of the event
+     - Parameter customerPropertiesDict: dictionary for user info
+     - Parameter properties: dictionary for event info
+     */
     public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
         trackEvent(eventName, customerPropertiesDict: customerProperties, propertiesDict: properties, eventDate: nil)
     }
     
     /**
-    trackEvent: KL Event tracking using all possible parameters
-    
-    - Parameter eventName: name of the event
-    - Parameter customerPropertiesDict: dictionary for user info
-    - Parameter propertiesDict: dictionary for event info
-    - Parameter eventDate: date of the event
-    */
+     trackEvent: KL Event tracking using all possible parameters
+     
+     - Parameter eventName: name of the event
+     - Parameter customerPropertiesDict: dictionary for user info
+     - Parameter propertiesDict: dictionary for event info
+     - Parameter eventDate: date of the event
+     */
     public func trackEvent(var eventName: String?, var customerPropertiesDict: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
         
         // Set default track name if none provided
@@ -198,9 +216,17 @@ public class Klaviyo : NSObject {
                 event[self.KLEventTrackTokenJSONKey] = ""
             }
             
+            // If it's a push event, set a service key to Klaviyo
+            var service: String = "api"
+            if eventName == self.KLPersonReceivedPush || eventName == self.KLPersonOpenedPush {
+                service = "klaviyo"
+            }
+            
             // Set the event info
             event[self.KLEventTrackEventJSONKey] = eventName
             event[self.KLEventTrackCustomerPropetiesJSONKey] = customerPropertiesDict
+            event[self.KLEventTrackingServiceKey] = service
+            
             if propertiesDict?.allKeys.count > 0 { event[self.KLEventTrackPropertiesJSONKey] = propertiesDict }
             
             if eventDate != nil { event[self.KLEventTrackTimeJSONKey] = eventDate }
@@ -221,22 +247,22 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    emailAddressExists: internal helper function that checks if email has been passed in via the setUpUserEmail method
-    
-    - Returns: true if the email exists, false otherwise
-    */
+     emailAddressExists: internal helper function that checks if email has been passed in via the setUpUserEmail method
+     
+     - Returns: true if the email exists, false otherwise
+     */
     func emailAddressExists()->Bool {
         return (self.userEmail.characters.count > 0) ?? false
     }
     
     
     /**
-    trackPersonWithInfo: method that creates a Klaviyo person tracking instance that is separate from an event
-    
-    - Parameter personInfoDictionary: dictionary of user attributes that you wish to track. These can be special properties provided by Klaviyo, such as KLPersonFirstNameDictKey, or created by the user on the fly.
-    
-    - Returns: Void
-    */
+     trackPersonWithInfo: method that creates a Klaviyo person tracking instance that is separate from an event
+     
+     - Parameter personInfoDictionary: dictionary of user attributes that you wish to track. These can be special properties provided by Klaviyo, such as KLPersonFirstNameDictKey, or created by the user on the fly.
+     
+     - Returns: Void
+     */
     public func trackPersonWithInfo(var personInfoDictionary: NSDictionary) {
         // No info, return
         if personInfoDictionary.allKeys.count == 0 {
@@ -254,7 +280,7 @@ public class Klaviyo : NSObject {
             } else {
                 event[self.KLPersonTrackTokenJSONKey] = ""
             }
-        
+            
             event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
             self.peopleQueue!.addObject(event)
             
@@ -269,14 +295,14 @@ public class Klaviyo : NSObject {
             self.flushPeople()
         })
     }
-
-    /**
-    addPushDeviceToken: Registers Klaviyo with Apple Push Notifications (APN)
-    Private function creates a unique identifier for the device and uses it to track the event
     
-    - Parameter deviceToken: token provided by Apple that registers push notifications to the given device
-    - Returns: Void
-    */
+    /**
+     addPushDeviceToken: Registers Klaviyo with Apple Push Notifications (APN)
+     Private function creates a unique identifier for the device and uses it to track the event
+     
+     - Parameter deviceToken: token provided by Apple that registers push notifications to the given device
+     - Returns: Void
+     */
     public func addPushDeviceToken(deviceToken: NSData) {
         
         let characterSet = NSCharacterSet(charactersInString: "<>")
@@ -290,10 +316,10 @@ public class Klaviyo : NSObject {
     
     
     /**
-    updatePropertiesDictionary: Internal function that configures the properties dictionary so that it holds the minimum info needed to track events and users
-    - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
-    - Returns: Void
-    */
+     updatePropertiesDictionary: Internal function that configures the properties dictionary so that it holds the minimum info needed to track events and users
+     - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
+     - Returns: Void
+     */
     private func updatePropertiesDictionary( var propertiesDictionary: NSDictionary?)->NSDictionary {
         if propertiesDictionary == nil {
             propertiesDictionary = NSMutableDictionary()
@@ -320,11 +346,11 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    assertPropretyTypes: Internal alert function for development purposes. Asserts an error if dictionary types are of incorrect type for JSON encoding. Doesn't return a value but will assert an error during development.
-    
-    - Parmeter properties: the dictionary of property values
-    - Returns: Void
-    */
+     assertPropretyTypes: Internal alert function for development purposes. Asserts an error if dictionary types are of incorrect type for JSON encoding. Doesn't return a value but will assert an error during development.
+     
+     - Parmeter properties: the dictionary of property values
+     - Returns: Void
+     */
     private func assertPropertyTypes(properties: NSDictionary?) {
         guard let _ = properties as NSDictionary! else {
             return
@@ -338,8 +364,8 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    addNotificationObserver: sets up notification observers for various application state changes
-    */
+     addNotificationObserver: sets up notification observers for various application state changes
+     */
     func addNotificationObserver() {
         let notificationCenter = NSNotificationCenter.defaultCenter()
         notificationCenter.addObserver(self, selector: "applicationDidBecomeActiveNotification:", name: UIApplicationDidBecomeActiveNotification, object: nil)
@@ -349,17 +375,17 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    isOperatingMinimumiOSVersion: internal alert function for development purposes. Asserts an error if the application is running an OS system below 8.0.0.
-    
-    - Returns: A boolean value where true means the os is compatible and the SDK can be used
-    */
+     isOperatingMinimumiOSVersion: internal alert function for development purposes. Asserts an error if the application is running an OS system below 8.0.0.
+     
+     - Returns: A boolean value where true means the os is compatible and the SDK can be used
+     */
     private func isOperatingMinimumiOSVersion()->Bool {
         return NSProcessInfo().isOperatingSystemAtLeastVersion(NSOperatingSystemVersion(majorVersion: 8, minorVersion: 0, patchVersion: 0)) ?? false
-     }
+    }
     
     /**
-    removeNotificationObserver() removes the observers that are set up upon instantiation.
-    */
+     removeNotificationObserver() removes the observers that are set up upon instantiation.
+     */
     func removeNotificatoinObserver() {
         let notificationCenter = NSNotificationCenter.defaultCenter()
         notificationCenter.removeObserver(self, forKeyPath: UIApplicationDidBecomeActiveNotification)
@@ -367,7 +393,7 @@ public class Klaviyo : NSObject {
         notificationCenter.removeObserver(self, forKeyPath: UIApplicationWillTerminateNotification)
         notificationCenter.removeObserver(self, forKeyPath: ReachabilityChangedNotification)
     }
-
+    
     func removeNotificationsObserver() {
         let notificationCenter = NSNotificationCenter.defaultCenter()
         notificationCenter.removeObserver(self)
@@ -384,7 +410,7 @@ public class Klaviyo : NSObject {
     func applicationWillTerminate(notification : NSNotification) {
         archive()
     }
-
+    
     //: Persistence Functionality
     
     /**
@@ -451,13 +477,13 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    unarchiveFromFile: takes a file path of store data and attempts to
-    */
+     unarchiveFromFile: takes a file path of store data and attempts to
+     */
     private func unarchiveFromFile(filePath: String)-> AnyObject? {
         var unarchivedData : AnyObject? = nil
         
         unarchivedData =  NSKeyedUnarchiver.unarchiveObjectWithFile(filePath)
-       
+        
         if NSFileManager.defaultManager().fileExistsAtPath(filePath) {
             var removed: Bool
             
@@ -469,7 +495,7 @@ public class Klaviyo : NSObject {
                 removed = false
             }
             if !removed {print("Unable to remove archived data!")}
-           return unarchivedData
+            return unarchivedData
         }
         return unarchivedData
     }
@@ -485,7 +511,7 @@ public class Klaviyo : NSObject {
         }
     }
     
-
+    
     //: MARK: Network Control
     
     /*
@@ -510,10 +536,10 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    flushQueue: Iterates through an array of events and produces the relevant API request
-    - Parameter queue: an array of events
-    - Parameter endpoint: the api endpoint
-    */
+     flushQueue: Iterates through an array of events and produces the relevant API request
+     - Parameter queue: an array of events
+     - Parameter endpoint: the api endpoint
+     */
     private func flushQueue(queue: NSMutableArray, endpoint: String) {
         
         if !isHostReachable() {
@@ -557,11 +583,11 @@ public class Klaviyo : NSObject {
     
     
     /**
-    apiRequestWithEndpoint: Internal function that returns an NSURLRequest for the Klaviyo Server
-    - Parameter endpoint: String representing the type of event (track or identify)
-    - Parameter param: String representing the properties of the event or the identify call
-    - Returns: an NSURLRequest for the API call
-    */
+     apiRequestWithEndpoint: Internal function that returns an NSURLRequest for the Klaviyo Server
+     - Parameter endpoint: String representing the type of event (track or identify)
+     - Parameter param: String representing the properties of the event or the identify call
+     - Returns: an NSURLRequest for the API call
+     */
     private func apiRequestWithEndpoint(endpoint : String, param: String)-> NSURLRequest {
         let urlString = KlaviyoServerURLString+endpoint+"?"+param
         let url = NSURL(string: urlString)
@@ -606,11 +632,11 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    JSONSerializeObject: serializes an AnyObject into an NSData Object.
-    
-    - Parameter obj: the object to be serialized
-    - Returns: NSData representation of the object
-    */
+     JSONSerializeObject: serializes an AnyObject into an NSData Object.
+     
+     - Parameter obj: the object to be serialized
+     - Returns: NSData representation of the object
+     */
     private func JSONSerializeObject(obj : AnyObject)-> NSData? {
         
         let coercedobj = JSONSerializableObjectForObject(obj)
@@ -622,8 +648,8 @@ public class Klaviyo : NSObject {
                 data = try NSJSONSerialization.dataWithJSONObject(coercedobj, options: .PrettyPrinted)
             }
             catch let errors as NSError{
-               data = nil
-               error = errors
+                data = nil
+                error = errors
                 print("exception encoding the api data: \(errors)")
             }
             catch {
@@ -637,11 +663,11 @@ public class Klaviyo : NSObject {
     }
     
     /**
-    JSONSerializableObjectForObject: Function checks & converts data into approved data types for JSON
-    
-    :param: obj type AnyObject
-    :returns: an AnyObject that has been verified and cleaned
-    */
+     JSONSerializableObjectForObject: Function checks & converts data into approved data types for JSON
+     
+     :param: obj type AnyObject
+     :returns: an AnyObject that has been verified and cleaned
+     */
     private func JSONSerializableObjectForObject(obj: AnyObject)-> AnyObject {
         
         if NSJSONSerialization.isValidJSONObject(obj) {
