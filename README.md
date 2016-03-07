@@ -76,13 +76,21 @@ The `track` function can be called with anywhere between 1-4 arguments:
 
 `eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track and event.
 
-`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key.
+`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key. 
 
 `properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
 
 `eventDate` (optional) This is the timestamp (an NSDate) when the event occurred. You only need to include this if you're tracking past events. If you're tracking real time activity, you can ignore this argument.
 
 Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
+
+## Anonymous Tracking Notice
+
+As of right now, anonymous tracking is *not fully functional*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Otherwise you must call `trackEvent` with an event name and customer properties parameter, including an email address at the very least.
+
+Eventually, once anonymous tracking is enabled you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or id identifier in order for Klaviyo to track events successfully.
+
+
 
 ## Special Properties
 
