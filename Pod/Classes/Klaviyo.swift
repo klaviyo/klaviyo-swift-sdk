@@ -310,7 +310,6 @@ public class Klaviyo : NSObject {
         let cleanToken = trimEnds.stringByReplacingOccurrencesOfString(" ", withString: "")
         
         apnDeviceToken = cleanToken
-        trackEvent("Registered for Push")
     }
     
     
