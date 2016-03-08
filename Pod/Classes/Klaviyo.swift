@@ -310,6 +310,12 @@ public class Klaviyo : NSObject {
         let cleanToken = trimEnds.stringByReplacingOccurrencesOfString(" ", withString: "")
         
         apnDeviceToken = cleanToken
+
+        if apnDeviceToken != nil {
+            let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
+            personInfoDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey: apnDeviceToken!]
+            trackPersonWithInfo(personInfoDictionary)
+        }
     }
     
     
