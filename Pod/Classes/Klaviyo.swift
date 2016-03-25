@@ -38,7 +38,7 @@ public class Klaviyo : NSObject {
     
     // Push Notification Event Tracking
     public let KLPersonReceivedPush = "Received Push"
-    public let KLPersonOpenedPush = "Opened Push"
+    public let KLPersonOpenedPush = "$opened_push"
     
     // KL Definitions File: API URL Constants
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
