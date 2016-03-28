@@ -7,7 +7,7 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their functionality.
+KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. However, the KlaviyoSwift SDK is the only that provides push notification functionality. We strongly encourage the use of the KlaviyoSwift SDK.
 
 ## Requirements
 *iOS >= 8.0
@@ -15,8 +15,11 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 ## Installation Options
 
-1. Cocoapods (recommended)
+1. CocoaPods (recommended)
 2. Download a blank, pre-configured project, and get started from scratch. 
+3. Download the zip file, and drag and drop the KlaviyoSwift file into your project. 
+
+Note that options and two and three will require you to repeat those steps as our SDK is update. By using CococaPods the library can be kept up to date via `pod update`.
 
 ## Cocoapods
 KlaviyoSwift is available through [CocoaPods](http://cocoapods.org). To install
@@ -39,6 +42,8 @@ Adding Klaviyo's tracking functionality requires just a few lines of code. To ge
 ```swift 
 Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY")
 ```
+
+Once Klaviyo has been set up, you can begin tracking events anywhere within your application. Simply call Klaviyo's `trackEvent` method in the relevant location.
 
 ```swift
 
@@ -74,9 +79,9 @@ klaviyo.trackPersonWithInfo(personInfoDictionary)
 
 The `track` function can be called with anywhere between 1-4 arguments:
 
-`eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track and event.
+`eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track an event.
 
-`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the user will be tracked by an $anonymous key. 
+`customer_properties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the event cannot be tracked by Klaviyo. 
 
 `properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
 
@@ -86,7 +91,7 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 ## Anonymous Tracking Notice
 
-As of right now, anonymous tracking is *not fully functional*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Otherwise you must call `trackEvent` with an event name and customer properties parameter, including an email address at the very least.
+As of right now, anonymous tracking is *not functional*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Otherwise you must call `trackEvent` with an event name and customer properties parameter, including an email address or their custom $id.
 
 Eventually, once anonymous tracking is enabled you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or id identifier in order for Klaviyo to track events successfully.
 
@@ -114,6 +119,53 @@ Lastly, cases where you wish to call `trackEvent` with only the eventName parame
 ```swift
     Klaviyo.sharedInstance.setUpUserEmail("john.smith@example.com")
 ```
+## Sending Push Notifications
+To be able to send push notifications, you must add two snippets of code to your application. One to register users for push notifications, and one that will send Klaviyo their tokens. 
+
+Add the below code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. Make sure that whenever this code is called that the Klaviyo SDK has been configured and that `setUpUserEmail:` has been called. This is so that Klaviyo can match app tokens with customers.
+
+```
+    let types: UIUserNotificationType = [.Alert, .Sound, .Badge]
+    let settings = UIUserNotificationSettings(forTypes: types, categories: nil)
+    UIApplication.sharedApplication().registerUserNotificationSettings(settings)
+    UIApplication.sharedApplication().registerForRemoteNotifications()
+```
+
+Add the below line of code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken:` (note that you might need to add this code to your application delegate if you have not done so already)
+
+```
+    func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: NSData) {
+        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken)
+    }
+```
+
+That's it! Now any users that accept push notifications from your app will be eligible to receive your custom notifications.
+For information on how to send push notifcations through Klaviyo, please check our support docs.
+
+## Tracking Push Notifications
+
+If you would like to track when a user opens a push notification then there is a little more code that you will need to add to your application.
+
+In your application delegate, under `application:didFinishLaunchingWithOptions:` add the following:
+
+``` 
+    if let launch = launchOptions, data = launch[UIApplicationLaunchOptionsRemoteNotificationKey] as? [NSObject: AnyObject]{
+        Klaviyo.sharedInstance.handlePush(data)
+    }
+```
+
+Under `application:didReceiveRemoteNotification:` add the following:
+``` 
+func application(application: UIApplication, didReceiveRemoteNotification userInfo: [NSObject : AnyObject],     fetchCompletionHandler completionHandler: (UIBackgroundFetchResult) -> Void) {
+    
+    // App was running in background and user launched from the notification
+    if application.applicationState == UIApplicationState.Inactive || application.applicationState ==     UIApplicationState.Background {
+            Klaviyo.sharedInstance.handlePush(userInfo)
+        }
+    }
+```
+
+That is all you need to do to track opens. Now once your first push notifications have been sent and been opened, you should start to see `Opened Push` metrics within your Klaviyo dashboard.
 
 ## Author
 
@@ -122,3 +174,4 @@ Katy Keuper, katy.keuper@klaviyo.com
 ## License
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
+
