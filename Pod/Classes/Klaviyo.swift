@@ -39,6 +39,7 @@ public class Klaviyo : NSObject {
     // Push Notification Event Tracking
     public let KLPersonReceivedPush = "Received Push"
     public let KLPersonOpenedPush = "$opened_push"
+    public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
@@ -152,9 +153,9 @@ public class Klaviyo : NSObject {
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     public func handlePush(userInfo: [NSObject: AnyObject]) {
-        if let metadata = userInfo["_k"] as? [String: String], let messageID = metadata["message_id"] {
+        if let metadata = userInfo["_k"] as? [String: String], let messageID = metadata[KLMessageDimension] {
             let propertiesDictionary = NSMutableDictionary()
-            propertiesDictionary["message_id"] = messageID
+            propertiesDictionary[KLMessageDimension] = messageID
             trackEvent(KLPersonOpenedPush, properties: propertiesDictionary)
         }
     }
