@@ -153,10 +153,10 @@ public class Klaviyo : NSObject {
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     public func handlePush(userInfo: [NSObject: AnyObject]) {
-        if let metadata = userInfo["_k"] as? [String: String], let messageID = metadata[KLMessageDimension] {
-            let propertiesDictionary = NSMutableDictionary()
-            propertiesDictionary[KLMessageDimension] = messageID
-            trackEvent(KLPersonOpenedPush, properties: propertiesDictionary)
+        if let metadata = userInfo["_k"] as? [NSObject: AnyObject] {
+            trackEvent(KLPersonOpenedPush, properties: metadata)
+        } else {
+            trackEvent(KLPersonOpenedPush, properties: userInfo)
         }
     }
     
@@ -187,7 +187,7 @@ public class Klaviyo : NSObject {
      - Parameter properties: dictionary for event info
      */
     public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
-        trackEvent(eventName, customerPropertiesDict: customerProperties, propertiesDict: properties, eventDate: nil)
+        trackEvent(eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
     }
     
     /**
@@ -198,13 +198,14 @@ public class Klaviyo : NSObject {
      - Parameter propertiesDict: dictionary for event info
      - Parameter eventDate: date of the event
      */
-    public func trackEvent(var eventName: String?, var customerPropertiesDict: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
+    public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
         
+        var eventName = event
         // Set default track name if none provided
         if (eventName == nil || eventName!.isEmpty) { eventName = "KL_Event" }
         
         // Check both dictionaries
-        customerPropertiesDict = updatePropertiesDictionary(customerPropertiesDict)
+        let customerPropertiesDict = updatePropertiesDictionary(customerProperties)
         assertPropertyTypes(propertiesDict)
         
         dispatch_async(self.serialQueue!, {
@@ -264,13 +265,13 @@ public class Klaviyo : NSObject {
      
      - Returns: Void
      */
-    public func trackPersonWithInfo(var personInfoDictionary: NSDictionary) {
+    public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
-        if personInfoDictionary.allKeys.count == 0 {
+        if personDictionary.allKeys.count == 0 {
             return
         }
         // Update properties for JSON encoding
-        personInfoDictionary = updatePropertiesDictionary(personInfoDictionary)
+        let personInfoDictionary = updatePropertiesDictionary(personDictionary)
         assertPropertyTypes(personInfoDictionary)
         
         dispatch_async(self.serialQueue!, {
@@ -326,7 +327,8 @@ public class Klaviyo : NSObject {
      - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
      - Returns: Void
      */
-    private func updatePropertiesDictionary( var propertiesDictionary: NSDictionary?)->NSDictionary {
+    private func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
+        var propertiesDictionary = propDictionary
         if propertiesDictionary == nil {
             propertiesDictionary = NSMutableDictionary()
         }
@@ -374,10 +376,10 @@ public class Klaviyo : NSObject {
      */
     func addNotificationObserver() {
         let notificationCenter = NSNotificationCenter.defaultCenter()
-        notificationCenter.addObserver(self, selector: "applicationDidBecomeActiveNotification:", name: UIApplicationDidBecomeActiveNotification, object: nil)
-        notificationCenter.addObserver(self, selector: "applicationDidEnterBackgroundNotification:", name: UIApplicationDidEnterBackgroundNotification, object: nil)
-        notificationCenter.addObserver(self, selector: "applicationWillTerminate:", name: UIApplicationWillTerminateNotification, object: nil)
-        notificationCenter.addObserver(self, selector: "hostReachabilityChanged:", name: ReachabilityChangedNotification , object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(_:)), name: UIApplicationDidBecomeActiveNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(_:)), name: UIApplicationDidEnterBackgroundNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: UIApplicationWillTerminateNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(_:)), name: ReachabilityChangedNotification , object: nil)
     }
     
     /**
