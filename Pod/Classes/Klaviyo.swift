@@ -51,10 +51,9 @@ public class Klaviyo : NSObject {
     Current API WorkAround: Update this once the $anonymous in place
     */
     let CustomerPropertiesIDDictKey = "$anonymous"
-    //let CustomerPropertiesIDDictKey = "$id" // tracks anonymous users as an ID
     
     let CustomerPropertiesAppendDictKey = "$append"
-    let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" //tokens for push notification [should be an array of potential entries]
+    let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" //tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
     
     // Track event special info dict keys
@@ -63,10 +62,12 @@ public class Klaviyo : NSObject {
     
     // Track person special info dict keys
     let KLPersonIDDictKey = "$id" // your unique identifier for a person
+    private let KLCustomerIDNSDefaults = "$kl_customerID"
     let KLPersonDeviceIDDictKey = "$device_id"
     
     // Public Info Dictionary Keys
     public let KLPersonEmailDictKey = "$email" // email address
+    private let KLEmailNSDefaultsKey = "$kl_email"
     public let KLPersonFirstNameDictKey = "$first_name" // first name
     public let KLPersonLastNameDictKey = "$last_name" // last name
     public let KLPersonPhoneNumberDictKey = "$phone_number" // phone number
@@ -99,7 +100,7 @@ public class Klaviyo : NSObject {
     :returns: A unique string that represents the device using the application
     */
     var iOSIDString : String {
-        return UIDevice.currentDevice().identifierForVendor!.UUIDString
+        return "iOS:" + UIDevice.currentDevice().identifierForVendor!.UUIDString
     }
     
     /*
@@ -144,6 +145,20 @@ public class Klaviyo : NSObject {
      */
     public func setUpUserEmail(userEmail :String) {
         self.userEmail = userEmail
+        
+        /* Save to nsuser defaults */
+        let defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setValue(userEmail, forKey: KLEmailNSDefaultsKey)
+    }
+    
+    
+    /*
+     setUpCustomerID: Register the current customer ID and saves it
+     If this is called once, there is no need to pass in identifiying dictionaries to tracked events
+     */
+    public func setUpCustomerID(id: String) {
+        let defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setValue(id, forKey: KLCustomerIDNSDefaults)
     }
     
     /**
@@ -335,15 +350,30 @@ public class Klaviyo : NSObject {
         
         let returnDictionary = propertiesDictionary as! NSMutableDictionary
         
-        // Set user's email address, if known and not provided
         if emailAddressExists() && returnDictionary[KLPersonEmailDictKey] == nil {
+            // if setUpUserEmail has been called; use the passed value
             returnDictionary[KLPersonEmailDictKey] = self.userEmail
-        } else {
-            returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
+        } else if let newEmail = returnDictionary[KLPersonEmailDictKey] {
+            // if user passes in an email with the event, save it to defaults and use that
+            let defaults = NSUserDefaults.standardUserDefaults()
+            defaults.setValue(newEmail, forKey: KLEmailNSDefaultsKey)
+        } else if let savedEmail = NSUserDefaults.standardUserDefaults().valueForKey(KLEmailNSDefaultsKey) as? String {
+            // check NSuserDefaults for a stored value
+            returnDictionary[KLPersonEmailDictKey] = savedEmail
         }
         
-        // Set user's unique device id string $anonymous
-        returnDictionary[KLPersonDeviceIDDictKey] = self.iOSIDString
+        // Set the $anonymous property
+        returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
+        
+        // Set the $id if it exists
+        if let idExists = returnDictionary[KLPersonIDDictKey] {
+            // use the passed in value and save it
+            let defaults = NSUserDefaults.standardUserDefaults()
+            defaults.setValue(idExists, forKey: KLCustomerIDNSDefaults)
+        } else if let customerID =  NSUserDefaults.standardUserDefaults().valueForKey(KLCustomerIDNSDefaults) as? String {
+            // otherwise set to the saved value
+            returnDictionary[KLPersonIDDictKey] = customerID
+        }
         
         // If push notifications are used, append them
         if apnDeviceToken != nil {
