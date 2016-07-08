@@ -21,6 +21,7 @@ public class Klaviyo : NSObject {
     /*
     Klaviyo JSON Key Constants
     */
+    
     // KL Definitions File: JSON Keys for Tracking Events
     let KLEventTrackTokenJSONKey = "token"
     let KLEventTrackEventJSONKey = "event"
@@ -64,6 +65,7 @@ public class Klaviyo : NSObject {
     let KLPersonIDDictKey = "$id" // your unique identifier for a person
     private let KLCustomerIDNSDefaults = "$kl_customerID"
     let KLPersonDeviceIDDictKey = "$device_id"
+    private let KLTimezone = "Mobile Timezone"
     
     // Public Info Dictionary Keys
     public let KLPersonEmailDictKey = "$email" // email address
@@ -169,6 +171,7 @@ public class Klaviyo : NSObject {
      */
     public func handlePush(userInfo: [NSObject: AnyObject]) {
         if let metadata = userInfo["_k"] as? [NSObject: AnyObject] {
+            // Track the push open
             trackEvent(KLPersonOpenedPush, properties: metadata)
         } else {
             trackEvent(KLPersonOpenedPush, properties: userInfo)
@@ -351,10 +354,10 @@ public class Klaviyo : NSObject {
         let returnDictionary = propertiesDictionary as! NSMutableDictionary
         
         if emailAddressExists() && returnDictionary[KLPersonEmailDictKey] == nil {
-            // if setUpUserEmail has been called; use the passed value
+            // if setUpUserEmail has been called & a new value has not been provided; use the passed value
             returnDictionary[KLPersonEmailDictKey] = self.userEmail
         } else if let newEmail = returnDictionary[KLPersonEmailDictKey] {
-            // if user passes in an email with the event, save it to defaults and use that
+            // if user provides an email address that takes precendence; save it to defaults & use
             let defaults = NSUserDefaults.standardUserDefaults()
             defaults.setValue(newEmail, forKey: KLEmailNSDefaultsKey)
         } else if let savedEmail = NSUserDefaults.standardUserDefaults().valueForKey(KLEmailNSDefaultsKey) as? String {
@@ -362,18 +365,21 @@ public class Klaviyo : NSObject {
             returnDictionary[KLPersonEmailDictKey] = savedEmail
         }
         
-        // Set the $anonymous property
+        // Set the $anonymous property in case there i sno email address
         returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
         
         // Set the $id if it exists
         if let idExists = returnDictionary[KLPersonIDDictKey] {
-            // use the passed in value and save it
             let defaults = NSUserDefaults.standardUserDefaults()
             defaults.setValue(idExists, forKey: KLCustomerIDNSDefaults)
         } else if let customerID =  NSUserDefaults.standardUserDefaults().valueForKey(KLCustomerIDNSDefaults) as? String {
-            // otherwise set to the saved value
             returnDictionary[KLPersonIDDictKey] = customerID
         }
+        
+        // Set the user's timezone: Note if the customer exists this will override their current profile
+        // Alternatively, could create a customer mobile timezone property instead using a different key
+        let timezone = NSTimeZone.localTimeZone().name
+        returnDictionary[KLTimezone] = timezone
         
         // If push notifications are used, append them
         if apnDeviceToken != nil {
