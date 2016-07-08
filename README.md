@@ -7,7 +7,7 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. However, the KlaviyoSwift SDK is the only that provides push notification functionality. We strongly encourage the use of the KlaviyoSwift SDK.
+KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only that provides push notification functionality**. We strongly encourage the use of the KlaviyoSwift SDK.
 
 ## Requirements
 *iOS >= 8.0
@@ -94,7 +94,6 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 As of right now, anonymous tracking is *not functional*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Otherwise you must call `trackEvent` with an event name and customer properties parameter, including an email address or their custom $id.
 
 Eventually, once anonymous tracking is enabled you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or id identifier in order for Klaviyo to track events successfully.
-
 
 
 ## Special Properties
