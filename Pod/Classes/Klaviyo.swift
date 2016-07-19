@@ -151,6 +151,11 @@ public class Klaviyo : NSObject {
         /* Save to nsuser defaults */
         let defaults = NSUserDefaults.standardUserDefaults()
         defaults.setValue(userEmail, forKey: KLEmailNSDefaultsKey)
+        
+        /* Identify the user in Klaviyo */
+        let dictionary = NSMutableDictionary()
+        dictionary[KLPersonEmailDictKey] = userEmail
+        trackPersonWithInfo(dictionary)
     }
     
     
