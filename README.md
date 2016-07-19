@@ -7,7 +7,7 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. However, the KlaviyoSwift SDK is the only that provides push notification functionality. We strongly encourage the use of the KlaviyoSwift SDK.
+KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only one that supports push notifications**. We strongly encourage the use of the KlaviyoSwift SDK.
 
 ## Requirements
 *iOS >= 8.0
@@ -95,7 +95,10 @@ As of right now, anonymous tracking is *not functional*. What this means is that
 
 Eventually, once anonymous tracking is enabled you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or id identifier in order for Klaviyo to track events successfully.
 
+## Integrating with Shopify's Mobile SDK
+If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
 
+` Klaviyo.sharedInstance.setUpUserEmail(checkout.email)`
 
 ## Special Properties
 
