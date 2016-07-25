@@ -1,0 +1,1 @@
+ const unsigned char KlaviyoSwiftVersionString[] __attribute__ ((used)) = "@(#)PROGRAM:KlaviyoSwift  PROJECT:Pods-0.1.0" "\n"; const double KlaviyoSwiftVersionNumber __attribute__ ((used)) = (double)0.1;

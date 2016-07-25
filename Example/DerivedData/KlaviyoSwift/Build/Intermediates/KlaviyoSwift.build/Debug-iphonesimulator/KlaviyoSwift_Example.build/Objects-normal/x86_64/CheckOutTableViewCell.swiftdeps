@@ -1,0 +1,273 @@
+### Swift dependencies file v0 ###
+provides-top-level:
+- "CheckOutTableViewCell"
+provides-nominal:
+- "C20KlaviyoSwift_Example21CheckOutTableViewCell"
+provides-member:
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", ""]
+provides-dynamic-lookup:
+- "itemQuantity"
+- "awakeFromNib"
+- "setSelected"
+- "itemImage"
+- "itemTotal"
+- "removeItemButton"
+- "itemName"
+depends-top-level:
+- "UIImageView"
+- "UIButton"
+- "CheckOutTableViewCell"
+- "Bool"
+- "UITableViewCell"
+- "UILabel"
+depends-member:
+- ["Ps9AnyObject", "awakeFromNib"]
+- ["Ps9AnyObject", "init"]
+- ["Ps9AnyObject", "itemImage"]
+- ["Ps9AnyObject", "itemName"]
+- ["Ps9AnyObject", "itemQuantity"]
+- ["Ps9AnyObject", "itemTotal"]
+- ["Ps9AnyObject", "removeItemButton"]
+- ["Ps9AnyObject", "setSelected"]
+- ["Ps9AnyObject", ""]
+- ["Ps11CVarArgType", "awakeFromNib"]
+- ["Ps11CVarArgType", "init"]
+- ["Ps11CVarArgType", "itemImage"]
+- ["Ps11CVarArgType", "itemName"]
+- ["Ps11CVarArgType", "itemQuantity"]
+- ["Ps11CVarArgType", "itemTotal"]
+- ["Ps11CVarArgType", "removeItemButton"]
+- ["Ps11CVarArgType", "setSelected"]
+- ["Ps11CVarArgType", ""]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "Bool"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "UIButton"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "UIImageView"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "UILabel"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "awakeFromNib"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "deinit"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "init"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "itemImage"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "itemName"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "itemQuantity"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "itemTotal"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "removeItemButton"]
+- ["C20KlaviyoSwift_Example21CheckOutTableViewCell", "setSelected"]
+- ["Ps28CustomDebugStringConvertible", "awakeFromNib"]
+- ["Ps28CustomDebugStringConvertible", "init"]
+- ["Ps28CustomDebugStringConvertible", "itemImage"]
+- ["Ps28CustomDebugStringConvertible", "itemName"]
+- ["Ps28CustomDebugStringConvertible", "itemQuantity"]
+- ["Ps28CustomDebugStringConvertible", "itemTotal"]
+- ["Ps28CustomDebugStringConvertible", "removeItemButton"]
+- ["Ps28CustomDebugStringConvertible", "setSelected"]
+- ["Ps28CustomDebugStringConvertible", ""]
+- ["Ps23CustomStringConvertible", "awakeFromNib"]
+- ["Ps23CustomStringConvertible", "init"]
+- ["Ps23CustomStringConvertible", "itemImage"]
+- ["Ps23CustomStringConvertible", "itemName"]
+- ["Ps23CustomStringConvertible", "itemQuantity"]
+- ["Ps23CustomStringConvertible", "itemTotal"]
+- ["Ps23CustomStringConvertible", "removeItemButton"]
+- ["Ps23CustomStringConvertible", "setSelected"]
+- ["Ps23CustomStringConvertible", ""]
+- ["Ps9Equatable", "awakeFromNib"]
+- ["Ps9Equatable", "init"]
+- ["Ps9Equatable", "itemImage"]
+- ["Ps9Equatable", "itemName"]
+- ["Ps9Equatable", "itemQuantity"]
+- ["Ps9Equatable", "itemTotal"]
+- ["Ps9Equatable", "removeItemButton"]
+- ["Ps9Equatable", "setSelected"]
+- ["Ps9Equatable", ""]
+- ["Ps8Hashable", "awakeFromNib"]
+- ["Ps8Hashable", "init"]
+- ["Ps8Hashable", "itemImage"]
+- ["Ps8Hashable", "itemName"]
+- ["Ps8Hashable", "itemQuantity"]
+- ["Ps8Hashable", "itemTotal"]
+- ["Ps8Hashable", "removeItemButton"]
+- ["Ps8Hashable", "setSelected"]
+- ["Ps8Hashable", ""]
+- ["PSo8NSCoding", "awakeFromNib"]
+- ["PSo8NSCoding", "init"]
+- ["PSo8NSCoding", "itemImage"]
+- ["PSo8NSCoding", "itemName"]
+- ["PSo8NSCoding", "itemQuantity"]
+- ["PSo8NSCoding", "itemTotal"]
+- ["PSo8NSCoding", "removeItemButton"]
+- ["PSo8NSCoding", "setSelected"]
+- ["PSo8NSCoding", ""]
+- ["CSo8NSObject", "Bool"]
+- ["CSo8NSObject", "UIButton"]
+- ["CSo8NSObject", "UIImageView"]
+- ["CSo8NSObject", "UILabel"]
+- ["CSo8NSObject", "awakeFromNib"]
+- ["CSo8NSObject", "init"]
+- ["CSo8NSObject", "itemImage"]
+- ["CSo8NSObject", "itemName"]
+- ["CSo8NSObject", "itemQuantity"]
+- ["CSo8NSObject", "itemTotal"]
+- ["CSo8NSObject", "removeItemButton"]
+- ["CSo8NSObject", "setSelected"]
+- ["PSo16NSObjectProtocol", "awakeFromNib"]
+- ["PSo16NSObjectProtocol", "init"]
+- ["PSo16NSObjectProtocol", "itemImage"]
+- ["PSo16NSObjectProtocol", "itemName"]
+- ["PSo16NSObjectProtocol", "itemQuantity"]
+- ["PSo16NSObjectProtocol", "itemTotal"]
+- ["PSo16NSObjectProtocol", "removeItemButton"]
+- ["PSo16NSObjectProtocol", "setSelected"]
+- ["PSo16NSObjectProtocol", ""]
+- ["PSo29UIAccessibilityIdentification", "awakeFromNib"]
+- ["PSo29UIAccessibilityIdentification", "init"]
+- ["PSo29UIAccessibilityIdentification", "itemImage"]
+- ["PSo29UIAccessibilityIdentification", "itemName"]
+- ["PSo29UIAccessibilityIdentification", "itemQuantity"]
+- ["PSo29UIAccessibilityIdentification", "itemTotal"]
+- ["PSo29UIAccessibilityIdentification", "removeItemButton"]
+- ["PSo29UIAccessibilityIdentification", "setSelected"]
+- ["PSo29UIAccessibilityIdentification", ""]
+- ["PSo12UIAppearance", "awakeFromNib"]
+- ["PSo12UIAppearance", "init"]
+- ["PSo12UIAppearance", "itemImage"]
+- ["PSo12UIAppearance", "itemName"]
+- ["PSo12UIAppearance", "itemQuantity"]
+- ["PSo12UIAppearance", "itemTotal"]
+- ["PSo12UIAppearance", "removeItemButton"]
+- ["PSo12UIAppearance", "setSelected"]
+- ["PSo12UIAppearance", ""]
+- ["PSo21UIAppearanceContainer", "awakeFromNib"]
+- ["PSo21UIAppearanceContainer", "init"]
+- ["PSo21UIAppearanceContainer", "itemImage"]
+- ["PSo21UIAppearanceContainer", "itemName"]
+- ["PSo21UIAppearanceContainer", "itemQuantity"]
+- ["PSo21UIAppearanceContainer", "itemTotal"]
+- ["PSo21UIAppearanceContainer", "removeItemButton"]
+- ["PSo21UIAppearanceContainer", "setSelected"]
+- ["PSo21UIAppearanceContainer", ""]
+- ["PSo17UICoordinateSpace", "awakeFromNib"]
+- ["PSo17UICoordinateSpace", "init"]
+- ["PSo17UICoordinateSpace", "itemImage"]
+- ["PSo17UICoordinateSpace", "itemName"]
+- ["PSo17UICoordinateSpace", "itemQuantity"]
+- ["PSo17UICoordinateSpace", "itemTotal"]
+- ["PSo17UICoordinateSpace", "removeItemButton"]
+- ["PSo17UICoordinateSpace", "setSelected"]
+- ["PSo17UICoordinateSpace", ""]
+- ["PSo13UIDynamicItem", "awakeFromNib"]
+- ["PSo13UIDynamicItem", "init"]
+- ["PSo13UIDynamicItem", "itemImage"]
+- ["PSo13UIDynamicItem", "itemName"]
+- ["PSo13UIDynamicItem", "itemQuantity"]
+- ["PSo13UIDynamicItem", "itemTotal"]
+- ["PSo13UIDynamicItem", "removeItemButton"]
+- ["PSo13UIDynamicItem", "setSelected"]
+- ["PSo13UIDynamicItem", ""]
+- ["PSo18UIFocusEnvironment", "awakeFromNib"]
+- ["PSo18UIFocusEnvironment", "init"]
+- ["PSo18UIFocusEnvironment", "itemImage"]
+- ["PSo18UIFocusEnvironment", "itemName"]
+- ["PSo18UIFocusEnvironment", "itemQuantity"]
+- ["PSo18UIFocusEnvironment", "itemTotal"]
+- ["PSo18UIFocusEnvironment", "removeItemButton"]
+- ["PSo18UIFocusEnvironment", "setSelected"]
+- ["PSo18UIFocusEnvironment", ""]
+- ["PSo27UIGestureRecognizerDelegate", "awakeFromNib"]
+- ["PSo27UIGestureRecognizerDelegate", "init"]
+- ["PSo27UIGestureRecognizerDelegate", "itemImage"]
+- ["PSo27UIGestureRecognizerDelegate", "itemName"]
+- ["PSo27UIGestureRecognizerDelegate", "itemQuantity"]
+- ["PSo27UIGestureRecognizerDelegate", "itemTotal"]
+- ["PSo27UIGestureRecognizerDelegate", "removeItemButton"]
+- ["PSo27UIGestureRecognizerDelegate", "setSelected"]
+- ["PSo27UIGestureRecognizerDelegate", ""]
+- ["CSo11UIResponder", "Bool"]
+- ["CSo11UIResponder", "UIButton"]
+- ["CSo11UIResponder", "UIImageView"]
+- ["CSo11UIResponder", "UILabel"]
+- ["CSo11UIResponder", "awakeFromNib"]
+- ["CSo11UIResponder", "init"]
+- ["CSo11UIResponder", "itemImage"]
+- ["CSo11UIResponder", "itemName"]
+- ["CSo11UIResponder", "itemQuantity"]
+- ["CSo11UIResponder", "itemTotal"]
+- ["CSo11UIResponder", "removeItemButton"]
+- ["CSo11UIResponder", "setSelected"]
+- ["CSo15UITableViewCell", "Bool"]
+- ["CSo15UITableViewCell", "UIButton"]
+- ["CSo15UITableViewCell", "UIImageView"]
+- ["CSo15UITableViewCell", "UILabel"]
+- ["CSo15UITableViewCell", "awakeFromNib"]
+- ["CSo15UITableViewCell", "init"]
+- ["CSo15UITableViewCell", "itemImage"]
+- ["CSo15UITableViewCell", "itemName"]
+- ["CSo15UITableViewCell", "itemQuantity"]
+- ["CSo15UITableViewCell", "itemTotal"]
+- ["CSo15UITableViewCell", "removeItemButton"]
+- ["CSo15UITableViewCell", "setSelected"]
+- ["CSo15UITableViewCell", ""]
+- ["PSo18UITraitEnvironment", "awakeFromNib"]
+- ["PSo18UITraitEnvironment", "init"]
+- ["PSo18UITraitEnvironment", "itemImage"]
+- ["PSo18UITraitEnvironment", "itemName"]
+- ["PSo18UITraitEnvironment", "itemQuantity"]
+- ["PSo18UITraitEnvironment", "itemTotal"]
+- ["PSo18UITraitEnvironment", "removeItemButton"]
+- ["PSo18UITraitEnvironment", "setSelected"]
+- ["PSo18UITraitEnvironment", ""]
+- ["CSo6UIView", "Bool"]
+- ["CSo6UIView", "UIButton"]
+- ["CSo6UIView", "UIImageView"]
+- ["CSo6UIView", "UILabel"]
+- ["CSo6UIView", "awakeFromNib"]
+- ["CSo6UIView", "init"]
+- ["CSo6UIView", "itemImage"]
+- ["CSo6UIView", "itemName"]
+- ["CSo6UIView", "itemQuantity"]
+- ["CSo6UIView", "itemTotal"]
+- ["CSo6UIView", "removeItemButton"]
+- ["CSo6UIView", "setSelected"]
+- ["Ps12_Reflectable", "awakeFromNib"]
+- ["Ps12_Reflectable", "init"]
+- ["Ps12_Reflectable", "itemImage"]
+- ["Ps12_Reflectable", "itemName"]
+- ["Ps12_Reflectable", "itemQuantity"]
+- ["Ps12_Reflectable", "itemTotal"]
+- ["Ps12_Reflectable", "removeItemButton"]
+- ["Ps12_Reflectable", "setSelected"]
+- ["Ps12_Reflectable", ""]
+depends-nominal:
+- "Ps9AnyObject"
+- "Ps11CVarArgType"
+- "C20KlaviyoSwift_Example21CheckOutTableViewCell"
+- "Ps28CustomDebugStringConvertible"
+- "Ps23CustomStringConvertible"
+- "Ps9Equatable"
+- "Ps8Hashable"
+- "PSo8NSCoding"
+- "CSo8NSObject"
+- "PSo16NSObjectProtocol"
+- "PSo29UIAccessibilityIdentification"
+- "PSo12UIAppearance"
+- "PSo21UIAppearanceContainer"
+- "PSo17UICoordinateSpace"
+- "PSo13UIDynamicItem"
+- "PSo18UIFocusEnvironment"
+- "PSo27UIGestureRecognizerDelegate"
+- "CSo11UIResponder"
+- "CSo15UITableViewCell"
+- "PSo18UITraitEnvironment"
+- "CSo6UIView"
+- "Ps12_Reflectable"
+depends-dynamic-lookup:
+depends-external:
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/Swift.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/UIKit.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/Foundation.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/Darwin.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/Dispatch.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/ObjectiveC.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/CoreGraphics.swiftmodule"
+- "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/x86_64/CoreImage.swiftmodule"
+- "/Users/katherinekeuper/Desktop/KlaviyoSDK/KlaviyoSwift/Example/DerivedData/KlaviyoSwift/Build/Products/Debug-iphonesimulator/KlaviyoSwift.framework/Modules/KlaviyoSwift.swiftmodule/x86_64.swiftmodule"
+interface-hash: "e1f83dcfe84962e4496d37c1fb82e912"

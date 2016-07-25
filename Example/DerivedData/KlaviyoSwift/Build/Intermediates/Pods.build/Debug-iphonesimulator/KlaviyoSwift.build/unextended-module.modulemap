@@ -1,0 +1,10 @@
+framework module KlaviyoSwift {
+  umbrella header "KlaviyoSwift-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module KlaviyoSwift.__Swift {
+    exclude header "KlaviyoSwift-Swift.h"
+}
