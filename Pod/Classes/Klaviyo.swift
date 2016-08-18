@@ -449,6 +449,8 @@ public class Klaviyo : NSObject {
     }
     
     func applicationDidBecomeActiveNotification(notification: NSNotification) {
+        // clear all notification badges anytime the user opens the app
+        UIApplication.sharedApplication().applicationIconBadgeNumber = 0
         reachability?.startNotifier()
     }
     
