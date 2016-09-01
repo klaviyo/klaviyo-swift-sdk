@@ -29,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let mainStoryboard = UIStoryboard(name: "Main", bundle: nil)
         
         
-        Klaviyo.setupWithPublicAPIKey("YOUR_PUBLIC_API_KEY") 
+        Klaviyo.setupWithPublicAPIKey("magpcN")
         
         if zip == nil && email == nil {
             // show login page
@@ -42,11 +42,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             menuVC.zip = zip
             if let unwrappedEmail = email {
                 Klaviyo.sharedInstance.setUpUserEmail(unwrappedEmail)
-                Klaviyo.sharedInstance.trackEvent("Opened kLM App")
             }
             self.window?.rootViewController = menuVC
             self.window?.makeKeyAndVisible()
         }
+        Klaviyo.sharedInstance.trackEvent("Opened kLM App")
+
         
         /*
         Setting Up Push Notifications for Swift 1.2
