@@ -452,6 +452,10 @@ public class Klaviyo : NSObject {
         // clear all notification badges anytime the user opens the app
         UIApplication.sharedApplication().applicationIconBadgeNumber = 0
         reachability?.startNotifier()
+        
+        // identify the user
+        let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
+        trackPersonWithInfo(dict)
     }
     
     func applicationDidEnterBackgroundNotification(notification: NSNotification){
