@@ -2,11 +2,7 @@ PODS:
   - KlaviyoSwift (1.1.0)
 
 DEPENDENCIES:
-  - KlaviyoSwift (from `../`)
-
-EXTERNAL SOURCES:
-  KlaviyoSwift:
-    :path: ../
+  - KlaviyoSwift
 
 SPEC CHECKSUMS:
   KlaviyoSwift: 6b1ec238293ceda0155fdcdead41466d2636084e

@@ -23,6 +23,39 @@
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
 		</dict>
+		<key>04361CD8BB2B29EEDE434F0253A82E09</key>
+		<dict>
+			<key>children</key>
+			<array>
+				<string>CDC414DA9832C28C747B7DEB5ABFFC65</string>
+				<string>468F42EE447C8B8619ACFFC84EC13F23</string>
+				<string>04D779956F6C81A78EC37D4819FA32C5</string>
+				<string>D9AEB7F459E804D11CA2699E783824B4</string>
+				<string>1A40774F06000564A63B965EEBE299A4</string>
+				<string>D669CC6D7C4CF0E3A1730B9638A6932E</string>
+			</array>
+			<key>isa</key>
+			<string>PBXGroup</string>
+			<key>name</key>
+			<string>Support Files</string>
+			<key>path</key>
+			<string>../Target Support Files/KlaviyoSwift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>04D779956F6C81A78EC37D4819FA32C5</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>text.xcconfig</string>
+			<key>path</key>
+			<string>KlaviyoSwift.xcconfig</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
 		<key>0680306908C2908DC5B06D57A087456E</key>
 		<dict>
 			<key>buildConfigurations</key>
@@ -80,7 +113,7 @@
 			<string>E27278CD701D13920993FB3D0E99B2A4</string>
 			<key>buildPhases</key>
 			<array>
-				<string>103EF4CC7ADBF6E483FB7F7C1A306E43</string>
+				<string>82D4BA2ABD7DFD0F3E6C090ACB60E4C8</string>
 				<string>030841BA2AB6D3C7589576105D4B3031</string>
 				<string>B8B28F1AE242F4ACA1D1ACFB96BEAE93</string>
 				<string>7D304808B2126A4F8287A4CA87D22FF2</string>
@@ -101,21 +134,6 @@
 			<string>1A516CA3B62B69E27F6AEDD46EB1B846</string>
 			<key>productType</key>
 			<string>com.apple.product-type.framework</string>
-		</dict>
-		<key>103EF4CC7ADBF6E483FB7F7C1A306E43</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>A67AB14AE1679E732CFECA433D672273</string>
-				<string>DDD64F25243DCADEBB80BBE5B749FFEC</string>
-				<string>79D9EAE703D19C787C60468846538423</string>
-			</array>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
 		</dict>
 		<key>10B57D6B765143A5651E54561463390E</key>
 		<dict>
@@ -246,6 +264,19 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
+		<key>1A40774F06000564A63B965EEBE299A4</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.c.h</string>
+			<key>path</key>
+			<string>KlaviyoSwift-prefix.pch</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
 		<key>1A516CA3B62B69E27F6AEDD46EB1B846</key>
 		<dict>
 			<key>explicitFileType</key>
@@ -328,19 +359,6 @@
 			<key>isa</key>
 			<string>XCConfigurationList</string>
 		</dict>
-		<key>2DD5BCAC1F2A355B0D38570FFE998496</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.swift</string>
-			<key>path</key>
-			<string>Klaviyo.swift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
 		<key>306D8838F3E452CFB477ED86364AD8EF</key>
 		<dict>
 			<key>includeInIndex</key>
@@ -349,42 +367,6 @@
 			<string>PBXFileReference</string>
 			<key>path</key>
 			<string>Pods-KlaviyoSwift_Example.modulemap</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>3435666739625AC4390783B1921BD251</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>CA51313EE6037B1BC395B6E0CA46EDC7</string>
-				<string>44F20FD30DF948A738B51787ABB0829A</string>
-				<string>64880D0F8619D26F9749448A2BA1C278</string>
-				<string>BECA1D24C0D0FE7370A1917DF01C7F0C</string>
-				<string>E6A064A66E46FC5B8D2D22CA3FB3C79B</string>
-				<string>CB1F50D6905817FF6D1C46A8CAFC7F0E</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Support Files</string>
-			<key>path</key>
-			<string>Example/Pods/Target Support Files/KlaviyoSwift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>383A1F9B6F4E28CD9D284EA81F3452CD</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>2DD5BCAC1F2A355B0D38570FFE998496</string>
-				<string>FEFDE9281097BB4B4EB5F9B762A125F4</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Classes</string>
-			<key>path</key>
-			<string>Classes</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -412,7 +394,7 @@
 			<key>sourceTree</key>
 			<string>DEVELOPER_DIR</string>
 		</dict>
-		<key>44F20FD30DF948A738B51787ABB0829A</key>
+		<key>468F42EE447C8B8619ACFFC84EC13F23</key>
 		<dict>
 			<key>includeInIndex</key>
 			<string>1</string>
@@ -426,7 +408,7 @@
 		<key>493AFD57AA8921CD07AB0E9419947D3A</key>
 		<dict>
 			<key>fileRef</key>
-			<string>CB1F50D6905817FF6D1C46A8CAFC7F0E</string>
+			<string>D669CC6D7C4CF0E3A1730B9638A6932E</string>
 			<key>isa</key>
 			<string>PBXBuildFile</string>
 			<key>settings</key>
@@ -437,16 +419,38 @@
 				</array>
 			</dict>
 		</dict>
-		<key>4D52D98423AD2721807F198EBAC05F5C</key>
+		<key>493B84388E724530148E4378AD09B272</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>name</key>
+			<string>ReachabilitySwift.swift</string>
+			<key>path</key>
+			<string>Pod/Classes/ReachabilitySwift.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>4D2E23D493D239463C78B2BCCA09215F</key>
+		<dict>
+			<key>fileRef</key>
+			<string>D9AEB7F459E804D11CA2699E783824B4</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
+		<key>4D4DE591AA98D2D1F8D23BE1F9C21852</key>
 		<dict>
 			<key>children</key>
 			<array>
-				<string>5BECC3B7DE80D8DA885A71D02EAA8C04</string>
+				<string>B03B8033FF06FA1CAE4F0189F4AE54C0</string>
 			</array>
 			<key>isa</key>
 			<string>PBXGroup</string>
 			<key>name</key>
-			<string>Development Pods</string>
+			<string>Pods</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -600,35 +604,6 @@
 			<key>name</key>
 			<string>Debug</string>
 		</dict>
-		<key>5BECC3B7DE80D8DA885A71D02EAA8C04</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>941DB849D955836ED1EF80DDD4D33769</string>
-				<string>3435666739625AC4390783B1921BD251</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>KlaviyoSwift</string>
-			<key>path</key>
-			<string>../..</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>64880D0F8619D26F9749448A2BA1C278</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>KlaviyoSwift.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
 		<key>67B5DE76C5B497F51DEB5E7F1BC97126</key>
 		<dict>
 			<key>includeInIndex</key>
@@ -743,13 +718,6 @@
 			<key>name</key>
 			<string>Release</string>
 		</dict>
-		<key>79D9EAE703D19C787C60468846538423</key>
-		<dict>
-			<key>fileRef</key>
-			<string>FEFDE9281097BB4B4EB5F9B762A125F4</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
 		<key>7D304808B2126A4F8287A4CA87D22FF2</key>
 		<dict>
 			<key>buildActionMask</key>
@@ -795,8 +763,8 @@
 			<key>children</key>
 			<array>
 				<string>BA6428E9F66FD5A23C0A2E06ED26CD2F</string>
-				<string>4D52D98423AD2721807F198EBAC05F5C</string>
 				<string>BC3CA7F9E30CC8F7E2DD044DD34432FC</string>
+				<string>4D4DE591AA98D2D1F8D23BE1F9C21852</string>
 				<string>139A4ADF8DE1C7318AA85AF4586296B5</string>
 				<string>2C3BF4E18BE85E97444C193B701CE5FC</string>
 			</array>
@@ -832,7 +800,7 @@
 		<key>82C9EB1CE3B9F70D65B0913DD15BCC55</key>
 		<dict>
 			<key>baseConfigurationReference</key>
-			<string>64880D0F8619D26F9749448A2BA1C278</string>
+			<string>04D779956F6C81A78EC37D4819FA32C5</string>
 			<key>buildSettings</key>
 			<dict>
 				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
@@ -850,6 +818,21 @@
 			<string>XCBuildConfiguration</string>
 			<key>name</key>
 			<string>Release</string>
+		</dict>
+		<key>82D4BA2ABD7DFD0F3E6C090ACB60E4C8</key>
+		<dict>
+			<key>buildActionMask</key>
+			<string>2147483647</string>
+			<key>files</key>
+			<array>
+				<string>EA4FCD18CA75A8604B183EAB595323FB</string>
+				<string>4D2E23D493D239463C78B2BCCA09215F</string>
+				<string>DF6D4826AF139E70A242F8CAD9384A3F</string>
+			</array>
+			<key>isa</key>
+			<string>PBXSourcesBuildPhase</string>
+			<key>runOnlyForDeploymentPostprocessing</key>
+			<string>0</string>
 		</dict>
 		<key>84E863CB78C239D1B8AC22D6692A719E</key>
 		<dict>
@@ -893,21 +876,6 @@
 			<string>text.plist.xml</string>
 			<key>path</key>
 			<string>Info.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>941DB849D955836ED1EF80DDD4D33769</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>383A1F9B6F4E28CD9D284EA81F3452CD</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Pod</string>
-			<key>path</key>
-			<string>Pod</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -956,13 +924,6 @@
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
 		</dict>
-		<key>A67AB14AE1679E732CFECA433D672273</key>
-		<dict>
-			<key>fileRef</key>
-			<string>2DD5BCAC1F2A355B0D38570FFE998496</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
 		<key>A68A024D64D3DA50FF6565EE0B8263D6</key>
 		<dict>
 			<key>includeInIndex</key>
@@ -973,6 +934,23 @@
 			<string>sourcecode.c.objc</string>
 			<key>path</key>
 			<string>Pods-KlaviyoSwift_Example-dummy.m</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>B03B8033FF06FA1CAE4F0189F4AE54C0</key>
+		<dict>
+			<key>children</key>
+			<array>
+				<string>C2A027FFA01EC4A0FB3F4603262EB383</string>
+				<string>493B84388E724530148E4378AD09B272</string>
+				<string>04361CD8BB2B29EEDE434F0253A82E09</string>
+			</array>
+			<key>isa</key>
+			<string>PBXGroup</string>
+			<key>name</key>
+			<string>KlaviyoSwift</string>
+			<key>path</key>
+			<string>KlaviyoSwift</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -1145,19 +1123,6 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
-		<key>BECA1D24C0D0FE7370A1917DF01C7F0C</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.objc</string>
-			<key>path</key>
-			<string>KlaviyoSwift-dummy.m</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
 		<key>BECF867D2B8B1E981CEF15A6ADDBA4F9</key>
 		<dict>
 			<key>fileRef</key>
@@ -1178,6 +1143,21 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
+		<key>C2A027FFA01EC4A0FB3F4603262EB383</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>name</key>
+			<string>Klaviyo.swift</string>
+			<key>path</key>
+			<string>Pod/Classes/Klaviyo.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
 		<key>C9ECFFCDAE7C6F7678CC05E7536A2B27</key>
 		<dict>
 			<key>includeInIndex</key>
@@ -1188,19 +1168,6 @@
 			<string>text.xcconfig</string>
 			<key>path</key>
 			<string>Pods-KlaviyoSwift_Tests.release.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>CA51313EE6037B1BC395B6E0CA46EDC7</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Info.plist</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -1217,16 +1184,16 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
-		<key>CB1F50D6905817FF6D1C46A8CAFC7F0E</key>
+		<key>CDC414DA9832C28C747B7DEB5ABFFC65</key>
 		<dict>
 			<key>includeInIndex</key>
 			<string>1</string>
 			<key>isa</key>
 			<string>PBXFileReference</string>
 			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
+			<string>text.plist.xml</string>
 			<key>path</key>
-			<string>KlaviyoSwift-umbrella.h</string>
+			<string>Info.plist</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -1387,10 +1354,36 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
+		<key>D669CC6D7C4CF0E3A1730B9638A6932E</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.c.h</string>
+			<key>path</key>
+			<string>KlaviyoSwift-umbrella.h</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>D9AEB7F459E804D11CA2699E783824B4</key>
+		<dict>
+			<key>includeInIndex</key>
+			<string>1</string>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.c.objc</string>
+			<key>path</key>
+			<string>KlaviyoSwift-dummy.m</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
 		<key>DC7D5BEB579C344F7DAF7747EE27933D</key>
 		<dict>
 			<key>baseConfigurationReference</key>
-			<string>64880D0F8619D26F9749448A2BA1C278</string>
+			<string>04D779956F6C81A78EC37D4819FA32C5</string>
 			<key>buildSettings</key>
 			<dict>
 				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
@@ -1445,17 +1438,17 @@
 			<key>name</key>
 			<string>Debug</string>
 		</dict>
-		<key>DDD64F25243DCADEBB80BBE5B749FFEC</key>
+		<key>DF6D4826AF139E70A242F8CAD9384A3F</key>
 		<dict>
 			<key>fileRef</key>
-			<string>BECA1D24C0D0FE7370A1917DF01C7F0C</string>
+			<string>493B84388E724530148E4378AD09B272</string>
 			<key>isa</key>
 			<string>PBXBuildFile</string>
 		</dict>
 		<key>E1D9DA694AB7E32E3D76B79DCCD21FD1</key>
 		<dict>
 			<key>baseConfigurationReference</key>
-			<string>64880D0F8619D26F9749448A2BA1C278</string>
+			<string>04D779956F6C81A78EC37D4819FA32C5</string>
 			<key>buildSettings</key>
 			<dict>
 				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
@@ -1574,19 +1567,6 @@
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
 		</dict>
-		<key>E6A064A66E46FC5B8D2D22CA3FB3C79B</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>KlaviyoSwift-prefix.pch</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
 		<key>E7C3773189C1EFCA88406BD7E3BF447F</key>
 		<dict>
 			<key>includeInIndex</key>
@@ -1613,6 +1593,13 @@
 					<string>Public</string>
 				</array>
 			</dict>
+		</dict>
+		<key>EA4FCD18CA75A8604B183EAB595323FB</key>
+		<dict>
+			<key>fileRef</key>
+			<string>C2A027FFA01EC4A0FB3F4603262EB383</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
 		</dict>
 		<key>EAB121E496A44A1105C7D7A67970077E</key>
 		<dict>
@@ -1723,7 +1710,7 @@
 		<key>F1CAA4BB66D07A1549A8E0F3B8F41444</key>
 		<dict>
 			<key>baseConfigurationReference</key>
-			<string>64880D0F8619D26F9749448A2BA1C278</string>
+			<string>04D779956F6C81A78EC37D4819FA32C5</string>
 			<key>buildSettings</key>
 			<dict>
 				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
@@ -1754,19 +1741,6 @@
 			<string>PBXHeadersBuildPhase</string>
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
-		</dict>
-		<key>FEFDE9281097BB4B4EB5F9B762A125F4</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.swift</string>
-			<key>path</key>
-			<string>ReachabilitySwift.swift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
 		</dict>
 	</dict>
 	<key>rootObject</key>
