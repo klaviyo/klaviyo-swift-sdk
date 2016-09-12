@@ -8,23 +8,23 @@
 
 /* Begin PBXBuildFile section */
 		1612545A8648248CC2775B0D /* Pods_KlaviyoSwift_Tests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8E759CA12266B09A918AB46 /* Pods_KlaviyoSwift_Tests.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		2EDB121D1BC2D52800D1CB87 /* red_pork_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12151BC2D52800D1CB87 /* red_pork_small.jpeg */; settings = {ASSET_TAGS = (); }; };
-		2EDB121E1BC2D52800D1CB87 /* battered_fish.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12161BC2D52800D1CB87 /* battered_fish.jpg */; settings = {ASSET_TAGS = (); }; };
-		2EDB121F1BC2D52800D1CB87 /* battered_fish_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12171BC2D52800D1CB87 /* battered_fish_small.jpeg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12201BC2D52800D1CB87 /* nicoise_salad_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12181BC2D52800D1CB87 /* nicoise_salad_small.jpeg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12211BC2D52800D1CB87 /* bolognese_meal_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12191BC2D52800D1CB87 /* bolognese_meal_small.jpeg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12221BC2D52800D1CB87 /* nicoise_salad.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121A1BC2D52800D1CB87 /* nicoise_salad.jpg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12231BC2D52800D1CB87 /* red_pork.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121B1BC2D52800D1CB87 /* red_pork.jpg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12241BC2D52800D1CB87 /* bolognese_meal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121C1BC2D52800D1CB87 /* bolognese_meal.jpg */; settings = {ASSET_TAGS = (); }; };
-		2EDB12261BC2D54400D1CB87 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12251BC2D54400D1CB87 /* Main.storyboard */; settings = {ASSET_TAGS = (); }; };
-		2EDB122D1BC2E76000D1CB87 /* MenuItemTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12281BC2E76000D1CB87 /* MenuItemTableViewCell.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB122E1BC2E76000D1CB87 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12291BC2E76000D1CB87 /* MenuItem.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB122F1BC2E76000D1CB87 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122A1BC2E76000D1CB87 /* User.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB12301BC2E76000D1CB87 /* CheckOutTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122B1BC2E76000D1CB87 /* CheckOutTableViewCell.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB12311BC2E76000D1CB87 /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122C1BC2E76000D1CB87 /* Cart.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB12351BC2E80D00D1CB87 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12341BC2E80D00D1CB87 /* ViewController.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB12371BC2E82B00D1CB87 /* MenuPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12361BC2E82B00D1CB87 /* MenuPageViewController.swift */; settings = {ASSET_TAGS = (); }; };
-		2EDB12391BC2E84E00D1CB87 /* CheckOutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12381BC2E84E00D1CB87 /* CheckOutViewController.swift */; settings = {ASSET_TAGS = (); }; };
+		2EDB121D1BC2D52800D1CB87 /* red_pork_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12151BC2D52800D1CB87 /* red_pork_small.jpeg */; };
+		2EDB121E1BC2D52800D1CB87 /* battered_fish.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12161BC2D52800D1CB87 /* battered_fish.jpg */; };
+		2EDB121F1BC2D52800D1CB87 /* battered_fish_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12171BC2D52800D1CB87 /* battered_fish_small.jpeg */; };
+		2EDB12201BC2D52800D1CB87 /* nicoise_salad_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12181BC2D52800D1CB87 /* nicoise_salad_small.jpeg */; };
+		2EDB12211BC2D52800D1CB87 /* bolognese_meal_small.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12191BC2D52800D1CB87 /* bolognese_meal_small.jpeg */; };
+		2EDB12221BC2D52800D1CB87 /* nicoise_salad.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121A1BC2D52800D1CB87 /* nicoise_salad.jpg */; };
+		2EDB12231BC2D52800D1CB87 /* red_pork.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121B1BC2D52800D1CB87 /* red_pork.jpg */; };
+		2EDB12241BC2D52800D1CB87 /* bolognese_meal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB121C1BC2D52800D1CB87 /* bolognese_meal.jpg */; };
+		2EDB12261BC2D54400D1CB87 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2EDB12251BC2D54400D1CB87 /* Main.storyboard */; };
+		2EDB122D1BC2E76000D1CB87 /* MenuItemTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12281BC2E76000D1CB87 /* MenuItemTableViewCell.swift */; };
+		2EDB122E1BC2E76000D1CB87 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12291BC2E76000D1CB87 /* MenuItem.swift */; };
+		2EDB122F1BC2E76000D1CB87 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122A1BC2E76000D1CB87 /* User.swift */; };
+		2EDB12301BC2E76000D1CB87 /* CheckOutTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122B1BC2E76000D1CB87 /* CheckOutTableViewCell.swift */; };
+		2EDB12311BC2E76000D1CB87 /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB122C1BC2E76000D1CB87 /* Cart.swift */; };
+		2EDB12351BC2E80D00D1CB87 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12341BC2E80D00D1CB87 /* ViewController.swift */; };
+		2EDB12371BC2E82B00D1CB87 /* MenuPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12361BC2E82B00D1CB87 /* MenuPageViewController.swift */; };
+		2EDB12391BC2E84E00D1CB87 /* CheckOutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EDB12381BC2E84E00D1CB87 /* CheckOutViewController.swift */; };
 		607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD51AFB9204008FA782 /* AppDelegate.swift */; };
 		607FACDD1AFB9204008FA782 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 607FACDC1AFB9204008FA782 /* Images.xcassets */; };
 		607FACE01AFB9204008FA782 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 607FACDE1AFB9204008FA782 /* LaunchScreen.xib */; };
@@ -276,6 +276,12 @@
 				TargetAttributes = {
 					607FACCF1AFB9204008FA782 = {
 						CreatedOnToolsVersion = 6.3.1;
+						DevelopmentTeam = G3793W2RJ2;
+						SystemCapabilities = {
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
 					};
 					607FACE41AFB9204008FA782 = {
 						CreatedOnToolsVersion = 6.3.1;
