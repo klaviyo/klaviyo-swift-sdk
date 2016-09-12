@@ -71,7 +71,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
         }
         
         // Add observer for when the app enters background
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: Selector("saveCartItems:"), name:UIApplicationDidEnterBackgroundNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(MenuPageViewController.saveCartItems(_:)), name:UIApplicationDidEnterBackgroundNotification, object: nil)
     }
     
     override func viewWillAppear(animated: Bool) {

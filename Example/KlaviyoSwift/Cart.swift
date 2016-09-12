@@ -23,7 +23,7 @@ class Cart {
         
         for item in cartItems {
             if item.name == menuItem.name {
-                numberOfItems++
+                numberOfItems += 1
             }
         }
         
@@ -82,7 +82,7 @@ class Cart {
                 cartItems.removeAtIndex(index)
                 return
             }
-            index++
+            index += 1
         }
     }
     

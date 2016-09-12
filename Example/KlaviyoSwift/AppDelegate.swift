@@ -46,31 +46,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             self.window?.rootViewController = menuVC
             self.window?.makeKeyAndVisible()
         }
+        
+        // Set up  Klaviyo
         Klaviyo.sharedInstance.trackEvent("Opened kLM App")
 
-        
-        /*
-        Setting Up Push Notifications for Swift 1.2
-        
-        if application.respondsToSelect("registerUserNotificationSettings:") {
-        let types = UIUserNotificationType.Alert | UIUserNotificationType.Badge | UIUserNotificationType.Sound
-        let settings = UIUserNotificationSettings(forTypes: types, categories: nil)
+        // Push Notification for Swift 2.0
+        let settings = UIUserNotificationSettings(forTypes: [.Alert,.Badge,.Sound], categories: nil)
         application.registerUserNotificationSettings(settings)
         application.registerForRemoteNotifications()
-        } else {
-        let types = UIRemoteNotificationType.Badge | UIRemoteNotificationType.Alert | UIRemoteNotificationType.Sound
-        application.registerForRemoteNotificationTypes(types)
-        }
-        */
-        
-        // Push Notification for Swift 2.0
-        if #available(iOS 8.0, *) {
-            let settings = UIUserNotificationSettings(forTypes: [.Alert,.Badge,.Sound], categories: nil)
-            application.registerUserNotificationSettings(settings)
-            application.registerForRemoteNotifications()
-        } else {
-            application.registerForRemoteNotificationTypes([.Alert, .Badge, .Sound])
-        }
+
         
         
         return true

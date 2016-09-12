@@ -1,1749 +1,769 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>archiveVersion</key>
-	<string>1</string>
-	<key>classes</key>
-	<dict/>
-	<key>objectVersion</key>
-	<string>46</string>
-	<key>objects</key>
-	<dict>
-		<key>030841BA2AB6D3C7589576105D4B3031</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>EAB121E496A44A1105C7D7A67970077E</string>
-			</array>
-			<key>isa</key>
-			<string>PBXFrameworksBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>04361CD8BB2B29EEDE434F0253A82E09</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>CDC414DA9832C28C747B7DEB5ABFFC65</string>
-				<string>468F42EE447C8B8619ACFFC84EC13F23</string>
-				<string>04D779956F6C81A78EC37D4819FA32C5</string>
-				<string>D9AEB7F459E804D11CA2699E783824B4</string>
-				<string>1A40774F06000564A63B965EEBE299A4</string>
-				<string>D669CC6D7C4CF0E3A1730B9638A6932E</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Support Files</string>
-			<key>path</key>
-			<string>../Target Support Files/KlaviyoSwift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>04D779956F6C81A78EC37D4819FA32C5</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>KlaviyoSwift.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0680306908C2908DC5B06D57A087456E</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>F1CAA4BB66D07A1549A8E0F3B8F41444</string>
-				<string>82C9EB1CE3B9F70D65B0913DD15BCC55</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Release</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>0A014C1A197C65985921DBDE2A891561</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>8C26A77F9439DBA804D0D95E2CD74CC6</string>
-				<string>306D8838F3E452CFB477ED86364AD8EF</string>
-				<string>BA115A61A9BA475AC2DB5B82C8C2C745</string>
-				<string>0C5BD688B562CDF27F0F28284952EFF5</string>
-				<string>A68A024D64D3DA50FF6565EE0B8263D6</string>
-				<string>4F09C5A66F436DCF32220B8DBE9095D6</string>
-				<string>B7D5B412FEF739B73A307465D974D30B</string>
-				<string>CAD879BB4AA5E1A0DB6C02701D455E74</string>
-				<string>E7C3773189C1EFCA88406BD7E3BF447F</string>
-				<string>67B5DE76C5B497F51DEB5E7F1BC97126</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Pods-KlaviyoSwift_Example</string>
-			<key>path</key>
-			<string>Target Support Files/Pods-KlaviyoSwift_Example</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0C5BD688B562CDF27F0F28284952EFF5</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-acknowledgements.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0E25847B94E3A695B47109026F32175D</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>E27278CD701D13920993FB3D0E99B2A4</string>
-			<key>buildPhases</key>
-			<array>
-				<string>82D4BA2ABD7DFD0F3E6C090ACB60E4C8</string>
-				<string>030841BA2AB6D3C7589576105D4B3031</string>
-				<string>B8B28F1AE242F4ACA1D1ACFB96BEAE93</string>
-				<string>7D304808B2126A4F8287A4CA87D22FF2</string>
-			</array>
-			<key>buildRules</key>
-			<array/>
-			<key>dependencies</key>
-			<array>
-				<string>B70D1A02C650D7EBAA6006FA4011D6D8</string>
-			</array>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>KlaviyoSwift</string>
-			<key>productName</key>
-			<string>KlaviyoSwift</string>
-			<key>productReference</key>
-			<string>1A516CA3B62B69E27F6AEDD46EB1B846</string>
-			<key>productType</key>
-			<string>com.apple.product-type.framework</string>
-		</dict>
-		<key>10B57D6B765143A5651E54561463390E</key>
-		<dict>
-			<key>fileRef</key>
-			<string>2D3B0CCDF21DE637209BFD0864D8B672</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>11DAA85150B22DDE5E0DFFFFA3C9480C</key>
-		<dict>
-			<key>fileRef</key>
-			<string>CAD879BB4AA5E1A0DB6C02701D455E74</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>1225BA32E645A7D848C9929FD2A5C7AD</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>7D4ECB6BE7748C21C52C0FDAFC7E57CB</string>
-				<string>80BB722A8F19A4C693F888541EDA5B11</string>
-				<string>B8E4DD0D2604E16927C9416A3F716928</string>
-				<string>7546E147EA5A0605A6A5104776091307</string>
-				<string>2D3B0CCDF21DE637209BFD0864D8B672</string>
-				<string>D465BC7A78A6797125B2929D91DD1425</string>
-				<string>E5F409C70474D2BC0DDEF2B0FC1B7D54</string>
-				<string>E3A77332EE305E357CF6159FF409C9E5</string>
-				<string>82386BBBD33ABD43A48CE5AD9283F0F5</string>
-				<string>C9ECFFCDAE7C6F7678CC05E7536A2B27</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Pods-KlaviyoSwift_Tests</string>
-			<key>path</key>
-			<string>Target Support Files/Pods-KlaviyoSwift_Tests</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>139A4ADF8DE1C7318AA85AF4586296B5</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>EF4D37FCE3D7C59CD6722AAF8EB0D320</string>
-				<string>1A516CA3B62B69E27F6AEDD46EB1B846</string>
-				<string>EE91C650E2D4D0434F0F4E1E8EDF5B5F</string>
-				<string>E3A977066423BEF755180ADD5098F24A</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Products</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>1A40774F06000564A63B965EEBE299A4</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>KlaviyoSwift-prefix.pch</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>1A516CA3B62B69E27F6AEDD46EB1B846</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>wrapper.framework</string>
-			<key>includeInIndex</key>
-			<string>0</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>name</key>
-			<string>KlaviyoSwift.framework</string>
-			<key>path</key>
-			<string>KlaviyoSwift.framework</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>1FE27FB37C9049181EA587D8BBC9A051</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>96A9A19551266F54BEBE24C24C652EE5</string>
-			</array>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>2C3BF4E18BE85E97444C193B701CE5FC</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>0A014C1A197C65985921DBDE2A891561</string>
-				<string>1225BA32E645A7D848C9929FD2A5C7AD</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Targets Support Files</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>2C8880C7C33A8BD000848F9E1684CD65</key>
-		<dict>
-			<key>containerPortal</key>
-			<string>D41D8CD98F00B204E9800998ECF8427E</string>
-			<key>isa</key>
-			<string>PBXContainerItemProxy</string>
-			<key>proxyType</key>
-			<string>1</string>
-			<key>remoteGlobalIDString</key>
-			<string>0E25847B94E3A695B47109026F32175D</string>
-			<key>remoteInfo</key>
-			<string>KlaviyoSwift</string>
-		</dict>
-		<key>2D3B0CCDF21DE637209BFD0864D8B672</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.objc</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-dummy.m</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>2D8E8EC45A3A1A1D94AE762CB5028504</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>A70CDAD61F90AC503C7D04CC22DA2923</string>
-				<string>FB45FFD90572718D82AB9092B750F0CA</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Release</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>306D8838F3E452CFB477ED86364AD8EF</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example.modulemap</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>336926DEEC04126FF376D4FF4987045F</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>C9ECFFCDAE7C6F7678CC05E7536A2B27</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MACH_O_TYPE</key>
-				<string>staticlib</string>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>NO</string>
-				<key>OTHER_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_LIBTOOLFLAGS</key>
-				<string></string>
-				<key>PODS_ROOT</key>
-				<string>$(SRCROOT)</string>
-				<key>PRODUCT_NAME</key>
-				<string>Pods_KlaviyoSwift_Tests</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Release</string>
-		</dict>
-		<key>3D0AFD1BD988E7324BC905CB03181C1E</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXTargetDependency</string>
-			<key>name</key>
-			<string>KlaviyoSwift</string>
-			<key>target</key>
-			<string>0E25847B94E3A695B47109026F32175D</string>
-			<key>targetProxy</key>
-			<string>2C8880C7C33A8BD000848F9E1684CD65</string>
-		</dict>
-		<key>3E4E89230EF59BC255123B67864ACF77</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>wrapper.framework</string>
-			<key>name</key>
-			<string>Foundation.framework</string>
-			<key>path</key>
-			<string>Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.sdk/System/Library/Frameworks/Foundation.framework</string>
-			<key>sourceTree</key>
-			<string>DEVELOPER_DIR</string>
-		</dict>
-		<key>3F8FD3668D176786DB84390177DD76EA</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>E7C3773189C1EFCA88406BD7E3BF447F</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Example/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MACH_O_TYPE</key>
-				<string>staticlib</string>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>YES</string>
-				<key>OTHER_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_LIBTOOLFLAGS</key>
-				<string></string>
-				<key>PODS_ROOT</key>
-				<string>$(SRCROOT)</string>
-				<key>PRODUCT_NAME</key>
-				<string>Pods_KlaviyoSwift_Example</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>SWIFT_OPTIMIZATION_LEVEL</key>
-				<string>-Onone</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Debug</string>
-		</dict>
-		<key>468F42EE447C8B8619ACFFC84EC13F23</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>path</key>
-			<string>KlaviyoSwift.modulemap</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>493AFD57AA8921CD07AB0E9419947D3A</key>
-		<dict>
-			<key>fileRef</key>
-			<string>D669CC6D7C4CF0E3A1730B9638A6932E</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>493B84388E724530148E4378AD09B272</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.swift</string>
-			<key>name</key>
-			<string>ReachabilitySwift.swift</string>
-			<key>path</key>
-			<string>Pod/Classes/ReachabilitySwift.swift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>4D2E23D493D239463C78B2BCCA09215F</key>
-		<dict>
-			<key>fileRef</key>
-			<string>D9AEB7F459E804D11CA2699E783824B4</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>4D4DE591AA98D2D1F8D23BE1F9C21852</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>B03B8033FF06FA1CAE4F0189F4AE54C0</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Pods</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>4F09C5A66F436DCF32220B8DBE9095D6</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.script.sh</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-frameworks.sh</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>5B8BF351BFA2576AED9694F61E8735B7</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>82386BBBD33ABD43A48CE5AD9283F0F5</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MACH_O_TYPE</key>
-				<string>staticlib</string>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>YES</string>
-				<key>OTHER_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_LIBTOOLFLAGS</key>
-				<string></string>
-				<key>PODS_ROOT</key>
-				<string>$(SRCROOT)</string>
-				<key>PRODUCT_NAME</key>
-				<string>Pods_KlaviyoSwift_Tests</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>SWIFT_OPTIMIZATION_LEVEL</key>
-				<string>-Onone</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Debug</string>
-		</dict>
-		<key>67B5DE76C5B497F51DEB5E7F1BC97126</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example.release.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>68EBC0CE53DB91176CEB85C0F980FBA5</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>ED73FA66AC99140807ED81C660C8D738</string>
-			</array>
-			<key>isa</key>
-			<string>PBXFrameworksBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>7546E147EA5A0605A6A5104776091307</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-acknowledgements.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>7712072B7AADCF4932B2FD34E1DEE81B</key>
-		<dict>
-			<key>containerPortal</key>
-			<string>D41D8CD98F00B204E9800998ECF8427E</string>
-			<key>isa</key>
-			<string>PBXContainerItemProxy</string>
-			<key>proxyType</key>
-			<string>1</string>
-			<key>remoteGlobalIDString</key>
-			<string>B4C9AAC707A2063F5BAC6C7D8D894224</string>
-			<key>remoteInfo</key>
-			<string>KlaviyoSwift-KlaviyoSwift</string>
-		</dict>
-		<key>7D304808B2126A4F8287A4CA87D22FF2</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>493AFD57AA8921CD07AB0E9419947D3A</string>
-			</array>
-			<key>isa</key>
-			<string>PBXHeadersBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>7D4ECB6BE7748C21C52C0FDAFC7E57CB</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Info.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>7D95F0247B4A17B915A5144C61D86966</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>3F8FD3668D176786DB84390177DD76EA</string>
-				<string>D8F0FAD9D4C0D62D0915D278AAECA5E5</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Release</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>7DB346D0F39D3F0E887471402A8071AB</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>BA6428E9F66FD5A23C0A2E06ED26CD2F</string>
-				<string>BC3CA7F9E30CC8F7E2DD044DD34432FC</string>
-				<string>4D4DE591AA98D2D1F8D23BE1F9C21852</string>
-				<string>139A4ADF8DE1C7318AA85AF4586296B5</string>
-				<string>2C3BF4E18BE85E97444C193B701CE5FC</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>80BB722A8F19A4C693F888541EDA5B11</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests.modulemap</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>82386BBBD33ABD43A48CE5AD9283F0F5</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests.debug.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>82C9EB1CE3B9F70D65B0913DD15BCC55</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>04D779956F6C81A78EC37D4819FA32C5</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>PRODUCT_NAME</key>
-				<string>KlaviyoSwift</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>WRAPPER_EXTENSION</key>
-				<string>bundle</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Release</string>
-		</dict>
-		<key>82D4BA2ABD7DFD0F3E6C090ACB60E4C8</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>EA4FCD18CA75A8604B183EAB595323FB</string>
-				<string>4D2E23D493D239463C78B2BCCA09215F</string>
-				<string>DF6D4826AF139E70A242F8CAD9384A3F</string>
-			</array>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>84E863CB78C239D1B8AC22D6692A719E</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>5B8BF351BFA2576AED9694F61E8735B7</string>
-				<string>336926DEEC04126FF376D4FF4987045F</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Release</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>8898B1B1F91DABE9308442E9FCB15122</key>
-		<dict>
-			<key>fileRef</key>
-			<string>3E4E89230EF59BC255123B67864ACF77</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>88CDE9D424ECD9D8549AA67FFE6D1D77</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>04D779956F6C81A78EC37D4819FA32C5</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>GCC_PREFIX_HEADER</key>
-				<string>Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/KlaviyoSwift/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>YES</string>
-				<key>PRODUCT_NAME</key>
-				<string>KlaviyoSwift</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>SWIFT_OPTIMIZATION_LEVEL</key>
-				<string>-Onone</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Debug</string>
-		</dict>
-		<key>89990F5D99FADB351976BAE77CF27029</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXFrameworksBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>8C26A77F9439DBA804D0D95E2CD74CC6</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Info.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>96A9A19551266F54BEBE24C24C652EE5</key>
-		<dict>
-			<key>fileRef</key>
-			<string>A68A024D64D3DA50FF6565EE0B8263D6</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>977EB58E76BB0206E816A0006A020234</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>7D95F0247B4A17B915A5144C61D86966</string>
-			<key>buildPhases</key>
-			<array>
-				<string>1FE27FB37C9049181EA587D8BBC9A051</string>
-				<string>68EBC0CE53DB91176CEB85C0F980FBA5</string>
-				<string>F3484FF9022AC34B51902A81C210F85B</string>
-			</array>
-			<key>buildRules</key>
-			<array/>
-			<key>dependencies</key>
-			<array>
-				<string>BC0A792F8F4CDEBFA3BADEF77C8BB455</string>
-			</array>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>Pods-KlaviyoSwift_Example</string>
-			<key>productName</key>
-			<string>Pods-KlaviyoSwift_Example</string>
-			<key>productReference</key>
-			<string>EE91C650E2D4D0434F0F4E1E8EDF5B5F</string>
-			<key>productType</key>
-			<string>com.apple.product-type.framework</string>
-		</dict>
-		<key>9D58A409167AB571C7986DEA35A0CA34</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXResourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>A68A024D64D3DA50FF6565EE0B8263D6</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.objc</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-dummy.m</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>A70CDAD61F90AC503C7D04CC22DA2923</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>ALWAYS_SEARCH_USER_PATHS</key>
-				<string>NO</string>
-				<key>CLANG_CXX_LANGUAGE_STANDARD</key>
-				<string>gnu++0x</string>
-				<key>CLANG_CXX_LIBRARY</key>
-				<string>libc++</string>
-				<key>CLANG_ENABLE_MODULES</key>
-				<string>YES</string>
-				<key>CLANG_ENABLE_OBJC_ARC</key>
-				<string>YES</string>
-				<key>CLANG_WARN_BOOL_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_CONSTANT_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_DIRECT_OBJC_ISA_USAGE</key>
-				<string>YES</string>
-				<key>CLANG_WARN_EMPTY_BODY</key>
-				<string>YES</string>
-				<key>CLANG_WARN_ENUM_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_INT_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_OBJC_ROOT_CLASS</key>
-				<string>YES</string>
-				<key>CLANG_WARN_UNREACHABLE_CODE</key>
-				<string>YES</string>
-				<key>CLANG_WARN__DUPLICATE_METHOD_MATCH</key>
-				<string>YES</string>
-				<key>COPY_PHASE_STRIP</key>
-				<string>NO</string>
-				<key>GCC_C_LANGUAGE_STANDARD</key>
-				<string>gnu99</string>
-				<key>GCC_DYNAMIC_NO_PIC</key>
-				<string>NO</string>
-				<key>GCC_OPTIMIZATION_LEVEL</key>
-				<string>0</string>
-				<key>GCC_PREPROCESSOR_DEFINITIONS</key>
-				<array>
-					<string>DEBUG=1</string>
-					<string>$(inherited)</string>
-				</array>
-				<key>GCC_SYMBOLS_PRIVATE_EXTERN</key>
-				<string>NO</string>
-				<key>GCC_WARN_64_TO_32_BIT_CONVERSION</key>
-				<string>YES</string>
-				<key>GCC_WARN_ABOUT_RETURN_TYPE</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNDECLARED_SELECTOR</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNINITIALIZED_AUTOS</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNUSED_FUNCTION</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNUSED_VARIABLE</key>
-				<string>YES</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>ONLY_ACTIVE_ARCH</key>
-				<string>YES</string>
-				<key>STRIP_INSTALLED_PRODUCT</key>
-				<string>NO</string>
-				<key>SYMROOT</key>
-				<string>${SRCROOT}/../build</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Debug</string>
-		</dict>
-		<key>B03B8033FF06FA1CAE4F0189F4AE54C0</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>C2A027FFA01EC4A0FB3F4603262EB383</string>
-				<string>493B84388E724530148E4378AD09B272</string>
-				<string>04361CD8BB2B29EEDE434F0253A82E09</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>KlaviyoSwift</string>
-			<key>path</key>
-			<string>KlaviyoSwift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>B07F04933F8705C9673A0F3FB3618025</key>
-		<dict>
-			<key>containerPortal</key>
-			<string>D41D8CD98F00B204E9800998ECF8427E</string>
-			<key>isa</key>
-			<string>PBXContainerItemProxy</string>
-			<key>proxyType</key>
-			<string>1</string>
-			<key>remoteGlobalIDString</key>
-			<string>0E25847B94E3A695B47109026F32175D</string>
-			<key>remoteInfo</key>
-			<string>KlaviyoSwift</string>
-		</dict>
-		<key>B499A26BB3AC4FEC9CE95674FD56BE05</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>84E863CB78C239D1B8AC22D6692A719E</string>
-			<key>buildPhases</key>
-			<array>
-				<string>D4145A035AB1EB20A0DFB577CFC69250</string>
-				<string>CF6F21F8A1D0CD21A87C9C5B990004B7</string>
-				<string>D41E790A4713F09506D5B85C456D639B</string>
-			</array>
-			<key>buildRules</key>
-			<array/>
-			<key>dependencies</key>
-			<array>
-				<string>3D0AFD1BD988E7324BC905CB03181C1E</string>
-			</array>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>Pods-KlaviyoSwift_Tests</string>
-			<key>productName</key>
-			<string>Pods-KlaviyoSwift_Tests</string>
-			<key>productReference</key>
-			<string>E3A977066423BEF755180ADD5098F24A</string>
-			<key>productType</key>
-			<string>com.apple.product-type.framework</string>
-		</dict>
-		<key>B4C9AAC707A2063F5BAC6C7D8D894224</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>0680306908C2908DC5B06D57A087456E</string>
-			<key>buildPhases</key>
-			<array>
-				<string>E6990147ACBB8FBF1F1CF89A61C3ED0C</string>
-				<string>89990F5D99FADB351976BAE77CF27029</string>
-				<string>9D58A409167AB571C7986DEA35A0CA34</string>
-			</array>
-			<key>buildRules</key>
-			<array/>
-			<key>dependencies</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>KlaviyoSwift-KlaviyoSwift</string>
-			<key>productName</key>
-			<string>KlaviyoSwift-KlaviyoSwift</string>
-			<key>productReference</key>
-			<string>EF4D37FCE3D7C59CD6722AAF8EB0D320</string>
-			<key>productType</key>
-			<string>com.apple.product-type.bundle</string>
-		</dict>
-		<key>B70D1A02C650D7EBAA6006FA4011D6D8</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXTargetDependency</string>
-			<key>name</key>
-			<string>KlaviyoSwift-KlaviyoSwift</string>
-			<key>target</key>
-			<string>B4C9AAC707A2063F5BAC6C7D8D894224</string>
-			<key>targetProxy</key>
-			<string>7712072B7AADCF4932B2FD34E1DEE81B</string>
-		</dict>
-		<key>B7D5B412FEF739B73A307465D974D30B</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.script.sh</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-resources.sh</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>B8B28F1AE242F4ACA1D1ACFB96BEAE93</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>BECF867D2B8B1E981CEF15A6ADDBA4F9</string>
-			</array>
-			<key>isa</key>
-			<string>PBXResourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>B8E4DD0D2604E16927C9416A3F716928</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-acknowledgements.markdown</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>BA115A61A9BA475AC2DB5B82C8C2C745</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-acknowledgements.markdown</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>BA6428E9F66FD5A23C0A2E06ED26CD2F</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text</string>
-			<key>name</key>
-			<string>Podfile</string>
-			<key>path</key>
-			<string>../Podfile</string>
-			<key>sourceTree</key>
-			<string>SOURCE_ROOT</string>
-			<key>xcLanguageSpecificationIdentifier</key>
-			<string>xcode.lang.ruby</string>
-		</dict>
-		<key>BC0A792F8F4CDEBFA3BADEF77C8BB455</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXTargetDependency</string>
-			<key>name</key>
-			<string>KlaviyoSwift</string>
-			<key>target</key>
-			<string>0E25847B94E3A695B47109026F32175D</string>
-			<key>targetProxy</key>
-			<string>B07F04933F8705C9673A0F3FB3618025</string>
-		</dict>
-		<key>BC3CA7F9E30CC8F7E2DD044DD34432FC</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>BF6342C8B29F4CEEA088EFF7AB4DE362</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Frameworks</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>BECF867D2B8B1E981CEF15A6ADDBA4F9</key>
-		<dict>
-			<key>fileRef</key>
-			<string>EF4D37FCE3D7C59CD6722AAF8EB0D320</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>BF6342C8B29F4CEEA088EFF7AB4DE362</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>3E4E89230EF59BC255123B67864ACF77</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>iOS</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>C2A027FFA01EC4A0FB3F4603262EB383</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.swift</string>
-			<key>name</key>
-			<string>Klaviyo.swift</string>
-			<key>path</key>
-			<string>Pod/Classes/Klaviyo.swift</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>C9ECFFCDAE7C6F7678CC05E7536A2B27</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests.release.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>CAD879BB4AA5E1A0DB6C02701D455E74</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example-umbrella.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>CDC414DA9832C28C747B7DEB5ABFFC65</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.plist.xml</string>
-			<key>path</key>
-			<string>Info.plist</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>CF6F21F8A1D0CD21A87C9C5B990004B7</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>8898B1B1F91DABE9308442E9FCB15122</string>
-			</array>
-			<key>isa</key>
-			<string>PBXFrameworksBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>D4145A035AB1EB20A0DFB577CFC69250</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>10B57D6B765143A5651E54561463390E</string>
-			</array>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>D41D8CD98F00B204E9800998ECF8427E</key>
-		<dict>
-			<key>attributes</key>
-			<dict>
-				<key>LastSwiftUpdateCheck</key>
-				<string>0700</string>
-				<key>LastUpgradeCheck</key>
-				<string>0700</string>
-			</dict>
-			<key>buildConfigurationList</key>
-			<string>2D8E8EC45A3A1A1D94AE762CB5028504</string>
-			<key>compatibilityVersion</key>
-			<string>Xcode 3.2</string>
-			<key>developmentRegion</key>
-			<string>English</string>
-			<key>hasScannedForEncodings</key>
-			<string>0</string>
-			<key>isa</key>
-			<string>PBXProject</string>
-			<key>knownRegions</key>
-			<array>
-				<string>en</string>
-			</array>
-			<key>mainGroup</key>
-			<string>7DB346D0F39D3F0E887471402A8071AB</string>
-			<key>productRefGroup</key>
-			<string>139A4ADF8DE1C7318AA85AF4586296B5</string>
-			<key>projectDirPath</key>
-			<string></string>
-			<key>projectReferences</key>
-			<array/>
-			<key>projectRoot</key>
-			<string></string>
-			<key>targets</key>
-			<array>
-				<string>0E25847B94E3A695B47109026F32175D</string>
-				<string>B4C9AAC707A2063F5BAC6C7D8D894224</string>
-				<string>977EB58E76BB0206E816A0006A020234</string>
-				<string>B499A26BB3AC4FEC9CE95674FD56BE05</string>
-			</array>
-		</dict>
-		<key>D41E790A4713F09506D5B85C456D639B</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>E87DFA9F7CA80259CAE83F849489E0F2</string>
-			</array>
-			<key>isa</key>
-			<string>PBXHeadersBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>D465BC7A78A6797125B2929D91DD1425</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.script.sh</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-frameworks.sh</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>D669CC6D7C4CF0E3A1730B9638A6932E</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>KlaviyoSwift-umbrella.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>D8F0FAD9D4C0D62D0915D278AAECA5E5</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>67B5DE76C5B497F51DEB5E7F1BC97126</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Example/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MACH_O_TYPE</key>
-				<string>staticlib</string>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>NO</string>
-				<key>OTHER_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_LIBTOOLFLAGS</key>
-				<string></string>
-				<key>PODS_ROOT</key>
-				<string>$(SRCROOT)</string>
-				<key>PRODUCT_NAME</key>
-				<string>Pods_KlaviyoSwift_Example</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Release</string>
-		</dict>
-		<key>D9AEB7F459E804D11CA2699E783824B4</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.objc</string>
-			<key>path</key>
-			<string>KlaviyoSwift-dummy.m</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>DF6D4826AF139E70A242F8CAD9384A3F</key>
-		<dict>
-			<key>fileRef</key>
-			<string>493B84388E724530148E4378AD09B272</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>E237D8BA6AB5EA9F871AC205D3DF4C78</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>04D779956F6C81A78EC37D4819FA32C5</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>CODE_SIGN_IDENTITY[sdk=iphoneos*]</key>
-				<string>iPhone Developer</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>DEFINES_MODULE</key>
-				<string>YES</string>
-				<key>DYLIB_COMPATIBILITY_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_CURRENT_VERSION</key>
-				<string>1</string>
-				<key>DYLIB_INSTALL_NAME_BASE</key>
-				<string>@rpath</string>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>GCC_PREFIX_HEADER</key>
-				<string>Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Target Support Files/KlaviyoSwift/Info.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>$(LOCAL_LIBRARY_DIR)/Frameworks</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>LD_RUNPATH_SEARCH_PATHS</key>
-				<array>
-					<string>$(inherited)</string>
-					<string>@executable_path/Frameworks</string>
-					<string>@loader_path/Frameworks</string>
-				</array>
-				<key>MODULEMAP_FILE</key>
-				<string>Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap</string>
-				<key>MTL_ENABLE_DEBUG_INFO</key>
-				<string>NO</string>
-				<key>PRODUCT_NAME</key>
-				<string>KlaviyoSwift</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>TARGETED_DEVICE_FAMILY</key>
-				<string>1,2</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>VERSION_INFO_PREFIX</key>
-				<string></string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Release</string>
-		</dict>
-		<key>E27278CD701D13920993FB3D0E99B2A4</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>88CDE9D424ECD9D8549AA67FFE6D1D77</string>
-				<string>E237D8BA6AB5EA9F871AC205D3DF4C78</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Release</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>E3A77332EE305E357CF6159FF409C9E5</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-umbrella.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>E3A977066423BEF755180ADD5098F24A</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>wrapper.framework</string>
-			<key>includeInIndex</key>
-			<string>0</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>name</key>
-			<string>Pods_KlaviyoSwift_Tests.framework</string>
-			<key>path</key>
-			<string>Pods_KlaviyoSwift_Tests.framework</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>E5F409C70474D2BC0DDEF2B0FC1B7D54</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.script.sh</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Tests-resources.sh</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>E6990147ACBB8FBF1F1CF89A61C3ED0C</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>E7C3773189C1EFCA88406BD7E3BF447F</key>
-		<dict>
-			<key>includeInIndex</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>text.xcconfig</string>
-			<key>path</key>
-			<string>Pods-KlaviyoSwift_Example.debug.xcconfig</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>E87DFA9F7CA80259CAE83F849489E0F2</key>
-		<dict>
-			<key>fileRef</key>
-			<string>E3A77332EE305E357CF6159FF409C9E5</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>EA4FCD18CA75A8604B183EAB595323FB</key>
-		<dict>
-			<key>fileRef</key>
-			<string>C2A027FFA01EC4A0FB3F4603262EB383</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>EAB121E496A44A1105C7D7A67970077E</key>
-		<dict>
-			<key>fileRef</key>
-			<string>3E4E89230EF59BC255123B67864ACF77</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>ED73FA66AC99140807ED81C660C8D738</key>
-		<dict>
-			<key>fileRef</key>
-			<string>3E4E89230EF59BC255123B67864ACF77</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>EE91C650E2D4D0434F0F4E1E8EDF5B5F</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>wrapper.framework</string>
-			<key>includeInIndex</key>
-			<string>0</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>name</key>
-			<string>Pods_KlaviyoSwift_Example.framework</string>
-			<key>path</key>
-			<string>Pods_KlaviyoSwift_Example.framework</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>EF4D37FCE3D7C59CD6722AAF8EB0D320</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>wrapper.cfbundle</string>
-			<key>includeInIndex</key>
-			<string>0</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>name</key>
-			<string>KlaviyoSwift.bundle</string>
-			<key>path</key>
-			<string>KlaviyoSwift.bundle</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>F1CAA4BB66D07A1549A8E0F3B8F41444</key>
-		<dict>
-			<key>baseConfigurationReference</key>
-			<string>04D779956F6C81A78EC37D4819FA32C5</string>
-			<key>buildSettings</key>
-			<dict>
-				<key>ENABLE_STRICT_OBJC_MSGSEND</key>
-				<string>YES</string>
-				<key>PRODUCT_NAME</key>
-				<string>KlaviyoSwift</string>
-				<key>SDKROOT</key>
-				<string>iphoneos</string>
-				<key>SKIP_INSTALL</key>
-				<string>YES</string>
-				<key>WRAPPER_EXTENSION</key>
-				<string>bundle</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Debug</string>
-		</dict>
-		<key>F3484FF9022AC34B51902A81C210F85B</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>11DAA85150B22DDE5E0DFFFFA3C9480C</string>
-			</array>
-			<key>isa</key>
-			<string>PBXHeadersBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>FB45FFD90572718D82AB9092B750F0CA</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>ALWAYS_SEARCH_USER_PATHS</key>
-				<string>NO</string>
-				<key>CLANG_CXX_LANGUAGE_STANDARD</key>
-				<string>gnu++0x</string>
-				<key>CLANG_CXX_LIBRARY</key>
-				<string>libc++</string>
-				<key>CLANG_ENABLE_MODULES</key>
-				<string>YES</string>
-				<key>CLANG_ENABLE_OBJC_ARC</key>
-				<string>YES</string>
-				<key>CLANG_WARN_BOOL_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_CONSTANT_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_DIRECT_OBJC_ISA_USAGE</key>
-				<string>YES</string>
-				<key>CLANG_WARN_EMPTY_BODY</key>
-				<string>YES</string>
-				<key>CLANG_WARN_ENUM_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_INT_CONVERSION</key>
-				<string>YES</string>
-				<key>CLANG_WARN_OBJC_ROOT_CLASS</key>
-				<string>YES</string>
-				<key>CLANG_WARN_UNREACHABLE_CODE</key>
-				<string>YES</string>
-				<key>CLANG_WARN__DUPLICATE_METHOD_MATCH</key>
-				<string>YES</string>
-				<key>COPY_PHASE_STRIP</key>
-				<string>YES</string>
-				<key>ENABLE_NS_ASSERTIONS</key>
-				<string>NO</string>
-				<key>GCC_C_LANGUAGE_STANDARD</key>
-				<string>gnu99</string>
-				<key>GCC_PREPROCESSOR_DEFINITIONS</key>
-				<array>
-					<string>RELEASE=1</string>
-				</array>
-				<key>GCC_WARN_64_TO_32_BIT_CONVERSION</key>
-				<string>YES</string>
-				<key>GCC_WARN_ABOUT_RETURN_TYPE</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNDECLARED_SELECTOR</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNINITIALIZED_AUTOS</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNUSED_FUNCTION</key>
-				<string>YES</string>
-				<key>GCC_WARN_UNUSED_VARIABLE</key>
-				<string>YES</string>
-				<key>IPHONEOS_DEPLOYMENT_TARGET</key>
-				<string>8.0</string>
-				<key>STRIP_INSTALLED_PRODUCT</key>
-				<string>NO</string>
-				<key>SYMROOT</key>
-				<string>${SRCROOT}/../build</string>
-				<key>VALIDATE_PRODUCT</key>
-				<string>YES</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Release</string>
-		</dict>
-	</dict>
-	<key>rootObject</key>
-	<string>D41D8CD98F00B204E9800998ECF8427E</string>
-</dict>
-</plist>
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10B57D6B765143A5651E54561463390E /* Pods-KlaviyoSwift_Tests-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 2D3B0CCDF21DE637209BFD0864D8B672 /* Pods-KlaviyoSwift_Tests-dummy.m */; };
+		11DAA85150B22DDE5E0DFFFFA3C9480C /* Pods-KlaviyoSwift_Example-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = CAD879BB4AA5E1A0DB6C02701D455E74 /* Pods-KlaviyoSwift_Example-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		493AFD57AA8921CD07AB0E9419947D3A /* KlaviyoSwift-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D669CC6D7C4CF0E3A1730B9638A6932E /* KlaviyoSwift-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D2E23D493D239463C78B2BCCA09215F /* KlaviyoSwift-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = D9AEB7F459E804D11CA2699E783824B4 /* KlaviyoSwift-dummy.m */; };
+		8898B1B1F91DABE9308442E9FCB15122 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E4E89230EF59BC255123B67864ACF77 /* Foundation.framework */; };
+		96A9A19551266F54BEBE24C24C652EE5 /* Pods-KlaviyoSwift_Example-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = A68A024D64D3DA50FF6565EE0B8263D6 /* Pods-KlaviyoSwift_Example-dummy.m */; };
+		BECF867D2B8B1E981CEF15A6ADDBA4F9 /* KlaviyoSwift.bundle in Resources */ = {isa = PBXBuildFile; fileRef = EF4D37FCE3D7C59CD6722AAF8EB0D320 /* KlaviyoSwift.bundle */; };
+		DF6D4826AF139E70A242F8CAD9384A3F /* ReachabilitySwift.swift in Sources */ = {isa = PBXBuildFile; fileRef = 493B84388E724530148E4378AD09B272 /* ReachabilitySwift.swift */; };
+		E87DFA9F7CA80259CAE83F849489E0F2 /* Pods-KlaviyoSwift_Tests-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A77332EE305E357CF6159FF409C9E5 /* Pods-KlaviyoSwift_Tests-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EA4FCD18CA75A8604B183EAB595323FB /* Klaviyo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A027FFA01EC4A0FB3F4603262EB383 /* Klaviyo.swift */; };
+		EAB121E496A44A1105C7D7A67970077E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E4E89230EF59BC255123B67864ACF77 /* Foundation.framework */; };
+		ED73FA66AC99140807ED81C660C8D738 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E4E89230EF59BC255123B67864ACF77 /* Foundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2C8880C7C33A8BD000848F9E1684CD65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0E25847B94E3A695B47109026F32175D;
+			remoteInfo = KlaviyoSwift;
+		};
+		7712072B7AADCF4932B2FD34E1DEE81B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B4C9AAC707A2063F5BAC6C7D8D894224;
+			remoteInfo = "KlaviyoSwift-KlaviyoSwift";
+		};
+		B07F04933F8705C9673A0F3FB3618025 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0E25847B94E3A695B47109026F32175D;
+			remoteInfo = KlaviyoSwift;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = KlaviyoSwift.xcconfig; sourceTree = "<group>"; };
+		0C5BD688B562CDF27F0F28284952EFF5 /* Pods-KlaviyoSwift_Example-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-KlaviyoSwift_Example-acknowledgements.plist"; sourceTree = "<group>"; };
+		1A40774F06000564A63B965EEBE299A4 /* KlaviyoSwift-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "KlaviyoSwift-prefix.pch"; sourceTree = "<group>"; };
+		1A516CA3B62B69E27F6AEDD46EB1B846 /* KlaviyoSwift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KlaviyoSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D3B0CCDF21DE637209BFD0864D8B672 /* Pods-KlaviyoSwift_Tests-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-KlaviyoSwift_Tests-dummy.m"; sourceTree = "<group>"; };
+		306D8838F3E452CFB477ED86364AD8EF /* Pods-KlaviyoSwift_Example.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = "Pods-KlaviyoSwift_Example.modulemap"; sourceTree = "<group>"; };
+		3E4E89230EF59BC255123B67864ACF77 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		468F42EE447C8B8619ACFFC84EC13F23 /* KlaviyoSwift.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = KlaviyoSwift.modulemap; sourceTree = "<group>"; };
+		493B84388E724530148E4378AD09B272 /* ReachabilitySwift.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReachabilitySwift.swift; path = Pod/Classes/ReachabilitySwift.swift; sourceTree = "<group>"; };
+		4F09C5A66F436DCF32220B8DBE9095D6 /* Pods-KlaviyoSwift_Example-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Example-frameworks.sh"; sourceTree = "<group>"; };
+		67B5DE76C5B497F51DEB5E7F1BC97126 /* Pods-KlaviyoSwift_Example.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Example.release.xcconfig"; sourceTree = "<group>"; };
+		7546E147EA5A0605A6A5104776091307 /* Pods-KlaviyoSwift_Tests-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-KlaviyoSwift_Tests-acknowledgements.plist"; sourceTree = "<group>"; };
+		7D4ECB6BE7748C21C52C0FDAFC7E57CB /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		80BB722A8F19A4C693F888541EDA5B11 /* Pods-KlaviyoSwift_Tests.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "sourcecode.module-map"; path = "Pods-KlaviyoSwift_Tests.modulemap"; sourceTree = "<group>"; };
+		82386BBBD33ABD43A48CE5AD9283F0F5 /* Pods-KlaviyoSwift_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Tests.debug.xcconfig"; sourceTree = "<group>"; };
+		8C26A77F9439DBA804D0D95E2CD74CC6 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A68A024D64D3DA50FF6565EE0B8263D6 /* Pods-KlaviyoSwift_Example-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-KlaviyoSwift_Example-dummy.m"; sourceTree = "<group>"; };
+		B7D5B412FEF739B73A307465D974D30B /* Pods-KlaviyoSwift_Example-resources.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Example-resources.sh"; sourceTree = "<group>"; };
+		B8E4DD0D2604E16927C9416A3F716928 /* Pods-KlaviyoSwift_Tests-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-KlaviyoSwift_Tests-acknowledgements.markdown"; sourceTree = "<group>"; };
+		BA115A61A9BA475AC2DB5B82C8C2C745 /* Pods-KlaviyoSwift_Example-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-KlaviyoSwift_Example-acknowledgements.markdown"; sourceTree = "<group>"; };
+		BA6428E9F66FD5A23C0A2E06ED26CD2F /* Podfile */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
+		C2A027FFA01EC4A0FB3F4603262EB383 /* Klaviyo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Klaviyo.swift; path = Pod/Classes/Klaviyo.swift; sourceTree = "<group>"; };
+		C9ECFFCDAE7C6F7678CC05E7536A2B27 /* Pods-KlaviyoSwift_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Tests.release.xcconfig"; sourceTree = "<group>"; };
+		CAD879BB4AA5E1A0DB6C02701D455E74 /* Pods-KlaviyoSwift_Example-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-KlaviyoSwift_Example-umbrella.h"; sourceTree = "<group>"; };
+		CDC414DA9832C28C747B7DEB5ABFFC65 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D465BC7A78A6797125B2929D91DD1425 /* Pods-KlaviyoSwift_Tests-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Tests-frameworks.sh"; sourceTree = "<group>"; };
+		D669CC6D7C4CF0E3A1730B9638A6932E /* KlaviyoSwift-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "KlaviyoSwift-umbrella.h"; sourceTree = "<group>"; };
+		D9AEB7F459E804D11CA2699E783824B4 /* KlaviyoSwift-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "KlaviyoSwift-dummy.m"; sourceTree = "<group>"; };
+		E3A77332EE305E357CF6159FF409C9E5 /* Pods-KlaviyoSwift_Tests-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-KlaviyoSwift_Tests-umbrella.h"; sourceTree = "<group>"; };
+		E3A977066423BEF755180ADD5098F24A /* Pods_KlaviyoSwift_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_KlaviyoSwift_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5F409C70474D2BC0DDEF2B0FC1B7D54 /* Pods-KlaviyoSwift_Tests-resources.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-KlaviyoSwift_Tests-resources.sh"; sourceTree = "<group>"; };
+		E7C3773189C1EFCA88406BD7E3BF447F /* Pods-KlaviyoSwift_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-KlaviyoSwift_Example.debug.xcconfig"; sourceTree = "<group>"; };
+		EE91C650E2D4D0434F0F4E1E8EDF5B5F /* Pods_KlaviyoSwift_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_KlaviyoSwift_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF4D37FCE3D7C59CD6722AAF8EB0D320 /* KlaviyoSwift.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KlaviyoSwift.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		030841BA2AB6D3C7589576105D4B3031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EAB121E496A44A1105C7D7A67970077E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		68EBC0CE53DB91176CEB85C0F980FBA5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ED73FA66AC99140807ED81C660C8D738 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		89990F5D99FADB351976BAE77CF27029 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CF6F21F8A1D0CD21A87C9C5B990004B7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8898B1B1F91DABE9308442E9FCB15122 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		04361CD8BB2B29EEDE434F0253A82E09 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				CDC414DA9832C28C747B7DEB5ABFFC65 /* Info.plist */,
+				468F42EE447C8B8619ACFFC84EC13F23 /* KlaviyoSwift.modulemap */,
+				04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */,
+				D9AEB7F459E804D11CA2699E783824B4 /* KlaviyoSwift-dummy.m */,
+				1A40774F06000564A63B965EEBE299A4 /* KlaviyoSwift-prefix.pch */,
+				D669CC6D7C4CF0E3A1730B9638A6932E /* KlaviyoSwift-umbrella.h */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/KlaviyoSwift";
+			sourceTree = "<group>";
+		};
+		0A014C1A197C65985921DBDE2A891561 /* Pods-KlaviyoSwift_Example */ = {
+			isa = PBXGroup;
+			children = (
+				8C26A77F9439DBA804D0D95E2CD74CC6 /* Info.plist */,
+				306D8838F3E452CFB477ED86364AD8EF /* Pods-KlaviyoSwift_Example.modulemap */,
+				BA115A61A9BA475AC2DB5B82C8C2C745 /* Pods-KlaviyoSwift_Example-acknowledgements.markdown */,
+				0C5BD688B562CDF27F0F28284952EFF5 /* Pods-KlaviyoSwift_Example-acknowledgements.plist */,
+				A68A024D64D3DA50FF6565EE0B8263D6 /* Pods-KlaviyoSwift_Example-dummy.m */,
+				4F09C5A66F436DCF32220B8DBE9095D6 /* Pods-KlaviyoSwift_Example-frameworks.sh */,
+				B7D5B412FEF739B73A307465D974D30B /* Pods-KlaviyoSwift_Example-resources.sh */,
+				CAD879BB4AA5E1A0DB6C02701D455E74 /* Pods-KlaviyoSwift_Example-umbrella.h */,
+				E7C3773189C1EFCA88406BD7E3BF447F /* Pods-KlaviyoSwift_Example.debug.xcconfig */,
+				67B5DE76C5B497F51DEB5E7F1BC97126 /* Pods-KlaviyoSwift_Example.release.xcconfig */,
+			);
+			name = "Pods-KlaviyoSwift_Example";
+			path = "Target Support Files/Pods-KlaviyoSwift_Example";
+			sourceTree = "<group>";
+		};
+		1225BA32E645A7D848C9929FD2A5C7AD /* Pods-KlaviyoSwift_Tests */ = {
+			isa = PBXGroup;
+			children = (
+				7D4ECB6BE7748C21C52C0FDAFC7E57CB /* Info.plist */,
+				80BB722A8F19A4C693F888541EDA5B11 /* Pods-KlaviyoSwift_Tests.modulemap */,
+				B8E4DD0D2604E16927C9416A3F716928 /* Pods-KlaviyoSwift_Tests-acknowledgements.markdown */,
+				7546E147EA5A0605A6A5104776091307 /* Pods-KlaviyoSwift_Tests-acknowledgements.plist */,
+				2D3B0CCDF21DE637209BFD0864D8B672 /* Pods-KlaviyoSwift_Tests-dummy.m */,
+				D465BC7A78A6797125B2929D91DD1425 /* Pods-KlaviyoSwift_Tests-frameworks.sh */,
+				E5F409C70474D2BC0DDEF2B0FC1B7D54 /* Pods-KlaviyoSwift_Tests-resources.sh */,
+				E3A77332EE305E357CF6159FF409C9E5 /* Pods-KlaviyoSwift_Tests-umbrella.h */,
+				82386BBBD33ABD43A48CE5AD9283F0F5 /* Pods-KlaviyoSwift_Tests.debug.xcconfig */,
+				C9ECFFCDAE7C6F7678CC05E7536A2B27 /* Pods-KlaviyoSwift_Tests.release.xcconfig */,
+			);
+			name = "Pods-KlaviyoSwift_Tests";
+			path = "Target Support Files/Pods-KlaviyoSwift_Tests";
+			sourceTree = "<group>";
+		};
+		139A4ADF8DE1C7318AA85AF4586296B5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EF4D37FCE3D7C59CD6722AAF8EB0D320 /* KlaviyoSwift.bundle */,
+				1A516CA3B62B69E27F6AEDD46EB1B846 /* KlaviyoSwift.framework */,
+				EE91C650E2D4D0434F0F4E1E8EDF5B5F /* Pods_KlaviyoSwift_Example.framework */,
+				E3A977066423BEF755180ADD5098F24A /* Pods_KlaviyoSwift_Tests.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2C3BF4E18BE85E97444C193B701CE5FC /* Targets Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				0A014C1A197C65985921DBDE2A891561 /* Pods-KlaviyoSwift_Example */,
+				1225BA32E645A7D848C9929FD2A5C7AD /* Pods-KlaviyoSwift_Tests */,
+			);
+			name = "Targets Support Files";
+			sourceTree = "<group>";
+		};
+		4D4DE591AA98D2D1F8D23BE1F9C21852 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				B03B8033FF06FA1CAE4F0189F4AE54C0 /* KlaviyoSwift */,
+			);
+			name = Pods;
+			sourceTree = "<group>";
+		};
+		7DB346D0F39D3F0E887471402A8071AB = {
+			isa = PBXGroup;
+			children = (
+				BA6428E9F66FD5A23C0A2E06ED26CD2F /* Podfile */,
+				BC3CA7F9E30CC8F7E2DD044DD34432FC /* Frameworks */,
+				4D4DE591AA98D2D1F8D23BE1F9C21852 /* Pods */,
+				139A4ADF8DE1C7318AA85AF4586296B5 /* Products */,
+				2C3BF4E18BE85E97444C193B701CE5FC /* Targets Support Files */,
+			);
+			sourceTree = "<group>";
+		};
+		B03B8033FF06FA1CAE4F0189F4AE54C0 /* KlaviyoSwift */ = {
+			isa = PBXGroup;
+			children = (
+				C2A027FFA01EC4A0FB3F4603262EB383 /* Klaviyo.swift */,
+				493B84388E724530148E4378AD09B272 /* ReachabilitySwift.swift */,
+				04361CD8BB2B29EEDE434F0253A82E09 /* Support Files */,
+			);
+			path = KlaviyoSwift;
+			sourceTree = "<group>";
+		};
+		BC3CA7F9E30CC8F7E2DD044DD34432FC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BF6342C8B29F4CEEA088EFF7AB4DE362 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BF6342C8B29F4CEEA088EFF7AB4DE362 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				3E4E89230EF59BC255123B67864ACF77 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7D304808B2126A4F8287A4CA87D22FF2 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				493AFD57AA8921CD07AB0E9419947D3A /* KlaviyoSwift-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D41E790A4713F09506D5B85C456D639B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E87DFA9F7CA80259CAE83F849489E0F2 /* Pods-KlaviyoSwift_Tests-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3484FF9022AC34B51902A81C210F85B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11DAA85150B22DDE5E0DFFFFA3C9480C /* Pods-KlaviyoSwift_Example-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0E25847B94E3A695B47109026F32175D /* KlaviyoSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E27278CD701D13920993FB3D0E99B2A4 /* Build configuration list for PBXNativeTarget "KlaviyoSwift" */;
+			buildPhases = (
+				82D4BA2ABD7DFD0F3E6C090ACB60E4C8 /* Sources */,
+				030841BA2AB6D3C7589576105D4B3031 /* Frameworks */,
+				B8B28F1AE242F4ACA1D1ACFB96BEAE93 /* Resources */,
+				7D304808B2126A4F8287A4CA87D22FF2 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B70D1A02C650D7EBAA6006FA4011D6D8 /* PBXTargetDependency */,
+			);
+			name = KlaviyoSwift;
+			productName = KlaviyoSwift;
+			productReference = 1A516CA3B62B69E27F6AEDD46EB1B846 /* KlaviyoSwift.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		977EB58E76BB0206E816A0006A020234 /* Pods-KlaviyoSwift_Example */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7D95F0247B4A17B915A5144C61D86966 /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Example" */;
+			buildPhases = (
+				1FE27FB37C9049181EA587D8BBC9A051 /* Sources */,
+				68EBC0CE53DB91176CEB85C0F980FBA5 /* Frameworks */,
+				F3484FF9022AC34B51902A81C210F85B /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BC0A792F8F4CDEBFA3BADEF77C8BB455 /* PBXTargetDependency */,
+			);
+			name = "Pods-KlaviyoSwift_Example";
+			productName = "Pods-KlaviyoSwift_Example";
+			productReference = EE91C650E2D4D0434F0F4E1E8EDF5B5F /* Pods_KlaviyoSwift_Example.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		B499A26BB3AC4FEC9CE95674FD56BE05 /* Pods-KlaviyoSwift_Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 84E863CB78C239D1B8AC22D6692A719E /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Tests" */;
+			buildPhases = (
+				D4145A035AB1EB20A0DFB577CFC69250 /* Sources */,
+				CF6F21F8A1D0CD21A87C9C5B990004B7 /* Frameworks */,
+				D41E790A4713F09506D5B85C456D639B /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3D0AFD1BD988E7324BC905CB03181C1E /* PBXTargetDependency */,
+			);
+			name = "Pods-KlaviyoSwift_Tests";
+			productName = "Pods-KlaviyoSwift_Tests";
+			productReference = E3A977066423BEF755180ADD5098F24A /* Pods_KlaviyoSwift_Tests.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		B4C9AAC707A2063F5BAC6C7D8D894224 /* KlaviyoSwift-KlaviyoSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0680306908C2908DC5B06D57A087456E /* Build configuration list for PBXNativeTarget "KlaviyoSwift-KlaviyoSwift" */;
+			buildPhases = (
+				E6990147ACBB8FBF1F1CF89A61C3ED0C /* Sources */,
+				89990F5D99FADB351976BAE77CF27029 /* Frameworks */,
+				9D58A409167AB571C7986DEA35A0CA34 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "KlaviyoSwift-KlaviyoSwift";
+			productName = "KlaviyoSwift-KlaviyoSwift";
+			productReference = EF4D37FCE3D7C59CD6722AAF8EB0D320 /* KlaviyoSwift.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D41D8CD98F00B204E9800998ECF8427E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 0700;
+				LastUpgradeCheck = 0700;
+			};
+			buildConfigurationList = 2D8E8EC45A3A1A1D94AE762CB5028504 /* Build configuration list for PBXProject "Pods" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 7DB346D0F39D3F0E887471402A8071AB;
+			productRefGroup = 139A4ADF8DE1C7318AA85AF4586296B5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0E25847B94E3A695B47109026F32175D /* KlaviyoSwift */,
+				B4C9AAC707A2063F5BAC6C7D8D894224 /* KlaviyoSwift-KlaviyoSwift */,
+				977EB58E76BB0206E816A0006A020234 /* Pods-KlaviyoSwift_Example */,
+				B499A26BB3AC4FEC9CE95674FD56BE05 /* Pods-KlaviyoSwift_Tests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9D58A409167AB571C7986DEA35A0CA34 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B8B28F1AE242F4ACA1D1ACFB96BEAE93 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BECF867D2B8B1E981CEF15A6ADDBA4F9 /* KlaviyoSwift.bundle in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1FE27FB37C9049181EA587D8BBC9A051 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				96A9A19551266F54BEBE24C24C652EE5 /* Pods-KlaviyoSwift_Example-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		82D4BA2ABD7DFD0F3E6C090ACB60E4C8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA4FCD18CA75A8604B183EAB595323FB /* Klaviyo.swift in Sources */,
+				4D2E23D493D239463C78B2BCCA09215F /* KlaviyoSwift-dummy.m in Sources */,
+				DF6D4826AF139E70A242F8CAD9384A3F /* ReachabilitySwift.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4145A035AB1EB20A0DFB577CFC69250 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10B57D6B765143A5651E54561463390E /* Pods-KlaviyoSwift_Tests-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6990147ACBB8FBF1F1CF89A61C3ED0C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3D0AFD1BD988E7324BC905CB03181C1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KlaviyoSwift;
+			target = 0E25847B94E3A695B47109026F32175D /* KlaviyoSwift */;
+			targetProxy = 2C8880C7C33A8BD000848F9E1684CD65 /* PBXContainerItemProxy */;
+		};
+		B70D1A02C650D7EBAA6006FA4011D6D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "KlaviyoSwift-KlaviyoSwift";
+			target = B4C9AAC707A2063F5BAC6C7D8D894224 /* KlaviyoSwift-KlaviyoSwift */;
+			targetProxy = 7712072B7AADCF4932B2FD34E1DEE81B /* PBXContainerItemProxy */;
+		};
+		BC0A792F8F4CDEBFA3BADEF77C8BB455 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KlaviyoSwift;
+			target = 0E25847B94E3A695B47109026F32175D /* KlaviyoSwift */;
+			targetProxy = B07F04933F8705C9673A0F3FB3618025 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		336926DEEC04126FF376D4FF4987045F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C9ECFFCDAE7C6F7678CC05E7536A2B27 /* Pods-KlaviyoSwift_Tests.release.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Tests;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		3F8FD3668D176786DB84390177DD76EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E7C3773189C1EFCA88406BD7E3BF447F /* Pods-KlaviyoSwift_Example.debug.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Example;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		5B8BF351BFA2576AED9694F61E8735B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 82386BBBD33ABD43A48CE5AD9283F0F5 /* Pods-KlaviyoSwift_Tests.debug.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Tests/Pods-KlaviyoSwift_Tests.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Tests;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		82C9EB1CE3B9F70D65B0913DD15BCC55 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+		88CDE9D424ECD9D8549AA67FFE6D1D77 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		A70CDAD61F90AC503C7D04CC22DA2923 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				ONLY_ACTIVE_ARCH = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		D8F0FAD9D4C0D62D0915D278AAECA5E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 67B5DE76C5B497F51DEB5E7F1BC97126 /* Pods-KlaviyoSwift_Example.release.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				INFOPLIST_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-KlaviyoSwift_Example/Pods-KlaviyoSwift_Example.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_NAME = Pods_KlaviyoSwift_Example;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		E237D8BA6AB5EA9F871AC205D3DF4C78 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		F1CAA4BB66D07A1549A8E0F3B8F41444 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D779956F6C81A78EC37D4819FA32C5 /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		FB45FFD90572718D82AB9092B750F0CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = "RELEASE=1";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYMROOT = "${SRCROOT}/../build";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0680306908C2908DC5B06D57A087456E /* Build configuration list for PBXNativeTarget "KlaviyoSwift-KlaviyoSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F1CAA4BB66D07A1549A8E0F3B8F41444 /* Debug */,
+				82C9EB1CE3B9F70D65B0913DD15BCC55 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2D8E8EC45A3A1A1D94AE762CB5028504 /* Build configuration list for PBXProject "Pods" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A70CDAD61F90AC503C7D04CC22DA2923 /* Debug */,
+				FB45FFD90572718D82AB9092B750F0CA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7D95F0247B4A17B915A5144C61D86966 /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Example" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3F8FD3668D176786DB84390177DD76EA /* Debug */,
+				D8F0FAD9D4C0D62D0915D278AAECA5E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		84E863CB78C239D1B8AC22D6692A719E /* Build configuration list for PBXNativeTarget "Pods-KlaviyoSwift_Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B8BF351BFA2576AED9694F61E8735B7 /* Debug */,
+				336926DEEC04126FF376D4FF4987045F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E27278CD701D13920993FB3D0E99B2A4 /* Build configuration list for PBXNativeTarget "KlaviyoSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				88CDE9D424ECD9D8549AA67FFE6D1D77 /* Debug */,
+				E237D8BA6AB5EA9F871AC205D3DF4C78 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D41D8CD98F00B204E9800998ECF8427E /* Project object */;
+}
