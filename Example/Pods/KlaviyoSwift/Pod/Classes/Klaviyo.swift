@@ -350,7 +350,7 @@ public class Klaviyo : NSObject {
      - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
      - Returns: Void
      */
-    private func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
+    func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
         var propertiesDictionary = propDictionary
         if propertiesDictionary == nil {
             propertiesDictionary = NSMutableDictionary()
