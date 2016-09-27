@@ -8,17 +8,13 @@ class Tests: XCTestCase {
     // this is called after each invocation of the test method
     override func setUp() {
         super.setUp()
-        Klaviyo.setupWithPublicAPIKey("wbg7GT")
+        Klaviyo.setupWithPublicAPIKey(apiKey: "wbg7GT")
         klaviyo = Klaviyo.sharedInstance
     }
     
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
-    }
-    
-    func testExample() {
-        XCTAssert(true, "Pass")
     }
     
     func testAPIKeyExists() {
@@ -33,16 +29,20 @@ class Tests: XCTestCase {
     
     // Verify that 'identify' is called on app launch with the anonymous payload
     func testAnonymousUserIdentifiedOnAppLaunch() {
-    
+        let customerProperties = klaviyo.updatePropertiesDictionary(propDictionary: nil)
+        XCTAssertNotNil(customerProperties[klaviyo.CustomerPropertiesIDDictKey], "anonymous ID should not be nil")
+        let anonString = customerProperties[klaviyo.CustomerPropertiesIDDictKey] as? String
+        XCTAssertNotNil(anonString, "anonymous ID should be a string")
+        XCTAssertEqual(anonString!, klaviyo.iOSIDString, "anonymous ID should equal iOS String")
     }
     
     func testUserEmailIsSaved() {
         // save the user's email address
         let testEmail = "testemail@klaviyo.com"
-        klaviyo.setUpUserEmail(testEmail)
+        klaviyo.setUpUserEmail(userEmail: testEmail)
         
         // grab the cleaned payload when no further info is provided (i.e. a user tracks an event without customer data)
-        let dict = klaviyo.updatePropertiesDictionary(nil)
+        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
         let email = dict[klaviyo.KLPersonEmailDictKey] as? String
         
         // verify the email is included even if not provided at the trackEvent level
@@ -53,10 +53,10 @@ class Tests: XCTestCase {
     // If a user passes in an email, that should get used in the payload and should override the saved address
     func testSetupEmailIsOverridden() {
         let testEmail = "testemail@klaviyo.com"
-        klaviyo.setUpUserEmail(testEmail)
+        klaviyo.setUpUserEmail(userEmail: testEmail)
         let newEmail = "mynewemail@klaviyo.com"
         let overrideDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: newEmail]
-        let payload = klaviyo.updatePropertiesDictionary(overrideDict)
+        let payload = klaviyo.updatePropertiesDictionary(propDictionary: overrideDict)
         let payloadEmail = payload[klaviyo.KLPersonEmailDictKey] as? String
 
         XCTAssertNotNil(payloadEmail, "email should not be nil")
@@ -65,11 +65,12 @@ class Tests: XCTestCase {
         
     }
     
+
     // Verify that '$anonymous' payload exists within any and all payloads and persists between calls to track
     func testAnonymousKey() {
-        let dict = klaviyo.updatePropertiesDictionary(nil)
+        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
         let emailDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: "testemail@gmail.com"]
-        let nonAnonymous = klaviyo.updatePropertiesDictionary(emailDict)
+        let nonAnonymous = klaviyo.updatePropertiesDictionary(propDictionary: emailDict)
         let anonymous2 = nonAnonymous[klaviyo.CustomerPropertiesIDDictKey] as? String
         let anonymous = dict[klaviyo.CustomerPropertiesIDDictKey] as? String
         XCTAssertNotNil(anonymous, "Anonymous key should always exist in an unknown payload")
@@ -79,7 +80,7 @@ class Tests: XCTestCase {
     
     // Push tokens should be nil if user does not have push enabled
     func testPushNotificationOff() {
-        let isRegisteredForPush = UIApplication.sharedApplication().isRegisteredForRemoteNotifications()
+        let isRegisteredForPush = UIApplication.shared.isRegisteredForRemoteNotifications
 
         if !isRegisteredForPush {
             let apn = klaviyo.apnDeviceToken
@@ -93,7 +94,7 @@ class Tests: XCTestCase {
     // This is the code format for implementing performance tests
     func testPerformanceExample() {
         // This is an example of a performance test case.
-        self.measureBlock() {
+        self.measure() {
             // Put the code you want to measure the time of here.
         }
     }

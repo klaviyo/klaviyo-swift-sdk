@@ -18,7 +18,7 @@ class Cart {
     /*
     Returns the quantity of a given item in the cart
     */
-    func numberOfItemsInBasket(menuItem: MenuItem)->Int {
+    func numberOfItemsInBasket(_ menuItem: MenuItem)->Int {
         var numberOfItems = 0
         
         for item in cartItems {
@@ -32,7 +32,7 @@ class Cart {
     
     // Check standard defaults to see what is in the cart
     func initializeCart() {
-        if let items = NSUserDefaults.standardUserDefaults().objectForKey("cartItems") as? [String] {
+        if let items = UserDefaults.standard.object(forKey: "cartItems") as? [String] {
             for name in items {
                 switch name {
                 case "Fish & Chips": cartItems.append(MenuItem(name: name, description: "Lightly battered & fried fresh cod and freshly cooked fries", imageURL: "battered_fish.jpg", price: 10.99, id: 1))
@@ -71,15 +71,15 @@ class Cart {
         for item in cartItems {
             cartStrings.append(item.name)
         }
-        let defaults = NSUserDefaults.standardUserDefaults()
-        defaults.setObject(cartStrings, forKey: "cartItems")
+        let defaults = UserDefaults.standard
+        defaults.set(cartStrings, forKey: "cartItems")
     }
     
-    func removeItem(itemToRemove : MenuItem) {
+    func removeItem(_ itemToRemove : MenuItem) {
         var index = 0
         for item in cartItems {
             if item.name == itemToRemove.name {
-                cartItems.removeAtIndex(index)
+                cartItems.remove(at: index)
                 return
             }
             index += 1
@@ -94,7 +94,7 @@ class Cart {
         for item in cartItems {
             numberOfItemsInCart[item.name] = (numberOfItemsInCart[item.name] ?? 0) + 1
         }
-        return numberOfItemsInCart
+        return numberOfItemsInCart as NSDictionary
     }
     
     func createUniqueArray()->[MenuItem: Int] {
