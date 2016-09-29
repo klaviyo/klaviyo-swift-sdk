@@ -97,7 +97,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        if error.code == 3010 {
+        if error._code == 3010 {
             print("push notifications are not supported in the iOS simulator")
         }else {
             print("application:didFailToRegisterForRemoteNotificationsWithError: \(error)")

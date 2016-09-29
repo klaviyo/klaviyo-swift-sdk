@@ -426,8 +426,8 @@ open class Klaviyo : NSObject {
         }
         
         for (k, _) in properties! {
-            assert((properties![k as! NSCopying]! as AnyObject).isKind(of: NSString) || (properties![k as! NSCopying]! as AnyObject).isKind(of: NSNumber) || (properties![k as! NSCopying]! as AnyObject).isKind(of: NSNull) || (properties![k as! NSCopying]! as AnyObject).isKind(of: NSArray) || (properties![k as! NSCopying]! as AnyObject).isKind(of: NSDictionary)
-                || (properties![k as! NSCopying]! as AnyObject).isKind(of: Date) || properties![k as! NSCopying]!.isKind(of: URL)
+            assert((properties![k as! NSCopying]! as AnyObject) is NSString || (properties![k as! NSCopying]! as AnyObject) is NSNumber || (properties![k as! NSCopying]! as AnyObject) is NSNull || (properties![k as! NSCopying]! as AnyObject) is NSArray || (properties![k as! NSCopying]! as AnyObject) is NSDictionary
+                || (properties![k as! NSCopying]! as AnyObject) is Date || properties![k as! NSCopying]! is URL
                 , "Property values must be of NSString, NSNumber, NSNull, NSDictionary, NSDate, or NSURL. Got: \(properties![k as! NSCopying])")
         }
     }
@@ -440,7 +440,7 @@ open class Klaviyo : NSObject {
         notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(_:)), name: NSNotification.Name.UIApplicationDidBecomeActive, object: nil)
         notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(_:)), name: NSNotification.Name.UIApplicationDidEnterBackground, object: nil)
         notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: NSNotification.Name.UIApplicationWillTerminate, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(_:)), name: NSNotification.Name(rawValue: ReachabilityChangedNotification) , object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(_:)), name: ReachabilityChangedNotification, object: nil)
     }
     
     /**
@@ -460,7 +460,7 @@ open class Klaviyo : NSObject {
         notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationDidBecomeActive.rawValue)
         notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationDidEnterBackground.rawValue)
         notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationWillTerminate.rawValue)
-        notificationCenter.removeObserver(self, forKeyPath: ReachabilityChangedNotification)
+        notificationCenter.removeObserver(self, forKeyPath: ReachabilityChangedNotification.rawValue)
     }
     
     func removeNotificationsObserver() {
@@ -471,7 +471,11 @@ open class Klaviyo : NSObject {
     func applicationDidBecomeActiveNotification(_ notification: Notification) {
         // clear all notification badges anytime the user opens the app
         UIApplication.shared.applicationIconBadgeNumber = 0
-        reachability?.startNotifier()
+        do {
+            try reachability?.startNotifier()
+        } catch {
+            // reachability errored
+        }
         
         // identify the user
         let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
@@ -750,12 +754,12 @@ open class Klaviyo : NSObject {
         }
         
         // Apple Documentation: "All objects need to be instances of NSString, NSNumber, NSArray, NSDictionary, or NSNull"
-        if (obj.isKind(of: NSString) || obj.isKind(of: NSNumber) || obj.isKind(of: NSNull)) {
+        if (obj is NSString || obj is NSNumber || obj is NSNull) {
             return obj
         }
         
         // recurse through collections and serialize each object
-        if obj.isKind(of: NSArray) {
+        if obj is NSArray {
             let a = NSMutableArray()
             let objects = obj as! NSArray
             for item in objects {
@@ -764,13 +768,13 @@ open class Klaviyo : NSObject {
             return a as NSArray
         }
         
-        if obj.isKind(of: NSDictionary) {
+        if obj is NSDictionary {
             let dict = NSMutableDictionary()
             let objects = obj as! NSDictionary
             
             for key in objects.keyEnumerator() {
                 var stringKey : NSString?
-                if !((key as AnyObject).isKind(of: NSString)) {
+                if !((key as AnyObject) is NSString) {
                     stringKey = (key as AnyObject).description as NSString?
                     print("warning: property keys should be strings. got: \(stringKey)")
                 } else {
@@ -784,12 +788,11 @@ open class Klaviyo : NSObject {
             return dict
         }
         
-        if(obj.isKind(of: Date)) {
+        if obj is Date {
             return obj.timeIntervalSince1970 as AnyObject
         }
         
         let s = obj.description
-        print("Warning, the property values should be valid json types")
         return s as AnyObject
     }
     
