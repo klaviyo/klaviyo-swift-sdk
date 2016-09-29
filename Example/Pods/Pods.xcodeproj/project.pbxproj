@@ -355,6 +355,7 @@
 					B4C9AAC707A2063F5BAC6C7D8D894224 = {
 						LastSwiftMigration = 0800;
 					};
+
 				};
 			};
 			buildConfigurationList = 2D8E8EC45A3A1A1D94AE762CB5028504 /* Build configuration list for PBXProject "Pods" */;

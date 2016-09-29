@@ -64,8 +64,8 @@ class ViewController: UIViewController {
             }
             emailAddr = email
             userInfo[Klaviyo.sharedInstance.KLPersonEmailDictKey] = email
-            Klaviyo.sharedInstance.setUpUserEmail(email)
-            Klaviyo.sharedInstance.trackEvent("Opened klM App")
+            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App")
         }
         
         return true

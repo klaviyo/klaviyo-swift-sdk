@@ -138,7 +138,7 @@ open class Klaviyo : NSObject {
         
         // Create the queue
         serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue", attributes: [])
-        
+
         // Configure the URL Session
         let config = URLSessionConfiguration.default
         config.allowsCellularAccess = true
@@ -175,7 +175,7 @@ open class Klaviyo : NSObject {
         /* Identify the user in Klaviyo */
         let dictionary = NSMutableDictionary()
         dictionary[KLPersonEmailDictKey] = userEmail
-        trackPersonWithInfo(dictionary)
+        trackPersonWithInfo(personDictionary: dictionary)
     }
     
     
@@ -246,10 +246,10 @@ open class Klaviyo : NSObject {
         var eventName = event
         // Set default track name if none provided
         if (eventName == nil || eventName!.isEmpty) { eventName = "KL_Event" }
-        
+
         // Check both dictionaries
-        let customerPropertiesDict = updatePropertiesDictionary(customerProperties)
-        assertPropertyTypes(propertiesDict)
+        let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
+        assertPropertyTypes(properties: propertiesDict)
         
         self.serialQueue!.async(execute: {
             let event = NSMutableDictionary()
@@ -272,7 +272,9 @@ open class Klaviyo : NSObject {
             event[self.KLEventTrackCustomerPropetiesJSONKey] = customerPropertiesDict
             event[self.KLEventTrackingServiceKey] = service
             
-            if propertiesDict?.allKeys.count > 0 { event[self.KLEventTrackPropertiesJSONKey] = propertiesDict }
+            if propertiesDict != nil && (propertiesDict?.allKeys.count)! > 0 {
+                event[self.KLEventTrackPropertiesJSONKey] = propertiesDict
+            }
             
             if eventDate != nil { event[self.KLEventTrackTimeJSONKey] = eventDate }
             
@@ -314,8 +316,8 @@ open class Klaviyo : NSObject {
             return
         }
         // Update properties for JSON encoding
-        let personInfoDictionary = updatePropertiesDictionary(personDictionary)
-        assertPropertyTypes(personInfoDictionary)
+        let personInfoDictionary = updatePropertiesDictionary(propDictionary: personDictionary)
+        assertPropertyTypes(properties: personInfoDictionary)
         
         self.serialQueue!.async(execute: {
             let event = NSMutableDictionary()
@@ -359,7 +361,7 @@ open class Klaviyo : NSObject {
         if apnDeviceToken != nil {
             let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
             personInfoDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey: apnDeviceToken!]
-            trackPersonWithInfo(personInfoDictionary)
+            trackPersonWithInfo(personDictionary: personInfoDictionary)
         }
     }
     
@@ -371,6 +373,7 @@ open class Klaviyo : NSObject {
      - Returns: Void
      */
     fileprivate func updatePropertiesDictionary(_ propDictionary: NSDictionary?)->NSDictionary {
+
         var propertiesDictionary = propDictionary
         if propertiesDictionary == nil {
             propertiesDictionary = NSMutableDictionary()
@@ -404,6 +407,7 @@ open class Klaviyo : NSObject {
         // Set the user's timezone: Note if the customer exists this will override their current profile
         // Alternatively, could create a customer mobile timezone property instead using a different key
         let timezone = TimeZone.autoupdatingCurrent.identifier
+
         returnDictionary[KLTimezone] = timezone
         
         // If push notifications are used, append them
@@ -479,7 +483,7 @@ open class Klaviyo : NSObject {
         
         // identify the user
         let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
-        trackPersonWithInfo(dict)
+        trackPersonWithInfo(personDictionary: dict)
     }
     
     func applicationDidEnterBackgroundNotification(_ notification: Notification){
@@ -632,12 +636,12 @@ open class Klaviyo : NSObject {
             let i = item as! NSDictionary
             
             //Encode the parameters
-            let requestParamData = encodeAPIParamData(i)
+            let requestParamData = encodeAPIParamData(dict: i)
             let param = "data=\(requestParamData)"
             
             //Construct the API Request
-            let request = apiRequestWithEndpoint(endpoint, param: param)
-            updateNetworkActivityIndicator(true)
+            let request = apiRequestWithEndpoint(endpoint: endpoint, param: param)
+            updateNetworkActivityIndicator(on: true)
             
             //Execute
             let task : URLSessionDataTask = urlSession!.dataTask(with: request, completionHandler: { (data, response, error) -> Void in
@@ -652,7 +656,7 @@ open class Klaviyo : NSObject {
                         queue.remove(i)
                     }
                     if queue.count == 0 {
-                        self.updateNetworkActivityIndicator(false)
+                        self.updateNetworkActivityIndicator(on: false)
                     }
                 })
             })
@@ -671,7 +675,7 @@ open class Klaviyo : NSObject {
         let urlString = KlaviyoServerURLString+endpoint+"?"+param
         let url = URL(string: urlString)
         
-        let request = NSMutableURLRequest(url: url!)
+        let request = NSMutableURLRequest(url: url! as URL)
         request.setValue("gzip", forHTTPHeaderField: "Accept-Encoding")
         request.httpMethod = "GET"
         
@@ -717,8 +721,7 @@ open class Klaviyo : NSObject {
      - Returns: NSData representation of the object
      */
     fileprivate func JSONSerializeObject(_ obj : AnyObject)-> Data? {
-        
-        let coercedobj = JSONSerializableObjectForObject(obj)
+        let coercedobj = JSONSerializableObjectForObject(obj: obj)
         var error : NSError? = nil
         var data : Data? = nil
         
@@ -764,6 +767,7 @@ open class Klaviyo : NSObject {
             let objects = obj as! NSArray
             for item in objects {
                 a.add(JSONSerializableObjectForObject(item as AnyObject))
+
             }
             return a as NSArray
         }
@@ -775,13 +779,13 @@ open class Klaviyo : NSObject {
             for key in objects.keyEnumerator() {
                 var stringKey : NSString?
                 if !((key as AnyObject) is NSString) {
+
                     stringKey = (key as AnyObject).description as NSString?
                     print("warning: property keys should be strings. got: \(stringKey)")
                 } else {
                     stringKey = NSString(string: key as! NSString)
                 }
                 if stringKey != nil {
-                    let v : AnyObject = JSONSerializableObjectForObject(objects[stringKey!]! as AnyObject)
                     dict[stringKey!] = v
                 }
             }
@@ -794,6 +798,7 @@ open class Klaviyo : NSObject {
         
         let s = obj.description
         return s as AnyObject
+
     }
     
 }

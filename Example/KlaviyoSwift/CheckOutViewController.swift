@@ -64,7 +64,7 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         }
         
         propertiesDictionary["Items Purchased"] = itemsPurchasedArray
-        Klaviyo.sharedInstance.trackEvent("Checkout Completed", properties: propertiesDictionary)
+        Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Completed", properties: propertiesDictionary)
         
         // Trigger thank you modal view
         let alertController = UIAlertController(title: "Thank You!", message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.", preferredStyle: UIAlertControllerStyle.alert)

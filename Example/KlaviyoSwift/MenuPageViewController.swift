@@ -61,7 +61,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
             emailLabel.isHidden = false
             emailLabel.text = email!
             
-            Klaviyo.sharedInstance.setUpUserEmail(email!)
+            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email!)
         }
         
         if cart.cartItems.count == 0 {
@@ -95,9 +95,9 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     func setKLAppOpenEvent() {
         if let validEmail = email {
-            Klaviyo.sharedInstance.setUpUserEmail(validEmail)
+            Klaviyo.sharedInstance.setUpUserEmail(userEmail: validEmail)
         }
-        Klaviyo.sharedInstance.trackEvent("Opened klM App")
+        Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App")
     }
     
     func saveCartItems(_ notification: Notification) {
@@ -117,7 +117,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
             propertiesDictionary["Items in Cart"] = itemsPurchasedArray
             
             //Checkout Started.. but no placed order #
-            Klaviyo.sharedInstance.trackEvent("Abandoned Cart", properties: propertiesDictionary)
+            Klaviyo.sharedInstance.trackEvent(eventName: "Abandoned Cart", properties: propertiesDictionary)
         }
     }
     
@@ -129,7 +129,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
             let emailTextField = alertController.textFields![0] as UITextField
             self.email = emailTextField.text
             if let validEmail = self.email {
-                Klaviyo.sharedInstance.setUpUserEmail(validEmail)
+                Klaviyo.sharedInstance.setUpUserEmail(userEmail: validEmail)
                 self.emailLabel.text = "Email: \(validEmail)"
             }
         }
@@ -278,7 +278,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
             let vc = segue.destination as! CheckOutViewController
             vc.cart = cart
             //Trigger checkout event
-            Klaviyo.sharedInstance.trackEvent("Checkout Started")
+            Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Started")
         }
     }
     

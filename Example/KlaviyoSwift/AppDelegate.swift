@@ -29,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let mainStoryboard = UIStoryboard(name: "Main", bundle: nil)
         
         
-        Klaviyo.setupWithPublicAPIKey("magpcN")
+        Klaviyo.setupWithPublicAPIKey(apiKey: "magpcN")
         
         if zip == nil && email == nil {
             // show login page
@@ -41,21 +41,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             menuVC.email = email
             menuVC.zip = zip
             if let unwrappedEmail = email {
-                Klaviyo.sharedInstance.setUpUserEmail(unwrappedEmail)
+                Klaviyo.sharedInstance.setUpUserEmail(userEmail: unwrappedEmail)
             }
             self.window?.rootViewController = menuVC
             self.window?.makeKeyAndVisible()
         }
         
         // Set up  Klaviyo
-        Klaviyo.sharedInstance.trackEvent("Opened kLM App")
+        Klaviyo.sharedInstance.trackEvent(eventName: "Opened kLM App")
 
         // Push Notification for Swift 2.0
         let settings = UIUserNotificationSettings(types: [.alert,.badge,.sound], categories: nil)
         application.registerUserNotificationSettings(settings)
         application.registerForRemoteNotifications()
-
-        
         
         return true
     }
@@ -89,11 +87,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     */
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // Register APN Key
-        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken)
+        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken as NSData)
     }
     
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) {
-        // Handle the notification
+        // Handle the notification∫
+        // handlepush
+        _ = userInfo as NSDictionary // userInfo as NSDictionary
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
