@@ -24,15 +24,15 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         uniqueItemsArray = cart.createCartItemsSet()
         
         //Hide unused cells
-        let tblfooter = UIView(frame: CGRectZero)
+        let tblfooter = UIView(frame: CGRect.zero)
         tableview.tableFooterView = tblfooter
-        tableview.tableFooterView?.hidden = true
-        tableview.backgroundColor = UIColor.clearColor()
+        tableview.tableFooterView?.isHidden = true
+        tableview.backgroundColor = UIColor.clear
         tableview.reloadData()
         
     }
     
-    override func viewWillAppear(animated: Bool) {
+    override func viewWillAppear(_ animated: Bool) {
         orderTotalLabel.text = "Order Total: \(cart.valueOfCart())"
     }
     override func didReceiveMemoryWarning() {
@@ -43,7 +43,7 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
     Check out button action
     Triggers checkout completed event & empties the cart
     */
-    @IBAction func checkOutButton(sender: UIButton) {
+    @IBAction func checkOutButton(_ sender: UIButton) {
         if cart.cartItems.count == 0 {return}
         
         // Empty the cartItems to 0 and save
@@ -55,7 +55,7 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         
         // Trigger "Checkout Completed" Event
         let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
-        propertiesDictionary[Klaviyo.sharedInstance.KLEventTrackPurchasePlatform] = "iOS \(UIDevice.currentDevice().systemVersion)"
+        propertiesDictionary[Klaviyo.sharedInstance.KLEventTrackPurchasePlatform] = "iOS \(UIDevice.current.systemVersion)"
         propertiesDictionary["Total Price"] = cartTotal
         
         var itemsPurchasedArray : [String] = [String]()
@@ -64,36 +64,36 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         }
         
         propertiesDictionary["Items Purchased"] = itemsPurchasedArray
-        Klaviyo.sharedInstance.trackEvent("Checkout Completed", properties: propertiesDictionary)
+        Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Completed", properties: propertiesDictionary)
         
         // Trigger thank you modal view
-        let alertController = UIAlertController(title: "Thank You!", message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.", preferredStyle: UIAlertControllerStyle.Alert)
-        let okAction = UIAlertAction(title: "OK", style: .Default, handler: { void in
+        let alertController = UIAlertController(title: "Thank You!", message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.", preferredStyle: UIAlertControllerStyle.alert)
+        let okAction = UIAlertAction(title: "OK", style: .default, handler: { void in
             //segue back to menu
-            self.performSegueWithIdentifier("checkoutMenuSegue", sender: self)
+            self.performSegue(withIdentifier: "checkoutMenuSegue", sender: self)
         })
         alertController.addAction(okAction)
-        self.presentViewController(alertController, animated: true, completion: nil)
+        self.present(alertController, animated: true, completion: nil)
     }
     
-    func numberOfItemsInBasket(menuItem: MenuItem)->Int {
+    func numberOfItemsInBasket(_ menuItem: MenuItem)->Int {
         // Iterate through the cart and increment the counter each time an instance appears
         var numberOfItems = 0
         
         for item in cart.cartItems {
             if item.name == menuItem.name {
-                numberOfItems++
+                numberOfItems += 1
             }
         }
         
         return numberOfItems
     }
     
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
     
-    @IBAction func removeItemButton(sender: AnyObject) {
+    @IBAction func removeItemButton(_ sender: AnyObject) {
         if cart.cartItems.count == 0 {return}
         let itemToRemove = uniqueItemsArray[sender.tag]
         if numberOfItemsInCart[itemToRemove] == 0 {return}
@@ -103,27 +103,27 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         tableview.reloadData()
     }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return uniqueItemsArray.count
     }
     
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        var cell : CheckOutTableViewCell? = tableView.dequeueReusableCellWithIdentifier("cell") as? CheckOutTableViewCell
+        var cell : CheckOutTableViewCell? = tableView.dequeueReusableCell(withIdentifier: "cell") as? CheckOutTableViewCell
         
         if cell == nil {
-            cell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: "cell") as? CheckOutTableViewCell
+            cell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "cell") as? CheckOutTableViewCell
         }
         
-        let menuItem = uniqueItemsArray[indexPath.row]
+        let menuItem = uniqueItemsArray[(indexPath as NSIndexPath).row]
         
-        cell?.selectionStyle = UITableViewCellSelectionStyle.None
+        cell?.selectionStyle = UITableViewCellSelectionStyle.none
         cell?.itemName.text = menuItem.name
         
         let currentImage = getCurrentImage(menuItem.name)
         cell?.itemImage.image = currentImage
         
-        cell?.removeItemButton.tag = indexPath.row
+        cell?.removeItemButton.tag = (indexPath as NSIndexPath).row
         let quantity = numberOfItemsInCart[menuItem]
         cell?.itemQuantity.text = "Quantitiy: \(quantity!)"
         let total = menuItem.price*Double(quantity!)
@@ -133,7 +133,7 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
     }
     
     
-    func getCurrentImage(itemName : String)->UIImage?{
+    func getCurrentImage(_ itemName : String)->UIImage?{
         switch itemName {
         case "Fish & Chips": return UIImage(named: "fish")
         case "Nicoise Salad": return UIImage(named: "salad")

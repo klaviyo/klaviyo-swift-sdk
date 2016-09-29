@@ -31,9 +31,9 @@ class ViewController: UIViewController {
         super.didReceiveMemoryWarning()
     }
     
-    @IBAction func login(sender: UIButton) {
+    @IBAction func login(_ sender: UIButton) {
         if checkForZipAndEmail() {
-            performSegueWithIdentifier("loginSegue", sender: sender)
+            performSegue(withIdentifier: "loginSegue", sender: sender)
         } else {
             showErrorMessage()
         }
@@ -52,36 +52,36 @@ class ViewController: UIViewController {
         if let zip = zipcodeTextField.text {
             userInfo[Klaviyo.sharedInstance.KLPersonZipDictKey] = zip
             zipCode = zip
-            if rememberMeSwitch.on == true {
-                NSUserDefaults.standardUserDefaults().setObject(zip, forKey: "zip")
+            if rememberMeSwitch.isOn == true {
+                UserDefaults.standard.set(zip, forKey: "zip")
             }
         }
         
         //Unwrap email textfield value and save it
         if let email = emailTextField.text {
-            if email.characters.count > 0 && rememberMeSwitch.on == true {
-                NSUserDefaults.standardUserDefaults().setObject(email, forKey: "email")
+            if email.characters.count > 0 && rememberMeSwitch.isOn == true {
+                UserDefaults.standard.set(email, forKey: "email")
             }
             emailAddr = email
             userInfo[Klaviyo.sharedInstance.KLPersonEmailDictKey] = email
-            Klaviyo.sharedInstance.setUpUserEmail(email)
-            Klaviyo.sharedInstance.trackEvent("Opened klM App")
+            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App")
         }
         
         return true
     }
     
     func showErrorMessage() {
-        let alertController = UIAlertController(title: "Oh No!", message: "Please enter a zipcode or email", preferredStyle: UIAlertControllerStyle.Alert)
-        let okAction = UIAlertAction(title: "OK", style: .Default, handler:nil)
+        let alertController = UIAlertController(title: "Oh No!", message: "Please enter a zipcode or email", preferredStyle: UIAlertControllerStyle.alert)
+        let okAction = UIAlertAction(title: "OK", style: .default, handler:nil)
         
         alertController.addAction(okAction)
-        self.presentViewController(alertController, animated: true, completion: nil)
+        self.present(alertController, animated: true, completion: nil)
     }
     
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         //track event open
-        let vc = segue.destinationViewController as! MenuPageViewController
+        let vc = segue.destination as! MenuPageViewController
         vc.menuItems = menuItems
         vc.zip = zipCode
         vc.email = emailAddr
