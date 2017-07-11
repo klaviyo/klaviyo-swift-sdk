@@ -87,7 +87,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     */
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // Register APN Key
-        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken as NSData)
+        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken as Data)
     }
     
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) {

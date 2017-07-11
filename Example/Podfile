@@ -4,9 +4,9 @@ use_frameworks!
 
 
 target 'KlaviyoSwift_Example' do
-  pod "KlaviyoSwift"
+  pod "KlaviyoSwift", :path => '../'
 end
 
 target 'KlaviyoSwift_Tests' do
-  pod "KlaviyoSwift"
+  pod "KlaviyoSwift", :path => '../'
 end

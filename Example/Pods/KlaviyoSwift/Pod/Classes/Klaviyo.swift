@@ -8,35 +8,15 @@
 
 import Foundation
 import UIKit
-fileprivate func < <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
-  switch (lhs, rhs) {
-  case let (l?, r?):
-    return l < r
-  case (nil, _?):
-    return true
-  default:
-    return false
-  }
-}
 
-fileprivate func > <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
-  switch (lhs, rhs) {
-  case let (l?, r?):
-    return l > r
-  default:
-    return rhs < lhs
-  }
-}
-
-
-open class Klaviyo : NSObject {
+public class Klaviyo : NSObject {
     
     /*
     Klaviyo Class Constants
     */
     
     // Create the singleton instance
-    open static let sharedInstance = Klaviyo()
+    public static let sharedInstance = Klaviyo()
     
     /*
     Klaviyo JSON Key Constants
@@ -51,16 +31,16 @@ open class Klaviyo : NSObject {
     //Optional Event Tracking Properties
     let KLEventTrackPropertiesJSONKey = "properties"
     let KLEventTrackTimeJSONKey = "time"
-    open let KLEventTrackPurchasePlatform = "platform"
+    public let KLEventTrackPurchasePlatform = "platform"
     
     // KL Definitions File: JSON Keys for Tracking People
     let KLPersonTrackTokenJSONKey = "token"
     let KLPersonPropertiesJSONKey = "properties" // same as customer properties
     
     // Push Notification Event Tracking
-    open let KLPersonReceivedPush = "Received Push"
-    open let KLPersonOpenedPush = "$opened_push"
-    open let KLMessageDimension = "$message"
+    public let KLPersonReceivedPush = "Received Push"
+    public let KLPersonOpenedPush = "$opened_push"
+    public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
@@ -74,7 +54,7 @@ open class Klaviyo : NSObject {
     let CustomerPropertiesIDDictKey = "$anonymous"
     
     let CustomerPropertiesAppendDictKey = "$append"
-    let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" //tokens for push notification
+    public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
     
     // Track event special info dict keys
@@ -83,22 +63,22 @@ open class Klaviyo : NSObject {
     
     // Track person special info dict keys
     let KLPersonIDDictKey = "$id" // your unique identifier for a person
-    fileprivate let KLCustomerIDNSDefaults = "$kl_customerID"
+    private let KLCustomerIDNSDefaults = "$kl_customerID"
     let KLPersonDeviceIDDictKey = "$device_id"
-    fileprivate let KLTimezone = "Mobile Timezone"
+    private let KLTimezone = "Mobile Timezone"
     
     // Public Info Dictionary Keys
-    open let KLPersonEmailDictKey = "$email" // email address
-    fileprivate let KLEmailNSDefaultsKey = "$kl_email"
-    open let KLPersonFirstNameDictKey = "$first_name" // first name
-    open let KLPersonLastNameDictKey = "$last_name" // last name
-    open let KLPersonPhoneNumberDictKey = "$phone_number" // phone number
-    open let KLPersonTitleDictKey = "$title" // title at their business or organization
-    open let KLPersonOrganizationDictKey = "$organization" // business or organization they belong to
-    open let KLPersonCityDictKey = "$city" // city they live in
-    open let KLPersonRegionDictKey = "$region" // region or state they live in
-    open let KLPersonCountryDictKey = "$country" // country they live in
-    open let KLPersonZipDictKey = "$zip" // postal code where they live
+    public let KLPersonEmailDictKey = "$email" // email address
+    private let KLEmailNSDefaultsKey = "$kl_email"
+    public let KLPersonFirstNameDictKey = "$first_name" // first name
+    public let KLPersonLastNameDictKey = "$last_name" // last name
+    public let KLPersonPhoneNumberDictKey = "$phone_number" // phone number
+    public let KLPersonTitleDictKey = "$title" // title at their business or organization
+    public let KLPersonOrganizationDictKey = "$organization" // business or organization they belong to
+    public let KLPersonCityDictKey = "$city" // city they live in
+    public let KLPersonRegionDictKey = "$region" // region or state they live in
+    public let KLPersonCountryDictKey = "$country" // country they live in
+    public let KLPersonZipDictKey = "$zip" // postal code where they live
     
     
     
@@ -116,6 +96,7 @@ open class Klaviyo : NSObject {
     var remoteNotificationsEnabled : Bool?
     let urlSessionMaxConnection = 5
     var showNetworkActivityIndicator : Bool = true
+    public var requestsList : NSMutableArray = []
     
     /*
     Computed property for iOSIDString
@@ -128,7 +109,7 @@ open class Klaviyo : NSObject {
     /*
     Singleton Initializer. Must be kept private as only one instance can be created.
     */
-    fileprivate override init() {
+    private override init() {
         super.init()
         
         // Dev warnings for incorrect iOS version
@@ -137,8 +118,8 @@ open class Klaviyo : NSObject {
         assert(apiKey == nil, "api key is nil")
         
         // Create the queue
-        serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue", attributes: [])
-
+        serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue")
+        
         // Configure the URL Session
         let config = URLSessionConfiguration.default
         config.allowsCellularAccess = true
@@ -153,7 +134,7 @@ open class Klaviyo : NSObject {
      
      - Parameter apiKey: string representation of the Klaviyo API Key
      */
-    open class func setupWithPublicAPIKey(_ apiKey : String) {
+    public class func setupWithPublicAPIKey(apiKey : String) {
         sharedInstance.apiKey = apiKey
         sharedInstance.unarchive()
         sharedInstance.flush()
@@ -165,7 +146,7 @@ open class Klaviyo : NSObject {
      
      - Parameter userEmail: the user's email address
      */
-    open func setUpUserEmail(_ userEmail :String) {
+    public func setUpUserEmail(userEmail :String) {
         self.userEmail = userEmail
         
         /* Save to nsuser defaults */
@@ -183,7 +164,7 @@ open class Klaviyo : NSObject {
      setUpCustomerID: Register the current customer ID and saves it
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
-    open func setUpCustomerID(_ id: String) {
+    public func setUpCustomerID(id: String) {
         let defaults = UserDefaults.standard
         defaults.setValue(id, forKey: KLCustomerIDNSDefaults)
     }
@@ -194,12 +175,12 @@ open class Klaviyo : NSObject {
      
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
-    open func handlePush(_ userInfo: [AnyHashable: Any]) {
-        if let metadata = userInfo["_k"] as? [AnyHashable: Any] {
+    public func handlePush(userInfo: NSDictionary) {
+        if let metadata = userInfo["_k"] {
             // Track the push open
-            trackEvent(KLPersonOpenedPush, properties: metadata as NSDictionary?)
+            trackEvent(eventName: KLPersonOpenedPush, properties: metadata as! NSDictionary)
         } else {
-            trackEvent(KLPersonOpenedPush, properties: userInfo as NSDictionary?)
+            trackEvent(eventName: KLPersonOpenedPush, properties: userInfo as NSDictionary)
         }
     }
     
@@ -208,8 +189,8 @@ open class Klaviyo : NSObject {
      
      - Parameter eventName: name of the event
      */
-    open func trackEvent(_ eventName : String?) {
-        trackEvent(eventName, properties: nil)
+    public func trackEvent(eventName : String?) {
+        trackEvent(eventName: eventName, properties: nil)
     }
     
     /**
@@ -218,8 +199,8 @@ open class Klaviyo : NSObject {
      - Parameter eventName: name of the event
      - Parameter properties: customerProperties
      */
-    open func trackEvent(_ eventName : String?, properties : NSDictionary?) {
-        trackEvent(eventName, customerProperties: nil, properties: properties)
+    public func trackEvent(eventName : String?, properties : NSDictionary?) {
+        trackEvent(eventName: eventName, customerProperties: nil, properties: properties)
     }
     
     /**
@@ -229,8 +210,8 @@ open class Klaviyo : NSObject {
      - Parameter customerPropertiesDict: dictionary for user info
      - Parameter properties: dictionary for event info
      */
-    open func trackEvent(_ eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
-        trackEvent(eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
+    public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
+        trackEvent(event: eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
     }
     
     /**
@@ -241,17 +222,17 @@ open class Klaviyo : NSObject {
      - Parameter propertiesDict: dictionary for event info
      - Parameter eventDate: date of the event
      */
-    open func trackEvent(_ event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate: Date?) {
+    public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
         
         var eventName = event
         // Set default track name if none provided
         if (eventName == nil || eventName!.isEmpty) { eventName = "KL_Event" }
-
+        
         // Check both dictionaries
         let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
         assertPropertyTypes(properties: propertiesDict)
         
-        self.serialQueue!.async(execute: {
+        serialQueue.async(execute: {
             let event = NSMutableDictionary()
             
             // Set the apiKey for the event
@@ -272,8 +253,8 @@ open class Klaviyo : NSObject {
             event[self.KLEventTrackCustomerPropetiesJSONKey] = customerPropertiesDict
             event[self.KLEventTrackingServiceKey] = service
             
-            if propertiesDict != nil && (propertiesDict?.allKeys.count)! > 0 {
-                event[self.KLEventTrackPropertiesJSONKey] = propertiesDict
+            if let unwrappedPropertiesDict = propertiesDict {
+                if unwrappedPropertiesDict.allKeys.count > 0 { event[self.KLEventTrackPropertiesJSONKey] = propertiesDict }
             }
             
             if eventDate != nil { event[self.KLEventTrackTimeJSONKey] = eventDate }
@@ -310,7 +291,7 @@ open class Klaviyo : NSObject {
      
      - Returns: Void
      */
-    open func trackPersonWithInfo(_ personDictionary: NSDictionary) {
+    public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
         if personDictionary.allKeys.count == 0 {
             return
@@ -319,7 +300,7 @@ open class Klaviyo : NSObject {
         let personInfoDictionary = updatePropertiesDictionary(propDictionary: personDictionary)
         assertPropertyTypes(properties: personInfoDictionary)
         
-        self.serialQueue!.async(execute: {
+        serialQueue.async(execute: {
             let event = NSMutableDictionary()
             
             if self.apiKey!.characters.count > 0 {
@@ -329,7 +310,7 @@ open class Klaviyo : NSObject {
             }
             
             event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
-            self.peopleQueue!.add(event)
+            self.peopleQueue!.add(_: event)
             
             if self.peopleQueue!.count > 500 {
                 self.peopleQueue!.removeObject(at: 0)
@@ -350,18 +331,16 @@ open class Klaviyo : NSObject {
      - Parameter deviceToken: token provided by Apple that registers push notifications to the given device
      - Returns: Void
      */
-    open func addPushDeviceToken(_ deviceToken: Data) {
-        
-        let characterSet = CharacterSet(charactersIn: "<>")
-        let trimEnds = deviceToken.description.trimmingCharacters(in: characterSet)
-        let cleanToken = trimEnds.replacingOccurrences(of: " ", with: "")
-        
-        apnDeviceToken = cleanToken
+    public func addPushDeviceToken(deviceToken: Data) {
+        let apnDeviceToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
 
         if apnDeviceToken != nil {
             let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
-            personInfoDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey: apnDeviceToken!]
+            personInfoDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey: apnDeviceToken]
             trackPersonWithInfo(personDictionary: personInfoDictionary)
+
+            let defaults = UserDefaults.standard
+            defaults.setValue(apnDeviceToken, forKey: CustomerPropertiesAPNTokensDictKey)
         }
     }
     
@@ -372,8 +351,7 @@ open class Klaviyo : NSObject {
      - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
      - Returns: Void
      */
-    fileprivate func updatePropertiesDictionary(_ propDictionary: NSDictionary?)->NSDictionary {
-
+    internal func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
         var propertiesDictionary = propDictionary
         if propertiesDictionary == nil {
             propertiesDictionary = NSMutableDictionary()
@@ -406,8 +384,7 @@ open class Klaviyo : NSObject {
         
         // Set the user's timezone: Note if the customer exists this will override their current profile
         // Alternatively, could create a customer mobile timezone property instead using a different key
-        let timezone = TimeZone.autoupdatingCurrent.identifier
-
+        let timezone = NSTimeZone.local.identifier
         returnDictionary[KLTimezone] = timezone
         
         // If push notifications are used, append them
@@ -424,14 +401,14 @@ open class Klaviyo : NSObject {
      - Parmeter properties: the dictionary of property values
      - Returns: Void
      */
-    fileprivate func assertPropertyTypes(_ properties: NSDictionary?) {
+    private func assertPropertyTypes(properties: NSDictionary?) {
         guard let _ = properties as NSDictionary! else {
             return
         }
         
         for (k, _) in properties! {
-            assert((properties![k as! NSCopying]! as AnyObject) is NSString || (properties![k as! NSCopying]! as AnyObject) is NSNumber || (properties![k as! NSCopying]! as AnyObject) is NSNull || (properties![k as! NSCopying]! as AnyObject) is NSArray || (properties![k as! NSCopying]! as AnyObject) is NSDictionary
-                || (properties![k as! NSCopying]! as AnyObject) is Date || properties![k as! NSCopying]! is URL
+            assert((properties![k]! is NSString) || (properties![k]! is NSNumber) || (properties![k]! is NSNull) || (properties![k]! is NSArray) || (properties![k]! is NSDictionary)
+                || (properties![k]! is NSDate) || (properties![k]! is NSURL)
                 , "Property values must be of NSString, NSNumber, NSNull, NSDictionary, NSDate, or NSURL. Got: \(properties![k as! NSCopying])")
         }
     }
@@ -441,10 +418,10 @@ open class Klaviyo : NSObject {
      */
     func addNotificationObserver() {
         let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(_:)), name: NSNotification.Name.UIApplicationDidBecomeActive, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(_:)), name: NSNotification.Name.UIApplicationDidEnterBackground, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: NSNotification.Name.UIApplicationWillTerminate, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(_:)), name: ReachabilityChangedNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(notification:)), name: NSNotification.Name("UIApplicationDidBecomeActiveNotification"), object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(notification:)), name: NSNotification.Name("UIApplicationDidEnterBackgroundNotification"), object: nil)
+        notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: .UIApplicationWillTerminate, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(note:)), name: NSNotification.Name("ReachabilityChangedNotification") , object: nil)
     }
     
     /**
@@ -452,7 +429,7 @@ open class Klaviyo : NSObject {
      
      - Returns: A boolean value where true means the os is compatible and the SDK can be used
      */
-    fileprivate func isOperatingMinimumiOSVersion()->Bool {
+    private func isOperatingMinimumiOSVersion()->Bool {
         return ProcessInfo().isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 8, minorVersion: 0, patchVersion: 0)) ?? false
     }
     
@@ -461,10 +438,10 @@ open class Klaviyo : NSObject {
      */
     func removeNotificatoinObserver() {
         let notificationCenter = NotificationCenter.default
-        notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationDidBecomeActive.rawValue)
-        notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationDidEnterBackground.rawValue)
-        notificationCenter.removeObserver(self, forKeyPath: NSNotification.Name.UIApplicationWillTerminate.rawValue)
-        notificationCenter.removeObserver(self, forKeyPath: ReachabilityChangedNotification.rawValue)
+        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidBecomeActiveNotification")
+        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidEnterBackgroundNotification")
+        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationWillTerminateNotification")
+        notificationCenter.removeObserver(self, forKeyPath: "ReachabilityChangedNotification")
     }
     
     func removeNotificationsObserver() {
@@ -472,25 +449,21 @@ open class Klaviyo : NSObject {
         notificationCenter.removeObserver(self)
     }
     
-    func applicationDidBecomeActiveNotification(_ notification: Notification) {
+    func applicationDidBecomeActiveNotification(notification: NSNotification) {
         // clear all notification badges anytime the user opens the app
         UIApplication.shared.applicationIconBadgeNumber = 0
-        do {
-            try reachability?.startNotifier()
-        } catch {
-            // reachability errored
-        }
+        try? reachability?.startNotifier()
         
         // identify the user
         let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
         trackPersonWithInfo(personDictionary: dict)
     }
     
-    func applicationDidEnterBackgroundNotification(_ notification: Notification){
+    func applicationDidEnterBackgroundNotification(notification: NSNotification){
         reachability?.stopNotifier()
     }
     
-    func applicationWillTerminate(_ notification : Notification) {
+    func applicationWillTerminate(notification : NSNotification) {
         archive()
     }
     
@@ -502,26 +475,26 @@ open class Klaviyo : NSObject {
     - Parameter data: name representing the event queue to locate (will be either people or events)
     - Returns: filePath string representing the file location
     */
-    fileprivate func filePathForData(_ data: String)->String {
+    private func filePathForData(data: String)->String {
         let fileName = "/klaviyo-\(apiKey!)-\(data).plist"
         let directory = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).last
-        let filePath = directory! + fileName
+        let filePath = directory!.appending(fileName)
         return filePath
     }
     
     // Helper functions
-    fileprivate func eventsFilePath()->String {
-        return filePathForData("events")
+    private func eventsFilePath()->String {
+        return filePathForData(data: "events")
     }
     
-    fileprivate func peopleFilePath()->String{
-        return filePathForData("people")
+    private func peopleFilePath()->String{
+        return filePathForData(data: "people")
     }
     
     /*
     archiveEvents: copies the event queue and archives it to the appropriate directory location
     */
-    fileprivate func archiveEvents() {
+    private func archiveEvents() {
         let filePath = eventsFilePath()
         let eventsQueueCopy = eventsQueue!
         if !NSKeyedArchiver.archiveRootObject(eventsQueueCopy, toFile: filePath) {
@@ -531,7 +504,7 @@ open class Klaviyo : NSObject {
     /*
     archivePeople: copies the people queue and archives it to the appropriate directory location
     */
-    fileprivate func archivePeople() {
+    private func archivePeople() {
         let filePath = peopleFilePath()
         let peopleQueueCopy : NSMutableArray = peopleQueue!
         if !NSKeyedArchiver.archiveRootObject(peopleQueueCopy, toFile: filePath) {
@@ -539,33 +512,33 @@ open class Klaviyo : NSObject {
         }
     }
     
-    fileprivate func archive() {
+    private func archive() {
         archiveEvents()
         archivePeople()
     }
     
-    fileprivate func unarchive() {
+    private func unarchive() {
         unarchiveEvents()
         unarchivePeople()
     }
     
-    fileprivate func unarchiveEvents() {
-        eventsQueue = unarchiveFromFile(eventsFilePath()) as! NSMutableArray?
+    private func unarchiveEvents() {
+        eventsQueue = unarchiveFromFile(filePath: eventsFilePath()) as? NSMutableArray
         if eventsQueue == nil { eventsQueue = NSMutableArray() }
     }
     
-    fileprivate func unarchivePeople() {
-        peopleQueue = unarchiveFromFile(peopleFilePath()) as! NSMutableArray?
+    private func unarchivePeople() {
+        peopleQueue = unarchiveFromFile(filePath: peopleFilePath()) as? NSMutableArray
         if peopleQueue == nil { peopleQueue = NSMutableArray() }
     }
     
     /**
      unarchiveFromFile: takes a file path of store data and attempts to
      */
-    fileprivate func unarchiveFromFile(_ filePath: String)-> AnyObject? {
+    private func unarchiveFromFile(filePath: String)-> AnyObject? {
         var unarchivedData : AnyObject? = nil
         
-        unarchivedData =  NSKeyedUnarchiver.unarchiveObject(withFile: filePath) as AnyObject?
+        unarchivedData =  NSKeyedUnarchiver.unarchiveObject(withFile: filePath) as AnyObject
         
         if FileManager.default.fileExists(atPath: filePath) {
             var removed: Bool
@@ -584,11 +557,11 @@ open class Klaviyo : NSObject {
     }
     
     // MARK: Application Helpers
-    fileprivate func inBackground()->Bool {
+    private func inBackground()->Bool {
         return UIApplication.shared.applicationState == UIApplicationState.background
     }
     
-    fileprivate func updateNetworkActivityIndicator(_ on : Bool) {
+    private func updateNetworkActivityIndicator(on : Bool) {
         if showNetworkActivityIndicator {
             UIApplication.shared.isNetworkActivityIndicatorVisible = on
         }
@@ -600,21 +573,21 @@ open class Klaviyo : NSObject {
     /*
     Internal function that initiates the flushing of data
     */
-    fileprivate func flush() {
+    private func flush() {
         
         flushEvents()
         flushPeople()
     }
     
-    fileprivate func flushEvents() {
-        self.serialQueue!.async(execute: {
-            self.flushQueue(self.eventsQueue!, endpoint: self.KlaviyoServerTrackEventEndpoint)
+    private func flushEvents() {
+        serialQueue.async(execute: {
+            self.flushQueue(queue: self.eventsQueue!, endpoint: self.KlaviyoServerTrackEventEndpoint)
         })
     }
     
-    fileprivate func flushPeople() {
-        self.serialQueue!.async(execute: {
-            self.flushQueue(self.peopleQueue!, endpoint: self.KlaviyoServerTrackPersonEndpoint)
+    private func flushPeople() {
+        serialQueue.async(execute: {
+            self.flushQueue(queue: self.peopleQueue!, endpoint: self.KlaviyoServerTrackPersonEndpoint)
         })
     }
     
@@ -623,7 +596,7 @@ open class Klaviyo : NSObject {
      - Parameter queue: an array of events
      - Parameter endpoint: the api endpoint
      */
-    fileprivate func flushQueue(_ queue: NSMutableArray, endpoint: String) {
+    private func flushQueue(queue: NSMutableArray, endpoint: String) {
         
         if !isHostReachable() {
             return
@@ -641,19 +614,24 @@ open class Klaviyo : NSObject {
             
             //Construct the API Request
             let request = apiRequestWithEndpoint(endpoint: endpoint, param: param)
+
+            //Format and append the request for accessible logging
+            var requestString = "Endpoint: \(endpoint) \t Payload: \(i)"
+            requestsList.add(requestString)
+
             updateNetworkActivityIndicator(on: true)
             
             //Execute
-            let task : URLSessionDataTask = urlSession!.dataTask(with: request, completionHandler: { (data, response, error) -> Void in
-                self.serialQueue!.async(execute: {
+            let task : URLSessionDataTask = urlSession!.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in
+                self.serialQueue.async(execute: {
                     if(error != nil) {
                         print("network failure: \(error)")
                     } else {
-                        let response = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
+                        let response = NSString(data: data!, encoding: String.Encoding.utf8.rawValue as UInt)
                         if response!.intValue == 0 {
                             print("api rejected item: \(endpoint), \(i)")
                         }
-                        queue.remove(i)
+                        queue.remove(_: i)
                     }
                     if queue.count == 0 {
                         self.updateNetworkActivityIndicator(on: false)
@@ -671,24 +649,24 @@ open class Klaviyo : NSObject {
      - Parameter param: String representing the properties of the event or the identify call
      - Returns: an NSURLRequest for the API call
      */
-    fileprivate func apiRequestWithEndpoint(_ endpoint : String, param: String)-> URLRequest {
+    private func apiRequestWithEndpoint(endpoint : String, param: String)-> NSURLRequest {
         let urlString = KlaviyoServerURLString+endpoint+"?"+param
-        let url = URL(string: urlString)
+        let url = NSURL(string: urlString)
         
         let request = NSMutableURLRequest(url: url! as URL)
         request.setValue("gzip", forHTTPHeaderField: "Accept-Encoding")
         request.httpMethod = "GET"
         
-        return request as URLRequest
+        return request
     }
     
     // Reachability Functions
     
-    fileprivate func isHostReachable()->Bool {
+    private func isHostReachable()->Bool {
         return reachability?.currentReachabilityStatus != Reachability.NetworkStatus.notReachable
     }
     
-    internal func hostReachabilityChanged(_ note : Notification) {
+    internal func hostReachabilityChanged(note : NSNotification) {
         if isHostReachable() {
             flush()
         }
@@ -701,13 +679,13 @@ open class Klaviyo : NSObject {
     - Parameter dict: an NSDictionary representing the data to be encoded for a given event
     - Returns: an encoded string
     */
-    fileprivate func encodeAPIParamData(_ dict: NSDictionary)->String {
+    private func encodeAPIParamData(dict: NSDictionary)->String {
         var b64String = ""
-        let data : Data? = JSONSerializeObject(dict)
+        let data : NSData? = JSONSerializeObject(obj: dict)
         
         if data != nil {
             let characterSet = NSMutableCharacterSet.urlQueryAllowed
-            b64String = data!.base64EncodedString(options: NSData.Base64EncodingOptions(rawValue: 0))
+            b64String = data!.base64EncodedString()
             b64String = b64String.addingPercentEncoding(withAllowedCharacters: characterSet)!
         }
         
@@ -720,14 +698,15 @@ open class Klaviyo : NSObject {
      - Parameter obj: the object to be serialized
      - Returns: NSData representation of the object
      */
-    fileprivate func JSONSerializeObject(_ obj : AnyObject)-> Data? {
+    private func JSONSerializeObject(obj : AnyObject)-> NSData? {
+        
         let coercedobj = JSONSerializableObjectForObject(obj: obj)
         var error : NSError? = nil
-        var data : Data? = nil
+        var data : NSData? = nil
         
         if JSONSerialization.isValidJSONObject(obj) {
             do {
-                data = try JSONSerialization.data(withJSONObject: coercedobj, options: .prettyPrinted)
+                data = try JSONSerialization.data(withJSONObject: coercedobj, options: .prettyPrinted) as NSData
             }
             catch let errors as NSError{
                 data = nil
@@ -750,7 +729,7 @@ open class Klaviyo : NSObject {
      :param: obj type AnyObject
      :returns: an AnyObject that has been verified and cleaned
      */
-    fileprivate func JSONSerializableObjectForObject(_ obj: AnyObject)-> AnyObject {
+    private func JSONSerializableObjectForObject(obj: AnyObject)-> AnyObject {
         
         if JSONSerialization.isValidJSONObject(obj) {
             return obj
@@ -762,43 +741,44 @@ open class Klaviyo : NSObject {
         }
         
         // recurse through collections and serialize each object
-        if obj is NSArray {
+        if (obj is NSArray) {
             let a = NSMutableArray()
             let objects = obj as! NSArray
             for item in objects {
-                a.add(JSONSerializableObjectForObject(item as AnyObject))
-
+                a.add(_: JSONSerializableObjectForObject(obj: item as AnyObject))
             }
             return a as NSArray
         }
         
-        if obj is NSDictionary {
+        if (obj is NSDictionary) {
             let dict = NSMutableDictionary()
             let objects = obj as! NSDictionary
             
             for key in objects.keyEnumerator() {
                 var stringKey : NSString?
-                if !((key as AnyObject) is NSString) {
-
-                    stringKey = (key as AnyObject).description as NSString?
+                if !(key is NSString) {
+                    let convertedKey = key as! NSDictionary
+                    stringKey = convertedKey.description as NSString
                     print("warning: property keys should be strings. got: \(stringKey)")
                 } else {
                     stringKey = NSString(string: key as! NSString)
                 }
                 if stringKey != nil {
+                    let v : AnyObject = JSONSerializableObjectForObject(obj: objects[stringKey!]! as AnyObject)
                     dict[stringKey!] = v
                 }
             }
             return dict
         }
         
-        if obj is Date {
+        if (obj is NSDate) {
             return obj.timeIntervalSince1970 as AnyObject
+
         }
         
         let s = obj.description
+        print("Warning, the property values should be valid json types")
         return s as AnyObject
-
     }
     
 }
