@@ -40,7 +40,7 @@ import KlaviyoSwift
 Adding Klaviyo's tracking functionality requires just a few lines of code. To get started, add the following line to AppDelegate.swift, within application:didFinishLaunchingWithOptions:
 
 ```swift 
-Klaviyo.setupWithPublicAPIKey("YOUR_KLAVIYO_PUBLIC_API_KEY")
+Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
 Once Klaviyo has been set up, you can begin tracking events anywhere within your application. Simply call Klaviyo's `trackEvent` method in the relevant location.
