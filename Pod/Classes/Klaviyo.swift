@@ -614,7 +614,7 @@ public class Klaviyo : NSObject {
             let request = apiRequestWithEndpoint(endpoint: endpoint, param: param)
 
             //Format and append the request for accessible logging
-            var requestString = "Endpoint: \(endpoint) \t Payload: \(i)"
+            let requestString = "Endpoint: \(endpoint) \t Payload: \(i)"
             requestsList.add(requestString)
 
             updateNetworkActivityIndicator(on: true)
