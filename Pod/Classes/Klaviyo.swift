@@ -418,7 +418,7 @@ public class Klaviyo : NSObject {
         let notificationCenter = NotificationCenter.default
         notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(notification:)), name: NSNotification.Name("UIApplicationDidBecomeActiveNotification"), object: nil)
         notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(notification:)), name: NSNotification.Name("UIApplicationDidEnterBackgroundNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: .UIApplicationWillTerminate, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(UIApplicationDelegate.applicationWillTerminate(_:)), name: .UIApplicationWillTerminate, object: self)
         notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(note:)), name: NSNotification.Name("ReachabilityChangedNotification") , object: nil)
     }
     
