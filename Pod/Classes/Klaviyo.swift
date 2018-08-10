@@ -556,12 +556,16 @@ public class Klaviyo : NSObject {
     
     // MARK: Application Helpers
     private func inBackground()->Bool {
-        return UIApplication.shared.applicationState == UIApplicationState.background
+        return DispatchQueue.main.sync {
+            UIApplication.shared.applicationState == UIApplicationState.background
+        }
     }
     
     private func updateNetworkActivityIndicator(on : Bool) {
         if showNetworkActivityIndicator {
-            UIApplication.shared.isNetworkActivityIndicatorVisible = on
+            DispatchQueue.main.async {
+                UIApplication.shared.isNetworkActivityIndicatorVisible = on
+            }
         }
     }
     
