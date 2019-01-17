@@ -11,6 +11,6 @@ script:
 - xcodebuild -workspace Example/KlaviyoSwift.xcworkspace -scheme KlaviyoSwift-Example -sdk iphonesimulator
 - xcodebuild test -workspace Example/KlaviyoSwift.xcworkspace -scheme KlaviyoSwift-Example -destination "platform=iOS Simulator,OS=10.0,name=iPhone 7" | xcpretty -f `xcpretty-travis-formatter`
 - pod lib lint --quick
-osx_image: xcode8
+osx_image: xcode10.1
 xcode_workspace: Example/KlaviyoSwift.xcworkspace
 xcode_scheme: Example/KlaviyoSwift

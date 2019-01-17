@@ -1,16 +1,16 @@
 PODS:
-  - KlaviyoSwift (1.2.0)
+  - KlaviyoSwift (1.4.2)
 
 DEPENDENCIES:
   - KlaviyoSwift (from `../`)
 
 EXTERNAL SOURCES:
   KlaviyoSwift:
-    :path: ../
+    :path: "../"
 
 SPEC CHECKSUMS:
-  KlaviyoSwift: b3b9844fdf52297218e8db0a58df071b6978d37a
+  KlaviyoSwift: fb8911db818d5b8128cc767bb542cccba6d6f26c
 
 PODFILE CHECKSUM: 015149bb6c6b846c2ae3b53d68b54c95ec5b57cd
 
-COCOAPODS: 1.0.1
+COCOAPODS: 1.5.3
