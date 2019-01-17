@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
 
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   s.license          = 'MIT'
-  s.author           = { "Katy Keuper" => "katy.keuper@klaviyo.com", "Chris Conlon" => "chris.conlon@klaviyo.com" }
+  s.author           = { "Mobile @ Klaviyo" => "mobile@klaviyo.com" }
   s.source           = { :git => "https://github.com/klaviyo/klaviyo-swift-sdk.git", :tag => s.version.to_s }
 
   s.platform     = :ios, '8.0'

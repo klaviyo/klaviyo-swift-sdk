@@ -67,7 +67,7 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Completed", properties: propertiesDictionary)
         
         // Trigger thank you modal view
-        let alertController = UIAlertController(title: "Thank You!", message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.", preferredStyle: UIAlertControllerStyle.alert)
+        let alertController = UIAlertController(title: "Thank You!", message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.", preferredStyle: UIAlertController.Style.alert)
         let okAction = UIAlertAction(title: "OK", style: .default, handler: { void in
             //segue back to menu
             self.performSegue(withIdentifier: "checkoutMenuSegue", sender: self)
@@ -112,12 +112,12 @@ class CheckOutViewController: UIViewController, UITableViewDataSource, UITableVi
         var cell : CheckOutTableViewCell? = tableView.dequeueReusableCell(withIdentifier: "cell") as? CheckOutTableViewCell
         
         if cell == nil {
-            cell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "cell") as? CheckOutTableViewCell
+            cell = UITableViewCell(style: UITableViewCell.CellStyle.default, reuseIdentifier: "cell") as? CheckOutTableViewCell
         }
         
         let menuItem = uniqueItemsArray[(indexPath as NSIndexPath).row]
         
-        cell?.selectionStyle = UITableViewCellSelectionStyle.none
+        cell?.selectionStyle = UITableViewCell.SelectionStyle.none
         cell?.itemName.text = menuItem.name
         
         let currentImage = getCurrentImage(menuItem.name)

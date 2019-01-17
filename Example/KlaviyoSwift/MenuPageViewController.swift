@@ -26,7 +26,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     //Log out functionality
     @IBAction func logOut(_ sender: AnyObject) {
         // Present an action sheet to ask if they are sure
-        let alertController = UIAlertController(title: "Log Out?", message: "Are you sure you want to log out? You will lose any items in your cart.", preferredStyle: UIAlertControllerStyle.actionSheet)
+        let alertController = UIAlertController(title: "Log Out?", message: "Are you sure you want to log out? You will lose any items in your cart.", preferredStyle: UIAlertController.Style.actionSheet)
         let cancelAction = UIAlertAction(title: "Nevermind", style: .cancel, handler: nil)
         
         let logoutAction = UIAlertAction(title: "Log Out", style: .default, handler: { (action) in
@@ -65,13 +65,13 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
         }
         
         if cart.cartItems.count == 0 {
-            cartIcon.setImage(UIImage(named: "emptyCart"), for: UIControlState())
+            cartIcon.setImage(UIImage(named: "emptyCart"), for: UIControl.State())
         } else{
-            cartIcon.setImage(UIImage(named: "FullCart"), for: UIControlState())
+            cartIcon.setImage(UIImage(named: "FullCart"), for: UIControl.State())
         }
         
         // Add observer for when the app enters background
-        NotificationCenter.default.addObserver(self, selector: #selector(MenuPageViewController.saveCartItems(_:)), name:NSNotification.Name.UIApplicationDidEnterBackground, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(MenuPageViewController.saveCartItems(_:)), name:UIApplication.didEnterBackgroundNotification, object: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -100,7 +100,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
         Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App")
     }
     
-    func saveCartItems(_ notification: Notification) {
+    @objc func saveCartItems(_ notification: Notification) {
         cart.saveCart()
         
         if cart.cartItems.count > 0 {
@@ -123,7 +123,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     @IBAction func addEmail(_ sender: AnyObject) {
         //present user with text box to add email & save
-        let alertController = UIAlertController(title: "Add Email", message: "Please add your email", preferredStyle: UIAlertControllerStyle.alert)
+        let alertController = UIAlertController(title: "Add Email", message: "Please add your email", preferredStyle: UIAlertController.Style.alert)
         
         let addEmailAction = UIAlertAction(title: "Submit", style: .default) { (_) in
             let emailTextField = alertController.textFields![0] as UITextField
@@ -149,7 +149,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     @IBAction func removeItem(_ sender: AnyObject) {
         if cart.cartItems.count == 0 {
-            cartIcon.setImage(UIImage(named: "emptyCart"), for: UIControlState())
+            cartIcon.setImage(UIImage(named: "emptyCart"), for: UIControl.State())
             return
         }
         let itemToRemove = menuItems[sender.tag]
@@ -174,7 +174,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     // Add a modal popup that lets users add their zip code: Can't add text to action sheet so this currently uses the alert controlelr
     @IBAction func addZipcode(_ sender: UIButton) {
-        let alertController = UIAlertController(title: "Add Zipcode", message: "Please add your zipcode", preferredStyle: UIAlertControllerStyle.alert)
+        let alertController = UIAlertController(title: "Add Zipcode", message: "Please add your zipcode", preferredStyle: UIAlertController.Style.alert)
         
         let addZipAction = UIAlertAction(title: "Zip", style: .default) { (_) in
             let zipTextField = alertController.textFields![0] as UITextField
@@ -211,10 +211,10 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
         var cell : MenuItemTableViewCell? = tableView.dequeueReusableCell(withIdentifier: "MenuItem") as? MenuItemTableViewCell
         
         if cell == nil {
-            cell = UITableViewCell(style: UITableViewCellStyle.default, reuseIdentifier: "MenuItem") as? MenuItemTableViewCell
+            cell = UITableViewCell(style: UITableViewCell.CellStyle.default, reuseIdentifier: "MenuItem") as? MenuItemTableViewCell
         }
         
-        cell?.selectionStyle = UITableViewCellSelectionStyle.none
+        cell?.selectionStyle = UITableViewCell.SelectionStyle.none
         
         let menuItem = menuItems[(indexPath as NSIndexPath).row]
         cell?.itemName.text = menuItem.name
@@ -265,7 +265,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     @IBAction func addToCart(_ sender: UIButton) {
         if cart.cartItems.count > 0 {
-            cartIcon.setImage(UIImage(named: "FullCart"), for: UIControlState())
+            cartIcon.setImage(UIImage(named: "FullCart"), for: UIControl.State())
         }
         cart.cartItems.append(menuItems[sender.tag])
         tableView.reloadData()

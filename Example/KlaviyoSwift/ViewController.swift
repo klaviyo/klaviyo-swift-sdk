@@ -42,7 +42,7 @@ class ViewController: UIViewController {
     
     func checkForZipAndEmail()->Bool {
         
-        if zipcodeTextField.text?.characters.count == 0 && emailTextField.text?.characters.count == 0 {
+        if zipcodeTextField.text?.count == 0 && emailTextField.text?.count == 0 {
             return false
         }
         
@@ -59,7 +59,7 @@ class ViewController: UIViewController {
         
         //Unwrap email textfield value and save it
         if let email = emailTextField.text {
-            if email.characters.count > 0 && rememberMeSwitch.isOn == true {
+            if email.count > 0 && rememberMeSwitch.isOn == true {
                 UserDefaults.standard.set(email, forKey: "email")
             }
             emailAddr = email
@@ -72,7 +72,7 @@ class ViewController: UIViewController {
     }
     
     func showErrorMessage() {
-        let alertController = UIAlertController(title: "Oh No!", message: "Please enter a zipcode or email", preferredStyle: UIAlertControllerStyle.alert)
+        let alertController = UIAlertController(title: "Oh No!", message: "Please enter a zipcode or email", preferredStyle: UIAlertController.Style.alert)
         let okAction = UIAlertAction(title: "OK", style: .default, handler:nil)
         
         alertController.addAction(okAction)
