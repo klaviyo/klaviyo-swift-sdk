@@ -413,6 +413,37 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		331F68608BCEC4D4BC4E8DDB20EB561A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 509E9513E3D0F70A4AB30479317FB4BD /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				PRODUCT_MODULE_NAME = KlaviyoSwift;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_VERSION = 4.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
 		58AD84E7CE0ED3E19D2344ABDCEABF4E /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 91FAD165CCB8E93C5B3461A039F84244 /* Pods-KlaviyoSwift_Example.release.xcconfig */;
@@ -474,6 +505,38 @@
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		73B12986E8444F4DB7CBC56D802122C9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 509E9513E3D0F70A4AB30479317FB4BD /* KlaviyoSwift.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
+				PRODUCT_MODULE_NAME = KlaviyoSwift;
+				PRODUCT_NAME = KlaviyoSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -642,37 +705,6 @@
 			};
 			name = Debug;
 		};
-		B5CC68894C51BEAB453283F5B0877A85 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 509E9513E3D0F70A4AB30479317FB4BD /* KlaviyoSwift.xcconfig */;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
-				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
-				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
-				PRODUCT_MODULE_NAME = KlaviyoSwift;
-				PRODUCT_NAME = KlaviyoSwift;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
-				SWIFT_VERSION = 4.2;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Debug;
-		};
 		C47C6AD5AE1506B34F79924DC91F62FE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 015446B9AAE0C44E59D054EC8FD052B9 /* Pods-KlaviyoSwift_Tests.debug.xcconfig */;
@@ -705,38 +737,6 @@
 				VERSION_INFO_PREFIX = "";
 			};
 			name = Debug;
-		};
-		DD44C0B0F44135ED368DA5DAEBC69EB6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 509E9513E3D0F70A4AB30479317FB4BD /* KlaviyoSwift.xcconfig */;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
-				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_PREFIX_HEADER = "Target Support Files/KlaviyoSwift/KlaviyoSwift-prefix.pch";
-				INFOPLIST_FILE = "Target Support Files/KlaviyoSwift/Info.plist";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				MODULEMAP_FILE = "Target Support Files/KlaviyoSwift/KlaviyoSwift.modulemap";
-				PRODUCT_MODULE_NAME = KlaviyoSwift;
-				PRODUCT_NAME = KlaviyoSwift;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
-				SWIFT_VERSION = 4.2;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -771,8 +771,8 @@
 		A87315207A4C011EAAD8690D01283178 /* Build configuration list for PBXNativeTarget "KlaviyoSwift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B5CC68894C51BEAB453283F5B0877A85 /* Debug */,
-				DD44C0B0F44135ED368DA5DAEBC69EB6 /* Release */,
+				331F68608BCEC4D4BC4E8DDB20EB561A /* Debug */,
+				73B12986E8444F4DB7CBC56D802122C9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

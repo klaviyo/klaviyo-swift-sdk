@@ -5,7 +5,7 @@
 language: objective-c  
 
 install:
-- cd Example && pod install
+- cd Example && pod install && cd ..
 - gem install xcpretty --no-rdoc --no-ri --no-document --quiet
 - gem install xcpretty-travis-formatter
 script:
