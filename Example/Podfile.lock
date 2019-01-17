@@ -1,5 +1,5 @@
 PODS:
-  - KlaviyoSwift (1.4.2)
+  - KlaviyoSwift (1.4.3)
 
 DEPENDENCIES:
   - KlaviyoSwift (from `../`)
