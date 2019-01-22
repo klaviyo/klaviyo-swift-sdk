@@ -11,7 +11,7 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 ## Requirements
 *iOS >= 8.0
-*Swift 3.0 & XCode 8
+*Swift 3.0 & Xcode 8
 
 ## Installation Options
 
@@ -21,7 +21,7 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 Note that options two and three will require you to repeat those steps as our SDK is updated. By using CococaPods the library can be kept up-to-date via `pod update`.
 
-## Cocoapods
+## CocoaPods
 KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo). To install
 it, simply add the following line to your Podfile:
 
@@ -131,16 +131,31 @@ To be able to send push notifications, you must add two snippets of code to your
 
 Add the below code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. Make sure that whenever this code is called that the Klaviyo SDK has been configured and that `setUpUserEmail:` has been called. This is so that Klaviyo can match app tokens with customers.
 
-```
-    let types: UIUserNotificationType = [.alert, .sound, .badge]
-    let settings = UIUserNotificationSettings(types: types, categories: nil)
-    UIApplication.shared.registerUserNotificationSettings(settings)
-    UIApplication.shared.registerForRemoteNotifications()
+```swift
+    import UserNotifications
+
+...
+
+    if #available(iOS 10, *) {
+        var options: UNAuthorizationOptions = [.alert, .sound, .badge]
+        if #available(iOS 12.0, *) {
+            options = UNAuthorizationOptions(rawValue: options.rawValue | UNAuthorizationOptions.provisional.rawValue)
+        }
+        UNUserNotificationCenter.current().requestAuthorization(options: options) { (granted, error) in
+            // Enable / disable features based on response
+        }
+        UIApplication.shared.registerForRemoteNotifications()
+    } else {
+        let types : UIUserNotificationType = [.alert, .badge, .sound]
+        let setting = UIUserNotificationSettings(types:types, categories:nil)
+        UIApplication.shared.registerUserNotificationSettings(setting)
+        UIApplication.shared.registerForRemoteNotifications()
+    }
 ```
 
 Add the below line of code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken:` (note that you might need to add this code to your application delegate if you have not done so already)
 
-```
+```swift
     func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken)
     }
@@ -155,7 +170,7 @@ If you would like to track when a user opens a push notification then there is a
 
 In your application delegate, under `application:didFinishLaunchingWithOptions:` add the following:
 
-``` 
+```swift 
     if let launch = launchOptions, let data = launch[UIApplicationLaunchOptionsKey.remoteNotification] as? [AnyHashable: Any] {
         Klaviyo.sharedInstance.handlePush(userInfo: data as NSDictionary)
     }
