@@ -10,8 +10,9 @@
 KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only one that supports push notifications**. We strongly encourage the use of the KlaviyoSwift SDK.
 
 ## Requirements
-*iOS >= 8.0
-*Swift 3.0 & Xcode 8
+- iOS 9.0+ 
+- Xcode 10.1+
+- Swift 4.2+
 
 ## Installation Options
 
