@@ -1,11 +1,11 @@
+# Mac OS X
+.DS_Store
+
 # Xcode
 
 ## Build generated
-build/*
-Example/build/*
-DerivedData/*
-Example/DerivedData/*
-.DS_Store
+build/
+DerivedData
 
 ## Various settings
 *.pbxuser
@@ -16,43 +16,24 @@ Example/DerivedData/*
 !default.mode2v3
 *.perspectivev3
 !default.perspectivev3
-xcuserdata/
+xcuserdata
 
 ## Other
+*.xccheckout
 *.moved-aside
 *.xcuserstate
+*.xcscmblueprint
 
 ## Obj-C/Swift specific
 *.hmap
 *.ipa
-*.dSYM.zip
-*.dSYM
 
 ## Playgrounds
 timeline.xctimeline
-#playground.xcworkspace
+playground.xcworkspace
 
 # Swift Package Manager
-#
-# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
-# Packages/
 .build/
 
-# CocoaPods
-#
-# It is a judgment call whether or not to add the Pods directory to your .gitignore. The pros and cons are mentioned
-# at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-#
-
-
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
-# screenshots whenever they are needed. Note that we do not currently have this setup.
-# For more information: https://github.com/fastlane/fastlane/blob/master/fastlane/docs/Gitignore.md
-
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots
-fastlane/test_output
+# Carthage
+Carthage/Build
