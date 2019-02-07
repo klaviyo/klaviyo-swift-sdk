@@ -66,6 +66,8 @@ public class Klaviyo : NSObject {
     private let KLCustomerIDNSDefaults = "$kl_customerID"
     let KLPersonDeviceIDDictKey = "$device_id"
     private let KLTimezone = "Mobile Timezone"
+    private let KLAnonymousIDNSDefaults = "$kl_anonymousID";
+    private let KLLegacyId = "$kl_legacyID";
     
     // Public Info Dictionary Keys
     public let KLPersonEmailDictKey = "$email" // email address
@@ -85,7 +87,7 @@ public class Klaviyo : NSObject {
     */
     var apiKey : String?
     var apnDeviceToken : String?
-    var userEmail : String = ""
+    var userEmail : String?
     var serialQueue : DispatchQueue!
     var eventsQueue : NSMutableArray?
     var peopleQueue : NSMutableArray?
@@ -101,7 +103,7 @@ public class Klaviyo : NSObject {
     :returns: A unique string that represents the device using the application
     */
     var iOSIDString : String {
-        return "iOS:" + UIDevice.current.identifierForVendor!.uuidString
+        return UserDefaults.standard.string(forKey: KLAnonymousIDNSDefaults)!
     }
     
     /*
@@ -124,7 +126,28 @@ public class Klaviyo : NSObject {
         config.httpMaximumConnectionsPerHost = urlSessionMaxConnection
         urlSession = URLSession(configuration: config)
         reachability = Reachability(hostname: "www.klaviyo.com")
-        
+        setupAnonymousId()
+    }
+    
+    /**
+     reset: removes all data currently stored for the current user.
+     
+     Specifically this removes the users email and customer id. It also resets their anonymous id.
+    */
+    public func reset() {
+        let defaults = UserDefaults.standard
+        self.userEmail = nil
+        defaults.removeObject(forKey: KLAnonymousIDNSDefaults)
+        defaults.removeObject(forKey: KLCustomerIDNSDefaults)
+        defaults.removeObject(forKey: KLEmailNSDefaultsKey)
+        setupAnonymousId()
+    }
+    
+    private func setupAnonymousId() {
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: KLAnonymousIDNSDefaults) == nil {
+            defaults.set(UUID().uuidString, forKey: KLAnonymousIDNSDefaults)
+        }
     }
     
     /**
@@ -147,7 +170,7 @@ public class Klaviyo : NSObject {
     public func setUpUserEmail(userEmail :String) {
         self.userEmail = userEmail
         
-        /* Save to nsuser defaults */
+        /* Save to user defaults */
         let defaults = UserDefaults.standard
         defaults.setValue(userEmail, forKey: KLEmailNSDefaultsKey)
         
@@ -277,7 +300,7 @@ public class Klaviyo : NSObject {
      - Returns: true if the email exists, false otherwise
      */
     func emailAddressExists() -> Bool {
-        return self.userEmail.count > 0
+        return self.userEmail != nil
     }
     
     
@@ -360,19 +383,19 @@ public class Klaviyo : NSObject {
             // if user provides an email address that takes precendence; save it to defaults & use
             let defaults = UserDefaults.standard
             defaults.setValue(newEmail, forKey: KLEmailNSDefaultsKey)
-        } else if let savedEmail = UserDefaults.standard.value(forKey: KLEmailNSDefaultsKey) as? String {
-            // check NSuserDefaults for a stored value
+        } else if let savedEmail = UserDefaults.standard.string(forKey: KLEmailNSDefaultsKey) {
+            // check UserDefaults for a stored value
             returnDictionary[KLPersonEmailDictKey] = savedEmail
         }
         
         // Set the $anonymous property in case there i sno email address
-        returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
+        returnDictionary[CustomerPropertiesIDDictKey] = iOSIDString
         
         // Set the $id if it exists
         if let idExists = returnDictionary[KLPersonIDDictKey] {
             let defaults = UserDefaults.standard
             defaults.setValue(idExists, forKey: KLCustomerIDNSDefaults)
-        } else if let customerID =  UserDefaults.standard.value(forKey: KLCustomerIDNSDefaults) as? String {
+        } else if let customerID =  UserDefaults.standard.string(forKey: KLCustomerIDNSDefaults) {
             returnDictionary[KLPersonIDDictKey] = customerID
         }
         
@@ -384,6 +407,10 @@ public class Klaviyo : NSObject {
         // If push notifications are used, append them
         if apnDeviceToken != nil {
             returnDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey : apnDeviceToken!]
+        }
+        
+        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+            returnDictionary[KLLegacyId] = vendorId
         }
         
         return returnDictionary
@@ -456,7 +483,7 @@ public class Klaviyo : NSObject {
         try? reachability?.startNotifier()
         
         // identify the user
-        let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
+        let dict: NSMutableDictionary = [KLAnonymousIDNSDefaults: iOSIDString]
         trackPersonWithInfo(personDictionary: dict)
     }
     

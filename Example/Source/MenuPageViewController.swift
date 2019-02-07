@@ -34,6 +34,7 @@ class MenuPageViewController: UIViewController, UITableViewDelegate, UITableView
             defaults.removeObject(forKey: "email")
             defaults.removeObject(forKey: "zip")
             defaults.removeObject(forKey: "cartItems")
+            Klaviyo.sharedInstance.reset()
             self.performSegue(withIdentifier: "logoutSegue", sender: self)
         })
         
