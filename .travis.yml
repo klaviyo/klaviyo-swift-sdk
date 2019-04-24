@@ -4,14 +4,15 @@
 
 language: objective-c  
 
+before_install:
+  - gem install bundler -v '= 2.0.1'
 install:
 - "echo 'gem: --no-rdoc --no-ri --no-document' > ~/.gemrc"
-- gem install xcpretty --quiet
-- gem install xcpretty-travis-formatter
+- bundle install
 script:
 - xcodebuild -workspace KlaviyoSwift.xcworkspace -scheme Example -sdk iphonesimulator
-- xcodebuild test -workspace KlaviyoSwift.xcworkspace -scheme KlaviyoSwift -destination "platform=iOS Simulator,OS=12.1,name=iPhone 8" | xcpretty -f `xcpretty-travis-formatter`
-- pod lib lint
+- xcodebuild test -workspace KlaviyoSwift.xcworkspace -scheme KlaviyoSwift -destination "platform=iOS Simulator,OS=12.1,name=iPhone 8" | bundle exec xcpretty -f `xcpretty-travis-formatter`
+- bundle exec pod lib lint
 osx_image: xcode10.2
 xcode_workspace: Example/KlaviyoSwift.xcworkspace
 xcode_scheme: Example/KlaviyoSwift
