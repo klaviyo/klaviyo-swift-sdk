@@ -11,8 +11,8 @@ KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's eve
 
 ## Requirements
 - iOS 9.0+ 
-- Xcode 10.1+
-- Swift 4.2+
+- Xcode 10.2+
+- Swift 5.0+
 
 ## Installation Options
 
@@ -190,7 +190,7 @@ That is all you need to do to track opens. Now once your first push notification
 
 ## Authors
 
-Katy Keuper, Chris Conlon (chris.conlon@klaviyo.com)
+Katy Keuper, Chris Conlon (chris.conlon@klaviyo.com), Noah Durell (noah.durell@klaviyo.com)
 
 ## License
 
