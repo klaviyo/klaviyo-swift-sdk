@@ -1,5 +1,4 @@
 default_platform(:ios)
-podspec_name = "KlaviyoSwift.podspec"
 
 platform :ios do
 
@@ -19,6 +18,7 @@ platform :ios do
   end
 
   def release(type)
+    podspec_name = "KlaviyoSwift.podspec"
     pod_lib_lint
     version = version_bump_podspec(path: podspec_name,
                                    bump_type: type)
@@ -27,6 +27,6 @@ platform :ios do
                message: "#{version} release")
     add_git_tag(tag: "#{version}")
     push_to_git_remote
-    pod_push
+    pod_push(allow_warnings: true)
   end
 end
