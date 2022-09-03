@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7C6E1FE428C3B59E00FCA54A /* Package.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C6E1FE328C3B59E00FCA54A /* Package.swift */; };
 		7CDDB44D21FD003D00FE00B9 /* KlaviyoSwift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CDDB44321FD003D00FE00B9 /* KlaviyoSwift.framework */; };
 		7CDDB46021FD036800FE00B9 /* ReachabilitySwift.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDDB45E21FD036800FE00B9 /* ReachabilitySwift.swift */; };
 		7CDDB46121FD036800FE00B9 /* Klaviyo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDDB45F21FD036800FE00B9 /* Klaviyo.swift */; };
@@ -25,6 +26,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		7C6E1FE328C3B59E00FCA54A /* Package.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
 		7CDDB44321FD003D00FE00B9 /* KlaviyoSwift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KlaviyoSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CDDB44C21FD003D00FE00B9 /* KlaviyoSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KlaviyoSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CDDB45E21FD036800FE00B9 /* ReachabilitySwift.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReachabilitySwift.swift; sourceTree = "<group>"; };
@@ -57,6 +59,7 @@
 		7CDDB43921FD003D00FE00B9 = {
 			isa = PBXGroup;
 			children = (
+				7C6E1FE328C3B59E00FCA54A /* Package.swift */,
 				7CDDB45D21FD034300FE00B9 /* Source */,
 				7CDDB46721FD068400FE00B9 /* Tests */,
 				7CDDB44421FD003D00FE00B9 /* Products */,
@@ -219,6 +222,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C6E1FE428C3B59E00FCA54A /* Package.swift in Sources */,
 				7CDDB46021FD036800FE00B9 /* ReachabilitySwift.swift in Sources */,
 				7CDDB46121FD036800FE00B9 /* Klaviyo.swift in Sources */,
 			);
