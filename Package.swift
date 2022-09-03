@@ -5,20 +5,20 @@ import PackageDescription
 
 let package = Package(
     name: "klaviyo-swift-sdk",
-    platforms: [.iOS(v13)],
+    platforms: [.iOS(.v13),],
     products: [
         .library(
-            name: "klaviyo-swift-sdk",
-            targets: ["klaviyo-swift-sdk"]),
+            name: "KlaviyoSwift",
+            targets: ["KlaviyoSwift"]),
     ],
     dependencies: [
     ],
     targets: [
         .target(
-            name: "klaviyo-swift-sdk",
+            name: "KlaviyoSwift",
             dependencies: []),
         .testTarget(
-            name: "klaviyo-swift-sdkTests",
-            dependencies: ["klaviyo-swift-sdk"]),
+            name: "KlaviyoSwiftTests",
+            dependencies: ["KlaviyoSwift"]),
     ]
 )
