@@ -2,7 +2,7 @@
 //  Klaviyo.swift
 //
 //  Created by Katherine Keuper on 9/14/15.
-//  Copyright (c) 2019 Klaviyo. All rights reserved.
+//  Copyright (c) 2022 Klaviyo. All rights reserved.
 //
 
 
@@ -564,14 +564,6 @@ public class Klaviyo : NSObject {
         }
     }
     
-    private func updateNetworkActivityIndicator(on: Bool) {
-        if showNetworkActivityIndicator {
-            DispatchQueue.main.async {
-                UIApplication.shared.isNetworkActivityIndicatorVisible = on
-            }
-        }
-    }
-    
     
     //: MARK: Network Control
     
@@ -623,8 +615,6 @@ public class Klaviyo : NSObject {
             //Format and append the request for accessible logging
             let requestString = "Endpoint: \(endpoint) \t Payload: \(i)"
             requestsList.add(requestString)
-
-            updateNetworkActivityIndicator(on: true)
             
             //Execute
             let task : URLSessionDataTask = urlSession!.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in
@@ -635,9 +625,6 @@ public class Klaviyo : NSObject {
                             print("api rejected item: \(endpoint), \(i)")
                         }
                         queue.remove(_: i)
-                    }
-                    if queue.count == 0 {
-                        self.updateNetworkActivityIndicator(on: false)
                     }
                 })
             })

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1010"
+   LastUpgradeVersion = "9999"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7CDDB44221FD003D00FE00B9"
+               BlueprintIdentifier = "klaviyo-swift-sdk::KlaviyoSwift"
                BuildableName = "KlaviyoSwift.framework"
                BlueprintName = "KlaviyoSwift"
-               ReferencedContainer = "container:KlaviyoSwift.xcodeproj">
+               ReferencedContainer = "container:klaviyo-swift-sdk.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,24 +32,13 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7CDDB44B21FD003D00FE00B9"
+               BlueprintIdentifier = "klaviyo-swift-sdk::KlaviyoSwiftTests"
                BuildableName = "KlaviyoSwiftTests.xctest"
                BlueprintName = "KlaviyoSwiftTests"
-               ReferencedContainer = "container:KlaviyoSwift.xcodeproj">
+               ReferencedContainer = "container:klaviyo-swift-sdk.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7CDDB44221FD003D00FE00B9"
-            BuildableName = "KlaviyoSwift.framework"
-            BlueprintName = "KlaviyoSwift"
-            ReferencedContainer = "container:KlaviyoSwift.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -61,17 +50,6 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7CDDB44221FD003D00FE00B9"
-            BuildableName = "KlaviyoSwift.framework"
-            BlueprintName = "KlaviyoSwift"
-            ReferencedContainer = "container:KlaviyoSwift.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -79,15 +57,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7CDDB44221FD003D00FE00B9"
-            BuildableName = "KlaviyoSwift.framework"
-            BlueprintName = "KlaviyoSwift"
-            ReferencedContainer = "container:KlaviyoSwift.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
