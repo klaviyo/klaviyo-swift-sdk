@@ -7,12 +7,7 @@
 
 
 import Foundation
-
-#if canImport(UIKit)
-
 import UIKit
-
-#endif
 
 public class Klaviyo : NSObject {
     
