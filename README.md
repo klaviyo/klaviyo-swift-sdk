@@ -10,7 +10,7 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only one that supports push notifications**. We strongly encourage the use of the KlaviyoSwift SDK.
+KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. This will allow you to message your users via receive push notificaitons from Klaviyo. In addition you will be able to take advanatage of Klavaiyo's identificaiton and event tracking funtionality. Once integrated your marketing will be able to better understand your app users needs and send them timely messages via APNS.
 
 ## Installation Options
 
@@ -104,9 +104,7 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 ## Anonymous Tracking Notice
 
-As of right now, anonymous tracking is *not enabled by default*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Contact your account manager to make a request to enable anonymous tracking.
-
-Once anonymous tracking is enabled for your account you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or `$id` identifier in order for Klaviyo to track events successfully.
+By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided Klaviyo will merge the data from the anonymous user to a new identified user.
 
 ## Integrating with Shopify's Mobile SDK
 If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
