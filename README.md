@@ -10,7 +10,7 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. This will allow you to message your users via receive push notificaitons from Klaviyo. In addition you will be able to take advanatage of Klavaiyo's identificaiton and event tracking funtionality. Once integrated your marketing will be able to better understand your app users needs and send them timely messages via APNS.
+KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. This will allow you to message your users via push notifications from Klaviyo. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNS.
 
 ## Installation Options
 
@@ -21,7 +21,7 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to get it setup.
 
 ### Import the SDK
-Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the  add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.6.0 as of this writing) and click Next.
+Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.6.0 as of this writing) and click Next.
 
 ### Select the Package
 Select the `KlaviyoSwift` package and click Finish.  
