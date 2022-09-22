@@ -87,8 +87,8 @@ public class Klaviyo : NSObject {
     var apnDeviceToken : String?
     var userEmail : String = ""
     var serialQueue : DispatchQueue!
-    var eventsQueue : NSMutableArray?
-    var peopleQueue : NSMutableArray?
+    var eventsQueue = [[String:Any]]()
+    var peopleQueue = [[String:Any]]()
     var urlSession : URLSession?
     var reachability : Reachability?
     var remoteNotificationsEnabled : Bool?
@@ -230,7 +230,7 @@ public class Klaviyo : NSObject {
         assertPropertyTypes(properties: propertiesDict)
         
         serialQueue.async(execute: {
-            let event = NSMutableDictionary()
+            var event = [String:Any]()
             
             // Set the apiKey for the event
             if (self.apiKey!.count > 0) {
@@ -257,10 +257,10 @@ public class Klaviyo : NSObject {
             if eventDate != nil { event[self.KLEventTrackTimeJSONKey] = eventDate }
             
             // Add the event to the queue
-            self.eventsQueue!.add(event)
+            self.eventsQueue.append(event)
             
-            if self.eventsQueue!.count > 500 {
-                self.eventsQueue!.removeObject(at: 0)
+            if self.eventsQueue.count > 500 {
+                self.eventsQueue.remove(at: 0)
             }
             
             if self.inBackground() {
@@ -298,7 +298,7 @@ public class Klaviyo : NSObject {
         assertPropertyTypes(properties: personInfoDictionary)
         
         serialQueue.async(execute: {
-            let event = NSMutableDictionary()
+            var event = [String:Any]()
             
             if self.apiKey!.count > 0 {
                 event[self.KLPersonTrackTokenJSONKey] = self.apiKey
@@ -307,10 +307,10 @@ public class Klaviyo : NSObject {
             }
             
             event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
-            self.peopleQueue!.add(_: event)
+            self.peopleQueue.append(event)
             
-            if self.peopleQueue!.count > 500 {
-                self.peopleQueue!.removeObject(at: 0)
+            if self.peopleQueue.count > 500 {
+                self.peopleQueue.remove(at: 0)
             }
             
             if self.inBackground() {
@@ -476,41 +476,49 @@ public class Klaviyo : NSObject {
     - Parameter data: name representing the event queue to locate (will be either people or events)
     - Returns: filePath string representing the file location
     */
-    private func filePathForData(data: String)->String {
+    private func filePathForData(data: String) -> String? {
         let fileName = "/klaviyo-\(apiKey!)-\(data).plist"
-        let directory = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).last
-        let filePath = directory!.appending(fileName)
-        return filePath
+        guard let directory = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).last else {
+            return nil
+        }
+        return directory.appending(fileName)
     }
     
-    // Helper functions
-    private func eventsFilePath()->String {
-        return filePathForData(data: "events")
-    }
-    
-    private func peopleFilePath()->String{
-        return filePathForData(data: "people")
+    private func archive(queue: [[String: Any]], to fileURL: URL) {
+        guard let archiveData = try? NSKeyedArchiver.archivedData(withRootObject: eventsQueue, requiringSecureCoding: false) else {
+            print("unable to archive queue data to \(fileURL)")
+            return
+        }
+        
+        do {
+            try archiveData.write(to: fileURL)
+        } catch {
+            print("unable to archive queue data to \(fileURL)")
+        }
     }
     
     /*
     archiveEvents: copies the event queue and archives it to the appropriate directory location
     */
     private func archiveEvents() {
-        let filePath = eventsFilePath()
-        let eventsQueueCopy = eventsQueue!
-        if !NSKeyedArchiver.archiveRootObject(eventsQueueCopy, toFile: filePath) {
-            print("unable to archive the events data")
+        
+        guard let filePath = filePathForData(data: "events"),
+              let fileURL = URL(string: filePath) else {
+            return
         }
+
+        archive(queue: eventsQueue, to: fileURL)
     }
     /*
     archivePeople: copies the people queue and archives it to the appropriate directory location
     */
     private func archivePeople() {
-        let filePath = peopleFilePath()
-        let peopleQueueCopy : NSMutableArray = peopleQueue!
-        if !NSKeyedArchiver.archiveRootObject(peopleQueueCopy, toFile: filePath) {
-            print("unable to archive the people data")
+        guard let filePath = filePathForData(data: "people"),
+              let fileURL = URL(string: filePath) else {
+            return
         }
+
+        archive(queue: eventsQueue, to: fileURL)
     }
     
     private func archive() {
@@ -519,27 +527,23 @@ public class Klaviyo : NSObject {
     }
     
     private func unarchive() {
-        unarchiveEvents()
-        unarchivePeople()
-    }
-    
-    private func unarchiveEvents() {
-        eventsQueue = unarchiveFromFile(filePath: eventsFilePath()) as? NSMutableArray
-        if eventsQueue == nil { eventsQueue = NSMutableArray() }
-    }
-    
-    private func unarchivePeople() {
-        peopleQueue = unarchiveFromFile(filePath: peopleFilePath()) as? NSMutableArray
-        if peopleQueue == nil { peopleQueue = NSMutableArray() }
+        guard let eventsFilePath = filePathForData(data: "events"),
+              let peopleFilePath = filePathForData(data: "people") else {
+            return
+        }
+        eventsQueue = unarchiveQueue(filePath: eventsFilePath)
+        peopleQueue = unarchiveQueue(filePath: peopleFilePath)
     }
     
     /**
      unarchiveFromFile: takes a file path of store data and attempts to
      */
-    private func unarchiveFromFile(filePath: String)-> AnyObject? {
-        var unarchivedData : AnyObject? = nil
-        
-        unarchivedData =  NSKeyedUnarchiver.unarchiveObject(withFile: filePath) as AnyObject
+    private func unarchiveQueue(filePath: String)-> [[String:Any]] {
+        guard let archivedData = URL(string: filePath)?.dataRepresentation,
+              let unarchivedData =  try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSArray.self, from:  archivedData) as? [[String:Any]] else {
+            print("Unable to open archived data!")
+            return []
+        }
         
         if FileManager.default.fileExists(atPath: filePath) {
             var removed: Bool
@@ -578,13 +582,13 @@ public class Klaviyo : NSObject {
     
     private func flushEvents() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.eventsQueue!, endpoint: self.KlaviyoServerTrackEventEndpoint)
+            self.flushQueue(queue: self.eventsQueue, endpoint: self.KlaviyoServerTrackEventEndpoint)
         })
     }
     
     private func flushPeople() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.peopleQueue!, endpoint: self.KlaviyoServerTrackPersonEndpoint)
+            self.flushQueue(queue: self.peopleQueue, endpoint: self.KlaviyoServerTrackPersonEndpoint)
         })
     }
     
@@ -593,17 +597,15 @@ public class Klaviyo : NSObject {
      - Parameter queue: an array of events
      - Parameter endpoint: the api endpoint
      */
-    private func flushQueue(queue: NSMutableArray, endpoint: String) {
+    private func flushQueue(queue: [[String: Any]], endpoint: String) {
         
         if !isHostReachable() {
             return
         }
         
-        let currentQueue : NSArray = queue
-        
+        let currentQueue = queue
         
         for item in currentQueue {
-            let i = item as! NSDictionary
             
             //Encode the parameters
             let requestParamData = encodeAPIParamData(dict: i)
@@ -669,7 +671,7 @@ public class Klaviyo : NSObject {
     - Parameter dict: an NSDictionary representing the data to be encoded for a given event
     - Returns: an encoded string
     */
-    private func encodeAPIParamData(dict: NSDictionary)->String {
+    private func encodeAPIParamData(dict: [String: Any]) -> String {
         var b64String = ""
         let data : NSData? = JSONSerializeObject(obj: dict)
         
@@ -688,7 +690,7 @@ public class Klaviyo : NSObject {
      - Parameter obj: the object to be serialized
      - Returns: NSData representation of the object
      */
-    private func JSONSerializeObject(obj : AnyObject)-> NSData? {
+    private func JSONSerializeObject(obj : [String: Any])-> NSData? {
         
         let coercedobj = JSONSerializableObjectForObject(obj: obj)
         var error : NSError? = nil
