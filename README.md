@@ -1,26 +1,31 @@
 # KlaviyoSwift
 
 [![CI Status](https://travis-ci.org/klaviyo/klaviyo-swift-sdk.svg?branch=master)](https://travis-ci.org/klaviyo/klaviyo-swift-sdk)
+[![Swift](https://img.shields.io/badge/Swift-5.3_5.4_5.5_5.6-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.3_5.4_5.5_5.6-Orange?style=flat-square)
+[![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
 [![Version](https://img.shields.io/cocoapods/v/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![Platform](https://img.shields.io/cocoapods/p/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 
+
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only one that supports push notifications**. We strongly encourage the use of the KlaviyoSwift SDK.
-
-## Requirements
-- iOS 9.0+ 
-- Xcode 10.2+
-- Swift 5.0+
+KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. This will allow you to message your users via push notifications from Klaviyo. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNS.
 
 ## Installation Options
 
-1. CocoaPods (recommended)
-2. Download a blank, pre-configured project, and get started from scratch. 
-3. Download the zip file, and drag and drop the KlaviyoSwift file into your project. 
+1. SPM 
+1. CocoaPods
 
-Note that options two and three will require you to repeat those steps as our SDK is updated. By using CococaPods the library can be kept up-to-date via `pod update`.
+## SPM
+KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to get it setup.
+
+### Import the SDK
+Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.6.0 as of this writing) and click Next.
+
+### Select the Package
+Select the `KlaviyoSwift` package and click Finish.  
+
 
 ## CocoaPods
 KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo). To install
@@ -30,9 +35,12 @@ it, simply add the following line to your Podfile:
 pod "KlaviyoSwift"
 ```
 
+Then run `pod install` to complete the integration.
+The library can be kept up-to-date via `pod update`.
+
 ## Example Usage: Event Tracking
 
-To run the example project, clone the repo, and run `pod install` from the Example directory first. Make sure any .swift files using the Klaviyo SDK contain the import call.
+Once integration is complete you can begin tracking events in your app. First, make sure any .swift files using the Klaviyo SDK contain the import call.
 
 ```swift
 import KlaviyoSwift
@@ -96,9 +104,7 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 ## Anonymous Tracking Notice
 
-As of right now, anonymous tracking is *not enabled by default*. What this means is that you cannot call `trackEvent` with only the eventName parameter unless `setUpUserEmail` has been called previously. Contact your account manager to make a request to enable anonymous tracking.
-
-Once anonymous tracking is enabled for your account you will be able to track events without any user information provided. In the meantime, make sure to pass in an email or `$id` identifier in order for Klaviyo to track events successfully.
+By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided Klaviyo will merge the data from the anonymous user to a new identified user.
 
 ## Integrating with Shopify's Mobile SDK
 If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
