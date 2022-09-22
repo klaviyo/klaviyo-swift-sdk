@@ -582,13 +582,13 @@ public class Klaviyo : NSObject {
     
     private func flushEvents() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.eventsQueue, endpoint: self.KlaviyoServerTrackEventEndpoint)
+            self.flushQueue(queue: &self.eventsQueue, endpoint: self.KlaviyoServerTrackEventEndpoint)
         })
     }
     
     private func flushPeople() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.peopleQueue, endpoint: self.KlaviyoServerTrackPersonEndpoint)
+            self.flushQueue(queue: &self.peopleQueue, endpoint: self.KlaviyoServerTrackPersonEndpoint)
         })
     }
     
@@ -597,7 +597,7 @@ public class Klaviyo : NSObject {
      - Parameter queue: an array of events
      - Parameter endpoint: the api endpoint
      */
-    private func flushQueue(queue: [[String: Any]], endpoint: String) {
+    private func flushQueue(queue: inout [[String: Any]], endpoint: String) {
         
         if !isHostReachable() {
             return
@@ -605,17 +605,17 @@ public class Klaviyo : NSObject {
         
         let currentQueue = queue
         
-        for item in currentQueue {
+        for (index, item) in currentQueue.enumerated() {
             
             //Encode the parameters
-            let requestParamData = encodeAPIParamData(dict: i)
+            let requestParamData = encodeAPIParamData(dict: item)
             let param = "data=\(requestParamData)"
             
             //Construct the API Request
             let request = apiRequestWithEndpoint(endpoint: endpoint, param: param)
 
             //Format and append the request for accessible logging
-            let requestString = "Endpoint: \(endpoint) \t Payload: \(i)"
+            let requestString = "Endpoint: \(endpoint) \t Payload: \(item)"
             requestsList.add(requestString)
             
             //Execute
@@ -624,9 +624,10 @@ public class Klaviyo : NSObject {
                     if(error == nil) {
                         let response = NSString(data: data!, encoding: String.Encoding.utf8.rawValue as UInt)
                         if response!.intValue == 0 {
-                            print("api rejected item: \(endpoint), \(i)")
+                            print("api rejected item: \(endpoint), \(item)")
                         }
-                        queue.remove(_: i)
+                        queue.remove(at: index)
+                            
                     }
                 })
             })
@@ -692,7 +693,7 @@ public class Klaviyo : NSObject {
      */
     private func JSONSerializeObject(obj : [String: Any])-> NSData? {
         
-        let coercedobj = JSONSerializableObjectForObject(obj: obj)
+        let coercedobj =  JSONSerialization.data(withJSONObject: obj)
         var error : NSError? = nil
         var data : NSData? = nil
         
@@ -733,7 +734,7 @@ public class Klaviyo : NSObject {
         }
         
         // recurse through collections and serialize each object
-        if (obj is NSArray) {
+        if (obj is Array) {
             let a = NSMutableArray()
             let objects = obj as! NSArray
             for item in objects {
