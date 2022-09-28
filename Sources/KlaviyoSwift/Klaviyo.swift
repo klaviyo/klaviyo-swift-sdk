@@ -93,7 +93,6 @@ public class Klaviyo : NSObject {
     var reachability : Reachability?
     var remoteNotificationsEnabled : Bool?
     let urlSessionMaxConnection = 5
-    var showNetworkActivityIndicator : Bool = true
     public var requestsList : NSMutableArray = []
     
     /*
@@ -111,7 +110,7 @@ public class Klaviyo : NSObject {
         super.init()
         
         // Dev warnings for incorrect iOS version
-        assert(isOperatingMinimumiOSVersion() == true, "operating outdated iOS version. requires >= ios 8")
+        assert(isOperatingMinimumiOSVersion() == true, "operating outdated iOS version. requires >= ios 13")
         // Dev warnings for nil api keys
         assert(apiKey == nil, "api key is nil")
         
@@ -123,7 +122,7 @@ public class Klaviyo : NSObject {
         config.allowsCellularAccess = true
         config.httpMaximumConnectionsPerHost = urlSessionMaxConnection
         urlSession = URLSession(configuration: config)
-        reachability = Reachability(hostname: "www.klaviyo.com")
+        reachability = Reachability(hostname: "a.klaviyo.com")
         
     }
     
@@ -470,26 +469,19 @@ public class Klaviyo : NSObject {
     
     //: Persistence Functionality
     
-    /**
-    filePathForData: returns a string representing the filepath where archived event queues are stored
-    
-    - Parameter data: name representing the event queue to locate (will be either people or events)
-    - Returns: filePath string representing the file location
-    */
-    private func filePathForData(data: String)->String {
-        let fileName = "/klaviyo-\(apiKey!)-\(data).plist"
-        let directory = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).last
-        let filePath = directory!.appending(fileName)
-        return filePath
-    }
-    
     // Helper functions
-    private func eventsFilePath()->String {
-        return filePathForData(data: "events")
+    private func eventsFilePath() -> String {
+        guard let apiKey = apiKey else {
+            return "events"
+        }
+        return filePathForData(apiKey: apiKey, data: "events")
     }
     
-    private func peopleFilePath()->String{
-        return filePathForData(data: "people")
+    private func peopleFilePath() -> String{
+        guard let apiKey = apiKey else {
+            return "people"
+        }
+        return filePathForData(apiKey: apiKey, data: "people")
     }
     
     /*
@@ -497,20 +489,20 @@ public class Klaviyo : NSObject {
     */
     private func archiveEvents() {
         let filePath = eventsFilePath()
-        let eventsQueueCopy = eventsQueue!
-        if !NSKeyedArchiver.archiveRootObject(eventsQueueCopy, toFile: filePath) {
-            print("unable to archive the events data")
+        guard let queue = eventsQueue, let fileURL = URL(string: filePath) else {
+            return
         }
+        archiveQueue(queue: queue, to: fileURL)
     }
     /*
     archivePeople: copies the people queue and archives it to the appropriate directory location
     */
     private func archivePeople() {
         let filePath = peopleFilePath()
-        let peopleQueueCopy : NSMutableArray = peopleQueue!
-        if !NSKeyedArchiver.archiveRootObject(peopleQueueCopy, toFile: filePath) {
-            print("unable to archive the people data")
+        guard let queue = peopleQueue, let fileURL = URL(string: filePath) else {
+            return
         }
+        archiveQueue(queue: queue, to: fileURL)
     }
     
     private func archive() {
@@ -524,37 +516,13 @@ public class Klaviyo : NSObject {
     }
     
     private func unarchiveEvents() {
-        eventsQueue = unarchiveFromFile(filePath: eventsFilePath()) as? NSMutableArray
+        eventsQueue = unarchiveFromFile(filePath: eventsFilePath())
         if eventsQueue == nil { eventsQueue = NSMutableArray() }
     }
     
     private func unarchivePeople() {
-        peopleQueue = unarchiveFromFile(filePath: peopleFilePath()) as? NSMutableArray
+        peopleQueue = unarchiveFromFile(filePath: peopleFilePath())
         if peopleQueue == nil { peopleQueue = NSMutableArray() }
-    }
-    
-    /**
-     unarchiveFromFile: takes a file path of store data and attempts to
-     */
-    private func unarchiveFromFile(filePath: String)-> AnyObject? {
-        var unarchivedData : AnyObject? = nil
-        
-        unarchivedData =  NSKeyedUnarchiver.unarchiveObject(withFile: filePath) as AnyObject
-        
-        if FileManager.default.fileExists(atPath: filePath) {
-            var removed: Bool
-            
-            do {
-                try FileManager.default.removeItem(atPath: filePath)
-                removed = true
-            }
-            catch {
-                removed = false
-            }
-            if !removed {print("Unable to remove archived data!")}
-            return unarchivedData
-        }
-        return unarchivedData
     }
     
     // MARK: Application Helpers
