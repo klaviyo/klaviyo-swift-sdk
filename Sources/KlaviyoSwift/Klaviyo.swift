@@ -545,14 +545,20 @@ public class Klaviyo : NSObject {
     }
     
     private func flushEvents() {
+        guard let queue = self.eventsQueue else {
+            return
+        }
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.eventsQueue!, endpoint: self.KlaviyoServerTrackEventEndpoint)
+            self.flushQueue(queue: queue, endpoint: self.KlaviyoServerTrackEventEndpoint)
         })
     }
     
     private func flushPeople() {
+        guard let queue = self.peopleQueue else {
+            return
+        }
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.peopleQueue!, endpoint: self.KlaviyoServerTrackPersonEndpoint)
+            self.flushQueue(queue: queue, endpoint: self.KlaviyoServerTrackPersonEndpoint)
         })
     }
     
@@ -567,7 +573,7 @@ public class Klaviyo : NSObject {
             return
         }
         
-        let currentQueue : NSArray = queue
+        let currentQueue: NSArray = queue
         
         
         for item in currentQueue {
