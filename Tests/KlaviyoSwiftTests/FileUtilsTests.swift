@@ -33,10 +33,10 @@ class FileUtilsTests: XCTestCase {
     
     func testFilePathForData() throws {
         let eventsResult = filePathForData(apiKey: "mykey", data: "events")
-        XCTAssertEqual("deadbeef/klaviyo-mykey-events.plist", eventsResult)
+        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-events.plist")!, eventsResult)
         
         let peopleResult = filePathForData(apiKey: "mykey", data: "people")
-        XCTAssertEqual("deadbeef/klaviyo-mykey-people.plist", peopleResult)
+        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-people.plist")!, peopleResult)
     }
 }
 

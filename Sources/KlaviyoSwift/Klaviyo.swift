@@ -470,16 +470,16 @@ public class Klaviyo : NSObject {
     //: Persistence Functionality
     
     // Helper functions
-    private func eventsFilePath() -> String {
+    private func eventsFilePath() -> URL? {
         guard let apiKey = apiKey else {
-            return "events"
+            return nil
         }
         return filePathForData(apiKey: apiKey, data: "events")
     }
     
-    private func peopleFilePath() -> String{
+    private func peopleFilePath() -> URL? {
         guard let apiKey = apiKey else {
-            return "people"
+            return nil
         }
         return filePathForData(apiKey: apiKey, data: "people")
     }
@@ -488,8 +488,7 @@ public class Klaviyo : NSObject {
     archiveEvents: copies the event queue and archives it to the appropriate directory location
     */
     private func archiveEvents() {
-        let filePath = eventsFilePath()
-        guard let queue = eventsQueue, let fileURL = URL(string: filePath) else {
+        guard let queue = eventsQueue, let fileURL = eventsFilePath() else {
             return
         }
         archiveQueue(queue: queue, to: fileURL)
@@ -498,8 +497,7 @@ public class Klaviyo : NSObject {
     archivePeople: copies the people queue and archives it to the appropriate directory location
     */
     private func archivePeople() {
-        let filePath = peopleFilePath()
-        guard let queue = peopleQueue, let fileURL = URL(string: filePath) else {
+        guard let queue = peopleQueue, let fileURL = peopleFilePath() else {
             return
         }
         archiveQueue(queue: queue, to: fileURL)
@@ -516,12 +514,20 @@ public class Klaviyo : NSObject {
     }
     
     private func unarchiveEvents() {
-        eventsQueue = unarchiveFromFile(filePath: eventsFilePath())
+        guard let fileURL = eventsFilePath() else {
+            eventsQueue = NSMutableArray()
+            return
+        }
+        eventsQueue = unarchiveFromFile(fileURL: fileURL)
         if eventsQueue == nil { eventsQueue = NSMutableArray() }
     }
     
     private func unarchivePeople() {
-        peopleQueue = unarchiveFromFile(filePath: peopleFilePath())
+        guard let fileURL = peopleFilePath() else {
+            peopleQueue = NSMutableArray()
+            return
+        }
+        peopleQueue = unarchiveFromFile(fileURL: fileURL)
         if peopleQueue == nil { peopleQueue = NSMutableArray() }
     }
     

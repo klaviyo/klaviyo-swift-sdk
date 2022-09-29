@@ -16,12 +16,12 @@ struct FileClient {
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).last! }
+        libraryDirectory: { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first! }
     )
     var write: (Data, URL) throws -> Void
     var fileExists: (String) -> Bool
     var removeItem: (String) throws -> Void
-    var libraryDirectory: () -> String
+    var libraryDirectory: () -> URL
 }
 
 /**
@@ -31,10 +31,10 @@ filePathForData: returns a string representing the filepath where archived event
 - Parameter data: name representing the event queue to locate (will be either people or events)
 - Returns: filePath string representing the file location
 */
-func filePathForData(apiKey: String, data: String)->String {
+func filePathForData(apiKey: String, data: String) -> URL {
     let fileName = "/klaviyo-\(apiKey)-\(data).plist"
     let directory = environment.fileClient.libraryDirectory()
-    let filePath = directory.appending(fileName)
+    let filePath = directory.appendingPathComponent(fileName)
     return filePath
 }
 
@@ -45,10 +45,10 @@ func filePathForData(apiKey: String, data: String)->String {
  - Parameter at: path of file to be removed
  - Returns: whether or not the file was removed
  */
-func removeFile(at filePath: String) -> Bool {
-    if environment.fileClient.fileExists(filePath) {
+func removeFile(at url: URL) -> Bool {
+    if environment.fileClient.fileExists(url.path) {
         do {
-            try environment.fileClient.removeItem(filePath)
+            try environment.fileClient.removeItem(url.path)
             return true
         }
         catch {
