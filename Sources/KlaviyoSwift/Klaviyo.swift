@@ -462,6 +462,7 @@ public class Klaviyo : NSObject {
     
     @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){
         reachability?.stopNotifier()
+        archive()
     }
     
     @objc func applicationWillTerminate(notification : NSNotification) {
