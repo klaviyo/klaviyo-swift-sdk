@@ -8,8 +8,14 @@
 import Foundation
 
 struct ArchiverClient {
-    static let production = ArchiverClient(archivedData: NSKeyedArchiver.archivedData(withRootObject: requiringSecureCoding:))
     var archivedData: (Any, Bool) throws -> Data
+    var unarchivedMutableArray: (Data) throws -> NSMutableArray?
+    
+    static let production = ArchiverClient(
+        archivedData: NSKeyedArchiver.archivedData(withRootObject:requiringSecureCoding:),
+        unarchivedMutableArray: { data in try NSKeyedUnarchiver.unarchivedObject(ofClass: NSMutableArray.self , from: data) }
+    )
+
 }
 
 
@@ -29,12 +35,12 @@ func archiveQueue(queue: NSArray, to fileURL: URL) {
 
 func unarchiveFromFile(filePath: String)-> NSMutableArray? {
     guard let fileURL = environment.url(filePath),
-            let archivedData = try? Data(contentsOf: fileURL) else {
+          let archivedData = try? environment.data(fileURL) else {
         print("Unable to read archived data.")
         return nil
     }
     
-     guard let unarchivedData = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSMutableArray.self, from: archivedData) else {
+    guard let unarchivedData = try? environment.archiverClient.unarchivedMutableArray(archivedData) else {
          print("unable to unarchive data")
          return nil
     }

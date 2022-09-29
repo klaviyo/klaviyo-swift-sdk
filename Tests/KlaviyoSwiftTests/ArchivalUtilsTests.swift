@@ -23,7 +23,10 @@ let TEST_URL = URL(string: "fake_url")
 let TEST_RETURN_DATA = Data()
 
 extension ArchiverClient {
-    static let test = ArchiverClient(archivedData: { _, _ in return ARCHIVED_RETURNED_DATA })
+    static let test = ArchiverClient(
+        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
+        unarchivedMutableArray: { _ in SAMPLE_DATA }
+    )
 }
 
 extension KlaviyoEnvironment {
@@ -32,7 +35,7 @@ extension KlaviyoEnvironment {
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
         url: testURL,
-        data: { _ in return TEST_RETURN_DATA }
+        data: { _ in TEST_RETURN_DATA }
     )
 }
 
@@ -49,6 +52,7 @@ class ArchivalUtilsTests: XCTestCase {
     
     var dataToWrite: Data? = nil
     var wroteToFile = false
+    var removedFile = false
 
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test
@@ -56,12 +60,16 @@ class ArchivalUtilsTests: XCTestCase {
             self?.wroteToFile = true
             self?.dataToWrite = data
         }
+        environment.fileClient.removeItem = { [weak self] _ in
+            self?.removedFile = true
+        }
     }
 
     override func tearDownWithError() throws {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         wroteToFile = false
         dataToWrite = nil
+        removedFile = false
     }
 
     func testArchiveUnarchive() throws {
@@ -89,9 +97,41 @@ class ArchivalUtilsTests: XCTestCase {
     }
     
     func testUnarchive() throws {
-        unarchiveFromFile(filePath: "foo")
+        let archiveResult = unarchiveFromFile(filePath: "fake_path")
         
+        XCTAssertEqual(SAMPLE_DATA, archiveResult)
+        XCTAssertTrue(removedFile)
+    }
+    
+    func testUnarchiveInvalidURL() throws {
+        environment.url = { _ in return nil }
         
+        let archiveResult = unarchiveFromFile(filePath: "fake_path")
+        
+        XCTAssertNil(archiveResult)
+    }
+    
+    func testUnarchiveInvalidData() throws {
+        environment.data = { _ in throw FakeFileError.fake }
+        
+        let archiveResult = unarchiveFromFile(filePath: "fake_path")
+        
+        XCTAssertNil(archiveResult)
+    }
+    
+    func testUnarchiveUnarchiveFails() throws {
+        environment.archiverClient.unarchivedMutableArray = { _ in throw FakeFileError.fake }
+        
+        let archiveResult = unarchiveFromFile(filePath: "fake_path")
+        
+        XCTAssertNil(archiveResult)
+    }
+    func testUnarchiveUnableToRemoveFile() throws {
+        environment.fileClient.fileExists = { _ in false }
+        let archiveResult = unarchiveFromFile(filePath: "fake_path")
+        
+        XCTAssertEqual(SAMPLE_DATA, archiveResult)
+        XCTAssertFalse(removedFile)
     }
 
 }
