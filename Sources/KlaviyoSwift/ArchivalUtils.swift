@@ -27,8 +27,8 @@ func archiveQueue(queue: NSArray, to fileURL: URL) {
     
     do {
         try environment.fileClient.write(archiveData, fileURL)
-    } catch {
-        print("Unable to write archive data to file at URL: \(fileURL)")
+    } catch let error {
+        print("Unable to write archive data to file at URL: \(fileURL) error: \(error.localizedDescription)")
     }
 
 }
