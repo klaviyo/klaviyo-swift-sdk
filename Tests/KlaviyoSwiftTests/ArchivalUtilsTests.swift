@@ -89,8 +89,15 @@ class ArchivalUtilsTests: XCTestCase {
 }
 
 class ArchivalSystemTest: XCTestCase {
- 
+    
     let TEST_URL = filePathForData(apiKey: "foo", data: "people")
+    
+    override func setUpWithError() throws {
+        environment = KlaviyoEnvironment.production
+        try? FileManager.default.removeItem(atPath: TEST_URL.path)
+    }
+ 
+
     /* This will attempt to actually archive and unarchive a queue. */
     func testArchiveUnarchive() {
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
