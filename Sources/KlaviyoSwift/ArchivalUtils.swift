@@ -13,7 +13,7 @@ struct ArchiverClient {
     
     static let production = ArchiverClient(
         archivedData: NSKeyedArchiver.archivedData(withRootObject:requiringSecureCoding:),
-        unarchivedMutableArray: { data in try NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSMutableArray.self, NSDictionary.self] , from: data) as? NSMutableArray }
+        unarchivedMutableArray: { data in try NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSArray.self, NSDictionary.self, NSString.self, NSDate.self, NSNull.self, NSNumber.self, NSURL.self] , from: data) as? NSMutableArray }
     )
 
 }
