@@ -8,7 +8,7 @@
 import Foundation
 
 func write(data: Data, url: URL) throws {
-    try data.write(to:url)
+    try data.write(to: url, options: .atomic)
 }
 
 struct FileClient {
