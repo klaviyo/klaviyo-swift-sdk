@@ -17,7 +17,7 @@
             "en"
          );
          mainGroup = "OBJ_5";
-         productRefGroup = "OBJ_14";
+         productRefGroup = "OBJ_19";
          projectDirPath = ".";
          targets = (
             "klaviyo-swift-sdk::KlaviyoSwift",
@@ -28,33 +28,60 @@
       };
       "OBJ_10" = {
          isa = "PBXFileReference";
-         path = "ReachabilitySwift.swift";
+         path = "FileUtils.swift";
          sourceTree = "<group>";
       };
       "OBJ_11" = {
+         isa = "PBXFileReference";
+         path = "Klaviyo.swift";
+         sourceTree = "<group>";
+      };
+      "OBJ_12" = {
+         isa = "PBXFileReference";
+         path = "KlaviyoEnvironment.swift";
+         sourceTree = "<group>";
+      };
+      "OBJ_13" = {
+         isa = "PBXFileReference";
+         path = "ReachabilitySwift.swift";
+         sourceTree = "<group>";
+      };
+      "OBJ_14" = {
          isa = "PBXGroup";
          children = (
-            "OBJ_12"
+            "OBJ_15"
          );
          name = "Tests";
          path = "";
          sourceTree = "SOURCE_ROOT";
       };
-      "OBJ_12" = {
+      "OBJ_15" = {
          isa = "PBXGroup";
          children = (
-            "OBJ_13"
+            "OBJ_16",
+            "OBJ_17",
+            "OBJ_18"
          );
          name = "KlaviyoSwiftTests";
          path = "Tests/KlaviyoSwiftTests";
          sourceTree = "SOURCE_ROOT";
       };
-      "OBJ_13" = {
+      "OBJ_16" = {
+         isa = "PBXFileReference";
+         path = "ArchivalUtilsTests.swift";
+         sourceTree = "<group>";
+      };
+      "OBJ_17" = {
+         isa = "PBXFileReference";
+         path = "FileUtilsTests.swift";
+         sourceTree = "<group>";
+      };
+      "OBJ_18" = {
          isa = "PBXFileReference";
          path = "Tests.swift";
          sourceTree = "<group>";
       };
-      "OBJ_14" = {
+      "OBJ_19" = {
          isa = "PBXGroup";
          children = (
             "klaviyo-swift-sdk::KlaviyoSwift::Product",
@@ -63,21 +90,6 @@
          name = "Products";
          path = "";
          sourceTree = "BUILT_PRODUCTS_DIR";
-      };
-      "OBJ_17" = {
-         isa = "PBXFileReference";
-         path = "Example";
-         sourceTree = "SOURCE_ROOT";
-      };
-      "OBJ_18" = {
-         isa = "PBXFileReference";
-         path = "fastlane";
-         sourceTree = "SOURCE_ROOT";
-      };
-      "OBJ_19" = {
-         isa = "PBXFileReference";
-         path = "LICENSE";
-         sourceTree = "<group>";
       };
       "OBJ_2" = {
          isa = "XCConfigurationList";
@@ -88,131 +100,44 @@
          defaultConfigurationIsVisible = "0";
          defaultConfigurationName = "Release";
       };
-      "OBJ_20" = {
+      "OBJ_22" = {
+         isa = "PBXFileReference";
+         path = "fastlane";
+         sourceTree = "SOURCE_ROOT";
+      };
+      "OBJ_23" = {
+         isa = "PBXFileReference";
+         path = "LICENSE";
+         sourceTree = "<group>";
+      };
+      "OBJ_24" = {
          isa = "PBXFileReference";
          path = "README.md";
          sourceTree = "<group>";
       };
-      "OBJ_21" = {
+      "OBJ_25" = {
          isa = "PBXFileReference";
          path = "KlaviyoSwift.podspec";
          sourceTree = "<group>";
       };
-      "OBJ_22" = {
+      "OBJ_26" = {
          isa = "PBXFileReference";
          path = "Gemfile";
          sourceTree = "<group>";
       };
-      "OBJ_23" = {
+      "OBJ_27" = {
          isa = "PBXFileReference";
          path = "Gemfile.lock";
          sourceTree = "<group>";
       };
-      "OBJ_25" = {
+      "OBJ_29" = {
          isa = "XCConfigurationList";
          buildConfigurations = (
-            "OBJ_26",
-            "OBJ_27"
+            "OBJ_30",
+            "OBJ_31"
          );
          defaultConfigurationIsVisible = "0";
          defaultConfigurationName = "Release";
-      };
-      "OBJ_26" = {
-         isa = "XCBuildConfiguration";
-         buildSettings = {
-            CURRENT_PROJECT_VERSION = "1";
-            DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
-            ENABLE_TESTABILITY = "YES";
-            FRAMEWORK_SEARCH_PATHS = (
-               "$(inherited)",
-               "$(PLATFORM_DIR)/Developer/Library/Frameworks"
-            );
-            HEADER_SEARCH_PATHS = (
-               "$(inherited)"
-            );
-            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwift_Info.plist";
-            IPHONEOS_DEPLOYMENT_TARGET = "13.0";
-            LD_RUNPATH_SEARCH_PATHS = (
-               "$(inherited)",
-               "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
-            );
-            MACOSX_DEPLOYMENT_TARGET = "10.10";
-            OTHER_CFLAGS = (
-               "$(inherited)"
-            );
-            OTHER_LDFLAGS = (
-               "$(inherited)"
-            );
-            OTHER_SWIFT_FLAGS = (
-               "$(inherited)"
-            );
-            PRODUCT_BUNDLE_IDENTIFIER = "KlaviyoSwift";
-            PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)";
-            PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-            SKIP_INSTALL = "YES";
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-               "$(inherited)"
-            );
-            SWIFT_VERSION = "5.0";
-            TARGET_NAME = "KlaviyoSwift";
-            TVOS_DEPLOYMENT_TARGET = "9.0";
-            WATCHOS_DEPLOYMENT_TARGET = "2.0";
-         };
-         name = "Debug";
-      };
-      "OBJ_27" = {
-         isa = "XCBuildConfiguration";
-         buildSettings = {
-            CURRENT_PROJECT_VERSION = "1";
-            DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
-            ENABLE_TESTABILITY = "YES";
-            FRAMEWORK_SEARCH_PATHS = (
-               "$(inherited)",
-               "$(PLATFORM_DIR)/Developer/Library/Frameworks"
-            );
-            HEADER_SEARCH_PATHS = (
-               "$(inherited)"
-            );
-            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwift_Info.plist";
-            IPHONEOS_DEPLOYMENT_TARGET = "13.0";
-            LD_RUNPATH_SEARCH_PATHS = (
-               "$(inherited)",
-               "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
-            );
-            MACOSX_DEPLOYMENT_TARGET = "10.10";
-            OTHER_CFLAGS = (
-               "$(inherited)"
-            );
-            OTHER_LDFLAGS = (
-               "$(inherited)"
-            );
-            OTHER_SWIFT_FLAGS = (
-               "$(inherited)"
-            );
-            PRODUCT_BUNDLE_IDENTIFIER = "KlaviyoSwift";
-            PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)";
-            PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-            SKIP_INSTALL = "YES";
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-               "$(inherited)"
-            );
-            SWIFT_VERSION = "5.0";
-            TARGET_NAME = "KlaviyoSwift";
-            TVOS_DEPLOYMENT_TARGET = "9.0";
-            WATCHOS_DEPLOYMENT_TARGET = "2.0";
-         };
-         name = "Release";
-      };
-      "OBJ_28" = {
-         isa = "PBXSourcesBuildPhase";
-         files = (
-            "OBJ_29",
-            "OBJ_30"
-         );
-      };
-      "OBJ_29" = {
-         isa = "PBXBuildFile";
-         fileRef = "OBJ_9";
       };
       "OBJ_3" = {
          isa = "XCBuildConfiguration";
@@ -252,30 +177,11 @@
          name = "Debug";
       };
       "OBJ_30" = {
-         isa = "PBXBuildFile";
-         fileRef = "OBJ_10";
-      };
-      "OBJ_31" = {
-         isa = "PBXFrameworksBuildPhase";
-         files = (
-         );
-      };
-      "OBJ_33" = {
-         isa = "XCConfigurationList";
-         buildConfigurations = (
-            "OBJ_34",
-            "OBJ_35"
-         );
-         defaultConfigurationIsVisible = "0";
-         defaultConfigurationName = "Release";
-      };
-      "OBJ_34" = {
          isa = "XCBuildConfiguration";
          buildSettings = {
-            CLANG_ENABLE_MODULES = "YES";
             CURRENT_PROJECT_VERSION = "1";
             DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
-            EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES";
+            ENABLE_TESTABILITY = "YES";
             FRAMEWORK_SEARCH_PATHS = (
                "$(inherited)",
                "$(PLATFORM_DIR)/Developer/Library/Frameworks"
@@ -283,14 +189,13 @@
             HEADER_SEARCH_PATHS = (
                "$(inherited)"
             );
-            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwiftTests_Info.plist";
-            IPHONEOS_DEPLOYMENT_TARGET = "14.0";
+            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwift_Info.plist";
+            IPHONEOS_DEPLOYMENT_TARGET = "13.0";
             LD_RUNPATH_SEARCH_PATHS = (
                "$(inherited)",
-               "@loader_path/../Frameworks",
-               "@loader_path/Frameworks"
+               "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
             );
-            MACOSX_DEPLOYMENT_TARGET = "11.0";
+            MACOSX_DEPLOYMENT_TARGET = "10.10";
             OTHER_CFLAGS = (
                "$(inherited)"
             );
@@ -300,23 +205,26 @@
             OTHER_SWIFT_FLAGS = (
                "$(inherited)"
             );
+            PRODUCT_BUNDLE_IDENTIFIER = "KlaviyoSwift";
+            PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)";
+            PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+            SKIP_INSTALL = "YES";
             SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
                "$(inherited)"
             );
             SWIFT_VERSION = "5.0";
-            TARGET_NAME = "KlaviyoSwiftTests";
-            TVOS_DEPLOYMENT_TARGET = "14.0";
-            WATCHOS_DEPLOYMENT_TARGET = "7.0";
+            TARGET_NAME = "KlaviyoSwift";
+            TVOS_DEPLOYMENT_TARGET = "9.0";
+            WATCHOS_DEPLOYMENT_TARGET = "2.0";
          };
          name = "Debug";
       };
-      "OBJ_35" = {
+      "OBJ_31" = {
          isa = "XCBuildConfiguration";
          buildSettings = {
-            CLANG_ENABLE_MODULES = "YES";
             CURRENT_PROJECT_VERSION = "1";
             DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
-            EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES";
+            ENABLE_TESTABILITY = "YES";
             FRAMEWORK_SEARCH_PATHS = (
                "$(inherited)",
                "$(PLATFORM_DIR)/Developer/Library/Frameworks"
@@ -324,14 +232,13 @@
             HEADER_SEARCH_PATHS = (
                "$(inherited)"
             );
-            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwiftTests_Info.plist";
-            IPHONEOS_DEPLOYMENT_TARGET = "14.0";
+            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwift_Info.plist";
+            IPHONEOS_DEPLOYMENT_TARGET = "13.0";
             LD_RUNPATH_SEARCH_PATHS = (
                "$(inherited)",
-               "@loader_path/../Frameworks",
-               "@loader_path/Frameworks"
+               "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
             );
-            MACOSX_DEPLOYMENT_TARGET = "11.0";
+            MACOSX_DEPLOYMENT_TARGET = "10.10";
             OTHER_CFLAGS = (
                "$(inherited)"
             );
@@ -341,21 +248,45 @@
             OTHER_SWIFT_FLAGS = (
                "$(inherited)"
             );
+            PRODUCT_BUNDLE_IDENTIFIER = "KlaviyoSwift";
+            PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)";
+            PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+            SKIP_INSTALL = "YES";
             SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
                "$(inherited)"
             );
             SWIFT_VERSION = "5.0";
-            TARGET_NAME = "KlaviyoSwiftTests";
-            TVOS_DEPLOYMENT_TARGET = "14.0";
-            WATCHOS_DEPLOYMENT_TARGET = "7.0";
+            TARGET_NAME = "KlaviyoSwift";
+            TVOS_DEPLOYMENT_TARGET = "9.0";
+            WATCHOS_DEPLOYMENT_TARGET = "2.0";
          };
          name = "Release";
       };
-      "OBJ_36" = {
+      "OBJ_32" = {
          isa = "PBXSourcesBuildPhase";
          files = (
+            "OBJ_33",
+            "OBJ_34",
+            "OBJ_35",
+            "OBJ_36",
             "OBJ_37"
          );
+      };
+      "OBJ_33" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_9";
+      };
+      "OBJ_34" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_10";
+      };
+      "OBJ_35" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_11";
+      };
+      "OBJ_36" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_12";
       };
       "OBJ_37" = {
          isa = "PBXBuildFile";
@@ -364,12 +295,7 @@
       "OBJ_38" = {
          isa = "PBXFrameworksBuildPhase";
          files = (
-            "OBJ_39"
          );
-      };
-      "OBJ_39" = {
-         isa = "PBXBuildFile";
-         fileRef = "klaviyo-swift-sdk::KlaviyoSwift::Product";
       };
       "OBJ_4" = {
          isa = "XCBuildConfiguration";
@@ -405,112 +331,232 @@
          name = "Release";
       };
       "OBJ_40" = {
-         isa = "PBXTargetDependency";
-         target = "klaviyo-swift-sdk::KlaviyoSwift";
-      };
-      "OBJ_42" = {
          isa = "XCConfigurationList";
          buildConfigurations = (
-            "OBJ_43",
-            "OBJ_44"
+            "OBJ_41",
+            "OBJ_42"
          );
          defaultConfigurationIsVisible = "0";
          defaultConfigurationName = "Release";
       };
-      "OBJ_43" = {
+      "OBJ_41" = {
          isa = "XCBuildConfiguration";
          buildSettings = {
-            LD = "/usr/bin/true";
+            CLANG_ENABLE_MODULES = "YES";
+            CURRENT_PROJECT_VERSION = "1";
+            DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
+            EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES";
+            FRAMEWORK_SEARCH_PATHS = (
+               "$(inherited)",
+               "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            );
+            HEADER_SEARCH_PATHS = (
+               "$(inherited)"
+            );
+            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwiftTests_Info.plist";
+            IPHONEOS_DEPLOYMENT_TARGET = "14.0";
+            LD_RUNPATH_SEARCH_PATHS = (
+               "$(inherited)",
+               "@loader_path/../Frameworks",
+               "@loader_path/Frameworks"
+            );
+            MACOSX_DEPLOYMENT_TARGET = "11.0";
+            OTHER_CFLAGS = (
+               "$(inherited)"
+            );
+            OTHER_LDFLAGS = (
+               "$(inherited)"
+            );
             OTHER_SWIFT_FLAGS = (
-               "-swift-version",
-               "5",
-               "-I",
-               "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI",
-               "-sdk",
-               "/Users/noah.durell/Downloads/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk",
-               "-package-description-version",
-               "5.6.0"
+               "$(inherited)"
+            );
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+               "$(inherited)"
             );
             SWIFT_VERSION = "5.0";
+            TARGET_NAME = "KlaviyoSwiftTests";
+            TVOS_DEPLOYMENT_TARGET = "14.0";
+            WATCHOS_DEPLOYMENT_TARGET = "7.0";
          };
          name = "Debug";
       };
-      "OBJ_44" = {
+      "OBJ_42" = {
          isa = "XCBuildConfiguration";
          buildSettings = {
-            LD = "/usr/bin/true";
+            CLANG_ENABLE_MODULES = "YES";
+            CURRENT_PROJECT_VERSION = "1";
+            DRIVERKIT_DEPLOYMENT_TARGET = "19.0";
+            EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES";
+            FRAMEWORK_SEARCH_PATHS = (
+               "$(inherited)",
+               "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            );
+            HEADER_SEARCH_PATHS = (
+               "$(inherited)"
+            );
+            INFOPLIST_FILE = "klaviyo-swift-sdk.xcodeproj/KlaviyoSwiftTests_Info.plist";
+            IPHONEOS_DEPLOYMENT_TARGET = "14.0";
+            LD_RUNPATH_SEARCH_PATHS = (
+               "$(inherited)",
+               "@loader_path/../Frameworks",
+               "@loader_path/Frameworks"
+            );
+            MACOSX_DEPLOYMENT_TARGET = "11.0";
+            OTHER_CFLAGS = (
+               "$(inherited)"
+            );
+            OTHER_LDFLAGS = (
+               "$(inherited)"
+            );
             OTHER_SWIFT_FLAGS = (
-               "-swift-version",
-               "5",
-               "-I",
-               "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI",
-               "-sdk",
-               "/Users/noah.durell/Downloads/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk",
-               "-package-description-version",
-               "5.6.0"
+               "$(inherited)"
+            );
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+               "$(inherited)"
             );
             SWIFT_VERSION = "5.0";
+            TARGET_NAME = "KlaviyoSwiftTests";
+            TVOS_DEPLOYMENT_TARGET = "14.0";
+            WATCHOS_DEPLOYMENT_TARGET = "7.0";
          };
          name = "Release";
       };
-      "OBJ_45" = {
+      "OBJ_43" = {
          isa = "PBXSourcesBuildPhase";
          files = (
+            "OBJ_44",
+            "OBJ_45",
             "OBJ_46"
          );
       };
+      "OBJ_44" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_16";
+      };
+      "OBJ_45" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_17";
+      };
       "OBJ_46" = {
          isa = "PBXBuildFile";
-         fileRef = "OBJ_6";
+         fileRef = "OBJ_18";
+      };
+      "OBJ_47" = {
+         isa = "PBXFrameworksBuildPhase";
+         files = (
+            "OBJ_48"
+         );
       };
       "OBJ_48" = {
-         isa = "XCConfigurationList";
-         buildConfigurations = (
-            "OBJ_49",
-            "OBJ_50"
-         );
-         defaultConfigurationIsVisible = "0";
-         defaultConfigurationName = "Release";
+         isa = "PBXBuildFile";
+         fileRef = "klaviyo-swift-sdk::KlaviyoSwift::Product";
       };
       "OBJ_49" = {
-         isa = "XCBuildConfiguration";
-         buildSettings = {
-         };
-         name = "Debug";
+         isa = "PBXTargetDependency";
+         target = "klaviyo-swift-sdk::KlaviyoSwift";
       };
       "OBJ_5" = {
          isa = "PBXGroup";
          children = (
             "OBJ_6",
             "OBJ_7",
-            "OBJ_11",
             "OBJ_14",
-            "OBJ_17",
-            "OBJ_18",
             "OBJ_19",
-            "OBJ_20",
-            "OBJ_21",
             "OBJ_22",
-            "OBJ_23"
+            "OBJ_23",
+            "OBJ_24",
+            "OBJ_25",
+            "OBJ_26",
+            "OBJ_27"
          );
          path = "";
          sourceTree = "<group>";
       };
-      "OBJ_50" = {
+      "OBJ_51" = {
+         isa = "XCConfigurationList";
+         buildConfigurations = (
+            "OBJ_52",
+            "OBJ_53"
+         );
+         defaultConfigurationIsVisible = "0";
+         defaultConfigurationName = "Release";
+      };
+      "OBJ_52" = {
+         isa = "XCBuildConfiguration";
+         buildSettings = {
+            LD = "/usr/bin/true";
+            OTHER_SWIFT_FLAGS = (
+               "-swift-version",
+               "5",
+               "-I",
+               "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI",
+               "-sdk",
+               "/Users/noah.durell/Downloads/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk",
+               "-package-description-version",
+               "5.6.0"
+            );
+            SWIFT_VERSION = "5.0";
+         };
+         name = "Debug";
+      };
+      "OBJ_53" = {
+         isa = "XCBuildConfiguration";
+         buildSettings = {
+            LD = "/usr/bin/true";
+            OTHER_SWIFT_FLAGS = (
+               "-swift-version",
+               "5",
+               "-I",
+               "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI",
+               "-sdk",
+               "/Users/noah.durell/Downloads/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk",
+               "-package-description-version",
+               "5.6.0"
+            );
+            SWIFT_VERSION = "5.0";
+         };
+         name = "Release";
+      };
+      "OBJ_54" = {
+         isa = "PBXSourcesBuildPhase";
+         files = (
+            "OBJ_55"
+         );
+      };
+      "OBJ_55" = {
+         isa = "PBXBuildFile";
+         fileRef = "OBJ_6";
+      };
+      "OBJ_57" = {
+         isa = "XCConfigurationList";
+         buildConfigurations = (
+            "OBJ_58",
+            "OBJ_59"
+         );
+         defaultConfigurationIsVisible = "0";
+         defaultConfigurationName = "Release";
+      };
+      "OBJ_58" = {
+         isa = "XCBuildConfiguration";
+         buildSettings = {
+         };
+         name = "Debug";
+      };
+      "OBJ_59" = {
          isa = "XCBuildConfiguration";
          buildSettings = {
          };
          name = "Release";
-      };
-      "OBJ_51" = {
-         isa = "PBXTargetDependency";
-         target = "klaviyo-swift-sdk::KlaviyoSwiftTests";
       };
       "OBJ_6" = {
          isa = "PBXFileReference";
          explicitFileType = "sourcecode.swift";
          path = "Package.swift";
          sourceTree = "<group>";
+      };
+      "OBJ_60" = {
+         isa = "PBXTargetDependency";
+         target = "klaviyo-swift-sdk::KlaviyoSwiftTests";
       };
       "OBJ_7" = {
          isa = "PBXGroup";
@@ -525,7 +571,10 @@
          isa = "PBXGroup";
          children = (
             "OBJ_9",
-            "OBJ_10"
+            "OBJ_10",
+            "OBJ_11",
+            "OBJ_12",
+            "OBJ_13"
          );
          name = "KlaviyoSwift";
          path = "Sources/KlaviyoSwift";
@@ -533,15 +582,15 @@
       };
       "OBJ_9" = {
          isa = "PBXFileReference";
-         path = "Klaviyo.swift";
+         path = "ArchivalUtils.swift";
          sourceTree = "<group>";
       };
       "klaviyo-swift-sdk::KlaviyoSwift" = {
          isa = "PBXNativeTarget";
-         buildConfigurationList = "OBJ_25";
+         buildConfigurationList = "OBJ_29";
          buildPhases = (
-            "OBJ_28",
-            "OBJ_31"
+            "OBJ_32",
+            "OBJ_38"
          );
          dependencies = (
          );
@@ -557,13 +606,13 @@
       };
       "klaviyo-swift-sdk::KlaviyoSwiftTests" = {
          isa = "PBXNativeTarget";
-         buildConfigurationList = "OBJ_33";
+         buildConfigurationList = "OBJ_40";
          buildPhases = (
-            "OBJ_36",
-            "OBJ_38"
+            "OBJ_43",
+            "OBJ_47"
          );
          dependencies = (
-            "OBJ_40"
+            "OBJ_49"
          );
          name = "KlaviyoSwiftTests";
          productName = "KlaviyoSwiftTests";
@@ -577,9 +626,9 @@
       };
       "klaviyo-swift-sdk::SwiftPMPackageDescription" = {
          isa = "PBXNativeTarget";
-         buildConfigurationList = "OBJ_42";
+         buildConfigurationList = "OBJ_51";
          buildPhases = (
-            "OBJ_45"
+            "OBJ_54"
          );
          dependencies = (
          );
@@ -589,11 +638,11 @@
       };
       "klaviyo-swift-sdk::klaviyo-swift-sdkPackageTests::ProductTarget" = {
          isa = "PBXAggregateTarget";
-         buildConfigurationList = "OBJ_48";
+         buildConfigurationList = "OBJ_57";
          buildPhases = (
          );
          dependencies = (
-            "OBJ_51"
+            "OBJ_60"
          );
          name = "klaviyo-swift-sdkPackageTests";
          productName = "klaviyo-swift-sdkPackageTests";
