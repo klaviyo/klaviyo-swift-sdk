@@ -36,7 +36,7 @@ filePathForData: returns a string representing the filepath where archived event
 func filePathForData(apiKey: String, data: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-\(data).plist"
     let directory = environment.fileClient.applicationSupportDirectory()
-    let filePath = directory.appendingPathComponent(fileName)
+    let filePath = directory.appendingPathComponent(fileName, isDirectory: false)
     return filePath
 }
 
