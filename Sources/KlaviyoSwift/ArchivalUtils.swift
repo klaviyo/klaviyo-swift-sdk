@@ -42,6 +42,10 @@ func archiveQueue(queue: NSArray, to fileURL: URL) {
 }
 
 func unarchiveFromFile(fileURL: URL)-> NSMutableArray? {
+    guard environment.fileClient.fileExists(fileURL.path) else {
+        print("Archive file not found.")
+        return nil
+    }
     guard let archivedData = try? environment.data(fileURL) else {
         print("Unable to read archived data.")
         return nil

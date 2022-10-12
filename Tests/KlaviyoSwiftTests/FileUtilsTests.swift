@@ -38,5 +38,12 @@ class FileUtilsTests: XCTestCase {
         let peopleResult = filePathForData(apiKey: "mykey", data: "people")
         XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-people.plist")!, peopleResult)
     }
+    
+    func testRemoveItemWithError() {
+        environment.fileClient.removeItem = { _ in
+            throw FakeFileError.fake
+        }
+        XCTAssertFalse(removeFile(at: TEST_URL))
+    }
 }
 

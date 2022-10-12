@@ -79,10 +79,26 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertNil(archiveResult)
     }
     func testUnarchiveUnableToRemoveFile() throws {
-        environment.fileClient.fileExists = { _ in false }
+        var firstCall = true
+        environment.fileClient.fileExists = { _ in
+            if firstCall {
+                firstCall = false
+                return true
+            }
+            return false
+            
+        }
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
         
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
+        XCTAssertFalse(removedFile)
+    }
+    
+    func testUnarchiveWhereFileDoesNotExist() throws {
+        environment.fileClient.fileExists = { _ in false }
+        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        
+        XCTAssertNil(archiveResult)
         XCTAssertFalse(removedFile)
     }
 

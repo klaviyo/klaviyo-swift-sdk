@@ -33,7 +33,6 @@ extension KlaviyoEnvironment {
     static let test = KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
-        url: testURL,
         data: { _ in TEST_RETURN_DATA }
     )
 }
