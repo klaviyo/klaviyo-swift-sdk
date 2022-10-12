@@ -43,10 +43,12 @@ public class Klaviyo : NSObject {
     public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
-    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
-    let KlaviyoServerTrackEventEndpoint = "/track"
-    let KlaviyoServerTrackPersonEndpoint = "/identify"
+    private static let KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    private static let KlaviyoServerTrackEventEndpoint = "/track"
+    private static let KlaviyoServerTrackPersonEndpoint = "/identify"
+
     
+    public var serverURLString = KlaviyoServerURLString
     
     /*
     Current API WorkAround: Update this once the $anonymous in place
@@ -338,6 +340,10 @@ public class Klaviyo : NSObject {
         defaults.setValue(apnDeviceToken, forKey: CustomerPropertiesAPNTokensDictKey)
     }
     
+    public func setKlaviyoServerURL(serverURL: String) {
+        
+    }
+    
     
     
     /**
@@ -578,13 +584,13 @@ public class Klaviyo : NSObject {
     
     private func flushEvents() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.eventsQueue!, endpoint: self.KlaviyoServerTrackEventEndpoint)
+            self.flushQueue(queue: self.eventsQueue!, endpoint: Klaviyo.KlaviyoServerTrackEventEndpoint)
         })
     }
     
     private func flushPeople() {
         serialQueue.async(execute: {
-            self.flushQueue(queue: self.peopleQueue!, endpoint: self.KlaviyoServerTrackPersonEndpoint)
+            self.flushQueue(queue: self.peopleQueue!, endpoint: Klaviyo.KlaviyoServerTrackPersonEndpoint)
         })
     }
     
@@ -640,7 +646,7 @@ public class Klaviyo : NSObject {
      - Returns: an NSURLRequest for the API call
      */
     private func apiRequestWithEndpoint(endpoint : String, param: String)-> NSURLRequest {
-        let urlString = KlaviyoServerURLString+endpoint+"?"+param
+        let urlString = serverURLString+endpoint+"?"+param
         let url = NSURL(string: urlString)
         
         let request = NSMutableURLRequest(url: url! as URL)
