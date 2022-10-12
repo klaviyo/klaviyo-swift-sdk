@@ -47,7 +47,7 @@ public class Klaviyo : NSObject {
     private static let KlaviyoServerTrackEventEndpoint = "/track"
     private static let KlaviyoServerTrackPersonEndpoint = "/identify"
 
-    
+    // Not meant for public consumption. Klaviyo internal testing only.
     public var serverURLString = KlaviyoServerURLString
     
     /*
