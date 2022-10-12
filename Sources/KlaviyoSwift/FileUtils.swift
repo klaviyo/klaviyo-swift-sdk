@@ -16,7 +16,7 @@ struct FileClient {
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! },
+        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! }
     )
     var write: (Data, URL) throws -> Void
     var fileExists: (String) -> Bool
