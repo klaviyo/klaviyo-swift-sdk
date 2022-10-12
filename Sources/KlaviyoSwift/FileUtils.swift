@@ -17,13 +17,11 @@ struct FileClient {
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
         libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! },
-        applicationSupportDirectory: { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first! }
     )
     var write: (Data, URL) throws -> Void
     var fileExists: (String) -> Bool
     var removeItem: (String) throws -> Void
     var libraryDirectory: () -> URL
-    var applicationSupportDirectory: () -> URL
 }
 
 /**
@@ -35,7 +33,7 @@ filePathForData: returns a string representing the filepath where archived event
 */
 func filePathForData(apiKey: String, data: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-\(data).plist"
-    let directory = environment.fileClient.applicationSupportDirectory()
+    let directory = environment.fileClient.libraryDirectory()
     let filePath = directory.appendingPathComponent(fileName, isDirectory: false)
     return filePath
 }
