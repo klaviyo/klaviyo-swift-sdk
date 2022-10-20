@@ -228,15 +228,15 @@ public class Klaviyo : NSObject {
         let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
         assertPropertyTypes(properties: propertiesDict)
         
+        guard let apiKey = apiKey else {
+            print("track event called before apikey was set!")
+            //TODO: store pending event for when api key is set.
+            return
+        }
+        
         serialQueue.async(execute: {
             let event = NSMutableDictionary()
-            
-            // Set the apiKey for the event
-            if (self.apiKey!.count > 0) {
-                event[self.KLEventTrackTokenJSONKey] = self.apiKey
-            } else {
-                event[self.KLEventTrackTokenJSONKey] = ""
-            }
+            event[self.KLEventTrackTokenJSONKey] = apiKey
             
             // If it's a push event, set a service key to Klaviyo
             var service: String = "api"
