@@ -22,6 +22,7 @@
 
 /* Begin PBXBuildFile section */
 		7C375BC028E77149008605B3 /* KlaviyoTestUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C375BBF28E77149008605B3 /* KlaviyoTestUtils.swift */; };
+		7C54A46F2902F01E00611E4E /* LoggerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C54A46E2902F01E00611E4E /* LoggerClient.swift */; };
 		OBJ_33 /* ArchivalUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_9 /* ArchivalUtils.swift */; };
 		OBJ_34 /* FileUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_10 /* FileUtils.swift */; };
 		OBJ_35 /* Klaviyo.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_11 /* Klaviyo.swift */; };
@@ -53,6 +54,7 @@
 
 /* Begin PBXFileReference section */
 		7C375BBF28E77149008605B3 /* KlaviyoTestUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KlaviyoTestUtils.swift; sourceTree = "<group>"; };
+		7C54A46E2902F01E00611E4E /* LoggerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggerClient.swift; sourceTree = "<group>"; };
 		OBJ_10 /* FileUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUtils.swift; sourceTree = "<group>"; };
 		OBJ_11 /* Klaviyo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Klaviyo.swift; sourceTree = "<group>"; };
 		OBJ_12 /* KlaviyoEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KlaviyoEnvironment.swift; sourceTree = "<group>"; };
@@ -120,7 +122,7 @@
 			name = Products;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		OBJ_5 /*  */ = {
+		OBJ_5 = {
 			isa = PBXGroup;
 			children = (
 				OBJ_6 /* Package.swift */,
@@ -134,7 +136,6 @@
 				OBJ_26 /* Gemfile */,
 				OBJ_27 /* Gemfile.lock */,
 			);
-			name = "";
 			sourceTree = "<group>";
 		};
 		OBJ_7 /* Sources */ = {
@@ -153,6 +154,7 @@
 				OBJ_11 /* Klaviyo.swift */,
 				OBJ_12 /* KlaviyoEnvironment.swift */,
 				OBJ_13 /* ReachabilitySwift.swift */,
+				7C54A46E2902F01E00611E4E /* LoggerClient.swift */,
 			);
 			name = KlaviyoSwift;
 			path = Sources/KlaviyoSwift;
@@ -224,7 +226,7 @@
 			knownRegions = (
 				en,
 			);
-			mainGroup = OBJ_5 /*  */;
+			mainGroup = OBJ_5;
 			productRefGroup = OBJ_19 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -246,6 +248,7 @@
 				OBJ_34 /* FileUtils.swift in Sources */,
 				OBJ_35 /* Klaviyo.swift in Sources */,
 				OBJ_36 /* KlaviyoEnvironment.swift in Sources */,
+				7C54A46F2902F01E00611E4E /* LoggerClient.swift in Sources */,
 				OBJ_37 /* ReachabilitySwift.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

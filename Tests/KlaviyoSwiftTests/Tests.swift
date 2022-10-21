@@ -10,11 +10,13 @@ class Tests: XCTestCase {
         super.setUp()
         Klaviyo.setupWithPublicAPIKey(apiKey: "wbg7GT")
         klaviyo = Klaviyo.sharedInstance
+        environment = KlaviyoEnvironment.test
     }
     
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
+        LoggerClient.lastLoggedMessage = nil
     }
     
     func testAPIKeyExists() {
@@ -88,6 +90,26 @@ class Tests: XCTestCase {
         } else {
             XCTAssertNotNil(klaviyo.apnDeviceToken, "push token should exist if registered")
         }
+    }
+    
+    func testTrackEventWithNoApiKey() {
+        klaviyo.apiKey = nil
+        
+        klaviyo.trackEvent(eventName: "foo")
+        
+        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track event called before API was set.")
+        
+    }
+    
+    func testTrackPersonWithNoApiKey() {
+        klaviyo.apiKey = nil
+        
+        let emailDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: "testemail@gmail.com"]
+        
+        klaviyo.trackPersonWithInfo(personDictionary: emailDict)
+        
+        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track person called before setting the API Key.")
+        
     }
     
 }

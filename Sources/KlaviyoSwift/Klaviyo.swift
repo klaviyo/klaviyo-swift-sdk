@@ -43,7 +43,7 @@ public class Klaviyo : NSObject {
     public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
-    let KlaviyoServerURLString = "https://934e-76-152-202-190.ngrok.io/api"
+    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
     let KlaviyoServerTrackEventEndpoint = "/track"
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
@@ -229,7 +229,7 @@ public class Klaviyo : NSObject {
         assertPropertyTypes(properties: propertiesDict)
         
         guard let apiKey = apiKey else {
-            print("track event called before apikey was set!")
+            environment.logger.error("Track event called before API was set.")
             //TODO: store pending event for when api key is set.
             return
         }
@@ -292,6 +292,13 @@ public class Klaviyo : NSObject {
         if personDictionary.allKeys.count == 0 {
             return
         }
+        
+        guard let apiKey = apiKey else {
+            environment.logger.error("Track person called before setting the API Key.")
+            //TODO: store pending event for when api key is set.
+            return
+        }
+        
         // Update properties for JSON encoding
         let personInfoDictionary = updatePropertiesDictionary(propDictionary: personDictionary)
         assertPropertyTypes(properties: personInfoDictionary)
@@ -299,11 +306,7 @@ public class Klaviyo : NSObject {
         serialQueue.async(execute: {
             let event = NSMutableDictionary()
             
-            if self.apiKey!.count > 0 {
-                event[self.KLPersonTrackTokenJSONKey] = self.apiKey
-            } else {
-                event[self.KLPersonTrackTokenJSONKey] = ""
-            }
+            event[self.KLPersonTrackTokenJSONKey] = apiKey
             
             event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
             self.peopleQueue!.add(_: event)

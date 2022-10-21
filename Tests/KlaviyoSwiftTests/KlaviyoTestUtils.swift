@@ -30,10 +30,12 @@ extension ArchiverClient {
 
 extension KlaviyoEnvironment {
     static var testURL = { (_:String) in TEST_URL }
+    static var lastLog: String?
     static let test = KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
-        data: { _ in TEST_RETURN_DATA }
+        data: { _ in TEST_RETURN_DATA },
+        logger: LoggerClient.test
     )
 }
 
@@ -44,5 +46,12 @@ extension FileClient {
         removeItem: { _ in },
         libraryDirectory: { TEST_URL }
     )
+}
+
+extension LoggerClient {
+    static var lastLoggedMessage: String?
+    static let test = LoggerClient { message in
+        lastLoggedMessage = message
+    }
 }
 
