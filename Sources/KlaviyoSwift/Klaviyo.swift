@@ -229,7 +229,7 @@ public class Klaviyo : NSObject {
         assertPropertyTypes(properties: propertiesDict)
         
         guard let apiKey = apiKey else {
-            environment.logger.error("Track event called before API was set.")
+            environment.logger.error("Track event called before API key was set.")
             //TODO: store pending event for when api key is set.
             return
         }
@@ -294,8 +294,8 @@ public class Klaviyo : NSObject {
         }
         
         guard let apiKey = apiKey else {
-            environment.logger.error("Track person called before setting the API Key.")
-            //TODO: store pending event for when api key is set.
+            environment.logger.error("Track person called before API key was set.")
+            //TODO: store pending data for when api key is set.
             return
         }
         
