@@ -191,7 +191,7 @@ That is all you need to do to track opens. Now once your first push notification
 
 ## [OPTIONAL] Foreground Push Handling
 
-The code below will enable push notification to show up when you app is running:
+The code below will enable push notifications to show up when you app is running:
 
 ```swift
 
