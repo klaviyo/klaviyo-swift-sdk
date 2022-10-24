@@ -134,7 +134,7 @@ Lastly, cases where you wish to call `trackEvent` with only the eventName parame
     Klaviyo.sharedInstance.setUpUserEmail(userEmail: "john.smith@example.com")
 ```
 ## Sending Push Notifications
-To be able to send push notifications, you must add a few snippets of code to your application. One to register users for push notifications, one that will send resulting push tokens to Klaviyo, and one final optional snippet so that notifications show up when the app is foregrounded.
+To be able to send push notifications, you must add a few snippets of code to your application. One to register users for push notifications, one that will send resulting push tokens to Klaviyo, and some final snippets to handle when user's attempt to open your push notifications.
 
 Add the below code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. Make sure that whenever this code is called that the Klaviyo SDK has been configured and that `setUpUserEmail:` has been called. This is so that Klaviyo can match app tokens with customers.
 
