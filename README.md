@@ -206,7 +206,7 @@ The code below will enable push notifications to show up when you app is running
     }
 ```
 
-If your user taps on the notification this will be tracked back to Klaviyo as open assuming you have implemented the tracking changes discussed above.
+If your user taps on the notification this will be tracked back to Klaviyo as an "Opened Push" event assuming you have implemented the tracking changes discussed above.
 
 
 ## Authors
