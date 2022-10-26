@@ -228,15 +228,15 @@ public class Klaviyo : NSObject {
         let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
         assertPropertyTypes(properties: propertiesDict)
         
+        guard let apiKey = apiKey else {
+            environment.logger.error("Track event called before API key was set.")
+            //TODO: store pending event for when api key is set.
+            return
+        }
+        
         serialQueue.async(execute: {
             let event = NSMutableDictionary()
-            
-            // Set the apiKey for the event
-            if (self.apiKey!.count > 0) {
-                event[self.KLEventTrackTokenJSONKey] = self.apiKey
-            } else {
-                event[self.KLEventTrackTokenJSONKey] = ""
-            }
+            event[self.KLEventTrackTokenJSONKey] = apiKey
             
             // If it's a push event, set a service key to Klaviyo
             var service: String = "api"
@@ -292,6 +292,13 @@ public class Klaviyo : NSObject {
         if personDictionary.allKeys.count == 0 {
             return
         }
+        
+        guard let apiKey = apiKey else {
+            environment.logger.error("Track person called before API key was set.")
+            //TODO: store pending data for when api key is set.
+            return
+        }
+        
         // Update properties for JSON encoding
         let personInfoDictionary = updatePropertiesDictionary(propDictionary: personDictionary)
         assertPropertyTypes(properties: personInfoDictionary)
@@ -299,11 +306,7 @@ public class Klaviyo : NSObject {
         serialQueue.async(execute: {
             let event = NSMutableDictionary()
             
-            if self.apiKey!.count > 0 {
-                event[self.KLPersonTrackTokenJSONKey] = self.apiKey
-            } else {
-                event[self.KLPersonTrackTokenJSONKey] = ""
-            }
+            event[self.KLPersonTrackTokenJSONKey] = apiKey
             
             event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
             self.peopleQueue!.add(_: event)
