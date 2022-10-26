@@ -171,7 +171,7 @@ If you would like to track when a user opens a push notification then there is a
 In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
 
 ```swift 
-    Klaviyo.sharedInstance.handlePush(userInfo: data as NSDictionary)
+  Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
     completionHandler(.noData)
 ```
 
