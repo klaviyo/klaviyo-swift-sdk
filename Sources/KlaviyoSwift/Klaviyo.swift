@@ -43,7 +43,7 @@ public class Klaviyo : NSObject {
     public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
-    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    let KlaviyoServerURLString = "https://d811-76-152-202-190.ngrok.io/api"
     let KlaviyoServerTrackEventEndpoint = "/track"
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
