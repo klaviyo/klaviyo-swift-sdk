@@ -200,11 +200,11 @@ The code below will enable push notifications to show up when you app is running
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                   willPresent notification: UNNotification,
                                   withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-      if #available(iOS 14.0, *) {
-        completionHandler([.list, .banner]);
-      } else {
-        completionHandler([.alert]);
-      }
+        var options: UNNotificationPresentationOptions =  [.alert]
+        if #available(iOS 14.0, *) {
+          options = [.list, .banner]
+        }
+        completionHandler(options)
     }
 ```
 
