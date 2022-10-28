@@ -20,5 +20,6 @@ let package = Package(
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: ["KlaviyoSwift"]),
-    ]
+    ],
+    swiftLanguageVersions: [ .v4, .v5]
 )
