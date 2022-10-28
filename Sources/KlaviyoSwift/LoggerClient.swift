@@ -10,5 +10,5 @@ import os
 
 struct LoggerClient {
     var error: (String) -> ()
-    static let production = Self(error: { message in os_log("%{public}@", type: .error) })
+    static let production = Self(error: { message in os_log("%{public}s", type: .error, message) })
 }

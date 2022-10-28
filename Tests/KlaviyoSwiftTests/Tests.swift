@@ -97,7 +97,7 @@ class Tests: XCTestCase {
         
         klaviyo.trackEvent(eventName: "foo")
         
-        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track event called before API was set.")
+        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track event called before API key was set.")
         
     }
     
@@ -108,7 +108,7 @@ class Tests: XCTestCase {
         
         klaviyo.trackPersonWithInfo(personDictionary: emailDict)
         
-        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track person called before setting the API Key.")
+        XCTAssertEqual(LoggerClient.lastLoggedMessage, "Track person called before API key was set.")
         
     }
     
