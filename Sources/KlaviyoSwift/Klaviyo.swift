@@ -43,10 +43,15 @@ public class Klaviyo : NSObject {
     public let KLMessageDimension = "$message"
     
     // KL Definitions File: API URL Constants
-    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
+
     let KlaviyoServerTrackEventEndpoint = "/track"
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
+    #if DEBUG
+    var KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    #else
+    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    #endif
     
     /*
     Current API WorkAround: Update this once the $anonymous in place
