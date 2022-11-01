@@ -48,7 +48,7 @@ public class Klaviyo : NSObject {
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
     #if DEBUG
-    var KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    public var KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #else
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #endif
