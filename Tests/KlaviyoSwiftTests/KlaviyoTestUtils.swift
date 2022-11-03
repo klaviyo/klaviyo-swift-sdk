@@ -35,7 +35,8 @@ extension KlaviyoEnvironment {
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
-        logger: LoggerClient.test
+        logger: LoggerClient.test,
+        networkSession: NetworkSession.production
     )
 }
 
