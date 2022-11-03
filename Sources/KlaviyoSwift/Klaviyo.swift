@@ -93,12 +93,11 @@ public class Klaviyo: NSObject  {
     var apiKey : String?
     var apnDeviceToken : String?
     var userEmail : String = ""
-    var serialQueue : DispatchQueue
+    let serialQueue : DispatchQueue
     var eventsQueue : NSMutableArray?
     var peopleQueue : NSMutableArray?
     let urlSession : URLSession
-    var reachability : Reachability
-    var remoteNotificationsEnabled : Bool?
+    let reachability : Reachability
     let urlSessionMaxConnection = 5
     public var requestsList : NSMutableArray = []
     
