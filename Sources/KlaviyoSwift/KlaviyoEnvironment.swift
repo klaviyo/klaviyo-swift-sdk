@@ -14,11 +14,13 @@ struct KlaviyoEnvironment {
     var fileClient: FileClient
     var data: (URL) throws -> Data
     var logger: LoggerClient
+    var networkSession: NetworkSession
     static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         data: { url in try Data(contentsOf: url) },
-        logger: LoggerClient.production
+        logger: LoggerClient.production,
+        networkSession: NetworkSession.production
     )
 
 }

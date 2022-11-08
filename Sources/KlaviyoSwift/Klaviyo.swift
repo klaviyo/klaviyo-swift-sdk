@@ -9,7 +9,9 @@
 import Foundation
 import UIKit
 
-public class Klaviyo : NSObject {
+let version = "2.0.0"
+
+public class Klaviyo: NSObject  {
     
     /*
     Klaviyo Class Constants
@@ -91,12 +93,11 @@ public class Klaviyo : NSObject {
     var apiKey : String?
     var apnDeviceToken : String?
     var userEmail : String = ""
-    var serialQueue : DispatchQueue!
+    let serialQueue : DispatchQueue
     var eventsQueue : NSMutableArray?
     var peopleQueue : NSMutableArray?
-    var urlSession : URLSession?
-    var reachability : Reachability?
-    var remoteNotificationsEnabled : Bool?
+    let urlSession : URLSession
+    let reachability : Reachability
     let urlSessionMaxConnection = 5
     public var requestsList : NSMutableArray = []
     
@@ -112,22 +113,16 @@ public class Klaviyo : NSObject {
     Singleton Initializer. Must be kept private as only one instance can be created.
     */
     private override init() {
-        super.init()
-        
-        // Dev warnings for incorrect iOS version
-        assert(isOperatingMinimumiOSVersion() == true, "operating outdated iOS version. requires >= ios 13")
-        // Dev warnings for nil api keys
-        assert(apiKey == nil, "api key is nil")
-        
-        // Create the queue
-        serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue")
-
         // Configure the URL Session
         let config = URLSessionConfiguration.default
         config.allowsCellularAccess = true
         config.httpMaximumConnectionsPerHost = urlSessionMaxConnection
         urlSession = URLSession(configuration: config)
-        reachability = Reachability(hostname: "a.klaviyo.com")
+        // Create the queue
+        serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue")
+        reachability = Reachability(hostname: "a.klaviyo.com")!
+        
+        super.init()
         
     }
     
@@ -460,7 +455,7 @@ public class Klaviyo : NSObject {
     @objc func applicationDidBecomeActiveNotification(notification: NSNotification) {
         // clear all notification badges anytime the user opens the app
         UIApplication.shared.applicationIconBadgeNumber = 0
-        try? reachability?.startNotifier()
+        try? reachability.startNotifier()
         
         // identify the user
         let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
@@ -468,7 +463,7 @@ public class Klaviyo : NSObject {
     }
     
     @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){
-        reachability?.stopNotifier()
+        reachability.stopNotifier()
     }
     
     @objc func applicationWillTerminate(notification : NSNotification) {
@@ -605,7 +600,7 @@ public class Klaviyo : NSObject {
             requestsList.add(requestString)
             
             //Execute
-            let task : URLSessionDataTask = urlSession!.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in
+            let task : URLSessionDataTask = urlSession.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in
                 self.serialQueue.async(execute: {
                     if(error == nil) {
                         let response = NSString(data: data!, encoding: String.Encoding.utf8.rawValue as UInt)
@@ -641,7 +636,7 @@ public class Klaviyo : NSObject {
     // Reachability Functions
     
     private func isHostReachable()->Bool {
-        return reachability?.currentReachabilityStatus != Reachability.NetworkStatus.notReachable
+        return reachability.currentReachabilityStatus != Reachability.NetworkStatus.notReachable
     }
     
     @objc internal func hostReachabilityChanged(note : NSNotification) {
