@@ -118,11 +118,11 @@ public class Klaviyo: NSObject  {
         config.allowsCellularAccess = true
         config.httpMaximumConnectionsPerHost = urlSessionMaxConnection
         urlSession = URLSession(configuration: config)
+        // Create the queue
         serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue")
         reachability = Reachability(hostname: "a.klaviyo.com")!
         
         super.init()
-        // Create the queue
 
 
 
