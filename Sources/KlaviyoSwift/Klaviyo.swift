@@ -123,10 +123,6 @@ public class Klaviyo: NSObject  {
         reachability = Reachability(hostname: "a.klaviyo.com")!
         
         super.init()
-
-
-
-
         
     }
     
