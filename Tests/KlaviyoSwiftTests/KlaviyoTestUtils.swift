@@ -36,7 +36,8 @@ extension KlaviyoEnvironment {
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
-        networkSession: NetworkSession.production
+        networkSession: NetworkSession.production,
+        apiURL: "dead_beef"
     )
 }
 
