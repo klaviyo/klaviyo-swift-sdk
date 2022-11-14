@@ -13,6 +13,113 @@ let version = "2.0.0"
 
 public class Klaviyo: NSObject  {
     
+    public struct Event {
+        public struct Attributes {
+            public struct Metric {
+                public let name: String
+                public let service: String?
+                public init(name: String, service: String?="ios-analytics") {
+                    self.name = name
+                    self.service = service
+                }
+            }
+            public let metric: Metric
+            public let properties: [String: Any]
+            public let profile: [String: Any]
+            public let time: Date?
+            public let value: Double?
+            public let uniqueId: String
+            public init(metric: Metric,
+                        properties: [String : Any],
+                        profile: [String : Any],
+                        value: Double? = nil,
+                        time: Date? = nil,
+                        uniqueId: String = UUID().uuidString) {
+                self.profile = profile
+                self.metric = metric
+                self.properties = properties
+                self.value = value
+                self.time = time
+                self.uniqueId = uniqueId
+            }
+            
+        }
+        public let attributes: Attributes
+        init(attributes: Attributes) {
+            self.attributes = attributes
+        }
+    }
+    
+    public struct Profile {
+        public struct Attributes {
+            struct Location {
+                public let address1: String?
+                public let address2: String?
+                public let city: String?
+                public let country: String?
+                public let latitude: Double?
+                public let longitude: Double?
+                public let region: String?
+                public let zip: String?
+                public let timeZone: String?
+                public init(address1: String?=nil,
+                            address2: String?=nil,
+                            city: String?=nil,
+                            country: String?=nil,
+                            latitude: Double?=nil,
+                            longitude: Double?=nil,
+                            region: String?=nil,
+                            zip: String?=nil,
+                            timeZone: String?=nil) {
+                    self.address1 = address1
+                    self.address2 = address2
+                    self.city = city
+                    self.country = country
+                    self.latitude = latitude
+                    self.longitude = longitude
+                    self.region = region
+                    self.zip = zip
+                    self.timeZone = timeZone
+                }
+            }
+            let email: String?
+            let phoneNumber: String?
+            let externalId: String?
+            let firstName: String?
+            let lastName: String?
+            let organization: String?
+            let title: String?
+            let image: String?
+            let location: Location?
+            let properties: [String: Any]?
+            init(email: String?,
+                 phoneNumber: String?,
+                 externalId: String?,
+                 firstName: String?,
+                 lastName: String?,
+                 organization: String?,
+                 title: String?,
+                 image: String?,
+                 location: Location?,
+                 properties: [String : Any]?) {
+                self.email = email
+                self.phoneNumber = phoneNumber
+                self.externalId = externalId
+                self.firstName = firstName
+                self.lastName = lastName
+                self.organization = organization
+                self.title = title
+                self.image = image
+                self.location = location
+                self.properties = properties
+            }
+        }
+        let attributes: Attributes
+        public init(attributes: Attributes) {
+            self.attributes = attributes
+        }
+    }
+    
     /*
     Klaviyo Class Constants
     */

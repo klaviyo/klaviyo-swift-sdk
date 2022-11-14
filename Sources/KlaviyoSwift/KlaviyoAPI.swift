@@ -11,45 +11,25 @@ import Foundation
 struct KlaviyoAPI {
     struct KlaviyoRequest {
       enum KlaviyoEndpoint {
-          struct CreateProfilePayload: Codable {
-              struct ProfileData: Codable {
-                  struct ProfileAttributes: Codable {
-                      struct ProfileLocation: Codable {
-                          public let address1: String?
-                          public let address2: String?
-                          public let city: String?
-                          public let country: String?
-                          public let latitude: Double?
-                          public let longitude: Double?
-                          public let region: String?
-                          public let zip: String?
-                          public let timeZone: String?
-                          enum CodingKeys: String, CodingKey {
-                              case address1
-                              case address2
-                              case city
-                              case country
-                              case latitude
-                              case longitude
-                              case region
-                              case zip
-                              case timeZone
-                          }
-                      }
+          struct CreateProfilePayload: Encodable {
+              struct Profile: Encodable {
+                  struct Attributes: Encodable {
                       let email: String?
                       let phoneNumber: String?
                       let externalId: String?
+                      let anonymousId: String?
                       let firstName: String?
                       let lastName: String?
                       let organization: String?
                       let title: String?
                       let image: String?
-                      let location: ProfileLocation?
-                      let properties: [String: Codable]?
+                      let location: Klaviyo.Profile.Attributes.Location?
+                      let properties: AnyEncodable
                       enum CodingKeys: String, CodingKey {
                           case email
                           case phoneNumber
                           case externalId
+                          case anonymousId
                           case firstName
                           case lastName
                           case organization
@@ -57,18 +37,47 @@ struct KlaviyoAPI {
                           case image
                           case location
                           case properties
-                          
                       }
+                      init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
+                          self.email = attributes.email
+                          self.phoneNumber = attributes.phoneNumber
+                          self.externalId = attributes.externalId
+                          self.firstName = attributes.firstName
+                          self.lastName = attributes.lastName
+                          self.organization = attributes.organization
+                          self.title = attributes.title
+                          self.image = attributes.image
+                          self.location = attributes.location
+                          self.properties = AnyEncodable(attributes.properties)
+                          self.anonymousId = anonymousId
+                      }
+
                   }
-                  let attributes: ProfileAttributes
-                  enum CodingKeys: String, CodingKey {
+                  let attributes: Attributes
+                  init(profile: Klaviyo.Profile, anonymousId: String) {
+                      self.attributes = Attributes(
+                        attributes: profile.attributes,
+                        anonymousId: anonymousId)
+                  }
+                  
+                  enum CodingKeys: CodingKey {
                       case attributes
                   }
               }
-              let data: ProfileData
-              
+              let data: Profile
+              let type = "profile"
+              enum CodingKeys: String, CodingKey {
+                  case data
+                  case type
+              }
           }
           struct CreateEventPayload: Encodable {
+              let data: Klaviyo.Event
+              let type = "events"
+              enum CodingKeys: CodingKey {
+                  case data
+                  case type
+              }
           }
           case createProfile(CreateProfilePayload)
           case createEvent(CreateEventPayload)
@@ -130,14 +139,12 @@ extension KlaviyoAPI.KlaviyoRequest {
         var request = URLRequest(url: url)
         switch self.method {
             case  .post:
-                guard let body = self.body?.data(using: .utf8) else {
+                guard let body = try? self.encodeBody() else {
                     throw KlaviyoAPI.KlaviyoAPIError.dataEncodingError(self)
                 }
                 request.httpBody = body
             case .get:
                 throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid http method")
-                            
-            
         }
         
         return request
@@ -153,12 +160,86 @@ extension KlaviyoAPI.KlaviyoRequest {
         }
     }
     
-    var body: String? {
+    func encodeBody() throws -> Data {
         switch self.endpoint {
-        case .createProfile(_):
-            return "DEADBEEF"
-        case .createEvent(_):
-            return "DEADBEEF"
+        case .createProfile(let payload):
+            return try environment.encodeJSON(payload)
+        case .createEvent(let payload):
+            return try environment.encodeJSON(payload)
         }
+    }
+}
+
+extension Klaviyo.Profile.Attributes.Location: Encodable {
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(address1, forKey: .address1)
+        try container.encode(address2, forKey: .address2)
+        try container.encode(city, forKey: .city)
+        try container.encode(latitude, forKey: .latitude)
+        try container.encode(longitude, forKey: .longitude)
+        try container.encode(region, forKey: .region)
+        try container.encode(zip, forKey: .zip)
+        try container.encode(timeZone, forKey: .timeZone)
+    }
+    
+    enum CodingKeys: CodingKey {
+        case address1
+        case address2
+        case city
+        case country
+        case latitude
+        case longitude
+        case region
+        case zip
+        case timeZone
+    }
+}
+
+extension Klaviyo.Event: Encodable {
+    enum CodingKeys: CodingKey {
+        case attributes
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(attributes, forKey: .attributes)
+    }
+    
+
+
+}
+
+extension Klaviyo.Event.Attributes.Metric: Encodable {
+    enum CodingKeys: String, CodingKey {
+        case name
+        case service
+    }
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(service, forKey: .service)
+    }
+
+}
+
+extension Klaviyo.Event.Attributes: Encodable {
+    enum CodingKeys: CodingKey {
+        case metric
+        case properties
+        case profile
+        case time
+        case value
+        case uniqueId
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(metric, forKey: .metric)
+        try container.encode(AnyEncodable(properties), forKey: .properties)
+        try container.encode(AnyEncodable(profile), forKey: .profile)
+        try container.encode(time, forKey: .time)
+        try container.encode(value, forKey: .value)
+        try container.encode(uniqueId, forKey: .uniqueId)
     }
 }
