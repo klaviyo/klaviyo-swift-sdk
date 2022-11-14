@@ -29,7 +29,6 @@ extension ArchiverClient {
 }
 
 extension KlaviyoEnvironment {
-    static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
     static let test = KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
@@ -42,12 +41,13 @@ extension KlaviyoEnvironment {
 
 extension AnalyticsEnvironment {
     static let test = AnalyticsEnvironment(
-        networkSession: NetworkSession.test(),
+        networkSession: { NetworkSession.test() } ,
         apiURL: "dead_beef",
         encodeJSON: { _ in TEST_RETURN_DATA},
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
-        timeZone: { "EST" }
+        timeZone: { "EST" },
+        appContextInfo: { AppContextInfo.test }
     )
 }
 
@@ -73,7 +73,18 @@ extension NetworkSession {
         callback(Data(), successfulRepsonse, nil)
     }
     static func test(callback: @escaping @Sendable (URLRequest, @escaping @Sendable (Data?, URLResponse?, Error?) -> Void) -> Void = DEFAULT_CALLBACK) -> NetworkSession {
+        NetworkSession.protocolClasses = []
        return NetworkSession(dataTask: callback)
     }
+}
+        
+extension AppContextInfo {
+    static let test = Self.init(excutable: "FooApp",
+                                bundleId: "com.klaviyo.fooapp",
+                                appVersion: "1.2.3",
+                                appBuild: "1",
+                                version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
+                                osName: "kOS"
+    )
 }
 

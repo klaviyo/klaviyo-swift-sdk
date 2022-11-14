@@ -39,5 +39,4 @@ final class EncodableTests: XCTestCase {
         )
         assertSnapshot(matching: tokenPayload, as: .json(encoder))
     }
-
 }

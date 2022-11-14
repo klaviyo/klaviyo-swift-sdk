@@ -10,8 +10,8 @@ import Foundation
 
 struct KlaviyoAPI {
     struct KlaviyoRequest {
-        let apiKey: String
-        let endpoint: KlaviyoEndpoint
+      let apiKey: String
+      let endpoint: KlaviyoEndpoint
     }
     
     enum KlaviyoAPIError: Error {
@@ -34,7 +34,7 @@ struct KlaviyoAPI {
             result(.failure(.internalRequestError(error)))
             return
         }
-        environment.analytics.networkSession.dataTask(urlRequest) { data, response, error in
+        environment.analytics.networkSession().dataTask(urlRequest) { data, response, error in
             if let networkError = error {
                 result(.failure(KlaviyoAPIError.networkError(networkError)))
                 return
@@ -55,4 +55,3 @@ struct KlaviyoAPI {
         }
     }
 }
-
