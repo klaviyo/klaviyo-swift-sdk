@@ -18,7 +18,8 @@ public class Klaviyo: NSObject  {
             public struct Metric {
                 public let name: String
                 public let service: String?
-                public init(name: String, service: String?="ios-analytics") {
+                public init(name: String,
+                            service: String?="ios-analytics") {
                     self.name = name
                     self.service = service
                 }
@@ -33,7 +34,7 @@ public class Klaviyo: NSObject  {
                         properties: [String : Any],
                         profile: [String : Any],
                         value: Double? = nil,
-                        time: Date? = nil,
+                        time: Date? = Date(),
                         uniqueId: String = UUID().uuidString) {
                 self.profile = profile
                 self.metric = metric
@@ -52,7 +53,7 @@ public class Klaviyo: NSObject  {
     
     public struct Profile {
         public struct Attributes {
-            struct Location {
+            public struct Location {
                 public let address1: String?
                 public let address2: String?
                 public let city: String?
@@ -61,7 +62,7 @@ public class Klaviyo: NSObject  {
                 public let longitude: Double?
                 public let region: String?
                 public let zip: String?
-                public let timeZone: String?
+                public let timezone: String?
                 public init(address1: String?=nil,
                             address2: String?=nil,
                             city: String?=nil,
@@ -70,7 +71,7 @@ public class Klaviyo: NSObject  {
                             longitude: Double?=nil,
                             region: String?=nil,
                             zip: String?=nil,
-                            timeZone: String?=nil) {
+                            timezone: String?=TimeZone.autoupdatingCurrent.identifier) {
                     self.address1 = address1
                     self.address2 = address2
                     self.city = city
@@ -79,7 +80,7 @@ public class Klaviyo: NSObject  {
                     self.longitude = longitude
                     self.region = region
                     self.zip = zip
-                    self.timeZone = timeZone
+                    self.timezone = timezone
                 }
             }
             let email: String?
@@ -92,16 +93,16 @@ public class Klaviyo: NSObject  {
             let image: String?
             let location: Location?
             let properties: [String: Any]?
-            init(email: String?,
-                 phoneNumber: String?,
-                 externalId: String?,
-                 firstName: String?,
-                 lastName: String?,
-                 organization: String?,
-                 title: String?,
-                 image: String?,
-                 location: Location?,
-                 properties: [String : Any]?) {
+            public init(email: String?=nil,
+                 phoneNumber: String?=nil,
+                 externalId: String?=nil,
+                 firstName: String?=nil,
+                 lastName: String?=nil,
+                 organization: String?=nil,
+                 title: String?=nil,
+                 image: String?=nil,
+                 location: Location?=nil,
+                 properties: [String : Any]?=nil) {
                 self.email = email
                 self.phoneNumber = phoneNumber
                 self.externalId = externalId

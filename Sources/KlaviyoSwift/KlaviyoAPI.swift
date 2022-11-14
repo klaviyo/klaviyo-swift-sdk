@@ -12,7 +12,11 @@ struct KlaviyoAPI {
     struct KlaviyoRequest {
       enum KlaviyoEndpoint {
           struct CreateProfilePayload: Encodable {
+              /**
+               Internal structure which details not needed by the public API.
+               */
               struct Profile: Encodable {
+                  let type = "profile"
                   struct Attributes: Encodable {
                       let email: String?
                       let phoneNumber: String?
@@ -53,22 +57,51 @@ struct KlaviyoAPI {
                       }
 
                   }
+                  struct Meta: Encodable {
+                      struct Identifiers: Encodable {
+                          let email: String?
+                          let phoneNumber: String?
+                          let externalId: String?
+                          let anonymousId: String?
+                          public init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
+                              self.email = attributes.email
+                              self.phoneNumber = attributes.phoneNumber
+                              self.externalId = attributes.externalId
+                              self.anonymousId = anonymousId
+                          }
+                          enum CodingKeys: String, CodingKey {
+                              case email
+                              case phoneNumber
+                              case externalId
+                              case anonymousId
+                          }
+                      }
+                      let identifiers: Identifiers
+                      enum CodingKeys: CodingKey {
+                          case identifiers
+                      }
+                  }
                   let attributes: Attributes
+                  let meta: Meta
                   init(profile: Klaviyo.Profile, anonymousId: String) {
                       self.attributes = Attributes(
                         attributes: profile.attributes,
                         anonymousId: anonymousId)
+                      self.meta = Meta(identifiers: .init(
+                        attributes: profile.attributes,
+                        anonymousId: anonymousId))
                   }
                   
                   enum CodingKeys: CodingKey {
                       case attributes
+                      case meta
+                      case type
                   }
               }
               let data: Profile
-              let type = "profile"
+
               enum CodingKeys: String, CodingKey {
                   case data
-                  case type
               }
           }
           struct CreateEventPayload: Encodable {
@@ -171,7 +204,7 @@ extension KlaviyoAPI.KlaviyoRequest {
 }
 
 extension Klaviyo.Profile.Attributes.Location: Encodable {
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(address1, forKey: .address1)
         try container.encode(address2, forKey: .address2)
@@ -180,7 +213,7 @@ extension Klaviyo.Profile.Attributes.Location: Encodable {
         try container.encode(longitude, forKey: .longitude)
         try container.encode(region, forKey: .region)
         try container.encode(zip, forKey: .zip)
-        try container.encode(timeZone, forKey: .timeZone)
+        try container.encode(timezone, forKey: .timezone)
     }
     
     enum CodingKeys: CodingKey {
@@ -192,7 +225,7 @@ extension Klaviyo.Profile.Attributes.Location: Encodable {
         case longitude
         case region
         case zip
-        case timeZone
+        case timezone
     }
 }
 

@@ -1,0 +1,39 @@
+{
+  "data" : {
+    "attributes" : {
+      "location" : {
+        "region" : "BL",
+        "city" : "blob city",
+        "address1" : "blob",
+        "longitude" : 1,
+        "timezone" : "BLobTZ",
+        "zip" : "0BLOB",
+        "latitude" : 1,
+        "address2" : "blob"
+      },
+      "anonymous_id" : "foo",
+      "organization" : "Blobco",
+      "external_id" : "blobid",
+      "last_name" : "Junior",
+      "email" : "blobemail",
+      "title" : "Jelly",
+      "phone_number" : "+15555555555",
+      "image" : "foo",
+      "properties" : {
+        "blob" : "blob",
+        "stuff" : 2,
+        "hello" : 4
+      },
+      "first_name" : "Blob"
+    },
+    "meta" : {
+      "identifiers" : {
+        "email" : "blobemail",
+        "anonymous_id" : "foo",
+        "external_id" : "blobid",
+        "phone_number" : "+15555555555"
+      }
+    },
+    "type" : "profile"
+  }
+}
