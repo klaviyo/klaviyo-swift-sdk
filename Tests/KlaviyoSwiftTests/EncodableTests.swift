@@ -12,7 +12,7 @@ import SnapshotTesting
 final class EncodableTests: XCTestCase {
     let testEncoder = encoder
     override func setUpWithError() throws {
-        testEncoder.outputFormatting = .prettyPrinted
+        testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
     override func tearDownWithError() throws {
