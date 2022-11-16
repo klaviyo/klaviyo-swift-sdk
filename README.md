@@ -216,3 +216,51 @@ If your user taps on the notification this will be tracked back to Klaviyo as an
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
 
+
+
+        curl --request POST \
+             --url 'https://a.klaviyo.com/client/profiles/?company_id=LuYLmF' \
+             --header 'accept: application/json' \
+             --header 'content-type: application/json' \
+             --header 'revision: 2022-10-17' \
+             --data '
+{
+  "data" : {
+    "attributes" : {
+      "location" : {
+        "region" : "BL",
+        "city" : "blob city",
+        "address1" : "blob",
+        "longitude" : 1,
+        "timezone" : "BLobTZ",
+        "zip" : "0BLOB",
+        "latitude" : 1,
+        "address2" : "blob"
+      },
+      "anonymous_id" : "foo",
+      "organization" : "Blobco",
+      "external_id" : "blobid",
+      "last_name" : "Junior",
+      "title" : "Jelly",
+      "phone_number" : "+15555555555",
+      "image" : "foo",
+      "properties" : {
+        "blob" : "blob",
+        "stuff" : 2,
+        "hello" : 4
+      },
+      "first_name" : "Blob"
+    },
+    "meta" : {
+      "identifiers" : {
+        "email" : "blobemail",
+        "anonymous_id" : "foo",
+        "external_id" : "blobid",
+        "phone_number" : "+15555555555"
+      }
+    },
+    "type" : "profile"
+  }
+}
+
+        '

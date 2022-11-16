@@ -38,7 +38,9 @@ extension KlaviyoEnvironment {
         logger: LoggerClient.test,
         networkSession: NetworkSession.production,
         apiURL: "dead_beef",
-        encodeJSON: { _ in TEST_RETURN_DATA }
+        encodeJSON: { _ in TEST_RETURN_DATA},
+        uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+        date: { Date(timeIntervalSince1970: 1_234_567_890) }
     )
 }
 

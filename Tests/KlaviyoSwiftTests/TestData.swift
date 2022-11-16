@@ -17,7 +17,9 @@ extension Klaviyo.Profile.Attributes {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
         "stuff": 2,
-        "hello": 4
+        "hello": [
+            "sub": "dict"
+        ]
     ] as [String : Any]
     static let test = Self.init(
         email: "blobemail",
@@ -45,5 +47,31 @@ extension Klaviyo.Profile.Attributes.Location {
         zip: "0BLOB",
         timezone: "BLobTZ"
     )
-    
 }
+
+extension Klaviyo.Event {
+    static let test = Self.init(attributes: .test)
+}
+
+extension Klaviyo.Event.Attributes {
+    static let SAMPLE_PROPERTIES = [
+        "blob": "blob",
+        "stuff": 2,
+        "hello": [
+            "sub": "dict"
+        ]
+    ] as [String : Any]
+    static let SAMPLE_PROFILE_PROPERTIES = [
+        "email": "blob@email.com",
+        "stuff": 2,
+        "location": [
+            "city": "blob city"
+        ]
+    ] as [String : Any]
+    static let test = Self.init(metric: .test, properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
+}
+
+extension Klaviyo.Event.Attributes.Metric {
+    static let test = Self.init(name: "blob", service: "blob service")
+}
+

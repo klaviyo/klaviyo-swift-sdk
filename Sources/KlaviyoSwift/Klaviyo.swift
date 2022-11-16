@@ -27,26 +27,27 @@ public class Klaviyo: NSObject  {
             public let metric: Metric
             public let properties: [String: Any]
             public let profile: [String: Any]
-            public let time: Date?
+            public var time: Date?
             public let value: Double?
             public let uniqueId: String
             public init(metric: Metric,
                         properties: [String : Any],
                         profile: [String : Any],
                         value: Double? = nil,
-                        time: Date? = Date(),
-                        uniqueId: String = UUID().uuidString) {
+                        time: Date? = nil,
+                        uniqueId: String? = nil) {
                 self.profile = profile
                 self.metric = metric
                 self.properties = properties
                 self.value = value
                 self.time = time
-                self.uniqueId = uniqueId
+                self.time = time ?? environment.date()
+                self.uniqueId = uniqueId ?? environment.uuid().uuidString
             }
             
         }
         public let attributes: Attributes
-        init(attributes: Attributes) {
+        public init(attributes: Attributes) {
             self.attributes = attributes
         }
     }

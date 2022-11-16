@@ -25,6 +25,8 @@ struct KlaviyoEnvironment {
     var networkSession: NetworkSession
     var apiURL: String
     var encodeJSON: (Encodable) throws -> Data
+    var uuid: () -> UUID
+    var date: () -> Date
     static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -32,6 +34,8 @@ struct KlaviyoEnvironment {
         logger: LoggerClient.production,
         networkSession: NetworkSession.production,
         apiURL: PRODUCTION_HOST,
-        encodeJSON: { encodable in try encoder.encode(encodable) }
+        encodeJSON: { encodable in try encoder.encode(encodable) },
+        uuid: { UUID() },
+        date: { Date() }
     )
 }

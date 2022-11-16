@@ -21,7 +21,9 @@
       "phone_number" : "+15555555555",
       "properties" : {
         "blob" : "blob",
-        "hello" : 4,
+        "hello" : {
+          "sub" : "dict"
+        },
         "stuff" : 2
       },
       "title" : "Jelly"

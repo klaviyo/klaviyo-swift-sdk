@@ -105,11 +105,23 @@ struct KlaviyoAPI {
               }
           }
           struct CreateEventPayload: Encodable {
-              let data: Klaviyo.Event
-              let type = "events"
+              struct Event: Encodable {
+                  let type = "event"
+                  let attributes: Klaviyo.Event.Attributes
+                  init(event: Klaviyo.Event) {
+                      self.attributes = event.attributes
+                  }
+                  enum CodingKeys: CodingKey {
+                      case attributes
+                      case type
+                  }
+              }
+              let data: Event
               enum CodingKeys: CodingKey {
                   case data
-                  case type
+              }
+              init(data: Klaviyo.Event) {
+                  self.data = Event(event: data)
               }
           }
           case createProfile(CreateProfilePayload)
