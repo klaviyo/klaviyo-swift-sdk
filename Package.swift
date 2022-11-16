@@ -20,6 +20,13 @@ let package = Package(
             dependencies: []),
         .testTarget(
             name: "KlaviyoSwiftTests",
-            dependencies: ["KlaviyoSwift", .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),]),
+            dependencies: [
+                "KlaviyoSwift",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
+            exclude: [
+              "__Snapshots__"
+            ]
+        ),
     ]
 )
