@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import KlaviyoSwift
+@testable import KlaviyoSwift
 
 extension Klaviyo.Profile {
     static let test = Self.init(
@@ -75,3 +75,12 @@ extension Klaviyo.Event.Attributes.Metric {
     static let test = Self.init(name: "blob", service: "blob service")
 }
 
+extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
+    
+    static let test = Self.init(data: .test)
+}
+
+extension URLResponse {
+    static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)
+    static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)
+}

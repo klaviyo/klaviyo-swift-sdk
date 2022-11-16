@@ -126,8 +126,8 @@ struct KlaviyoAPI {
           }
           case createProfile(CreateProfilePayload)
           case createEvent(CreateEventPayload)
+          case legacyIdentify
       }
-      let method = HTTPMethod.post
       let apiKey: String
       let endpoint: KlaviyoEndpoint
     }
@@ -136,11 +136,12 @@ struct KlaviyoAPI {
         case get
     }
     enum KlaviyoAPIError: Error {
-        case httpError(Int)
+        case httpError(Int, Data?)
         case rateLimitError
         case missingOrInvalidResponse(URLResponse?)
         case networkError(Error)
         case internalError(String)
+        case internalRequestError(Error)
         case unknownError(Error)
         case dataEncodingError(KlaviyoRequest)
         case invalidData
@@ -150,7 +151,7 @@ struct KlaviyoAPI {
         do {
             urlRequest = try request.urlRequest()
         } catch {
-            result(.failure(.unknownError(error)))
+            result(.failure(.internalRequestError(error)))
             return
         }
         environment.networkSession.dataTask(urlRequest) { data, response, error in
@@ -163,7 +164,7 @@ struct KlaviyoAPI {
                 return
             }
             guard 200 ..< 300 ~= response.statusCode else {
-                result(.failure(KlaviyoAPIError.httpError(response.statusCode)))
+                result(.failure(KlaviyoAPIError.httpError(response.statusCode, data)))
                 return
             }
             guard let data = data else {
@@ -177,20 +178,17 @@ struct KlaviyoAPI {
 
 extension KlaviyoAPI.KlaviyoRequest {
     func urlRequest() throws -> URLRequest {
-        let urlString = "\(environment.apiURL)/client/\(path)"
+        let urlString = "\(environment.apiURL)/\(path)"
         guard let url = URL(string: urlString) else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string: \(urlString)")
         }
         var request = URLRequest(url: url)
-        switch self.method {
-            case  .post:
-                guard let body = try? self.encodeBody() else {
-                    throw KlaviyoAPI.KlaviyoAPIError.dataEncodingError(self)
-                }
-                request.httpBody = body
-            case .get:
-                throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid http method")
+        // We only support post right now
+        guard let body = try? self.encodeBody() else {
+            throw KlaviyoAPI.KlaviyoAPIError.dataEncodingError(self)
         }
+        request.httpBody = body
+        request.httpMethod = "POST"
         
         return request
         
@@ -199,9 +197,11 @@ extension KlaviyoAPI.KlaviyoRequest {
     var path: String {
         switch self.endpoint {
         case .createProfile:
-            return "profiles"
+            return "client/profiles"
         case .createEvent:
-            return "events"
+            return "client/events"
+        case .legacyIdentify:
+            return "api/identify"
         }
     }
     
@@ -211,6 +211,8 @@ extension KlaviyoAPI.KlaviyoRequest {
             return try environment.encodeJSON(payload)
         case .createEvent(let payload):
             return try environment.encodeJSON(payload)
+        case .legacyIdentify:
+            return "deadbeef".data(using: .utf8)!
         }
     }
 }
