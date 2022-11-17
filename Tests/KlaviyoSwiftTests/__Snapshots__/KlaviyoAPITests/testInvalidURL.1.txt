@@ -1,1 +1,1 @@
-internalRequestError(KlaviyoSwift.KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string: : : ::/client/profiles"))
+internalRequestError(KlaviyoSwift.KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: : : ::"))

@@ -1,6 +1,6 @@
-▿ dead_beef/client/profiles/?company_id=foo
+▿ dead_beef/api/identify
   ▿ url: Optional<URL>
-    - some: dead_beef/client/profiles/?company_id=foo
+    - some: dead_beef/api/identify
   - cachePolicy: 0
   - timeoutInterval: 60.0
   - mainDocumentURL: Optional<URL>.none

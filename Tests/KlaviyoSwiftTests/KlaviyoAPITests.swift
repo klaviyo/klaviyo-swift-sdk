@@ -149,5 +149,22 @@ final class KlaviyoAPITests: XCTestCase {
             }
         }
     }
+    
+    func testSuccessfulResponseWithStoreToken() throws {
+        environment.networkSession = NetworkSession.test(callback: { request, callback in
+            assertSnapshot(matching: request, as: .dump)
+            callback(Data(), .validResponse, nil)
+        })
+        let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .storePushToken(.test))
+        KlaviyoAPI().post(request) { result in
+            
+            switch result {
+            case .success(let data):
+                assertSnapshot(matching: data, as: .dump)
+            default:
+                XCTFail("Expected failure here.")
+            }
+        }
+    }
 
 }

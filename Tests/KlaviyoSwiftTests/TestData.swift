@@ -84,3 +84,8 @@ extension URLResponse {
     static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)
     static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)
 }
+
+extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
+    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.init(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
+}
+

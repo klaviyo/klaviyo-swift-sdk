@@ -124,9 +124,41 @@ struct KlaviyoAPI {
                   self.data = Event(event: data)
               }
           }
+          struct PushTokenPayload: Encodable {
+              struct Properties: Encodable {
+                  public let email: String?
+                  public let phoneNumber: String?
+                  public let anonymousId: String
+                  public let pushToken: String
+                  
+                  enum CodingKeys: String, CodingKey {
+                      case email = "$email"
+                      case phoneNumber = "$phone_number"
+                      case anonymousId = "$anonymous"
+                      case pushToken = "$ios_tokens"
+                  }
+                  init(anonymousId: String,
+                       pushToken: String,
+                       email: String? = nil,
+                       phoneNumber: String? = nil
+                    ) {
+                      self.email = email
+                      self.phoneNumber = phoneNumber
+                      self.anonymousId = anonymousId
+                      self.pushToken = pushToken
+                  }
+              }
+              let token: String
+              let properties: Properties
+              init(token: String,
+                   properties: Properties) {
+                  self.token = token
+                  self.properties = properties
+              }
+          }
           case createProfile(CreateProfilePayload)
           case createEvent(CreateEventPayload)
-          case legacyIdentify
+          case storePushToken(PushTokenPayload)
       }
       let apiKey: String
       let endpoint: KlaviyoEndpoint
@@ -178,9 +210,8 @@ struct KlaviyoAPI {
 
 extension KlaviyoAPI.KlaviyoRequest {
     func urlRequest() throws -> URLRequest {
-        let urlString = "\(environment.apiURL)/\(path)"
-        guard let url = URL(string: urlString) else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string: \(urlString)")
+        guard let url = self.url else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL)")
         }
         var request = URLRequest(url: url)
         // We only support post right now
@@ -193,6 +224,15 @@ extension KlaviyoAPI.KlaviyoRequest {
         return request
         
     }
+    
+    var url: URL? {
+        switch self.endpoint {
+        case .createProfile, .createEvent:
+            return URL(string: "\(environment.apiURL)/\(path)/?company_id=\(self.apiKey)")
+        case .storePushToken:
+            return URL(string: "\(environment.apiURL)/\(path)")
+        }
+    }
                             
     var path: String {
         switch self.endpoint {
@@ -200,7 +240,7 @@ extension KlaviyoAPI.KlaviyoRequest {
             return "client/profiles"
         case .createEvent:
             return "client/events"
-        case .legacyIdentify:
+        case .storePushToken:
             return "api/identify"
         }
     }
@@ -211,8 +251,8 @@ extension KlaviyoAPI.KlaviyoRequest {
             return try environment.encodeJSON(payload)
         case .createEvent(let payload):
             return try environment.encodeJSON(payload)
-        case .legacyIdentify:
-            return "deadbeef".data(using: .utf8)!
+        case .storePushToken(let payload):
+            return try environment.encodeJSON(payload)
         }
     }
 }
