@@ -1,0 +1,9 @@
+{
+  "properties" : {
+    "$anonymous" : "foo",
+    "$email" : "foo",
+    "$ios_tokens" : "foo",
+    "$phone_number" : "foo"
+  },
+  "token" : "foo"
+}
