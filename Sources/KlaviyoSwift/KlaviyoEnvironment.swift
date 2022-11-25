@@ -22,16 +22,23 @@ struct KlaviyoEnvironment {
     var fileClient: FileClient
     var data: (URL) throws -> Data
     var logger: LoggerClient
-    var networkSession: NetworkSession
-    var apiURL: String
-    var encodeJSON: (Encodable) throws -> Data
-    var uuid: () -> UUID
-    var date: () -> Date
+    var analytics: AnalyticsEnvironment
     static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         data: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
+        analytics: AnalyticsEnvironment.production
+    )
+}
+
+struct AnalyticsEnvironment {
+    var networkSession: NetworkSession
+    var apiURL: String
+    var encodeJSON: (Encodable) throws -> Data
+    var uuid: () -> UUID
+    var date: () -> Date
+    static let production = AnalyticsEnvironment(
         networkSession: NetworkSession.production,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },

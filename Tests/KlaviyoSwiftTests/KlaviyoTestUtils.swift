@@ -36,6 +36,12 @@ extension KlaviyoEnvironment {
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
+        analytics: AnalyticsEnvironment.test
+    )
+}
+
+extension AnalyticsEnvironment {
+    static let test = AnalyticsEnvironment(
         networkSession: NetworkSession.test(),
         apiURL: "dead_beef",
         encodeJSON: { _ in TEST_RETURN_DATA},

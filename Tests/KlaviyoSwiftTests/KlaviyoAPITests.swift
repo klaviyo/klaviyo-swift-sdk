@@ -23,9 +23,9 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testInvalidURL() throws {
-        environment.apiURL = ": : ::"
+        environment.analytics.apiURL = ": : ::"
         
-        KlaviyoAPI().post(.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))) { result in
+        KlaviyoAPI().sendRequest(.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))) { result in
             
             switch result {
             case .failure(let error):
@@ -38,10 +38,10 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testEncodingError() throws {
-        environment.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.CodingKeys.data], debugDescription: "invalid"))
+        environment.analytics.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.CodingKeys.data], debugDescription: "invalid"))
         }
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .failure(let error):
@@ -53,11 +53,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testNetworkError() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             callback(nil, nil, NSError(domain: "network error", code: 0))
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .failure(let error):
@@ -69,11 +69,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testNilResponse() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             callback(nil, nil, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .failure(let error):
@@ -85,11 +85,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testInvalidStatusCode() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             callback(nil, .non200Response, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .failure(let error):
@@ -101,11 +101,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testMissingData() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             callback(nil, .validResponse, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .failure(let error):
@@ -117,12 +117,12 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testSuccessfulResponseWithProfile() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             assertSnapshot(matching: request, as: .dump)
             callback(Data(), .validResponse, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .success(let data):
@@ -134,12 +134,12 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testSuccessfulResponseWithEvent() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             assertSnapshot(matching: request, as: .dump)
             callback(Data(), .validResponse, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createEvent(.init(data: .test)))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .success(let data):
@@ -151,12 +151,12 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testSuccessfulResponseWithStoreToken() throws {
-        environment.networkSession = NetworkSession.test(callback: { request, callback in
+        environment.analytics.networkSession = NetworkSession.test(callback: { request, callback in
             assertSnapshot(matching: request, as: .dump)
             callback(Data(), .validResponse, nil)
         })
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .storePushToken(.test))
-        KlaviyoAPI().post(request) { result in
+        KlaviyoAPI().sendRequest(request) { result in
             
             switch result {
             case .success(let data):
