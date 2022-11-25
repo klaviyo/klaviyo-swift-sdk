@@ -11,7 +11,7 @@ extension KlaviyoAPI.KlaviyoRequest {
     enum KlaviyoEndpoint {
         struct CreateProfilePayload: Encodable {
             /**
-             Internal structure which details not needed by the public API.
+             Internal structure which has details not needed by the public API.
              */
             struct Profile: Encodable {
                 let type = "profile"
