@@ -1,0 +1,2 @@
+▿ KlaviyoAPIError
+  - missingOrInvalidResponse: Optional<NSURLResponse>.none

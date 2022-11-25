@@ -12,6 +12,7 @@ let package = Package(
             targets: ["KlaviyoSwift"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
     ],
     targets: [
         .target(
@@ -19,6 +20,13 @@ let package = Package(
             dependencies: []),
         .testTarget(
             name: "KlaviyoSwiftTests",
-            dependencies: ["KlaviyoSwift"]),
+            dependencies: [
+                "KlaviyoSwift",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
+            exclude: [
+              "__Snapshots__"
+            ]
+        ),
     ]
 )

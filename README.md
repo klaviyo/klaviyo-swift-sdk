@@ -215,4 +215,3 @@ If your user taps on the notification this will be tracked back to Klaviyo as an
 ## License
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
-

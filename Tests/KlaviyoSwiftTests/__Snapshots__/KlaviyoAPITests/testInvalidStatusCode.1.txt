@@ -1,0 +1,4 @@
+▿ KlaviyoAPIError
+  ▿ httpError: (2 elements)
+    - .0: 500
+    - .1: Optional<Data>.none
