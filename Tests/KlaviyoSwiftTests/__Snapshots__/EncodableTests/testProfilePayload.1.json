@@ -14,7 +14,7 @@
         "latitude" : 1,
         "longitude" : 1,
         "region" : "BL",
-        "timezone" : "BLobTZ",
+        "timezone" : "EST",
         "zip" : "0BLOB"
       },
       "organization" : "Blobco",

@@ -44,8 +44,7 @@ extension Klaviyo.Profile.Attributes.Location {
         latitude: 1,
         longitude: 1,
         region: "BL",
-        zip: "0BLOB",
-        timezone: "BLobTZ"
+        zip: "0BLOB"
     )
 }
 

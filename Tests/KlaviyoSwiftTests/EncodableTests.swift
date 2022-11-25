@@ -30,7 +30,13 @@ final class EncodableTests: XCTestCase {
     }
     
     func testTokenPayload() throws {
-        let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(token: "foo", properties: .init(anonymousId: "foo", pushToken: "foo", email: "foo", phoneNumber: "foo"))
+        let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+            token: "foo",
+            properties: .init(anonymousId: "foo",
+                              pushToken: "foo",
+                              email: "foo",
+                              phoneNumber: "foo")
+        )
         assertSnapshot(matching: tokenPayload, as: .json(encoder))
     }
 
