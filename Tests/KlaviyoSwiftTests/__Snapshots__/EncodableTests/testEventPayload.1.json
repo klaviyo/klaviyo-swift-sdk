@@ -3,7 +3,7 @@
     "attributes" : {
       "metric" : {
         "name" : "blob",
-        "service" : "blob service"
+        "service" : "ios-analytics"
       },
       "profile" : {
         "email" : "blob@email.com",

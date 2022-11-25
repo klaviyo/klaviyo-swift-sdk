@@ -38,11 +38,13 @@ struct AnalyticsEnvironment {
     var encodeJSON: (Encodable) throws -> Data
     var uuid: () -> UUID
     var date: () -> Date
+    var timeZone: () -> String
     static let production = AnalyticsEnvironment(
         networkSession: NetworkSession.production,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },
         uuid: { UUID() },
-        date: { Date() }
+        date: { Date() },
+        timeZone: { TimeZone.autoupdatingCurrent.identifier }
     )
 }

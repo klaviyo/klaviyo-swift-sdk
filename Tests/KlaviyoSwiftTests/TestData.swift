@@ -72,7 +72,7 @@ extension Klaviyo.Event.Attributes {
 }
 
 extension Klaviyo.Event.Attributes.Metric {
-    static let test = Self.init(name: "blob", service: "blob service")
+    static let test = Self.init(name: "blob")
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {

@@ -15,11 +15,9 @@ extension Klaviyo {
         struct Attributes {
             struct Metric {
                 let name: String
-                let service: String?
-                init(name: String,
-                     service: String?="ios-analytics") {
+                let service = "ios-analytics"
+                init(name: String) {
                     self.name = name
-                    self.service = service
                 }
             }
             let metric: Metric
@@ -69,7 +67,7 @@ extension Klaviyo {
                      longitude: Double?=nil,
                      region: String?=nil,
                      zip: String?=nil,
-                     timezone: String?=TimeZone.autoupdatingCurrent.identifier) {
+                     timezone: String?=nil) {
                     self.address1 = address1
                     self.address2 = address2
                     self.city = city
@@ -78,7 +76,7 @@ extension Klaviyo {
                     self.longitude = longitude
                     self.region = region
                     self.zip = zip
-                    self.timezone = timezone
+                    self.timezone = timezone ?? environment.analytics.timeZone()
                 }
             }
             let email: String?
