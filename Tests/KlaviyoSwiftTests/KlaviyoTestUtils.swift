@@ -47,7 +47,8 @@ extension AnalyticsEnvironment {
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
-        appContextInfo: { AppContextInfo.test }
+        appContextInfo: { AppContextInfo.test },
+        engine: AnalyticsEngine.test
     )
 }
 
@@ -58,6 +59,16 @@ extension FileClient {
         removeItem: { _ in },
         libraryDirectory: { TEST_URL }
     )
+}
+
+extension AnalyticsEngine {
+    static let test = Self.init(
+        initialize: { _ in },
+        setEmail: { _ in },
+        setToken: { _ in },
+        enqueueLegacyEvent: { _, _, _ in },
+        enqueueLegacyProfile: { _ in },
+        flush: { })
 }
 
 extension LoggerClient {

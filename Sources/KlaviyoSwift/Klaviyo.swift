@@ -219,53 +219,23 @@ public class Klaviyo: NSObject  {
      */
     public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
         
-        var eventName = event
-        // Set default track name if none provided
-        if (eventName == nil || eventName!.isEmpty) { eventName = "KL_Event" }
+        guard let eventName = event, !eventName.isEmpty else {
+            environment.logger.error("EventName was nil. Ignoring.")
+            return
+        }
 
         // Check both dictionaries
         let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
         assertPropertyTypes(properties: propertiesDict)
         
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             environment.logger.error("Track event called before API key was set.")
             //TODO: store pending event for when api key is set.
             return
         }
         
         serialQueue.async(execute: {
-            let event = NSMutableDictionary()
-            event[self.KLEventTrackTokenJSONKey] = apiKey
-            
-            // If it's a push event, set a service key to Klaviyo
-            var service: String = "api"
-            if eventName == self.KLPersonReceivedPush || eventName == self.KLPersonOpenedPush {
-                service = "klaviyo"
-            }
-            
-            // Set the event info
-            event[self.KLEventTrackEventJSONKey] = eventName
-            event[self.KLEventTrackCustomerPropetiesJSONKey] = customerPropertiesDict
-            event[self.KLEventTrackingServiceKey] = service
-            
-            if let unwrappedPropertiesDict = propertiesDict {
-                if unwrappedPropertiesDict.allKeys.count > 0 { event[self.KLEventTrackPropertiesJSONKey] = propertiesDict }
-            }
-            
-            if eventDate != nil { event[self.KLEventTrackTimeJSONKey] = eventDate }
-            
-            // Add the event to the queue
-            self.eventsQueue!.add(event)
-            
-            if self.eventsQueue!.count > 500 {
-                self.eventsQueue!.removeObject(at: 0)
-            }
-            
-            if self.inBackground() {
-                self.archiveEvents()
-            }
-            // execute
-            self.flushEvents()
+            environment.analytics.engine.enqueueLegacyEvent(eventName, propertiesDict, customerPropertiesDict)
         })
     }
     
@@ -288,11 +258,11 @@ public class Klaviyo: NSObject  {
      */
     public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
-        if personDictionary.allKeys.count == 0 {
+        guard !personDictionary.allKeys.isEmpty else {
             return
         }
         
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             environment.logger.error("Track person called before API key was set.")
             //TODO: store pending data for when api key is set.
             return
@@ -303,22 +273,7 @@ public class Klaviyo: NSObject  {
         assertPropertyTypes(properties: personInfoDictionary)
         
         serialQueue.async(execute: {
-            let event = NSMutableDictionary()
-            
-            event[self.KLPersonTrackTokenJSONKey] = apiKey
-            
-            event[self.KLPersonPropertiesJSONKey] = personInfoDictionary
-            self.peopleQueue!.add(_: event)
-            
-            if self.peopleQueue!.count > 500 {
-                self.peopleQueue!.removeObject(at: 0)
-            }
-            
-            if self.inBackground() {
-                self.archivePeople()
-            }
-            
-            self.flushPeople()
+            environment.analytics.engine.enqueueLegacyProfile(personDictionary)
         })
     }
     

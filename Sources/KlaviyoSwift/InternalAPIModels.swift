@@ -8,7 +8,7 @@
 import Foundation
 
 extension KlaviyoAPI.KlaviyoRequest {
-    enum KlaviyoEndpoint {
+    enum KlaviyoEndpoint: Encodable {
         struct CreateProfilePayload: Encodable {
             /**
              Internal structure which has details not needed by the public API.

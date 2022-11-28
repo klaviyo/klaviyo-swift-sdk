@@ -48,6 +48,7 @@ struct AnalyticsEnvironment {
     var date: () -> Date
     var timeZone: () -> String
     var appContextInfo: () -> AppContextInfo
+    var engine: AnalyticsEngine
     static let production = AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
@@ -55,6 +56,7 @@ struct AnalyticsEnvironment {
         uuid: { UUID() },
         date: { Date() },
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
-        appContextInfo: { AppContextInfo() }
+        appContextInfo: { AppContextInfo() },
+        engine: AnalyticsEngine.production
     )
 }
