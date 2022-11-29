@@ -168,14 +168,14 @@ public class Klaviyo : NSObject {
     }
     
     /**
-     handlePush: Extracts tracking information from received push notification and sends the data to Klaviyo for push-tracking
-     analystics.
+     handlePush: Sends the push payload back to Klaviyo as an opened event
+        if the message originated from Klaviyo, as determined by presence of _k tracking parameters
      
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     public func handlePush(userInfo: NSDictionary) {
         if let metadata = userInfo["_k"] as? NSDictionary {
-            trackEvent(eventName: KLPersonOpenedPush, properties: metadata)
+            trackEvent(eventName: KLPersonOpenedPush, properties: userInfo)
         }
     }
     
