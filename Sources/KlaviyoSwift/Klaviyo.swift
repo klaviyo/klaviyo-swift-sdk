@@ -84,7 +84,6 @@ public class Klaviyo : NSObject {
     Shared Instance Variables
     */
     var apiKey : String?
-    var apnDeviceToken : String?
     var userEmail : String = ""
     var serialQueue : DispatchQueue!
     var eventsQueue : NSMutableArray?
@@ -94,7 +93,9 @@ public class Klaviyo : NSObject {
     var remoteNotificationsEnabled : Bool?
     let urlSessionMaxConnection = 5
     public var requestsList : NSMutableArray = []
-    
+
+    private var apnDeviceToken : String?
+
     /*
     Computed property for iOSIDString
     :returns: A unique string that represents the device using the application
@@ -175,8 +176,6 @@ public class Klaviyo : NSObject {
     public func handlePush(userInfo: NSDictionary) {
         if let metadata = userInfo["_k"] as? NSDictionary {
             trackEvent(eventName: KLPersonOpenedPush, properties: metadata)
-        } else {
-            trackEvent(eventName: KLPersonOpenedPush, properties: userInfo as NSDictionary)
         }
     }
     
@@ -331,7 +330,7 @@ public class Klaviyo : NSObject {
      - Returns: Void
      */
     public func addPushDeviceToken(deviceToken: Data) {
-        let apnDeviceToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        apnDeviceToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
         personInfoDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey: apnDeviceToken]
         trackPersonWithInfo(personDictionary: personInfoDictionary)
@@ -339,9 +338,23 @@ public class Klaviyo : NSObject {
         let defaults = UserDefaults.standard
         defaults.setValue(apnDeviceToken, forKey: CustomerPropertiesAPNTokensDictKey)
     }
-    
-    
-    
+
+    /**
+     getPushDeviceToken: Get push device token if registered
+     Provides managed access to the in-memory apnDeviceToken property,
+     to fetch from UserDefaults if it hasn't been yet
+
+     - Returns: String?
+     */
+    public func getPushDeviceToken() -> String? {
+        guard let _ = apnDeviceToken else {
+            let defaults = UserDefaults.standard
+            apnDeviceToken = defaults.string(forKey: CustomerPropertiesAPNTokensDictKey)?
+        }
+
+        return apnDeviceToken
+    }
+
     /**
      updatePropertiesDictionary: Internal function that configures the properties dictionary so that it holds the minimum info needed to track events and users
      - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
@@ -384,8 +397,8 @@ public class Klaviyo : NSObject {
         returnDictionary[KLTimezone] = timezone
         
         // If push notifications are used, append them
-        if apnDeviceToken != nil {
-            returnDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey : apnDeviceToken!]
+        if let _apnDeviceToken = getPushDeviceToken() {
+            returnDictionary[CustomerPropertiesAppendDictKey] = [CustomerPropertiesAPNTokensDictKey : _apnDeviceToken]
         }
         
         return returnDictionary

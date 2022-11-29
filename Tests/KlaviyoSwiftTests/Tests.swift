@@ -83,12 +83,12 @@ class Tests: XCTestCase {
     // Push tokens should be nil if user does not have push enabled
     func testPushNotificationOff() {
         let isRegisteredForPush = UIApplication.shared.isRegisteredForRemoteNotifications
+        let apnDeviceToken = klaviyo.getPushDeviceToken()
 
         if !isRegisteredForPush {
-            let apn = klaviyo.apnDeviceToken
-            XCTAssertNil(apn, "push token should be nil if not registered for push")
+            XCTAssertNil(apnDeviceToken, "push token should be nil if not registered for push")
         } else {
-            XCTAssertNotNil(klaviyo.apnDeviceToken, "push token should exist if registered")
+            XCTAssertNotNil(apnDeviceToken, "push token should exist if registered")
         }
     }
     
