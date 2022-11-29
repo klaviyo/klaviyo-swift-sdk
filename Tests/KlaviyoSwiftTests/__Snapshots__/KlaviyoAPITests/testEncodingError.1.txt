@@ -27,3 +27,4 @@
                 - externalId: Optional<String>.none
                 - phoneNumber: Optional<String>.none
             - type: "profile"
+      - uuid: "00000000-0000-0000-0000-000000000001"

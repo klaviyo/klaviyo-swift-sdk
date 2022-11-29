@@ -11,9 +11,11 @@ struct AnalyticsEngine {
     var initialize: (String) -> Void
     var setEmail: (String) -> Void
     var setToken: (Data) -> Void
-    var enqueueLegacyEvent: (String, NSDictionary?, NSDictionary?) -> Void
+    var enqueueLegacyEvent: (String, NSDictionary, NSDictionary) -> Void
     var enqueueLegacyProfile: (NSDictionary) -> Void
     var flush: () -> Void
+    var start: () -> Void
+    var stop: () -> Void
 }
 
 extension AnalyticsEngine {
@@ -29,13 +31,18 @@ extension AnalyticsEngine {
             self.properties = properties ?? NSDictionary()
         }
     }
+    struct LegacyProfile {
+        let customerProperties: NSDictionary
+    }
     static let production = Self.init(
         initialize: initialize(with:),
         setEmail: setEmail(email:),
         setToken: setToken(tokenData:),
         enqueueLegacyEvent: enqueueLegacyEvent(eventName:customerProperties:properties:),
         enqueueLegacyProfile: enqueueLegacyProfile(customerProperties:),
-        flush: {}
+        flush: {},
+        start: {},
+        stop: {}
     )
 }
 
@@ -54,26 +61,76 @@ extension AnalyticsEngine.LegacyEvent {
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
-    
+}
+
+extension AnalyticsEngine.LegacyProfile {
+    func buildProfileRequest(with apiKey: String) throws -> KlaviyoAPI.KlaviyoRequest? {
+        guard var customerProperties = self.customerProperties as? [String: Any] else {
+            throw KlaviyoAPI.KlaviyoAPIError.invalidData
+        }
+        let email: String? = customerProperties.removeValue(forKey: "$email") as? String
+        let phoneNumber: String? = customerProperties.removeValue(forKey: "$email") as? String
+        let anonymousId: String = customerProperties.removeValue(forKey: "$anonymous") as? String ?? "" //TODO: get anonymous id properly
+        let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String
+        if let pushToken = environment.analytics.store.state.value.pushToken {
+            customerProperties["$ios_tokens"] = pushToken
+        }
+        let attributes = Klaviyo.Profile.Attributes(
+            email: email, phoneNumber: phoneNumber, externalId: externalId, properties: customerProperties)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(.init(data: .init(profile: .init(attributes: attributes), anonymousId: anonymousId)))
+ 
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
 }
 
 func initialize(with apiKey: String) {
-    
+    dispatchActionOnMainThread(action: .initialize(apiKey))
 }
 
 func setEmail(email: String) {
-    
+    dispatchActionOnMainThread(action: .setEmail(email))
 }
 
 func setToken(tokenData: Data) {
-    
+    let apnDeviceToken = tokenData.map { String(format: "%02.2hhx", $0) }.joined()
+    dispatchActionOnMainThread(action: .setEmail(apnDeviceToken))
 }
 
 func enqueueLegacyEvent(eventName: String,
-                        customerProperties: NSDictionary?,
-                        properties: NSDictionary?) {
-    
+                        customerProperties: NSDictionary,
+                        properties: NSDictionary) {
+    let legacyEvent = AnalyticsEngine.LegacyEvent(eventName: eventName, customerProperties: customerProperties, properties: properties)
+    let state = environment.analytics.store.state.value
+    guard let apiKey = state.apiKey else {
+        environment.logger.error("No api key available yet.")
+        return
+    }
+    guard let request = try? legacyEvent.buildEventRequest(with: apiKey) else {
+        environment.logger.error("Error build request")
+        return
+    }
+    dispatchActionOnMainThread(action: .enqueueRequest(request))
 }
 
-func enqueueLegacyProfile(customerProperties: NSDictionary?) {
+func enqueueLegacyProfile(customerProperties: NSDictionary) {
+    let legacyProfile = AnalyticsEngine.LegacyProfile(customerProperties: customerProperties)
+    let state = environment.analytics.store.state.value
+    guard let apiKey = state.apiKey else {
+        environment.logger.error("No api key available yet.")
+        return
+    }
+    guard let request = try? legacyProfile.buildProfileRequest(with: apiKey) else {
+        environment.logger.error("Error build request")
+        return
+    }
+    dispatchActionOnMainThread(action: .enqueueRequest(request))
+}
+
+func dispatchActionOnMainThread(action: KlaviyoAction) {
+    Task {
+        await MainActor.run {
+            // Store operations need to be run on main thread.
+            environment.analytics.store.send(action)
+        }
+    }
 }

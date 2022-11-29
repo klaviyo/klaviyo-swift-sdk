@@ -17,7 +17,7 @@ let defaultUserAgent = {
     return "\(appContext.excutable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
 }()
 
-func createEmphemeralSession(protocolClasses: [AnyClass] = []) -> URLSession {
+func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.httpAdditionalHeaders = [
         "Accept-Encoding":  ACCEPTED_ENCODINGS,
@@ -31,14 +31,17 @@ func createEmphemeralSession(protocolClasses: [AnyClass] = []) -> URLSession {
 }
 
 struct NetworkSession {
-    static var protocolClasses: [AnyClass] = []
     var dataTask: (URLRequest, @escaping @Sendable (Data?, URLResponse?, Error?) -> Void) -> Void
     
     static let production = {
-        let session = createEmphemeralSession(protocolClasses: protocolClasses)
+        let session = createEmphemeralSession()
         return NetworkSession { request, completionHandler in
              let task = session.dataTask(with: request, completionHandler: completionHandler)
             task.resume()
         }
     }()
+}
+
+public struct URLProtocolOverrides {
+    public static var protocolClasses = [AnyClass]()
 }

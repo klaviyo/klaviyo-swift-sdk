@@ -22,7 +22,7 @@ class NetworkSessionTests: XCTestCase {
     }
     
     func testSessionDataTask() throws {
-        NetworkSession.protocolClasses = [SimpleMockURLProtocol.self]
+        URLProtocolOverrides.protocolClasses = [SimpleMockURLProtocol.self]
         let session = NetworkSession.production
         let expectation = expectation(description: "wait for request")
         let sampleRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(.test))

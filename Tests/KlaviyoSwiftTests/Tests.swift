@@ -30,27 +30,28 @@ class Tests: XCTestCase {
     }
     
     // Verify that 'identify' is called on app launch with the anonymous payload
-    func testAnonymousUserIdentifiedOnAppLaunch() {
-        let customerProperties = klaviyo.updatePropertiesDictionary(propDictionary: nil)
-        XCTAssertNotNil(customerProperties[klaviyo.CustomerPropertiesIDDictKey], "anonymous ID should not be nil")
-        let anonString = customerProperties[klaviyo.CustomerPropertiesIDDictKey] as? String
-        XCTAssertNotNil(anonString, "anonymous ID should be a string")
-        XCTAssertEqual(anonString!, klaviyo.iOSIDString, "anonymous ID should equal iOS String")
-    }
-    
-    func testUserEmailIsSaved() {
-        // save the user's email address
-        let testEmail = "testemail@klaviyo.com"
-        klaviyo.setUpUserEmail(userEmail: testEmail)
-        
-        // grab the cleaned payload when no further info is provided (i.e. a user tracks an event without customer data)
-        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
-        let email = dict[klaviyo.KLPersonEmailDictKey] as? String
-        
-        // verify the email is included even if not provided at the trackEvent level
-        XCTAssertNotNil(email, "Email should exist if setupUserEmail has been called")
-        XCTAssertEqual(testEmail, email, "email should match the one saved by the user")
-    }
+//    func testAnonymousUserIdentifiedOnAppLaunch() {
+//        let customerProperties = klaviyo.updatePropertiesDictionary(propDictionary: nil)
+//        XCTAssertNotNil(customerProperties[klaviyo.CustomerPropertiesIDDictKey], "anonymous ID should not be nil")
+//        let anonString = customerProperties[klaviyo.CustomerPropertiesIDDictKey] as? String
+//        XCTAssertNotNil(anonString, "anonymous ID should be a string")
+//        XCTAssertEqual(anonString!, klaviyo.iOSIDString, "anonymous ID should equal iOS String")
+//    }
+ 
+//    TODO: Make a better test for each of the identifiers
+//    func testUserEmailIsSaved() {
+//        // save the user's email address
+//        let testEmail = "testemail@klaviyo.com"
+//        klaviyo.setUpUserEmail(userEmail: testEmail)
+//
+//        // grab the cleaned payload when no further info is provided (i.e. a user tracks an event without customer data)
+//        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
+//        let email = dict[klaviyo.KLPersonEmailDictKey] as? String
+//
+//        // verify the email is included even if not provided at the trackEvent level
+//        XCTAssertNotNil(email, "Email should exist if setupUserEmail has been called")
+//        XCTAssertEqual(testEmail, email, "email should match the one saved by the user")
+//    }
     
     // If a user passes in an email, that should get used in the payload and should override the saved address
     func testSetupEmailIsOverridden() {

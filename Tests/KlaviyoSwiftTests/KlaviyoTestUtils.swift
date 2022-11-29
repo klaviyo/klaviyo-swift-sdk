@@ -48,7 +48,9 @@ extension AnalyticsEnvironment {
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
-        engine: AnalyticsEngine.test
+        engine: AnalyticsEngine.test,
+        klaviyoAPI: .production,
+        store: .production
     )
 }
 
@@ -68,7 +70,10 @@ extension AnalyticsEngine {
         setToken: { _ in },
         enqueueLegacyEvent: { _, _, _ in },
         enqueueLegacyProfile: { _ in },
-        flush: { })
+        flush: { },
+        start: {},
+        stop: { }
+    )
 }
 
 extension LoggerClient {
@@ -84,7 +89,7 @@ extension NetworkSession {
         callback(Data(), successfulRepsonse, nil)
     }
     static func test(callback: @escaping @Sendable (URLRequest, @escaping @Sendable (Data?, URLResponse?, Error?) -> Void) -> Void = DEFAULT_CALLBACK) -> NetworkSession {
-        NetworkSession.protocolClasses = []
+        URLProtocolOverrides.protocolClasses = []
        return NetworkSession(dataTask: callback)
     }
 }

@@ -13,11 +13,15 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
+        .package(
+            url: "https://github.com/Flight-School/AnyCodable",
+            from: "0.6.0"
+        ),
     ],
     targets: [
         .target(
             name: "KlaviyoSwift",
-            dependencies: []),
+            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")]),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [

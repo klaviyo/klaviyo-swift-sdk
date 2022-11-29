@@ -12,7 +12,8 @@ struct KlaviyoAPI {
     struct KlaviyoRequest: Encodable {
       let apiKey: String
       let endpoint: KlaviyoEndpoint
-        
+      let uuid = environment.analytics.uuid().uuidString
+    
         enum CodingKeys: CodingKey {
             case apiKey
             case endpoint
@@ -59,4 +60,8 @@ struct KlaviyoAPI {
             result(.success(data))
         }
     }
+}
+
+extension KlaviyoAPI {
+    static let production = KlaviyoAPI()
 }

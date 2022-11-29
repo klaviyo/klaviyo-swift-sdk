@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AnyCodable
 
 extension KlaviyoAPI.KlaviyoRequest {
     enum KlaviyoEndpoint: Encodable {

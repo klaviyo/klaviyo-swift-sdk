@@ -49,6 +49,8 @@ struct AnalyticsEnvironment {
     var timeZone: () -> String
     var appContextInfo: () -> AppContextInfo
     var engine: AnalyticsEngine
+    var klaviyoAPI: KlaviyoAPI
+    var store: Store
     static let production = AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
@@ -57,6 +59,8 @@ struct AnalyticsEnvironment {
         date: { Date() },
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
         appContextInfo: { AppContextInfo() },
-        engine: AnalyticsEngine.production
+        engine: AnalyticsEngine.production,
+        klaviyoAPI: KlaviyoAPI.production,
+        store: Store.production
     )
 }
