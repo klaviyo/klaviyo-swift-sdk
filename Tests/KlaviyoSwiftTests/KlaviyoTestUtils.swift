@@ -70,7 +70,6 @@ extension AnalyticsEngine {
         setToken: { _ in },
         enqueueLegacyEvent: { _, _, _ in },
         enqueueLegacyProfile: { _ in },
-        flush: { },
         start: {},
         stop: { }
     )

@@ -69,17 +69,17 @@ class Tests: XCTestCase {
     }
     
 
-    // Verify that '$anonymous' payload exists within any and all payloads and persists between calls to track
-    func testAnonymousKey() {
-        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
-        let emailDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: "testemail@gmail.com"]
-        let nonAnonymous = klaviyo.updatePropertiesDictionary(propDictionary: emailDict)
-        let anonymous2 = nonAnonymous[klaviyo.CustomerPropertiesIDDictKey] as? String
-        let anonymous = dict[klaviyo.CustomerPropertiesIDDictKey] as? String
-        XCTAssertNotNil(anonymous, "Anonymous key should always exist in an unknown payload")
-        XCTAssertNotNil(anonymous2, "Anonymous key should exist when email is included")
-        XCTAssertEqual(anonymous, anonymous2, "Anonymous ID should be the same")
-    }
+//    // Verify that '$anonymous' payload exists within any and all payloads and persists between calls to track
+//    func testAnonymousKey() {
+//        let dict = klaviyo.updatePropertiesDictionary(propDictionary: nil)
+//        let emailDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: "testemail@gmail.com"]
+//        let nonAnonymous = klaviyo.updatePropertiesDictionary(propDictionary: emailDict)
+//        let anonymous2 = nonAnonymous[klaviyo.CustomerPropertiesIDDictKey] as? String
+//        let anonymous = dict[klaviyo.CustomerPropertiesIDDictKey] as? String
+//        XCTAssertNotNil(anonymous, "Anonymous key should always exist in an unknown payload")
+//        XCTAssertNotNil(anonymous2, "Anonymous key should exist when email is included")
+//        XCTAssertEqual(anonymous, anonymous2, "Anonymous ID should be the same")
+//    }
     
     // Push tokens should be nil if user does not have push enabled
     func testPushNotificationOff() {

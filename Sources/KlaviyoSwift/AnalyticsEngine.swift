@@ -6,14 +6,17 @@
 //
 
 import Foundation
+import Combine
+
+private var cancellable: Cancellable?
 
 struct AnalyticsEngine {
+    
     var initialize: (String) -> Void
     var setEmail: (String) -> Void
     var setToken: (Data) -> Void
     var enqueueLegacyEvent: (String, NSDictionary, NSDictionary) -> Void
     var enqueueLegacyProfile: (NSDictionary) -> Void
-    var flush: () -> Void
     var start: () -> Void
     var stop: () -> Void
 }
@@ -34,15 +37,23 @@ extension AnalyticsEngine {
     struct LegacyProfile {
         let customerProperties: NSDictionary
     }
+    static var cancellable: Cancellable?
     static let production = Self.init(
         initialize: initialize(with:),
         setEmail: setEmail(email:),
         setToken: setToken(tokenData:),
         enqueueLegacyEvent: enqueueLegacyEvent(eventName:customerProperties:properties:),
         enqueueLegacyProfile: enqueueLegacyProfile(customerProperties:),
-        flush: {},
-        start: {},
-        stop: {}
+        start: {
+            cancellable = Timer.publish(every: 1, on: .main, in: .default)
+                .autoconnect()
+                .sink(receiveValue: { _ in
+                    dispatchActionOnMainThread(action: .flushQueue)
+                })
+        },
+        stop: {
+            cancellable?.cancel()
+        }
     )
 }
 
