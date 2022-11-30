@@ -47,7 +47,7 @@ extension AnalyticsEngine {
         enqueueLegacyProfile: enqueueLegacyProfile(customerProperties:),
         start: {
             cancellable?.cancel()
-            cancellable = Timer.publish(every: 1, on: .main, in: .default)
+            cancellable = Timer.publish(every: 10, on: .main, in: .default)
                 .autoconnect()
                 .sink(receiveValue: { _ in
                     flushQueue()
@@ -99,6 +99,7 @@ extension AnalyticsEngine.LegacyProfile {
 
 private func initialize(with apiKey: String) {
     dispatchActionOnMainThread(action: .initialize(apiKey))
+    environment.analytics.engine.start()
 }
 
 private func setEmail(email: String) {
