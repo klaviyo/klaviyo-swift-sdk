@@ -37,7 +37,7 @@ extension AnalyticsEngine {
     struct LegacyProfile {
         let customerProperties: NSDictionary
     }
-    static var cancellable: Cancellable?
+    private static var cancellable: Cancellable?
     static let production = Self.init(
         initialize: initialize(with:),
         setEmail: setEmail(email:),
