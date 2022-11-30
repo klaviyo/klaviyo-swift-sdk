@@ -45,6 +45,7 @@ extension AnalyticsEngine {
         enqueueLegacyEvent: enqueueLegacyEvent(eventName:customerProperties:properties:),
         enqueueLegacyProfile: enqueueLegacyProfile(customerProperties:),
         start: {
+            cancellable?.cancel()
             cancellable = Timer.publish(every: 1, on: .main, in: .default)
                 .autoconnect()
                 .sink(receiveValue: { _ in
