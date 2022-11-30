@@ -347,9 +347,9 @@ public class Klaviyo : NSObject {
      - Returns: String?
      */
     public func getPushDeviceToken() -> String? {
-        guard let _ = apnDeviceToken else {
+        if apnDeviceToken == nil {
             let defaults = UserDefaults.standard
-            apnDeviceToken = defaults.string(forKey: CustomerPropertiesAPNTokensDictKey)?
+            apnDeviceToken = defaults.string(forKey: CustomerPropertiesAPNTokensDictKey)
         }
 
         return apnDeviceToken
