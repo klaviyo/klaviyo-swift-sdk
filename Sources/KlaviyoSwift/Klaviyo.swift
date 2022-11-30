@@ -92,6 +92,8 @@ public class Klaviyo: NSObject  {
     var apiKey : String?
     var apnDeviceToken : String?
     var userEmail : String = ""
+    var eventsQueue : NSMutableArray?
+    var peopleQueue : NSMutableArray?
     let reachability : Reachability
     
     /*
