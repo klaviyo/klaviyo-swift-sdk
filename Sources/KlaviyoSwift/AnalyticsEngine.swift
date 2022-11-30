@@ -19,6 +19,7 @@ struct AnalyticsEngine {
     var enqueueLegacyProfile: (NSDictionary) -> Void
     var start: () -> Void
     var stop: () -> Void
+    var flush: () -> Void
 }
 
 extension AnalyticsEngine {
@@ -49,12 +50,13 @@ extension AnalyticsEngine {
             cancellable = Timer.publish(every: 1, on: .main, in: .default)
                 .autoconnect()
                 .sink(receiveValue: { _ in
-                    dispatchActionOnMainThread(action: .flushQueue)
+                    flushQueue()
                 })
         },
         stop: {
             cancellable?.cancel()
-        }
+        },
+        flush: flushQueue
     )
 }
 
@@ -95,20 +97,20 @@ extension AnalyticsEngine.LegacyProfile {
     }
 }
 
-func initialize(with apiKey: String) {
+private func initialize(with apiKey: String) {
     dispatchActionOnMainThread(action: .initialize(apiKey))
 }
 
-func setEmail(email: String) {
+private func setEmail(email: String) {
     dispatchActionOnMainThread(action: .setEmail(email))
 }
 
-func setToken(tokenData: Data) {
+private func setToken(tokenData: Data) {
     let apnDeviceToken = tokenData.map { String(format: "%02.2hhx", $0) }.joined()
     dispatchActionOnMainThread(action: .setEmail(apnDeviceToken))
 }
 
-func enqueueLegacyEvent(eventName: String,
+private func enqueueLegacyEvent(eventName: String,
                         customerProperties: NSDictionary,
                         properties: NSDictionary) {
     let legacyEvent = AnalyticsEngine.LegacyEvent(eventName: eventName, customerProperties: customerProperties, properties: properties)
@@ -124,7 +126,7 @@ func enqueueLegacyEvent(eventName: String,
     dispatchActionOnMainThread(action: .enqueueRequest(request))
 }
 
-func enqueueLegacyProfile(customerProperties: NSDictionary) {
+private func enqueueLegacyProfile(customerProperties: NSDictionary) {
     let legacyProfile = AnalyticsEngine.LegacyProfile(customerProperties: customerProperties)
     let state = environment.analytics.store.state.value
     guard let apiKey = state.apiKey else {
@@ -138,7 +140,11 @@ func enqueueLegacyProfile(customerProperties: NSDictionary) {
     dispatchActionOnMainThread(action: .enqueueRequest(request))
 }
 
-func dispatchActionOnMainThread(action: KlaviyoAction) {
+private func flushQueue() {
+    dispatchActionOnMainThread(action: .flushQueue)
+}
+
+private func dispatchActionOnMainThread(action: KlaviyoAction) {
     Task {
         await MainActor.run {
             // Store operations need to be run on main thread.
