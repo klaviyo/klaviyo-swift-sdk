@@ -62,7 +62,8 @@ enum KlaviyoAction {
 /// - Returns: Effect which run side effecty code and may further produce action to update state.
 func reduce(state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
     switch action {
-    case .initialize:
+    case let .initialize(apiKey):
+        state.apiKey = apiKey
         // TODO: read from disk and initialize queue
         return .run { send in
             
