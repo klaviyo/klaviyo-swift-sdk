@@ -1,3 +1,10 @@
+//
+//  Cancellation.swift
+//  Cancellation handling pulled from (https://github.com/pointfreeco/swift-composable-architecture).
+//
+//  Created by Noah Durell on 11/28/22.
+//
+
 import Combine
 import Foundation
 

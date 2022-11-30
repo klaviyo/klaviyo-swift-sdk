@@ -71,7 +71,8 @@ extension AnalyticsEngine {
         enqueueLegacyEvent: { _, _, _ in },
         enqueueLegacyProfile: { _ in },
         start: {},
-        stop: { }
+        stop: { },
+        flush: {}
     )
 }
 
