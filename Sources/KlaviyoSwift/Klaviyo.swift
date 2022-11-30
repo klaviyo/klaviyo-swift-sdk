@@ -92,13 +92,7 @@ public class Klaviyo: NSObject  {
     var apiKey : String?
     var apnDeviceToken : String?
     var userEmail : String = ""
-    let serialQueue : DispatchQueue
-    var eventsQueue : NSMutableArray?
-    var peopleQueue : NSMutableArray?
-    let urlSession : URLSession
     let reachability : Reachability
-    let urlSessionMaxConnection = 5
-    public var requestsList : NSMutableArray = []
     
     /*
     Computed property for iOSIDString
@@ -112,13 +106,6 @@ public class Klaviyo: NSObject  {
     Singleton Initializer. Must be kept private as only one instance can be created.
     */
     private override init() {
-        // Configure the URL Session
-        let config = URLSessionConfiguration.default
-        config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = urlSessionMaxConnection
-        urlSession = URLSession(configuration: config)
-        // Create the queue
-        serialQueue = DispatchQueue(label: "com.klaviyo.serialQueue")
         reachability = Reachability(hostname: "a.klaviyo.com")!
         
         super.init()
