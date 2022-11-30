@@ -320,7 +320,7 @@ public class Klaviyo: NSObject  {
             returnDictionary[KLPersonIDDictKey] = customerID
         }
         
-        returnDictionary[KLTimezone] = environment.analytics.timeZone
+        returnDictionary[KLTimezone] = environment.analytics.timeZone()
         
         return returnDictionary
     }
