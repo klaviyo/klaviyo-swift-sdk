@@ -43,21 +43,11 @@ public class Klaviyo: NSObject  {
     public let KLPersonOpenedPush = "$opened_push"
     public let KLMessageDimension = "$message"
     
-    // KL Definitions File: API URL Constants
-
-    let KlaviyoServerTrackEventEndpoint = "/track"
-    let KlaviyoServerTrackPersonEndpoint = "/identify"
-    
     #if DEBUG
     public var KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #else
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #endif
-    
-    /*
-    Current API WorkAround: Update this once the $anonymous in place
-    */
-    let CustomerPropertiesIDDictKey = "$anonymous"
     
     let CustomerPropertiesAppendDictKey = "$append"
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
@@ -286,46 +276,6 @@ public class Klaviyo: NSObject  {
     }
     
     /**
-     updatePropertiesDictionary: Internal function that configures the properties dictionary so that it holds the minimum info needed to track events and users
-     - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
-     - Returns: Void
-     */
-    internal func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
-        var propertiesDictionary = propDictionary
-        if propertiesDictionary == nil {
-            propertiesDictionary = NSDictionary()
-        }
-        
-        guard let returnDictionary = propertiesDictionary as? NSMutableDictionary else {
-            return NSDictionary()
-        }
-        
-        if emailAddressExists() && returnDictionary[KLPersonEmailDictKey] == nil {
-            // if setUpUserEmail has been called & a new value has not been provided; use the passed value
-            returnDictionary[KLPersonEmailDictKey] = self.userEmail
-        } else if let newEmail = returnDictionary[KLPersonEmailDictKey] {
-            // if user provides an email address that takes precendence; save it to defaults & use
-            let defaults = UserDefaults.standard
-            defaults.setValue(newEmail, forKey: KLEmailNSDefaultsKey)
-        } else if let savedEmail = UserDefaults.standard.value(forKey: KLEmailNSDefaultsKey) as? String {
-            // check NSuserDefaults for a stored value
-            returnDictionary[KLPersonEmailDictKey] = savedEmail
-        }
-        
-        // Set the $anonymous property in case there i sno email address
-        returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
-        
-        // Set the $id if it exists
-        if let customerID =  UserDefaults.standard.value(forKey: KLCustomerIDNSDefaults) as? String {
-            returnDictionary[KLPersonIDDictKey] = customerID
-        }
-        
-        returnDictionary[KLTimezone] = environment.analytics.timeZone()
-        
-        return returnDictionary
-    }
-    
-    /**
      assertPropretyTypes: Internal alert function for development purposes. Asserts an error if dictionary types are of incorrect type for JSON encoding. Doesn't return a value but will assert an error during development.
      
      - Parmeter properties: the dictionary of property values
@@ -381,10 +331,8 @@ public class Klaviyo: NSObject  {
         // TODO: Migrate handling of this to engine, archive state at this point.
         try? reachability.startNotifier()
         
-        // identify the user
-        let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
-        trackPersonWithInfo(personDictionary: dict)
         environment.analytics.engine.start()
+        trackPersonWithInfo(personDictionary: NSDictionary())
     }
     
     @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){

@@ -107,7 +107,7 @@ extension Klaviyo {
                 self.organization = organization
                 self.title = title
                 self.image = image
-                self.location = location
+                self.location = location ?? Location()
                 self.properties = properties
             }
         }

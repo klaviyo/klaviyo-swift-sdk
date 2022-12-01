@@ -78,19 +78,25 @@ extension AnalyticsEngine.LegacyEvent {
 }
 
 extension AnalyticsEngine.LegacyProfile {
-    func buildProfileRequest(with apiKey: String) throws -> KlaviyoAPI.KlaviyoRequest? {
+    func buildProfileRequest(with apiKey: String, for anonymousId: String) throws -> KlaviyoAPI.KlaviyoRequest? {
         guard var customerProperties = self.customerProperties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
-        let email: String? = customerProperties.removeValue(forKey: "$email") as? String
-        let phoneNumber: String? = customerProperties.removeValue(forKey: "$email") as? String
-        let anonymousId: String = customerProperties.removeValue(forKey: "$anonymous") as? String ?? "" //TODO: get anonymous id properly
-        let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String
+        let state = environment.analytics.store.state.value
+        // Migrate some properties from properties to v3 API structure.
+        let email: String? = customerProperties.removeValue(forKey: "$email") as? String ?? state.email
+        let phoneNumber: String? = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber
+        let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId
+        customerProperties.removeValue(forKey: "$anonymous") // Remove anonymous since we are moving to a uuid (passed in above).
         if let pushToken = environment.analytics.store.state.value.pushToken {
             customerProperties["$ios_tokens"] = pushToken
         }
         let attributes = Klaviyo.Profile.Attributes(
-            email: email, phoneNumber: phoneNumber, externalId: externalId, properties: customerProperties)
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            properties: customerProperties
+        )
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(.init(data: .init(profile: .init(attributes: attributes), anonymousId: anonymousId)))
  
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
@@ -134,7 +140,11 @@ private func enqueueLegacyProfile(customerProperties: NSDictionary) {
         environment.logger.error("No api key available yet.")
         return
     }
-    guard let request = try? legacyProfile.buildProfileRequest(with: apiKey) else {
+    guard let anonymousId = state.anonymousId else {
+        environment.logger.error("SDK not initialized yet.")
+        return
+    }
+    guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, for: anonymousId) else {
         environment.logger.error("Error build request")
         return
     }

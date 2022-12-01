@@ -6,6 +6,7 @@
 //
 import XCTest
 @testable import KlaviyoSwift
+import AnyCodable
 
 public enum FakeFileError: Error {
     case fake
@@ -35,6 +36,7 @@ extension KlaviyoEnvironment {
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
+        decodeJSON: { _ in AnyDecodable(["foo": "bar"]) },
         analytics: AnalyticsEnvironment.test
     )
 }
@@ -50,7 +52,8 @@ extension AnalyticsEnvironment {
         appContextInfo: { AppContextInfo.test },
         engine: AnalyticsEngine.test,
         klaviyoAPI: .production,
-        store: .production
+        store: .production,
+        getUserDefaultStringValue: { _ in "foo" }
     )
 }
 
