@@ -54,19 +54,19 @@ class Tests: XCTestCase {
 //    }
     
     // If a user passes in an email, that should get used in the payload and should override the saved address
-    func testSetupEmailIsOverridden() {
-        let testEmail = "testemail@klaviyo.com"
-        klaviyo.setUpUserEmail(userEmail: testEmail)
-        let newEmail = "mynewemail@klaviyo.com"
-        let overrideDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: newEmail]
-        let payload = klaviyo.updatePropertiesDictionary(propDictionary: overrideDict)
-        let payloadEmail = payload[klaviyo.KLPersonEmailDictKey] as? String
-
-        XCTAssertNotNil(payloadEmail, "email should not be nil")
-        XCTAssertEqual(payloadEmail, newEmail, "new email should be used in payload")
-        XCTAssertNotEqual(testEmail, payloadEmail, "payload email should not use initial email")
-        
-    }
+//    func testSetupEmailIsOverridden() {
+//        let testEmail = "testemail@klaviyo.com"
+//        klaviyo.setUpUserEmail(userEmail: testEmail)
+//        let newEmail = "mynewemail@klaviyo.com"
+//        let overrideDict: NSMutableDictionary = [klaviyo.KLPersonEmailDictKey: newEmail]
+//        let payload = klaviyo.updatePropertiesDictionary(propDictionary: overrideDict)
+//        let payloadEmail = payload[klaviyo.KLPersonEmailDictKey] as? String
+//
+//        XCTAssertNotNil(payloadEmail, "email should not be nil")
+//        XCTAssertEqual(payloadEmail, newEmail, "new email should be used in payload")
+//        XCTAssertNotEqual(testEmail, payloadEmail, "payload email should not use initial email")
+//        
+//    }
     
 
 //    // Verify that '$anonymous' payload exists within any and all payloads and persists between calls to track
