@@ -71,6 +71,7 @@ extension AnalyticsEngine {
         initialize: { _ in },
         setEmail: { _ in },
         setToken: { _ in },
+        setExternalId: { _ in },
         enqueueLegacyEvent: { _, _, _ in },
         enqueueLegacyProfile: { _ in },
         start: {},

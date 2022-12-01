@@ -124,17 +124,6 @@ public class Klaviyo: NSObject  {
      - Parameter userEmail: the user's email address
      */
     public func setUpUserEmail(userEmail :String) {
-        
-        //TODO: migrate this data to KlaviyoState on initialization
-//        self.userEmail = userEmail
-//
-//        /* Save to nsuser defaults */
-//        let defaults = UserDefaults.standard
-//        defaults.setValue(userEmail, forKey: KLEmailNSDefaultsKey)
-//
-//        /* Identify the user in Klaviyo */
-//        let dictionary = NSMutableDictionary()
-//        dictionary[KLPersonEmailDictKey] = userEmail
         environment.analytics.engine.setEmail(userEmail)
     }
     
@@ -144,9 +133,7 @@ public class Klaviyo: NSObject  {
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
     public func setUpCustomerID(id: String) {
-        let defaults = UserDefaults.standard
-        defaults.setValue(id, forKey: KLCustomerIDNSDefaults)
-        // TODO: figure out what to do with this....
+        environment.analytics.engine.setExternalId(id)
     }
     
     /**
@@ -206,19 +193,10 @@ public class Klaviyo: NSObject  {
             return
         }
 
-        // Check both dictionaries
-        let customerPropertiesDict = updatePropertiesDictionary(propDictionary: customerProperties)
-        assertPropertyTypes(properties: propertiesDict)
+        assertPropertyTypes(properties: propertiesDict ?? NSDictionary())
 
         
-        // TODO: Might be redundant
-        guard apiKey != nil else {
-            environment.logger.error("Track event called before API key was set.")
-            //TODO: store pending event for when api key is set.
-            return
-        }
-        
-        environment.analytics.engine.enqueueLegacyEvent(eventName, propertiesDict ?? NSDictionary(), customerPropertiesDict)
+        environment.analytics.engine.enqueueLegacyEvent(eventName, propertiesDict ?? NSDictionary(), customerProperties ?? NSDictionary())
     }
     
     /**
@@ -250,9 +228,7 @@ public class Klaviyo: NSObject  {
             return
         }
         
-        // Update properties for JSON encoding
-        let personInfoDictionary = updatePropertiesDictionary(propDictionary: personDictionary)
-        assertPropertyTypes(properties: personInfoDictionary)
+        assertPropertyTypes(properties: personDictionary)
         
         environment.analytics.engine.enqueueLegacyProfile(personDictionary)
     }

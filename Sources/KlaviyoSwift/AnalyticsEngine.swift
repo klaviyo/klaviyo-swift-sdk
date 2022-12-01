@@ -15,6 +15,7 @@ struct AnalyticsEngine {
     var initialize: (String) -> Void
     var setEmail: (String) -> Void
     var setToken: (Data) -> Void
+    var setExternalId: (String) -> Void
     var enqueueLegacyEvent: (String, NSDictionary, NSDictionary) -> Void
     var enqueueLegacyProfile: (NSDictionary) -> Void
     var start: () -> Void
@@ -43,6 +44,7 @@ extension AnalyticsEngine {
         initialize: initialize(with:),
         setEmail: setEmail(email:),
         setToken: setToken(tokenData:),
+        setExternalId: setExternalId(externalId:),
         enqueueLegacyEvent: enqueueLegacyEvent(eventName:customerProperties:properties:),
         enqueueLegacyProfile: enqueueLegacyProfile(customerProperties:),
         start: {
@@ -110,6 +112,10 @@ private func initialize(with apiKey: String) {
 
 private func setEmail(email: String) {
     dispatchActionOnMainThread(action: .setEmail(email))
+}
+
+private func setExternalId(externalId: String) {
+    dispatchActionOnMainThread(action: .setExternalId(externalId))
 }
 
 private func setToken(tokenData: Data) {
