@@ -9,9 +9,14 @@ import Foundation
 
 
 struct KlaviyoAPI {
-    struct KlaviyoRequest {
+    struct KlaviyoRequest: Codable {
         let apiKey: String
         let endpoint: KlaviyoEndpoint
+        
+        enum CodingKeys: CodingKey {
+            case apiKey
+            case endpoint
+        }
     }
     
     enum KlaviyoAPIError: Error {

@@ -11,6 +11,7 @@
         "address1" : "blob",
         "address2" : "blob",
         "city" : "blob city",
+        "country" : "Blobland",
         "latitude" : 1,
         "longitude" : 1,
         "region" : "BL",
