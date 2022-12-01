@@ -174,8 +174,12 @@ public class Klaviyo : NSObject {
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     public func handlePush(userInfo: NSDictionary) {
-        if let metadata = userInfo["_k"] as? NSDictionary {
-            trackEvent(eventName: KLPersonOpenedPush, properties: userInfo)
+        // Test it originated from klaviyo by checking presence of _k tracking parameters
+        if let body = userInfo["body"] as? NSDictionary, let _ = body["_k"] as? NSDictionary {
+            //But we still want to send the full payload, plus the push token
+            let properties = userInfo.mutableCopy() as! NSMutableDictionary
+            properties.setValue(getPushDeviceToken(), forKey: "push_token")
+            trackEvent(eventName: KLPersonOpenedPush, properties: properties)
         }
     }
     
