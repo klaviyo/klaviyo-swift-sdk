@@ -1,6 +1,6 @@
 //
 //  InternalAPIModels.swift
-//  
+//  Internal models typically used at the networking layer.
 //
 //  Created by Noah Durell on 11/25/22.
 //
@@ -160,55 +160,6 @@ extension KlaviyoAPI.KlaviyoRequest {
     }
 }
 
-extension KlaviyoAPI.KlaviyoRequest {
-    func urlRequest() throws -> URLRequest {
-        guard let url = self.url else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.analytics.apiURL)")
-        }
-        var request = URLRequest(url: url)
-        // We only support post right now
-        guard let body = try? self.encodeBody() else {
-            throw KlaviyoAPI.KlaviyoAPIError.dataEncodingError(self)
-        }
-        request.httpBody = body
-        request.httpMethod = "POST"
-        
-        return request
-        
-    }
-    
-    var url: URL? {
-        switch self.endpoint {
-        case .createProfile, .createEvent:
-            return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(self.apiKey)")
-        case .storePushToken:
-            return URL(string: "\(environment.analytics.apiURL)/\(path)")
-        }
-    }
-                            
-    var path: String {
-        switch self.endpoint {
-        case .createProfile:
-            return "client/profiles"
-        case .createEvent:
-            return "client/events"
-        case .storePushToken:
-            return "api/identify"
-        }
-    }
-    
-    func encodeBody() throws -> Data {
-        switch self.endpoint {
-        case .createProfile(let payload):
-            return try environment.analytics.encodeJSON(payload)
-        case .createEvent(let payload):
-            return try environment.analytics.encodeJSON(payload)
-        case .storePushToken(let payload):
-            return try environment.analytics.encodeJSON(payload)
-        }
-    }
-}
-
 extension Klaviyo.Profile.Attributes.Location: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -238,17 +189,6 @@ extension Klaviyo.Profile.Attributes.Location: Encodable {
 /**
  Encoding
  */
-
-extension Klaviyo.Event: Encodable {
-    enum CodingKeys: CodingKey {
-        case attributes
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(attributes, forKey: .attributes)
-    }
-}
 
 extension Klaviyo.Event.Attributes.Metric: Encodable {
     enum CodingKeys: String, CodingKey {

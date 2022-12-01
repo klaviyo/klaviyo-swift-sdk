@@ -7,45 +7,38 @@
 
 import Foundation
 
-private let defaultUserAgent = {
-    let info = Bundle.main.infoDictionary
-    let executable = (info?["CFBundleExecutable"] as? String) ??
-        (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ??
-        "Unknown"
-    let bundle = info?["CFBundleIdentifier"] as? String ?? "Unknown"
-    let appVersion = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    let appBuild = info?["CFBundleVersion"] as? String ?? "Unknown"
+let CURRENT_API_REVISION = "2022-10-17"
+let APPLICATION_JSON = "application/json"
+let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
 
-    let osNameVersion: String = {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        let versionString = "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
-        let osName: String = "iOS"
-
-        return "\(osName) \(versionString)"
-    }()
-
+let defaultUserAgent = {
+    let appContext = environment.analytics.appContextInfo()
     let klaivyoSDKVersion = "klaviyo-ios/\(version)"
-
-    return "\(executable)/\(appVersion) (\(bundle); build:\(appBuild); \(osNameVersion)) \(klaivyoSDKVersion)"
+    return "\(appContext.excutable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
 }()
 
-func createEmphemeralSession() -> URLSession {
+func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.httpAdditionalHeaders = [
-        "Accept-Encoding":  ["br", "gzip", "deflate"],
-        "User-Agent": defaultUserAgent
+        "Accept-Encoding":  ACCEPTED_ENCODINGS,
+        "User-Agent": defaultUserAgent,
+        "revision": CURRENT_API_REVISION,
+        "content-type": APPLICATION_JSON,
+        "accept": APPLICATION_JSON
     ]
+    configuration.protocolClasses = protocolClasses
     return URLSession.init(configuration: configuration)
 }
 
 struct NetworkSession {
-    var dataTask: (URLRequest, @escaping @Sendable (Data?, URLResponse?, Error?) -> Void) -> Void
+    var data: (URLRequest) async throws -> (Data, URLResponse)
     
     static let production = {
         let session = createEmphemeralSession()
-        return NetworkSession { request, completionHandler in
-             let task = session.dataTask(with: request, completionHandler: completionHandler)
-            task.resume()
-        }
+        return NetworkSession(data: session.data(for:))
     }()
+}
+
+public struct URLProtocolOverrides {
+    public static var protocolClasses = [AnyClass]()
 }
