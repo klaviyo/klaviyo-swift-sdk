@@ -112,7 +112,7 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
         }
     }
     let profileFileURL = filePathForData(apiKey: apiKey, data: "people")
-    if let profileData = unarchiveFromFile(fileURL: eventsFileURL) {
+    if let profileData = unarchiveFromFile(fileURL: profileFileURL) {
         for possibleProfile in profileData {
             guard let profile = possibleProfile as? NSDictionary else {
                 continue
