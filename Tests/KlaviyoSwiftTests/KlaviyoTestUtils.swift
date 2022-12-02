@@ -15,7 +15,9 @@ public enum FakeFileError: Error {
 let ARCHIVED_RETURNED_DATA = Data()
 let SAMPLE_DATA: NSMutableArray = [
     [
-        "foo": "bar"
+        "properties": [
+            "foo": "bar"
+        ]
     ]
 
 ]

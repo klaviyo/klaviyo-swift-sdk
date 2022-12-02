@@ -44,7 +44,7 @@ private func removeStateFile(at file: URL) {
     }
 }
 
-private func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
+func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
     guard environment.fileClient.fileExists(fileName.path) else {
         return migrateLegacyDataToKlaviyoState(with: apiKey, to: fileName)
@@ -72,6 +72,7 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
 }
 
 // MARK: Klaviyo State Legacy Migration
+// It's unclear how long this should live for but it'll probably here for a while.
 
 private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) -> KlaviyoState {
     // Read data from user defaults external id, email, push token
@@ -97,7 +98,8 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
     let eventsFileURL = filePathForData(apiKey: apiKey, data: "events")
     if let eventsData = unarchiveFromFile(fileURL: eventsFileURL) {
         for possibleEvent in eventsData {
-            guard let event = possibleEvent as? NSDictionary, let eventName = event["event"] as? String else {
+            guard let event = possibleEvent as? NSDictionary,
+                    let eventName = event["event"] as? String else {
                 continue
             }
             let customerProperties = event["customer_properties"] as? NSDictionary
@@ -111,13 +113,16 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
             queue.append(request)
         }
     }
+
     let profileFileURL = filePathForData(apiKey: apiKey, data: "people")
     if let profileData = unarchiveFromFile(fileURL: profileFileURL) {
         for possibleProfile in profileData {
             guard let profile = possibleProfile as? NSDictionary else {
                 continue
             }
-            let customerProperties = profile["properties"] as? NSDictionary ?? NSDictionary()
+            guard let customerProperties = profile["properties"] as? NSDictionary else {
+                continue
+            }
             let legacyProfile = LegacyProfile(customerProperties: customerProperties)
             guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
                 continue

@@ -19,6 +19,7 @@ class Tests: XCTestCase {
         LoggerClient.lastLoggedMessage = nil
     }
     
+    
     func testAPIKeyExists() {
         XCTAssertNotNil(klaviyo.apiKey, "API Key should not be nil after setup")
     }
