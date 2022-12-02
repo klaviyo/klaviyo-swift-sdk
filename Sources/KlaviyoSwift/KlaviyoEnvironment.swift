@@ -32,19 +32,29 @@ struct KlaviyoEnvironment {
     )
 }
 
+private var networkSession: NetworkSession!
+func createNetworkSession() -> NetworkSession {
+    if networkSession == nil {
+        networkSession = NetworkSession.production
+    }
+    return networkSession
+}
+
 struct AnalyticsEnvironment {
-    var networkSession: NetworkSession
+    var networkSession: () -> NetworkSession
     var apiURL: String
     var encodeJSON: (Encodable) throws -> Data
     var uuid: () -> UUID
     var date: () -> Date
     var timeZone: () -> String
+    var appContextInfo: () -> AppContextInfo
     static let production = AnalyticsEnvironment(
-        networkSession: NetworkSession.production,
+        networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },
         uuid: { UUID() },
         date: { Date() },
-        timeZone: { TimeZone.autoupdatingCurrent.identifier }
+        timeZone: { TimeZone.autoupdatingCurrent.identifier },
+        appContextInfo: { AppContextInfo() }
     )
 }
