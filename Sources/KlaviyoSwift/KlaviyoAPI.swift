@@ -28,6 +28,7 @@ struct KlaviyoAPI {
         case internalRequestError(Error)
         case unknownError(Error)
         case dataEncodingError(KlaviyoRequest)
+        case invalidData
     }
     
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
