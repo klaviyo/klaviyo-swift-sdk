@@ -271,3 +271,61 @@ extension Klaviyo.Event.Attributes: Codable {
     }
 }
 
+
+// MARK: Legacy request data
+
+struct LegacyEvent {
+     let eventName: String
+     let customerProperties: NSDictionary
+     let properties: NSDictionary
+     init(eventName: String,
+          customerProperties: NSDictionary?,
+          properties: NSDictionary?) {
+         self.eventName = eventName
+         self.customerProperties = customerProperties ?? NSDictionary()
+         self.properties = properties ?? NSDictionary()
+     }
+    func buildEventRequest(with apiKey: String) throws -> KlaviyoAPI.KlaviyoRequest? {
+        guard let eventProperties = self.properties as? [String: Any] else {
+            throw KlaviyoAPI.KlaviyoAPIError.invalidData
+        }
+        guard let customerProperties = self.customerProperties as? [String: Any] else {
+            throw KlaviyoAPI.KlaviyoAPIError.invalidData
+        }
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
+            attributes: .init(metric: .init(name: self.eventName),
+                              properties: eventProperties,
+                              profile: customerProperties)))
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+}
+
+ struct LegacyProfile {
+     let customerProperties: NSDictionary
+     
+     func buildProfileRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
+         guard var customerProperties = self.customerProperties as? [String: Any] else {
+             throw KlaviyoAPI.KlaviyoAPIError.invalidData
+         }
+         
+         guard let anonymousId = state.anonymousId else {
+             throw KlaviyoAPI.KlaviyoAPIError.internalError("Unable to build request missing required anonymous id.")
+         }
+         
+         // Migrate some legacy properties from properties to v3 API structure.
+         let email: String? = customerProperties.removeValue(forKey: "$email") as? String ?? state.email
+         let phoneNumber: String? = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber
+         let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId
+         customerProperties.removeValue(forKey: "$anonymous") // Remove $anonymous since we are moving to a uuid (passed in above).
+         let attributes = Klaviyo.Profile.Attributes(
+             email: email,
+             phoneNumber: phoneNumber,
+             externalId: externalId,
+             properties: customerProperties
+         )
+         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(.init(data: .init(profile: .init(attributes: attributes), anonymousId: anonymousId)))
+
+         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+     }
+ }
