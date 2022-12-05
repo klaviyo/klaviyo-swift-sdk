@@ -1,0 +1,70 @@
+▿ KlaviyoState
+  ▿ anonymousId: Optional<String>
+    - some: "00000000-0000-0000-0000-000000000001"
+  ▿ apiKey: Optional<String>
+    - some: "foo"
+  ▿ email: Optional<String>
+    - some: "value"
+  ▿ externalId: Optional<String>
+    - some: "value"
+  - flushing: false
+  - initialized: false
+  - phoneNumber: Optional<String>.none
+  - pushToken: Optional<String>.none
+  ▿ queue: 2 elements
+    ▿ KlaviyoRequest
+      - apiKey: "foo"
+      ▿ endpoint: KlaviyoEndpoint
+        ▿ createEvent: CreateEventPayload
+          ▿ data: Event
+            ▿ attributes: Attributes
+              ▿ metric: Metric
+                - name: "$opened_push"
+                - service: "ios-analytics"
+              ▿ profile: 1 key/value pair
+                ▿ (2 elements)
+                  - key: "foo"
+                  - value: bar
+              ▿ properties: 1 key/value pair
+                ▿ (2 elements)
+                  - key: "prop1"
+                  - value: propValue
+              - time: 2009-02-13T23:31:30Z
+              - uniqueId: "00000000-0000-0000-0000-000000000001"
+              - value: Optional<Double>.none
+            - type: "event"
+    ▿ KlaviyoRequest
+      - apiKey: "foo"
+      ▿ endpoint: KlaviyoEndpoint
+        ▿ createProfile: CreateProfilePayload
+          ▿ data: Profile
+            ▿ attributes: Attributes
+              ▿ anonymousId: Optional<String>
+                - some: "00000000-0000-0000-0000-000000000001"
+              ▿ email: Optional<String>
+                - some: "value"
+              ▿ externalId: Optional<String>
+                - some: "value"
+              - firstName: Optional<String>.none
+              - image: Optional<String>.none
+              - lastName: Optional<String>.none
+              - location: Optional<Location>.none
+              - organization: Optional<String>.none
+              - phoneNumber: Optional<String>.none
+              ▿ properties: ["foo2": bar2]
+                ▿ value: 1 key/value pair
+                  ▿ (2 elements)
+                    - key: "foo2"
+                    - value: bar2
+              - title: Optional<String>.none
+            ▿ meta: Meta
+              ▿ identifiers: Identifiers
+                ▿ anonymousId: Optional<String>
+                  - some: "00000000-0000-0000-0000-000000000001"
+                ▿ email: Optional<String>
+                  - some: "value"
+                ▿ externalId: Optional<String>
+                  - some: "value"
+                - phoneNumber: Optional<String>.none
+            - type: "profile"
+  - requestsInFlight: 0 elements

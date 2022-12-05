@@ -23,7 +23,7 @@ extension Klaviyo {
             let metric: Metric
             let properties: [String: Any]
             let profile: [String: Any]
-            var time: Date?
+            var time: Date
             let value: Double?
             let uniqueId: String
             init(metric: Metric,

@@ -9,9 +9,14 @@ import Foundation
 
 
 struct KlaviyoAPI {
-    struct KlaviyoRequest {
+    struct KlaviyoRequest: Codable {
         let apiKey: String
         let endpoint: KlaviyoEndpoint
+        
+        enum CodingKeys: CodingKey {
+            case apiKey
+            case endpoint
+        }
     }
     
     enum KlaviyoAPIError: Error {
@@ -23,6 +28,7 @@ struct KlaviyoAPI {
         case internalRequestError(Error)
         case unknownError(Error)
         case dataEncodingError(KlaviyoRequest)
+        case invalidData
     }
     
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in

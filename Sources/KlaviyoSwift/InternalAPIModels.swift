@@ -6,16 +6,17 @@
 //
 
 import Foundation
+import AnyCodable
 
 extension KlaviyoAPI.KlaviyoRequest {
-    enum KlaviyoEndpoint {
-        struct CreateProfilePayload: Encodable {
+    enum KlaviyoEndpoint: Codable {
+        struct CreateProfilePayload: Codable {
             /**
              Internal structure which has details not needed by the public API.
              */
-            struct Profile: Encodable {
+            struct Profile: Codable {
                 let type = "profile"
-                struct Attributes: Encodable {
+                struct Attributes: Codable {
                     let email: String?
                     let phoneNumber: String?
                     let externalId: String?
@@ -26,7 +27,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let title: String?
                     let image: String?
                     let location: Klaviyo.Profile.Attributes.Location?
-                    let properties: AnyEncodable
+                    let properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
                         case phoneNumber
@@ -50,13 +51,13 @@ extension KlaviyoAPI.KlaviyoRequest {
                         self.title = attributes.title
                         self.image = attributes.image
                         self.location = attributes.location
-                        self.properties = AnyEncodable(attributes.properties)
+                        self.properties = AnyCodable(attributes.properties)
                         self.anonymousId = anonymousId
                     }
                     
                 }
-                struct Meta: Encodable {
-                    struct Identifiers: Encodable {
+                struct Meta: Codable {
+                    struct Identifiers: Codable {
                         let email: String?
                         let phoneNumber: String?
                         let externalId: String?
@@ -75,7 +76,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                         }
                     }
                     let identifiers: Identifiers
-                    enum CodingKeys: CodingKey {
+                    enum CodingKeys: String, CodingKey {
                         case identifiers
                     }
                 }
@@ -90,7 +91,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                         anonymousId: anonymousId))
                 }
                 
-                enum CodingKeys: CodingKey {
+                enum CodingKeys: String, CodingKey {
                     case attributes
                     case meta
                     case type
@@ -102,8 +103,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                 case data
             }
         }
-        struct CreateEventPayload: Encodable {
-            struct Event: Encodable {
+        struct CreateEventPayload: Codable {
+            struct Event: Codable {
                 let type = "event"
                 let attributes: Klaviyo.Event.Attributes
                 init(event: Klaviyo.Event) {
@@ -122,8 +123,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                 self.data = Event(event: data)
             }
         }
-        struct PushTokenPayload: Encodable {
-            struct Properties: Encodable {
+        struct PushTokenPayload: Codable {
+            struct Properties: Codable {
                 public let email: String?
                 public let phoneNumber: String?
                 public let anonymousId: String
@@ -153,6 +154,10 @@ extension KlaviyoAPI.KlaviyoRequest {
                 self.token = token
                 self.properties = properties
             }
+            enum CodingKeys: String, CodingKey {
+                case token
+                case properties
+            }
         }
         case createProfile(CreateProfilePayload)
         case createEvent(CreateEventPayload)
@@ -160,7 +165,20 @@ extension KlaviyoAPI.KlaviyoRequest {
     }
 }
 
-extension Klaviyo.Profile.Attributes.Location: Encodable {
+extension Klaviyo.Profile.Attributes.Location: Codable {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.address1 = try values.decode(String.self, forKey: .address1)
+        self.address2 = try values.decode(String.self, forKey: .address2)
+        self.city = try values.decode(String.self, forKey: .city)
+        self.latitude = try values.decode(Double.self, forKey: .latitude)
+        self.longitude = try values.decode(Double.self, forKey: .longitude)
+        self.region = try values.decode(String.self, forKey: .region)
+        self.zip = try values.decode(String.self, forKey: .zip)
+        self.timezone = try values.decode(String.self, forKey: .timezone)
+        self.country = try values.decode(String.self, forKey: .country)
+    }
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(address1, forKey: .address1)
@@ -171,6 +189,7 @@ extension Klaviyo.Profile.Attributes.Location: Encodable {
         try container.encode(region, forKey: .region)
         try container.encode(zip, forKey: .zip)
         try container.encode(timezone, forKey: .timezone)
+        try container.encode(country, forKey: .country)
     }
     
     enum CodingKeys: CodingKey {
@@ -190,7 +209,24 @@ extension Klaviyo.Profile.Attributes.Location: Encodable {
  Encoding
  */
 
-extension Klaviyo.Event.Attributes.Metric: Encodable {
+extension Klaviyo.Event: Encodable {
+    enum CodingKeys: CodingKey {
+        case attributes
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(attributes, forKey: .attributes)
+    }
+}
+
+extension Klaviyo.Event.Attributes.Metric: Codable {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+//        self.service = try values.decode(String.self, forKey: .service)
+        self.name = try values.decode(String.self, forKey: .name)
+    }
+    
     enum CodingKeys: String, CodingKey {
         case name
         case service
@@ -203,7 +239,18 @@ extension Klaviyo.Event.Attributes.Metric: Encodable {
 
 }
 
-extension Klaviyo.Event.Attributes: Encodable {
+extension Klaviyo.Event.Attributes: Codable {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.metric = try values.decode(Metric.self, forKey: .metric)
+        self.properties = try values.decode([String: AnyCodable].self, forKey: .properties)
+        self.profile = try values.decode([String: AnyCodable].self, forKey: .profile)
+        self.time = try values.decode(Date.self, forKey: .time)
+        self.value = try values.decode(Double.self, forKey: .value)
+        self.uniqueId = try values.decode(String.self, forKey: .uniqueId)
+        
+    }
+    
     enum CodingKeys: CodingKey {
         case metric
         case properties
@@ -216,11 +263,69 @@ extension Klaviyo.Event.Attributes: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(metric, forKey: .metric)
-        try container.encode(AnyEncodable(properties), forKey: .properties)
-        try container.encode(AnyEncodable(profile), forKey: .profile)
+        try container.encode(AnyCodable(properties), forKey: .properties)
+        try container.encode(AnyCodable(profile), forKey: .profile)
         try container.encode(time, forKey: .time)
         try container.encode(value, forKey: .value)
         try container.encode(uniqueId, forKey: .uniqueId)
     }
 }
 
+
+// MARK: Legacy request data
+
+struct LegacyEvent {
+     let eventName: String
+     let customerProperties: NSDictionary
+     let properties: NSDictionary
+     init(eventName: String,
+          customerProperties: NSDictionary?,
+          properties: NSDictionary?) {
+         self.eventName = eventName
+         self.customerProperties = customerProperties ?? NSDictionary()
+         self.properties = properties ?? NSDictionary()
+     }
+    func buildEventRequest(with apiKey: String) throws -> KlaviyoAPI.KlaviyoRequest? {
+        guard let eventProperties = self.properties as? [String: Any] else {
+            throw KlaviyoAPI.KlaviyoAPIError.invalidData
+        }
+        guard let customerProperties = self.customerProperties as? [String: Any] else {
+            throw KlaviyoAPI.KlaviyoAPIError.invalidData
+        }
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
+            attributes: .init(metric: .init(name: self.eventName),
+                              properties: eventProperties,
+                              profile: customerProperties)))
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+}
+
+ struct LegacyProfile {
+     let customerProperties: NSDictionary
+     
+     func buildProfileRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
+         guard var customerProperties = self.customerProperties as? [String: Any] else {
+             throw KlaviyoAPI.KlaviyoAPIError.invalidData
+         }
+         
+         guard let anonymousId = state.anonymousId else {
+             throw KlaviyoAPI.KlaviyoAPIError.internalError("Unable to build request missing required anonymous id.")
+         }
+         
+         // Migrate some legacy properties from properties to v3 API structure.
+         let email: String? = customerProperties.removeValue(forKey: "$email") as? String ?? state.email
+         let phoneNumber: String? = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber
+         let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId
+         customerProperties.removeValue(forKey: "$anonymous") // Remove $anonymous since we are moving to a uuid (passed in above).
+         let attributes = Klaviyo.Profile.Attributes(
+             email: email,
+             phoneNumber: phoneNumber,
+             externalId: externalId,
+             properties: customerProperties
+         )
+         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(.init(data: .init(profile: .init(attributes: attributes), anonymousId: anonymousId)))
+
+         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+     }
+ }

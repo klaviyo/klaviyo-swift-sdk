@@ -6,6 +6,7 @@
 //
 import XCTest
 @testable import KlaviyoSwift
+import AnyCodable
 
 public enum FakeFileError: Error {
     case fake
@@ -14,7 +15,9 @@ public enum FakeFileError: Error {
 let ARCHIVED_RETURNED_DATA = Data()
 let SAMPLE_DATA: NSMutableArray = [
     [
-        "foo": "bar"
+        "properties": [
+            "foo": "bar"
+        ]
     ]
 
 ]
@@ -36,7 +39,8 @@ extension KlaviyoEnvironment {
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
-        analytics: AnalyticsEnvironment.test
+        analytics: AnalyticsEnvironment.test,
+        getUserDefaultString: { _ in return "value" }
     )
 }
 
@@ -45,6 +49,7 @@ extension AnalyticsEnvironment {
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
         encodeJSON: { _ in TEST_RETURN_DATA},
+        decodeJSON: { _ in AnyDecodable("foo") },
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
