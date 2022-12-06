@@ -9,14 +9,14 @@ import Foundation
 import AnyCodable
 
 extension KlaviyoAPI.KlaviyoRequest {
-    enum KlaviyoEndpoint: Codable {
-        struct CreateProfilePayload: Codable {
+    enum KlaviyoEndpoint: Equatable, Codable {
+        struct CreateProfilePayload: Equatable, Codable {
             /**
-             Internal structure which has details not needed by the public API.
+             Internal structure which has details not needed by the API.
              */
-            struct Profile: Codable {
+            struct Profile: Equatable, Codable {
                 let type = "profile"
-                struct Attributes: Codable {
+                struct Attributes: Equatable, Codable {
                     let email: String?
                     let phoneNumber: String?
                     let externalId: String?
@@ -56,13 +56,13 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
                     
                 }
-                struct Meta: Codable {
-                    struct Identifiers: Codable {
+                struct Meta: Equatable, Codable {
+                    struct Identifiers: Equatable, Codable {
                         let email: String?
                         let phoneNumber: String?
                         let externalId: String?
                         let anonymousId: String?
-                        public init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
+                        init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
                             self.email = attributes.email
                             self.phoneNumber = attributes.phoneNumber
                             self.externalId = attributes.externalId
@@ -103,12 +103,48 @@ extension KlaviyoAPI.KlaviyoRequest {
                 case data
             }
         }
-        struct CreateEventPayload: Codable {
-            struct Event: Codable {
+        struct CreateEventPayload: Equatable, Codable {
+            struct Event: Equatable, Codable {
+                struct Attributes: Equatable, Codable {
+                    struct Metric: Equatable, Codable {
+                        let name: String
+                        let service = "ios-analytics"
+                        init(name: String) {
+                            self.name = name
+                        }
+                        enum CodingKeys: CodingKey {
+                            case name
+                            case service
+                        }
+                    }
+                    let metric: Metric
+                    let properties: AnyCodable
+                    let profile: AnyCodable
+                    var time: Date
+                    let value: Double?
+                    let uniqueId: String
+                    init(attributes: Klaviyo.Event.Attributes) {
+                        self.profile = AnyCodable(attributes.profile)
+                        self.metric = Metric(name: attributes.metric.name)
+                        self.properties = AnyCodable(attributes.properties)
+                        self.value = attributes.value
+                        self.time = attributes.time
+                        self.uniqueId = attributes.uniqueId
+                    }
+                    enum CodingKeys: CodingKey {
+                        case metric
+                        case properties
+                        case profile
+                        case time
+                        case value
+                        case uniqueId
+                    }
+                    
+                }
                 let type = "event"
-                let attributes: Klaviyo.Event.Attributes
+                let attributes: Attributes
                 init(event: Klaviyo.Event) {
-                    self.attributes = event.attributes
+                    self.attributes = .init(attributes: event.attributes)
                 }
                 enum CodingKeys: CodingKey {
                     case attributes
@@ -123,12 +159,12 @@ extension KlaviyoAPI.KlaviyoRequest {
                 self.data = Event(event: data)
             }
         }
-        struct PushTokenPayload: Codable {
-            struct Properties: Codable {
-                public let email: String?
-                public let phoneNumber: String?
-                public let anonymousId: String
-                public let pushToken: String
+        struct PushTokenPayload: Equatable, Codable {
+            struct Properties: Equatable, Codable {
+                let email: String?
+                let phoneNumber: String?
+                let anonymousId: String
+                let pushToken: String
                 
                 enum CodingKeys: String, CodingKey {
                     case email = "$email"
@@ -179,7 +215,7 @@ extension Klaviyo.Profile.Attributes.Location: Codable {
         self.country = try values.decode(String.self, forKey: .country)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(address1, forKey: .address1)
         try container.encode(address2, forKey: .address2)
@@ -202,72 +238,6 @@ extension Klaviyo.Profile.Attributes.Location: Codable {
         case region
         case zip
         case timezone
-    }
-}
-
-/**
- Encoding
- */
-
-extension Klaviyo.Event: Encodable {
-    enum CodingKeys: CodingKey {
-        case attributes
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(attributes, forKey: .attributes)
-    }
-}
-
-extension Klaviyo.Event.Attributes.Metric: Codable {
-    init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-//        self.service = try values.decode(String.self, forKey: .service)
-        self.name = try values.decode(String.self, forKey: .name)
-    }
-    
-    enum CodingKeys: String, CodingKey {
-        case name
-        case service
-    }
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-        try container.encode(service, forKey: .service)
-    }
-
-}
-
-extension Klaviyo.Event.Attributes: Codable {
-    init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        self.metric = try values.decode(Metric.self, forKey: .metric)
-        self.properties = try values.decode([String: AnyCodable].self, forKey: .properties)
-        self.profile = try values.decode([String: AnyCodable].self, forKey: .profile)
-        self.time = try values.decode(Date.self, forKey: .time)
-        self.value = try values.decode(Double.self, forKey: .value)
-        self.uniqueId = try values.decode(String.self, forKey: .uniqueId)
-        
-    }
-    
-    enum CodingKeys: CodingKey {
-        case metric
-        case properties
-        case profile
-        case time
-        case value
-        case uniqueId
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(metric, forKey: .metric)
-        try container.encode(AnyCodable(properties), forKey: .properties)
-        try container.encode(AnyCodable(profile), forKey: .profile)
-        try container.encode(time, forKey: .time)
-        try container.encode(value, forKey: .value)
-        try container.encode(uniqueId, forKey: .uniqueId)
     }
 }
 

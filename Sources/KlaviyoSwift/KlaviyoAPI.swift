@@ -9,9 +9,10 @@ import Foundation
 
 
 struct KlaviyoAPI {
-    struct KlaviyoRequest: Codable {
+    struct KlaviyoRequest: Equatable, Codable {
         let apiKey: String
         let endpoint: KlaviyoEndpoint
+        let uuid = environment.analytics.uuid().uuidString
         
         enum CodingKeys: CodingKey {
             case apiKey

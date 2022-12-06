@@ -21,18 +21,21 @@
               ▿ metric: Metric
                 - name: "$opened_push"
                 - service: "ios-analytics"
-              ▿ profile: 1 key/value pair
-                ▿ (2 elements)
-                  - key: "foo"
-                  - value: bar
-              ▿ properties: 1 key/value pair
-                ▿ (2 elements)
-                  - key: "prop1"
-                  - value: propValue
+              ▿ profile: ["foo": bar]
+                ▿ value: 1 key/value pair
+                  ▿ (2 elements)
+                    - key: "foo"
+                    - value: bar
+              ▿ properties: ["prop1": propValue]
+                ▿ value: 1 key/value pair
+                  ▿ (2 elements)
+                    - key: "prop1"
+                    - value: propValue
               - time: 2009-02-13T23:31:30Z
               - uniqueId: "00000000-0000-0000-0000-000000000001"
               - value: Optional<Double>.none
             - type: "event"
+      - uuid: "00000000-0000-0000-0000-000000000001"
     ▿ KlaviyoRequest
       - apiKey: "foo"
       ▿ endpoint: KlaviyoEndpoint
@@ -67,4 +70,5 @@
                   - some: "value"
                 - phoneNumber: Optional<String>.none
             - type: "profile"
+      - uuid: "00000000-0000-0000-0000-000000000001"
   - requestsInFlight: 0 elements

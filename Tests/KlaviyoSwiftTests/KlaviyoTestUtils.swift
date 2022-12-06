@@ -8,7 +8,7 @@ import XCTest
 @testable import KlaviyoSwift
 import AnyCodable
 
-public enum FakeFileError: Error {
+enum FakeFileError: Error {
     case fake
 }
 
@@ -53,8 +53,14 @@ extension AnalyticsEnvironment {
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
-        appContextInfo: { AppContextInfo.test }
+        appContextInfo: { AppContextInfo.test },
+        klaviyoAPI: KlaviyoAPI.test,
+        store: Store.test
     )
+}
+
+extension Store where State == KlaviyoState, Action == KlaviyoAction {
+    static let test = Store(state: .test, reducer: { state, _ in return .none })
 }
 
 extension FileClient {
@@ -64,6 +70,10 @@ extension FileClient {
         removeItem: { _ in },
         libraryDirectory: { TEST_URL }
     )
+}
+
+extension KlaviyoAPI {
+    static let test = KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) })
 }
 
 extension LoggerClient {

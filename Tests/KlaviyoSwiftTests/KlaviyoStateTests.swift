@@ -72,10 +72,6 @@ final class KlaviyoStateTests: XCTestCase {
         environment = KlaviyoEnvironment.test
     }
     
-    override func tearDown() {
-        environment = KlaviyoEnvironment.test
-    }
-    
     func testLoadNewKlaviyoState() throws {
         environment.fileClient.fileExists = { _ in false }
         environment.archiverClient.unarchivedMutableArray = { _ in [] }

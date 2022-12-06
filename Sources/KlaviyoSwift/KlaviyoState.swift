@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct KlaviyoState: Codable {
+struct KlaviyoState: Equatable, Codable {
     var apiKey: String?
     var email: String?
     var anonymousId: String?
