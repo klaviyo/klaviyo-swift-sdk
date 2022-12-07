@@ -69,7 +69,7 @@ final class KlaviyoStateTests: XCTestCase {
     ] as [String : Any]
     
     override func setUp() async throws {
-        environment = KlaviyoEnvironment.test
+        environment = KlaviyoEnvironment.test()
     }
     
     func testLoadNewKlaviyoState() throws {

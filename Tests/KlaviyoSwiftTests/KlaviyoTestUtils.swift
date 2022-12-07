@@ -35,7 +35,7 @@ extension ArchiverClient {
 extension KlaviyoEnvironment {
     static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
-    static let test = KlaviyoEnvironment(
+    static var test = { KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
@@ -43,6 +43,7 @@ extension KlaviyoEnvironment {
         analytics: AnalyticsEnvironment.test,
         getUserDefaultString: { _ in return "value" }
     )
+    }
 }
 
 extension AnalyticsEnvironment {
@@ -55,7 +56,7 @@ extension AnalyticsEnvironment {
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
-        klaviyoAPI: KlaviyoAPI.test,
+        klaviyoAPI: KlaviyoAPI.test(),
         store: Store.test,
         timer: { interval in Just(Date()).eraseToEffect() }
     )
@@ -91,7 +92,7 @@ extension FileClient {
 }
 
 extension KlaviyoAPI {
-    static let test = KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) })
+    static let test = { KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) }) }
 }
 
 extension LoggerClient {

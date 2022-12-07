@@ -10,7 +10,7 @@ class Tests: XCTestCase {
         super.setUp()
         Klaviyo.setupWithPublicAPIKey(apiKey: "wbg7GT")
         klaviyo = Klaviyo.sharedInstance
-        environment = KlaviyoEnvironment.test
+        environment = KlaviyoEnvironment.test()
     }
     
     override func tearDown() {

@@ -249,7 +249,7 @@ extension Klaviyo.Profile.Attributes.Location: Codable {
 
 // MARK: Legacy request data
 
-struct LegacyEvent {
+struct LegacyEvent: Equatable {
      let eventName: String
      let customerProperties: NSDictionary
      let properties: NSDictionary
@@ -276,7 +276,7 @@ struct LegacyEvent {
     }
 }
 
- struct LegacyProfile {
+struct LegacyProfile: Equatable {
      let customerProperties: NSDictionary
      
      func buildProfileRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {

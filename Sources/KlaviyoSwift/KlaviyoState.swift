@@ -23,13 +23,22 @@ struct KlaviyoState: Equatable, Codable {
 
 // MARK: Klaviyo state persistence
 
+func saveKlaviyoState(state: KlaviyoState) {
+    guard let apiKey = state.apiKey else {
+        environment.logger.error("Attempt to save state without an api key.")
+        return
+    }
+    let file = klaviyoStateFile(apiKey: apiKey)
+    storeKlaviyoState(state: state, file: file)
+}
+
 private func klaviyoStateFile(apiKey: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-state.json"
     let directory = environment.fileClient.libraryDirectory()
     return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 
-func storeKlaviyoState(state: KlaviyoState, file: URL) {
+private func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
         try environment.fileClient.write(environment.analytics.encodeJSON(state), file)
     } catch {

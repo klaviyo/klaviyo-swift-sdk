@@ -14,7 +14,7 @@ class FileUtilsTests: XCTestCase {
     var removedFile = false
     
     override func setUpWithError() throws {
-        environment = KlaviyoEnvironment.test
+        environment = KlaviyoEnvironment.test()
         environment.fileClient.write = { [weak self] data, _ in
             self?.wroteToFile = true
             self?.dataToWrite = data

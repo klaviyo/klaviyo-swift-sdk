@@ -33,6 +33,9 @@ enum KlaviyoAction: Equatable {
     case stop
     case start
     case cancelInFlightRequests
+    case archiveCurrentState
+    case enqueueLegacyEvent(LegacyEvent)
+    case enqueueLegacyProfile(LegacyProfile)
 }
 
 struct RequestId {}
@@ -71,6 +74,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.externalId = externalId
             return state.buildProfileTask()
         case .setPushToken(let pushToken):
+            // TODO: check if we already have this token, skip sending if we do.
             state.pushToken = pushToken
             return .task { [state] in
                 return .enqueueRequest(try state.buildTokenRequest())
@@ -96,9 +100,9 @@ struct KlaviyoReducer: ReducerProtocol {
             }
         case .stop:
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                .map { KlaviyoAction.cancelInFlightRequests }
-                .concatenate(with: .run(operation: { _ in
-                    // TODO: Save to disk here...
+                .concatenate(with: .run(operation: { send in
+                    await send(.cancelInFlightRequests)
+                    await send(.archiveCurrentState)
                 }))
         case .start:
             return environment.analytics.timer(state.flushInterval)
@@ -130,12 +134,15 @@ struct KlaviyoReducer: ReducerProtocol {
                 let result = await environment.analytics.klaviyoAPI.send(request)
                 switch result {
                 case .success(_):
-                    // may want to inspect response further.
+                    // TODO: may want to inspect response further.
                     await send(.dequeCompletedResults(request))
                 case .failure(_):
-                    // depending on failure may want to deque
+                    // TODO: depending on failure may want to deque
                     await send(KlaviyoAction.cancelInFlightRequests)
                 }
+            } catch: { _, _ in
+                environment.logger.error("request error")
+                // TODO: maybe better handling here...
             }.cancellable(id: RequestId.self)
         case .cancelInFlightRequests:
             state.flushing = false
@@ -147,7 +154,9 @@ struct KlaviyoReducer: ReducerProtocol {
             case .notReachable:
                 state.flushInterval = 0
                 return EffectPublisher.cancel(ids: [RequestId.self, Timer.self])
-                    .map { KlaviyoAction.cancelInFlightRequests }
+                    .concatenate(with: .run { send in
+                        await send(.cancelInFlightRequests)
+                    })
             case .reachableViaWiFi:
                 state.flushInterval = WIFI_FLUSH_INTERVAL
             case .reachableViaWWAN:
@@ -158,6 +167,35 @@ struct KlaviyoReducer: ReducerProtocol {
                         KlaviyoAction.flushQueue
                     }.eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
+        case .archiveCurrentState:
+            return .run { [state] _ in
+                saveKlaviyoState(state: state)
+            }
+ 
+        case .enqueueLegacyEvent(let legacyEvent):
+            // TODO: Needs a few test.
+            guard let apiKey = state.apiKey else {
+                return .none
+            }
+            // TODO: might need to update state based on data in here.
+            return .task { [state] in
+                guard let request = legacyEvent.buildEventRequest(with: apiKey) else {
+                    return
+                }
+                return .enqueueRequest(request)
+            }
+        case .enqueueLegacyProfile(let legacyProfile):
+            // TODO: Needs a few test.
+            guard let apiKey = state.apiKey else {
+                return .none
+            }
+            // TODO: might need to update state based on data in here.
+            return .task { [state] in
+                guard let request = legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
+                    return
+                }
+                return .enqueueRequest(legacyProfile.buildProfileRequest(with: apiKey, from: state))
+            }
         }
     }
 }
