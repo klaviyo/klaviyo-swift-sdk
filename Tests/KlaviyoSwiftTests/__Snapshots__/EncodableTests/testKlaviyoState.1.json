@@ -2,6 +2,7 @@
   "anonymousId" : "foo",
   "email" : "foo",
   "flushing" : false,
+  "flushInterval" : 10,
   "initialized" : false,
   "phoneNumber" : "foo",
   "pushToken" : "foo",

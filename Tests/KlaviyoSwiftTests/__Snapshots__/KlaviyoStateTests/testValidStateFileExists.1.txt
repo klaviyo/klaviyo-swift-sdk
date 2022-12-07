@@ -5,6 +5,7 @@
     - some: "foo"
   - email: Optional<String>.none
   - externalId: Optional<String>.none
+  - flushInterval: 10.0
   - flushing: false
   - initialized: false
   - phoneNumber: Optional<String>.none

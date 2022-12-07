@@ -1,4 +1,3 @@
-
 /**
  MIT License
 
@@ -29,7 +28,6 @@
 //
 //  Created by Noah Durell on 12/6/22.
 //
-
 import Combine
 import Foundation
 
@@ -158,18 +156,27 @@ final class Store<State, Action> {
   private var isSending = false
   var parentCancellable: AnyCancellable?
   private let reducer: (inout State, Action) -> EffectTask<Action>
+
   var state: CurrentValueSubject<State, Never>
   #if DEBUG
     private let mainThreadChecksEnabled: Bool
   #endif
 
-   init(state: State,
-     mainThreadChecksEnabled: Bool = true,
-     reducer: @escaping (inout State, Action) -> EffectTask<Action>) {
-    self.reducer = reducer
-    self.state = CurrentValueSubject(state)
-    self.mainThreadChecksEnabled = mainThreadChecksEnabled
-}
+  /// Initializes a store from an initial state and a reducer.
+  ///
+  /// - Parameters:
+  ///   - initialState: The state to start the application in.
+  ///   - reducer: The reducer that powers the business logic of the application.
+  convenience init<R: ReducerProtocol>(
+    initialState: R.State,
+    reducer: R
+  ) where R.State == State, R.Action == Action {
+    self.init(
+      initialState: initialState,
+      reducer: reducer,
+      mainThreadChecksEnabled: true
+    )
+  }
 
   func send(
     _ action: Action,
@@ -362,5 +369,190 @@ final class Store<State, Action> {
       }
     #endif
   }
+
+  init<R: ReducerProtocol>(
+    initialState: R.State,
+    reducer: R,
+    mainThreadChecksEnabled: Bool
+  ) where R.State == State, R.Action == Action {
+    self.state = CurrentValueSubject(initialState)
+    self.reducer = reducer.reduce
+    #if DEBUG
+      self.mainThreadChecksEnabled = mainThreadChecksEnabled
+    #endif
+    self.threadCheck(status: .`init`)
+  }
 }
 
+/// A convenience type alias for referring to a store of a given reducer's domain.
+///
+/// Instead of specifying two generics:
+///
+/// ```swift
+/// let store: Store<Feature.State, Feature.Action>
+/// ```
+///
+/// You can specify a single generic:
+///
+/// ```swift
+/// let store: StoreOf<Feature>
+/// ```
+typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
+
+#if swift(>=5.7)
+  extension ReducerProtocol {
+    fileprivate func rescope<ChildState, ChildAction>(
+      _ store: Store<State, Action>,
+      state toChildState: @escaping (State) -> ChildState,
+      action fromChildAction: @escaping (ChildAction) -> Action
+    ) -> Store<ChildState, ChildAction> {
+      (self as? any AnyScopedReducer ?? ScopedReducer(rootStore: store))
+        .rescope(store, state: toChildState, action: fromChildAction)
+    }
+  }
+
+  private final class ScopedReducer<
+    RootState, RootAction, ScopedState, ScopedAction
+  >: ReducerProtocol {
+    let rootStore: Store<RootState, RootAction>
+    let toScopedState: (RootState) -> ScopedState
+    private let parentStores: [Any]
+    let fromScopedAction: (ScopedAction) -> RootAction
+    private(set) var isSending = false
+
+    @inlinable
+    init(rootStore: Store<RootState, RootAction>)
+    where RootState == ScopedState, RootAction == ScopedAction {
+      self.rootStore = rootStore
+      self.toScopedState = { $0 }
+      self.parentStores = []
+      self.fromScopedAction = { $0 }
+    }
+
+    @inlinable
+    init(
+      rootStore: Store<RootState, RootAction>,
+      state toScopedState: @escaping (RootState) -> ScopedState,
+      action fromScopedAction: @escaping (ScopedAction) -> RootAction,
+      parentStores: [Any]
+    ) {
+      self.rootStore = rootStore
+      self.toScopedState = toScopedState
+      self.fromScopedAction = fromScopedAction
+      self.parentStores = parentStores
+    }
+
+    @inlinable
+    func reduce(
+      into state: inout ScopedState, action: ScopedAction
+    ) -> EffectTask<ScopedAction> {
+      self.isSending = true
+      defer {
+        state = self.toScopedState(self.rootStore.state.value)
+        self.isSending = false
+      }
+      if let task = self.rootStore.send(self.fromScopedAction(action)) {
+        return .fireAndForget { await task.cancellableValue }
+      } else {
+        return .none
+      }
+    }
+  }
+
+  protocol AnyScopedReducer {
+    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      _ store: Store<ScopedState, ScopedAction>,
+      state toRescopedState: @escaping (ScopedState) -> RescopedState,
+      action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction
+    ) -> Store<RescopedState, RescopedAction>
+  }
+
+  extension ScopedReducer: AnyScopedReducer {
+    @inlinable
+    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      _ store: Store<ScopedState, ScopedAction>,
+      state toRescopedState: @escaping (ScopedState) -> RescopedState,
+      action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction
+    ) -> Store<RescopedState, RescopedAction> {
+      let fromScopedAction = self.fromScopedAction as! (ScopedAction) -> RootAction
+      let reducer = ScopedReducer<RootState, RootAction, RescopedState, RescopedAction>(
+        rootStore: self.rootStore,
+        state: { _ in toRescopedState(store.state.value) },
+        action: { fromScopedAction(fromRescopedAction($0)) },
+        parentStores: self.parentStores + [store]
+      )
+      let childStore = Store<RescopedState, RescopedAction>(
+        initialState: toRescopedState(store.state.value),
+        reducer: reducer
+      )
+      childStore.parentCancellable = store.state
+        .dropFirst()
+        .sink { [weak childStore] newValue in
+          guard !reducer.isSending else { return }
+          childStore?.state.value = toRescopedState(newValue)
+        }
+      return childStore
+    }
+  }
+#else
+  private protocol AnyStoreScope {
+    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      _ store: Store<ScopedState, ScopedAction>,
+      state toRescopedState: @escaping (ScopedState) -> RescopedState,
+      action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction
+    ) -> Store<RescopedState, RescopedAction>
+  }
+
+  private struct StoreScope<RootState, RootAction>: AnyStoreScope {
+    let root: Store<RootState, RootAction>
+    let fromScopedAction: Any
+
+    init(root: Store<RootState, RootAction>) {
+      self.init(root: root, fromScopedAction: { $0 })
+    }
+
+    private init<ScopedAction>(
+      root: Store<RootState, RootAction>,
+      fromScopedAction: @escaping (ScopedAction) -> RootAction
+    ) {
+      self.root = root
+      self.fromScopedAction = fromScopedAction
+    }
+
+    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      _ scopedStore: Store<ScopedState, ScopedAction>,
+      state toRescopedState: @escaping (ScopedState) -> RescopedState,
+      action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction
+    ) -> Store<RescopedState, RescopedAction> {
+      let fromScopedAction = self.fromScopedAction as! (ScopedAction) -> RootAction
+
+      var isSending = false
+      let rescopedStore = Store<RescopedState, RescopedAction>(
+        initialState: toRescopedState(scopedStore.state.value),
+        reducer: .init { rescopedState, rescopedAction, _ in
+          isSending = true
+          defer { isSending = false }
+          let task = self.root.send(fromScopedAction(fromRescopedAction(rescopedAction)))
+          rescopedState = toRescopedState(scopedStore.state.value)
+          if let task = task {
+            return .fireAndForget { await task.cancellableValue }
+          } else {
+            return .none
+          }
+        },
+        environment: ()
+      )
+      rescopedStore.parentCancellable = scopedStore.state
+        .dropFirst()
+        .sink { [weak rescopedStore] newValue in
+          guard !isSending else { return }
+          rescopedStore?.state.value = toRescopedState(newValue)
+        }
+      rescopedStore.scope = StoreScope<RootState, RootAction>(
+        root: self.root,
+        fromScopedAction: { fromScopedAction(fromRescopedAction($0)) }
+      )
+      return rescopedStore
+    }
+  }
+#endif

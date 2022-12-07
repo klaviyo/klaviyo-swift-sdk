@@ -30,7 +30,6 @@
 
 import Combine
 import Foundation
-import SwiftUI
 
 /// A type that encapsulates a unit of work that can be run in the outside world, and can feed
 /// actions back to the ``Store``.
@@ -61,7 +60,7 @@ import SwiftUI
 /// > This is only an issue if using the Combine interface of ``EffectPublisher`` as mentioned
 /// above. If  you are using Swift's concurrency tools and the `.task`, `.run` and `.fireAndForget`
 /// functions on ``EffectTask``, then threading is automatically handled for you.
- struct EffectPublisher<Action, Failure: Error> {
+struct EffectPublisher<Action, Failure: Error> {
   @usableFromInline
   enum Operation {
     case none
@@ -103,7 +102,7 @@ extension EffectPublisher {
 /// ```swift
 /// func reduce(into state: inout State, action: Action) -> EffectTask<Action>  { … }
 /// ```
-typealias EffectTask<Action> = Effect<Action, Never>
+typealias EffectTask<Action> = EffectPublisher<Action, Never>
 
 extension EffectPublisher where Failure == Never {
   /// Wraps an asynchronous unit of work in an effect.
@@ -175,6 +174,8 @@ extension EffectPublisher where Failure == Never {
           } catch {
             guard let handler = handler else {
               #if DEBUG
+//                var errorDump = ""
+//                customDump(error, to: &errorDump, indent: 4)
                 runtimeWarn(
                   """
                   An "EffectTask.task" returned from "\(fileID):\(line)" threw an unhandled error. …
@@ -192,7 +193,7 @@ extension EffectPublisher where Failure == Never {
             }
             await send(handler(error))
           }
-      }
+        }
     )
   }
 
@@ -252,6 +253,8 @@ extension EffectPublisher where Failure == Never {
           } catch {
             guard let handler = handler else {
               #if DEBUG
+//                var errorDump = ""
+//                customDump(error, to: &errorDump, indent: 4)
                 runtimeWarn(
                   """
                   An "EffectTask.run" returned from "\(fileID):\(line)" threw an unhandled error. …
@@ -269,7 +272,7 @@ extension EffectPublisher where Failure == Never {
             }
             await handler(error, send)
           }
-        }
+      }
     )
   }
 
@@ -319,6 +322,13 @@ extension EffectPublisher where Failure == Never {
 /// }
 /// ```
 ///
+/// You can also send actions with animation:
+///
+/// ```swift
+/// send(.started, animation: .spring())
+/// defer { send(.finished, animation: .default) }
+/// ```
+///
 /// See ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)`` for more information on how to
 /// use this value to construct effects that can emit any number of times in an asynchronous
 /// context.
@@ -344,55 +354,112 @@ struct Send<Action> {
 // MARK: - Composing Effects
 
 extension EffectPublisher {
-    
-    /// Merges a variadic list of effects together into a single effect, which runs the effects at the
-    /// same time.
-    ///
-    /// - Parameter effects: A list of effects.
-    /// - Returns: A new effect
-    @inlinable
-     static func merge(_ effects: Self...) -> Self {
-      Self.merge(effects)
-    }
+  /// Merges a variadic list of effects together into a single effect, which runs the effects at the
+  /// same time.
+  ///
+  /// - Parameter effects: A list of effects.
+  /// - Returns: A new effect
+  @inlinable
+  static func merge(_ effects: Self...) -> Self {
+    Self.merge(effects)
+  }
 
-    /// Merges a sequence of effects together into a single effect, which runs the effects at the same
-    /// time.
-    ///
-    /// - Parameter effects: A sequence of effects.
-    /// - Returns: A new effect
-    @inlinable
-    static func merge<S: Sequence>(_ effects: S) -> Self where S.Element == Self {
-      effects.reduce(.none) { $0.merge(with: $1) }
-    }
+  /// Merges a sequence of effects together into a single effect, which runs the effects at the same
+  /// time.
+  ///
+  /// - Parameter effects: A sequence of effects.
+  /// - Returns: A new effect
+  @inlinable
+  static func merge<S: Sequence>(_ effects: S) -> Self where S.Element == Self {
+    effects.reduce(.none) { $0.merge(with: $1) }
+  }
 
-    /// Merges this effect and another into a single effect that runs both at the same time.
-    ///
-    /// - Parameter other: Another effect.
-    /// - Returns: An effect that runs this effect and the other at the same time.
-    @inlinable
-    func merge(with other: Self) -> Self {
-      switch (self.operation, other.operation) {
-      case (_, .none):
-        return self
-      case (.none, _):
-        return other
-      case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
-          return .none
-      case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
-        return Self(
-          operation: .run { send in
-            await withTaskGroup(of: Void.self) { group in
-              group.addTask(priority: lhsPriority) {
-                await lhsOperation(send)
-              }
-              group.addTask(priority: rhsPriority) {
-                await rhsOperation(send)
-              }
+  /// Merges this effect and another into a single effect that runs both at the same time.
+  ///
+  /// - Parameter other: Another effect.
+  /// - Returns: An effect that runs this effect and the other at the same time.
+  @inlinable
+  func merge(with other: Self) -> Self {
+    switch (self.operation, other.operation) {
+    case (_, .none):
+      return self
+    case (.none, _):
+      return other
+    case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
+      return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
+    case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
+      return Self(
+        operation: .run { send in
+          await withTaskGroup(of: Void.self) { group in
+            group.addTask(priority: lhsPriority) {
+              await lhsOperation(send)
+            }
+            group.addTask(priority: rhsPriority) {
+              await rhsOperation(send)
             }
           }
-        )
-      }
+        }
+      )
     }
+  }
+
+  /// Concatenates a variadic list of effects together into a single effect, which runs the effects
+  /// one after the other.
+  ///
+  /// - Parameter effects: A variadic list of effects.
+  /// - Returns: A new effect
+  @inlinable
+  static func concatenate(_ effects: Self...) -> Self {
+    Self.concatenate(effects)
+  }
+
+  /// Concatenates a collection of effects together into a single effect, which runs the effects one
+  /// after the other.
+  ///
+  /// - Parameter effects: A collection of effects.
+  /// - Returns: A new effect
+  @inlinable
+  static func concatenate<C: Collection>(_ effects: C) -> Self where C.Element == Self {
+    effects.reduce(.none) { $0.concatenate(with: $1) }
+  }
+
+  /// Concatenates this effect and another into a single effect that first runs this effect, and
+  /// after it completes or is cancelled, runs the other.
+  ///
+  /// - Parameter other: Another effect.
+  /// - Returns: An effect that runs this effect, and after it completes or is cancelled, runs the
+  ///   other.
+  @inlinable
+  @_disfavoredOverload
+  func concatenate(with other: Self) -> Self {
+    switch (self.operation, other.operation) {
+    case (_, .none):
+      return self
+    case (.none, _):
+      return other
+    case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
+      return Self(
+        operation: .publisher(
+          Publishers.Concatenate(prefix: self, suffix: other).eraseToAnyPublisher()
+        )
+      )
+    case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
+      return Self(
+        operation: .run { send in
+          if let lhsPriority = lhsPriority {
+            await Task(priority: lhsPriority) { await lhsOperation(send) }.cancellableValue
+          } else {
+            await lhsOperation(send)
+          }
+          if let rhsPriority = rhsPriority {
+            await Task(priority: rhsPriority) { await rhsOperation(send) }.cancellableValue
+          } else {
+            await rhsOperation(send)
+          }
+        }
+      )
+    }
+  }
 
   /// Transforms all elements from the upstream effect with a provided closure.
   ///
@@ -406,7 +473,7 @@ extension EffectPublisher {
       return .none
     case let .publisher(publisher):
       let transform = { action in
-          transform(action)
+         transform(action)
       }
       return .init(operation: .publisher(publisher.map(transform).eraseToAnyPublisher()))
     case let .run(priority, operation):
@@ -422,5 +489,5 @@ extension EffectPublisher {
     }
   }
 }
-typealias Effect = EffectPublisher
+
 

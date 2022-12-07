@@ -18,6 +18,7 @@ struct KlaviyoState: Equatable, Codable {
     var requestsInFlight: [KlaviyoAPI.KlaviyoRequest]
     var initialized = false
     var flushing = false
+    var flushInterval = 10.0
 }
 
 // MARK: Klaviyo state persistence
@@ -28,7 +29,7 @@ private func klaviyoStateFile(apiKey: String) -> URL {
     return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 
-private func storeKlaviyoState(state: KlaviyoState, at file: URL) {
+func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
         try environment.fileClient.write(environment.analytics.encodeJSON(state), file)
     } catch {
@@ -67,7 +68,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
     let anonymousId = environment.analytics.uuid().uuidString
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
-    storeKlaviyoState(state: state, at: file)
+    storeKlaviyoState(state: state, file: file)
     return state
 }
 
@@ -89,7 +90,8 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
                              queue: [],
                              requestsInFlight: [])
     state.queue = readLegacyRequestData(with: apiKey, from: state)
-    storeKlaviyoState(state: state, at: file)
+    let file = klaviyoStateFile(apiKey: apiKey)
+    storeKlaviyoState(state: state, file: file)
     return state
 }
 

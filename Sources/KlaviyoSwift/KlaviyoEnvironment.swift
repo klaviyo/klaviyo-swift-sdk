@@ -61,6 +61,7 @@ struct AnalyticsEnvironment {
     var appContextInfo: () -> AppContextInfo
     var klaviyoAPI: KlaviyoAPI
     var store: Store<KlaviyoState, KlaviyoAction>
+    var timer: (Double) -> EffectPublisher<Date, Never>
     static let production = AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
@@ -71,6 +72,7 @@ struct AnalyticsEnvironment {
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
         appContextInfo: { AppContextInfo() },
         klaviyoAPI: KlaviyoAPI(),
-        store: Store.production
+        store: Store.production,
+        timer: { interval in Timer.publish(every: interval, on: .main, in: .default).eraseToEffect() }
     )
 }

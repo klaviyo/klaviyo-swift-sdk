@@ -7,6 +7,7 @@
 import XCTest
 @testable import KlaviyoSwift
 import AnyCodable
+import Combine
 
 enum FakeFileError: Error {
     case fake
@@ -55,12 +56,29 @@ extension AnalyticsEnvironment {
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test,
-        store: Store.test
+        store: Store.test,
+        timer: { interval in Just(Date()).eraseToEffect() }
     )
 }
 
+struct KlaviyoTestReducer: ReducerProtocol {
+    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in return .none }
+    
+    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
+        return reducer(&state, action)
+    }
+    
+    typealias State = KlaviyoState
+    
+    typealias Action = KlaviyoAction
+    
+    
+    
+    
+}
+
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let test = Store(state: .test, reducer: { state, _ in return .none })
+    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
 extension FileClient {

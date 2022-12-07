@@ -7,6 +7,7 @@
     - some: "value"
   ▿ externalId: Optional<String>
     - some: "value"
+  - flushInterval: 10.0
   - flushing: false
   - initialized: false
   - phoneNumber: Optional<String>.none

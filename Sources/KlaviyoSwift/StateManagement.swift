@@ -13,6 +13,10 @@ import Foundation
  
  */
 
+// Request flush interval in seconds.
+let CELLULAR_FLUSH_INTERVAL = 10.0
+let WIFI_FLUSH_INTERVAL = 30.0
+
 enum KlaviyoAction: Equatable {
     case initialize(String)
     case completeInitialization(KlaviyoState)
@@ -23,6 +27,7 @@ enum KlaviyoAction: Equatable {
     case setPushToken(String)
     case enqueueRequest(KlaviyoAPI.KlaviyoRequest)
     case dequeCompletedResults(KlaviyoAPI.KlaviyoRequest)
+    case networkConnectivityChanged(Reachability.NetworkStatus)
     case flushQueue
     case sendRequest
     case stop
@@ -30,14 +35,13 @@ enum KlaviyoAction: Equatable {
     case cancelInFlightRequests
 }
 
+struct RequestId {}
+struct FlushTimer {}
 
-struct StateManagement {
-    /// Description: Reducer for our store.
-    /// - Parameters:
-    ///   - state: current state to be reduced.
-    ///   - action: action to reduce state.
-    /// - Returns: Effect which run side effecty code and may further produce action to update state.
-    func reduce(state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+struct KlaviyoReducer: ReducerProtocol {
+    typealias State = KlaviyoState
+    typealias Action = KlaviyoAction
+    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> {
         switch action {
         case let .initialize(apiKey):
             state.apiKey = apiKey
@@ -48,9 +52,11 @@ struct StateManagement {
         case var .completeInitialization(initialState):
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
+            initialState.initialized = true
             state = initialState
-            return .task {
-                .start
+            return .run { [state] send in
+                await send(.enqueueRequest(try state.buildProfileRequest()))
+                await send(.start)
             }
         case .setEmail(let email):
             state.email = email
@@ -66,7 +72,9 @@ struct StateManagement {
             return state.buildProfileTask()
         case .setPushToken(let pushToken):
             state.pushToken = pushToken
-            return .none
+            return .task { [state] in
+                return .enqueueRequest(try state.buildTokenRequest())
+            }
         case .enqueueRequest(let request):
             state.queue.append(request)
             return .none
@@ -87,13 +95,17 @@ struct StateManagement {
                 .sendRequest
             }
         case .stop:
-            // TODO: stop timer, cancel in flight requests, then persist to disk.
-            return .run { send in
-                await send(.cancelInFlightRequests)
-            }
+            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+                .map { KlaviyoAction.cancelInFlightRequests }
+                .concatenate(with: .run(operation: { _ in
+                    // TODO: Save to disk here...
+                }))
         case .start:
-            // TODO: start timer
-            return .none
+            return environment.analytics.timer(state.flushInterval)
+                    .map { _ in
+                        KlaviyoAction.flushQueue
+                    }.eraseToEffect()
+                    .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
@@ -104,7 +116,14 @@ struct StateManagement {
             }
             return .task { .sendRequest }
         case .sendRequest:
+            guard state.initialized else {
+                return .none
+            }
+            guard state.flushing else {
+                return .none
+            }
             guard let request = state.requestsInFlight.first else {
+                state.flushing = false
                 return .none
             }
             return .run { send in
@@ -115,22 +134,37 @@ struct StateManagement {
                     await send(.dequeCompletedResults(request))
                 case .failure(_):
                     // depending on failure may want to deque
-                    await send(.cancelInFlightRequests)
+                    await send(KlaviyoAction.cancelInFlightRequests)
                 }
-                
-            }
+            }.cancellable(id: RequestId.self)
         case .cancelInFlightRequests:
             state.flushing = false
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []
             return .none
+        case .networkConnectivityChanged(let networkStatus):
+            switch networkStatus {
+            case .notReachable:
+                state.flushInterval = 0
+                return EffectPublisher.cancel(ids: [RequestId.self, Timer.self])
+                    .map { KlaviyoAction.cancelInFlightRequests }
+            case .reachableViaWiFi:
+                state.flushInterval = WIFI_FLUSH_INTERVAL
+            case .reachableViaWWAN:
+                state.flushInterval = CELLULAR_FLUSH_INTERVAL
+            }
+            return environment.analytics.timer(state.flushInterval)
+                    .map { _ in
+                        KlaviyoAction.flushQueue
+                    }.eraseToEffect()
+                    .cancellable(id: Timer.self, cancelInFlight: true)
         }
     }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let production = Store(state: KlaviyoState(queue: [], requestsInFlight: []),
-                                  reducer: StateManagement().reduce)
+    static let production = Store(initialState: KlaviyoState(queue: [], requestsInFlight: []),
+                                  reducer: KlaviyoReducer())
 }
 
 extension KlaviyoState {
@@ -138,7 +172,16 @@ extension KlaviyoState {
         guard let anonymousId = anonymousId else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
         }
-        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: .init(profile: .init(attributes: .init(email: email, phoneNumber: phoneNumber, externalId: externalId, properties: properties)), anonymousId: anonymousId))
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(
+            data: .init(
+                profile: .init(attributes: .init(
+                    email: email,
+                    phoneNumber: phoneNumber,
+                                            externalId: externalId,
+                                            properties: properties)
+                ),
+                anonymousId: anonymousId)
+        )
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
         guard let apiKey = apiKey else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
@@ -150,5 +193,27 @@ extension KlaviyoState {
         return .task {
             return .enqueueRequest(try self.buildProfileRequest(properties: properties))
         }
+    }
+    
+    func buildTokenRequest() throws -> KlaviyoAPI.KlaviyoRequest {
+        guard let apiKey = apiKey else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
+        }
+        guard let anonymousId = anonymousId else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
+        }
+        guard let token = pushToken else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing push token")
+        }
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+            token: apiKey,
+            properties: .init(anonymousId: anonymousId,
+                              pushToken: token,
+                              email: email,
+                              phoneNumber: phoneNumber,
+                              externalId: externalId)
+        )
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.storePushToken(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }
