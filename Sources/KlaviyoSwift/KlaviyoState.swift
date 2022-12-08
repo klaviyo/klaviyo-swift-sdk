@@ -136,7 +136,7 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
             let legacyEvent = LegacyEvent(eventName: eventName,
                                                           customerProperties: customerProperties,
                                                           properties: properties)
-            guard let request = try? legacyEvent.buildEventRequest(with: apiKey) else {
+            guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
                 continue
             }
             queue.append(request)
