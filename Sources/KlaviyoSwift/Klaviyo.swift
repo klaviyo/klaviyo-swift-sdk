@@ -117,7 +117,7 @@ public class Klaviyo: NSObject  {
      */
     public class func setupWithPublicAPIKey(apiKey: String) {
         //_ avoids warning from xcode
-        _ = environment.analytics.store.send(.initialize(apiKey))
+        sharedInstance.dispatchOnMainThread(action: .initialize(apiKey))
     }
     
     /**
@@ -126,7 +126,7 @@ public class Klaviyo: NSObject  {
      - Parameter userEmail: the user's email address
      */
     public func setUpUserEmail(userEmail :String) {
-        _ = environment.analytics.store.send(.setEmail(userEmail))
+        dispatchOnMainThread(action: .setEmail(userEmail))
     }
     
     
@@ -135,7 +135,7 @@ public class Klaviyo: NSObject  {
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
     public func setUpCustomerID(id: String) {
-        _ = environment.analytics.store.send(.setExternalId(id))
+        dispatchOnMainThread(action: .setExternalId(id))
     }
     
     /**
@@ -199,7 +199,7 @@ public class Klaviyo: NSObject  {
         assertPropertyTypes(properties: propertiesDict)
         let legacyEvent = LegacyEvent(eventName: eventName, customerProperties: customerPropertiesDict, properties: propertiesDict ?? [:])
         // _ Avoids xcode warning.
-        _ = environment.analytics.store.send(.enqueueLegacyEvent(legacyEvent))
+        dispatchOnMainThread(action: .enqueueLegacyEvent(legacyEvent))
     }
     
     
@@ -221,7 +221,7 @@ public class Klaviyo: NSObject  {
         assertPropertyTypes(properties: personInfoDictionary)
         let legacyProfile = LegacyProfile(customerProperties: personDictionary)
         // _ Avoids warning in xcode.
-        _ = environment.analytics.store.send(.enqueueLegacyProfile(legacyProfile))
+        dispatchOnMainThread(action: .enqueueLegacyProfile(legacyProfile))
     }
     
     /**
@@ -234,7 +234,7 @@ public class Klaviyo: NSObject  {
     public func addPushDeviceToken(deviceToken: Data) {
         let apnDeviceToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         // _ Avoids warning in xcode.
-        _ = environment.analytics.store.send(.setPushToken(apnDeviceToken))
+        dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
     }
     
     
@@ -337,19 +337,27 @@ public class Klaviyo: NSObject  {
     @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){
         reachability.stopNotifier()
         // _ Avoids xcode warning
-        _ = environment.analytics.store.send(.stop)
+        dispatchOnMainThread(action: .stop)
     }
     
     @objc func applicationWillTerminate(notification : NSNotification) {
         // _ Avoids xcode warning
-        _ = environment.analytics.store.send(.stop)
+        dispatchOnMainThread(action: .stop)
     }    
     
     //: MARK: Network Control
     
     @objc internal func hostReachabilityChanged(note : NSNotification) {
         // _ Avoids xcode warning
-        _ = environment.analytics.store.send(.networkConnectivityChanged(   reachability.currentReachabilityStatus))
+        dispatchOnMainThread(action: .networkConnectivityChanged(reachability.currentReachabilityStatus))
+    }
+    
+    private func dispatchOnMainThread(action: KlaviyoAction) {
+        Task {
+            await MainActor.run {
+                _ = environment.analytics.store.send(action)
+            }
+        }
     }
     
 }
