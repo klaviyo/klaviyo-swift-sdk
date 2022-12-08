@@ -11,8 +11,10 @@
           "_0" : {
             "properties" : {
               "$anonymous" : "foo",
+              "$append" : {
+                "$ios_tokens" : "foo"
+              },
               "$email" : "foo",
-              "$ios_tokens" : "foo",
               "$phone_number" : "foo"
             },
             "token" : "foo"

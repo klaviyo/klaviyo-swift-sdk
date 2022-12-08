@@ -139,16 +139,21 @@ extension KlaviyoAPI.KlaviyoRequest {
         struct PushTokenPayload: Equatable, Codable {
             struct Properties: Equatable, Codable {
                 let anonymousId: String
-                let pushToken: String
+                let append: Append
                 let email: String?
                 let phoneNumber: String?
                 let externalId: String?
-                
+                struct Append: Equatable, Codable {
+                    let pushToken: String
+                    enum CodingKeys: String, CodingKey {
+                        case pushToken = "$ios_tokens"
+                    }
+                }
                 enum CodingKeys: String, CodingKey {
                     case anonymousId = "$anonymous"
                     case email = "$email"
                     case phoneNumber = "$phone_number"
-                    case pushToken = "$ios_tokens"
+                    case append = "$append"
                     case externalId = "$id"
                 }
                 init(anonymousId: String,
@@ -160,7 +165,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     self.email = email
                     self.phoneNumber = phoneNumber
                     self.anonymousId = anonymousId
-                    self.pushToken = pushToken
+                    self.append = Append(pushToken: pushToken)
                     self.externalId = externalId
                 }
             }
