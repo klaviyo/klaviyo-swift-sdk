@@ -12,7 +12,7 @@ struct KlaviyoAPI {
     struct KlaviyoRequest: Equatable, Codable {
         let apiKey: String
         let endpoint: KlaviyoEndpoint
-        let uuid = environment.analytics.uuid().uuidString
+        var uuid = environment.analytics.uuid().uuidString
     }
     
     enum KlaviyoAPIError: Error {
