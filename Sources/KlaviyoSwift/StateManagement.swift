@@ -214,8 +214,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             // TODO: might need to update state based on data in here.
-            return .run { send in
-                guard let request = try? legacyEvent.buildEventRequest(with: apiKey) else {
+            return .run { [state] send in
+                guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
                     return
                 }
                 await send(.enqueueRequest(request))

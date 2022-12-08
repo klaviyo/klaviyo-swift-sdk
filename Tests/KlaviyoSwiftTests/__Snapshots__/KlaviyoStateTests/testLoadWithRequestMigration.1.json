@@ -1,0 +1,65 @@
+{
+  "anonymousId" : "00000000-0000-0000-0000-000000000001",
+  "apiKey" : "foo",
+  "email" : "value",
+  "externalId" : "value",
+  "flushInterval" : 10,
+  "queue" : [
+    {
+      "apiKey" : "foo",
+      "endpoint" : {
+        "createEvent" : {
+          "_0" : {
+            "data" : {
+              "attributes" : {
+                "metric" : {
+                  "name" : "$opened_push",
+                  "service" : "ios-analytics"
+                },
+                "profile" : {
+                  "$anonymous" : "00000000-0000-0000-0000-000000000001",
+                  "email" : "value",
+                  "externalId" : "value",
+                  "foo" : "bar"
+                },
+                "properties" : {
+                  "prop1" : "propValue"
+                },
+                "time" : 256260690,
+                "uniqueId" : "00000000-0000-0000-0000-000000000001"
+              },
+              "type" : "event"
+            }
+          }
+        }
+      }
+    },
+    {
+      "apiKey" : "foo",
+      "endpoint" : {
+        "createProfile" : {
+          "_0" : {
+            "data" : {
+              "attributes" : {
+                "anonymousId" : "00000000-0000-0000-0000-000000000001",
+                "email" : "value",
+                "externalId" : "value",
+                "properties" : {
+                  "foo2" : "bar2"
+                }
+              },
+              "meta" : {
+                "identifiers" : {
+                  "anonymousId" : "00000000-0000-0000-0000-000000000001",
+                  "email" : "value",
+                  "externalId" : "value"
+                }
+              },
+              "type" : "profile"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -10,8 +10,7 @@ import XCTest
 @testable import KlaviyoSwift
 import SnapshotTesting
 
-
-
+@MainActor
 final class KlaviyoStateTests: XCTestCase {
     
     let TEST_EVENT = [
@@ -102,7 +101,7 @@ final class KlaviyoStateTests: XCTestCase {
         environment.fileClient.removeItem = { _ in removeCounter += 1 }
         
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(matching: state, as: .json)
         XCTAssertEqual(removeCounter, 2)
     }
     

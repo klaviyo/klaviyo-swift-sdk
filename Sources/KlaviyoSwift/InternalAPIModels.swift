@@ -267,13 +267,17 @@ struct LegacyEvent: Equatable {
         guard var customerProperties = self.customerProperties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
-        let email: String? = customerProperties.removeValue(forKey: "$email") as? String ?? state.email
-        let phoneNumber: String? = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber
-        let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId
+        if let email: String = customerProperties.removeValue(forKey: "$email") as? String ?? state.email {
+            customerProperties["email"] = email
+        }
+        
+        if let phoneNumber: String = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber {
+            customerProperties["phone_number"] = phoneNumber
+        }
+        if let externalId: String = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId {
+            customerProperties["externalId"] = externalId
+        }
         customerProperties.removeValue(forKey: "$anonymous")
-        customerProperties["email"] = email
-        customerProperties["phone_number"] = phoneNumber
-        customerProperties["externalId"] = externalId
         customerProperties["$anonymous"] = state.anonymousId
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
             attributes: .init(metric: .init(name: self.eventName),
