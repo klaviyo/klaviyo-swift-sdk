@@ -37,7 +37,7 @@ struct NetworkSession {
         let session = createEmphemeralSession()
         return NetworkSession(data: { request async throws in
             session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
-            return session.data(for: request)
+            return try await session.data(for: request)
         })
     }()
 }
