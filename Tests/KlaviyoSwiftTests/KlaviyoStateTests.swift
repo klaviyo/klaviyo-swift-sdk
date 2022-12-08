@@ -174,6 +174,8 @@ final class KlaviyoStateTests: XCTestCase {
             return true
             
         }
+        
+        environment.analytics.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
         environment.archiverClient.unarchivedMutableArray = { _ in
             XCTFail("unarchivedMutableArray should not be called.")
             return []
@@ -182,14 +184,16 @@ final class KlaviyoStateTests: XCTestCase {
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
+    
     func testValidStateFileExists() throws {
         environment.fileClient.fileExists = { _ in
             return true
             
         }
         environment.data = { _ in
-            return try! JSONEncoder().encode(KlaviyoState(queue: [], requestsInFlight: []))
+            return try! JSONEncoder().encode(KlaviyoState(apiKey: "foo", anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: []))
         }
+        environment.analytics.decoder = DataDecoder(jsonDecoder: decoder)
         
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)

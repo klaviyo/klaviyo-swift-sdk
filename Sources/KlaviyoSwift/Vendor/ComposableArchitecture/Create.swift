@@ -179,7 +179,7 @@ extension Publishers.Create.Subscription: CustomStringConvertible {
 }
 
 extension EffectPublisher {
-  public struct Subscriber {
+  struct Subscriber {
     private let _send: (Action) -> Void
     private let _complete: (Subscribers.Completion<Failure>) -> Void
 
@@ -191,11 +191,11 @@ extension EffectPublisher {
       self._complete = complete
     }
 
-    public func send(_ value: Action) {
+    func send(_ value: Action) {
       self._send(value)
     }
 
-    public func send(completion: Subscribers.Completion<Failure>) {
+    func send(completion: Subscribers.Completion<Failure>) {
       self._complete(completion)
     }
   }

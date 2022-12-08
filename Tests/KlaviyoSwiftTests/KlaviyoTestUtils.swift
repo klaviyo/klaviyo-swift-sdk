@@ -46,12 +46,24 @@ extension KlaviyoEnvironment {
     }
 }
 
+class TestJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        return KlaviyoState.test as! T
+    }
+}
+
+class InvalidJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        throw KlaviyoDecodingError.invalidType
+    }
+}
+
 extension AnalyticsEnvironment {
     static let test = AnalyticsEnvironment(
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
         encodeJSON: { _ in TEST_RETURN_DATA},
-        decodeJSON: { _ in AnyDecodable("foo") },
+        decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },

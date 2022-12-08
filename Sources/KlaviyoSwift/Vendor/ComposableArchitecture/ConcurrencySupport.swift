@@ -56,7 +56,7 @@ extension AsyncStream {
   ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
   ///   buffer a specified number of oldest or newest elements.
   /// - Returns: An `AsyncStream`.
-  public static func streamWithContinuation(
+  static func streamWithContinuation(
     _ elementType: Element.Type = Element.self,
     bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
   ) -> (stream: Self, continuation: Continuation) {
@@ -65,11 +65,11 @@ extension AsyncStream {
   }
 
   /// An `AsyncStream` that never emits and never completes unless cancelled.
-  public static var never: Self {
+  static var never: Self {
     Self { _ in }
   }
 
-  public static var finished: Self {
+  static var finished: Self {
     Self { $0.finish() }
   }
 }
@@ -82,7 +82,7 @@ extension AsyncThrowingStream where Failure == Error {
   ///   - limit: The maximum number of elements to hold in the buffer. By default, this value is
   ///   unlimited. Use a `Continuation.BufferingPolicy` to buffer a specified number of oldest or
   ///   newest elements.
-  public init<S: AsyncSequence & Sendable>(
+  init<S: AsyncSequence & Sendable>(
     _ sequence: S,
     bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
   ) where S.Element == Element {
@@ -153,7 +153,7 @@ extension AsyncThrowingStream where Failure == Error {
   ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
   ///   buffer a specified number of oldest or newest elements.
   /// - Returns: An `AsyncThrowingStream`.
-  public static func streamWithContinuation(
+  static func streamWithContinuation(
     _ elementType: Element.Type = Element.self,
     bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
   ) -> (stream: Self, continuation: Continuation) {
@@ -162,18 +162,18 @@ extension AsyncThrowingStream where Failure == Error {
   }
 
   /// An `AsyncThrowingStream` that never emits and never completes unless cancelled.
-  public static var never: Self {
+  static var never: Self {
     Self { _ in }
   }
 
-  public static var finished: Self {
+  static var finished: Self {
     Self { $0.finish() }
   }
 }
 
 extension Task where Failure == Never {
   /// An async function that never returns.
-  public static func never() async throws -> Success {
+  static func never() async throws -> Success {
     for await element in AsyncStream<Success>.never {
       return element
     }
@@ -183,7 +183,7 @@ extension Task where Failure == Never {
 
 extension Task where Success == Never, Failure == Never {
   /// An async function that never returns.
-  public static func never() async throws {
+  static func never() async throws {
     for await _ in AsyncStream<Never>.never {}
     throw _Concurrency.CancellationError()
   }
@@ -228,18 +228,18 @@ extension Task where Success == Never, Failure == Never {
 /// }
 /// ```
 @dynamicMemberLookup
-public final actor ActorIsolated<Value: Sendable> {
+final actor ActorIsolated<Value: Sendable> {
   /// The actor-isolated value.
-  public var value: Value
+  var value: Value
 
   /// Initializes actor-isolated state around a value.
   ///
   /// - Parameter value: A value to isolate in an actor.
-  public init(_ value: Value) {
+  init(_ value: Value) {
     self.value = value
   }
 
-  public subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
+  subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
     self.value[keyPath: keyPath]
   }
 
@@ -258,7 +258,7 @@ public final actor ActorIsolated<Value: Sendable> {
   ///
   /// - Parameters: operation: An operation to be performed on the actor with the underlying value.
   /// - Returns: The result of the operation.
-  public func withValue<T: Sendable>(
+  func withValue<T: Sendable>(
     _ operation: @Sendable (inout Value) async throws -> T
   ) async rethrows -> T {
     var value = self.value
@@ -280,7 +280,7 @@ public final actor ActorIsolated<Value: Sendable> {
   /// ```
   ///
   /// - Parameter newValue: The value to replace the current isolated value with.
-  public func setValue(_ newValue: Value) {
+  func setValue(_ newValue: Value) {
     self.value = newValue
   }
 }
@@ -298,33 +298,33 @@ public final actor ActorIsolated<Value: Sendable> {
 /// potential race conditions in your code.
 @dynamicMemberLookup
 @propertyWrapper
-public struct UncheckedSendable<Value>: @unchecked Sendable {
+struct UncheckedSendable<Value>: @unchecked Sendable {
   /// The unchecked value.
-  public var value: Value
+  var value: Value
 
-  public init(_ value: Value) {
+  init(_ value: Value) {
     self.value = value
   }
 
-  public init(wrappedValue: Value) {
+  init(wrappedValue: Value) {
     self.value = wrappedValue
   }
 
-  public var wrappedValue: Value {
+  var wrappedValue: Value {
     _read { yield self.value }
     _modify { yield &self.value }
   }
 
-  public var projectedValue: Self {
+  var projectedValue: Self {
     get { self }
     set { self = newValue }
   }
 
-  public subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
+  subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
     self.value[keyPath: keyPath]
   }
 
-  public subscript<Subject>(dynamicMember keyPath: WritableKeyPath<Value, Subject>) -> Subject {
+  subscript<Subject>(dynamicMember keyPath: WritableKeyPath<Value, Subject>) -> Subject {
     _read { yield self.value[keyPath: keyPath] }
     _modify { yield &self.value[keyPath: keyPath] }
   }
@@ -334,7 +334,7 @@ extension UncheckedSendable: Equatable where Value: Equatable {}
 extension UncheckedSendable: Hashable where Value: Hashable {}
 
 extension UncheckedSendable: Decodable where Value: Decodable {
-  public init(from decoder: Decoder) throws {
+   init(from decoder: Decoder) throws {
     do {
       let container = try decoder.singleValueContainer()
       self.init(wrappedValue: try container.decode(Value.self))
@@ -345,7 +345,7 @@ extension UncheckedSendable: Decodable where Value: Decodable {
 }
 
 extension UncheckedSendable: Encodable where Value: Encodable {
-  public func encode(to encoder: Encoder) throws {
+  func encode(to encoder: Encoder) throws {
     do {
       var container = encoder.singleValueContainer()
       try container.encode(self.wrappedValue)

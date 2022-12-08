@@ -99,6 +99,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 .sendRequest
             }
         case .stop:
+            guard state.initialized else {
+                return .none
+            }
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)

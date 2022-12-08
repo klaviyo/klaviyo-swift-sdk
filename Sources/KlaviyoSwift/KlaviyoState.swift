@@ -15,10 +15,21 @@ struct KlaviyoState: Equatable, Codable {
     var externalId: String?
     var pushToken: String?
     var queue: [KlaviyoAPI.KlaviyoRequest]
-    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest]
+    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
     var initialized = false
     var flushing = false
     var flushInterval = 10.0
+    
+    enum CodingKeys: CodingKey {
+        case apiKey
+        case email
+        case anonymousId
+        case phoneNumber
+        case externalId
+        case pushToken
+        case queue
+        case flushInterval
+    }
 }
 
 // MARK: Klaviyo state persistence
@@ -65,11 +76,18 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard let decodedState = try? environment.analytics.decodeJSON(stateData),
-            let state = decodedState.value as? KlaviyoState else {
+    guard var state: KlaviyoState = try? environment.analytics.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
+    }
+    guard state.apiKey != nil, state.anonymousId != nil else {
+        environment.logger.error("Found nil apiKey and id. Stopping ")
+        return KlaviyoState(apiKey: apiKey, queue: [], initialized: false)
+    }
+    if state.apiKey != apiKey {
+        // Clear existing stat since we are using a new api state.
+        state = KlaviyoState(apiKey: apiKey, anonymousId: environment.analytics.uuid().uuidString, queue: [])
     }
     return state
 }

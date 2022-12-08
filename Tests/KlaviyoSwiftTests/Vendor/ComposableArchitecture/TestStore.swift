@@ -454,10 +454,10 @@ import XCTestDynamicOverlay
 /// [merowing.info]: https://www.merowing.info
 /// [exhaustive-testing-in-tca]: https://www.merowing.info/exhaustive-testing-in-tca/
 /// [Composable-Architecture-at-Scale]: https://vimeo.com/751173570
-public final class TestStore<State, Action, ScopedState, ScopedAction, Environment> {
+final class TestStore<State, Action, ScopedState, ScopedAction, Environment> {
 
   /// The current exhaustivity level of the test store.
-  public var exhaustivity: Exhaustivity = .on
+  var exhaustivity: Exhaustivity = .on
 
   /// The current environment.
   ///
@@ -520,7 +520,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
       See the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
       """
   )
-  public var environment: Environment {
+  var environment: Environment {
     _read { yield self._environment.wrappedValue }
     _modify { yield &self._environment.wrappedValue }
   }
@@ -530,7 +530,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   /// When read from a trailing closure assertion in ``send(_:assert:file:line:)-1ax61`` or
   /// ``receive(_:timeout:assert:file:line:)-1rwdd``, it will equal the `inout` state passed to the
   /// closure.
-  public var state: State {
+  var state: State {
     self.reducer.state
   }
 
@@ -538,7 +538,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   ///
   /// This is the default timeout used in all methods that take an optional timeout, such as
   /// ``receive(_:timeout:assert:file:line:)-332q2`` and ``finish(timeout:file:line:)-7pmv3``.
-  public var timeout: UInt64
+  var timeout: UInt64
 
   private var _environment: Box<Environment>
   private let file: StaticString
@@ -556,7 +556,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   /// - Parameters:
   ///   - initialState: The state the feature starts in.
   ///   - reducer: The reducer that powers the runtime of the feature.
-  public init<Reducer: ReducerProtocol>(
+  init<Reducer: ReducerProtocol>(
     initialState: @autoclosure () -> State,
     reducer: Reducer,
     file: StaticString = #file,
@@ -612,7 +612,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     /// - Parameter duration: The amount of time to wait before asserting.
     @available(iOS 16, macOS 13, tvOS 16, watchOS 9, *)
     @MainActor
-    public func finish(
+    func finish(
       timeout duration: Duration,
       file: StaticString = #file,
       line: UInt = #line
@@ -628,7 +628,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   /// - Parameter nanoseconds: The amount of time to wait before asserting.
   @_disfavoredOverload
   @MainActor
-  public func finish(
+  func finish(
     timeout nanoseconds: UInt64? = nil,
     file: StaticString = #file,
     line: UInt = #line
@@ -797,7 +797,7 @@ extension TestStore where ScopedState: Equatable {
   ///   sending the action.
   @MainActor
   @discardableResult
-  public func send(
+  func send(
     _ action: ScopedAction,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
@@ -892,7 +892,7 @@ extension TestStore where ScopedState: Equatable {
   @available(tvOS, deprecated: 9999, message: "Call the async-friendly 'send' instead.")
   @available(watchOS, deprecated: 9999, message: "Call the async-friendly 'send' instead.")
   @discardableResult
-  public func send(
+  func send(
     _ action: ScopedAction,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
@@ -1082,7 +1082,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   @available(macOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(tvOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(watchOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
-  public func receive(
+  func receive(
     _ expectedAction: Action,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
@@ -1139,7 +1139,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   @available(macOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(tvOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(watchOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
-  public func receive(
+  func receive(
     _ matching: (Action) -> Bool,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
@@ -1185,7 +1185,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   @available(macOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(tvOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
   @available(watchOS, deprecated: 9999, message: "Call the async-friendly 'receive' instead.")
-  public func receive<Value>(
+  func receive<Value>(
     _ casePath: CasePath<Action, Value>,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
@@ -1250,7 +1250,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
     ///     is expected.
     @available(iOS 16, macOS 13, tvOS 16, watchOS 9, *)
     @MainActor
-    public func receive(
+    func receive(
       _ expectedAction: Action,
       timeout duration: Duration,
       assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1302,7 +1302,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
     @available(iOS 16, macOS 13, tvOS 16, watchOS 9, *)
     @MainActor
     @_disfavoredOverload
-    public func receive(
+    func receive(
       _ matching: (Action) -> Bool,
       timeout duration: Duration,
       assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1333,7 +1333,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   ///     expected.
   @MainActor
   @_disfavoredOverload
-  public func receive(
+  func receive(
     _ expectedAction: Action,
     timeout nanoseconds: UInt64? = nil,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1369,7 +1369,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   ///     expected.
   @MainActor
   @_disfavoredOverload
-  public func receive(
+  func receive(
     _ matching: (Action) -> Bool,
     timeout nanoseconds: UInt64? = nil,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1404,7 +1404,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   ///     expected.
   @MainActor
   @_disfavoredOverload
-  public func receive<Value>(
+  func receive<Value>(
     _ casePath: CasePath<Action, Value>,
     timeout nanoseconds: UInt64? = nil,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1460,7 +1460,7 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
     @MainActor
     @_disfavoredOverload
     @available(iOS 16, macOS 13, tvOS 16, watchOS 9, *)
-    public func receive<Value>(
+    func receive<Value>(
       _ casePath: CasePath<Action, Value>,
       timeout duration: Duration,
       assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
@@ -1626,7 +1626,7 @@ extension TestStore {
   ///   - fromScopedAction: A function that wraps a more scoped action in the reducer's action.
   ///     Scoped actions can be "sent" to the store, while any reducer action may be received.
   ///     Useful for testing view store action transformations.
-  public func scope<S, A>(
+  func scope<S, A>(
     state toScopedState: @escaping (ScopedState) -> S,
     action fromScopedAction: @escaping (A) -> ScopedAction
   ) -> TestStore<State, Action, S, A, Environment> {
@@ -1649,7 +1649,7 @@ extension TestStore {
   /// - Parameter toScopedState: A function that transforms the reducer's state into scoped state.
   ///   This state will be asserted against as it is mutated by the reducer. Useful for testing
   ///   view store state transformations.
-  public func scope<S>(
+  func scope<S>(
     state toScopedState: @escaping (ScopedState) -> S
   ) -> TestStore<State, Action, S, ScopedAction, Environment> {
     self.scope(state: toScopedState, action: { $0 })
@@ -1677,7 +1677,7 @@ extension TestStore {
   /// - Parameter strict: When `true` and there are no in-flight actions to cancel, a test failure
   ///   will be reported.
   @MainActor
-  public func skipReceivedActions(
+  func skipReceivedActions(
     strict: Bool = true,
     file: StaticString = #file,
     line: UInt = #line
@@ -1704,7 +1704,7 @@ extension TestStore {
   @available(
     watchOS, deprecated: 9999, message: "Call the async-friendly 'skipReceivedActions' instead."
   )
-  public func skipReceivedActions(
+  func skipReceivedActions(
     strict: Bool = true,
     file: StaticString = #file,
     line: UInt = #line
@@ -1759,7 +1759,7 @@ extension TestStore {
   ///
   /// - Parameter strict: When `true` and there are no in-flight actions to cancel, a test failure
   ///   will be reported.
-  public func skipInFlightEffects(
+  func skipInFlightEffects(
     strict: Bool = true,
     file: StaticString = #file,
     line: UInt = #line
@@ -1786,7 +1786,7 @@ extension TestStore {
   @available(
     watchOS, deprecated: 9999, message: "Call the async-friendly 'skipInFlightEffects' instead."
   )
-  public func skipInFlightEffects(
+  func skipInFlightEffects(
     strict: Bool = true,
     file: StaticString = #file,
     line: UInt = #line
@@ -1882,11 +1882,11 @@ extension TestStore {
 /// effects in the test store.
 ///
 /// See ``ViewStoreTask`` for the analog provided to ``ViewStore``.
-public struct TestStoreTask: Hashable, Sendable {
+struct TestStoreTask: Hashable, Sendable {
   fileprivate let rawValue: Task<Void, Never>?
   fileprivate let timeout: UInt64
 
-  @_spi(Canary) public init(rawValue: Task<Void, Never>?, timeout: UInt64) {
+  init(rawValue: Task<Void, Never>?, timeout: UInt64) {
     self.rawValue = rawValue
     self.timeout = timeout
   }
@@ -1906,7 +1906,7 @@ public struct TestStoreTask: Hashable, Sendable {
   ///
   /// await onAppearTask.cancel() // ✅ Cancel the task to simulate the feature disappearing.
   /// ```
-  public func cancel() async {
+  func cancel() async {
     self.rawValue?.cancel()
     await self.rawValue?.cancellableValue
   }
@@ -1918,7 +1918,7 @@ public struct TestStoreTask: Hashable, Sendable {
     ///
     /// - Parameter duration: The amount of time to wait before asserting.
     @available(iOS 16, macOS 13, tvOS 16, watchOS 9, *)
-    public func finish(
+    func finish(
       timeout duration: Duration,
       file: StaticString = #file,
       line: UInt = #line
@@ -1931,7 +1931,7 @@ public struct TestStoreTask: Hashable, Sendable {
   ///
   /// - Parameter nanoseconds: The amount of time to wait before asserting.
   @_disfavoredOverload
-  public func finish(
+  func finish(
     timeout nanoseconds: UInt64? = nil,
     file: StaticString = #file,
     line: UInt = #line
@@ -1981,7 +1981,7 @@ public struct TestStoreTask: Hashable, Sendable {
   ///
   /// After the value of this property becomes `true`, it remains `true` indefinitely. There is
   /// no way to uncancel a task.
-  public var isCancelled: Bool {
+  var isCancelled: Bool {
     self.rawValue?.isCancelled ?? true
   }
 }
@@ -2075,7 +2075,7 @@ extension Task where Success == Never, Failure == Never {
   // NB: We would love if this was not necessary, but due to a lack of async testing tools in Swift
   //     we're not sure if there is an alternative. See this forum post for more information:
   //     https://forums.swift.org/t/reliably-testing-code-that-adopts-swift-concurrency/57304
-  @_spi(Internals) public static func megaYield(count: Int = 10) async {
+  static func megaYield(count: Int = 10) async {
     for _ in 1...count {
       await Task<Void, Never>.detached(priority: .background) { await Task.yield() }.value
     }
@@ -2095,7 +2095,7 @@ extension Task where Success == Never, Failure == Never {
 #endif
 
 /// The exhaustivity of assertions made by the test store.
-public enum Exhaustivity: Equatable {
+enum Exhaustivity: Equatable {
   /// Exhaustive assertions.
   ///
   /// This setting requires you to exhaustively assert on all state changes and all actions received
@@ -2125,7 +2125,7 @@ public enum Exhaustivity: Equatable {
   case off(showSkippedAssertions: Bool)
 
   /// Non-exhaustive assertions.
-  public static let off = Self.off(showSkippedAssertions: false)
+  static let off = Self.off(showSkippedAssertions: false)
 }
 
 @_transparent
@@ -2206,13 +2206,13 @@ struct Reduce<State, Action>: ReducerProtocol {
   ///
   /// - Parameter reducer: A reducer that is called when ``reduce(into:action:)`` is invoked.
   @inlinable
-  public init<R: ReducerProtocol>(_ reducer: R)
+  init<R: ReducerProtocol>(_ reducer: R)
   where R.State == State, R.Action == Action {
     self.init(internal: reducer.reduce)
   }
 
   @inlinable
-  public func reduce(into state: inout State, action: Action) -> EffectTask<Action> {
+  func reduce(into state: inout State, action: Action) -> EffectTask<Action> {
     self.reduce(&state, action)
   }
 }

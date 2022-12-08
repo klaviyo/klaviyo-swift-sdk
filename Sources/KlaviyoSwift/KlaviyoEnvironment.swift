@@ -50,11 +50,25 @@ func createNetworkSession() -> NetworkSession {
     return networkSession
 }
 
+
+
+enum KlaviyoDecodingError: Error {
+    case invalidType
+}
+
+struct DataDecoder {
+    func decode<T: Decodable>(_ data: Data) throws -> T {
+        return try jsonDecoder.decode(T.self, from: data)
+    }
+    var jsonDecoder: JSONDecoder
+    static let production = Self(jsonDecoder: decoder)
+}
+
 struct AnalyticsEnvironment {
     var networkSession: () -> NetworkSession
     var apiURL: String
     var encodeJSON: (Encodable) throws -> Data
-    var decodeJSON: (Data) throws -> AnyDecodable
+    var decoder: DataDecoder
     var uuid: () -> UUID
     var date: () -> Date
     var timeZone: () -> String
@@ -66,7 +80,7 @@ struct AnalyticsEnvironment {
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },
-        decodeJSON: { data in try decoder.decode(AnyDecodable.self, from: data) },
+        decoder: DataDecoder.production,
         uuid: { UUID() },
         date: { Date() },
         timeZone: { TimeZone.autoupdatingCurrent.identifier },

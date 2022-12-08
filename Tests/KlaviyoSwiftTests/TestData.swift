@@ -90,14 +90,14 @@ extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
 
 extension KlaviyoState {
     static let test = KlaviyoState(apiKey: "foo",
-                            email: "test@test.com",
-                            anonymousId: "foo",
-                            phoneNumber: "foo",
-                            externalId: "foo",
-                            pushToken: "foo",
-                            queue: [],
-                            requestsInFlight: [],
-                            initialized: true,
-                            flushing: true
+                                   email: "test@test.com",
+                                   anonymousId: environment.analytics.uuid().uuidString,
+                                   phoneNumber: "phoneNumber",
+                                   externalId: "externalId",
+                                   pushToken: "blobToken",
+                                   queue: [],
+                                   requestsInFlight: [],
+                                   initialized: true,
+                                   flushing: true
     )
 }

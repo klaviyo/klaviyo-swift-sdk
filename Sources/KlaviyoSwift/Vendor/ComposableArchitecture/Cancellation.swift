@@ -37,7 +37,7 @@ extension EffectPublisher {
   ///   - cancelInFlight: Determines if any in-flight effect with the same identifier should be
   ///     canceled before starting this new one.
   /// - Returns: A new effect that is capable of being canceled by an identifier.
-  public func cancellable(id: AnyHashable, cancelInFlight: Bool = false) -> Self {
+  func cancellable(id: AnyHashable, cancelInFlight: Bool = false) -> Self {
     switch self.operation {
     case .none:
       return .none
@@ -110,7 +110,7 @@ extension EffectPublisher {
   ///   - cancelInFlight: Determines if any in-flight effect with the same identifier should be
   ///     canceled before starting this new one.
   /// - Returns: A new effect that is capable of being canceled by an identifier.
-  public func cancellable(id: Any.Type, cancelInFlight: Bool = false) -> Self {
+  func cancellable(id: Any.Type, cancelInFlight: Bool = false) -> Self {
     self.cancellable(id: ObjectIdentifier(id), cancelInFlight: cancelInFlight)
   }
 
@@ -119,7 +119,7 @@ extension EffectPublisher {
   /// - Parameter id: An effect identifier.
   /// - Returns: A new effect that will cancel any currently in-flight effect with the given
   ///   identifier.
-  public static func cancel(id: AnyHashable) -> Self {
+  static func cancel(id: AnyHashable) -> Self {
     .fireAndForget {
       _cancellablesLock.sync {
         _cancellationCancellables[.init(id: id)]?.forEach { $0.cancel() }
@@ -135,7 +135,7 @@ extension EffectPublisher {
   /// - Parameter id: A unique type identifying the effect.
   /// - Returns: A new effect that will cancel any currently in-flight effect with the given
   ///   identifier.
-  public static func cancel(id: Any.Type) -> Self {
+  static func cancel(id: Any.Type) -> Self {
     .cancel(id: ObjectIdentifier(id))
   }
 
@@ -144,7 +144,7 @@ extension EffectPublisher {
   /// - Parameter ids: An array of effect identifiers.
   /// - Returns: A new effect that will cancel any currently in-flight effects with the given
   ///   identifiers.
-  public static func cancel(ids: [AnyHashable]) -> Self {
+  static func cancel(ids: [AnyHashable]) -> Self {
     .merge(ids.map(EffectPublisher.cancel(id:)))
   }
 
@@ -156,7 +156,7 @@ extension EffectPublisher {
   /// - Parameter ids: An array of unique types identifying the effects.
   /// - Returns: A new effect that will cancel any currently in-flight effects with the given
   ///   identifiers.
-  public static func cancel(ids: [Any.Type]) -> Self {
+  static func cancel(ids: [Any.Type]) -> Self {
     .merge(ids.map(EffectPublisher.cancel(id:)))
   }
 }
@@ -203,7 +203,7 @@ extension EffectPublisher {
 ///   - operation: An async operation.
 /// - Throws: An error thrown by the operation.
 /// - Returns: A value produced by operation.
-public func withTaskCancellation<T: Sendable>(
+func withTaskCancellation<T: Sendable>(
   id: AnyHashable,
   cancelInFlight: Bool = false,
   operation: @Sendable @escaping () async throws -> T
@@ -245,7 +245,7 @@ public func withTaskCancellation<T: Sendable>(
 ///   - operation: An async operation.
 /// - Throws: An error thrown by the operation.
 /// - Returns: A value produced by operation.
-public func withTaskCancellation<T: Sendable>(
+func withTaskCancellation<T: Sendable>(
   id: Any.Type,
   cancelInFlight: Bool = false,
   operation: @Sendable @escaping () async throws -> T
@@ -261,7 +261,7 @@ extension Task where Success == Never, Failure == Never {
   /// Cancel any currently in-flight operation with the given identifier.
   ///
   /// - Parameter id: An identifier.
-  public static func cancel<ID: Hashable & Sendable>(id: ID) {
+  static func cancel<ID: Hashable & Sendable>(id: ID) {
     _cancellablesLock.sync { _cancellationCancellables[.init(id: id)]?.forEach { $0.cancel() } }
   }
 
@@ -271,23 +271,23 @@ extension Task where Success == Never, Failure == Never {
   /// identifier.
   ///
   /// - Parameter id: A unique type identifying the operation.
-  public static func cancel(id: Any.Type) {
+  static func cancel(id: Any.Type) {
     self.cancel(id: ObjectIdentifier(id))
   }
 }
 
-@_spi(Internals) public struct _CancelToken: Hashable {
+struct _CancelToken: Hashable {
   let id: AnyHashable
   let discriminator: ObjectIdentifier
 
-  public init(id: AnyHashable) {
+  init(id: AnyHashable) {
     self.id = id
     self.discriminator = ObjectIdentifier(type(of: id.base))
   }
 }
 
-@_spi(Internals) public var _cancellationCancellables: [_CancelToken: Set<AnyCancellable>] = [:]
-@_spi(Internals) public let _cancellablesLock = NSRecursiveLock()
+var _cancellationCancellables: [_CancelToken: Set<AnyCancellable>] = [:]
+let _cancellablesLock = NSRecursiveLock()
 
 @rethrows
 private protocol _ErrorMechanism {
