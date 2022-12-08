@@ -47,12 +47,18 @@ struct KlaviyoReducer: ReducerProtocol {
     func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> {
         switch action {
         case let .initialize(apiKey):
+            if state.initialized {
+                return .none
+            }
             state.apiKey = apiKey
             return .run { send in
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
         case var .completeInitialization(initialState):
+            if state.initialized {
+                return .none
+            }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
             initialState.initialized = true
@@ -62,24 +68,42 @@ struct KlaviyoReducer: ReducerProtocol {
                 await send(.start)
             }
         case .setEmail(let email):
+            guard state.initialized else {
+                return .none
+            }
             state.email = email
             return state.buildProfileTask()
         case .setAnonymousId(let anonymousId):
+            guard state.initialized else {
+                return .none
+            }
             state.anonymousId = anonymousId
             return state.buildProfileTask()
         case .setPhoneNumber(let phoneNumber):
+            guard state.initialized else {
+                return .none
+            }
             state.phoneNumber = phoneNumber
             return state.buildProfileTask()
         case .setExternalId(let externalId):
+            guard state.initialized else {
+                return .none
+            }
             state.externalId = externalId
             return state.buildProfileTask()
         case .setPushToken(let pushToken):
+            guard state.initialized else {
+                return .none
+            }
             // TODO: check if we already have this token, skip sending if we do.
             state.pushToken = pushToken
             return .task { [state] in
                 return .enqueueRequest(try state.buildTokenRequest())
             }
         case .enqueueRequest(let request):
+            guard state.initialized else {
+                return .none
+            }
             state.queue.append(request)
             return .none
         case .flushQueue:
@@ -108,6 +132,9 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(.archiveCurrentState)
                 }))
         case .start:
+            guard state.initialized else {
+                return .none
+            }
             return environment.analytics.timer(state.flushInterval)
                     .map { _ in
                         KlaviyoAction.flushQueue
@@ -153,6 +180,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
         case .networkConnectivityChanged(let networkStatus):
+            guard state.initialized else {
+                return .none
+            }
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = 0
@@ -171,6 +201,9 @@ struct KlaviyoReducer: ReducerProtocol {
                     }.eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
         case .archiveCurrentState:
+            guard state.initialized else {
+                return .none
+            }
             return .run { [state] _ in
                 saveKlaviyoState(state: state)
             }

@@ -105,8 +105,8 @@ public class Klaviyo: NSObject  {
     */
     private override init() {
         reachability = Reachability(hostname: "a.klaviyo.com")!
-        // TODO: determine best place to call this or move into store.
         super.init()
+        // TODO: determine best place to call this or move into store.
         addNotificationObserver()
     }
     
