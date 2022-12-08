@@ -173,28 +173,28 @@ struct KlaviyoReducer: ReducerProtocol {
             }
  
         case .enqueueLegacyEvent(let legacyEvent):
-            // TODO: Needs a few test.
+            // TODO: Needs a few tests.
             guard let apiKey = state.apiKey else {
                 return .none
             }
             // TODO: might need to update state based on data in here.
-            return .task { [state] in
-                guard let request = legacyEvent.buildEventRequest(with: apiKey) else {
+            return .run { send in
+                guard let request = try? legacyEvent.buildEventRequest(with: apiKey) else {
                     return
                 }
-                return .enqueueRequest(request)
+                await send(.enqueueRequest(request))
             }
         case .enqueueLegacyProfile(let legacyProfile):
-            // TODO: Needs a few test.
+            // TODO: Needs a few tests.
             guard let apiKey = state.apiKey else {
                 return .none
             }
             // TODO: might need to update state based on data in here.
-            return .task { [state] in
-                guard let request = legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
+            return .run { [state] send in
+                guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
                     return
                 }
-                return .enqueueRequest(request)
+                await send(.enqueueRequest(request))
             }
         }
     }
