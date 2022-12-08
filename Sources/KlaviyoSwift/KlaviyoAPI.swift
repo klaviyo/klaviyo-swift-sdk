@@ -13,11 +13,6 @@ struct KlaviyoAPI {
         let apiKey: String
         let endpoint: KlaviyoEndpoint
         let uuid = environment.analytics.uuid().uuidString
-        
-        enum CodingKeys: CodingKey {
-            case apiKey
-            case endpoint
-        }
     }
     
     enum KlaviyoAPIError: Error {

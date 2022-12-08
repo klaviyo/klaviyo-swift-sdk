@@ -28,7 +28,6 @@ struct KlaviyoState: Equatable, Codable {
         case externalId
         case pushToken
         case queue
-        case flushInterval
     }
 }
 

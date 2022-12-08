@@ -197,4 +197,26 @@ final class KlaviyoStateTests: XCTestCase {
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
+    
+    func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
+        let event = Klaviyo.Event.test
+        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
+        let eventRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
+        let profile = Klaviyo.Profile.test
+        let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
+        let profileRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
+        let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+            token: "foo",
+            properties: .init(anonymousId: "foo",
+                              pushToken: "foo",
+                              email: "foo",
+                              phoneNumber: "foo")
+        )
+        let tokenRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
+        let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, profileRequest, eventRequest])
+        let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(state)
+        let decodedState: KlaviyoState = try KlaviyoEnvironment.production.analytics.decoder.decode(encodedState)
+        XCTAssertEqual(decodedState, state)
+    }
 }

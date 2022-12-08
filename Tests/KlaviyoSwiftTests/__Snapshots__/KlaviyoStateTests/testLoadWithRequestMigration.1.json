@@ -3,7 +3,6 @@
   "apiKey" : "foo",
   "email" : "value",
   "externalId" : "value",
-  "flushInterval" : 10,
   "queue" : [
     {
       "apiKey" : "foo",
@@ -14,7 +13,7 @@
               "attributes" : {
                 "metric" : {
                   "name" : "$opened_push",
-                  "service" : "ios-analytics"
+                  "service" : "klaviyo"
                 },
                 "profile" : {
                   "$anonymous" : "00000000-0000-0000-0000-000000000001",
@@ -26,13 +25,14 @@
                   "prop1" : "propValue"
                 },
                 "time" : 256260690,
-                "uniqueId" : "00000000-0000-0000-0000-000000000001"
+                "unique_id" : "00000000-0000-0000-0000-000000000001"
               },
               "type" : "event"
             }
           }
         }
-      }
+      },
+      "uuid" : "00000000-0000-0000-0000-000000000001"
     },
     {
       "apiKey" : "foo",
@@ -41,25 +41,26 @@
           "_0" : {
             "data" : {
               "attributes" : {
-                "anonymousId" : "00000000-0000-0000-0000-000000000001",
+                "anonymous_id" : "00000000-0000-0000-0000-000000000001",
                 "email" : "value",
-                "externalId" : "value",
+                "external_id" : "value",
                 "properties" : {
                   "foo2" : "bar2"
                 }
               },
               "meta" : {
                 "identifiers" : {
-                  "anonymousId" : "00000000-0000-0000-0000-000000000001",
+                  "anonymous_id" : "00000000-0000-0000-0000-000000000001",
                   "email" : "value",
-                  "externalId" : "value"
+                  "external_id" : "value"
                 }
               },
               "type" : "profile"
             }
           }
         }
-      }
+      },
+      "uuid" : "00000000-0000-0000-0000-000000000001"
     }
   ]
 }

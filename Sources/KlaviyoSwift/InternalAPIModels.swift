@@ -1,6 +1,7 @@
 //
 //  InternalAPIModels.swift
 //  Internal models typically used at the networking layer.
+//  NOTE: Ensure that new request types are equatable and encodable.
 //
 //  Created by Noah Durell on 11/25/22.
 //
@@ -15,7 +16,7 @@ extension KlaviyoAPI.KlaviyoRequest {
              Internal structure which has details not needed by the API.
              */
             struct Profile: Equatable, Codable {
-                let type = "profile"
+                var type = "profile"
                 struct Attributes: Equatable, Codable {
                     let email: String?
                     let phoneNumber: String?
@@ -30,11 +31,11 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
-                        case phoneNumber
-                        case externalId
-                        case anonymousId
-                        case firstName
-                        case lastName
+                        case phoneNumber = "phone_number"
+                        case externalId = "external_id"
+                        case anonymousId = "anonymous_id"
+                        case firstName = "first_name"
+                        case lastName = "last_name"
                         case organization
                         case title
                         case image
@@ -70,15 +71,12 @@ extension KlaviyoAPI.KlaviyoRequest {
                         }
                         enum CodingKeys: String, CodingKey {
                             case email
-                            case phoneNumber
-                            case externalId
-                            case anonymousId
+                            case phoneNumber = "phone_number"
+                            case externalId = "external_id"
+                            case anonymousId = "anonymous_id"
                         }
                     }
                     let identifiers: Identifiers
-                    enum CodingKeys: String, CodingKey {
-                        case identifiers
-                    }
                 }
                 let attributes: Attributes
                 let meta: Meta
@@ -90,31 +88,17 @@ extension KlaviyoAPI.KlaviyoRequest {
                         attributes: profile.attributes,
                         anonymousId: anonymousId))
                 }
-                
-                enum CodingKeys: String, CodingKey {
-                    case attributes
-                    case meta
-                    case type
-                }
             }
             let data: Profile
-            
-            enum CodingKeys: String, CodingKey {
-                case data
-            }
         }
         struct CreateEventPayload: Equatable, Codable {
             struct Event: Equatable, Codable {
                 struct Attributes: Equatable, Codable {
                     struct Metric: Equatable, Codable {
                         let name: String
-                        let service = "ios-analytics"
+                        var service = "klaviyo"
                         init(name: String) {
                             self.name = name
-                        }
-                        enum CodingKeys: CodingKey {
-                            case name
-                            case service
                         }
                     }
                     let metric: Metric
@@ -131,30 +115,23 @@ extension KlaviyoAPI.KlaviyoRequest {
                         self.time = attributes.time
                         self.uniqueId = attributes.uniqueId
                     }
-                    enum CodingKeys: CodingKey {
+                    enum CodingKeys: String, CodingKey {
                         case metric
                         case properties
                         case profile
                         case time
                         case value
-                        case uniqueId
+                        case uniqueId = "unique_id"
                     }
                     
                 }
-                let type = "event"
+                var type = "event"
                 let attributes: Attributes
                 init(event: Klaviyo.Event) {
                     self.attributes = .init(attributes: event.attributes)
                 }
-                enum CodingKeys: CodingKey {
-                    case attributes
-                    case type
-                }
             }
             let data: Event
-            enum CodingKeys: CodingKey {
-                case data
-            }
             init(data: Klaviyo.Event) {
                 self.data = Event(event: data)
             }
@@ -162,9 +139,9 @@ extension KlaviyoAPI.KlaviyoRequest {
         struct PushTokenPayload: Equatable, Codable {
             struct Properties: Equatable, Codable {
                 let anonymousId: String
+                let pushToken: String
                 let email: String?
                 let phoneNumber: String?
-                let pushToken: String?
                 let externalId: String?
                 
                 enum CodingKeys: String, CodingKey {
@@ -194,10 +171,6 @@ extension KlaviyoAPI.KlaviyoRequest {
                  properties: Properties) {
                 self.token = token
                 self.properties = properties
-            }
-            enum CodingKeys: String, CodingKey {
-                case token
-                case properties
             }
         }
         case createProfile(CreateProfilePayload)

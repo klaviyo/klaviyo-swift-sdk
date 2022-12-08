@@ -345,7 +345,6 @@ class StateManagementTests: XCTestCase {
         let fakeEncodedData = Data()
         
         environment.analytics.encodeJSON = { state in
-            assertSnapshot(matching: state, as: .dump)
             expectation.fulfill()
             return fakeEncodedData
         }
