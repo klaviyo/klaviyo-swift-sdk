@@ -14,8 +14,8 @@ import Foundation
  */
 
 // Request flush interval in seconds.
-let CELLULAR_FLUSH_INTERVAL = 10.0
-let WIFI_FLUSH_INTERVAL = 30.0
+let CELLULAR_FLUSH_INTERVAL = 30.0
+let WIFI_FLUSH_INTERVAL = 10.0
 
 enum KlaviyoAction: Equatable {
     case initialize(String)
