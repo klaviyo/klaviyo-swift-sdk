@@ -194,7 +194,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 guard let request = legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
                     return
                 }
-                return .enqueueRequest(legacyProfile.buildProfileRequest(with: apiKey, from: state))
+                return .enqueueRequest(request)
             }
         }
     }
