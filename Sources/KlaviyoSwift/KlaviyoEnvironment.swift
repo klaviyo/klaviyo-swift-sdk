@@ -87,6 +87,11 @@ struct AnalyticsEnvironment {
         appContextInfo: { AppContextInfo() },
         klaviyoAPI: KlaviyoAPI(),
         store: Store.production,
-        timer: { interval in Timer.publish(every: interval, on: .main, in: .default).eraseToEffect() }
+        timer: { interval in
+            Timer.publish(every: interval, on: .main, in: .default)
+            .autoconnect()
+            .eraseToEffect()
+            
+        }
     )
 }
