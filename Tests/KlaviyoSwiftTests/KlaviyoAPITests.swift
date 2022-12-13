@@ -16,7 +16,7 @@ final class KlaviyoAPITests: XCTestCase {
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
         
-        environment = KlaviyoEnvironment.test
+        environment = KlaviyoEnvironment.test()
     }
     
     override func tearDownWithError() throws {
@@ -39,7 +39,7 @@ final class KlaviyoAPITests: XCTestCase {
     }
     
     func testEncodingError() async throws {
-        environment.analytics.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.CodingKeys.data], debugDescription: "invalid"))
+        environment.analytics.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
         let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
         await sendAndAssert(with: request)  { result in

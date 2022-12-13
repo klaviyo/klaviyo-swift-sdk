@@ -13,7 +13,7 @@ import SnapshotTesting
 class NetworkSessionTests: XCTestCase {
     override func setUpWithError() throws {
 
-        environment = KlaviyoEnvironment.test
+        environment = KlaviyoEnvironment.test()
     }
     func testDefaultUserAgent() {
         assertSnapshot(matching: defaultUserAgent, as: .dump)

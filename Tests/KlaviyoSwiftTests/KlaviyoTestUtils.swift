@@ -7,8 +7,9 @@
 import XCTest
 @testable import KlaviyoSwift
 import AnyCodable
+import Combine
 
-public enum FakeFileError: Error {
+enum FakeFileError: Error {
     case fake
 }
 
@@ -34,7 +35,7 @@ extension ArchiverClient {
 extension KlaviyoEnvironment {
     static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
-    static let test = KlaviyoEnvironment(
+    static var test = { KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
@@ -42,6 +43,19 @@ extension KlaviyoEnvironment {
         analytics: AnalyticsEnvironment.test,
         getUserDefaultString: { _ in return "value" }
     )
+    }
+}
+
+class TestJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        return KlaviyoState.test as! T
+    }
+}
+
+class InvalidJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        throw KlaviyoDecodingError.invalidType
+    }
 }
 
 extension AnalyticsEnvironment {
@@ -49,12 +63,35 @@ extension AnalyticsEnvironment {
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
         encodeJSON: { _ in TEST_RETURN_DATA},
-        decodeJSON: { _ in AnyDecodable("foo") },
+        decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
-        appContextInfo: { AppContextInfo.test }
+        appContextInfo: { AppContextInfo.test },
+        klaviyoAPI: KlaviyoAPI.test(),
+        store: Store.test,
+        timer: { interval in Just(Date()).eraseToEffect() }
     )
+}
+
+struct KlaviyoTestReducer: ReducerProtocol {
+    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in return .none }
+    
+    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
+        return reducer(&state, action)
+    }
+    
+    typealias State = KlaviyoState
+    
+    typealias Action = KlaviyoAction
+    
+    
+    
+    
+}
+
+extension Store where State == KlaviyoState, Action == KlaviyoAction {
+    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
 extension FileClient {
@@ -64,6 +101,10 @@ extension FileClient {
         removeItem: { _ in },
         libraryDirectory: { TEST_URL }
     )
+}
+
+extension KlaviyoAPI {
+    static let test = { KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) }) }
 }
 
 extension LoggerClient {

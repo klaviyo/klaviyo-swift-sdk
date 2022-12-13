@@ -88,3 +88,16 @@ extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
     static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.init(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
 }
 
+extension KlaviyoState {
+    static let test = KlaviyoState(apiKey: "foo",
+                                   email: "test@test.com",
+                                   anonymousId: environment.analytics.uuid().uuidString,
+                                   phoneNumber: "phoneNumber",
+                                   externalId: "externalId",
+                                   pushToken: "blobToken",
+                                   queue: [],
+                                   requestsInFlight: [],
+                                   initialized: true,
+                                   flushing: true
+    )
+}

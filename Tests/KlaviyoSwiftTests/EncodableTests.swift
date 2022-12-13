@@ -12,6 +12,7 @@ import SnapshotTesting
 final class EncodableTests: XCTestCase {
     let testEncoder = encoder
     override func setUpWithError() throws {
+        environment = KlaviyoEnvironment.test()
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 

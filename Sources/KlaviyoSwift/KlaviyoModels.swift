@@ -49,7 +49,7 @@ extension Klaviyo {
     
     struct Profile {
         struct Attributes {
-            struct Location {
+            struct Location: Equatable {
                 let address1: String?
                 let address2: String?
                 let city: String?

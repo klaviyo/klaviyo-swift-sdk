@@ -13,14 +13,12 @@ var environment = KlaviyoEnvironment.production
 let PRODUCTION_HOST = "https://a.klaviyo.com"
 let encoder = {
     let encoder = JSONEncoder()
-    encoder.keyEncodingStrategy = .convertToSnakeCase
     encoder.dateEncodingStrategy = .iso8601
     return encoder
 }()
 
 let decoder = {
     let decoder = JSONDecoder()
-    decoder.keyDecodingStrategy = .convertFromSnakeCase
     decoder.dateDecodingStrategy = .iso8601
     return decoder
 }()
@@ -50,23 +48,48 @@ func createNetworkSession() -> NetworkSession {
     return networkSession
 }
 
+
+
+enum KlaviyoDecodingError: Error {
+    case invalidType
+}
+
+struct DataDecoder {
+    func decode<T: Decodable>(_ data: Data) throws -> T {
+        return try jsonDecoder.decode(T.self, from: data)
+    }
+    var jsonDecoder: JSONDecoder
+    static let production = Self(jsonDecoder: decoder)
+}
+
 struct AnalyticsEnvironment {
     var networkSession: () -> NetworkSession
     var apiURL: String
     var encodeJSON: (Encodable) throws -> Data
-    var decodeJSON: (Data) throws -> AnyDecodable
+    var decoder: DataDecoder
     var uuid: () -> UUID
     var date: () -> Date
     var timeZone: () -> String
     var appContextInfo: () -> AppContextInfo
+    var klaviyoAPI: KlaviyoAPI
+    var store: Store<KlaviyoState, KlaviyoAction>
+    var timer: (Double) -> EffectPublisher<Date, Never>
     static let production = AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },
-        decodeJSON: { data in try decoder.decode(AnyDecodable.self, from: data) },
+        decoder: DataDecoder.production,
         uuid: { UUID() },
         date: { Date() },
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
-        appContextInfo: { AppContextInfo() }
+        appContextInfo: { AppContextInfo() },
+        klaviyoAPI: KlaviyoAPI(),
+        store: Store.production,
+        timer: { interval in
+            Timer.publish(every: interval, on: .main, in: .default)
+            .autoconnect()
+            .eraseToEffect()
+            
+        }
     )
 }

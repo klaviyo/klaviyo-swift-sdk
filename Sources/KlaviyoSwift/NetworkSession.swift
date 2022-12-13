@@ -35,7 +35,10 @@ struct NetworkSession {
     
     static let production = {
         let session = createEmphemeralSession()
-        return NetworkSession(data: session.data(for:))
+        return NetworkSession(data: { request async throws in
+            session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
+            return try await session.data(for: request)
+        })
     }()
 }
 

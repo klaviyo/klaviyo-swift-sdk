@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct KlaviyoState: Codable {
+struct KlaviyoState: Equatable, Codable {
     var apiKey: String?
     var email: String?
     var anonymousId: String?
@@ -15,12 +15,32 @@ struct KlaviyoState: Codable {
     var externalId: String?
     var pushToken: String?
     var queue: [KlaviyoAPI.KlaviyoRequest]
-    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest]
+    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
     var initialized = false
     var flushing = false
+    var flushInterval = 10.0
+    
+    enum CodingKeys: CodingKey {
+        case apiKey
+        case email
+        case anonymousId
+        case phoneNumber
+        case externalId
+        case pushToken
+        case queue
+    }
 }
 
 // MARK: Klaviyo state persistence
+
+func saveKlaviyoState(state: KlaviyoState) {
+    guard let apiKey = state.apiKey else {
+        environment.logger.error("Attempt to save state without an api key.")
+        return
+    }
+    let file = klaviyoStateFile(apiKey: apiKey)
+    storeKlaviyoState(state: state, file: file)
+}
 
 private func klaviyoStateFile(apiKey: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-state.json"
@@ -28,7 +48,7 @@ private func klaviyoStateFile(apiKey: String) -> URL {
     return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 
-private func storeKlaviyoState(state: KlaviyoState, at file: URL) {
+private func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
         try environment.fileClient.write(environment.analytics.encodeJSON(state), file)
     } catch {
@@ -55,11 +75,18 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard let decodedState = try? environment.analytics.decodeJSON(stateData),
-            let state = decodedState.value as? KlaviyoState else {
+    guard var state: KlaviyoState = try? environment.analytics.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
+    }
+    guard state.apiKey != nil, state.anonymousId != nil else {
+        environment.logger.error("Found nil apiKey and id. Stopping ")
+        return KlaviyoState(apiKey: apiKey, queue: [], initialized: false)
+    }
+    if state.apiKey != apiKey {
+        // Clear existing stat since we are using a new api state.
+        state = KlaviyoState(apiKey: apiKey, anonymousId: environment.analytics.uuid().uuidString, queue: [])
     }
     return state
 }
@@ -67,7 +94,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
     let anonymousId = environment.analytics.uuid().uuidString
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
-    storeKlaviyoState(state: state, at: file)
+    storeKlaviyoState(state: state, file: file)
     return state
 }
 
@@ -89,7 +116,8 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
                              queue: [],
                              requestsInFlight: [])
     state.queue = readLegacyRequestData(with: apiKey, from: state)
-    storeKlaviyoState(state: state, at: file)
+    let file = klaviyoStateFile(apiKey: apiKey)
+    storeKlaviyoState(state: state, file: file)
     return state
 }
 
@@ -107,7 +135,7 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
             let legacyEvent = LegacyEvent(eventName: eventName,
                                                           customerProperties: customerProperties,
                                                           properties: properties)
-            guard let request = try? legacyEvent.buildEventRequest(with: apiKey) else {
+            guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
                 continue
             }
             queue.append(request)

@@ -1,8 +1,6 @@
 {
   "anonymousId" : "foo",
   "email" : "foo",
-  "flushing" : false,
-  "initialized" : false,
   "phoneNumber" : "foo",
   "pushToken" : "foo",
   "queue" : [
@@ -13,32 +11,17 @@
           "_0" : {
             "properties" : {
               "$anonymous" : "foo",
+              "$append" : {
+                "$ios_tokens" : "foo"
+              },
               "$email" : "foo",
-              "$ios_tokens" : "foo",
               "$phone_number" : "foo"
             },
             "token" : "foo"
           }
         }
-      }
-    }
-  ],
-  "requestsInFlight" : [
-    {
-      "apiKey" : "foo",
-      "endpoint" : {
-        "storePushToken" : {
-          "_0" : {
-            "properties" : {
-              "$anonymous" : "foo",
-              "$email" : "foo",
-              "$ios_tokens" : "foo",
-              "$phone_number" : "foo"
-            },
-            "token" : "foo"
-          }
-        }
-      }
+      },
+      "uuid" : "00000000-0000-0000-0000-000000000001"
     }
   ]
 }
