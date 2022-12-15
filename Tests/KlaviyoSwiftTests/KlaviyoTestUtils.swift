@@ -6,15 +6,19 @@
 //
 import XCTest
 @testable import KlaviyoSwift
+import AnyCodable
+import Combine
 
-public enum FakeFileError: Error {
+enum FakeFileError: Error {
     case fake
 }
 
 let ARCHIVED_RETURNED_DATA = Data()
 let SAMPLE_DATA: NSMutableArray = [
     [
-        "foo": "bar"
+        "properties": [
+            "foo": "bar"
+        ]
     ]
 
 ]
@@ -31,12 +35,63 @@ extension ArchiverClient {
 extension KlaviyoEnvironment {
     static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
-    static let test = KlaviyoEnvironment(
+    static var test = { KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
         fileClient: FileClient.test,
         data: { _ in TEST_RETURN_DATA },
-        logger: LoggerClient.test
+        logger: LoggerClient.test,
+        analytics: AnalyticsEnvironment.test,
+        getUserDefaultString: { _ in return "value" }
     )
+    }
+}
+
+class TestJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        return KlaviyoState.test as! T
+    }
+}
+
+class InvalidJSONDecoder: JSONDecoder {
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+        throw KlaviyoDecodingError.invalidType
+    }
+}
+
+extension AnalyticsEnvironment {
+    static let test = AnalyticsEnvironment(
+        networkSession: { NetworkSession.test() },
+        apiURL: "dead_beef",
+        encodeJSON: { _ in TEST_RETURN_DATA},
+        decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
+        uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+        date: { Date(timeIntervalSince1970: 1_234_567_890) },
+        timeZone: { "EST" },
+        appContextInfo: { AppContextInfo.test },
+        klaviyoAPI: KlaviyoAPI.test(),
+        store: Store.test,
+        timer: { interval in Just(Date()).eraseToEffect() }
+    )
+}
+
+struct KlaviyoTestReducer: ReducerProtocol {
+    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in return .none }
+    
+    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
+        return reducer(&state, action)
+    }
+    
+    typealias State = KlaviyoState
+    
+    typealias Action = KlaviyoAction
+    
+    
+    
+    
+}
+
+extension Store where State == KlaviyoState, Action == KlaviyoAction {
+    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
 extension FileClient {
@@ -48,10 +103,34 @@ extension FileClient {
     )
 }
 
+extension KlaviyoAPI {
+    static let test = { KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) }) }
+}
+
 extension LoggerClient {
     static var lastLoggedMessage: String?
     static let test = LoggerClient { message in
         lastLoggedMessage = message
     }
+}
+
+extension NetworkSession {
+    static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
+    static let DEFAULT_CALLBACK: (URLRequest) async throws -> (Data, URLResponse) = { request in
+        return (Data(), successfulRepsonse)
+    }
+    static func test(data: @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
+       return NetworkSession(data: data)
+    }
+}
+
+extension AppContextInfo {
+    static let test = Self.init(excutable: "FooApp",
+                                bundleId: "com.klaviyo.fooapp",
+                                appVersion: "1.2.3",
+                                appBuild: "1",
+                                version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
+                                osName: "kOS"
+    )
 }
 

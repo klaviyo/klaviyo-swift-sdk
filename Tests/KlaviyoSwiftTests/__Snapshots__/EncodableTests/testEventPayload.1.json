@@ -1,0 +1,27 @@
+{
+  "data" : {
+    "attributes" : {
+      "metric" : {
+        "name" : "blob",
+        "service" : "klaviyo"
+      },
+      "profile" : {
+        "email" : "blob@email.com",
+        "location" : {
+          "city" : "blob city"
+        },
+        "stuff" : 2
+      },
+      "properties" : {
+        "blob" : "blob",
+        "hello" : {
+          "sub" : "dict"
+        },
+        "stuff" : 2
+      },
+      "time" : "2009-02-13T23:31:30Z",
+      "unique_id" : "00000000-0000-0000-0000-000000000001"
+    },
+    "type" : "event"
+  }
+}

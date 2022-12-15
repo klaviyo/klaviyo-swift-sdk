@@ -1,0 +1,27 @@
+{
+  "anonymousId" : "foo",
+  "email" : "foo",
+  "phoneNumber" : "foo",
+  "pushToken" : "foo",
+  "queue" : [
+    {
+      "apiKey" : "foo",
+      "endpoint" : {
+        "storePushToken" : {
+          "_0" : {
+            "properties" : {
+              "$anonymous" : "foo",
+              "$append" : {
+                "$ios_tokens" : "foo"
+              },
+              "$email" : "foo",
+              "$phone_number" : "foo"
+            },
+            "token" : "foo"
+          }
+        }
+      },
+      "uuid" : "00000000-0000-0000-0000-000000000001"
+    }
+  ]
+}
