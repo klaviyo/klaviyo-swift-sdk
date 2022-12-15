@@ -17,11 +17,15 @@ import Foundation
 let CELLULAR_FLUSH_INTERVAL = 30.0
 let WIFI_FLUSH_INTERVAL = 10.0
 
+enum RetryInfo: Equatable {
+    case retry(Int) // Int is current count for first request
+    case retryWithBackoff(Int, Int, Int) // requestCount, totalRetryCount, currentBackoff
+}
+
 enum KlaviyoAction: Equatable {
     case initialize(String)
     case completeInitialization(KlaviyoState)
     case setEmail(String)
-    case setAnonymousId(String)
     case setPhoneNumber(String)
     case setExternalId(String)
     case setPushToken(String)
@@ -32,6 +36,7 @@ enum KlaviyoAction: Equatable {
     case stop
     case start
     case cancelInFlightRequests
+    case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
     case archiveCurrentState
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
@@ -78,18 +83,6 @@ struct KlaviyoReducer: ReducerProtocol {
             // We could move this linebefore initialization...
             // once the sdk initialized it would send the email.
             state.email = email
-            
-            guard let request = try? state.buildProfileRequest() else {
-                return .none
-            }
-            state.queue.append(request)
-            return .none
-        case .setAnonymousId(let anonymousId):
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            state.anonymousId = anonymousId
-            
             guard let request = try? state.buildProfileRequest() else {
                 return .none
             }
@@ -159,12 +152,13 @@ struct KlaviyoReducer: ReducerProtocol {
             return environment.analytics.timer(state.flushInterval)
                     .map { _ in
                         KlaviyoAction.flushQueue
-                    }.eraseToEffect()
+                    }
                     .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
+            state.retryInfo = RetryInfo.retry(0)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -177,10 +171,12 @@ struct KlaviyoReducer: ReducerProtocol {
             guard state.flushing else {
                 return .none
             }
+           
             guard let request = state.requestsInFlight.first else {
                 state.flushing = false
                 return .none
             }
+            let retryInfo = state.retryInfo
             return .run { send in
                 let result = await environment.analytics.klaviyoAPI.send(request)
                 switch result {
@@ -188,36 +184,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     // TODO: may want to inspect response further.
                     await send(.dequeCompletedResults(request))
                 case .failure(let error):
-                    switch error {
-                    case let .httpError(statuscode, data):
-                        runtimeWarn("An http error occured status code: \(statuscode) data: \(data)")
-                        await send(.dequeCompletedResults(request))
-                    case .networkError(_):
-                        runtimeWarn("A network error occurred: \(error)")
-                        await send(KlaviyoAction.cancelInFlightRequests)
-                    case .internalError(let data):
-                        runtimeWarn("An internal error occurred msg: \(data)")
-                        await send(.dequeCompletedResults(request))
-                    case .internalRequestError(let error):
-                        runtimeWarn("An internal request error occurred msg: \(error)")
-                        await send(.dequeCompletedResults(request))
-                    case .unknownError(let error):
-                        runtimeWarn("An unknown request error occured \(error)")
-                        await send(.dequeCompletedResults(request))
-                    case .dataEncodingError:
-                        runtimeWarn("A data encoding error occurred during transmission.")
-                        await send(.dequeCompletedResults(request))
-                    case .invalidData:
-                        runtimeWarn("Invalid data supplied for request. Skipping.")
-                        await send(.dequeCompletedResults(request))
-                    case .rateLimitError:
-                        // not currently thrown may want to get rid of this.
-                        await send(KlaviyoAction.cancelInFlightRequests)
-                    case .missingOrInvalidResponse:
-                        runtimeWarn("Missing or invalid response from api.")
-                        await send(.dequeCompletedResults(request))
-                    }
-                    
+                    await send(handleRequestErorr(request: request, error: error, retryInfo: retryInfo))
                 }
             } catch: { error, send in
                 // TODO: Determine if we can differentiate between cancellation and errors that should be dequeued
@@ -292,6 +259,26 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.queue.append(request)
             return .none
+        case .requestFailed(let request, let retryInfo):
+            var exceededRetries = false
+            switch(retryInfo) {
+            case .retry(let count):
+                exceededRetries = count > MAX_RETRIES
+                state.retryInfo = .retry(exceededRetries ? 0 : count)
+            case let .retryWithBackoff(requestCount, totalCount, backOff):
+                exceededRetries = requestCount > MAX_RETRIES
+                state.retryInfo = .retryWithBackoff(exceededRetries ? 0 : requestCount, totalCount, backOff)
+            }
+            if exceededRetries {
+                state.requestsInFlight.removeAll { inflightRequest in
+                    request.uuid == inflightRequest.uuid
+                }
+            }
+            state.flushing = false
+            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
+            state.requestsInFlight = []
+            return .none
+            
         }
     }
 }
@@ -303,6 +290,9 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
 
 extension KlaviyoState {
     func buildProfileRequest(properties: [String: Any] = [:]) throws -> KlaviyoAPI.KlaviyoRequest {
+        guard let apiKey = apiKey else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
+        }
         guard let anonymousId = anonymousId else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
         }
@@ -317,9 +307,7 @@ extension KlaviyoState {
                 anonymousId: anonymousId)
         )
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
+
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
     

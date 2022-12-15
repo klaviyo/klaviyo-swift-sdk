@@ -1,5 +1,5 @@
 {
-  "anonymousId" : "iOS:197DFEC8-C7CE-497E-9B53-917148F38729",
+  "anonymousId" : "iOS:00000000-0000-0000-0000-000000000002",
   "apiKey" : "foo",
   "email" : "value",
   "externalId" : "value",
@@ -16,7 +16,7 @@
                   "service" : "klaviyo"
                 },
                 "profile" : {
-                  "$anonymous" : "iOS:197DFEC8-C7CE-497E-9B53-917148F38729",
+                  "$anonymous" : "iOS:00000000-0000-0000-0000-000000000002",
                   "$email" : "value",
                   "$id" : "value",
                   "foo" : "bar"
@@ -41,7 +41,7 @@
           "_0" : {
             "data" : {
               "attributes" : {
-                "anonymous_id" : "iOS:197DFEC8-C7CE-497E-9B53-917148F38729",
+                "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
                 "email" : "value",
                 "external_id" : "value",
                 "properties" : {
@@ -50,7 +50,7 @@
               },
               "meta" : {
                 "identifiers" : {
-                  "anonymous_id" : "iOS:197DFEC8-C7CE-497E-9B53-917148F38729",
+                  "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
                   "email" : "value",
                   "external_id" : "value"
                 }

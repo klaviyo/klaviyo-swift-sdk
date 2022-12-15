@@ -25,6 +25,7 @@ struct KlaviyoState: Equatable, Codable {
     var initalizationState = InitializationSate.uninitialized
     var flushing = false
     var flushInterval = 10.0
+    var retryInfo = RetryInfo.retry(0)
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -112,7 +113,7 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
     // Remove old keys and data from userdefaults and files
     // return populated KlaviyoState
     let email = environment.getUserDefaultString("$kl_email")
-    let anonymousId = "iOS:" + UIDevice.current.identifierForVendor!.uuidString
+    let anonymousId = environment.legacyIDFV()
     let externalId = environment.getUserDefaultString("kl_customerID")
     var state = KlaviyoState(apiKey: apiKey,
                              email: email,

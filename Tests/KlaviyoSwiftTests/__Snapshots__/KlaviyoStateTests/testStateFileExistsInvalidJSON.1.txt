@@ -12,3 +12,5 @@
   - pushToken: Optional<String>.none
   - queue: 0 elements
   - requestsInFlight: 0 elements
+  ▿ retryInfo: RetryInfo
+    - retry: 0

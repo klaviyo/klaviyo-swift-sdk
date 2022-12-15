@@ -39,6 +39,7 @@ struct KlaviyoEnvironment {
     var legacyIDFV: () -> String
     var startReachability: () throws -> Void
     var stopReachability: () -> Void
+    var randomInt: () -> Int
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -57,7 +58,8 @@ struct KlaviyoEnvironment {
         },
         stopReachability: {
             reachabilityService?.stopNotifier()
-        }
+        },
+        randomInt: { Int.random(in: 0...10) }
     )
 }
 

@@ -37,7 +37,6 @@ extension AppLifeCycleEvents {
 }
 
 extension KlaviyoEnvironment {
-    static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
     static var test = { KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
@@ -50,7 +49,8 @@ extension KlaviyoEnvironment {
         notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
         legacyIDFV: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  },
         startReachability: {},
-        stopReachability: {}
+        stopReachability: {},
+        randomInt: { 0 }
     )
     }
 }

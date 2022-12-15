@@ -1,6 +1,6 @@
 ▿ KlaviyoState
   ▿ anonymousId: Optional<String>
-    - some: "iOS:197DFEC8-C7CE-497E-9B53-917148F38729"
+    - some: "iOS:00000000-0000-0000-0000-000000000002"
   ▿ apiKey: Optional<String>
     - some: "foo"
   ▿ email: Optional<String>
@@ -14,3 +14,5 @@
   - pushToken: Optional<String>.none
   - queue: 0 elements
   - requestsInFlight: 0 elements
+  ▿ retryInfo: RetryInfo
+    - retry: 0
