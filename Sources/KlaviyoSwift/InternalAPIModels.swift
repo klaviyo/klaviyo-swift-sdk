@@ -265,7 +265,7 @@ struct LegacyEvent: Equatable {
          self.properties = properties ?? NSDictionary()
      }
     func buildEventRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
-        guard let eventProperties = self.properties as? [String: Any] else {
+        guard var eventProperties = self.properties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
         guard var customerProperties = customerProperties as? [String: Any] else {
@@ -278,6 +278,10 @@ struct LegacyEvent: Equatable {
         customerProperties["$phone_number"] = state.phoneNumber
         customerProperties["$id"] =  state.externalId
         customerProperties["$anonymous"] =  state.anonymousId
+        if eventName == "$opened_push" {
+            // Special handling for $opened_push include push token at the time of open
+            eventProperties["push_token"] = state.pushToken
+        }
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
             attributes: .init(metric: .init(name: self.eventName),
                               properties: eventProperties,

@@ -424,4 +424,34 @@ class StateManagementTests: XCTestCase {
         
     }
     
+    func testLegacyEventOpenedPush() async throws {
+        let apiKey = "foo"
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: environment.analytics.uuid().uuidString,
+                                        pushToken: "blob_token",
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        
+        let legacyEvent = LegacyEvent(eventName: "$opened_push", customerProperties: [
+            "$email": "blob@blob.com",
+            "$id": "blobid",
+            "foo": "bar"
+        ], properties: ["baz": "boo"])
+        
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.enqueueLegacyEvent(legacyEvent)) {
+            $0.email = "blob@blob.com"
+            $0.externalId = "blobid"
+            guard let request = try legacyEvent.buildEventRequest(with: apiKey, from: $0) else {
+                XCTFail()
+                return
+            }
+            $0.queue = [request]
+        }
+        
+    }
+    
 }

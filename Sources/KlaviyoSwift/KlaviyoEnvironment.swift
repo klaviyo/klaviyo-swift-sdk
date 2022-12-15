@@ -25,6 +25,8 @@ let decoder = {
     return decoder
 }()
 
+private let reachabilityService = Reachability(hostname: "a.klaviyo.com")
+
 struct KlaviyoEnvironment {
     var archiverClient: ArchiverClient
     var fileClient: FileClient
@@ -35,6 +37,8 @@ struct KlaviyoEnvironment {
     var appLifeCycle: AppLifeCycleEvents
     var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
     var legacyIDFV: () -> String
+    var startReachability: () throws -> Void
+    var stopReachability: () -> Void
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -47,7 +51,13 @@ struct KlaviyoEnvironment {
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
-        legacyIDFV: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" }
+        legacyIDFV: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
+        startReachability: {
+            try reachabilityService?.startNotifier()
+        },
+        stopReachability: {
+            reachabilityService?.stopNotifier()
+        }
     )
 }
 

@@ -48,7 +48,9 @@ extension KlaviyoEnvironment {
         getUserDefaultString: { _ in return "value" },
         appLifeCycle: AppLifeCycleEvents.test,
         notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
-        legacyIDFV: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  }
+        legacyIDFV: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  },
+        startReachability: {},
+        stopReachability: {}
     )
     }
 }

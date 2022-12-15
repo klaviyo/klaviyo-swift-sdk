@@ -219,9 +219,10 @@ struct KlaviyoReducer: ReducerProtocol {
                     }
                     
                 }
-            } catch: { _, _ in
-                environment.logger.error("request error")
-                // TODO: maybe better handling here...
+            } catch: { error, send in
+                // TODO: Determine if we can differentiate between cancellation and errors that should be dequeued
+                runtimeWarn("Unknown error thrown during request processing \(error)")
+                await send(.cancelInFlightRequests)
             }.cancellable(id: RequestId.self)
         case .cancelInFlightRequests:
             state.flushing = false
