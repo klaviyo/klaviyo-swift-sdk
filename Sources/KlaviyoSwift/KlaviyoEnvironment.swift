@@ -7,6 +7,8 @@
 
 import Foundation
 import AnyCodable
+import Combine
+import UIKit
 
 var environment = KlaviyoEnvironment.production
 
@@ -30,13 +32,22 @@ struct KlaviyoEnvironment {
     var logger: LoggerClient
     var analytics: AnalyticsEnvironment
     var getUserDefaultString: (String) -> String?
-    static let production = KlaviyoEnvironment(
+    var appLifeCycle: AppLifeCycleEvents
+    var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
+    var legacyIDFV: () -> String
+    static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         data: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
         analytics: AnalyticsEnvironment.production,
-        getUserDefaultString: { key in UserDefaults.standard.string(forKey: key) }
+        getUserDefaultString: { key in UserDefaults.standard.string(forKey: key) },
+        appLifeCycle: AppLifeCycleEvents.production,
+        notificationCenterPublisher: { name in
+            NotificationCenter.default.publisher(for: name)
+                .eraseToAnyPublisher()
+        },
+        legacyIDFV: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" }
     )
 }
 

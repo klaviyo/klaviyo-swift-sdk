@@ -72,6 +72,7 @@ final class KlaviyoStateTests: XCTestCase {
     }
     
     func testLoadNewKlaviyoState() throws {
+        environment.getUserDefaultString = { _ in nil }
         environment.fileClient.fileExists = { _ in false }
         environment.archiverClient.unarchivedMutableArray = { _ in [] }
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
@@ -218,5 +219,14 @@ final class KlaviyoStateTests: XCTestCase {
         let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(state)
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.analytics.decoder.decode(encodedState)
         XCTAssertEqual(decodedState, state)
+    }
+    
+    func testSaveKlaviyoStateWithMissingApiKeyLogsError() {
+        var savedMsg: String? = nil
+        environment.logger.error = { msg in savedMsg = msg }
+        let state = KlaviyoState(queue: [])
+        saveKlaviyoState(state: state)
+        
+        XCTAssertEqual(savedMsg, "Attempt to save state without an api key.")
     }
 }

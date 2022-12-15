@@ -7,7 +7,7 @@
   - externalId: Optional<String>.none
   - flushInterval: 10.0
   - flushing: false
-  - initialized: false
+  - initalizationState: InitializationSate.uninitialized
   - phoneNumber: Optional<String>.none
   - pushToken: Optional<String>.none
   - queue: 0 elements

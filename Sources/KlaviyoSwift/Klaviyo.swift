@@ -106,8 +106,6 @@ public class Klaviyo: NSObject  {
     private override init() {
         reachability = Reachability(hostname: "a.klaviyo.com")!
         super.init()
-        // TODO: determine best place to call this or move into store.
-        addNotificationObserver()
     }
     
     /**
@@ -286,44 +284,6 @@ public class Klaviyo: NSObject  {
         }
     }
     
-    /**
-     addNotificationObserver: sets up notification observers for various application state changes
-     */
-    func addNotificationObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(notification:)), name: NSNotification.Name("UIApplicationDidBecomeActiveNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(notification:)), name: NSNotification.Name("UIApplicationDidEnterBackgroundNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationWillTerminate(notification:)), name: NSNotification.Name("UIApplicationWillTerminateNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(note:)), name: NSNotification.Name("ReachabilityChangedNotification") , object: nil)
-    }
-    
-    /**
-     isOperatingMinimumiOSVersion: internal alert function for development purposes. Asserts an error if the application is running an OS system below 8.0.0.
-     
-     - Returns: A boolean value where true means the os is compatible and the SDK can be used
-     */
-    private func isOperatingMinimumiOSVersion() -> Bool {
-        return ProcessInfo().isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 8,
-                                                                             minorVersion: 0,
-                                                                             patchVersion: 0))
-    }
-    
-    /**
-     removeNotificationObserver() removes the observers that are set up upon instantiation.
-     */
-    func removeNotificationObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidBecomeActiveNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidEnterBackgroundNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationWillTerminateNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "ReachabilityChangedNotification")
-    }
-    
-    func removeNotificationsObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.removeObserver(self)
-    }
-    
     @objc func applicationDidBecomeActiveNotification(notification: NSNotification) {
         // clear all notification badges anytime the user opens the app
         UIApplication.shared.applicationIconBadgeNumber = 0
@@ -333,17 +293,6 @@ public class Klaviyo: NSObject  {
         let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
         trackPersonWithInfo(personDictionary: dict)
     }
-    
-    @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){
-        reachability.stopNotifier()
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .stop)
-    }
-    
-    @objc func applicationWillTerminate(notification : NSNotification) {
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .stop)
-    }    
     
     //: MARK: Network Control
     

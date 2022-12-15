@@ -1,6 +1,6 @@
 ▿ KlaviyoState
   ▿ anonymousId: Optional<String>
-    - some: "00000000-0000-0000-0000-000000000001"
+    - some: "iOS:197DFEC8-C7CE-497E-9B53-917148F38729"
   ▿ apiKey: Optional<String>
     - some: "foo"
   ▿ email: Optional<String>
@@ -9,7 +9,7 @@
     - some: "value"
   - flushInterval: 10.0
   - flushing: false
-  - initialized: false
+  - initalizationState: InitializationSate.uninitialized
   - phoneNumber: Optional<String>.none
   - pushToken: Optional<String>.none
   - queue: 0 elements

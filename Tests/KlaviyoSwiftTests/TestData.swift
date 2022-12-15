@@ -97,7 +97,7 @@ extension KlaviyoState {
                                    pushToken: "blobToken",
                                    queue: [],
                                    requestsInFlight: [],
-                                   initialized: true,
+                                   initalizationState: .initialized,
                                    flushing: true
     )
 }
