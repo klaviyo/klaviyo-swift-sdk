@@ -55,11 +55,6 @@ public class Klaviyo: NSObject  {
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #endif
     
-    /*
-    Current API WorkAround: Update this once the $anonymous in place
-    */
-    let CustomerPropertiesIDDictKey = "$anonymous"
-    
     let CustomerPropertiesAppendDictKey = "$append"
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
@@ -250,9 +245,6 @@ public class Klaviyo: NSObject  {
         
         let returnDictionary = propertiesDictionary as! NSMutableDictionary
         
-        // Set the $anonymous property in case there i sno email address
-        returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
-        
         // Set the user's timezone: Note if the customer exists this will override their current profile
         // Alternatively, could create a customer mobile timezone property instead using a different key
         let timezone = NSTimeZone.local.identifier
@@ -290,7 +282,7 @@ public class Klaviyo: NSObject  {
         try? reachability.startNotifier()
         
         // identify the user
-        let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
+        let dict: NSMutableDictionary = [:]
         trackPersonWithInfo(personDictionary: dict)
     }
     

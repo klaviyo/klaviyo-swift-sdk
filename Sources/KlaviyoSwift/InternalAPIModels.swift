@@ -231,7 +231,6 @@ struct LegacyIdentifiers {
     let email: String?
     let phoneNumber: String?
     let externalId: String?
-    let anonymousId: String?
     
     static func extractFrom(from customerProperties: NSDictionary) -> LegacyIdentifiers? {
         guard let customerProperties = customerProperties as? [String: Any] else {
@@ -240,12 +239,11 @@ struct LegacyIdentifiers {
         let email = customerProperties["$email"] as? String
         let phoneNumber = customerProperties["$phone_number"] as? String
         let externalId = customerProperties["$id"] as? String
-        let anonymousId = customerProperties["$anonymous"] as? String
         
         return Self.init(email: email,
                          phoneNumber: phoneNumber,
-                         externalId: externalId,
-                         anonymousId: anonymousId)
+                         externalId: externalId
+        )
     }
 }
 

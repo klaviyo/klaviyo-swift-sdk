@@ -228,4 +228,35 @@ class StateManagementEdgeCaseTests: XCTestCase {
         
         _ = await store.send(.start)
     }
+    
+    // MARK: - Network Status Changed
+    
+    func testNetworkStatusChangedUninitialized() async {
+        let apiKey = "fake-key"
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: environment.analytics.uuid().uuidString,
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .uninitialized,
+                                        flushing: false)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN))
+    }
+    
+    // MARK: - Missing api key for token request
+    
+    func testTokenRequestMissingApiKey() async {
+        let initialState = KlaviyoState(
+                                        anonymousId: environment.analytics.uuid().uuidString,
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: false)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.setPushToken("blobtoken")) {
+            $0.pushToken = "blobtoken"
+        }
+    }
 }

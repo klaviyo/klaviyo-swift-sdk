@@ -50,6 +50,12 @@ struct KlaviyoState: Equatable, Codable {
         }
         queue.append(request)
     }
+    
+    mutating func updateStateWithLegacyIdentifiers(identifiers: LegacyIdentifiers) {
+        email = identifiers.email ?? email
+        phoneNumber = identifiers.phoneNumber ?? phoneNumber
+        externalId = identifiers.externalId ?? externalId
+    }
 }
 
 // MARK: Klaviyo state persistence

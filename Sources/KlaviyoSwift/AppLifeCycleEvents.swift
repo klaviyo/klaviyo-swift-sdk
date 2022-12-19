@@ -9,7 +9,9 @@ import Foundation
 import Combine
 import UIKit
 
-
+enum LifeCycleErrors: Error {
+    case invalidReachaibilityStatus
+}
 
 struct AppLifeCycleEvents {
     var lifeCycleEvents: () -> any Publisher<KlaviyoAction, Never> = {
@@ -31,26 +33,33 @@ struct AppLifeCycleEvents {
             .map { _ in KlaviyoAction.start }
         let backgrounded = environment
             .notificationCenterPublisher(UIApplication.didEnterBackgroundNotification)
-            .handleEvents(receiveSubscription: { _ in
+            .handleEvents(receiveOutput: { _ in
                 environment.stopReachability()
             })
             .map { _ in KlaviyoAction.stop }
+        // The below is a bit convoluted since network status can be nil.
         let reachability = environment
-            .notificationCenterPublisher(Notification.Name("ReachabilityChangedNotification"))
-            .flatMap { notification in
-                let passthru = PassthroughSubject<KlaviyoAction, Never>()
-                guard let reachability = notification.object as? Reachability else {
-                    passthru.send(completion: .finished)
-                    return passthru
+            .notificationCenterPublisher(ReachabilityChangedNotification)
+            .map { notification in
+                guard let status = environment.reachabilityStatus() else {
+                    return nil
                 }
-                passthru.send(KlaviyoAction.networkConnectivityChanged(reachability.currentReachabilityStatus))
-                passthru.send(completion: .finished)
-                return passthru
-
+                return status
             }
+            .filter { status in status != nil }
+            .map { KlaviyoAction.networkConnectivityChanged($0!) }
+            .eraseToAnyPublisher()
+            
         return terminated
             .merge(with: reachability)
             .merge(with: foregrounded, backgrounded)
+            .handleEvents(receiveSubscription: { _ in
+                do {
+                    try environment.startReachability()
+                } catch {
+                    runtimeWarn("failure to start reachability notifier")
+                }
+            })
             .receive(on: RunLoop.main)
     }
     

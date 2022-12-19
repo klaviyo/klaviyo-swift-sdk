@@ -185,7 +185,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(handleRequestErorr(request: request, error: error, retryInfo: retryInfo))
                 }
             } catch: { error, send in
-                // TODO: Determine if we can differentiate between cancellation and errors that should be dequeued
+                // For now assuming this is cancellation since nothing else can throw AFAICT
                 runtimeWarn("Unknown error thrown during request processing \(error)")
                 await send(.cancelInFlightRequests)
             }.cancellable(id: RequestId.self)
@@ -224,7 +224,6 @@ struct KlaviyoReducer: ReducerProtocol {
             }
  
         case .enqueueLegacyEvent(let legacyEvent):
-            // TODO: Needs a few tests.
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 return .none
             }
@@ -232,10 +231,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard let identifiers = legacyEvent.identifiers else {
                 return .none
             }
-            state.email = identifiers.email ?? state.email
-            state.anonymousId = identifiers.anonymousId ?? state.anonymousId
-            state.phoneNumber = identifiers.phoneNumber ?? state.phoneNumber
-            state.externalId = identifiers.externalId ?? state.externalId
+            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
             guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
                 return .none
             }
@@ -248,10 +244,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard let identifiers = legacyProfile.identifiers else {
                 return .none
             }
-            state.email = identifiers.email ?? state.email
-            state.anonymousId = identifiers.anonymousId ?? state.anonymousId
-            state.phoneNumber = identifiers.phoneNumber ?? state.phoneNumber
-            state.externalId = identifiers.externalId ?? state.externalId
+            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
             guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
                 return .none
             }

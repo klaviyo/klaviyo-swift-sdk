@@ -50,6 +50,7 @@ extension KlaviyoEnvironment {
         legacyIDFV: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  },
         startReachability: {},
         stopReachability: {},
+        reachabilityStatus: { nil },
         randomInt: { 0 }
     )
     }

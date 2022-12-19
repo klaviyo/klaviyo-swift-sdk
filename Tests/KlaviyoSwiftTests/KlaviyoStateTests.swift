@@ -229,4 +229,16 @@ final class KlaviyoStateTests: XCTestCase {
         
         XCTAssertEqual(savedMsg, "Attempt to save state without an api key.")
     }
+    
+    // MARK: build token request edge case
+    
+    func testBuildTokenRequestFailsWithoutPushToken() {
+        // Unlikely to happen in prodution
+        var initalState = INITIALIZED_TEST_STATE()
+        initalState.pushToken = nil
+        
+        if let _ = try? initalState.buildTokenRequest() {
+            XCTFail("Should not be here!")
+        }
+    }
 }
