@@ -145,7 +145,7 @@ public class Klaviyo: NSObject  {
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     public func handlePush(userInfo: NSDictionary) {
-        if let _ = userInfo["_k"] as? NSDictionary {
+        if let body = userInfo["body"] as? NSDictionary, let _ = body["_k"] {
             trackEvent(eventName: KLPersonOpenedPush, properties: userInfo)
         }
     }
