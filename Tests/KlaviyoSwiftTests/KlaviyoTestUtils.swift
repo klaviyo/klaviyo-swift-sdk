@@ -79,7 +79,7 @@ extension AnalyticsEnvironment {
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test(),
         store: Store.test,
-        timer: { interval in Just(Date()).eraseToEffect() }
+        timer: { interval in Just(Date()).eraseToAnyPublisher() }
     )
 }
 

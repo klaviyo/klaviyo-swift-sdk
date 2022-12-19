@@ -36,6 +36,20 @@ struct KlaviyoState: Equatable, Codable {
         case pushToken
         case queue
     }
+    
+    mutating func enqueueRequest(request: KlaviyoAPI.KlaviyoRequest) {
+        guard queue.count + 1 < MAX_QUEUE_SIZE else {
+            return
+        }
+        queue.append(request)
+    }
+    
+    mutating func enqueueProfileRequest() {
+        guard let request = try? self.buildProfileRequest() else {
+            return
+        }
+        queue.append(request)
+    }
 }
 
 // MARK: Klaviyo state persistence

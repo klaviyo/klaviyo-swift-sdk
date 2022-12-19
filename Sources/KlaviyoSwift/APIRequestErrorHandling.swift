@@ -1,5 +1,5 @@
 //
-//  RequestErrorHandling.swift
+//  APIRequestErrorHandling.swift
 //  
 //
 //  Created by Noah Durell on 12/15/22.
@@ -21,9 +21,18 @@ func handleRequestErorr(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.Kl
     case let .httpError(statuscode, data):
         runtimeWarn("An http error occured status code: \(statuscode) data: \(data)")
         return .dequeCompletedResults(request)
-    case .networkError(_):
+    case .networkError(let error):
         runtimeWarn("A network error occurred: \(error)")
-        return KlaviyoAction.cancelInFlightRequests
+        switch(retryInfo) {
+        case .retry(let count):
+            let requestRetryCount = count + 1
+            return KlaviyoAction.requestFailed(request, .retry(requestRetryCount))
+        case let .retryWithBackoff(requestCount, totalCount, _):
+            let requestRetryCount = requestCount + 1
+            let totalRetryCount = totalCount + 1
+            let nextBackoff = getDelaySeconds(for: totalRetryCount)
+            return .requestFailed(request, .retryWithBackoff(requestRetryCount, totalRetryCount, nextBackoff))
+        }
     case .internalError(let data):
         runtimeWarn("An internal error occurred msg: \(data)")
         return .dequeCompletedResults(request)

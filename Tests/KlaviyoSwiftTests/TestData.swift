@@ -8,10 +8,22 @@
 import Foundation
 @testable import KlaviyoSwift
 
+let TEST_API_KEY = "fake-key"
+
 extension Klaviyo.Profile {
     static let test = Self.init(
         attributes: .test)
 }
+
+let INITIALIZED_TEST_STATE = { KlaviyoState(
+    apiKey: TEST_API_KEY,
+    anonymousId: environment.analytics.uuid().uuidString,
+    pushToken: "blob_token",
+    queue: [],
+    requestsInFlight: [],
+    initalizationState: .initialized,
+    flushing: true
+) }
 
 extension Klaviyo.Profile.Attributes {
     static let SAMPLE_PROPERTIES = [

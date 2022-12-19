@@ -16,6 +16,7 @@ import Foundation
 // Request flush interval in seconds.
 let CELLULAR_FLUSH_INTERVAL = 30.0
 let WIFI_FLUSH_INTERVAL = 10.0
+let MAX_QUEUE_SIZE = 200
 
 enum RetryInfo: Equatable {
     case retry(Int) // Int is current count for first request
@@ -83,32 +84,21 @@ struct KlaviyoReducer: ReducerProtocol {
             // We could move this linebefore initialization...
             // once the sdk initialized it would send the email.
             state.email = email
-            guard let request = try? state.buildProfileRequest() else {
-                return .none
-            }
-            state.queue.append(request)
+            state.enqueueProfileRequest()
             return .none
         case .setPhoneNumber(let phoneNumber):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.phoneNumber = phoneNumber
-            
-            guard let request = try? state.buildProfileRequest() else {
-                return .none
-            }
-            state.queue.append(request)
+            state.enqueueProfileRequest()
             return .none
         case .setExternalId(let externalId):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.externalId = externalId
-            
-            guard let request = try? state.buildProfileRequest() else {
-                return .none
-            }
-            state.queue.append(request)
+            state.enqueueProfileRequest()
             return .none
         case .setPushToken(let pushToken):
             guard case .initialized = state.initalizationState else {
@@ -126,6 +116,13 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if state.flushing {
                 return .none
+            }
+            if case let .retryWithBackoff(requestCount, totalCount, backOff)   = state.retryInfo {
+                let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                state.retryInfo = .retryWithBackoff(requestCount, totalCount, newBackOff)
+                if newBackOff > 0 {
+                    return .none
+                }
             }
             if state.queue.isEmpty {
                 return .none
@@ -153,6 +150,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     .map { _ in
                         KlaviyoAction.flushQueue
                     }
+                    .eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
@@ -241,7 +239,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
                 return .none
             }
-            state.queue.append(request)
+            state.enqueueRequest(request: request)
             return .none
         case .enqueueLegacyProfile(let legacyProfile):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
@@ -257,7 +255,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
                 return .none
             }
-            state.queue.append(request)
+            state.enqueueRequest(request: request)
             return .none
         case .requestFailed(let request, let retryInfo):
             var exceededRetries = false
