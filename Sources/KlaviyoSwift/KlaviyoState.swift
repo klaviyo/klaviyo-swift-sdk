@@ -133,7 +133,7 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
     // Remove old keys and data from userdefaults and files
     // return populated KlaviyoState
     let email = environment.getUserDefaultString("$kl_email")
-    let anonymousId = environment.legacyIDFV()
+    let anonymousId = environment.legacyIdentifier()
     let externalId = environment.getUserDefaultString("kl_customerID")
     var state = KlaviyoState(apiKey: apiKey,
                              email: email,

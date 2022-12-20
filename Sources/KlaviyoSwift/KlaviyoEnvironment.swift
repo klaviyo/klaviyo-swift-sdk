@@ -36,7 +36,7 @@ struct KlaviyoEnvironment {
     var getUserDefaultString: (String) -> String?
     var appLifeCycle: AppLifeCycleEvents
     var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
-    var legacyIDFV: () -> String
+    var legacyIdentifier: () -> String
     var startReachability: () throws -> Void
     var stopReachability: () -> Void
     var reachabilityStatus: () -> Reachability.NetworkStatus?
@@ -53,7 +53,7 @@ struct KlaviyoEnvironment {
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
-        legacyIDFV: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
+        legacyIdentifier: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
         startReachability: {
             try reachabilityService?.startNotifier()
         },
