@@ -16,6 +16,8 @@ class StateManagementTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
     }
     
+    // MARK: - Initialization
+    
     func testInitialize() async throws {
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -49,14 +51,10 @@ class StateManagementTests: XCTestCase {
         }
     }
     
+    // MARK: - Set Email
+    
     func testSetEmail() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.setEmail("test@blob.com")) {
@@ -66,14 +64,10 @@ class StateManagementTests: XCTestCase {
         }
     }
     
+    // MARK: Set Phone Number
+    
     func testSetPhoneNumber() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.setPhoneNumber("+1800555BLOB")) {
@@ -83,14 +77,10 @@ class StateManagementTests: XCTestCase {
         }
     }
     
+    // MARK: - Set External Id.
+    
     func testSetExternalId() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.setExternalId("external-blob")) {
@@ -101,14 +91,10 @@ class StateManagementTests: XCTestCase {
     
     }
     
+    // MARK: - Set Push Token
+    
     func testSetPushToken() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.setPushToken("blobtoken")) {
@@ -117,6 +103,8 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request]
         }
     }
+    
+    // MARK: - flush
     
     func testFlushUninitializedQueueDoesNotFlush() async throws {
         let apiKey = "fake-key"
@@ -151,22 +139,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.flushQueue)
     }
     
-    func testSendRequestWithNoRequestsInFlight() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        // Shouldn't really happen but getting more coverage...
-        _ = await store.send(.sendRequest) {
-            $0.flushing = false
-        }
-    }
-    
     func testFlushQueueWithMultipleRequests() async throws {
-        let apiKey = "fake-key"
         var count = 0
         // request uuids need to be unique :)
         environment.analytics.uuid = {
@@ -180,13 +153,8 @@ class StateManagementTests: XCTestCase {
                 return UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
             }
         }
-        var initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        pushToken: "blob_token",
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
         let request = try initialState.buildProfileRequest()
         let request2 = try initialState.buildTokenRequest()
         initialState.queue = [request, request2]
@@ -212,25 +180,69 @@ class StateManagementTests: XCTestCase {
         }
     }
     
+    func testFlushQueueDuringExponentialBackoff() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
+        initialState.flushing = false
+        let request = try initialState.buildProfileRequest()
+        let request2 = try initialState.buildTokenRequest()
+        initialState.queue = [request, request2]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.flushQueue) {
+            $0.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200-Int(initialState.flushInterval))
+        }
+    }
+    
+    func testFlushQueueExponentialBackoffGoesToSize() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval)-2)
+        initialState.flushing = false
+        let request = try initialState.buildProfileRequest()
+        let request2 = try initialState.buildTokenRequest()
+        initialState.queue = [request, request2]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.flushQueue) {
+            $0.retryInfo = .retry(23)
+            $0.flushing = true
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+        }
+        await store.receive(.sendRequest)
+        
+        // didn't fake uuid since we are not testing this.
+        await store.receive(.dequeCompletedResults(request)) {
+            $0.flushing = false
+            $0.retryInfo = .retry(0)
+            $0.requestsInFlight = []
+            $0.queue = []
+        }
+    }
+    
     func testSendRequestWhenNotFlushing() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.sendRequest)
     }
     
+    // MARK: - send request
+    
+    func testSendRequestWithNoRequestsInFlight() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        // Shouldn't really happen but getting more coverage...
+        _ = await store.send(.sendRequest) {
+            $0.flushing = false
+        }
+    }
+    
+    // MARK: - Network Connectivity Changed
+    
     func testNetworkConnectivityChanges() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+        let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
@@ -249,17 +261,12 @@ class StateManagementTests: XCTestCase {
         await store.receive(.flushQueue)
     }
     
+    // MARK: - Stop
+    
     func testStopWithRequestsInFlight() async throws {
         // This test is a little convoluted but essentially want to make when we stop
         // that we save our state.
-        let apiKey = "fake-key"
-        var initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.analytics.uuid().uuidString,
-                                        pushToken: "blob_token",
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+        var initialState = INITIALIZED_TEST_STATE()
         let request = try initialState.buildProfileRequest()
         let request2 = try initialState.buildTokenRequest()
         initialState.requestsInFlight = [request, request2]

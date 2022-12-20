@@ -119,9 +119,11 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if case let .retryWithBackoff(requestCount, totalCount, backOff)   = state.retryInfo {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
-                state.retryInfo = .retryWithBackoff(requestCount: requestCount, totalRetryCount: totalCount, currentBackoff: newBackOff)
                 if newBackOff > 0 {
+                    state.retryInfo = .retryWithBackoff(requestCount: requestCount, totalRetryCount: totalCount, currentBackoff: newBackOff)
                     return .none
+                } else {
+                    state.retryInfo = .retry(requestCount)
                 }
             }
             if state.queue.isEmpty {
