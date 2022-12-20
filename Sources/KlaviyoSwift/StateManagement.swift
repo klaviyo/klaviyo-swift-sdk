@@ -45,7 +45,6 @@ enum KlaviyoAction: Equatable {
 
 struct RequestId {}
 struct FlushTimer {}
-struct AppLifeCycle {}
 
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
