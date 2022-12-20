@@ -25,6 +25,7 @@ let decoder = {
     return decoder
 }()
 
+// TODO: use hostname based on api url instead of hard coding
 private let reachabilityService = Reachability(hostname: "a.klaviyo.com")
 
 struct KlaviyoEnvironment {
