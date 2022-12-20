@@ -40,14 +40,12 @@ struct AppLifeCycleEvents {
         // The below is a bit convoluted since network status can be nil.
         let reachability = environment
             .notificationCenterPublisher(ReachabilityChangedNotification)
-            .map { notification in
+            .compactMap { notification -> KlaviyoAction? in
                 guard let status = environment.reachabilityStatus() else {
                     return nil
                 }
-                return status
+                return KlaviyoAction.networkConnectivityChanged(status)
             }
-            .filter { status in status != nil }
-            .map { KlaviyoAction.networkConnectivityChanged($0!) }
             .eraseToAnyPublisher()
             
         return terminated

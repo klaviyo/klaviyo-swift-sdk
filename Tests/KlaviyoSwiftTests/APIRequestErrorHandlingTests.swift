@@ -56,7 +56,7 @@ var initialState = INITIALIZED_TEST_STATE()
     
     func testSendRequestFailureWithBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(1, 1, 1)
+        initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
         let request = try initialState.buildProfileRequest()
         let request2 = try initialState.buildTokenRequest()
         initialState.requestsInFlight = [request, request2]
@@ -66,11 +66,11 @@ var initialState = INITIALIZED_TEST_STATE()
         
         _  = await store.send(.sendRequest)
         
-        await store.receive(.requestFailed(request, .retryWithBackoff(2, 2, 4))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4))) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(2, 2, 4)
+            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         }
     }
     
@@ -206,17 +206,17 @@ var initialState = INITIALIZED_TEST_STATE()
         
         _  = await store.send(.sendRequest)
         
-        await store.receive(.requestFailed(request, .retryWithBackoff(1, 1, 0))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0))) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(1, 1, 0)
+            $0.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0)
         }
     }
     
     func testRateLimitErrorWithExistingBackoffRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(2, 2, 4)
+        initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = try initialState.buildProfileRequest()
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -225,17 +225,17 @@ var initialState = INITIALIZED_TEST_STATE()
         
         _  = await store.send(.sendRequest)
         
-        await store.receive(.requestFailed(request, .retryWithBackoff(3, 3, 8))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8))) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(3, 3, 8)
+            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8)
         }
     }
     // MARK: - Missing or invalid response
     func testMissingOrInvalidResponse() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(2, 2, 4)
+        initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = try initialState.buildProfileRequest()
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())

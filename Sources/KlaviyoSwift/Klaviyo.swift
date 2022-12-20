@@ -83,23 +83,9 @@ public class Klaviyo: NSObject  {
     public let KLPersonZipDictKey = "$zip" // postal code where they live
     
     /*
-    Shared Instance Variables
-    */
-    let reachability : Reachability
-    
-    /*
-    Computed property for iOSIDString
-    :returns: A unique string that represents the device using the application
-    */
-    var iOSIDString : String {
-        return "iOS:" + UIDevice.current.identifierForVendor!.uuidString
-    }
-    
-    /*
     Singleton Initializer. Must be kept private as only one instance can be created.
     */
     private override init() {
-        reachability = Reachability(hostname: "a.klaviyo.com")!
         super.init()
     }
     
@@ -274,23 +260,6 @@ public class Klaviyo: NSObject  {
                 (properties[k]! is NSURL)
                 , "Property values must be of NSString, NSNumber, NSNull, NSDictionary, NSDate, or NSURL. Got: \(String(describing: properties[k as! NSCopying]))")
         }
-    }
-    
-    @objc func applicationDidBecomeActiveNotification(notification: NSNotification) {
-        // clear all notification badges anytime the user opens the app
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        try? reachability.startNotifier()
-        
-        // identify the user
-        let dict: NSMutableDictionary = [:]
-        trackPersonWithInfo(personDictionary: dict)
-    }
-    
-    //: MARK: Network Control
-    
-    @objc internal func hostReachabilityChanged(note : NSNotification) {
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .networkConnectivityChanged(reachability.currentReachabilityStatus))
     }
     
     private func dispatchOnMainThread(action: KlaviyoAction) {

@@ -16,13 +16,13 @@ private func getDelaySeconds(for count: Int) -> Int {
     return min(delay + jitter, MAX_BACKOFF)
 }
 
-func handleRequestErorr(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.KlaviyoAPIError, retryInfo: RetryInfo) -> KlaviyoAction {
+func handleRequestError(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.KlaviyoAPIError, retryInfo: RetryInfo) -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):
-        runtimeWarn("An http error occured status code: \(statuscode) data: \(data)")
+        environment.logger.error("An http error occured status code: \(statuscode) data: \(data)")
         return .dequeCompletedResults(request)
     case .networkError(let error):
-        runtimeWarn("A network error occurred: \(error)")
+        environment.logger.error("A network error occurred: \(error)")
         switch(retryInfo) {
         case .retry(let count):
             let requestRetryCount = count + 1
@@ -31,7 +31,7 @@ func handleRequestErorr(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.Kl
             let requestRetryCount = requestCount + 1
             let totalRetryCount = totalCount + 1
             let nextBackoff = getDelaySeconds(for: totalRetryCount)
-            return .requestFailed(request, .retryWithBackoff(requestRetryCount, totalRetryCount, nextBackoff))
+            return .requestFailed(request, .retryWithBackoff(requestCount: requestRetryCount, totalRetryCount: totalRetryCount, currentBackoff: nextBackoff))
         }
     case .internalError(let data):
         runtimeWarn("An internal error occurred msg: \(data)")
@@ -61,7 +61,7 @@ func handleRequestErorr(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.Kl
             totalRetryCount = totalCount + 1
             nextBackoff = getDelaySeconds(for: totalRetryCount)
         }
-        return .requestFailed(request, .retryWithBackoff(requestRetryCount, totalRetryCount, nextBackoff))
+        return .requestFailed(request, .retryWithBackoff(requestCount: requestRetryCount, totalRetryCount: totalRetryCount, currentBackoff: nextBackoff))
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
         return .dequeCompletedResults(request)

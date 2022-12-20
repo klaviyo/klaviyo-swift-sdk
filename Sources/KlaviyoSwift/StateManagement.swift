@@ -20,7 +20,7 @@ let MAX_QUEUE_SIZE = 200
 
 enum RetryInfo: Equatable {
     case retry(Int) // Int is current count for first request
-    case retryWithBackoff(Int, Int, Int) // requestCount, totalRetryCount, currentBackoff
+    case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
 }
 
 enum KlaviyoAction: Equatable {
@@ -119,7 +119,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if case let .retryWithBackoff(requestCount, totalCount, backOff)   = state.retryInfo {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
-                state.retryInfo = .retryWithBackoff(requestCount, totalCount, newBackOff)
+                state.retryInfo = .retryWithBackoff(requestCount: requestCount, totalRetryCount: totalCount, currentBackoff: newBackOff)
                 if newBackOff > 0 {
                     return .none
                 }
@@ -182,7 +182,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     // TODO: may want to inspect response further.
                     await send(.dequeCompletedResults(request))
                 case .failure(let error):
-                    await send(handleRequestErorr(request: request, error: error, retryInfo: retryInfo))
+                    await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
             } catch: { error, send in
                 // For now assuming this is cancellation since nothing else can throw AFAICT
@@ -258,7 +258,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.retryInfo = .retry(exceededRetries ? 0 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
                 exceededRetries = requestCount > MAX_RETRIES
-                state.retryInfo = .retryWithBackoff(exceededRetries ? 0 : requestCount, totalCount, backOff)
+                state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
             }
             if exceededRetries {
                 state.requestsInFlight.removeAll { inflightRequest in
