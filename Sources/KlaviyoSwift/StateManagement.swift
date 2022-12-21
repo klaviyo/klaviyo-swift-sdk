@@ -16,16 +16,20 @@ import Foundation
 // Request flush interval in seconds.
 let CELLULAR_FLUSH_INTERVAL = 30.0
 let WIFI_FLUSH_INTERVAL = 10.0
+let MAX_QUEUE_SIZE = 200
+
+enum RetryInfo: Equatable {
+    case retry(Int) // Int is current count for first request
+    case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
+}
 
 enum KlaviyoAction: Equatable {
     case initialize(String)
     case completeInitialization(KlaviyoState)
     case setEmail(String)
-    case setAnonymousId(String)
     case setPhoneNumber(String)
     case setExternalId(String)
     case setPushToken(String)
-    case enqueueRequest(KlaviyoAPI.KlaviyoRequest)
     case dequeCompletedResults(KlaviyoAPI.KlaviyoRequest)
     case networkConnectivityChanged(Reachability.NetworkStatus)
     case flushQueue
@@ -33,6 +37,7 @@ enum KlaviyoAction: Equatable {
     case stop
     case start
     case cancelInFlightRequests
+    case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
     case archiveCurrentState
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
@@ -47,71 +52,78 @@ struct KlaviyoReducer: ReducerProtocol {
     func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> {
         switch action {
         case let .initialize(apiKey):
-            if state.initialized {
+            guard case .uninitialized = state.initalizationState else {
                 return .none
             }
+            state.initalizationState = .initializing
             state.apiKey = apiKey
             return .run { send in
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
         case var .completeInitialization(initialState):
-            if state.initialized {
+            guard case .initializing = state.initalizationState else {
                 return .none
             }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
-            initialState.initialized = true
+
             state = initialState
-            return .run { [state] send in
-                await send(.enqueueRequest(try state.buildProfileRequest()))
-                await send(.start)
+            state.initalizationState = .initialized
+            if let request = try? state.buildProfileRequest() {
+                state.queue.append(request)
             }
+            return .task {
+                .start
+            }.merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
         case .setEmail(let email):
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
+            // We could move this linebefore initialization...
+            // once the sdk initialized it would send the email.
             state.email = email
-            return state.buildProfileTask()
-        case .setAnonymousId(let anonymousId):
-            guard state.initialized else {
-                return .none
-            }
-            state.anonymousId = anonymousId
-            return state.buildProfileTask()
+            state.enqueueProfileRequest()
+            return .none
         case .setPhoneNumber(let phoneNumber):
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.phoneNumber = phoneNumber
-            return state.buildProfileTask()
+            state.enqueueProfileRequest()
+            return .none
         case .setExternalId(let externalId):
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.externalId = externalId
-            return state.buildProfileTask()
+            state.enqueueProfileRequest()
+            return .none
         case .setPushToken(let pushToken):
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
-            // TODO: check if we already have this token, skip sending if we do.
             state.pushToken = pushToken
-            return .task { [state] in
-                return .enqueueRequest(try state.buildTokenRequest())
-            }
-        case .enqueueRequest(let request):
-            guard state.initialized else {
+            guard let request = try? state.buildTokenRequest() else {
                 return .none
             }
             state.queue.append(request)
             return .none
         case .flushQueue:
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             if state.flushing {
                 return .none
+            }
+            if case let .retryWithBackoff(requestCount, totalCount, backOff)   = state.retryInfo {
+                let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                if newBackOff > 0 {
+                    state.retryInfo = .retryWithBackoff(requestCount: requestCount, totalRetryCount: totalCount, currentBackoff: newBackOff)
+                    return .none
+                } else {
+                    state.retryInfo = .retry(requestCount)
+                }
             }
             if state.queue.isEmpty {
                 return .none
@@ -123,7 +135,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 .sendRequest
             }
         case .stop:
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
@@ -132,47 +144,51 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(.archiveCurrentState)
                 }))
         case .start:
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             return environment.analytics.timer(state.flushInterval)
                     .map { _ in
                         KlaviyoAction.flushQueue
-                    }.eraseToEffect()
+                    }
+                    .eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
+            state.retryInfo = RetryInfo.retry(0)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
             }
             return .task { .sendRequest }
         case .sendRequest:
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             guard state.flushing else {
                 return .none
             }
+           
             guard let request = state.requestsInFlight.first else {
                 state.flushing = false
                 return .none
             }
+            let retryInfo = state.retryInfo
             return .run { send in
                 let result = await environment.analytics.klaviyoAPI.send(request)
                 switch result {
                 case .success(_):
                     // TODO: may want to inspect response further.
                     await send(.dequeCompletedResults(request))
-                case .failure(_):
-                    // TODO: depending on failure may want to deque
-                    await send(KlaviyoAction.cancelInFlightRequests)
+                case .failure(let error):
+                    await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
-            } catch: { _, _ in
-                environment.logger.error("request error")
-                // TODO: maybe better handling here...
+            } catch: { error, send in
+                // For now assuming this is cancellation since nothing else can throw AFAICT
+                runtimeWarn("Unknown error thrown during request processing \(error)")
+                await send(.cancelInFlightRequests)
             }.cancellable(id: RequestId.self)
         case .cancelInFlightRequests:
             state.flushing = false
@@ -180,7 +196,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
         case .networkConnectivityChanged(let networkStatus):
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             switch networkStatus {
@@ -201,7 +217,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     }.eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
         case .archiveCurrentState:
-            guard state.initialized else {
+            guard case .initialized = state.initalizationState else {
                 return .none
             }
             return .run { [state] _ in
@@ -209,29 +225,52 @@ struct KlaviyoReducer: ReducerProtocol {
             }
  
         case .enqueueLegacyEvent(let legacyEvent):
-            // TODO: Needs a few tests.
-            guard let apiKey = state.apiKey else {
+            guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 return .none
             }
-            // TODO: might need to update state based on data in here.
-            return .run { [state] send in
-                guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
-                    return
-                }
-                await send(.enqueueRequest(request))
+            
+            guard let identifiers = legacyEvent.identifiers else {
+                return .none
             }
+            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
+            guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
+                return .none
+            }
+            state.enqueueRequest(request: request)
+            return .none
         case .enqueueLegacyProfile(let legacyProfile):
-            // TODO: Needs a few tests.
-            guard let apiKey = state.apiKey else {
+            guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 return .none
             }
-            // TODO: might need to update state based on data in here.
-            return .run { [state] send in
-                guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
-                    return
-                }
-                await send(.enqueueRequest(request))
+            guard let identifiers = legacyProfile.identifiers else {
+                return .none
             }
+            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
+            guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
+                return .none
+            }
+            state.enqueueRequest(request: request)
+            return .none
+        case .requestFailed(let request, let retryInfo):
+            var exceededRetries = false
+            switch(retryInfo) {
+            case .retry(let count):
+                exceededRetries = count > MAX_RETRIES
+                state.retryInfo = .retry(exceededRetries ? 0 : count)
+            case let .retryWithBackoff(requestCount, totalCount, backOff):
+                exceededRetries = requestCount > MAX_RETRIES
+                state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
+            }
+            if exceededRetries {
+                state.requestsInFlight.removeAll { inflightRequest in
+                    request.uuid == inflightRequest.uuid
+                }
+            }
+            state.flushing = false
+            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
+            state.requestsInFlight = []
+            return .none
+            
         }
     }
 }
@@ -243,6 +282,9 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
 
 extension KlaviyoState {
     func buildProfileRequest(properties: [String: Any] = [:]) throws -> KlaviyoAPI.KlaviyoRequest {
+        guard let apiKey = apiKey else {
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
+        }
         guard let anonymousId = anonymousId else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
         }
@@ -257,16 +299,8 @@ extension KlaviyoState {
                 anonymousId: anonymousId)
         )
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
+
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-    }
-    
-    func buildProfileTask(properties: [String: Any] = [:]) -> EffectTask<KlaviyoAction> {
-        return .task {
-            return .enqueueRequest(try self.buildProfileRequest(properties: properties))
-        }
     }
     
     func buildTokenRequest() throws -> KlaviyoAPI.KlaviyoRequest {

@@ -45,6 +45,9 @@ struct KlaviyoAPI {
         guard let httpResponse = response as? HTTPURLResponse else {
             return .failure(.missingOrInvalidResponse(response))
         }
+        if httpResponse.statusCode == 429 {
+            return .failure(KlaviyoAPIError.rateLimitError)
+        }
         guard 200 ..< 300 ~= httpResponse.statusCode else {
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }

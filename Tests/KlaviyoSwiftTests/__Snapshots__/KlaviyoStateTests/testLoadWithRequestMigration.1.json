@@ -1,5 +1,5 @@
 {
-  "anonymousId" : "00000000-0000-0000-0000-000000000001",
+  "anonymousId" : "iOS:00000000-0000-0000-0000-000000000002",
   "apiKey" : "foo",
   "email" : "value",
   "externalId" : "value",
@@ -16,9 +16,9 @@
                   "service" : "klaviyo"
                 },
                 "profile" : {
-                  "$anonymous" : "00000000-0000-0000-0000-000000000001",
-                  "email" : "value",
-                  "externalId" : "value",
+                  "$anonymous" : "iOS:00000000-0000-0000-0000-000000000002",
+                  "$email" : "value",
+                  "$id" : "value",
                   "foo" : "bar"
                 },
                 "properties" : {
@@ -41,7 +41,7 @@
           "_0" : {
             "data" : {
               "attributes" : {
-                "anonymous_id" : "00000000-0000-0000-0000-000000000001",
+                "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
                 "email" : "value",
                 "external_id" : "value",
                 "properties" : {
@@ -50,7 +50,7 @@
               },
               "meta" : {
                 "identifiers" : {
-                  "anonymous_id" : "00000000-0000-0000-0000-000000000001",
+                  "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
                   "email" : "value",
                   "external_id" : "value"
                 }

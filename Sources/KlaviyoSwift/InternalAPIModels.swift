@@ -227,10 +227,34 @@ extension Klaviyo.Profile.Attributes.Location: Codable {
 
 // MARK: Legacy request data
 
+struct LegacyIdentifiers {
+    let email: String?
+    let phoneNumber: String?
+    let externalId: String?
+    
+    static func extractFrom(from customerProperties: NSDictionary) -> LegacyIdentifiers? {
+        guard let customerProperties = customerProperties as? [String: Any] else {
+            return nil
+        }
+        let email = customerProperties["$email"] as? String
+        let phoneNumber = customerProperties["$phone_number"] as? String
+        let externalId = customerProperties["$id"] as? String
+        
+        return Self.init(email: email,
+                         phoneNumber: phoneNumber,
+                         externalId: externalId
+        )
+    }
+}
+
 struct LegacyEvent: Equatable {
-     let eventName: String
-     let customerProperties: NSDictionary
-     let properties: NSDictionary
+    let eventName: String
+    let customerProperties: NSDictionary
+    let properties: NSDictionary
+    var identifiers: LegacyIdentifiers? {
+        return LegacyIdentifiers.extractFrom(from: customerProperties)
+    }
+    
      init(eventName: String,
           customerProperties: NSDictionary?,
           properties: NSDictionary?) {
@@ -239,24 +263,23 @@ struct LegacyEvent: Equatable {
          self.properties = properties ?? NSDictionary()
      }
     func buildEventRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
-        guard let eventProperties = self.properties as? [String: Any] else {
+        guard var eventProperties = self.properties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
-        guard var customerProperties = self.customerProperties as? [String: Any] else {
+        guard var customerProperties = customerProperties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
-        }
-        if let email: String = customerProperties.removeValue(forKey: "$email") as? String ?? state.email {
-            customerProperties["email"] = email
         }
         
-        if let phoneNumber: String = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber {
-            customerProperties["phone_number"] = phoneNumber
+        // v3 events api still uses these properties - we are just ensuring we are using the latest
+        // identifiers here.
+        customerProperties["$email"] = state.email
+        customerProperties["$phone_number"] = state.phoneNumber
+        customerProperties["$id"] =  state.externalId
+        customerProperties["$anonymous"] =  state.anonymousId
+        if eventName == "$opened_push" {
+            // Special handling for $opened_push include push token at the time of open
+            eventProperties["push_token"] = state.pushToken
         }
-        if let externalId: String = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId {
-            customerProperties["externalId"] = externalId
-        }
-        customerProperties.removeValue(forKey: "$anonymous")
-        customerProperties["$anonymous"] = state.anonymousId
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
             attributes: .init(metric: .init(name: self.eventName),
                               properties: eventProperties,
@@ -268,9 +291,13 @@ struct LegacyEvent: Equatable {
 
 struct LegacyProfile: Equatable {
      let customerProperties: NSDictionary
+    
+    var identifiers: LegacyIdentifiers? {
+        return LegacyIdentifiers.extractFrom(from: customerProperties)
+    }
      
      func buildProfileRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
-         guard var customerProperties = self.customerProperties as? [String: Any] else {
+         guard var customerProperties = self.customerProperties.copy() as? [String: Any] else {
              throw KlaviyoAPI.KlaviyoAPIError.invalidData
          }
          
@@ -278,18 +305,23 @@ struct LegacyProfile: Equatable {
              throw KlaviyoAPI.KlaviyoAPIError.internalError("Unable to build request missing required anonymous id.")
          }
          
-         // Migrate some legacy properties from properties to v3 API structure.
-         let email: String? = customerProperties.removeValue(forKey: "$email") as? String ?? state.email
-         let phoneNumber: String? = customerProperties.removeValue(forKey: "$phone_number") as? String ?? state.phoneNumber
-         let externalId: String? = customerProperties.removeValue(forKey: "$id") as? String ?? state.externalId
-         customerProperties.removeValue(forKey: "$anonymous") // Remove $anonymous since we are moving to a uuid (passed in above).
+         // Remove properties that are now strongly typed on the v3 request
+         customerProperties.removeValue(forKey: "$email")
+         customerProperties.removeValue(forKey: "$phone_number")
+         customerProperties.removeValue(forKey: "$id")
+         customerProperties.removeValue(forKey: "$anonymous")
+         
+         // We assume that the state has the latest identifiers
          let attributes = Klaviyo.Profile.Attributes(
-             email: email,
-             phoneNumber: phoneNumber,
-             externalId: externalId,
-             properties: customerProperties
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId,
+            properties: customerProperties
          )
-         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(.init(data: .init(profile: .init(attributes: attributes), anonymousId: anonymousId)))
+         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(
+            .init(data: .init(profile:
+                    .init(attributes: attributes),
+                              anonymousId: anonymousId)))
 
          return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
      }

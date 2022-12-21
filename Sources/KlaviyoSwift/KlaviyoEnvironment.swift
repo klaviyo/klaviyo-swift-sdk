@@ -7,6 +7,8 @@
 
 import Foundation
 import AnyCodable
+import Combine
+import UIKit
 
 var environment = KlaviyoEnvironment.production
 
@@ -23,6 +25,9 @@ let decoder = {
     return decoder
 }()
 
+// TODO: use hostname based on api url instead of hard coding
+private let reachabilityService = Reachability(hostname: "a.klaviyo.com")
+
 struct KlaviyoEnvironment {
     var archiverClient: ArchiverClient
     var fileClient: FileClient
@@ -30,13 +35,36 @@ struct KlaviyoEnvironment {
     var logger: LoggerClient
     var analytics: AnalyticsEnvironment
     var getUserDefaultString: (String) -> String?
-    static let production = KlaviyoEnvironment(
+    var appLifeCycle: AppLifeCycleEvents
+    var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
+    var legacyIdentifier: () -> String
+    var startReachability: () throws -> Void
+    var stopReachability: () -> Void
+    var reachabilityStatus: () -> Reachability.NetworkStatus?
+    var randomInt: () -> Int
+    static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         data: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
         analytics: AnalyticsEnvironment.production,
-        getUserDefaultString: { key in UserDefaults.standard.string(forKey: key) }
+        getUserDefaultString: { key in UserDefaults.standard.string(forKey: key) },
+        appLifeCycle: AppLifeCycleEvents.production,
+        notificationCenterPublisher: { name in
+            NotificationCenter.default.publisher(for: name)
+                .eraseToAnyPublisher()
+        },
+        legacyIdentifier: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
+        startReachability: {
+            try reachabilityService?.startNotifier()
+        },
+        stopReachability: {
+            reachabilityService?.stopNotifier()
+        },
+        reachabilityStatus: {
+            reachabilityService?.currentReachabilityStatus
+        },
+        randomInt: { Int.random(in: 0...10) }
     )
 }
 
@@ -73,7 +101,7 @@ struct AnalyticsEnvironment {
     var appContextInfo: () -> AppContextInfo
     var klaviyoAPI: KlaviyoAPI
     var store: Store<KlaviyoState, KlaviyoAction>
-    var timer: (Double) -> EffectPublisher<Date, Never>
+    var timer: (Double) -> AnyPublisher<Date, Never>
     static let production = AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
@@ -88,8 +116,7 @@ struct AnalyticsEnvironment {
         timer: { interval in
             Timer.publish(every: interval, on: .main, in: .default)
             .autoconnect()
-            .eraseToEffect()
-            
+            .eraseToAnyPublisher()
         }
     )
 }

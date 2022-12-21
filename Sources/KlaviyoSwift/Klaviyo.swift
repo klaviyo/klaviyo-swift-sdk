@@ -55,11 +55,6 @@ public class Klaviyo: NSObject  {
     let KlaviyoServerURLString = "https://a.klaviyo.com/api"
     #endif
     
-    /*
-    Current API WorkAround: Update this once the $anonymous in place
-    */
-    let CustomerPropertiesIDDictKey = "$anonymous"
-    
     let CustomerPropertiesAppendDictKey = "$append"
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
@@ -88,26 +83,10 @@ public class Klaviyo: NSObject  {
     public let KLPersonZipDictKey = "$zip" // postal code where they live
     
     /*
-    Shared Instance Variables
-    */
-    let reachability : Reachability
-    
-    /*
-    Computed property for iOSIDString
-    :returns: A unique string that represents the device using the application
-    */
-    var iOSIDString : String {
-        return "iOS:" + UIDevice.current.identifierForVendor!.uuidString
-    }
-    
-    /*
     Singleton Initializer. Must be kept private as only one instance can be created.
     */
     private override init() {
-        reachability = Reachability(hostname: "a.klaviyo.com")!
         super.init()
-        // TODO: determine best place to call this or move into store.
-        addNotificationObserver()
     }
     
     /**
@@ -252,9 +231,6 @@ public class Klaviyo: NSObject  {
         
         let returnDictionary = propertiesDictionary as! NSMutableDictionary
         
-        // Set the $anonymous property in case there i sno email address
-        returnDictionary[CustomerPropertiesIDDictKey] = self.iOSIDString
-        
         // Set the user's timezone: Note if the customer exists this will override their current profile
         // Alternatively, could create a customer mobile timezone property instead using a different key
         let timezone = NSTimeZone.local.identifier
@@ -284,72 +260,6 @@ public class Klaviyo: NSObject  {
                 (properties[k]! is NSURL)
                 , "Property values must be of NSString, NSNumber, NSNull, NSDictionary, NSDate, or NSURL. Got: \(String(describing: properties[k as! NSCopying]))")
         }
-    }
-    
-    /**
-     addNotificationObserver: sets up notification observers for various application state changes
-     */
-    func addNotificationObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidBecomeActiveNotification(notification:)), name: NSNotification.Name("UIApplicationDidBecomeActiveNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationDidEnterBackgroundNotification(notification:)), name: NSNotification.Name("UIApplicationDidEnterBackgroundNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.applicationWillTerminate(notification:)), name: NSNotification.Name("UIApplicationWillTerminateNotification"), object: nil)
-        notificationCenter.addObserver(self, selector: #selector(Klaviyo.hostReachabilityChanged(note:)), name: NSNotification.Name("ReachabilityChangedNotification") , object: nil)
-    }
-    
-    /**
-     isOperatingMinimumiOSVersion: internal alert function for development purposes. Asserts an error if the application is running an OS system below 8.0.0.
-     
-     - Returns: A boolean value where true means the os is compatible and the SDK can be used
-     */
-    private func isOperatingMinimumiOSVersion() -> Bool {
-        return ProcessInfo().isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 8,
-                                                                             minorVersion: 0,
-                                                                             patchVersion: 0))
-    }
-    
-    /**
-     removeNotificationObserver() removes the observers that are set up upon instantiation.
-     */
-    func removeNotificationObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidBecomeActiveNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationDidEnterBackgroundNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "UIApplicationWillTerminateNotification")
-        notificationCenter.removeObserver(self, forKeyPath: "ReachabilityChangedNotification")
-    }
-    
-    func removeNotificationsObserver() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.removeObserver(self)
-    }
-    
-    @objc func applicationDidBecomeActiveNotification(notification: NSNotification) {
-        // clear all notification badges anytime the user opens the app
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        try? reachability.startNotifier()
-        
-        // identify the user
-        let dict: NSMutableDictionary = ["$anonymous": iOSIDString]
-        trackPersonWithInfo(personDictionary: dict)
-    }
-    
-    @objc func applicationDidEnterBackgroundNotification(notification: NSNotification){
-        reachability.stopNotifier()
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .stop)
-    }
-    
-    @objc func applicationWillTerminate(notification : NSNotification) {
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .stop)
-    }    
-    
-    //: MARK: Network Control
-    
-    @objc internal func hostReachabilityChanged(note : NSNotification) {
-        // _ Avoids xcode warning
-        dispatchOnMainThread(action: .networkConnectivityChanged(reachability.currentReachabilityStatus))
     }
     
     private func dispatchOnMainThread(action: KlaviyoAction) {

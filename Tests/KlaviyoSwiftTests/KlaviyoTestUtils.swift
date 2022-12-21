@@ -32,8 +32,11 @@ extension ArchiverClient {
     )
 }
 
+extension AppLifeCycleEvents {
+    static let test = Self(lifeCycleEvents: { Empty() })
+}
+
 extension KlaviyoEnvironment {
-    static var testURL = { (_:String) in TEST_URL }
     static var lastLog: String?
     static var test = { KlaviyoEnvironment(
         archiverClient: ArchiverClient.test,
@@ -41,7 +44,14 @@ extension KlaviyoEnvironment {
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
         analytics: AnalyticsEnvironment.test,
-        getUserDefaultString: { _ in return "value" }
+        getUserDefaultString: { _ in return "value" },
+        appLifeCycle: AppLifeCycleEvents.test,
+        notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
+        legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  },
+        startReachability: {},
+        stopReachability: {},
+        reachabilityStatus: { nil },
+        randomInt: { 0 }
     )
     }
 }
@@ -70,7 +80,7 @@ extension AnalyticsEnvironment {
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test(),
         store: Store.test,
-        timer: { interval in Just(Date()).eraseToEffect() }
+        timer: { interval in Just(Date()).eraseToAnyPublisher() }
     )
 }
 

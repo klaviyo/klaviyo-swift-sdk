@@ -32,7 +32,3 @@ class NetworkSessionTests: XCTestCase {
         assertSnapshot(matching: response, as: .dump)
     }
 }
-
-extension URLSession {
-    
-}

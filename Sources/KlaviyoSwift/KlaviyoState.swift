@@ -6,8 +6,14 @@
 //
 
 import Foundation
+import UIKit
 
 struct KlaviyoState: Equatable, Codable {
+    enum InitializationSate: Equatable {
+        case uninitialized
+        case initializing
+        case initialized
+    }
     var apiKey: String?
     var email: String?
     var anonymousId: String?
@@ -16,9 +22,10 @@ struct KlaviyoState: Equatable, Codable {
     var pushToken: String?
     var queue: [KlaviyoAPI.KlaviyoRequest]
     var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
-    var initialized = false
+    var initalizationState = InitializationSate.uninitialized
     var flushing = false
     var flushInterval = 10.0
+    var retryInfo = RetryInfo.retry(0)
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -28,6 +35,26 @@ struct KlaviyoState: Equatable, Codable {
         case externalId
         case pushToken
         case queue
+    }
+    
+    mutating func enqueueRequest(request: KlaviyoAPI.KlaviyoRequest) {
+        guard queue.count + 1 < MAX_QUEUE_SIZE else {
+            return
+        }
+        queue.append(request)
+    }
+    
+    mutating func enqueueProfileRequest() {
+        guard let request = try? self.buildProfileRequest() else {
+            return
+        }
+        queue.append(request)
+    }
+    
+    mutating func updateStateWithLegacyIdentifiers(identifiers: LegacyIdentifiers) {
+        email = identifiers.email ?? email
+        phoneNumber = identifiers.phoneNumber ?? phoneNumber
+        externalId = identifiers.externalId ?? externalId
     }
 }
 
@@ -67,7 +94,10 @@ private func removeStateFile(at file: URL) {
 func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
     guard environment.fileClient.fileExists(fileName.path) else {
-        return migrateLegacyDataToKlaviyoState(with: apiKey, to: fileName)
+        if needsMigration(with: apiKey) {
+            return migrateLegacyDataToKlaviyoState(with: apiKey, to: fileName)
+        }
+        return createAndStoreInitialState(with: apiKey, at: fileName)
  
     }
     guard let stateData = try? environment.data(fileName) else {
@@ -76,13 +106,9 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
     guard var state: KlaviyoState = try? environment.analytics.decoder.decode(stateData) else {
-        environment.logger.error("Unable to decode existing state file.")
+        environment.logger.error("Unable to decode existing state file. Removing.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
-    }
-    guard state.apiKey != nil, state.anonymousId != nil else {
-        environment.logger.error("Found nil apiKey and id. Stopping ")
-        return KlaviyoState(apiKey: apiKey, queue: [], initialized: false)
     }
     if state.apiKey != apiKey {
         // Clear existing stat since we are using a new api state.
@@ -107,7 +133,7 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
     // Remove old keys and data from userdefaults and files
     // return populated KlaviyoState
     let email = environment.getUserDefaultString("$kl_email")
-    let anonymousId = environment.analytics.uuid().uuidString
+    let anonymousId = environment.legacyIdentifier()
     let externalId = environment.getUserDefaultString("kl_customerID")
     var state = KlaviyoState(apiKey: apiKey,
                              email: email,
@@ -119,6 +145,16 @@ private func migrateLegacyDataToKlaviyoState(with apiKey: String, to file: URL) 
     let file = klaviyoStateFile(apiKey: apiKey)
     storeKlaviyoState(state: state, file: file)
     return state
+}
+
+private func needsMigration(with apiKey: String) -> Bool {
+    let email = environment.getUserDefaultString("$kl_email")
+    let externalId = environment.getUserDefaultString("kl_customerID")
+    let eventsFileURL = filePathForData(apiKey: apiKey, data: "events")
+    let eventsFileExists =  environment.fileClient.fileExists(eventsFileURL.path)
+    let profileFileURL = filePathForData(apiKey: apiKey, data: "people")
+    let profilesFileExists = environment.fileClient.fileExists(profileFileURL.path)
+    return email != nil || externalId != nil || eventsFileExists || profilesFileExists
 }
 
 private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState) -> [KlaviyoAPI.KlaviyoRequest] {

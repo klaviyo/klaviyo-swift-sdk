@@ -3,14 +3,14 @@
     - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
     - some: "foo"
-  ▿ email: Optional<String>
-    - some: "value"
-  ▿ externalId: Optional<String>
-    - some: "value"
+  - email: Optional<String>.none
+  - externalId: Optional<String>.none
   - flushInterval: 10.0
   - flushing: false
-  - initialized: false
+  - initalizationState: InitializationSate.uninitialized
   - phoneNumber: Optional<String>.none
   - pushToken: Optional<String>.none
   - queue: 0 elements
   - requestsInFlight: 0 elements
+  ▿ retryInfo: RetryInfo
+    - retry: 0
