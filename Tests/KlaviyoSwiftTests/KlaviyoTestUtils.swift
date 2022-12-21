@@ -51,7 +51,8 @@ extension KlaviyoEnvironment {
         startReachability: {},
         stopReachability: {},
         reachabilityStatus: { nil },
-        randomInt: { 0 }
+        randomInt: { 0 },
+        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
     )
     }
 }
@@ -94,10 +95,6 @@ struct KlaviyoTestReducer: ReducerProtocol {
     typealias State = KlaviyoState
     
     typealias Action = KlaviyoAction
-    
-    
-    
-    
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
@@ -142,5 +139,16 @@ extension AppContextInfo {
                                 version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
                                 osName: "kOS"
     )
+}
+
+extension StateChangePublisher {
+    static let test = {
+        StateChangePublisher.debouncedPublisher = { publisher in
+            publisher
+                .debounce(for: .seconds(0), scheduler: ImmediateScheduler.shared)
+                .eraseToAnyPublisher()
+        }
+        return Self.init()
+    }()
 }
 

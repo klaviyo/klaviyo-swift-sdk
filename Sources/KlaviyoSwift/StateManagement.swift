@@ -38,7 +38,6 @@ enum KlaviyoAction: Equatable {
     case start
     case cancelInFlightRequests
     case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
-    case archiveCurrentState
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
 }
@@ -75,7 +74,9 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             return .task {
                 .start
-            }.merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+            }
+            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+            .merge(with: environment.stateChangePublisher().eraseToEffect())
         case .setEmail(let email):
             guard case .initialized = state.initalizationState else {
                 return .none
@@ -141,7 +142,6 @@ struct KlaviyoReducer: ReducerProtocol {
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
-                    await send(.archiveCurrentState)
                 }))
         case .start:
             guard case .initialized = state.initalizationState else {
@@ -216,14 +216,6 @@ struct KlaviyoReducer: ReducerProtocol {
                         KlaviyoAction.flushQueue
                     }.eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
-        case .archiveCurrentState:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            return .run { [state] _ in
-                saveKlaviyoState(state: state)
-            }
- 
         case .enqueueLegacyEvent(let legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 return .none

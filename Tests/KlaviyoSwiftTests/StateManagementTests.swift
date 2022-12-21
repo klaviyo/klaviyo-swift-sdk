@@ -7,6 +7,7 @@
 
 import Foundation
 import XCTest
+import Combine
 @testable import KlaviyoSwift
 
 @MainActor
@@ -49,6 +50,36 @@ class StateManagementTests: XCTestCase {
             $0.flushing = false
             $0.requestsInFlight = []
         }
+    }
+    
+    func testInitializeSubscribesToAppropriatePublishers() async throws {
+        let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
+        let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
+        let lifecycleSubject = PassthroughSubject<KlaviyoAction, Never>()
+        environment.appLifeCycle.lifeCycleEvents = {
+            return lifecycleSubject.handleEvents(receiveSubscription: { _ in
+                lifecycleExpectation.fulfill()
+            })
+            .eraseToAnyPublisher() }
+        let stateChangeSubject = PassthroughSubject<KlaviyoAction, Never>()
+        environment.stateChangePublisher = {
+            return stateChangeSubject.handleEvents(receiveSubscription: { _ in
+                stateChangeIsSubscribed.fulfill()
+            })
+            .eraseToAnyPublisher()
+        }
+        let initialState = KlaviyoState(queue: [], requestsInFlight: [])
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        
+        let apiKey = "fake-key"
+        _ = await store.send(.initialize(apiKey))
+        
+        stateChangeSubject.send(completion: .finished)
+        lifecycleSubject.send(completion: .finished)
+        
+        wait(for: [stateChangeIsSubscribed, lifecycleExpectation], timeout: 1.0)
+
     }
     
     // MARK: - Set Email
@@ -272,14 +303,6 @@ class StateManagementTests: XCTestCase {
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
-        let expectation = XCTestExpectation(description: "state is saved")
-        let fakeEncodedData = Data()
-        
-        environment.analytics.encodeJSON = { state in
-            expectation.fulfill()
-            return fakeEncodedData
-        }
-
         _  = await store.send(.stop)
         
         await store.receive(.cancelInFlightRequests) {
@@ -287,11 +310,6 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
         }
-        
-        await store.receive(.archiveCurrentState)
-        
-        wait(for: [expectation], timeout: 1.0)
-    
     }
     
 }
