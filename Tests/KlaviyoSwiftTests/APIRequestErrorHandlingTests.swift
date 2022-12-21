@@ -19,7 +19,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     // MARK: - http error
     
     func testSendRequestHttpFailureDequesRequest() async throws {
-var initialState = INITIALIZED_TEST_STATE()
+        var initialState = INITIALIZED_TEST_STATE()
         let request = try initialState.buildProfileRequest()
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -36,7 +36,7 @@ var initialState = INITIALIZED_TEST_STATE()
     
     // MARK: - network error
     func testSendRequestFailureIncrementsRetryCount() async throws {
-var initialState = INITIALIZED_TEST_STATE()
+        var initialState = INITIALIZED_TEST_STATE()
         let request = try initialState.buildProfileRequest()
         let request2 = try initialState.buildTokenRequest()
         initialState.requestsInFlight = [request, request2]
@@ -66,11 +66,11 @@ var initialState = INITIALIZED_TEST_STATE()
         
         _  = await store.send(.sendRequest)
         
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4))) {
+        await store.receive(.requestFailed(request, .retry(2))) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
+            $0.retryInfo = .retry(2)
         }
     }
     

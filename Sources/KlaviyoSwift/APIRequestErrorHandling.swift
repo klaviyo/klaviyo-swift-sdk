@@ -27,11 +27,8 @@ func handleRequestError(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.Kl
         case .retry(let count):
             let requestRetryCount = count + 1
             return KlaviyoAction.requestFailed(request, .retry(requestRetryCount))
-        case let .retryWithBackoff(requestCount, totalCount, _):
-            let requestRetryCount = requestCount + 1
-            let totalRetryCount = totalCount + 1
-            let nextBackoff = getDelaySeconds(for: totalRetryCount)
-            return .requestFailed(request, .retryWithBackoff(requestCount: requestRetryCount, totalRetryCount: totalRetryCount, currentBackoff: nextBackoff))
+        case let .retryWithBackoff(requestCount, _, _):
+            return .requestFailed(request, .retry(requestCount + 1))
         }
     case .internalError(let data):
         runtimeWarn("An internal error occurred msg: \(data)")
