@@ -113,3 +113,9 @@ extension KlaviyoState {
                                    flushing: true
     )
 }
+
+let LEGACY_OPENED_PUSH = LegacyEvent(eventName: "$opened_push", customerProperties: [
+    "$email": "blob@blob.com",
+    "$id": "blobid",
+    "foo": "bar"
+], properties: ["baz": "boo"])
