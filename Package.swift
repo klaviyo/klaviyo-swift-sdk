@@ -19,6 +19,7 @@ let package = Package(
         ),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.1"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
+        .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.9.1")
     ],
     targets: [
         .target(
@@ -31,6 +32,7 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths"),
+                .product(name: "CombineSchedulers", package: "combine-schedulers")
             ],
             exclude: [
               "__Snapshots__"

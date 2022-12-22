@@ -10,6 +10,7 @@
   - flushInterval: 10.0
   - flushing: false
   - initalizationState: InitializationSate.uninitialized
+  - pendingLegacyEvents: 0 elements
   - phoneNumber: Optional<String>.none
   - pushToken: Optional<String>.none
   - queue: 0 elements

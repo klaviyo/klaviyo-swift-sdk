@@ -38,7 +38,6 @@ enum KlaviyoAction: Equatable {
     case start
     case cancelInFlightRequests
     case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
-    case archiveCurrentState
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
 }
@@ -57,8 +56,11 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.initalizationState = .initializing
             state.apiKey = apiKey
+            // carry over pending events
+            let pendingEvents = state.pendingLegacyEvents
             return .run { send in
-                let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
+                var initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
+                initialState.pendingLegacyEvents = pendingEvents
                 await send(.completeInitialization(initialState))
             }
         case var .completeInitialization(initialState):
@@ -73,9 +75,16 @@ struct KlaviyoReducer: ReducerProtocol {
             if let request = try? state.buildProfileRequest() {
                 state.queue.append(request)
             }
-            return .task {
-                .start
-            }.merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+            let pendingEvents = state.pendingLegacyEvents
+            state.pendingLegacyEvents = []
+            return .run { send in
+                for event in pendingEvents {
+                    await send(.enqueueLegacyEvent(event))
+                }
+                await send(.start)
+            }
+            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+            .merge(with: environment.stateChangePublisher().eraseToEffect())
         case .setEmail(let email):
             guard case .initialized = state.initalizationState else {
                 return .none
@@ -141,7 +150,6 @@ struct KlaviyoReducer: ReducerProtocol {
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
-                    await send(.archiveCurrentState)
                 }))
         case .start:
             guard case .initialized = state.initalizationState else {
@@ -216,16 +224,9 @@ struct KlaviyoReducer: ReducerProtocol {
                         KlaviyoAction.flushQueue
                     }.eraseToEffect()
                     .cancellable(id: Timer.self, cancelInFlight: true)
-        case .archiveCurrentState:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            return .run { [state] _ in
-                saveKlaviyoState(state: state)
-            }
- 
         case .enqueueLegacyEvent(let legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
+                state.pendingLegacyEvents.append(legacyEvent)
                 return .none
             }
             
