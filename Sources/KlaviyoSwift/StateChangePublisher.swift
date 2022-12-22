@@ -9,13 +9,11 @@ import Foundation
 import Combine
 import UIKit
 
-let DEBOUNCE_INTERVAL = DispatchQueue.SchedulerTimeType.Stride.seconds(1.0)
-
 public struct StateChangePublisher {
     
     static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
         publisher
-            .debounce(for: DEBOUNCE_INTERVAL, scheduler: DispatchQueue.global())
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.global())
             .eraseToAnyPublisher()
     }
     
@@ -23,14 +21,14 @@ public struct StateChangePublisher {
     // does not emit action but mapped that way so it can be used in the store.
     var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
         let statePublisher = environment.analytics.store.state
+            .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
-            .filter { state in state.initalizationState != .initialized }
             .eraseToAnyPublisher()
         return debouncedPublisher(statePublisher)
-            .handleEvents(receiveOutput: { state in
+            .flatMap { state in
                 saveKlaviyoState(state: state)
-            })
-            .flatMap { _ in Empty<KlaviyoAction, Never>() }
+                return Empty<KlaviyoAction, Never>()
+            }
             .eraseToAnyPublisher()
     }
 }
