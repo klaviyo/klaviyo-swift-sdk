@@ -223,7 +223,7 @@ Connection determination is based on notifications from our reachability service
 
 ### Retries
 
-The SDK will retry API requests that fail under conditions. For example if a network timeout occurs the request will be retried on the next flush inteval. In addition if the SDK received a 429 from the Klaviyo API it will use expontential backoff with jitter to retry the next request.
+The SDK will retry API requests that fail under certain conditions. For example if a network timeout occurs the request will be retried on the next flush interval. In addition if the SDK receives a rate limiting error (429) from the Klaviyo API it will use exponential backoff with jitter to retry the next request.
 
 ## License
 
