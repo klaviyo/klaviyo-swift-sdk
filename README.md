@@ -214,9 +214,10 @@ If your user taps on the notification this will be tracked back to Klaviyo as an
 
 As version 1.7.0 the Klaviyo will cache incoming data and flush it back to the Klaviyo API on an interval. As of this writing the interval is based on the network link currently being used by the app. The table below shows the flush interval used for each type of connection:
 
-| Network    | Interval       |
-| WWAN/Wifi  | 10 seconds     |
-| Cellular   | 30 seconds     |
+| Network     | Interval    |
+|____________ |____________ |
+| WWAN/Wifi   | 10 seconds  |
+| Cellular    | 30 seconds  |
 
 Connection determination is based on notifications from our reachability service. When there is no network available the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
 
