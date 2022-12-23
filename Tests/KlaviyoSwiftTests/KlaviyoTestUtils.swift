@@ -145,7 +145,7 @@ extension StateChangePublisher {
     static let test = {
         StateChangePublisher.debouncedPublisher = { publisher in
             publisher
-                .debounce(for: .seconds(0), scheduler: ImmediateScheduler.shared)
+                .debounce(for: .seconds(0), scheduler: DispatchQueue.main)
                 .eraseToAnyPublisher()
         }
         return Self.init()
