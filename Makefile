@@ -1,7 +1,14 @@
-test-ios:
-	set -o pipefail && \
-	xcodebuild test \
-		-scheme klaviyo-swift-sdk \
-		-destination platform="iOS Simulator,name=iPhone 11 Pro Max,OS=13.3" \
+PLATFORM_IOS = iOS Simulator,name=iPhone 11 Pro Max
 
-test-all: test-ios
+default: test-all
+
+test-all: CONFIG=debug test-library
+	CONFIG=release test-library
+
+test-library:
+	for platform in "$(PLATFORM_IOS)"; do \
+		xcodebuild test \
+                        -configuration=$CONFIG \
+			-scheme klaviyo-swift-sdk \
+			-destination platform="$$platform" || exit 1; \
+	done;
