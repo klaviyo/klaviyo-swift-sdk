@@ -21,7 +21,7 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to get it setup.
 
 ### Import the SDK
-Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (2.0.0 as of this writing) and click Next.
+Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.7.0 as of this writing) and click Next.
 
 ### Select the Package
 Select the `KlaviyoSwift` package and click Finish.  
@@ -104,7 +104,7 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 ## Anonymous Tracking Notice
 
-By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided Klaviyo will merge the data from the anonymous user to a new identified user.
+By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided Klaviyo will merge the data from the anonymous user to a new identified user. Prior to version 1.7.0, the Klaviyo SDK used the [IDFV](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. After that version the SDK will use a cached UUID that is generated when the SDK is initalized. The SDK will also detect if an IDFV was used previously as an identifier and will use that instead of generating a new UUID.
 
 ## Integrating with Shopify's Mobile SDK
 If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
@@ -210,7 +210,19 @@ The code below will enable push notifications to show up when you app is running
 
 If your user taps on the notification this will be tracked back to Klaviyo as an "Opened Push" event assuming you have implemented the tracking changes discussed above.
 
+## SDK Data Transfer
 
+As version 1.7.0 the Klaviyo will cache incoming data and flush it back to the Klaviyo API on an interval. As of this writing the interval is based on the network link currently being used by the app. The table below shows the flush interval used for each type of connection:
+
+| Network    | Interval       |
+| WWAN/Wifi  | 10 seconds     |
+| Cellular   | 30 seconds     |
+
+Connection determination is based on notifications from our reachability service. When there is no network available the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
+
+### Retries
+
+The SDK will retry API requests that fail under conditions. For example if a network timeout occurs the request will be retried on the next flush inteval. In addition if the SDK received a 429 from the Klaviyo API it will use expontential backoff with jitter to retry the next request.
 
 ## License
 
