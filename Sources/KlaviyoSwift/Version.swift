@@ -7,4 +7,4 @@
 
 import Foundation
 
-let version = "1.7.0"
+let __klaviyoSwiftVersion = "1.7.0"
