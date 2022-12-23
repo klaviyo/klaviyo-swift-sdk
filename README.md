@@ -212,7 +212,7 @@ If your user taps on the notification this will be tracked back to Klaviyo as an
 
 ## SDK Data Transfer
 
-As version 1.7.0 the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. As of this writing the interval is based on the network link currently being used by the app. The table below shows the flush interval used for each type of connection:
+Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. As of this writing the interval is based on the network link currently being used by the app. The table below shows the flush interval used for each type of connection:
 
 | Network     | Interval    |
 | :---        | :--- |
