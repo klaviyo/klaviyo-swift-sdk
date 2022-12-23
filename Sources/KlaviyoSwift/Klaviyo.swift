@@ -9,8 +9,6 @@
 import Foundation
 import UIKit
 
-let version = "2.0.0"
-
 public class Klaviyo: NSObject  {
    
     /*

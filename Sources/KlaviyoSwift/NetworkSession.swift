@@ -13,7 +13,7 @@ let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
 
 let defaultUserAgent = {
     let appContext = environment.analytics.appContextInfo()
-    let klaivyoSDKVersion = "klaviyo-ios/\(version)"
+    let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
     return "\(appContext.excutable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
 }()
 
