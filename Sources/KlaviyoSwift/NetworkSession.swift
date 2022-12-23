@@ -51,7 +51,7 @@ struct NetworkSession {
                             } else {
                                 continuation.resume(with: Result.success((data!, response!)))
                             }
-                        }
+                        }.resume()
                     })
                 }
             })
