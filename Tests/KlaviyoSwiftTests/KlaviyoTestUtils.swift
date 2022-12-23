@@ -33,7 +33,7 @@ extension ArchiverClient {
 }
 
 extension AppLifeCycleEvents {
-    static let test = Self(lifeCycleEvents: { Empty() })
+    static let test = Self(lifeCycleEvents: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() })
 }
 
 extension KlaviyoEnvironment {

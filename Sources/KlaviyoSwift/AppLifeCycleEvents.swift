@@ -14,7 +14,7 @@ enum LifeCycleErrors: Error {
 }
 
 struct AppLifeCycleEvents {
-    var lifeCycleEvents: () -> any Publisher<KlaviyoAction, Never> = {
+    var lifeCycleEvents: () -> AnyPublisher<KlaviyoAction, Never> = {
         let terminated = environment
             .notificationCenterPublisher(UIApplication.willTerminateNotification)
             .handleEvents(receiveOutput: { _ in
@@ -59,6 +59,7 @@ struct AppLifeCycleEvents {
                 }
             })
             .receive(on: RunLoop.main)
+            .eraseToAnyPublisher()
     }
     
     static let production = Self()

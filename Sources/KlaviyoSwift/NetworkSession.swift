@@ -33,7 +33,7 @@ func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.
 struct NetworkSession {
     var data: (URLRequest) async throws -> (Data, URLResponse)
     
-    static let production = {
+    static let production = { () -> NetworkSession in
         let session = createEmphemeralSession()
         return NetworkSession(data: { request async throws in
             session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
