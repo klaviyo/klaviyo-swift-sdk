@@ -551,8 +551,7 @@ typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
           } else {
             return .none
           }
-        },
-        environment: ()
+        }
       )
       rescopedStore.parentCancellable = scopedStore.state
         .dropFirst()
