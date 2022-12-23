@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import AnyCodable
 
 struct KlaviyoState: Equatable, Codable {
     enum InitializationSate: Equatable {
@@ -78,7 +79,7 @@ private func klaviyoStateFile(apiKey: String) -> URL {
 
 private func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
-        try environment.fileClient.write(environment.analytics.encodeJSON(state), file)
+        try environment.fileClient.write(environment.analytics.encodeJSON(AnyEncodable(state)), file)
     } catch {
         environment.logger.error("Unable to save klaviyo state.")
     }

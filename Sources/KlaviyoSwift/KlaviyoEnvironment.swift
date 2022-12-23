@@ -95,7 +95,7 @@ struct DataDecoder {
 struct AnalyticsEnvironment {
     var networkSession: () -> NetworkSession
     var apiURL: String
-    var encodeJSON: (Encodable) throws -> Data
+    var encodeJSON: (AnyEncodable) throws -> Data
     var decoder: DataDecoder
     var uuid: () -> UUID
     var date: () -> Date
