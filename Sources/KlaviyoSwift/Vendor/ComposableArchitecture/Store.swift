@@ -155,8 +155,12 @@ final class Store<State, Action> {
   var effectCancellables: [UUID: AnyCancellable] = [:]
   private var isSending = false
   var parentCancellable: AnyCancellable?
+#if swift(>=5.7)
+  private let reducer: any ReducerProtocol<State, Action>
+#else
   private let reducer: (inout State, Action) -> EffectTask<Action>
-
+  fileprivate var scope: AnyStoreScope?
+#endif
   var state: CurrentValueSubject<State, Never>
   #if DEBUG
     private let mainThreadChecksEnabled: Bool
@@ -209,7 +213,11 @@ final class Store<State, Action> {
     while index < self.bufferedActions.endIndex {
       defer { index += 1 }
       let action = self.bufferedActions[index]
-      let effect = self.reducer(&currentState, action)
+    #if swift(>=5.7)
+        let effect = self.reducer.reduce(into: &currentState, action: action)
+      #else
+        let effect = self.reducer(&currentState, action)
+      #endif
 
       switch effect.operation {
       case .none:
@@ -370,18 +378,22 @@ final class Store<State, Action> {
     #endif
   }
 
-  init<R: ReducerProtocol>(
-    initialState: R.State,
-    reducer: R,
-    mainThreadChecksEnabled: Bool
-  ) where R.State == State, R.Action == Action {
-    self.state = CurrentValueSubject(initialState)
-    self.reducer = reducer.reduce
-    #if DEBUG
-      self.mainThreadChecksEnabled = mainThreadChecksEnabled
-    #endif
-    self.threadCheck(status: .`init`)
-  }
+    init<R: ReducerProtocol>(
+      initialState: R.State,
+      reducer: R,
+      mainThreadChecksEnabled: Bool
+    ) where R.State == State, R.Action == Action {
+      self.state = CurrentValueSubject(initialState)
+      #if swift(>=5.7)
+        self.reducer = reducer
+      #else
+        self.reducer = reducer.reduce
+      #endif
+      #if DEBUG
+        self.mainThreadChecksEnabled = mainThreadChecksEnabled
+      #endif
+      self.threadCheck(status: .`init`)
+    }
 }
 
 /// A convenience type alias for referring to a store of a given reducer's domain.

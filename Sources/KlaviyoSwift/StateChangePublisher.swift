@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import UIKit
 
-public struct StateChangePublisher {
+struct StateChangePublisher {
     
     static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
         publisher
