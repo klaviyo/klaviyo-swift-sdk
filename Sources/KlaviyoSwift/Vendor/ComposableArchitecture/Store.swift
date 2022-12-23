@@ -541,7 +541,7 @@ typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
       var isSending = false
       let rescopedStore = Store<RescopedState, RescopedAction>(
         initialState: toRescopedState(scopedStore.state.value),
-        reducer: .init { rescopedState, rescopedAction, _ in
+        reducer: .init { rescopedState, rescopedAction in
           isSending = true
           defer { isSending = false }
           let task = self.root.send(fromScopedAction(fromRescopedAction(rescopedAction)))
