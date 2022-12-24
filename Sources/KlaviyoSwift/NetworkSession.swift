@@ -37,7 +37,7 @@ struct NetworkSession {
         static let production = { () -> NetworkSession in
             let session = createEmphemeralSession()
             
-            return NetworkSession(data: { request async throws in
+            return NetworkSession(data: { request async throws -> (Data, URLResponse) in
        
                 session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
                 if #available(iOS 15, *) {
