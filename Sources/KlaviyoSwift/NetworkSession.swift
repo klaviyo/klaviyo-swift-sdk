@@ -11,7 +11,7 @@ let CURRENT_API_REVISION = "2022-10-17"
 let APPLICATION_JSON = "application/json"
 let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
 
-let defaultUserAgent = { () -> String
+let defaultUserAgent = { () -> String in
     let appContext = environment.analytics.appContextInfo()
     let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
     return "\(appContext.excutable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"

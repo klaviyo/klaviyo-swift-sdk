@@ -159,7 +159,6 @@ final class Store<State, Action> {
   private let reducer: any ReducerProtocol<State, Action>
 #else
   private let reducer: (inout State, Action) -> EffectTask<Action>
-  fileprivate var scope: AnyStoreScope?
 #endif
   var state: CurrentValueSubject<State, Never>
   #if DEBUG
