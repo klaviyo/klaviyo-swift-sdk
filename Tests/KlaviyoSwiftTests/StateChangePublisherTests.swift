@@ -55,9 +55,8 @@ final class StateChangePublisherTests: XCTestCase {
                 state.email = email
                 return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
@@ -93,11 +92,10 @@ final class StateChangePublisherTests: XCTestCase {
                 state.initalizationState = .initialized
                 return StateChangePublisher.test.publisher().eraseToEffect()
             case .flushQueue:
-                state = state
+                return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
@@ -140,9 +138,8 @@ final class StateChangePublisherTests: XCTestCase {
                 state.email = email
                 return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)

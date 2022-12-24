@@ -142,7 +142,7 @@ extension AppContextInfo {
 }
 
 extension StateChangePublisher {
-    static let test = {
+    static let test = { () -> StateChangePublisher in
         StateChangePublisher.debouncedPublisher = { publisher in
             publisher
                 .debounce(for: .seconds(0), scheduler: DispatchQueue.main)
