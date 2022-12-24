@@ -25,7 +25,7 @@ struct StateChangePublisher {
             .removeDuplicates()
             .eraseToAnyPublisher()
         return debouncedPublisher(statePublisher)
-            .flatMap { state in
+            .flatMap { state -> Empty<KlaviyoAction, Never> in
                 saveKlaviyoState(state: state)
                 return Empty<KlaviyoAction, Never>()
             }
