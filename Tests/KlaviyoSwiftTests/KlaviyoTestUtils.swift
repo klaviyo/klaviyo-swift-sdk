@@ -33,7 +33,7 @@ extension ArchiverClient {
 }
 
 extension AppLifeCycleEvents {
-    static let test = Self(lifeCycleEvents: { Empty() })
+    static let test = Self(lifeCycleEvents: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() })
 }
 
 extension KlaviyoEnvironment {
@@ -142,10 +142,10 @@ extension AppContextInfo {
 }
 
 extension StateChangePublisher {
-    static let test = {
+    static let test = { () -> StateChangePublisher in
         StateChangePublisher.debouncedPublisher = { publisher in
             publisher
-                .debounce(for: .seconds(0), scheduler: ImmediateScheduler.shared)
+                .debounce(for: .seconds(0), scheduler: DispatchQueue.main)
                 .eraseToAnyPublisher()
         }
         return Self.init()

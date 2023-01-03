@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import UIKit
 
-public struct StateChangePublisher {
+struct StateChangePublisher {
     
     static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
         publisher
@@ -25,7 +25,7 @@ public struct StateChangePublisher {
             .removeDuplicates()
             .eraseToAnyPublisher()
         return debouncedPublisher(statePublisher)
-            .flatMap { state in
+            .flatMap { state -> Empty<KlaviyoAction, Never> in
                 saveKlaviyoState(state: state)
                 return Empty<KlaviyoAction, Never>()
             }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AnyCodable
 
 
 struct KlaviyoAPI {
@@ -96,11 +97,11 @@ extension KlaviyoAPI.KlaviyoRequest {
     func encodeBody() throws -> Data {
         switch self.endpoint {
         case .createProfile(let payload):
-            return try environment.analytics.encodeJSON(payload)
+            return try environment.analytics.encodeJSON(AnyEncodable(payload))
         case .createEvent(let payload):
-            return try environment.analytics.encodeJSON(payload)
+            return try environment.analytics.encodeJSON(AnyEncodable(payload))
         case .storePushToken(let payload):
-            return try environment.analytics.encodeJSON(payload)
+            return try environment.analytics.encodeJSON(AnyEncodable(payload))
         }
     }
 }

@@ -9,6 +9,7 @@ import Foundation
 import XCTest
 @testable import KlaviyoSwift
 import SnapshotTesting
+import AnyCodable
 
 @MainActor
 final class KlaviyoStateTests: XCTestCase {
@@ -216,7 +217,7 @@ final class KlaviyoStateTests: XCTestCase {
         )
         let tokenRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, profileRequest, eventRequest])
-        let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(state)
+        let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(AnyEncodable(state))
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.analytics.decoder.decode(encodedState)
         XCTAssertEqual(decodedState, state)
     }

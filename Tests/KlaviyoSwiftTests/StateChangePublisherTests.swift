@@ -40,6 +40,12 @@ final class StateChangePublisherTests: XCTestCase {
             }
             count += 1
         }
+        let testScheduler =  DispatchQueue.test
+        StateChangePublisher.debouncedPublisher = { publisher in
+            publisher
+                .debounce(for: .seconds(1), scheduler: testScheduler)
+                .eraseToAnyPublisher()
+        }
         let initializationReducer = { ( state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
             switch action {
             case .initialize:
@@ -49,20 +55,26 @@ final class StateChangePublisherTests: XCTestCase {
                 state.email = email
                 return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
         let test = Store(initialState: .test, reducer: reducer)
         environment.analytics.store = test
-        _ = environment.analytics.store.send(.initialize("foo"))
-        // This should not trigger a save since in our reducer it does not change the state.
-        _ = environment.analytics.store.send(.setPushToken("foo"))
-        _ = environment.analytics.store.send(.setEmail("foo"))
+
+        testScheduler.run()
+        @MainActor func runDebouncedEffect() {
+            _ = environment.analytics.store.send(.initialize("foo"))
+            testScheduler.run()
+            // This should not trigger a save since in our reducer it does not change the state.
+            _ = environment.analytics.store.send(.setPushToken("foo"))
+            _ = environment.analytics.store.send(.setEmail("foo"))
+        }
+        runDebouncedEffect()
+        testScheduler.advance(by: .seconds(2.0))
         
-        wait(for: [savedCalledExpectation, setEmailSaveExpectation], timeout: 1.0)
+        wait(for: [savedCalledExpectation, setEmailSaveExpectation], timeout: 2.0)
         
         XCTAssertEqual(count, 2)
     }
@@ -80,20 +92,24 @@ final class StateChangePublisherTests: XCTestCase {
                 state.initalizationState = .initialized
                 return StateChangePublisher.test.publisher().eraseToEffect()
             case .flushQueue:
-                state = state
+                return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
         let test = Store(initialState: .test, reducer: reducer)
         environment.analytics.store = test
-        _ = environment.analytics.store.send(.initialize("foo"))
-        _ = environment.analytics.store.send(.flushQueue)
-        _ = environment.analytics.store.send(.flushQueue)
         
+        @MainActor func runDebouncedEffect() {
+            _ = environment.analytics.store.send(.initialize("foo"))
+            _ = environment.analytics.store.send(.flushQueue)
+            _ = environment.analytics.store.send(.flushQueue)
+        }
+        
+        runDebouncedEffect()
+
         wait(for: [savedCalledExpectation], timeout: 1.0)
     }
     
@@ -122,9 +138,8 @@ final class StateChangePublisherTests: XCTestCase {
                 state.email = email
                 return .none
             default:
-                state = state
+                return .none
             }
-            return .none
         }
         
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
