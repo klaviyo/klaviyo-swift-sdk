@@ -2,8 +2,7 @@
   "data" : {
     "attributes" : {
       "metric" : {
-        "name" : "blob",
-        "service" : "klaviyo"
+        "name" : "blob"
       },
       "profile" : {
         "email" : "blob@email.com",
