@@ -96,7 +96,6 @@ extension KlaviyoAPI.KlaviyoRequest {
                 struct Attributes: Equatable, Codable {
                     struct Metric: Equatable, Codable {
                         let name: String
-                        var service = "klaviyo"
                         init(name: String) {
                             self.name = name
                         }

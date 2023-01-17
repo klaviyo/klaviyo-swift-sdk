@@ -90,7 +90,7 @@ extension KlaviyoAPI.KlaviyoRequest {
         case .createEvent:
             return "client/events"
         case .storePushToken:
-            return "api/identify"
+            return "identify"
         }
     }
     

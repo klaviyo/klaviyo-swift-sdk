@@ -15,7 +15,6 @@ extension Klaviyo {
         struct Attributes {
             struct Metric {
                 let name: String
-                let service = "ios-analytics"
                 init(name: String) {
                     self.name = name
                 }
