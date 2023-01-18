@@ -12,7 +12,7 @@ import UIKit
 
 var environment = KlaviyoEnvironment.production
 
-let PRODUCTION_HOST = "https://a.klaviyo.com"
+let PRODUCTION_HOST = Klaviyo.sharedInstance.KlaviyoServerURLString
 let encoder = { () -> JSONEncoder in
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
@@ -25,8 +25,7 @@ let decoder = { () -> JSONDecoder in
     return decoder
 }()
 
-// TODO: use hostname based on api url instead of hard coding
-private let reachabilityService = Reachability(hostname: "a.klaviyo.com")
+private let reachabilityService = Reachability(hostname: URL(string: PRODUCTION_HOST)!.host!)
 
 struct KlaviyoEnvironment {
     var archiverClient: ArchiverClient
