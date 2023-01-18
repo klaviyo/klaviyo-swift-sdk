@@ -48,9 +48,9 @@ public class Klaviyo: NSObject  {
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
     #if DEBUG
-    public var KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    public var KlaviyoServerURLString = "https://a.klaviyo.com/"
     #else
-    let KlaviyoServerURLString = "https://a.klaviyo.com/api"
+    let KlaviyoServerURLString = "https://a.klaviyo.com/"
     #endif
     
     let CustomerPropertiesAppendDictKey = "$append"

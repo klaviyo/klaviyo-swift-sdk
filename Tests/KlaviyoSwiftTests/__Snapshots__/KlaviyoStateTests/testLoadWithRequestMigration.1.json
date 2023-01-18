@@ -12,8 +12,7 @@
             "data" : {
               "attributes" : {
                 "metric" : {
-                  "name" : "$opened_push",
-                  "service" : "klaviyo"
+                  "name" : "$opened_push"
                 },
                 "profile" : {
                   "$anonymous" : "iOS:00000000-0000-0000-0000-000000000002",
