@@ -11,6 +11,7 @@
   - flushing: false
   - initalizationState: InitializationSate.uninitialized
   - pendingLegacyEvents: 0 elements
+  - pendingLegacyProfiles: 0 elements
   - phoneNumber: Optional<String>.none
   - pushToken: Optional<String>.none
   - queue: 0 elements

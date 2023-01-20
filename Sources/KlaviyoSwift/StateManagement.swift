@@ -58,9 +58,11 @@ struct KlaviyoReducer: ReducerProtocol {
             state.apiKey = apiKey
             // carry over pending events
             let pendingEvents = state.pendingLegacyEvents
+            let pendingProfiles = state.pendingLegacyProfiles
             return .run { send in
                 var initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 initialState.pendingLegacyEvents = pendingEvents
+                initialState.pendingLegacyProfiles = pendingProfiles
                 await send(.completeInitialization(initialState))
             }
         case var .completeInitialization(initialState):
@@ -76,10 +78,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.queue.append(request)
             }
             let pendingEvents = state.pendingLegacyEvents
+            let peningProfiles = state.pendingLegacyProfiles
             state.pendingLegacyEvents = []
             return .run { send in
                 for event in pendingEvents {
                     await send(.enqueueLegacyEvent(event))
+                }
+                for profile in peningProfiles {
+                    await send(.enqueueLegacyProfile(profile))
                 }
                 await send(.start)
             }
@@ -241,6 +247,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
         case .enqueueLegacyProfile(let legacyProfile):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
+                state.pendingLegacyProfiles.append(legacyProfile)
                 return .none
             }
             guard let identifiers = legacyProfile.identifiers else {

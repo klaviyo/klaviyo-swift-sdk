@@ -28,6 +28,7 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = 10.0
     var retryInfo = RetryInfo.retry(0)
     var pendingLegacyEvents: [LegacyEvent] = []
+    var pendingLegacyProfiles: [LegacyProfile] = []
     
     enum CodingKeys: CodingKey {
         case apiKey
