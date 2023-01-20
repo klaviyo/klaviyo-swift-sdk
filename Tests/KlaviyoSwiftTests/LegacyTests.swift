@@ -75,7 +75,8 @@ class LegacyTests: XCTestCase {
     // MARK: Pending Events
     
     func testLegacyEventsAndProfilesAreLoggedAfterInitialization() async throws {
-        let initialState = KlaviyoState(queue: [], pendingLegacyEvents: [LEGACY_OPENED_PUSH], pendingLegacyProfiles: [LEGACY_PROFILE])
+        let pendingRequests: [KlaviyoState.PendingRequest] =  [.legacyEvent(LEGACY_OPENED_PUSH), .legacyProfile(LEGACY_PROFILE)]
+        let initialState = KlaviyoState(queue: [], pendingRequests: pendingRequests)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         // Avoids a warning in xcode despite the result being discardable.
@@ -84,14 +85,13 @@ class LegacyTests: XCTestCase {
             $0.initalizationState = .initializing
         }
         
-        let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingLegacyEvents: [LEGACY_OPENED_PUSH], pendingLegacyProfiles: [LEGACY_PROFILE])
+        let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingRequests: pendingRequests)
         let profileRequest = try expectedState.buildProfileRequest()
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
             $0.queue = [profileRequest]
-            $0.pendingLegacyEvents = []
-            $0.pendingLegacyProfiles = [LEGACY_PROFILE]
+            $0.pendingRequests = []
         }
         
         await store.receive(.enqueueLegacyEvent(LEGACY_OPENED_PUSH)) {
@@ -150,7 +150,7 @@ class LegacyTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.enqueueLegacyEvent(legacyEvent)) {
-            $0.pendingLegacyEvents = [legacyEvent]
+            $0.pendingRequests = [.legacyEvent(legacyEvent)]
         }
     }
     
@@ -165,7 +165,7 @@ class LegacyTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE)) {
-               $0.pendingLegacyProfiles = [LEGACY_PROFILE]
+            $0.pendingRequests = [.legacyProfile(LEGACY_PROFILE)]
         }
     }
     

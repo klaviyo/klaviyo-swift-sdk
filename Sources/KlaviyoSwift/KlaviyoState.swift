@@ -15,6 +15,10 @@ struct KlaviyoState: Equatable, Codable {
         case initializing
         case initialized
     }
+    enum PendingRequest: Equatable {
+        case legacyEvent(LegacyEvent)
+        case legacyProfile(LegacyProfile)
+    }
     var apiKey: String?
     var email: String?
     var anonymousId: String?
@@ -27,8 +31,7 @@ struct KlaviyoState: Equatable, Codable {
     var flushing = false
     var flushInterval = 10.0
     var retryInfo = RetryInfo.retry(0)
-    var pendingLegacyEvents: [LegacyEvent] = []
-    var pendingLegacyProfiles: [LegacyProfile] = []
+    var pendingRequests: [PendingRequest] = []
     
     enum CodingKeys: CodingKey {
         case apiKey
