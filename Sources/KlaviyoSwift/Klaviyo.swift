@@ -9,6 +9,18 @@
 import Foundation
 import UIKit
 
+
+private func dispatchOnMainThread(action: KlaviyoAction) {
+    Task {
+        await MainActor.run {
+            _ = environment.analytics.store.send(action)
+        }
+    }
+}
+
+// MARK: Objective-C
+
+@objc
 public class Klaviyo: NSObject  {
    
     /*
@@ -17,6 +29,8 @@ public class Klaviyo: NSObject  {
     
     // Create the singleton instance
     public static let sharedInstance = Klaviyo()
+    
+    private static let sdkInstance = KlaviyoSDK()
     
     /*
     Klaviyo JSON Key Constants
@@ -92,9 +106,10 @@ public class Klaviyo: NSObject  {
      
      - Parameter apiKey: string representation of the Klaviyo API Key
      */
+    @objc
     public class func setupWithPublicAPIKey(apiKey: String) {
         //_ avoids warning from xcode
-        sharedInstance.dispatchOnMainThread(action: .initialize(apiKey))
+        Klaviyo.sdkInstance.initialize(with: apiKey)
     }
     
     /**
@@ -102,8 +117,9 @@ public class Klaviyo: NSObject  {
      
      - Parameter userEmail: the user's email address
      */
+    @objc
     public func setUpUserEmail(userEmail :String) {
-        dispatchOnMainThread(action: .setEmail(userEmail))
+        Klaviyo.sdkInstance.set(email: userEmail)
     }
     
     
@@ -111,8 +127,9 @@ public class Klaviyo: NSObject  {
      setUpCustomerID: Register the current customer ID and saves it
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
+    @objc
     public func setUpCustomerID(id: String) {
-        dispatchOnMainThread(action: .setExternalId(id))
+        Klaviyo.sdkInstance.set(externalId: id)
     }
     
     /**
@@ -121,9 +138,10 @@ public class Klaviyo: NSObject  {
      
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
+    @objc
     public func handlePush(userInfo: NSDictionary) {
-        if let body = userInfo["body"] as? NSDictionary, let _ = body["_k"] {
-            trackEvent(eventName: KLPersonOpenedPush, properties: userInfo)
+        Klaviyo.sdkInstance.handle(remoteNotification: userInfo as! [AnyHashable : Any]) { result in
+            // Empty implementation
         }
     }
     
@@ -132,6 +150,7 @@ public class Klaviyo: NSObject  {
      
      - Parameter eventName: name of the event
      */
+    @objc
     public func trackEvent(eventName : String?) {
         trackEvent(eventName: eventName, properties: nil)
     }
@@ -142,6 +161,7 @@ public class Klaviyo: NSObject  {
      - Parameter eventName: name of the event
      - Parameter properties: customerProperties
      */
+    @objc
     public func trackEvent(eventName : String?, properties : NSDictionary?) {
         trackEvent(eventName: eventName, customerProperties: nil, properties: properties)
     }
@@ -153,6 +173,7 @@ public class Klaviyo: NSObject  {
      - Parameter customerPropertiesDict: dictionary for user info
      - Parameter properties: dictionary for event info
      */
+    @objc
     public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
         trackEvent(event: eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
     }
@@ -165,6 +186,7 @@ public class Klaviyo: NSObject  {
      - Parameter propertiesDict: dictionary for event info
      - Parameter eventDate: date of the event
      */
+    @objc
     public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate: NSDate?) {
         
         guard let eventName = event, !eventName.isEmpty else {
@@ -177,6 +199,7 @@ public class Klaviyo: NSObject  {
         let legacyEvent = LegacyEvent(eventName: eventName, customerProperties: customerPropertiesDict, properties: propertiesDict ?? [:])
         // _ Avoids xcode warning.
         dispatchOnMainThread(action: .enqueueLegacyEvent(legacyEvent))
+        
     }
     
     
@@ -187,6 +210,7 @@ public class Klaviyo: NSObject  {
      
      - Returns: Void
      */
+    @objc
     public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
         if personDictionary.allKeys.count == 0 {
@@ -208,10 +232,9 @@ public class Klaviyo: NSObject  {
      - Parameter deviceToken: token provided by Apple that registers push notifications to the given device
      - Returns: Void
      */
+    @objc
     public func addPushDeviceToken(deviceToken: Data) {
-        let apnDeviceToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        // _ Avoids warning in xcode.
-        dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
+        Klaviyo.sdkInstance.set(pushToken: deviceToken)
     }
     
     
@@ -221,20 +244,15 @@ public class Klaviyo: NSObject  {
      - Parameter propertiesDictionary: dictionary of properties passed in for a given event or user. May be nil if no parameters are given.
      - Returns: Void
      */
-    internal func updatePropertiesDictionary(propDictionary: NSDictionary?)->NSDictionary {
-        var propertiesDictionary = propDictionary
-        if propertiesDictionary == nil {
-            propertiesDictionary = NSMutableDictionary()
-        }
-        
-        let returnDictionary = propertiesDictionary as! NSMutableDictionary
+    internal func updatePropertiesDictionary(propDictionary: NSDictionary?) -> NSDictionary {
+        let propertiesDictionary = propDictionary?.mutableCopy() as? NSMutableDictionary ?? NSMutableDictionary()
         
         // Set the user's timezone: Note if the customer exists this will override their current profile
         // Alternatively, could create a customer mobile timezone property instead using a different key
         let timezone = NSTimeZone.local.identifier
-        returnDictionary[KLTimezone] = timezone
+        propertiesDictionary[KLTimezone] = timezone
         
-        return returnDictionary
+        return propertiesDictionary
     }
     
     /**
@@ -259,13 +277,56 @@ public class Klaviyo: NSObject  {
                 , "Property values must be of NSString, NSNumber, NSNull, NSDictionary, NSDate, or NSURL. Got: \(String(describing: properties[k as! NSCopying]))")
         }
     }
+}
+
+
+struct KlaviyoSDK {
+    func initialize(with apiKey: String) {
+        dispatchOnMainThread(action: .initialize(apiKey))
+    }
     
-    private func dispatchOnMainThread(action: KlaviyoAction) {
-        Task {
-            await MainActor.run {
-                _ = environment.analytics.store.send(action)
-            }
+    func set(profile: Profile) {
+        dispatchOnMainThread(action: .enqueueProile(profile))
+    }
+    
+    func resetProfile() {
+        dispatchOnMainThread(action: .resetProfile)
+    }
+    
+    func set(email: String) {
+        dispatchOnMainThread(action: .setEmail(email))
+        
+    }
+    
+    func set(externalId: String) {
+        dispatchOnMainThread(action: .setExternalId(externalId))
+    }
+    
+    func set(profileAttribute: String, value: Any) {
+        // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
+    }
+    
+    func create(event: Event) {
+        dispatchOnMainThread(action: .enqueueEvent(event))
+    }
+    
+    func set(pushToken: Data) {
+        let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
+        dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
+    }
+    
+    func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
+            create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
+            completionHandler(.noData)
         }
     }
     
+    func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
+           let body = properties["body"] as? [String: Any], let _ = body["_k"] {
+            create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
+            completionHandler()
+        }
+    }
 }

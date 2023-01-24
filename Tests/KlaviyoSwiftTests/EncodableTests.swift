@@ -17,7 +17,7 @@ final class EncodableTests: XCTestCase {
     }
 
     func testProfilePayload() throws {
-        let profile = Klaviyo.Profile.test
+        let profile = Profile.test
         let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
         assertSnapshot(matching: payload, as: .json(encoder))
@@ -25,8 +25,8 @@ final class EncodableTests: XCTestCase {
     }
     
     func testEventPayload() throws {
-        let event = Klaviyo.Event.test
-        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
+        let event = Event.test
+        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event))
         assertSnapshot(matching: createEventPayload, as: .json(encoder))
     }
     

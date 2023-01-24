@@ -21,13 +21,13 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let email: String?
                     let phoneNumber: String?
                     let externalId: String?
-                    let anonymousId: String?
+                    let anonymousId: String
                     let firstName: String?
                     let lastName: String?
                     let organization: String?
                     let title: String?
                     let image: String?
-                    let location: Klaviyo.Profile.Attributes.Location?
+                    let location: KlaviyoSwift.Profile.Attributes.Location?
                     let properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
@@ -42,7 +42,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                         case location
                         case properties
                     }
-                    init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
+                    init(attributes: KlaviyoSwift.Profile.Attributes,
+                         anonymousId: String) {
                         self.email = attributes.email
                         self.phoneNumber = attributes.phoneNumber
                         self.externalId = attributes.externalId
@@ -62,8 +63,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                         let email: String?
                         let phoneNumber: String?
                         let externalId: String?
-                        let anonymousId: String?
-                        init(attributes: Klaviyo.Profile.Attributes, anonymousId: String) {
+                        let anonymousId: String
+                        init(attributes: KlaviyoSwift.Profile.Attributes, anonymousId: String) {
                             self.email = attributes.email
                             self.phoneNumber = attributes.phoneNumber
                             self.externalId = attributes.externalId
@@ -80,7 +81,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                 }
                 let attributes: Attributes
                 let meta: Meta
-                init(profile: Klaviyo.Profile, anonymousId: String) {
+                init(profile: KlaviyoSwift.Profile, anonymousId: String) {
                     self.attributes = Attributes(
                         attributes: profile.attributes,
                         anonymousId: anonymousId)
@@ -103,16 +104,23 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let metric: Metric
                     let properties: AnyCodable
                     let profile: AnyCodable
-                    var time: Date
+                    let time: Date
                     let value: Double?
                     let uniqueId: String
-                    init(attributes: Klaviyo.Event.Attributes) {
-                        self.profile = AnyCodable(attributes.profile)
-                        self.metric = Metric(name: attributes.metric.name)
+                    init(attributes: KlaviyoSwift.Event.Attributes,
+                         anonymousId: String? = nil) {
+                        self.metric = Metric(name: attributes.metric.name.value)
                         self.properties = AnyCodable(attributes.properties)
                         self.value = attributes.value
                         self.time = attributes.time
                         self.uniqueId = attributes.uniqueId
+                        if let anonymousId = anonymousId {
+                            var updatedProfile = attributes.profile
+                            updatedProfile["$anonymous"] = anonymousId
+                            self.profile = AnyCodable(updatedProfile)
+                        } else {
+                            self.profile = AnyCodable(attributes.profile)
+                        }
                     }
                     enum CodingKeys: String, CodingKey {
                         case metric
@@ -126,18 +134,19 @@ extension KlaviyoAPI.KlaviyoRequest {
                 }
                 var type = "event"
                 let attributes: Attributes
-                init(event: Klaviyo.Event) {
-                    self.attributes = .init(attributes: event.attributes)
+                init(event: KlaviyoSwift.Event,
+                     anonymousId: String? = nil) {
+                    self.attributes = .init(attributes: event.attributes, anonymousId: anonymousId)
                 }
             }
             let data: Event
-            init(data: Klaviyo.Event) {
-                self.data = Event(event: data)
+            init(data: Event) {
+                self.data = data
             }
         }
         struct PushTokenPayload: Equatable, Codable {
             struct Properties: Equatable, Codable {
-                let anonymousId: String
+                let anonymousId: String?
                 let append: Append
                 let email: String?
                 let phoneNumber: String?
@@ -183,7 +192,7 @@ extension KlaviyoAPI.KlaviyoRequest {
     }
 }
 
-extension Klaviyo.Profile.Attributes.Location: Codable {
+extension Profile.Attributes.Location: Codable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.address1 = try values.decode(String.self, forKey: .address1)
@@ -279,10 +288,8 @@ struct LegacyEvent: Equatable {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken
         }
-        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(
-            attributes: .init(metric: .init(name: self.eventName),
-                              properties: eventProperties,
-                              profile: customerProperties)))
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(attributes: .init(metric: .init(name: .CustomEvent(self.eventName)), properties: eventProperties, profile: customerProperties)))
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.init(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
@@ -311,7 +318,7 @@ struct LegacyProfile: Equatable {
          customerProperties.removeValue(forKey: "$anonymous")
          
          // We assume that the state has the latest identifiers
-         let attributes = Klaviyo.Profile.Attributes(
+         let attributes = KlaviyoSwift.Profile.Attributes(
             email: state.email,
             phoneNumber: state.phoneNumber,
             externalId: state.externalId,

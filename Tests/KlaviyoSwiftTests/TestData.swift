@@ -10,7 +10,7 @@ import Foundation
 
 let TEST_API_KEY = "fake-key"
 
-extension Klaviyo.Profile {
+extension Profile {
     static let test = Self.init(
         attributes: .test)
 }
@@ -25,7 +25,7 @@ let INITIALIZED_TEST_STATE = { KlaviyoState(
     flushing: true
 ) }
 
-extension Klaviyo.Profile.Attributes {
+extension Profile.Attributes {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
         "stuff": 2,
@@ -47,7 +47,7 @@ extension Klaviyo.Profile.Attributes {
     )
 }
 
-extension Klaviyo.Profile.Attributes.Location {
+extension Profile.Attributes.Location {
     static let test = Self.init(
         address1: "blob",
         address2: "blob",
@@ -60,11 +60,11 @@ extension Klaviyo.Profile.Attributes.Location {
     )
 }
 
-extension Klaviyo.Event {
+extension Event {
     static let test = Self.init(attributes: .test)
 }
 
-extension Klaviyo.Event.Attributes {
+extension Event.Attributes {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
         "stuff": 2,
@@ -82,13 +82,13 @@ extension Klaviyo.Event.Attributes {
     static let test = Self.init(metric: .test, properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
-extension Klaviyo.Event.Attributes.Metric {
-    static let test = Self.init(name: "blob")
+extension Event.Attributes.Metric {
+    static let test = Self.init(name: .CustomEvent("blob"))
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
     
-    static let test = Self.init(data: .test)
+    static let test = Self.init(data: .init(event: .test))
 }
 
 extension URLResponse {

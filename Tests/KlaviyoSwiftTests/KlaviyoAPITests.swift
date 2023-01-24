@@ -107,7 +107,7 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createEvent(.init(data: .test)))
+        let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
         await sendAndAssert(with: request){ result in
             
             switch result {

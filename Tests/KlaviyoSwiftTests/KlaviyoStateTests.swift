@@ -201,10 +201,10 @@ final class KlaviyoStateTests: XCTestCase {
     }
     
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
-        let event = Klaviyo.Event.test
-        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
+        let event = Event.test
+        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event))
         let eventRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
-        let profile = Klaviyo.Profile.test
+        let profile = Profile.test
         let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
         let profileRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))

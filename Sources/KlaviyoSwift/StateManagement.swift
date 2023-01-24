@@ -40,6 +40,9 @@ enum KlaviyoAction: Equatable {
     case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
+    case enqueueEvent(Event)
+    case enqueueProile(Profile)
+    case resetProfile
 }
 
 struct RequestId {}
@@ -48,7 +51,7 @@ struct FlushTimer {}
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> {
+    func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
         switch action {
         case let .initialize(apiKey):
             guard case .uninitialized = state.initalizationState else {
@@ -69,7 +72,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
-
+            
             state = initialState
             state.initalizationState = .initialized
             if let request = try? state.buildProfileRequest() {
@@ -162,11 +165,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             return environment.analytics.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }
-                    .eraseToEffect()
-                    .cancellable(id: Timer.self, cancelInFlight: true)
+                .map { _ in
+                    KlaviyoAction.flushQueue
+                }
+                .eraseToEffect()
+                .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
@@ -184,7 +187,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard state.flushing else {
                 return .none
             }
-           
+            
             guard let request = state.requestsInFlight.first else {
                 state.flushing = false
                 return .none
@@ -226,10 +229,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushInterval = CELLULAR_FLUSH_INTERVAL
             }
             return environment.analytics.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }.eraseToEffect()
-                    .cancellable(id: Timer.self, cancelInFlight: true)
+                .map { _ in
+                    KlaviyoAction.flushQueue
+                }.eraseToEffect()
+                .cancellable(id: Timer.self, cancelInFlight: true)
         case .enqueueLegacyEvent(let legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 state.pendingRequests.append(.legacyEvent(legacyEvent))
@@ -279,6 +282,38 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
             
+        case .enqueueEvent(let event):
+            guard case .initialized = state.initalizationState,
+                    let apiKey = state.apiKey,
+                    let anonymousId = state.anonymousId else {
+                return .none
+            }
+            let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: event,
+                                                                                             anonymousId: anonymousId)
+            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
+            let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
+            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            state.queue.append(request)
+            return .none
+        case .enqueueProile(let profile):
+            guard case .initialized = state.initalizationState,
+                    let apiKey = state.apiKey,
+                    let anonymousId = state.anonymousId else {
+                return .none
+            }
+            let profile = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile,
+                                                                                                 anonymousId: anonymousId)
+            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: profile)
+            let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
+            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            state.queue.append(request)
+            return .none
+        case .resetProfile:
+            state.email = nil
+            state.externalId = nil
+            state.anonymousId = environment.analytics.uuid().uuidString
+            state.phoneNumber = nil
+            return .none
         }
     }
 }
