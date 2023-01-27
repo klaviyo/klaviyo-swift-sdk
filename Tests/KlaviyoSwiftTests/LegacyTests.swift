@@ -19,16 +19,11 @@ class LegacyTests: XCTestCase {
     func testLegacyProfileRequestSetsEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         
-        let legacyProfile = LegacyProfile(customerProperties: [
-            "$email": "blob@blob.com",
-            "foo": "bar"
-        ])
-        
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
-        _ = await store.send(.enqueueLegacyProfile(legacyProfile)) {
+        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE)) {
             $0.email = "blob@blob.com"
-            guard let request = try legacyProfile.buildProfileRequest(with: initialState.apiKey!, from: $0) else {
+            guard let request = try LEGACY_PROFILE.buildProfileRequest(with: initialState.apiKey!, from: $0) else {
                 XCTFail()
                 return
             }
@@ -79,46 +74,59 @@ class LegacyTests: XCTestCase {
     
     // MARK: Pending Events
     
-    func testLegacyEventsAreLoggedAfterInitialization() async throws {
-        let initialState = KlaviyoState(queue: [], pendingLegacyEvents: [LEGACY_OPENED_PUSH])
+    func testLegacyEventsAndProfilesAreLoggedAfterInitialization() async throws {
+        let pendingRequests: [KlaviyoState.PendingRequest] =  [.legacyEvent(LEGACY_OPENED_PUSH), .legacyProfile(LEGACY_PROFILE)]
+        let initialState = KlaviyoState(queue: [], pendingRequests: pendingRequests)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
-        let apiKey = "fake-key"
         // Avoids a warning in xcode despite the result being discardable.
-        _ = await store.send(.initialize(apiKey)) {
-            $0.apiKey = apiKey
+        _ = await store.send(.initialize(TEST_API_KEY)) {
+            $0.apiKey = TEST_API_KEY
             $0.initalizationState = .initializing
         }
         
-        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingLegacyEvents: [LEGACY_OPENED_PUSH])
+        let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingRequests: pendingRequests)
         let profileRequest = try expectedState.buildProfileRequest()
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
             $0.queue = [profileRequest]
-            $0.pendingLegacyEvents = []
+            $0.pendingRequests = []
         }
         
         await store.receive(.enqueueLegacyEvent(LEGACY_OPENED_PUSH)) {
             $0.email = "blob@blob.com"
             $0.externalId = "blobid"
-            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: apiKey, from: $0) else {
+            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: TEST_API_KEY, from: $0) else {
                 XCTFail()
                 return
             }
             $0.queue = [profileRequest, openedPushRequest]
         }
-        
-        await store.receive(.start)
-        
-        await store.receive(.flushQueue) {
-            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: apiKey, from: $0) else {
+
+
+
+        await store.receive(.enqueueLegacyProfile(LEGACY_PROFILE)) {
+            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: TEST_API_KEY, from: $0) else {
                 XCTFail()
                 return
             }
+            let secondProfile = try! LEGACY_PROFILE.buildProfileRequest(with: TEST_API_KEY, from: $0)!
+            $0.email = "blob@blob.com"
+            $0.externalId = "blobid"
+            $0.queue = [profileRequest, openedPushRequest, secondProfile]
+        }
+        await store.receive(.start)
+        
+        await store.receive(.flushQueue) {
             $0.flushing = true
             $0.queue = []
-            $0.requestsInFlight = [profileRequest, openedPushRequest]
+            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: TEST_API_KEY, from: $0) else {
+                XCTFail()
+                return
+            }
+            let secondProfile = try! LEGACY_PROFILE.buildProfileRequest(with: TEST_API_KEY, from: $0)!
+            $0.requestsInFlight = [profileRequest, openedPushRequest, secondProfile]
         }
         await store.receive(.sendRequest)
         await store.receive(.dequeCompletedResults(profileRequest)) {
@@ -142,11 +150,11 @@ class LegacyTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
         _ = await store.send(.enqueueLegacyEvent(legacyEvent)) {
-            $0.pendingLegacyEvents = [legacyEvent]
+            $0.pendingRequests = [.legacyEvent(legacyEvent)]
         }
     }
     
-    func testLegacyProfileUnitialized() async throws {
+    func testLegacyProfileUnitializedUpdatesPendingProfiles() async throws {
         let apiKey = "foo"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -154,14 +162,11 @@ class LegacyTests: XCTestCase {
                                         initalizationState: .uninitialized,
                                         flushing: true)
         
-        let legacyProfile = LegacyProfile(customerProperties: [
-            "$email": "blob@blob.com",
-            "foo": "bar"
-        ])
-        
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         
-        _ = await store.send(.enqueueLegacyProfile(legacyProfile))
+        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE)) {
+            $0.pendingRequests = [.legacyProfile(LEGACY_PROFILE)]
+        }
     }
     
     func testInvalidLegacyEventCustomerPropertiesHasNoEffect() async throws {
