@@ -29,42 +29,42 @@ struct KlaviyoAPI {
     }
     
     // For internal testing use only
-    static var requestStarted: (String, URLRequest) -> Void = { _, _ in }
-    static var requestCompleted: (String, Data, HTTPURLResponse) -> Void = { _, _, _ in }
-    static var requestFailed: (String, Error) -> Void = { _, _ in }
-    static var requestRateLimited: (String) -> Void = { _ in }
-    static var requestHttpError: (String, Int) -> Void = { _, _ in }
+    static var requestStarted: (KlaviyoRequest, URLRequest) -> Void = { _, _ in }
+    static var requestCompleted: (KlaviyoRequest, Data, HTTPURLResponse) -> Void = { _, _, _ in }
+    static var requestFailed: (KlaviyoRequest, Error) -> Void = { _, _ in }
+    static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
+    static var requestHttpError: (KlaviyoRequest, Int) -> Void = { _, _ in }
  
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
         var urlRequest: URLRequest
         do {
             urlRequest = try request.urlRequest()
         } catch {
-            requestFailed(request.uuid, error)
+            requestFailed(request, error)
             return .failure(.internalRequestError(error))
         }
         
-        requestStarted(request.uuid, urlRequest)
+        requestStarted(request, urlRequest)
         var response: URLResponse
         var data: Data
         do {
             (data, response)  = try await environment.analytics.networkSession().data(urlRequest)
         } catch {
-            requestFailed(request.uuid, error)
+            requestFailed(request, error)
             return .failure(KlaviyoAPIError.networkError(error))
         }
         guard let httpResponse = response as? HTTPURLResponse else {
             return .failure(.missingOrInvalidResponse(response))
         }
         if httpResponse.statusCode == 429 {
-            requestRateLimited(request.uuid)
+            requestRateLimited(request)
             return .failure(KlaviyoAPIError.rateLimitError)
         }
         guard 200 ..< 300 ~= httpResponse.statusCode else {
-            requestHttpError(request.uuid, httpResponse.statusCode)
+            requestHttpError(request, httpResponse.statusCode)
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
-        requestCompleted(request.uuid, data, httpResponse)
+        requestCompleted(request, data, httpResponse)
         return .success(data)
         
     }
