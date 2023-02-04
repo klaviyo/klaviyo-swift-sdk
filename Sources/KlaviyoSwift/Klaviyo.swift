@@ -295,7 +295,10 @@ struct KlaviyoSDK {
     
     func set(email: String) {
         dispatchOnMainThread(action: .setEmail(email))
-        
+    }
+    
+    func set(phoneNumber: String) {
+        dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
     }
     
     func set(externalId: String) {
