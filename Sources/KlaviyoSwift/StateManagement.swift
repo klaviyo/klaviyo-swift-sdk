@@ -87,6 +87,10 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueLegacyEvent(event))
                     case .legacyProfile(let profile):
                         await send(.enqueueLegacyProfile(profile))
+                    case .event(let event):
+                        await send(.enqueueEvent(event))
+                    case .profile(let profile):
+                        await send(.enqueueProile(profile))
                     }
 
                 }
@@ -286,6 +290,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState,
                     let apiKey = state.apiKey,
                     let anonymousId = state.anonymousId else {
+                state.pendingRequests.append(.event(event))
                 return .none
             }
             let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: event,
@@ -299,6 +304,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState,
                     let apiKey = state.apiKey,
                     let anonymousId = state.anonymousId else {
+                state.pendingRequests.append(.profile(profile))
                 return .none
             }
             let profile = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile,

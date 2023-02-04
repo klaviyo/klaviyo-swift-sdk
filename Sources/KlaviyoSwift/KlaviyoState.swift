@@ -18,6 +18,8 @@ struct KlaviyoState: Equatable, Codable {
     enum PendingRequest: Equatable {
         case legacyEvent(LegacyEvent)
         case legacyProfile(LegacyProfile)
+        case event(Event)
+        case profile(Profile)
     }
     var apiKey: String?
     var email: String?
