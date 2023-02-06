@@ -293,6 +293,15 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.event(event))
                 return .none
             }
+            if let email = event.attributes.profile["$email"] as? String {
+                state.email = email
+            }
+            if let phoneNumber = event.attributes.profile["$phone_number"] as? String {
+                state.phoneNumber = phoneNumber
+            }
+            if let externalId = event.attributes.profile["$id"] as? String {
+                state.externalId = externalId
+            }
             let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: event,
                                                                                              anonymousId: anonymousId)
             let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
@@ -307,9 +316,18 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.profile(profile))
                 return .none
             }
-            let profile = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile,
+            if let email = profile.attributes.email {
+                state.email = email
+            }
+            if let phoneNumber = profile.attributes.phoneNumber {
+                state.phoneNumber = phoneNumber
+            }
+            if let externalId = profile.attributes.externalId {
+                state.externalId = externalId
+            }
+            let requestProfile = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile,
                                                                                                  anonymousId: anonymousId)
-            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: profile)
+            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: requestProfile)
             let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
             let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
             state.queue.append(request)
