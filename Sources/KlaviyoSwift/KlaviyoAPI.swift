@@ -9,14 +9,17 @@ import Foundation
 import AnyCodable
 
 
-struct KlaviyoAPI {
-    struct KlaviyoRequest: Equatable, Codable {
-        let apiKey: String
-        let endpoint: KlaviyoEndpoint
-        var uuid = environment.analytics.uuid().uuidString
+@_spi(KlaviyoPrivate)
+public struct KlaviyoAPI {
+    @_spi(KlaviyoPrivate)
+    public struct KlaviyoRequest: Equatable, Codable {
+        public let apiKey: String
+        public let endpoint: KlaviyoEndpoint
+        public var uuid = environment.analytics.uuid().uuidString
     }
     
-    enum KlaviyoAPIError: Error {
+    @_spi(KlaviyoPrivate)
+    public enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
         case rateLimitError
         case missingOrInvalidResponse(URLResponse?)
@@ -29,11 +32,11 @@ struct KlaviyoAPI {
     }
     
     // For internal testing use only
-    static var requestStarted: (KlaviyoRequest, URLRequest) -> Void = { _, _ in }
-    static var requestCompleted: (KlaviyoRequest, Data, HTTPURLResponse) -> Void = { _, _, _ in }
-    static var requestFailed: (KlaviyoRequest, Error) -> Void = { _, _ in }
-    static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
-    static var requestHttpError: (KlaviyoRequest, Int) -> Void = { _, _ in }
+    @_spi(KlaviyoPrivate)  public static var requestStarted: (KlaviyoRequest, URLRequest) -> Void = { _, _ in }
+    @_spi(KlaviyoPrivate)  public static var requestCompleted: (KlaviyoRequest, Data, HTTPURLResponse) -> Void = { _, _, _ in }
+    @_spi(KlaviyoPrivate)  public static var requestFailed: (KlaviyoRequest, Error) -> Void = { _, _ in }
+    @_spi(KlaviyoPrivate)  public static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
+    @_spi(KlaviyoPrivate)  public static var requestHttpError: (KlaviyoRequest, Int) -> Void = { _, _ in }
  
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
         var urlRequest: URLRequest

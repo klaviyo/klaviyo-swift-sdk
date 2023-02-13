@@ -10,25 +10,25 @@ import Foundation
 import AnyCodable
 
 extension KlaviyoAPI.KlaviyoRequest {
-    enum KlaviyoEndpoint: Equatable, Codable {
-        struct CreateProfilePayload: Equatable, Codable {
+    @_spi(KlaviyoPrivate)  public enum KlaviyoEndpoint: Equatable, Codable {
+        @_spi(KlaviyoPrivate)  public struct CreateProfilePayload: Equatable, Codable {
             /**
              Internal structure which has details not needed by the API.
              */
-            struct Profile: Equatable, Codable {
+            @_spi(KlaviyoPrivate)  public struct Profile: Equatable, Codable {
                 var type = "profile"
-                struct Attributes: Equatable, Codable {
-                    let email: String?
-                    let phoneNumber: String?
-                    let externalId: String?
-                    let anonymousId: String
-                    let firstName: String?
-                    let lastName: String?
-                    let organization: String?
-                    let title: String?
-                    let image: String?
-                    let location: KlaviyoSwift.Profile.Attributes.Location?
-                    let properties: AnyCodable
+                @_spi(KlaviyoPrivate)  public struct Attributes: Equatable, Codable {
+                    public let email: String?
+                    public let phoneNumber: String?
+                    public let externalId: String?
+                    public let anonymousId: String
+                    public let firstName: String?
+                    public let lastName: String?
+                    public let organization: String?
+                    public let title: String?
+                    public let image: String?
+                    public let location: KlaviyoSwift.Profile.Attributes.Location?
+                    public let properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
                         case phoneNumber = "phone_number"
@@ -58,7 +58,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
                     
                 }
-                struct Meta: Equatable, Codable {
+                @_spi(KlaviyoPrivate)  public struct Meta: Equatable, Codable {
                     struct Identifiers: Equatable, Codable {
                         let email: String?
                         let phoneNumber: String?
@@ -79,8 +79,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
                     let identifiers: Identifiers
                 }
-                let attributes: Attributes
-                let meta: Meta
+                @_spi(KlaviyoPrivate)  public let attributes: Attributes
+                @_spi(KlaviyoPrivate)  public let meta: Meta
                 init(profile: KlaviyoSwift.Profile, anonymousId: String) {
                     self.attributes = Attributes(
                         attributes: profile.attributes,
@@ -92,10 +92,14 @@ extension KlaviyoAPI.KlaviyoRequest {
             }
             let data: Profile
         }
-        struct CreateEventPayload: Equatable, Codable {
-            struct Event: Equatable, Codable {
-                struct Attributes: Equatable, Codable {
-                    struct Metric: Equatable, Codable {
+        @_spi(KlaviyoPrivate)
+        public struct CreateEventPayload: Equatable, Codable {
+            @_spi(KlaviyoPrivate)
+            public struct Event: Equatable, Codable {
+                @_spi(KlaviyoPrivate)
+                public struct Attributes: Equatable, Codable {
+                    @_spi(KlaviyoPrivate)
+                    public struct Metric: Equatable, Codable {
                         let name: String
                         init(name: String) {
                             self.name = name
@@ -144,7 +148,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                 self.data = data
             }
         }
-        struct PushTokenPayload: Equatable, Codable {
+        @_spi(KlaviyoPrivate)
+        public struct PushTokenPayload: Equatable, Codable {
             struct Properties: Equatable, Codable {
                 let anonymousId: String?
                 let append: Append
@@ -193,7 +198,7 @@ extension KlaviyoAPI.KlaviyoRequest {
 }
 
 extension Profile.Attributes.Location: Codable {
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.address1 = try values.decode(String.self, forKey: .address1)
         self.address2 = try values.decode(String.self, forKey: .address2)
@@ -206,7 +211,7 @@ extension Profile.Attributes.Location: Codable {
         self.country = try values.decode(String.self, forKey: .country)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(address1, forKey: .address1)
         try container.encode(address2, forKey: .address2)

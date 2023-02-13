@@ -84,9 +84,12 @@ struct Event: Equatable {
     }
 }
 
-struct Profile: Equatable {
-    struct Attributes: Equatable {
-        struct Location: Equatable {
+@_spi(KlaviyoPrivate)
+public struct Profile: Equatable {
+    @_spi(KlaviyoPrivate)
+    public struct Attributes: Equatable {
+        @_spi(KlaviyoPrivate)
+        public struct Location: Equatable {
             let address1: String?
             let address2: String?
             let city: String?
