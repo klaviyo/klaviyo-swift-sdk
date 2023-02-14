@@ -312,23 +312,23 @@ public struct KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
     }
     @_spi(KlaviyoPrivate)
-    func create(event: Event) {
+    public func create(event: Event) {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
     @_spi(KlaviyoPrivate)
-    func set(pushToken: Data) {
+    public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
     }
     @_spi(KlaviyoPrivate)
-    func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    public func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
             completionHandler(.noData)
         }
     }
     @_spi(KlaviyoPrivate)
-    func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
