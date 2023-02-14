@@ -28,6 +28,10 @@ public struct SDKRequest: Identifiable, Equatable {
         public struct EventInfo: Equatable {
             public let eventName: String
             public let eventPayload: String
+            public init(eventName: String, eventPayload: String) {
+                self.eventName = eventName
+                self.eventPayload = eventPayload
+            }
         }
         public struct ProfileInfo: Equatable {
             public var email: String? = nil
@@ -35,6 +39,17 @@ public struct SDKRequest: Identifiable, Equatable {
             public var externalId: String? = nil
             public var anonymousId: String
             public var customerProperties: String? = nil
+            public init(email: String? = nil,
+                        phoneNumber: String? = nil,
+                        externalId: String? = nil,
+                        anonymousId: String,
+                        customerProperties: String? = nil) {
+                self.email = email
+                self.phoneNumber = phoneNumber
+                self.externalId = externalId
+                self.anonymousId = anonymousId
+                self.customerProperties = customerProperties
+            }
         }
         case createEvent(EventInfo, ProfileInfo)
         case createProfile(ProfileInfo)
@@ -96,6 +111,21 @@ public struct SDKRequest: Identifiable, Equatable {
     public let payloadSize: Double
     public let headers: [String: String]
     public let response: Response
+    
+    public init(id: String,
+                type: RequestType,
+                url: String, method:
+                String, payloadSize:
+                Double, headers: [String : String],
+                response: Response) {
+        self.id = id
+        self.type = type
+        self.url = url
+        self.method = method
+        self.payloadSize = payloadSize
+        self.headers = headers
+        self.response = response
+    }
 }
 
 @_spi(KlaviyoPrivate)
