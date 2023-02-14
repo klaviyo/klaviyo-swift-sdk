@@ -8,8 +8,10 @@
 import Foundation
 import AnyCodable
 
-struct Event: Equatable {
-    enum EventName: Equatable {
+@_spi(KlaviyoPrivate)
+public struct Event: Equatable {
+    @_spi(KlaviyoPrivate)
+    public enum EventName: Equatable {
         case OpenedPush
         case ViewedProduct
         case SearchedProducts
@@ -44,26 +46,30 @@ struct Event: Equatable {
             }
         }
     }
-    struct Attributes: Equatable {
-        struct Metric: Equatable {
-            let name: EventName
-            init(name: EventName) {
+    @_spi(KlaviyoPrivate)
+    public struct Attributes: Equatable {
+        @_spi(KlaviyoPrivate)
+        public struct Metric: Equatable {
+            public let name: EventName
+            @_spi(KlaviyoPrivate)
+            public init(name: EventName) {
                 self.name = name
             }
         }
-        let metric: Metric
-        var properties: [String: Any] {
+        public let metric: Metric
+        public var properties: [String: Any] {
             return _properties.value as! [String: Any]
         }
         private let _properties: AnyCodable
-        var profile: [String: Any] {
+        public var profile: [String: Any] {
             return _profile.value as! [String: Any]
         }
         private let _profile: AnyCodable
-        var time: Date
-        let value: Double?
-        let uniqueId: String
-        init(metric: Metric,
+        public var time: Date
+        public let value: Double?
+        public let uniqueId: String
+        @_spi(KlaviyoPrivate)
+        public init(metric: Metric,
              properties: [String : Any],
              profile: [String : Any],
              value: Double? = nil,
@@ -78,8 +84,9 @@ struct Event: Equatable {
         }
         
     }
-    let attributes: Attributes
-    init(attributes: Attributes) {
+    public let attributes: Attributes
+    @_spi(KlaviyoPrivate)
+    public init(attributes: Attributes) {
         self.attributes = attributes
     }
 }
@@ -90,16 +97,16 @@ public struct Profile: Equatable {
     public struct Attributes: Equatable {
         @_spi(KlaviyoPrivate)
         public struct Location: Equatable {
-            let address1: String?
-            let address2: String?
-            let city: String?
-            let country: String?
-            let latitude: Double?
-            let longitude: Double?
-            let region: String?
-            let zip: String?
-            let timezone: String?
-            init(address1: String?=nil,
+            public let address1: String?
+            public let address2: String?
+            public let city: String?
+            public let country: String?
+            public let latitude: Double?
+            public let longitude: Double?
+            public let region: String?
+            public let zip: String?
+            public let timezone: String?
+            public init(address1: String?=nil,
                  address2: String?=nil,
                  city: String?=nil,
                  country: String?=nil,
@@ -119,20 +126,20 @@ public struct Profile: Equatable {
                 self.timezone = timezone ?? environment.analytics.timeZone()
             }
         }
-        let email: String?
-        let phoneNumber: String?
-        let externalId: String?
-        let firstName: String?
-        let lastName: String?
-        let organization: String?
-        let title: String?
-        let image: String?
-        let location: Location?
-        var properties: [String: Any] {
+        public let email: String?
+        public let phoneNumber: String?
+        public let externalId: String?
+        public let firstName: String?
+        public let lastName: String?
+        public let organization: String?
+        public let title: String?
+        public let image: String?
+        public let location: Location?
+        public var properties: [String: Any] {
             return _properties.value as! [String: Any]
         }
         let _properties: AnyCodable
-        init(email: String?=nil,
+        public init(email: String?=nil,
              phoneNumber: String?=nil,
              externalId: String?=nil,
              firstName: String?=nil,
@@ -154,8 +161,9 @@ public struct Profile: Equatable {
             self._properties = AnyCodable(properties ?? [:])
         }
     }
-    let attributes: Attributes
-    init(attributes: Attributes) {
+    public let attributes: Attributes
+    @_spi(KlaviyoPrivate)
+    public init(attributes: Attributes) {
         self.attributes = attributes
     }
 }

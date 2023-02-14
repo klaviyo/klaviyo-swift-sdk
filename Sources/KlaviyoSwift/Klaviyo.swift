@@ -280,51 +280,54 @@ public class Klaviyo: NSObject  {
 }
 
 
-struct KlaviyoSDK {
-    func initialize(with apiKey: String) {
+@_spi(KlaviyoPr)
+public struct KlaviyoSDK {
+    
+    @_spi(KlaviyoPrivate)
+    public func initialize(with apiKey: String) {
         dispatchOnMainThread(action: .initialize(apiKey))
     }
-    
-    func set(profile: Profile) {
+    @_spi(KlaviyoPrivate)
+    public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProile(profile))
     }
-    
-    func resetProfile() {
+    @_spi(KlaviyoPrivate)
+    public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
-    
-    func set(email: String) {
+    @_spi(KlaviyoPrivate)
+    public func set(email: String) {
         dispatchOnMainThread(action: .setEmail(email))
     }
-    
-    func set(phoneNumber: String) {
+    @_spi(KlaviyoPrivate)
+    public func set(phoneNumber: String) {
         dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
     }
-    
-    func set(externalId: String) {
+    @_spi(KlaviyoPrivate)
+    public func set(externalId: String) {
         dispatchOnMainThread(action: .setExternalId(externalId))
     }
-    
-    func set(profileAttribute: String, value: Any) {
+    @_spi(KlaviyoPrivate)
+    public func set(profileAttribute: String, value: Any) {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
     }
-    
+    @_spi(KlaviyoPrivate)
     func create(event: Event) {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
-    
+    @_spi(KlaviyoPrivate)
     func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
     }
-    
+    @_spi(KlaviyoPrivate)
     func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
             completionHandler(.noData)
         }
     }
-    
+    @_spi(KlaviyoPrivate)
     func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {

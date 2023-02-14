@@ -9,17 +9,14 @@ import Foundation
 import AnyCodable
 
 
-@_spi(KlaviyoPrivate)
-public struct KlaviyoAPI {
-    @_spi(KlaviyoPrivate)
-    public struct KlaviyoRequest: Equatable, Codable {
+struct KlaviyoAPI {
+    struct KlaviyoRequest: Equatable, Codable {
         public let apiKey: String
         public let endpoint: KlaviyoEndpoint
         public var uuid = environment.analytics.uuid().uuidString
     }
     
-    @_spi(KlaviyoPrivate)
-    public enum KlaviyoAPIError: Error {
+    enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
         case rateLimitError
         case missingOrInvalidResponse(URLResponse?)
@@ -32,30 +29,33 @@ public struct KlaviyoAPI {
     }
     
     // For internal testing use only
-    @_spi(KlaviyoPrivate)  public static var requestStarted: (KlaviyoRequest, URLRequest) -> Void = { _, _ in }
-    @_spi(KlaviyoPrivate)  public static var requestCompleted: (KlaviyoRequest, Data, HTTPURLResponse) -> Void = { _, _, _ in }
-    @_spi(KlaviyoPrivate)  public static var requestFailed: (KlaviyoRequest, Error) -> Void = { _, _ in }
-    @_spi(KlaviyoPrivate)  public static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
-    @_spi(KlaviyoPrivate)  public static var requestHttpError: (KlaviyoRequest, Int) -> Void = { _, _ in }
+    static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
+    static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
+    static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
+    static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
+    static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
  
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
+        let start = Date()
         var urlRequest: URLRequest
         do {
             urlRequest = try request.urlRequest()
         } catch {
-            requestFailed(request, error)
+            requestFailed(request, error, 0.0)
             return .failure(.internalRequestError(error))
         }
         
-        requestStarted(request, urlRequest)
+        requestStarted(request)
         var response: URLResponse
         var data: Data
         do {
             (data, response)  = try await environment.analytics.networkSession().data(urlRequest)
         } catch {
-            requestFailed(request, error)
+            requestFailed(request, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))
         }
+        let end = Date()
+        let duration = end.timeIntervalSince(start)
         guard let httpResponse = response as? HTTPURLResponse else {
             return .failure(.missingOrInvalidResponse(response))
         }
@@ -64,10 +64,10 @@ public struct KlaviyoAPI {
             return .failure(KlaviyoAPIError.rateLimitError)
         }
         guard 200 ..< 300 ~= httpResponse.statusCode else {
-            requestHttpError(request, httpResponse.statusCode)
+            requestHttpError(request, httpResponse.statusCode, duration)
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
-        requestCompleted(request, data, httpResponse)
+        requestCompleted(request, data, duration)
         return .success(data)
         
     }
