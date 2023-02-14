@@ -28,6 +28,8 @@ public struct SDKRequest: Identifiable, Equatable {
         public struct EventInfo: Equatable {
             public let eventName: String
             public let eventPayload: String
+            
+            @_spi(KlaviyoPrivate)
             public init(eventName: String, eventPayload: String) {
                 self.eventName = eventName
                 self.eventPayload = eventPayload
@@ -39,6 +41,8 @@ public struct SDKRequest: Identifiable, Equatable {
             public var externalId: String? = nil
             public var anonymousId: String
             public var customerProperties: String? = nil
+            
+            @_spi(KlaviyoPrivate)
             public init(email: String? = nil,
                         phoneNumber: String? = nil,
                         externalId: String? = nil,
@@ -112,6 +116,7 @@ public struct SDKRequest: Identifiable, Equatable {
     public let headers: [String: String]
     public let response: Response
     
+    @_spi(KlaviyoPrivate)
     public init(id: String,
                 type: RequestType,
                 url: String, method:
