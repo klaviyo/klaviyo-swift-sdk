@@ -6,7 +6,8 @@
 //
 
 import Foundation
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+
 
 let TEST_API_KEY = "fake-key"
 

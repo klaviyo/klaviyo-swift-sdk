@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import SnapshotTesting
 import AnyCodable
 
