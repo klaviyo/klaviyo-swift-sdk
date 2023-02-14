@@ -8,31 +8,16 @@
 import Foundation
 import AnyCodable
 
-extension AnyCodable {
-    var jsonRepresentation: String {
-        let anyEncodable = AnyEncodable(self)
-        let encodedData = try? environment.analytics.encodeJSON(anyEncodable)
-        guard let encodedData = encodedData else {
-            return "Unable to decode data."
-        }
-        return String(data: encodedData, encoding: .utf8) ?? "Unable to decode data."
-    }
-}
-
 @_spi(KlaviyoPrivate)
 public struct SDKRequest: Identifiable, Equatable {
-    public var id: String
-    
     @_spi(KlaviyoPrivate)
     public enum RequestType: Equatable {
         public struct EventInfo: Equatable {
             public let eventName: String
-            public let eventPayload: String
             
             @_spi(KlaviyoPrivate)
-            public init(eventName: String, eventPayload: String) {
+            public init(eventName: String) {
                 self.eventName = eventName
-                self.eventPayload = eventPayload
             }
         }
         public struct ProfileInfo: Equatable {
@@ -40,7 +25,6 @@ public struct SDKRequest: Identifiable, Equatable {
             public var phoneNumber: String? = nil
             public var externalId: String? = nil
             public var anonymousId: String
-            public var customerProperties: String? = nil
             
             @_spi(KlaviyoPrivate)
             public init(email: String? = nil,
@@ -52,7 +36,6 @@ public struct SDKRequest: Identifiable, Equatable {
                 self.phoneNumber = phoneNumber
                 self.externalId = externalId
                 self.anonymousId = anonymousId
-                self.customerProperties = customerProperties
             }
         }
         case createEvent(EventInfo, ProfileInfo)
@@ -69,15 +52,13 @@ public struct SDKRequest: Identifiable, Equatable {
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
                     externalId: payload.data.attributes.externalId,
-                    anonymousId: payload.data.attributes.anonymousId,
-                    customerProperties: payload.data.attributes.properties.jsonRepresentation
+                    anonymousId: payload.data.attributes.anonymousId
                 ))
             case .createEvent(let payload):
                 let profile = payload.data.attributes.profile.value as? [String: Any] ?? [:]
                 return .createEvent(
-                    EventInfo(eventName: payload.data.attributes.metric.name,
-                              eventPayload: payload.data.attributes.properties.jsonRepresentation),
-                    ProfileInfo(anonymousId:  profile["$anonymous"] as? String ?? "Unknown", customerProperties: payload.data.attributes.profile.jsonRepresentation))
+                    EventInfo(eventName: payload.data.attributes.metric.name),
+                    ProfileInfo(anonymousId:  profile["$anonymous"] as? String ?? "Unknown"))
             case .storePushToken(let payload):
                 return .saveToken(token: payload.token, info:
                                     ProfileInfo(email: payload.properties.email,
@@ -106,9 +87,11 @@ public struct SDKRequest: Identifiable, Equatable {
                           method: method,
                           payloadSize: 1.0,
                           headers: urlRequest?.allHTTPHeaderFields ?? [:],
-                          response: response)
+                          response: response,
+                          requestBody: urlRequest?.httpBody ?? Data())
     }
-    
+    public var id: String
+    public let requestBody: Data
     public let type: RequestType
     public let url: String
     public let method: String
@@ -116,13 +99,15 @@ public struct SDKRequest: Identifiable, Equatable {
     public let headers: [String: String]
     public let response: Response
     
+    
     @_spi(KlaviyoPrivate)
     public init(id: String,
                 type: RequestType,
                 url: String, method:
                 String, payloadSize:
                 Double, headers: [String : String],
-                response: Response) {
+                response: Response,
+                requestBody: Data) {
         self.id = id
         self.type = type
         self.url = url
@@ -130,6 +115,7 @@ public struct SDKRequest: Identifiable, Equatable {
         self.payloadSize = payloadSize
         self.headers = headers
         self.response = response
+        self.requestBody = requestBody
     }
 }
 
