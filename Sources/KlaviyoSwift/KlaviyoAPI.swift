@@ -8,6 +8,11 @@
 import Foundation
 import AnyCodable
 
+@_spi(KlaviyoPrivate)
+public func setKlaviyoAPIURL(url: String) {
+    environment.analytics.apiURL = url
+}
+
 
 struct KlaviyoAPI {
     struct KlaviyoRequest: Equatable, Codable {
