@@ -284,6 +284,11 @@ public class Klaviyo: NSObject  {
 public struct KlaviyoSDK {
     
     @_spi(KlaviyoPrivate)
+    public init() {
+        
+    }
+    
+    @_spi(KlaviyoPrivate)
     public func initialize(with apiKey: String) {
         dispatchOnMainThread(action: .initialize(apiKey))
     }
