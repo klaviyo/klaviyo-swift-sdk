@@ -280,7 +280,7 @@ public class Klaviyo: NSObject  {
 }
 
 
-@_spi(KlaviyoPr)
+@_spi(KlaviyoPrivate)
 public struct KlaviyoSDK {
     
     @_spi(KlaviyoPrivate)
