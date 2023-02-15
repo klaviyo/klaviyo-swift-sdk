@@ -22,13 +22,13 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let phoneNumber: String?
                     let externalId: String?
                     let anonymousId: String
-                    let firstName: String?
-                    let lastName: String?
-                    let organization: String?
-                    let title: String?
-                    let image: String?
-                    let location: KlaviyoSwift.Profile.Attributes.Location?
-                    let properties: AnyCodable
+                    var firstName: String?
+                    var lastName: String?
+                    var organization: String?
+                    var title: String?
+                    var image: String?
+                    var location: KlaviyoSwift.Profile.Attributes.Location?
+                    var properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
                         case phoneNumber = "phone_number"
@@ -88,6 +88,10 @@ extension KlaviyoAPI.KlaviyoRequest {
                     self.meta = Meta(identifiers: .init(
                         attributes: profile.attributes,
                         anonymousId: anonymousId))
+                }
+                init(attributes: Attributes, meta: Meta) {
+                    self.attributes = attributes
+                    self.meta = meta
                 }
             }
             let data: Profile

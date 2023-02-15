@@ -34,6 +34,7 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = 10.0
     var retryInfo = RetryInfo.retry(0)
     var pendingRequests: [PendingRequest] = []
+    var pendingProfile: [Profile.ProfileKey: String]? = nil
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -53,9 +54,10 @@ struct KlaviyoState: Equatable, Codable {
     }
     
     mutating func enqueueProfileRequest() {
-        guard let request = try? self.buildProfileRequest() else {
+        guard let request = try? self.buildProfileRequest(), let request = try? self.updateRequestAndStateWithPendingProfile(request: request) else {
             return
         }
+        
         queue.append(request)
     }
     
@@ -63,6 +65,49 @@ struct KlaviyoState: Equatable, Codable {
         email = identifiers.email ?? email
         phoneNumber = identifiers.phoneNumber ?? phoneNumber
         externalId = identifiers.externalId ?? externalId
+    }
+    
+    
+    mutating func updateStateWithProfile(profile: Profile) {
+        email = profile.attributes.email ?? email
+        phoneNumber = profile.attributes.phoneNumber ?? phoneNumber
+        externalId = profile.attributes.externalId ?? externalId
+    }
+    
+    mutating func updateRequestAndStateWithPendingProfile(request: KlaviyoAPI.KlaviyoRequest) throws -> KlaviyoAPI.KlaviyoRequest? {
+        guard let pendingProfile = self.pendingProfile else {
+            return request
+        }
+        guard case let .createProfile(profile) = request.endpoint else {
+            runtimeWarn("Passed invalid request for update. \(request)")
+            return nil
+        }
+        var attributes = profile.data.attributes
+        let location = profile.data.attributes.location
+        var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
+        
+        for (key, value) in pendingProfile {
+            if let attributeKeyPath = key.attributeKeyPath {
+                if attributes[keyPath: attributeKeyPath] == nil {
+                    attributes[keyPath: attributeKeyPath] = value
+                }
+            } else if var location = location, let locationKeyPath = key.locationKeyPath {
+                if location[keyPath: locationKeyPath] == nil {
+                    location[keyPath: locationKeyPath] = value
+                }
+            } else if case let .custom(customKey) = key {
+                if properties[customKey] == nil {
+                    properties[customKey] = value
+                }
+            }
+        }
+        
+        attributes.location = location
+        attributes.properties = AnyCodable(properties)
+        self.pendingProfile = nil
+        
+        return .init(apiKey: request.apiKey, endpoint: .createProfile(.init(data: .init(attributes: attributes, meta: profile.data.meta))))
+        
     }
 }
 
@@ -203,4 +248,41 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
         }
     }
     return queue
+}
+
+let ATTRIBUTE_KEYS = [ Profile.ProfileKey.firstName, .lastName, .title, .organization, .image]
+
+extension Profile.ProfileKey {
+    var attributeKeyPath: WritableKeyPath<KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile.Attributes, String?>? {
+        switch self {
+            
+        case .firstName:
+            return \.firstName
+        case .lastName:
+            return \.lastName
+        case .title:
+            return \.title
+        case .organization:
+            return \.organization
+        case .image:
+            return \.image
+        case .city, .region, .country, .zip, .custom:
+            return nil
+        }
+    }
+    
+    var locationKeyPath: WritableKeyPath<Profile.Attributes.Location, String?>? {
+        switch self {
+        case .city:
+            return \.city
+        case .region:
+            return \.region
+        case .country:
+            return \.country
+        case .zip:
+            return \.zip
+        case .image, .firstName, .lastName, .title, .organization, .custom:
+            return nil
+        }
+    }
 }

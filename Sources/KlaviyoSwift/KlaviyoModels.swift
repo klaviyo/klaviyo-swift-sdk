@@ -26,25 +26,6 @@ public struct Event: Equatable {
         case SuccessfulPayment
         case FailedPayment
         case CustomEvent(String)
-
-        var value: String {
-            switch self {
-            case .OpenedPush: return "$opened_push"
-            case .ViewedProduct: return "$viewed_product"
-            case .SearchedProducts: return "$searched_products"
-            case .StartedCheckout: return "$started_checkout"
-            case .PlacedOrder: return "$placed_order"
-            case .OrderedProduct: return "$ordered_product"
-            case .CancelledOrder: return "$cancelled_order"
-            case .PaidForOrder: return "$paid_for_order"
-            case .SubscribedToBackInStock: return "$subscribed_to_back_in_stock"
-            case .SubscribedToComingSoon: return "$subscribed_to_coming_soon"
-            case .SubscribedToList: return "$subscribed_to_list"
-            case .SuccessfulPayment: return "$successful_payment"
-            case .FailedPayment: return "$failed_payment"
-            case .CustomEvent(let value): return "\(value)"
-            }
-        }
     }
     @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
@@ -94,18 +75,32 @@ public struct Event: Equatable {
 @_spi(KlaviyoPrivate)
 public struct Profile: Equatable {
     @_spi(KlaviyoPrivate)
+    public enum ProfileKey: Equatable, Hashable, Codable {
+        case firstName
+        case lastName
+        case title
+        case organization
+        case city
+        case region
+        case country
+        case zip
+        case image
+        case custom(customKey: String)
+    }
+    
+    @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
         @_spi(KlaviyoPrivate)
         public struct Location: Equatable {
-            public let address1: String?
-            public let address2: String?
-            public let city: String?
-            public let country: String?
-            public let latitude: Double?
-            public let longitude: Double?
-            public let region: String?
-            public let zip: String?
-            public let timezone: String?
+            public var address1: String?
+            public var address2: String?
+            public var city: String?
+            public var country: String?
+            public var latitude: Double?
+            public var longitude: Double?
+            public var region: String?
+            public var zip: String?
+            public var timezone: String?
             public init(address1: String?=nil,
                  address2: String?=nil,
                  city: String?=nil,
@@ -165,5 +160,27 @@ public struct Profile: Equatable {
     @_spi(KlaviyoPrivate)
     public init(attributes: Attributes) {
         self.attributes = attributes
+    }
+}
+
+
+extension Event.EventName {
+    var value: String {
+        switch self {
+        case .OpenedPush: return "$opened_push"
+        case .ViewedProduct: return "$viewed_product"
+        case .SearchedProducts: return "$searched_products"
+        case .StartedCheckout: return "$started_checkout"
+        case .PlacedOrder: return "$placed_order"
+        case .OrderedProduct: return "$ordered_product"
+        case .CancelledOrder: return "$cancelled_order"
+        case .PaidForOrder: return "$paid_for_order"
+        case .SubscribedToBackInStock: return "$subscribed_to_back_in_stock"
+        case .SubscribedToComingSoon: return "$subscribed_to_coming_soon"
+        case .SubscribedToList: return "$subscribed_to_list"
+        case .SuccessfulPayment: return "$successful_payment"
+        case .FailedPayment: return "$failed_payment"
+        case .CustomEvent(let value): return "\(value)"
+        }
     }
 }

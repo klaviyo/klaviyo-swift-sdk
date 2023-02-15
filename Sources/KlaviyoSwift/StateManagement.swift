@@ -42,6 +42,7 @@ enum KlaviyoAction: Equatable {
     case enqueueLegacyProfile(LegacyProfile)
     case enqueueEvent(Event)
     case enqueueProile(Profile)
+    case setProfileProperty(Profile.ProfileKey, String)
     case resetProfile
 }
 
@@ -149,6 +150,9 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if state.queue.isEmpty {
                 return .none
+            }
+            if state.pendingProfile != nil {
+                state.enqueueProfileRequest()
             }
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
@@ -302,12 +306,9 @@ struct KlaviyoReducer: ReducerProtocol {
             if let externalId = event.attributes.profile["$id"] as? String {
                 state.externalId = externalId
             }
-            let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: event,
-                                                                                             anonymousId: anonymousId)
-            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
-            let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
-            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-            state.queue.append(request)
+
+            state.queue.append(.init(apiKey: apiKey,
+                                     endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
             return .none
         case .enqueueProile(let profile):
             guard case .initialized = state.initalizationState,
@@ -316,20 +317,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.profile(profile))
                 return .none
             }
-            if let email = profile.attributes.email {
-                state.email = email
-            }
-            if let phoneNumber = profile.attributes.phoneNumber {
-                state.phoneNumber = phoneNumber
-            }
-            if let externalId = profile.attributes.externalId {
-                state.externalId = externalId
-            }
-            let requestProfile = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile,
-                                                                                                 anonymousId: anonymousId)
-            let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: requestProfile)
-            let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
-            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            state.updateStateWithProfile(profile: profile)
+            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
+
             state.queue.append(request)
             return .none
         case .resetProfile:
@@ -337,6 +327,14 @@ struct KlaviyoReducer: ReducerProtocol {
             state.externalId = nil
             state.anonymousId = environment.analytics.uuid().uuidString
             state.phoneNumber = nil
+            return .none
+        case let .setProfileProperty(key, value):
+            guard var pendingProfile = state.pendingProfile else {
+                state.pendingProfile = [key: value]
+                return .none
+            }
+            pendingProfile[key] = value
+            state.pendingProfile = pendingProfile
             return .none
         }
     }
