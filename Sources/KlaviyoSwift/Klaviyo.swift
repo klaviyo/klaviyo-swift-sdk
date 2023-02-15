@@ -61,11 +61,7 @@ public class Klaviyo: NSObject  {
     let KlaviyoServerTrackEventEndpoint = "/track"
     let KlaviyoServerTrackPersonEndpoint = "/identify"
     
-    #if DEBUG
-    public var KlaviyoServerURLString = "https://a.klaviyo.com/"
-    #else
-    let KlaviyoServerURLString = "https://a.klaviyo.com/"
-    #endif
+    let KlaviyoServerURLString = "https://a.klaviyo.com"
     
     let CustomerPropertiesAppendDictKey = "$append"
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification

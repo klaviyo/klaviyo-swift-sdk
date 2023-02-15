@@ -22,7 +22,7 @@ class Tests: XCTestCase {
 
     // Sanity check to verify any local host routes don't get deployed
     func testServerProdURL() {
-        let prodServerURL = "https://a.klaviyo.com/"
+        let prodServerURL = "https://a.klaviyo.com"
         XCTAssertEqual(prodServerURL, klaviyo.KlaviyoServerURLString, "Production server url should be used")
     }
     
