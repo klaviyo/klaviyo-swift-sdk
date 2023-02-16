@@ -8,7 +8,8 @@
 import Foundation
 import XCTest
 import Combine
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import AnyCodable
 
 @MainActor
 class StateManagementTests: XCTestCase {
@@ -310,6 +311,59 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
         }
+    }
+    
+    
+    // MARK: - Test pending profile
+    
+    func testFlushWithPendingProfile() async throws {
+        // This test is a little convoluted but essentially want to make when we stop
+        // that we save our state.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        let profileActions: [(Profile.ProfileKey, Any)] = [
+            (.city, "Sharon"),
+            (.region, "New England"),
+            (.address1, "123 Main Street"),
+            (.address2, "Apt 6"),
+            (.zip, "02067"),
+            (.country, "Mexico"),
+            (.latitude, 23.0),
+            (.longitude, 46.0),
+            (.title, "King"),
+            (.organization, "Klaviyo"),
+            (.firstName, "Jeffrey"),
+            (.lastName, "Lebowski"),
+            (.image, "foto.png"),
+            (.custom(customKey: "foo"), 20)
+        ]
+        
+        var pendingProfile = [Profile.ProfileKey: AnyEncodable]()
+        
+        for (key, value) in profileActions {
+            pendingProfile[key] = AnyEncodable(value)
+            _  = await store.send(.setProfileProperty(key, AnyEncodable(value))) {
+                $0.pendingProfile = pendingProfile
+            }
+        }
+    
+        var request: KlaviyoAPI.KlaviyoRequest? = nil
+        _ = await store.send(.flushQueue) {
+            $0.enqueueProfileRequest()
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+            $0.flushing = true
+            request = $0.requestsInFlight[0]
+        }
+        
+        await store.receive(.sendRequest)
+        await store.receive(.dequeCompletedResults(request!)) {
+            $0.requestsInFlight = $0.queue
+            $0.flushing = false
+        }
+    
     }
     
 }
