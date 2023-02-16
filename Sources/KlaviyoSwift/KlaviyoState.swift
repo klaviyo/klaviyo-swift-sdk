@@ -34,7 +34,8 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = 10.0
     var retryInfo = RetryInfo.retry(0)
     var pendingRequests: [PendingRequest] = []
-    var pendingProfile: [Profile.ProfileKey: String]? = nil
+    var pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -83,25 +84,42 @@ struct KlaviyoState: Equatable, Codable {
             return nil
         }
         var attributes = profile.data.attributes
-        let location = profile.data.attributes.location
+        var location = profile.data.attributes.location ?? .init()
         var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
         
+        // Optionally (if not already specified) overwrite attributes and location with pending profile information.
         for (key, value) in pendingProfile {
-            if let attributeKeyPath = key.attributeKeyPath {
-                if attributes[keyPath: attributeKeyPath] == nil {
-                    attributes[keyPath: attributeKeyPath] = value
-                }
-            } else if var location = location, let locationKeyPath = key.locationKeyPath {
-                if location[keyPath: locationKeyPath] == nil {
-                    location[keyPath: locationKeyPath] = value
-                }
-            } else if case let .custom(customKey) = key {
-                if properties[customKey] == nil {
-                    properties[customKey] = value
-                }
+            switch key {
+            case .firstName:
+                attributes.firstName = attributes.firstName ?? value.value as? String
+            case .lastName:
+                attributes.lastName = attributes.lastName ?? value.value as? String
+            case .address1:
+                location.address1 = location.address1 ?? value.value as? String
+            case .address2:
+                location.address2 = location.address2 ?? value.value as? String
+            case .title:
+                attributes.title =  attributes.title ?? value.value as? String
+            case .organization:
+                attributes.organization = attributes.organization ?? value.value as? String
+            case .city:
+                location.city = location.city ?? value.value as? String
+            case .region:
+                location.region = location.region ?? value.value as? String
+            case .country:
+                location.country = location.country ?? value.value as? String
+            case .zip:
+                location.zip = location.zip ?? value.value as? String
+            case .image:
+                attributes.image = attributes.image ?? value.value as? String
+            case .latitude:
+                location.latitude = location.latitude ?? value.value as? Double
+            case .longitude:
+                location.longitude = location.longitude ?? value.value as? Double
+            case .custom(customKey: let customKey):
+                properties[customKey] = properties[customKey] ?? value.value
             }
         }
-        
         attributes.location = location
         attributes.properties = AnyCodable(properties)
         self.pendingProfile = nil
@@ -248,41 +266,4 @@ private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState
         }
     }
     return queue
-}
-
-let ATTRIBUTE_KEYS = [ Profile.ProfileKey.firstName, .lastName, .title, .organization, .image]
-
-extension Profile.ProfileKey {
-    var attributeKeyPath: WritableKeyPath<KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile.Attributes, String?>? {
-        switch self {
-            
-        case .firstName:
-            return \.firstName
-        case .lastName:
-            return \.lastName
-        case .title:
-            return \.title
-        case .organization:
-            return \.organization
-        case .image:
-            return \.image
-        case .city, .region, .country, .zip, .custom:
-            return nil
-        }
-    }
-    
-    var locationKeyPath: WritableKeyPath<Profile.Attributes.Location, String?>? {
-        switch self {
-        case .city:
-            return \.city
-        case .region:
-            return \.region
-        case .country:
-            return \.country
-        case .zip:
-            return \.zip
-        case .image, .firstName, .lastName, .title, .organization, .custom:
-            return nil
-        }
-    }
 }

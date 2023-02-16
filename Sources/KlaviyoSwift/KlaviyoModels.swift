@@ -78,6 +78,8 @@ public struct Profile: Equatable {
     public enum ProfileKey: Equatable, Hashable, Codable {
         case firstName
         case lastName
+        case address1
+        case address2
         case title
         case organization
         case city
@@ -85,6 +87,8 @@ public struct Profile: Equatable {
         case country
         case zip
         case image
+        case latitude
+        case longitude
         case custom(customKey: String)
     }
     

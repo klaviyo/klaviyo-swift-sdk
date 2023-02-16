@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AnyCodable
 
 /**
 
@@ -42,7 +43,7 @@ enum KlaviyoAction: Equatable {
     case enqueueLegacyProfile(LegacyProfile)
     case enqueueEvent(Event)
     case enqueueProile(Profile)
-    case setProfileProperty(Profile.ProfileKey, String)
+    case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     case resetProfile
 }
 
@@ -148,12 +149,14 @@ struct KlaviyoReducer: ReducerProtocol {
                     state.retryInfo = .retry(requestCount)
                 }
             }
-            if state.queue.isEmpty {
-                return .none
-            }
             if state.pendingProfile != nil {
                 state.enqueueProfileRequest()
             }
+            
+            if state.queue.isEmpty {
+                return .none
+            }
+
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
             state.flushing = true
