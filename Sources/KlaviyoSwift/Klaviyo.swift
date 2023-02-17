@@ -322,18 +322,23 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
     }
     @_spi(KlaviyoPrivate)
-    public func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    public func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
         if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
             completionHandler(.noData)
+            return true
         }
+        return false
     }
     @_spi(KlaviyoPrivate)
-    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
             completionHandler()
+            return true
         }
+        return false
+
     }
 }
