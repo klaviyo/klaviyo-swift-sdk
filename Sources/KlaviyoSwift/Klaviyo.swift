@@ -136,7 +136,10 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func handlePush(userInfo: NSDictionary) {
-        Klaviyo.sdkInstance.handle(remoteNotification: userInfo as! [AnyHashable : Any]) { result in
+        guard let userInfo = userInfo as? [AnyHashable: Any] else {
+            return
+        }
+        _ = Klaviyo.sdkInstance.handle(remoteNotification: userInfo) { _ in
             // Empty implementation
         }
     }
