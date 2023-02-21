@@ -50,15 +50,15 @@ public struct Event: Equatable {
         public let value: Double?
         public let uniqueId: String
         @_spi(KlaviyoPrivate)
-        public init(metric: Metric,
-             properties: [String : Any],
-             profile: [String : Any],
+        public init(name: EventName,
+             properties: [String : Any]? = nil,
+             profile: [String : Any]? = nil,
              value: Double? = nil,
              time: Date? = nil,
              uniqueId: String? = nil) {
-            self._profile = AnyCodable(profile)
-            self.metric = metric
-            self._properties = AnyCodable(properties)
+            self._profile = AnyCodable(profile ?? [:])
+            self.metric = .init(name: name)
+            self._properties = AnyCodable(properties ?? [:])
             self.value = value
             self.time = time ?? environment.analytics.date()
             self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString

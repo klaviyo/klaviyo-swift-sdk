@@ -8,12 +8,13 @@
 
 import Foundation
 import UIKit
+import AnyCodable
 
 
 private func dispatchOnMainThread(action: KlaviyoAction) {
     Task {
         await MainActor.run {
-            _ = environment.analytics.store.send(action)
+            environment.analytics.send(action)
         }
     }
 }
@@ -233,7 +234,7 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func addPushDeviceToken(deviceToken: Data) {
-        Klaviyo.sdkInstance.set(pushToken: deviceToken)
+        _ = Klaviyo.sdkInstance.set(pushToken: deviceToken)
     }
     
     
@@ -279,65 +280,165 @@ public class Klaviyo: NSObject  {
 }
 
 
+
+/// The main interface for the Klaviyo SDK.
+/// Create a new instance as follows:
+///
+/// ```swift
+/// let sdk = KlaviyoSDK()
+/// sdk.initialize(apiKey: "myapikey")
+/// ```
+///
+/// From there you can you can call the additional methods below to track events and profile.
 @_spi(KlaviyoPrivate)
 public struct KlaviyoSDK {
     
+    /// Default initializer for the Klaviyo SDK.
     @_spi(KlaviyoPrivate)
     public init() {
         
     }
     
+    /// Returns the email for the current user, if any.
     @_spi(KlaviyoPrivate)
-    public func initialize(with apiKey: String) {
-        dispatchOnMainThread(action: .initialize(apiKey))
+    public var email: String? {
+        get {
+            environment.analytics.state().email
+        }
     }
+    
+    /// Returns the phoneNumber for the current user, if any.
+    @_spi(KlaviyoPrivate)
+    public var phoneNumber: String? {
+        get {
+            environment.analytics.state().phoneNumber
+        }
+    }
+    
+    /// Returns the external id for the current user, if any.
+    @_spi(KlaviyoPrivate)
+    public var externalId: String? {
+        get {
+            environment.analytics.state().externalId
+        }
+    }
+    
+    /// Initialize the swift SDK with the given api key.
+    /// - Parameter apiKey: your public api key from the Klaviyo console
+    /// - Returns: a KlaviyoSDK instance
+    @_spi(KlaviyoPrivate)
+    @discardableResult
+    public func initialize(with apiKey: String) -> KlaviyoSDK {
+        dispatchOnMainThread(action: .initialize(apiKey))
+        return self
+    }
+    
+    /// Set a profile in your Klaviyo account.
+    /// Future SDK calls will use this data when making api requests to Klaviyo.
+    /// - Parameter profile: a profile object to send to Klaviyo
     @_spi(KlaviyoPrivate)
     public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProile(profile))
     }
+    
+    /// Reset all profile data that was logged to Klaviyo. This includes the anonymous identifiers as well as the push token.
+    /// This is useful when a user is logged out of your app for example.
     @_spi(KlaviyoPrivate)
     public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
+
+    /// Set the current user's email.
+    /// - Parameter email: a string contining the users email.
+    /// - Returns: a KlaviyoSDK instance
     @_spi(KlaviyoPrivate)
-    public func set(email: String) {
+    @discardableResult
+    public func set(email: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setEmail(email))
+        return self
     }
+    
+    /// Set the current user's phone number.
+    /// Note that the phone number should be in a format that Klaviyo accepts.
+    /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
+    /// for information on phone numbers Klaviyo accepts.
+    /// - Parameter phonNumber: a string contining the users phone number.
+    /// - Returns: a KlaviyoSDK instance
     @_spi(KlaviyoPrivate)
-    public func set(phoneNumber: String) {
+    @discardableResult
+    public func set(phoneNumber: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
+        return self
     }
+    
+    /// Set the current user's external id.
+    /// This could be an id from a system external to Klaviyo, for example your backend's user id.
+    /// NOTE: Please consult with https://help.klaviyo.com/hc/en-us/articles/12902308138011-Understanding-identity-resolution-in-Klaviyo-
+    /// and familiarize yourself with identity resolution before using this identifier.
+    /// - Parameter externalId: a string containing an external id
+    /// - Returns: a KlaviyoSDK instance
     @_spi(KlaviyoPrivate)
-    public func set(externalId: String) {
+    @discardableResult
+    public func set(externalId: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setExternalId(externalId))
+        return self
     }
+    
+    /// Set a profile property on the current user's propfile.
+    /// - Parameter profileAttribute: a profile attribute key to be set on the user's profile.
+    /// - Parameter value: any encodable value profile property value.
+    /// - Returns: a KlaviyoSDK instance
     @_spi(KlaviyoPrivate)
-    public func set(profileAttribute: String, value: Any) {
+    @discardableResult
+    public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK  {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
+        dispatchOnMainThread(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        return self
     }
+    
+    /// Create and send an event for the current user.
+    /// - Parameter event: the event to be tracked in Klaviyo
     @_spi(KlaviyoPrivate)
     public func create(event: Event) {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
+    
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// - Parameter pushToken: data object containing a push token.
+    /// - Returns: a KlaviyoSDK instance
     @_spi(KlaviyoPrivate)
-    public func set(pushToken: Data) {
+    public func set(pushToken: Data) -> KlaviyoSDK {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
+        return self
     }
+    
+    /// Track a remote push notification open event in Klaviyo
+    /// - Parameters:
+    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     @_spi(KlaviyoPrivate)
+
     public func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
         if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
+            create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
             completionHandler(.noData)
             return true
         }
         return false
     }
+    
+    /// Track a notificationResponse open event in Klaviyo
+    /// - Parameters:
+    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     @_spi(KlaviyoPrivate)
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(attributes: .init(metric: .init(name: .OpenedPush), properties: properties, profile: [:])))
+            create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
             completionHandler()
             return true
         }

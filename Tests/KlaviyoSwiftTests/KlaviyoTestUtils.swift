@@ -70,6 +70,8 @@ class InvalidJSONDecoder: JSONDecoder {
 }
 
 extension AnalyticsEnvironment {
+    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    
     static let test = AnalyticsEnvironment(
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
@@ -80,8 +82,16 @@ extension AnalyticsEnvironment {
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test(),
-        store: Store.test,
-        timer: { interval in Just(Date()).eraseToAnyPublisher() }
+        timer: { interval in Just(Date()).eraseToAnyPublisher() },
+        send: { action in
+            testStore.send(action)
+        },
+        state: {
+            AnalyticsEnvironment.testStore.state.value
+        },
+        statePublisher: {
+            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+        }
     )
 }
 

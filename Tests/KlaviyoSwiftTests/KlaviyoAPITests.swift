@@ -142,5 +142,4 @@ final class KlaviyoAPITests: XCTestCase {
         let result = await KlaviyoAPI().send(request)
         assertion(result)
     }
-    
 }

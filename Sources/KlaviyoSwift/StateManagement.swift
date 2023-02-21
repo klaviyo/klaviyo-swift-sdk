@@ -326,10 +326,12 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.append(request)
             return .none
         case .resetProfile:
+            state.pendingProfile = nil
             state.email = nil
             state.externalId = nil
             state.anonymousId = environment.analytics.uuid().uuidString
             state.phoneNumber = nil
+            state.pushToken = nil
             return .none
         case let .setProfileProperty(key, value):
             guard var pendingProfile = state.pendingProfile else {

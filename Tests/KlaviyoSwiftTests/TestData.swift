@@ -80,7 +80,7 @@ extension Event.Attributes {
             "city": "blob city"
         ]
     ] as [String : Any]
-    static let test = Self.init(metric: .test, properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
+    static let test = Self.init(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
 extension Event.Attributes.Metric {
