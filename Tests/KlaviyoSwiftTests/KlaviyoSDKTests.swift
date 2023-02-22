@@ -11,7 +11,6 @@ import XCTest
 
 
 // MARK: - KlaviyoSDKTests
-@MainActor
 class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
     var klaviyo = KlaviyoSDK()
