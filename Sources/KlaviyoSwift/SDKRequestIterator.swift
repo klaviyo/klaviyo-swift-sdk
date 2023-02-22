@@ -122,6 +122,12 @@ public struct SDKRequest: Identifiable, Equatable {
 @_spi(KlaviyoPrivate)
 public func requestIterator() -> AsyncStream<SDKRequest> {
     return AsyncStream<SDKRequest> { continuation in
+        continuation.onTermination = { _ in
+            KlaviyoAPI.requestStarted = { _ in }
+            KlaviyoAPI.requestFailed = { _, _, _ in }
+            KlaviyoAPI.requestCompleted = { _, _, _  in }
+            KlaviyoAPI.requestHttpError = { _, _, _  in }
+        }
         KlaviyoAPI.requestStarted = { request in
             continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .inProgress))
         }
@@ -136,14 +142,5 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
         KlaviyoAPI.requestHttpError = { request, statusCode, duration in
             continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .httpError(statusCode, duration)))
         }
-      Task {
-          while(true) {
-              guard !Task.isCancelled else {
-                  continuation.finish()
-                  return
-              }
-              try? await Task.sleep(nanoseconds: 100_000)
-          }
-      }
     }
 }
