@@ -25,10 +25,6 @@ class KlaviyoSDKTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
     }
     
-    func initializeSDK() {
-       
-    }
-    
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
         let expectation = XCTestExpectation(description: "wait for action \(expectedAction)")
         environment.analytics.send = { action in
