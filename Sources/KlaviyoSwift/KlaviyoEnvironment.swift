@@ -105,7 +105,7 @@ struct AnalyticsEnvironment {
     var send: (KlaviyoAction) -> Task<Void, Never>?
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
-    static let production = {
+    static let production: AnalyticsEnvironment = {
         let store = Store.production
         return AnalyticsEnvironment(
         networkSession: createNetworkSession,
