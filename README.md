@@ -145,7 +145,7 @@ Add the below code to your application wherever you would like to prompt users t
 
     let center = UNUserNotificationCenter.current()
     center.delegate = self as? UNUserNotificationCenterDelegate
-    let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+    let options: UNAuthorizationOptions = [.alert, .sound, .badge]
 
     center.requestAuthorization(options: options) { (granted, error) in
         // Enable / disable features based on response
