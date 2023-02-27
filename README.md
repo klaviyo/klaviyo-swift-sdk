@@ -171,10 +171,18 @@ If you would like to track when a user opens a push notification then there is a
 In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
 
 ```swift 
-if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
-    Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
-  }
-    completionHandler(.noData)
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable : Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        if application.applicationState == UIApplication.State.inactive ||
+            application.applicationState == UIApplication.State.background
+        {
+            Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
+        }
+        completionHandler(.noData)
+    }
 ```
 
 In addition please add the following code that extends your app delegate:
