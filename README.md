@@ -194,7 +194,6 @@ In addition please add the following code that extends your app delegate:
             completionHandler()
         }
     }
-    
 ```
 
 That is all you need to do to track opens. Now once your first push notifications have been sent and been opened, you should start to see `Opened Push` metrics within your Klaviyo dashboard.
