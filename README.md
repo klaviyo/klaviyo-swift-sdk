@@ -203,14 +203,16 @@ That is all you need to do to track opens. Now once your first push notification
 The code below will enable push notifications to show up when you app is running:
 
 ```swift
-func userNotificationCenter(_ center: UNUserNotificationCenter,
-                              willPresent notification: UNNotification,
-                              withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-    var options: UNNotificationPresentationOptions =  [.alert]
+func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+) {
     if #available(iOS 14.0, *) {
-      options = [.list, .banner]
+        completionHandler([.list, .banner])
+    } else {
+        completionHandler([.alert])
     }
-    completionHandler(options)
 }
 ```
 
