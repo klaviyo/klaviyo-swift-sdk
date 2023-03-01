@@ -20,6 +20,7 @@ public struct SDKRequest: Identifiable, Equatable {
                 self.eventName = eventName
             }
         }
+        @_spi(KlaviyoPrivate)
         public struct ProfileInfo: Equatable {
             public var email: String? = nil
             public var phoneNumber: String? = nil
