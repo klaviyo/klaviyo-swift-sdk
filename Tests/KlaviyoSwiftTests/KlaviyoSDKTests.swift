@@ -63,7 +63,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test set profile
     func testSetProfile() throws {
         let profile = Profile(attributes: .init())
-        let expectation = setupActionAssertion(expectedAction: .enqueueProile(profile))
+        let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile))
         
         klaviyo.set(profile: profile)
         
@@ -89,19 +89,27 @@ class KlaviyoSDKTests: XCTestCase {
         
         wait(for: [expectation], timeout: 1.0)
     }
+    
+    //MARK: test set external id
+    func testSetExternalId() throws {
+        let expectation = setupActionAssertion(expectedAction: .setExternalId("foo"))
+        
+        _ = klaviyo.set(externalId: "foo")
+        
+        wait(for: [expectation], timeout: 1.0)
+    }
 
     //MARK: test handle push notification
     func testHandlePushNotification() throws {
+        let callback = XCTestExpectation(description: "callback is made")
         let push_body = ["body": [
             "_k" : [
                 "foo": "bar"
             ]
         ]]
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(attributes: .init(name: .OpenedPush, properties: push_body))))
-        
-        let callback = XCTestExpectation(description: "callback is made")
-        let handled = klaviyo.handle(remoteNotification: push_body) { result in
-            XCTAssertEqual(result, .noData)
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        let handled = klaviyo.handle(notificationResponse: response){
             callback.fulfill()
         }
         
@@ -113,7 +121,16 @@ class KlaviyoSDKTests: XCTestCase {
     func testUnhandlePushNotification() throws {
         let callback = XCTestExpectation(description: "callback is not made")
         callback.isInverted = true
-        let handled = klaviyo.handle(remoteNotification: [:]) { result in
+        let data: [AnyHashable: Any] = [
+            "data": [
+                "type": "OPEN_ARTICLE",
+                "articleId": "1",
+                "articleType": "Fiction",
+                "articleTag": "1"
+            ]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: data)
+        let handled = klaviyo.handle(notificationResponse: response){
             callback.fulfill()
         }
         

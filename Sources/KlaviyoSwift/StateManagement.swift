@@ -42,7 +42,7 @@ enum KlaviyoAction: Equatable {
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
     case enqueueEvent(Event)
-    case enqueueProile(Profile)
+    case enqueueProfile(Profile)
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     case resetProfile
 }
@@ -92,7 +92,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     case .event(let event):
                         await send(.enqueueEvent(event))
                     case .profile(let profile):
-                        await send(.enqueueProile(profile))
+                        await send(.enqueueProfile(profile))
                     }
 
                 }
@@ -313,25 +313,24 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.append(.init(apiKey: apiKey,
                                      endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
             return .none
-        case .enqueueProile(let profile):
+        case .enqueueProfile(let profile):
             guard case .initialized = state.initalizationState,
                     let apiKey = state.apiKey,
                     let anonymousId = state.anonymousId else {
                 state.pendingRequests.append(.profile(profile))
                 return .none
             }
+            state.reset()
             state.updateStateWithProfile(profile: profile)
-            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
+            let request = KlaviyoAPI.KlaviyoRequest(
+                apiKey: apiKey,
+                endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId)))
+            )
 
             state.queue.append(request)
             return .none
         case .resetProfile:
-            state.pendingProfile = nil
-            state.email = nil
-            state.externalId = nil
-            state.anonymousId = environment.analytics.uuid().uuidString
-            state.phoneNumber = nil
-            state.pushToken = nil
+            state.reset()
             return .none
         case let .setProfileProperty(key, value):
             guard var pendingProfile = state.pendingProfile else {

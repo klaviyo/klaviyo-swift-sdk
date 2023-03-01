@@ -35,7 +35,7 @@ struct KlaviyoState: Equatable, Codable {
     var retryInfo = RetryInfo.retry(0)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
-
+    
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -126,6 +126,15 @@ struct KlaviyoState: Equatable, Codable {
         
         return .init(apiKey: request.apiKey, endpoint: .createProfile(.init(data: .init(attributes: attributes, meta: profile.data.meta))))
         
+    }
+    
+    mutating func reset() {
+        self.pendingProfile = nil
+        self.email = nil
+        self.externalId = nil
+        self.anonymousId = environment.analytics.uuid().uuidString
+        self.phoneNumber = nil
+        self.pushToken = nil
     }
 }
 

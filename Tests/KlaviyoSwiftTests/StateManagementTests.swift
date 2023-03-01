@@ -317,8 +317,6 @@ class StateManagementTests: XCTestCase {
     // MARK: - Test pending profile
     
     func testFlushWithPendingProfile() async throws {
-        // This test is a little convoluted but essentially want to make when we stop
-        // that we save our state.
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -364,6 +362,38 @@ class StateManagementTests: XCTestCase {
             $0.flushing = false
         }
     
+    }
+    
+    
+    // MARK: - Test set profile
+    func testSetProfileWithExistingProperties() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "555BLOB"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.enqueueProfile(Profile(attributes: .init(email: "foo")))) {
+            $0.phoneNumber = nil
+            $0.email = "foo"
+            $0.pushToken = nil
+            $0.enqueueProfileRequest()
+            
+        }
+    
+    }
+    
+    // MARK: - Test enqueue event
+    func testEnqueueEvent() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "555BLOB"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        _ = await store.send(.enqueueEvent(event)) {
+            $0.email = "foo"
+            $0.phoneNumber = "666BLOB"
+            $0.externalId = "my_user_id"
+            $0.enqueueRequest(request: .init(apiKey: try XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: try XCTUnwrap($0.anonymousId))))))
+            
+        }
     }
     
 }

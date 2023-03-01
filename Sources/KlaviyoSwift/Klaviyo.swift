@@ -137,12 +137,14 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func handlePush(userInfo: NSDictionary) {
-        guard let userInfo = userInfo as? [AnyHashable: Any] else {
-            return
+        if let properties = userInfo as? [String: Any],
+           let body = properties["body"] as? [String: Any], let _ = body["_k"] {
+            KlaviyoSDK()
+                .create(event: Event(attributes: .init(name: .OpenedPush,
+                                                       properties: properties,
+                                                       profile: [:])))
         }
-        _ = Klaviyo.sdkInstance.handle(remoteNotification: userInfo) { _ in
-            // Empty implementation
-        }
+        
     }
     
     /**
@@ -338,7 +340,7 @@ public struct KlaviyoSDK {
     /// - Parameter profile: a profile object to send to Klaviyo
     @_spi(KlaviyoPrivate)
     public func set(profile: Profile) {
-        dispatchOnMainThread(action: .enqueueProile(profile))
+        dispatchOnMainThread(action: .enqueueProfile(profile))
     }
     
     /// Reset all profile data that was logged to Klaviyo. This includes the anonymous identifiers as well as the push token.
@@ -413,22 +415,6 @@ public struct KlaviyoSDK {
         return self
     }
     
-    /// Track a remote push notification open event in Klaviyo
-    /// - Parameters:
-    ///   - remoteNotification: the remote notificaiton that was opened
-    ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
-    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
-    @_spi(KlaviyoPrivate)
-
-    public func handle(remoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
-        if let properties = userInfo as? [String: Any], let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
-            completionHandler(.noData)
-            return true
-        }
-        return false
-    }
-    
     /// Track a notificationResponse open event in Klaviyo
     /// - Parameters:
     ///   - remoteNotification: the remote notificaiton that was opened
@@ -439,7 +425,11 @@ public struct KlaviyoSDK {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
-            completionHandler()
+            Task {
+                await MainActor.run {
+                    completionHandler()
+                }
+            }
             return true
         }
         return false

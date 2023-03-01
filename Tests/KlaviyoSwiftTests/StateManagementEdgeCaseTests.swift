@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 @MainActor
 class StateManagementEdgeCaseTests: XCTestCase {
@@ -257,6 +257,25 @@ class StateManagementEdgeCaseTests: XCTestCase {
         
         _ = await store.send(.setPushToken("blobtoken")) {
             $0.pushToken = "blobtoken"
+        }
+    }
+    
+    // MARK: - set enqueue event uninitialized
+    func testEnqueueEventUninitialized() async throws {
+        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
+        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        _ = await store.send(.enqueueEvent(event)) {
+            $0.pendingRequests = [.event(event)]
+            
+        }
+    }
+    
+    // MARK: - set profile uninitialized
+    func testSetProfileUnitialized() async throws {
+        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
+        let profile = Profile(attributes: .init(email: "foo"))
+        _ = await store.send(.enqueueProfile(profile)) {
+            $0.pendingRequests = [.profile(profile)]
         }
     }
 }
