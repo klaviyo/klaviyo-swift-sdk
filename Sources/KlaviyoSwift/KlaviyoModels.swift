@@ -45,7 +45,7 @@ public struct Event: Equatable {
         public var profile: [String: Any] {
             return _profile.value as! [String: Any]
         }
-        private let _profile: AnyCodable
+        internal var _profile: AnyCodable
         public var time: Date
         public let value: Double?
         public let uniqueId: String
@@ -65,7 +65,7 @@ public struct Event: Equatable {
         }
         
     }
-    public let attributes: Attributes
+    public var attributes: Attributes
     @_spi(KlaviyoPrivate)
     public init(attributes: Attributes) {
         self.attributes = attributes

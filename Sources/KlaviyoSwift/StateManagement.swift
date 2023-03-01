@@ -293,22 +293,30 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
             
-        case .enqueueEvent(let event):
+        case .enqueueEvent(var event):
             guard case .initialized = state.initalizationState,
                     let apiKey = state.apiKey,
                     let anonymousId = state.anonymousId else {
                 state.pendingRequests.append(.event(event))
                 return .none
             }
-            if let email = event.attributes.profile["$email"] as? String {
+            var profile = event.attributes.profile
+            if let email = profile["$email"] as? String {
                 state.email = email
+            } else {
+                profile["$email"] = state.email
             }
-            if let phoneNumber = event.attributes.profile["$phone_number"] as? String {
+            if let phoneNumber = profile["$phone_number"] as? String {
                 state.phoneNumber = phoneNumber
+            } else {
+                profile["$phone_number"] = state.phoneNumber
             }
-            if let externalId = event.attributes.profile["$id"] as? String {
+            if let externalId = profile["$id"] as? String {
                 state.externalId = externalId
+            } else {
+                profile["$id"] = state.externalId
             }
+            event.attributes._profile = AnyCodable(profile)
 
             state.queue.append(.init(apiKey: apiKey,
                                      endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
