@@ -106,7 +106,7 @@ public class Klaviyo: NSObject  {
     @objc
     public class func setupWithPublicAPIKey(apiKey: String) {
         //_ avoids warning from xcode
-        Klaviyo.sdkInstance.initialize(with: apiKey)
+        Self.sdkInstance.initialize(with: apiKey)
     }
     
     /**
@@ -116,7 +116,7 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func setUpUserEmail(userEmail :String) {
-        Klaviyo.sdkInstance.set(email: userEmail)
+        Self.sdkInstance.set(email: userEmail)
     }
     
     
@@ -126,7 +126,7 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func setUpCustomerID(id: String) {
-        Klaviyo.sdkInstance.set(externalId: id)
+        Self.sdkInstance.set(externalId: id)
     }
     
     /**
@@ -139,7 +139,7 @@ public class Klaviyo: NSObject  {
     public func handlePush(userInfo: NSDictionary) {
         if let properties = userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            KlaviyoSDK()
+            Self.sdkInstance
                 .create(event: Event(attributes: .init(name: .OpenedPush,
                                                        properties: properties,
                                                        profile: [:])))
@@ -236,7 +236,7 @@ public class Klaviyo: NSObject  {
      */
     @objc
     public func addPushDeviceToken(deviceToken: Data) {
-        _ = Klaviyo.sdkInstance.set(pushToken: deviceToken)
+        _ = Self.sdkInstance.set(pushToken: deviceToken)
     }
     
     
