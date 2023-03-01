@@ -143,6 +143,9 @@ public class Klaviyo: NSObject  {
                 .create(event: Event(attributes: .init(name: .OpenedPush,
                                                        properties: properties,
                                                        profile: [:])))
+            if let url = body["url"] as? String, let url = URL(string: url) {
+                UIApplication.shared.open(url)
+            }
         }
         
     }
@@ -443,9 +446,13 @@ public struct KlaviyoSDK {
             create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
             Task {
                 await MainActor.run {
+                    if let url = body["url"] as? String, let url = URL(string: url) {
+                        UIApplication.shared.open(url)
+                    }
                     completionHandler()
                 }
             }
+      
             return true
         }
         return false
