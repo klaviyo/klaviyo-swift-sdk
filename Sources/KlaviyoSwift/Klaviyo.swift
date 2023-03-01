@@ -301,11 +301,17 @@ public struct KlaviyoSDK {
         
     }
     
+    private var state: KlaviyoState {
+        get {
+            environment.analytics.state()
+        }
+    }
+    
     /// Returns the email for the current user, if any.
     @_spi(KlaviyoPrivate)
     public var email: String? {
         get {
-            environment.analytics.state().email
+            state.email
         }
     }
     
@@ -313,7 +319,7 @@ public struct KlaviyoSDK {
     @_spi(KlaviyoPrivate)
     public var phoneNumber: String? {
         get {
-            environment.analytics.state().phoneNumber
+            state.phoneNumber
         }
     }
     
@@ -321,7 +327,14 @@ public struct KlaviyoSDK {
     @_spi(KlaviyoPrivate)
     public var externalId: String? {
         get {
-            environment.analytics.state().externalId
+            state.externalId
+        }
+    }
+    
+    @_spi(KlaviyoPrivate)
+    public var pushToken: String? {
+        get {
+            state.pushToken
         }
     }
     
@@ -344,6 +357,8 @@ public struct KlaviyoSDK {
     }
     
     /// Reset all profile data that was logged to Klaviyo. This includes the anonymous identifiers as well as the push token.
+    /// If you wish to send push to the resulting profile ensure that you re-request your push token and set it again using.
+    /// `KlaviyoSDK().set(pushToken:)`.
     /// This is useful when a user is logged out of your app for example.
     @_spi(KlaviyoPrivate)
     public func resetProfile() {
