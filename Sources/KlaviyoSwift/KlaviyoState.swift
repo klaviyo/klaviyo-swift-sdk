@@ -128,11 +128,18 @@ struct KlaviyoState: Equatable, Codable {
         
     }
     
+    var isIdentified: Bool {
+        return self.email != nil || self.externalId != nil || self.phoneNumber != nil
+    }
+    
     mutating func reset() {
+        if isIdentified {
+            // If we are still anonymous we want to preserve our anonymous id so we can merge it this profile with the new profile.
+            self.anonymousId = environment.analytics.uuid().uuidString
+        }
         self.pendingProfile = nil
         self.email = nil
         self.externalId = nil
-        self.anonymousId = environment.analytics.uuid().uuidString
         self.phoneNumber = nil
         self.pushToken = nil
     }
