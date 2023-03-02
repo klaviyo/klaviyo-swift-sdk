@@ -244,18 +244,18 @@ In order to edit the info.plist directly, just fill in your app specific details
 
 ```
 <key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>{your_unique_identifier}</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>{your_URL_scheme}</string>
-			</array>
-		</dict>
-	</array>
+<array>
+	<dict>
+		<key>CFBundleTypeRole</key>
+		<string>Editor</string>
+		<key>CFBundleURLName</key>
+		<string>{your_unique_identifier}</string>
+		<key>CFBundleURLSchemes</key>
+		<array>
+			<string>{your_URL_scheme}</string>
+		</array>
+	</dict>
+</array>
 ```
 
 
