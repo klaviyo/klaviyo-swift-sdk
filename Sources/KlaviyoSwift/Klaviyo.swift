@@ -353,16 +353,16 @@ public struct KlaviyoSDK {
     
     /// Set a profile in your Klaviyo account.
     /// Future SDK calls will use this data when making api requests to Klaviyo.
-    /// NOTE: this will trigger a reset of existing
+    /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
     @_spi(KlaviyoPrivate)
     public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProfile(profile))
     }
     
-    /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
+    /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
-    /// from the current profile. Call `set(pushToken:)` again to associate this device to a new profile
+    /// from the current profile. Call ``set(pushToken:)`` again to associate this device to a new profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     @_spi(KlaviyoPrivate)
     public func resetProfile() {
@@ -380,7 +380,7 @@ public struct KlaviyoSDK {
     }
     
     /// Set the current user's phone number.
-    /// Note that the phone number should be in a format that Klaviyo accepts.
+    /// NOTE: The phone number should be in a format that Klaviyo accepts.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
     /// - Parameter phonNumber: a string contining the users phone number.
