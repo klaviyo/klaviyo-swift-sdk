@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 9/30/22.
 //
 import XCTest
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import AnyCodable
 import Combine
 
@@ -70,6 +70,8 @@ class InvalidJSONDecoder: JSONDecoder {
 }
 
 extension AnalyticsEnvironment {
+    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    
     static let test = AnalyticsEnvironment(
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
@@ -80,8 +82,16 @@ extension AnalyticsEnvironment {
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test(),
-        store: Store.test,
-        timer: { interval in Just(Date()).eraseToAnyPublisher() }
+        timer: { interval in Just(Date()).eraseToAnyPublisher() },
+        send: { action in
+            testStore.send(action)
+        },
+        state: {
+            AnalyticsEnvironment.testStore.state.value
+        },
+        statePublisher: {
+            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+        }
     )
 }
 
@@ -150,5 +160,34 @@ extension StateChangePublisher {
         }
         return Self.init()
     }()
+}
+
+private final class KeyedArchiver: NSKeyedArchiver {
+    override func decodeObject(forKey _: String) -> Any { "" }
+    override func decodeInt64(forKey key: String) -> Int64 { 0 }
+}
+
+
+extension UNNotificationResponse {
+    static func with(
+        userInfo: [AnyHashable: Any],
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier
+    ) throws -> UNNotificationResponse {
+        let content = UNMutableNotificationContent()
+        content.userInfo = userInfo
+        let request = UNNotificationRequest(
+            identifier: "",
+            content: content,
+            trigger: nil
+        )
+
+        let notification = try XCTUnwrap(UNNotification(coder: KeyedArchiver(requiringSecureCoding: false)))
+        notification.setValue(request, forKey: "request")
+
+        let response = try XCTUnwrap(UNNotificationResponse(coder: KeyedArchiver(requiringSecureCoding: false)))
+        response.setValue(notification, forKey: "notification")
+        response.setValue(actionIdentifier, forKey: "actionIdentifier")
+        return response
+    }
 }
 

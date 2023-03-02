@@ -9,7 +9,8 @@ import Foundation
 import Combine
 import UIKit
 
-struct StateChangePublisher {
+@_spi(KlaviyoPrivate)
+public struct StateChangePublisher {
     
     static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
         publisher
@@ -17,17 +18,38 @@ struct StateChangePublisher {
             .eraseToAnyPublisher()
     }
     
-    // publisher to listen for state and persist them on an interval.
-    // does not emit action but mapped that way so it can be used in the store.
-    var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
-        let statePublisher = environment.analytics.store.state
+    private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
+        return environment.analytics.statePublisher()
             .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
             .eraseToAnyPublisher()
-        return debouncedPublisher(statePublisher)
+    }
+    
+    // publisher to listen for state and persist them on an interval.
+    // does not emit action but mapped that way so it can be used in the store.
+    var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
+        return debouncedPublisher(createStatePublisher())
             .flatMap { state -> Empty<KlaviyoAction, Never> in
                 saveKlaviyoState(state: state)
                 return Empty<KlaviyoAction, Never>()
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    @_spi(KlaviyoPrivate)
+    public struct PrivateState {
+        public var email: String?
+        public var anonymousId: String?
+        public var phoneNumber: String?
+        public var externalId: String?
+        public var pushToken: String?
+    }
+    
+    @_spi(KlaviyoPrivate)
+    public static func internalStatePublisher() -> AnyPublisher<PrivateState, Never> {
+        return createStatePublisher()
+            .map { state in
+                return PrivateState(email: state.email, anonymousId: state.anonymousId, phoneNumber: state.phoneNumber, externalId: state.externalId, pushToken: state.pushToken)
             }
             .eraseToAnyPublisher()
     }

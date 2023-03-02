@@ -101,9 +101,13 @@ struct AnalyticsEnvironment {
     var timeZone: () -> String
     var appContextInfo: () -> AppContextInfo
     var klaviyoAPI: KlaviyoAPI
-    var store: Store<KlaviyoState, KlaviyoAction>
     var timer: (Double) -> AnyPublisher<Date, Never>
-    static let production = AnalyticsEnvironment(
+    var send: (KlaviyoAction) -> Task<Void, Never>?
+    var state: () -> KlaviyoState
+    var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
+    static let production: AnalyticsEnvironment = {
+        let store = Store.production
+        return AnalyticsEnvironment(
         networkSession: createNetworkSession,
         apiURL: PRODUCTION_HOST,
         encodeJSON: { encodable in try encoder.encode(encodable) },
@@ -113,11 +117,15 @@ struct AnalyticsEnvironment {
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
         appContextInfo: { AppContextInfo() },
         klaviyoAPI: KlaviyoAPI(),
-        store: Store.production,
         timer: { interval in
             Timer.publish(every: interval, on: .main, in: .default)
-            .autoconnect()
-            .eraseToAnyPublisher()
-        }
-    )
+                .autoconnect()
+                .eraseToAnyPublisher()
+        },
+        send: { action in
+            store.send(action)
+        },
+        state: { store.state.value },
+        statePublisher: { store.state.eraseToAnyPublisher() }
+    )}()
 }

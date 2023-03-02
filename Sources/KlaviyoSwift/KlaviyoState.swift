@@ -18,6 +18,8 @@ struct KlaviyoState: Equatable, Codable {
     enum PendingRequest: Equatable {
         case legacyEvent(LegacyEvent)
         case legacyProfile(LegacyProfile)
+        case event(Event)
+        case profile(Profile)
     }
     var apiKey: String?
     var email: String?
@@ -32,6 +34,8 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = 10.0
     var retryInfo = RetryInfo.retry(0)
     var pendingRequests: [PendingRequest] = []
+    var pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+    
     
     enum CodingKeys: CodingKey {
         case apiKey
@@ -51,9 +55,10 @@ struct KlaviyoState: Equatable, Codable {
     }
     
     mutating func enqueueProfileRequest() {
-        guard let request = try? self.buildProfileRequest() else {
+        guard let request = try? self.buildProfileRequest(), let request = try? self.updateRequestAndStateWithPendingProfile(request: request) else {
             return
         }
+        
         queue.append(request)
     }
     
@@ -61,6 +66,82 @@ struct KlaviyoState: Equatable, Codable {
         email = identifiers.email ?? email
         phoneNumber = identifiers.phoneNumber ?? phoneNumber
         externalId = identifiers.externalId ?? externalId
+    }
+    
+    
+    mutating func updateStateWithProfile(profile: Profile) {
+        email = profile.attributes.email ?? email
+        phoneNumber = profile.attributes.phoneNumber ?? phoneNumber
+        externalId = profile.attributes.externalId ?? externalId
+    }
+    
+    mutating func updateRequestAndStateWithPendingProfile(request: KlaviyoAPI.KlaviyoRequest) throws -> KlaviyoAPI.KlaviyoRequest? {
+        guard let pendingProfile = self.pendingProfile else {
+            return request
+        }
+        guard case let .createProfile(profile) = request.endpoint else {
+            runtimeWarn("Passed invalid request for update. \(request)")
+            return nil
+        }
+        var attributes = profile.data.attributes
+        var location = profile.data.attributes.location ?? .init()
+        var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
+        
+        // Optionally (if not already specified) overwrite attributes and location with pending profile information.
+        for (key, value) in pendingProfile {
+            switch key {
+            case .firstName:
+                attributes.firstName = attributes.firstName ?? value.value as? String
+            case .lastName:
+                attributes.lastName = attributes.lastName ?? value.value as? String
+            case .address1:
+                location.address1 = location.address1 ?? value.value as? String
+            case .address2:
+                location.address2 = location.address2 ?? value.value as? String
+            case .title:
+                attributes.title =  attributes.title ?? value.value as? String
+            case .organization:
+                attributes.organization = attributes.organization ?? value.value as? String
+            case .city:
+                location.city = location.city ?? value.value as? String
+            case .region:
+                location.region = location.region ?? value.value as? String
+            case .country:
+                location.country = location.country ?? value.value as? String
+            case .zip:
+                location.zip = location.zip ?? value.value as? String
+            case .image:
+                attributes.image = attributes.image ?? value.value as? String
+            case .latitude:
+                location.latitude = location.latitude ?? value.value as? Double
+            case .longitude:
+                location.longitude = location.longitude ?? value.value as? Double
+            case .custom(customKey: let customKey):
+                properties[customKey] = properties[customKey] ?? value.value
+            }
+        }
+        attributes.location = location
+        attributes.properties = AnyCodable(properties)
+        self.pendingProfile = nil
+        
+        return .init(apiKey: request.apiKey, endpoint: .createProfile(.init(data: .init(attributes: attributes, meta: profile.data.meta))))
+        
+    }
+    
+    var isIdentified: Bool {
+        return self.email != nil || self.externalId != nil || self.phoneNumber != nil
+    }
+    
+    mutating func reset() {
+        if isIdentified {
+            // If we are still anonymous we want to preserve our anonymous id so we can merge it this profile with the new profile.
+            self.anonymousId = environment.analytics.uuid().uuidString
+        }
+        self.pendingProfile = nil
+        self.email = nil
+        self.externalId = nil
+        self.phoneNumber = nil
+        self.pushToken = nil
     }
 }
 

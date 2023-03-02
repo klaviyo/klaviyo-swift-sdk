@@ -8,7 +8,7 @@ import Foundation
 
 private let info = Bundle.main.infoDictionary
 private let DEFAULT_EXECUTABLE: String = (info?["CFBundleExecutable"] as? String) ??
-(ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Uknonwn"
+(ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
 private let DEFAULT_BUNDLE_ID: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
 private let DEFAULT_APP_VERSION: String  = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
 private let DEFAULT_APP_BUILD: String = info?["CFBundleVersion"] as? String ?? "Unknown"

@@ -8,12 +8,17 @@
 import Foundation
 import AnyCodable
 
+@_spi(KlaviyoPrivate)
+public func setKlaviyoAPIURL(url: String) {
+    environment.analytics.apiURL = url
+}
+
 
 struct KlaviyoAPI {
     struct KlaviyoRequest: Equatable, Codable {
-        let apiKey: String
-        let endpoint: KlaviyoEndpoint
-        var uuid = environment.analytics.uuid().uuidString
+        public let apiKey: String
+        public let endpoint: KlaviyoEndpoint
+        public var uuid = environment.analytics.uuid().uuidString
     }
     
     enum KlaviyoAPIError: Error {
@@ -28,30 +33,46 @@ struct KlaviyoAPI {
         case invalidData
     }
     
+    // For internal testing use only
+    static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
+    static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
+    static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
+    static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
+    static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
+ 
     var send:  (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
+        let start = Date()
         var urlRequest: URLRequest
         do {
             urlRequest = try request.urlRequest()
         } catch {
+            requestFailed(request, error, 0.0)
             return .failure(.internalRequestError(error))
         }
         
+        requestStarted(request)
         var response: URLResponse
         var data: Data
         do {
             (data, response)  = try await environment.analytics.networkSession().data(urlRequest)
         } catch {
+            requestFailed(request, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))
         }
+        let end = Date()
+        let duration = end.timeIntervalSince(start)
         guard let httpResponse = response as? HTTPURLResponse else {
             return .failure(.missingOrInvalidResponse(response))
         }
         if httpResponse.statusCode == 429 {
+            requestRateLimited(request)
             return .failure(KlaviyoAPIError.rateLimitError)
         }
         guard 200 ..< 300 ~= httpResponse.statusCode else {
+            requestHttpError(request, httpResponse.statusCode, duration)
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
+        requestCompleted(request, data, duration)
         return .success(data)
         
     }

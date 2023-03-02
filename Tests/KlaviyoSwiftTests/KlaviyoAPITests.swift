@@ -7,7 +7,7 @@
 
 import XCTest
 import SnapshotTesting
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 
 @MainActor
@@ -107,7 +107,7 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createEvent(.init(data: .test)))
+        let request = KlaviyoAPI.KlaviyoRequest.init(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
         await sendAndAssert(with: request){ result in
             
             switch result {
@@ -142,5 +142,4 @@ final class KlaviyoAPITests: XCTestCase {
         let result = await KlaviyoAPI().send(request)
         assertion(result)
     }
-    
 }

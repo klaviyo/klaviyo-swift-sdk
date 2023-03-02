@@ -8,7 +8,8 @@
 import Foundation
 import XCTest
 import Combine
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import AnyCodable
 
 @MainActor
 class StateManagementTests: XCTestCase {
@@ -309,6 +310,89 @@ class StateManagementTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
+        }
+    }
+    
+    
+    // MARK: - Test pending profile
+    
+    func testFlushWithPendingProfile() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        let profileActions: [(Profile.ProfileKey, Any)] = [
+            (.city, "Sharon"),
+            (.region, "New England"),
+            (.address1, "123 Main Street"),
+            (.address2, "Apt 6"),
+            (.zip, "02067"),
+            (.country, "Mexico"),
+            (.latitude, 23.0),
+            (.longitude, 46.0),
+            (.title, "King"),
+            (.organization, "Klaviyo"),
+            (.firstName, "Jeffrey"),
+            (.lastName, "Lebowski"),
+            (.image, "foto.png"),
+            (.custom(customKey: "foo"), 20)
+        ]
+        
+        var pendingProfile = [Profile.ProfileKey: AnyEncodable]()
+        
+        for (key, value) in profileActions {
+            pendingProfile[key] = AnyEncodable(value)
+            _  = await store.send(.setProfileProperty(key, AnyEncodable(value))) {
+                $0.pendingProfile = pendingProfile
+            }
+        }
+    
+        var request: KlaviyoAPI.KlaviyoRequest? = nil
+        _ = await store.send(.flushQueue) {
+            $0.enqueueProfileRequest()
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+            $0.flushing = true
+            request = $0.requestsInFlight[0]
+        }
+        
+        await store.receive(.sendRequest)
+        await store.receive(.dequeCompletedResults(request!)) {
+            $0.requestsInFlight = $0.queue
+            $0.flushing = false
+        }
+    
+    }
+    
+    
+    // MARK: - Test set profile
+    func testSetProfileWithExistingProperties() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "555BLOB"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        
+        _ = await store.send(.enqueueProfile(Profile(attributes: .init(email: "foo")))) {
+            $0.phoneNumber = nil
+            $0.email = "foo"
+            $0.pushToken = nil
+            $0.enqueueProfileRequest()
+            
+        }
+    
+    }
+    
+    // MARK: - Test enqueue event
+    func testEnqueueEvent() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "555BLOB"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        _ = await store.send(.enqueueEvent(event)) {
+            $0.email = "foo"
+            $0.phoneNumber = "666BLOB"
+            $0.externalId = "my_user_id"
+            $0.enqueueRequest(request: .init(apiKey: try XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: try XCTUnwrap($0.anonymousId))))))
+            
         }
     }
     

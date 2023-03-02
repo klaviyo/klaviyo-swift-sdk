@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AnyCodable
 
 /**
 
@@ -40,6 +41,10 @@ enum KlaviyoAction: Equatable {
     case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
     case enqueueLegacyEvent(LegacyEvent)
     case enqueueLegacyProfile(LegacyProfile)
+    case enqueueEvent(Event)
+    case enqueueProfile(Profile)
+    case setProfileProperty(Profile.ProfileKey, AnyEncodable)
+    case resetProfile
 }
 
 struct RequestId {}
@@ -48,7 +53,7 @@ struct FlushTimer {}
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> {
+    func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
         switch action {
         case let .initialize(apiKey):
             guard case .uninitialized = state.initalizationState else {
@@ -69,7 +74,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
-
+            
             state = initialState
             state.initalizationState = .initialized
             if let request = try? state.buildProfileRequest() {
@@ -84,6 +89,10 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueLegacyEvent(event))
                     case .legacyProfile(let profile):
                         await send(.enqueueLegacyProfile(profile))
+                    case .event(let event):
+                        await send(.enqueueEvent(event))
+                    case .profile(let profile):
+                        await send(.enqueueProfile(profile))
                     }
 
                 }
@@ -140,9 +149,14 @@ struct KlaviyoReducer: ReducerProtocol {
                     state.retryInfo = .retry(requestCount)
                 }
             }
+            if state.pendingProfile != nil {
+                state.enqueueProfileRequest()
+            }
+            
             if state.queue.isEmpty {
                 return .none
             }
+
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
             state.flushing = true
@@ -162,11 +176,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             return environment.analytics.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }
-                    .eraseToEffect()
-                    .cancellable(id: Timer.self, cancelInFlight: true)
+                .map { _ in
+                    KlaviyoAction.flushQueue
+                }
+                .eraseToEffect()
+                .cancellable(id: Timer.self, cancelInFlight: true)
         case .dequeCompletedResults(let completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
@@ -184,7 +198,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard state.flushing else {
                 return .none
             }
-           
+            
             guard let request = state.requestsInFlight.first else {
                 state.flushing = false
                 return .none
@@ -226,10 +240,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushInterval = CELLULAR_FLUSH_INTERVAL
             }
             return environment.analytics.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }.eraseToEffect()
-                    .cancellable(id: Timer.self, cancelInFlight: true)
+                .map { _ in
+                    KlaviyoAction.flushQueue
+                }.eraseToEffect()
+                .cancellable(id: Timer.self, cancelInFlight: true)
         case .enqueueLegacyEvent(let legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 state.pendingRequests.append(.legacyEvent(legacyEvent))
@@ -279,6 +293,61 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
             
+        case .enqueueEvent(var event):
+            guard case .initialized = state.initalizationState,
+                    let apiKey = state.apiKey,
+                    let anonymousId = state.anonymousId else {
+                state.pendingRequests.append(.event(event))
+                return .none
+            }
+            var profile = event.attributes.profile
+            if let email = profile["$email"] as? String {
+                state.email = email
+            } else {
+                profile["$email"] = state.email
+            }
+            if let phoneNumber = profile["$phone_number"] as? String {
+                state.phoneNumber = phoneNumber
+            } else {
+                profile["$phone_number"] = state.phoneNumber
+            }
+            if let externalId = profile["$id"] as? String {
+                state.externalId = externalId
+            } else {
+                profile["$id"] = state.externalId
+            }
+            event.attributes._profile = AnyCodable(profile)
+
+            state.queue.append(.init(apiKey: apiKey,
+                                     endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
+            return .none
+        case .enqueueProfile(let profile):
+            guard case .initialized = state.initalizationState,
+                    let apiKey = state.apiKey,
+                    let anonymousId = state.anonymousId else {
+                state.pendingRequests.append(.profile(profile))
+                return .none
+            }
+            state.reset()
+            state.updateStateWithProfile(profile: profile)
+            let request = KlaviyoAPI.KlaviyoRequest(
+                apiKey: apiKey,
+                endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId)))
+            )
+
+            state.queue.append(request)
+            return .none
+        case .resetProfile:
+            state.reset()
+            return .none
+        case let .setProfileProperty(key, value):
+            guard var pendingProfile = state.pendingProfile else {
+                state.pendingProfile = [key: value]
+                return .none
+            }
+            pendingProfile[key] = value
+            state.pendingProfile = pendingProfile
+            return .none
         }
     }
 }
