@@ -220,23 +220,23 @@ If your user taps on the notification this will be tracked back to Klaviyo as an
 
 ## Handling deep linking
 
-There are two use cases for deep linking that can be relevent here - 
-1. When your push a notification to your app with a deep link.
-2. Any other cases where you my may want to deep link into your app via SMS, email, web browser etc.
+There are two use cases for deep linking that can be relevant here - 
+1. When you push a notification to your app with a deep link.
+2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
 
-Note that Klaviyo doesn't officially yet support universal links but since there is no validation on the klaviyo front end for URI schemes, one can incluse universal links but making sure it works as per expectations is on the developer.
+Note that Klaviyo doesn't officially yet support universal links but since there is no validation on the klaviyo front end for URI schemes, one can include universal links but making sure it works as per expectations is on the developer.
 
 In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here - 
 
 ### Step 1: Register the URL scheme
 
-In order for apple to route a deep link to your appliation you need to register a URL scheme in your applications's info.plist file. This can be done using the editor that xcode provides in xcode from the Info tab of your project settings (reference screenshot below) or editing the info.plist directly - 
+In order for Apple to route a deep link to your application you need to register a URL scheme in your application's info.plist file. This can be done using the editor that xcode provides in xcode from the Info tab of your project settings (reference screenshot below) or editing the info.plist directly - 
 
 ![](example1.png)
 
 The required fields are as following - 
 
-1. **Ideintifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
+1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
 2. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
 3. **Role** - Since your app will be editing the role select the role as editor
 
@@ -276,7 +276,7 @@ This needs to be done in the info.plist directly -
 
 Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app. 
 
-If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your applictions's app delegate.
+If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
 
 Example: 
 
@@ -289,7 +289,7 @@ func application(
     guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true),
           let host = components.host
     else {
-       print("Invalid deeplinking URL")
+       print("Invalid deep linking URL")
        return false
     }
                    
@@ -333,6 +333,8 @@ Once the above steps are complete, you can now try to send push notifications fr
 Additionally, you can also locally try and trigger a deep link to make sure your code is working using the below command in the terminal - 
 
 `xcrun simctl openurl booted {your_URL_here}`
+
+
 
 ## SDK Data Transfer
 
