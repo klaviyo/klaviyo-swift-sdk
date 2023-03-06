@@ -144,12 +144,20 @@ import UserNotifications
 ...
 
 let center = UNUserNotificationCenter.current()
-center.delegate = self as? UNUserNotificationCenterDelegate
-let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-
-center.requestAuthorization(options: options) { (granted, error) in
-    // Enable / disable features based on response
+center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+// use the below options if you are interested in using provisional push notifications. Note that using this will not
+// show the push notifications prompt to the user.
+// let options: UNAuthorizationOptions = [.alert, .sound, .badge, provisional]
+center.requestAuthorization(options: options) { granted, error in
+    if let error = error {
+        // Handle the error here.
+        print("error = ", error)
+    }
+    
+    // Enable or disable features based on the authorization status.
 }
+    
 UIApplication.shared.registerForRemoteNotifications()
 ```
 
