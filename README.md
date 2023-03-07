@@ -21,7 +21,7 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to get it setup.
 
 ### Import the SDK
-Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.7.0 as of this writing) and click Next.
+Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.7.1 as of this writing) and click Next.
 
 ### Select the Package
 Select the `KlaviyoSwift` package and click Finish.  
