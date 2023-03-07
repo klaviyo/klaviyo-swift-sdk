@@ -273,7 +273,7 @@ Since iOS 9 Apple has mandated that the URL schemes that you app can open need t
 
 This needs to be done in the Info.plist directly - 
 
-```
+```xml
 <key>LSApplicationQueriesSchemes</key>
 <array>
 	<string>{your custom URL scheme}</string>
@@ -288,7 +288,7 @@ If you are using UIKit, you need to implement [`application:openURL:options:`](h
 
 Example: 
 
-```
+```swift
 func application(
     _ app: UIApplication,
     open url: URL,
@@ -320,7 +320,7 @@ If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](https:/
 
 Example: 
 
-```
+```swift
 @main
 struct MyApplication: App {
   var body: some Scene {
