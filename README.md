@@ -148,7 +148,7 @@ center.delegate = self as? UNUserNotificationCenterDelegate // the type casting 
 let options: UNAuthorizationOptions = [.alert, .sound, .badge]
 // use the below options if you are interested in using provisional push notifications. Note that using this will not
 // show the push notifications prompt to the user.
-// let options: UNAuthorizationOptions = [.alert, .sound, .badge, provisional]
+// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
 center.requestAuthorization(options: options) { granted, error in
     if let error = error {
         // Handle the error here.
@@ -238,7 +238,7 @@ In order for deep linking to work, there are a few configurations that are neede
 
 ### Step 1: Register the URL scheme
 
-In order for Apple to route a deep link to your application you need to register a URL scheme in your application's info.plist file. This can be done using the editor that xcode provides in xcode from the Info tab of your project settings (reference screenshot below) or editing the info.plist directly - 
+In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides in xcode from the Info tab of your project settings (reference screenshot below) or editing the Info.plist directly - 
 
 ![](example1.png)
 
@@ -248,9 +248,9 @@ The required fields are as following -
 2. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
 3. **Role** - Since your app will be editing the role select the role as editor
 
-In order to edit the info.plist directly, just fill in your app specific details and paste this in your plist - 
+In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist - 
 
-```
+```xml
 <key>CFBundleURLTypes</key>
 <array>
 	<dict>
@@ -269,9 +269,9 @@ In order to edit the info.plist directly, just fill in your app specific details
 
 ### Step 2: Whitelist supported URL schemes
 
-Since iOS 9 Apple has mandated that the URL schemes that you app can open need to also be listed in the info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work. 
+Since iOS 9 Apple has mandated that the URL schemes that you app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work. 
 
-This needs to be done in the info.plist directly - 
+This needs to be done in the Info.plist directly - 
 
 ```
 <key>LSApplicationQueriesSchemes</key>
