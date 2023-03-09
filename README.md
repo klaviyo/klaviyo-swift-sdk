@@ -55,7 +55,6 @@ Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 Once Klaviyo has been set up, you can begin tracking events anywhere within your application. Simply call Klaviyo's `trackEvent` method in the relevant location.
 
 ```swift
-
 let klaviyo = Klaviyo.sharedInstance
 
 let customerDictionary : NSMutableDictionary = NSMutableDictionary()
@@ -232,15 +231,13 @@ There are two use cases for deep linking that can be relevant here -
 1. When you push a notification to your app with a deep link.
 2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
 
-Note that Klaviyo doesn't officially yet support universal links but since there is no validation on the klaviyo front end for URI schemes, one can include universal links but making sure it works as per expectations is on the developer.
+Note that Klaviyo doesn't officially support universal links yet, but since there is no validation on the klaviyo front end for URI schemes, you can include universal links in your push notifications. Ensuring that Klaviyo push works to your expectations with universal links will be the responsibility of your developers.
 
 In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here - 
 
 ### Step 1: Register the URL scheme
 
-In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides in xcode from the Info tab of your project settings (reference screenshot below) or editing the Info.plist directly - 
-
-![](example1.png)
+In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly - 
 
 The required fields are as following - 
 
@@ -286,6 +283,8 @@ Steps 1 & 2 set your app up for receiving deep links but now is when you need to
 
 If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
 
+// TODO: add a link to the example app here once it has been moved to the SDL
+
 Example: 
 
 ```swift
@@ -302,15 +301,6 @@ func application(
     }
                    
     print("components: \(components.debugDescription)")
-   
-    // Create the deep link
-    guard let deeplink = DeepLinking(rawValue: host) else {
-        print("Deeplink not found: \(host)")
-        return false
-    }
-    
-    // implement your custom logic here
-    handle(deeplink, with: url.description)
     
     return true
 }
@@ -334,15 +324,11 @@ struct MyApplication: App {
 }
 ``` 
 
-Once the above steps are complete, you can now try to send push notifications from the Klaviyo Push editor (refer example below) on the web and make sure that the URL shows up in the handler you implemented in Step 3.
-
-![](push_deep_link_example.png)
+Once the above steps are complete, you can try to send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
 
 Additionally, you can also locally try and trigger a deep link to make sure your code is working using the below command in the terminal - 
 
 `xcrun simctl openurl booted {your_URL_here}`
-
-
 
 ## SDK Data Transfer
 
