@@ -14,8 +14,8 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 
 ### Installation options
 
-1. [Install with SPM](Install with SPM) 
-1. [CocoaPods](CocoaPods)
+1. [Install with SPM](#Install with SPM) 
+1. [CocoaPods](#CocoaPods)
 
 ## Install with SPM
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to install.
@@ -237,12 +237,15 @@ Starting with version 1.7.1, the SDK will cache incoming data and flush it back 
 | WWAN/Wifi   | 10 seconds  |
 | Cellular    | 30 seconds  |
 
-Connection determination is based on notifications from our reachability service. When there is no network available the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
+
+Connection determination is based on notifications from our reachability service. When there is no network available, the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
+
 
 ### Retries
 
-The SDK will retry API requests that fail under certain conditions. For example if a network timeout occurs the request will be retried on the next flush interval. In addition if the SDK receives a rate limiting error (429) from the Klaviyo API it will use exponential backoff with jitter to retry the next request.
+The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval. In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
 
 ## License
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
+
