@@ -110,7 +110,7 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user. 
 
-Prior to version 1.7.1, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.1, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
+Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Special properties
 
@@ -230,7 +230,7 @@ If a user taps on the notification with the application open, this event is trac
 
 ## SDK Data Transfer
 
-Starting with version 1.7.1, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
+Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
 
 | Network     | Interval    |
 | :---        | :--- |
