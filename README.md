@@ -14,10 +14,10 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 
 ### Installation options
 
-1. [Install with SPM](#Install with SPM) 
-1. [CocoaPods](#CocoaPods)
+1. [Install with SPM](#install-with-spm) 
+1. [Install with Cocoapods](#install-with-cocoapods)
 
-## Install with SPM
+## [Install with SPM](#install-with-spm)
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to install.
 
 1. Open your project and navigate to your project’s settings. 
@@ -27,7 +27,7 @@ KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/pa
 5. Select the `KlaviyoSwift` package.
 6. Click **Finish**.
 
-## Install with CocoaPods
+## [Install with CocoaPods](#install-with-cocoapods)
 KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo). 
 
 1. To install, add the following line to your Podfile:
