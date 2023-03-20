@@ -137,11 +137,6 @@ By calling `setUpUserEmail` once, usually upon application login, Klaviyo can tr
     Klaviyo.sharedInstance.setUpUserEmail(userEmail: "john.smith@example.com")
 ```
 
-## Integrating with Shopify's Mobile SDK
-If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
-
-` Klaviyo.sharedInstance.setUpUserEmail(userEmail: checkout.email)`
-
 ## Push Notifications
 
 Implementing push notifications requires a few additional snippets of code to enable.: 
@@ -151,7 +146,7 @@ Implementing push notifications requires a few additional snippets of code to en
 
 ### Sending push notifications
 
-1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK has beenis configured and that `setUpUserEmail:` has beenis called. This enables Klaviyo to match app tokens with profiles in Klaviyocustomers.
+1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `setUpUserEmail:` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
 
 ```swift
     import UserNotifications
@@ -189,9 +184,9 @@ The following code example allows you to track when a user opens a push notifica
 1. In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
 
 ```swift 
-if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
-    Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
-  }
+    if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
+        Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
+    }
     completionHandler(.noData)
 ```
 
