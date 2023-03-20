@@ -82,7 +82,7 @@ The `track` function can be called with up to four arguments.
 
 * `eventName`: The name of the event you want to track, as a string. This argument is required to track an event.
 
-* `customerProperties`: An NSDictionary of properties that belong to the person who did the action you're tracking. If you do not include an `$email` or `$id key`, the event cannot be tracked by Klaviyo. This argument is optional but recommended.
+* `customerProperties`: An NSDictionary of properties that belong to the person who did the action you're tracking. If you do not include an `$email`, `$phone_number` or `$id key`, the event cannot be tracked by Klaviyo. This argument is optional but recommended.
 
 * `properties`: An NSDictionary of properties that are specific to the event. This argument is optional.
 
