@@ -206,7 +206,7 @@ Once your first push notifications are sent and opened, you should start to see 
 
 ### Foreground push handling
 
-The following code example allows push notifications to appearshow when your app is running:
+The following code example allows push notifications to be displayed when your app is running:
 
 ```swift
 
