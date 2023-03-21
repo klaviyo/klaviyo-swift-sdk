@@ -1,12 +1,12 @@
 //
 //  AppLifeCycleEvents.swift
-//  
+//
 //
 //  Created by Noah Durell on 12/13/22.
 //
 
-import Foundation
 import Combine
+import Foundation
 import UIKit
 
 enum LifeCycleErrors: Error {
@@ -20,8 +20,8 @@ struct AppLifeCycleEvents {
             .handleEvents(receiveOutput: { _ in
                 environment.stopReachability()
             })
-            .map { _ in return KlaviyoAction.stop }
-        let foregrounded =  environment
+            .map { _ in KlaviyoAction.stop }
+        let foregrounded = environment
             .notificationCenterPublisher(UIApplication.didBecomeActiveNotification)
             .handleEvents(receiveOutput: { _ in
                 do {
@@ -40,14 +40,14 @@ struct AppLifeCycleEvents {
         // The below is a bit convoluted since network status can be nil.
         let reachability = environment
             .notificationCenterPublisher(ReachabilityChangedNotification)
-            .compactMap { notification -> KlaviyoAction? in
+            .compactMap { _ -> KlaviyoAction? in
                 guard let status = environment.reachabilityStatus() else {
                     return nil
                 }
                 return KlaviyoAction.networkConnectivityChanged(status)
             }
             .eraseToAnyPublisher()
-            
+
         return terminated
             .merge(with: reachability)
             .merge(with: foregrounded, backgrounded)
@@ -61,6 +61,6 @@ struct AppLifeCycleEvents {
             .receive(on: RunLoop.main)
             .eraseToAnyPublisher()
     }
-    
+
     static let production = Self()
 }
