@@ -10,15 +10,15 @@
 KlaviyoSwift is an SDK, written in Swift, for users to incorporate Klaviyo's event tracking functionality into iOS applications. We also provide an SDK written in [Objective-C](https://github.com/klaviyo/klaviyo-objc-sdk). The two SDKs are identical in their tracking functionality. **However, the KlaviyoSwift SDK is the only one that supports push notifications**. We strongly encourage the use of the KlaviyoSwift SDK.
 
 ## Requirements
-- iOS 9.0+ 
+- iOS 9.0+
 - Xcode 10.1+
 - Swift 4.2+
 
 ## Installation Options
 
 1. CocoaPods (recommended)
-2. Download a blank, pre-configured project, and get started from scratch. 
-3. Download the zip file, and drag and drop the KlaviyoSwift file into your project. 
+2. Download a blank, pre-configured project, and get started from scratch.
+3. Download the zip file, and drag and drop the KlaviyoSwift file into your project.
 
 Note that options two and three will require you to repeat those steps as our SDK is updated. By using CococaPods the library can be kept up-to-date via `pod update`.
 
@@ -40,7 +40,7 @@ import KlaviyoSwift
 
 Adding Klaviyo's tracking functionality requires just a few lines of code. To get started, add the following line to AppDelegate.swift, within application:didFinishLaunchingWithOptions:
 
-```swift 
+```swift
 Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
@@ -86,7 +86,7 @@ The `track` function can be called with anywhere between 1-4 arguments:
 
 `eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track an event.
 
-`customerProperties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the event cannot be tracked by Klaviyo. 
+`customerProperties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the event cannot be tracked by Klaviyo.
 
 `properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
 
@@ -108,8 +108,8 @@ If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easi
 ## Special Properties
 
 As was shown in the event tracking example, special person and event properties can be used. This works in a similar manner to the [Klaviyo Analytics API](https://www.klaviyo.com/docs). These are special properties that can be utilized when identifying a user or event. They are:
-    
-    KLPersonEmailDictKey 
+
+    KLPersonEmailDictKey
     KLPersonFirstNameDictKey
     KLPersonLastNameDictKey
     KLPersonPhoneNumberDictKey
@@ -128,7 +128,7 @@ Lastly, cases where you wish to call `trackEvent` with only the eventName parame
     Klaviyo.sharedInstance.setUpUserEmail(userEmail: "john.smith@example.com")
 ```
 ## Sending Push Notifications
-To be able to send push notifications, you must add two snippets of code to your application. One to register users for push notifications, and one that will send Klaviyo their tokens. 
+To be able to send push notifications, you must add two snippets of code to your application. One to register users for push notifications, and one that will send Klaviyo their tokens.
 
 Add the below code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. Make sure that whenever this code is called that the Klaviyo SDK has been configured and that `setUpUserEmail:` has been called. This is so that Klaviyo can match app tokens with customers.
 
@@ -171,16 +171,16 @@ If you would like to track when a user opens a push notification then there is a
 
 In your application delegate, under `application:didFinishLaunchingWithOptions:` add the following:
 
-```swift 
+```swift
     if let launch = launchOptions, let data = launch[UIApplicationLaunchOptionsKey.remoteNotification] as? [AnyHashable: Any] {
         Klaviyo.sharedInstance.handlePush(userInfo: data as NSDictionary)
     }
 ```
 
 Under `application:didReceiveRemoteNotification:` add the following:
-``` 
+```
 func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    
+
     if application.applicationState == UIApplicationState.inactive || application.applicationState ==  UIApplicationState.background {
         Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
     }
@@ -195,4 +195,3 @@ Katy Keuper, Chris Conlon (chris.conlon@klaviyo.com)
 ## License
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
-

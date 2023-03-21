@@ -9,18 +9,18 @@
 import UIKit
 
 class MenuItemTableViewCell: UITableViewCell {
-    @IBOutlet weak var itemPrice: UILabel!
-    @IBOutlet weak var itemDescription: UILabel!
-    @IBOutlet weak var itemImage: UIImageView!
-    @IBOutlet weak var itemName: UILabel!
-    @IBOutlet weak var addToCartButton: UIButton!
-    @IBOutlet weak var removeItemButton: UIButton!
-    @IBOutlet weak var numberOfItemsLabel: UILabel!
-    
+    @IBOutlet var itemPrice: UILabel!
+    @IBOutlet var itemDescription: UILabel!
+    @IBOutlet var itemImage: UIImageView!
+    @IBOutlet var itemName: UILabel!
+    @IBOutlet var addToCartButton: UIButton!
+    @IBOutlet var removeItemButton: UIButton!
+    @IBOutlet var numberOfItemsLabel: UILabel!
+
     override func awakeFromNib() {
         super.awakeFromNib()
         // Initialization code
-        itemImage.frame = CGRect(x:0, y:0, width: 100, height: 100)
+        itemImage.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         itemImage.image = UIImage(contentsOfFile: "monkey.png")
     }
 

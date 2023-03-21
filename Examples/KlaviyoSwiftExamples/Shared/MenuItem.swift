@@ -17,4 +17,3 @@ struct MenuItem: Hashable {
     var price = 10.99
     var numberOfItems = 0
 }
-

@@ -9,12 +9,12 @@
 import UIKit
 
 class CheckOutTableViewCell: UITableViewCell {
-    @IBOutlet weak var removeItemButton: UIButton!
-    @IBOutlet weak var itemTotal: UILabel!
-    @IBOutlet weak var itemQuantity: UILabel!
-    @IBOutlet weak var itemName: UILabel!
-    @IBOutlet weak var itemImage: UIImageView!
-    
+    @IBOutlet var removeItemButton: UIButton!
+    @IBOutlet var itemTotal: UILabel!
+    @IBOutlet var itemQuantity: UILabel!
+    @IBOutlet var itemName: UILabel!
+    @IBOutlet var itemImage: UIImageView!
+
     override func awakeFromNib() {
         super.awakeFromNib()
     }
