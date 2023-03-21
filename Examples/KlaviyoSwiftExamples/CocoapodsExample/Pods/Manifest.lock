@@ -1,0 +1,16 @@
+PODS:
+  - KlaviyoSwift (1.5.0)
+
+DEPENDENCIES:
+  - KlaviyoSwift (~> 1.5.0)
+
+SPEC REPOS:
+  trunk:
+    - KlaviyoSwift
+
+SPEC CHECKSUMS:
+  KlaviyoSwift: 7627dd618a02c58b593f17e7be2018e545a4b33b
+
+PODFILE CHECKSUM: 9e14c13829488e0edc3b34be632aa0326ac05851
+
+COCOAPODS: 1.11.3
