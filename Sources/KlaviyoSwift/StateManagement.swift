@@ -1,17 +1,17 @@
 //
 //  StateManagement.swift
-//  
+//
 //
 //  Created by Noah Durell on 12/6/22.
 //
 
-import Foundation
 import AnyCodable
+import Foundation
 
 /**
 
  Actions and reducers related to klaviyo state.
- 
+
  */
 
 // Request flush interval in seconds.
@@ -74,7 +74,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
-            
+
             state = initialState
             state.initalizationState = .initialized
             if let request = try? state.buildProfileRequest() {
@@ -85,22 +85,21 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 for request in pendingRequests {
                     switch request {
-                    case .legacyEvent(let event):
+                    case let .legacyEvent(event):
                         await send(.enqueueLegacyEvent(event))
-                    case .legacyProfile(let profile):
+                    case let .legacyProfile(profile):
                         await send(.enqueueLegacyProfile(profile))
-                    case .event(let event):
+                    case let .event(event):
                         await send(.enqueueEvent(event))
-                    case .profile(let profile):
+                    case let .profile(profile):
                         await send(.enqueueProfile(profile))
                     }
-
                 }
                 await send(.start)
             }
             .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
             .merge(with: environment.stateChangePublisher().eraseToEffect())
-        case .setEmail(let email):
+        case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -109,21 +108,21 @@ struct KlaviyoReducer: ReducerProtocol {
             state.email = email
             state.enqueueProfileRequest()
             return .none
-        case .setPhoneNumber(let phoneNumber):
+        case let .setPhoneNumber(phoneNumber):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.phoneNumber = phoneNumber
             state.enqueueProfileRequest()
             return .none
-        case .setExternalId(let externalId):
+        case let .setExternalId(externalId):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.externalId = externalId
             state.enqueueProfileRequest()
             return .none
-        case .setPushToken(let pushToken):
+        case let .setPushToken(pushToken):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -140,7 +139,7 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.flushing {
                 return .none
             }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff)   = state.retryInfo {
+            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryInfo {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
                 if newBackOff > 0 {
                     state.retryInfo = .retryWithBackoff(requestCount: requestCount, totalRetryCount: totalCount, currentBackoff: newBackOff)
@@ -152,7 +151,7 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.pendingProfile != nil {
                 state.enqueueProfileRequest()
             }
-            
+
             if state.queue.isEmpty {
                 return .none
             }
@@ -181,7 +180,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 .eraseToEffect()
                 .cancellable(id: Timer.self, cancelInFlight: true)
-        case .dequeCompletedResults(let completedRequest):
+        case let .dequeCompletedResults(completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
@@ -198,7 +197,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard state.flushing else {
                 return .none
             }
-            
+
             guard let request = state.requestsInFlight.first else {
                 state.flushing = false
                 return .none
@@ -207,10 +206,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 let result = await environment.analytics.klaviyoAPI.send(request)
                 switch result {
-                case .success(_):
+                case .success:
                     // TODO: may want to inspect response further.
                     await send(.dequeCompletedResults(request))
-                case .failure(let error):
+                case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
             } catch: { error, send in
@@ -223,7 +222,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []
             return .none
-        case .networkConnectivityChanged(let networkStatus):
+        case let .networkConnectivityChanged(networkStatus):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -244,12 +243,12 @@ struct KlaviyoReducer: ReducerProtocol {
                     KlaviyoAction.flushQueue
                 }.eraseToEffect()
                 .cancellable(id: Timer.self, cancelInFlight: true)
-        case .enqueueLegacyEvent(let legacyEvent):
+        case let .enqueueLegacyEvent(legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 state.pendingRequests.append(.legacyEvent(legacyEvent))
                 return .none
             }
-            
+
             guard let identifiers = legacyEvent.identifiers else {
                 return .none
             }
@@ -259,7 +258,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.enqueueRequest(request: request)
             return .none
-        case .enqueueLegacyProfile(let legacyProfile):
+        case let .enqueueLegacyProfile(legacyProfile):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 state.pendingRequests.append(.legacyProfile(legacyProfile))
                 return .none
@@ -273,10 +272,10 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.enqueueRequest(request: request)
             return .none
-        case .requestFailed(let request, let retryInfo):
+        case let .requestFailed(request, retryInfo):
             var exceededRetries = false
-            switch(retryInfo) {
-            case .retry(let count):
+            switch retryInfo {
+            case let .retry(count):
                 exceededRetries = count > MAX_RETRIES
                 state.retryInfo = .retry(exceededRetries ? 0 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
@@ -292,11 +291,12 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []
             return .none
-            
-        case .enqueueEvent(var event):
+
+        case var .enqueueEvent(event):
             guard case .initialized = state.initalizationState,
-                    let apiKey = state.apiKey,
-                    let anonymousId = state.anonymousId else {
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
                 state.pendingRequests.append(.event(event))
                 return .none
             }
@@ -321,10 +321,11 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.append(.init(apiKey: apiKey,
                                      endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
             return .none
-        case .enqueueProfile(let profile):
+        case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState,
-                    let apiKey = state.apiKey,
-                    let anonymousId = state.anonymousId else {
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
                 state.pendingRequests.append(.profile(profile))
                 return .none
             }
@@ -332,8 +333,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.updateStateWithProfile(profile: profile)
             let request = KlaviyoAPI.KlaviyoRequest(
                 apiKey: apiKey,
-                endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId)))
-            )
+                endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
 
             state.queue.append(request)
             return .none
@@ -370,8 +370,8 @@ extension KlaviyoState {
                 profile: .init(attributes: .init(
                     email: email,
                     phoneNumber: phoneNumber,
-                                            externalId: externalId,
-                                            properties: properties)
+                    externalId: externalId,
+                    properties: properties)
                 ),
                 anonymousId: anonymousId)
         )
@@ -379,7 +379,7 @@ extension KlaviyoState {
 
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
-    
+
     func buildTokenRequest() throws -> KlaviyoAPI.KlaviyoRequest {
         guard let apiKey = apiKey else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
@@ -396,8 +396,7 @@ extension KlaviyoState {
                               pushToken: token,
                               email: email,
                               phoneNumber: phoneNumber,
-                              externalId: externalId)
-        )
+                              externalId: externalId))
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.storePushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }

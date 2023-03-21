@@ -9,21 +9,19 @@ import Foundation
 
 open class SimpleMockURLProtocol: URLProtocol {
     static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
-    open override func startLoading() {
-        self.client?.urlProtocol(self, didReceive: .validResponse, cacheStoragePolicy: .notAllowed)
-        self.client?.urlProtocol(self, didLoad: Data())
-        self.client?.urlProtocolDidFinishLoading(self)
+    override open func startLoading() {
+        client?.urlProtocol(self, didReceive: .validResponse, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data())
+        client?.urlProtocolDidFinishLoading(self)
     }
-    
-    open override func stopLoading() {
-        
+
+    override open func stopLoading() {}
+
+    override open class func canInit(with _: URLRequest) -> Bool {
+        true
     }
-    
-    open override class func canInit(with request: URLRequest) -> Bool {
-        return true
-    }
-    
-    open override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        return request
+
+    override open class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
     }
 }

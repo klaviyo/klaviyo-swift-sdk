@@ -5,12 +5,11 @@
 //  Created by Noah Durell on 9/26/22.
 //
 
-import XCTest
 @testable import KlaviyoSwift
+import XCTest
 
 class ArchivalUtilsTests: XCTestCase {
-    
-    var dataToWrite: Data? = nil
+    var dataToWrite: Data?
     var wroteToFile = false
     var removedFile = false
 
@@ -33,17 +32,16 @@ class ArchivalUtilsTests: XCTestCase {
     }
 
     func testArchiveUnarchive() throws {
-
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
-        
+
         XCTAssert(wroteToFile)
         XCTAssertEqual(ARCHIVED_RETURNED_DATA, dataToWrite)
     }
-    
+
     func testArchiveFails() throws {
-        environment.archiverClient.archivedData = { _,_ in throw FakeFileError.fake }
+        environment.archiverClient.archivedData = { _, _ in throw FakeFileError.fake }
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
-        
+
         XCTAssertFalse(wroteToFile)
         XCTAssertNil(dataToWrite)
     }
@@ -51,33 +49,34 @@ class ArchivalUtilsTests: XCTestCase {
     func testArchiveWriteFails() throws {
         environment.fileClient.write = { _, _ in throw FakeFileError.fake }
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
-        
+
         XCTAssertFalse(wroteToFile)
         XCTAssertNil(dataToWrite)
     }
-    
+
     func testUnarchive() throws {
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
-        
+
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
         XCTAssertTrue(removedFile)
     }
-    
+
     func testUnarchiveInvalidData() throws {
         environment.data = { _ in throw FakeFileError.fake }
-        
+
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
-        
+
         XCTAssertNil(archiveResult)
     }
-    
+
     func testUnarchiveUnarchiveFails() throws {
         environment.archiverClient.unarchivedMutableArray = { _ in throw FakeFileError.fake }
-        
+
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
-        
+
         XCTAssertNil(archiveResult)
     }
+
     func testUnarchiveUnableToRemoveFile() throws {
         var firstCall = true
         environment.fileClient.fileExists = { _ in
@@ -86,39 +85,35 @@ class ArchivalUtilsTests: XCTestCase {
                 return true
             }
             return false
-            
         }
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
-        
+
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
         XCTAssertFalse(removedFile)
     }
-    
+
     func testUnarchiveWhereFileDoesNotExist() throws {
         environment.fileClient.fileExists = { _ in false }
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
-        
+
         XCTAssertNil(archiveResult)
         XCTAssertFalse(removedFile)
     }
-
 }
 
 class ArchivalSystemTest: XCTestCase {
-    
     let TEST_URL = filePathForData(apiKey: "foo", data: "people")
-    
+
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.production
         try? FileManager.default.removeItem(atPath: TEST_URL.path)
     }
- 
 
     /* This will attempt to actually archive and unarchive a queue. */
     func testArchiveUnarchive() {
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
         let result = unarchiveFromFile(fileURL: filePathForData(apiKey: "foo", data: "people"))
-        
+
         XCTAssertEqual(SAMPLE_DATA, result)
     }
 }

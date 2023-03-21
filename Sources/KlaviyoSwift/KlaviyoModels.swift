@@ -1,12 +1,12 @@
 //
 //  KlaviyoModels.swift
-//  
+//
 //
 //  Created by Noah Durell on 11/25/22.
 //
 
-import Foundation
 import AnyCodable
+import Foundation
 
 @_spi(KlaviyoPrivate)
 public struct Event: Equatable {
@@ -27,6 +27,7 @@ public struct Event: Equatable {
         case FailedPayment
         case CustomEvent(String)
     }
+
     @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
         @_spi(KlaviyoPrivate)
@@ -37,34 +38,37 @@ public struct Event: Equatable {
                 self.name = name
             }
         }
+
         public let metric: Metric
         public var properties: [String: Any] {
-            return _properties.value as! [String: Any]
+            _properties.value as! [String: Any]
         }
+
         private let _properties: AnyCodable
         public var profile: [String: Any] {
-            return _profile.value as! [String: Any]
+            _profile.value as! [String: Any]
         }
+
         internal var _profile: AnyCodable
         public var time: Date
         public let value: Double?
         public let uniqueId: String
         @_spi(KlaviyoPrivate)
         public init(name: EventName,
-             properties: [String : Any]? = nil,
-             profile: [String : Any]? = nil,
-             value: Double? = nil,
-             time: Date? = nil,
-             uniqueId: String? = nil) {
-            self._profile = AnyCodable(profile ?? [:])
-            self.metric = .init(name: name)
-            self._properties = AnyCodable(properties ?? [:])
+                    properties: [String: Any]? = nil,
+                    profile: [String: Any]? = nil,
+                    value: Double? = nil,
+                    time: Date? = nil,
+                    uniqueId: String? = nil) {
+            _profile = AnyCodable(profile ?? [:])
+            metric = .init(name: name)
+            _properties = AnyCodable(properties ?? [:])
             self.value = value
             self.time = time ?? environment.analytics.date()
             self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
         }
-        
     }
+
     public var attributes: Attributes
     @_spi(KlaviyoPrivate)
     public init(attributes: Attributes) {
@@ -91,7 +95,7 @@ public struct Profile: Equatable {
         case longitude
         case custom(customKey: String)
     }
-    
+
     @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
         @_spi(KlaviyoPrivate)
@@ -105,15 +109,15 @@ public struct Profile: Equatable {
             public var region: String?
             public var zip: String?
             public var timezone: String?
-            public init(address1: String?=nil,
-                 address2: String?=nil,
-                 city: String?=nil,
-                 country: String?=nil,
-                 latitude: Double?=nil,
-                 longitude: Double?=nil,
-                 region: String?=nil,
-                 zip: String?=nil,
-                 timezone: String?=nil) {
+            public init(address1: String? = nil,
+                        address2: String? = nil,
+                        city: String? = nil,
+                        country: String? = nil,
+                        latitude: Double? = nil,
+                        longitude: Double? = nil,
+                        region: String? = nil,
+                        zip: String? = nil,
+                        timezone: String? = nil) {
                 self.address1 = address1
                 self.address2 = address2
                 self.city = city
@@ -125,6 +129,7 @@ public struct Profile: Equatable {
                 self.timezone = timezone ?? environment.analytics.timeZone()
             }
         }
+
         public let email: String?
         public let phoneNumber: String?
         public let externalId: String?
@@ -135,19 +140,20 @@ public struct Profile: Equatable {
         public let image: String?
         public let location: Location?
         public var properties: [String: Any] {
-            return _properties.value as! [String: Any]
+            _properties.value as! [String: Any]
         }
+
         let _properties: AnyCodable
-        public init(email: String?=nil,
-             phoneNumber: String?=nil,
-             externalId: String?=nil,
-             firstName: String?=nil,
-             lastName: String?=nil,
-             organization: String?=nil,
-             title: String?=nil,
-             image: String?=nil,
-             location: Location?=nil,
-             properties: [String : Any]? = nil) {
+        public init(email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil,
+                    firstName: String? = nil,
+                    lastName: String? = nil,
+                    organization: String? = nil,
+                    title: String? = nil,
+                    image: String? = nil,
+                    location: Location? = nil,
+                    properties: [String: Any]? = nil) {
             self.email = email
             self.phoneNumber = phoneNumber
             self.externalId = externalId
@@ -157,16 +163,16 @@ public struct Profile: Equatable {
             self.title = title
             self.image = image
             self.location = location
-            self._properties = AnyCodable(properties ?? [:])
+            _properties = AnyCodable(properties ?? [:])
         }
     }
+
     public let attributes: Attributes
     @_spi(KlaviyoPrivate)
     public init(attributes: Attributes) {
         self.attributes = attributes
     }
 }
-
 
 extension Event.EventName {
     var value: String {
@@ -184,7 +190,7 @@ extension Event.EventName {
         case .SubscribedToList: return "$subscribed_to_list"
         case .SuccessfulPayment: return "$successful_payment"
         case .FailedPayment: return "$failed_payment"
-        case .CustomEvent(let value): return "\(value)"
+        case let .CustomEvent(value): return "\(value)"
         }
     }
 }
