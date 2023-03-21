@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+@testable import KlaviyoSwift
 import Foundation
 import XCTest
-@testable import KlaviyoSwift
 
 @MainActor
 class StateManagementEdgeCaseTests: XCTestCase {

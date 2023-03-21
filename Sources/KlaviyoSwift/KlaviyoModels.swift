@@ -8,9 +8,7 @@
 import AnyCodable
 import Foundation
 
-
 public struct Event: Equatable {
-    
     public enum EventName: Equatable {
         case OpenedPush
         case ViewedProduct
@@ -29,10 +27,9 @@ public struct Event: Equatable {
     }
 
     public struct Attributes: Equatable {
-        
         public struct Metric: Equatable {
             public let name: EventName
-            
+
             public init(name: EventName) {
                 self.name = name
             }
@@ -52,7 +49,7 @@ public struct Event: Equatable {
         public var time: Date
         public let value: Double?
         public let uniqueId: String
-        
+
         public init(name: EventName,
                     properties: [String: Any]? = nil,
                     profile: [String: Any]? = nil,
@@ -69,15 +66,13 @@ public struct Event: Equatable {
     }
 
     public var attributes: Attributes
-    
+
     public init(attributes: Attributes) {
         self.attributes = attributes
     }
 }
 
-
 public struct Profile: Equatable {
-    
     public enum ProfileKey: Equatable, Hashable, Codable {
         case firstName
         case lastName
@@ -94,8 +89,8 @@ public struct Profile: Equatable {
         case longitude
         case custom(customKey: String)
     }
+
     public struct Attributes: Equatable {
-        
         public struct Location: Equatable {
             public var address1: String?
             public var address2: String?
@@ -165,7 +160,7 @@ public struct Profile: Equatable {
     }
 
     public let attributes: Attributes
-    
+
     public init(attributes: Attributes) {
         self.attributes = attributes
     }

@@ -344,38 +344,39 @@ struct LegacyProfile: Equatable {
             .init(data: .init(profile:
                 .init(attributes: attributes),
                 anonymousId: anonymousId)))
-         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-     }
- }
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+}
 
 struct ObjcEvent: Equatable {
     let eventName: String
     let customerProperties: [String: AnyHashable]
     let properties: [String: AnyHashable]
-    
-     init(eventName: String,
-          customerProperties: [String: AnyHashable],
-          properties: [String: AnyHashable]) {
-         self.eventName = eventName
-         self.customerProperties = customerProperties
-         self.properties = properties
-     }
+
+    init(eventName: String,
+         customerProperties: [String: AnyHashable],
+         properties: [String: AnyHashable]) {
+        self.eventName = eventName
+        self.customerProperties = customerProperties
+        self.properties = properties
+    }
+
     func buildEventRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
         var eventProperties = properties
         var customerProperties = customerProperties
-        
+
         // v3 events api still uses these properties - we are just ensuring we are using the latest
         // identifiers here.
         customerProperties["$email"] = state.email
         customerProperties["$phone_number"] = state.phoneNumber
-        customerProperties["$id"] =  state.externalId
-        customerProperties["$anonymous"] =  state.anonymousId
+        customerProperties["$id"] = state.externalId
+        customerProperties["$anonymous"] = state.anonymousId
         if eventName == "$opened_push" {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken
         }
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(attributes: .init(name:  .CustomEvent(self.eventName), properties: eventProperties, profile: customerProperties)))
-        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.init(data: event)
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(attributes: .init(name: .CustomEvent(eventName), properties: eventProperties, profile: customerProperties)))
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }

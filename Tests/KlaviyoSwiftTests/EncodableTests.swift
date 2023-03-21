@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 11/14/22.
 //
 
+@testable import KlaviyoSwift
 import SnapshotTesting
 import XCTest
-@testable import KlaviyoSwift
 
 final class EncodableTests: XCTestCase {
     let testEncoder = encoder

@@ -304,12 +304,11 @@ struct KlaviyoReducer: ReducerProtocol {
             event = event.updateStateAndEvent(state: &state)
             state.queue.append(.init(apiKey: apiKey,
                                      endpoint: .createEvent(
-                                        .init(data:
-                                                .init(event: event,
-                                                      anonymousId: anonymousId)
-                                        )
-                                     )
-                                    )
+                                         .init(data:
+                                             .init(event: event,
+                                                   anonymousId: anonymousId)
+                                         )
+                                     ))
             )
             return .none
         case let .enqueueProfile(profile):
@@ -393,10 +392,9 @@ extension KlaviyoState {
     }
 }
 
-
 extension Event {
     func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        var profile = self.attributes.profile
+        var profile = attributes.profile
         if let email = profile["$email"] as? String {
             state.email = email
         } else {
@@ -412,16 +410,16 @@ extension Event {
         } else {
             profile["$id"] = state.externalId
         }
-        var properties = self.attributes.properties
+        var properties = attributes.properties
         if attributes.metric.name == EventName.OpenedPush,
-            let pushToken = state.pushToken {
+           let pushToken = state.pushToken {
             properties["push_token"] = pushToken
         }
-        return Event(attributes: .init(name: self.attributes.metric.name,
+        return Event(attributes: .init(name: attributes.metric.name,
                                        properties: properties,
                                        profile: profile,
-                                       value: self.attributes.value,
-                                       time: self.attributes.time,
-                                       uniqueId: self.attributes.uniqueId))
+                                       value: attributes.value,
+                                       time: attributes.time,
+                                       uniqueId: attributes.uniqueId))
     }
 }

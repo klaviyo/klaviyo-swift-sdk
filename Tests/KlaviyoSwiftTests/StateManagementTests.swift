@@ -5,13 +5,11 @@
 //  Created by Noah Durell on 12/6/22.
 //
 
+@testable import KlaviyoSwift
 import AnyCodable
 import Combine
 import Foundation
 import XCTest
-import Combine
-@testable import KlaviyoSwift
-import AnyCodable
 
 @MainActor
 class StateManagementTests: XCTestCase {

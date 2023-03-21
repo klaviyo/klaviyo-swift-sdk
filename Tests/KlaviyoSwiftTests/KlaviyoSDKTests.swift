@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 2/21/23.
 //
 
+@testable import KlaviyoSwift
 import Foundation
 import XCTest
-@testable import KlaviyoSwift
 
 // MARK: - KlaviyoSDKTests
 
