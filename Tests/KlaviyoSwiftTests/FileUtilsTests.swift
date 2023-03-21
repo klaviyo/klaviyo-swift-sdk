@@ -5,14 +5,14 @@
 //  Created by Noah Durell on 9/29/22.
 //
 
-import XCTest
 @testable import KlaviyoSwift
+import XCTest
 
 class FileUtilsTests: XCTestCase {
-    var dataToWrite: Data? = nil
+    var dataToWrite: Data?
     var wroteToFile = false
     var removedFile = false
-    
+
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
         environment.fileClient.write = { [weak self] data, _ in
@@ -30,15 +30,15 @@ class FileUtilsTests: XCTestCase {
         dataToWrite = nil
         removedFile = false
     }
-    
+
     func testFilePathForData() throws {
         let eventsResult = filePathForData(apiKey: "mykey", data: "events")
         XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-events.plist")!, eventsResult)
-        
+
         let peopleResult = filePathForData(apiKey: "mykey", data: "people")
         XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-people.plist")!, peopleResult)
     }
-    
+
     func testRemoveItemWithError() {
         environment.fileClient.removeItem = { _ in
             throw FakeFileError.fake
@@ -46,4 +46,3 @@ class FileUtilsTests: XCTestCase {
         XCTAssertFalse(removeFile(at: TEST_URL))
     }
 }
-

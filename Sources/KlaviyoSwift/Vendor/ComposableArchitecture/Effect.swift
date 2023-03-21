@@ -23,7 +23,7 @@
  */
 //
 //  Effect.swift
-//  
+//
 //  Misc items pulled from https://github.com/pointfreeco/swift-composable-architecture related to the store.
 //  Created by Noah Durell on 12/6/22.
 //
@@ -489,5 +489,3 @@ extension EffectPublisher {
     }
   }
 }
-
-

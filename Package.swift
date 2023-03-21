@@ -5,18 +5,17 @@ import PackageDescription
 
 let package = Package(
     name: "klaviyo-swift-sdk",
-    platforms: [.iOS(.v13),],
+    platforms: [.iOS(.v13)],
     products: [
         .library(
             name: "KlaviyoSwift",
-            targets: ["KlaviyoSwift"]),
+            targets: ["KlaviyoSwift"])
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
         .package(
             url: "https://github.com/Flight-School/AnyCodable",
-            from: "0.6.0"
-        ),
+            from: "0.6.0"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.1"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
         .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.9.1")
@@ -35,8 +34,6 @@ let package = Package(
                 .product(name: "CombineSchedulers", package: "combine-schedulers")
             ],
             exclude: [
-              "__Snapshots__"
-            ]
-        ),
-    ]
-)
+                "__Snapshots__"
+            ])
+    ])

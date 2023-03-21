@@ -1,6 +1,6 @@
 //
 //  TestData.swift
-//  
+//
 //
 //  Created by Noah Durell on 11/14/22.
 //
@@ -8,11 +8,10 @@
 import Foundation
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
-
 let TEST_API_KEY = "fake-key"
 
 extension Profile {
-    static let test = Self.init(
+    static let test = Self(
         attributes: .test)
 }
 
@@ -23,8 +22,7 @@ let INITIALIZED_TEST_STATE = { KlaviyoState(
     queue: [],
     requestsInFlight: [],
     initalizationState: .initialized,
-    flushing: true
-) }
+    flushing: true) }
 
 extension Profile.Attributes {
     static let SAMPLE_PROPERTIES = [
@@ -33,8 +31,8 @@ extension Profile.Attributes {
         "hello": [
             "sub": "dict"
         ]
-    ] as [String : Any]
-    static let test = Self.init(
+    ] as [String: Any]
+    static let test = Self(
         email: "blobemail",
         phoneNumber: "+15555555555",
         externalId: "blobid",
@@ -44,25 +42,23 @@ extension Profile.Attributes {
         title: "Jelly",
         image: "foo",
         location: .test,
-        properties: SAMPLE_PROPERTIES
-    )
+        properties: SAMPLE_PROPERTIES)
 }
 
 extension Profile.Attributes.Location {
-    static let test = Self.init(
+    static let test = Self(
         address1: "blob",
         address2: "blob",
         city: "blob city",
-        country:"Blobland",
+        country: "Blobland",
         latitude: 1,
         longitude: 1,
         region: "BL",
-        zip: "0BLOB"
-    )
+        zip: "0BLOB")
 }
 
 extension Event {
-    static let test = Self.init(attributes: .test)
+    static let test = Self(attributes: .test)
 }
 
 extension Event.Attributes {
@@ -72,24 +68,23 @@ extension Event.Attributes {
         "hello": [
             "sub": "dict"
         ]
-    ] as [String : Any]
+    ] as [String: Any]
     static let SAMPLE_PROFILE_PROPERTIES = [
         "email": "blob@email.com",
         "stuff": 2,
         "location": [
             "city": "blob city"
         ]
-    ] as [String : Any]
-    static let test = Self.init(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
+    ] as [String: Any]
+    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
 extension Event.Attributes.Metric {
-    static let test = Self.init(name: .CustomEvent("blob"))
+    static let test = Self(name: .CustomEvent("blob"))
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
-    
-    static let test = Self.init(data: .init(event: .test))
+    static let test = Self(data: .init(event: .test))
 }
 
 extension URLResponse {
@@ -98,7 +93,7 @@ extension URLResponse {
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
-    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.init(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
+    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
 }
 
 extension KlaviyoState {
@@ -111,8 +106,7 @@ extension KlaviyoState {
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
-                                   flushing: true
-    )
+                                   flushing: true)
 }
 
 // MARK: - Legacy Stuff
@@ -122,7 +116,6 @@ let LEGACY_OPENED_PUSH = LegacyEvent(eventName: "$opened_push", customerProperti
     "$id": "blobid",
     "foo": "bar"
 ], properties: ["baz": "boo"])
-
 
 let LEGACY_PROFILE = LegacyProfile(customerProperties: [
     "$email": "blob@blob.com",

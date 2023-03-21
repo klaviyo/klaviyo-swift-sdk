@@ -14,21 +14,21 @@ KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS Ap
 
 ### Installation options
 
-1. [Install with SPM](#install-with-spm) 
+1. [Install with SPM](#install-with-spm)
 1. [Install with Cocoapods](#install-with-cocoapods)
 
 ## [Install with SPM](#install-with-spm)
 KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to install.
 
-1. Open your project and navigate to your project’s settings. 
-2. Select the **Swift Packages** tab and click on the **add** button below the packages list. 
-3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field and click **Next**. 
+1. Open your project and navigate to your project’s settings.
+2. Select the **Swift Packages** tab and click on the **add** button below the packages list.
+3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field and click **Next**.
 4. On the next screen, select the latest SDK version and click **Next**.
 5. Select the `KlaviyoSwift` package.
 6. Click **Finish**.
 
 ## [Install with CocoaPods](#install-with-cocoapods)
-KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo). 
+KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo).
 
 1. To install, add the following line to your Podfile:
 
@@ -42,7 +42,7 @@ The library can be kept up-to-date via `pod update`.
 
 
 ## Event tracking
-After the SDK is installed you can begin tracking events in your app. 
+After the SDK is installed you can begin tracking events in your app.
 
 1. Make sure any .swift files using the Klaviyo SDK contain the following import call:
 
@@ -52,7 +52,7 @@ import KlaviyoSwift
 
 2. To add Klaviyo's tracking functionality, include the following line in AppDelegate.swift, within `application:didFinishLaunchingWithOptions`:
 
-```swift 
+```swift
 Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
@@ -108,14 +108,14 @@ Note that the only argument `trackPersonWithInfo` takes is a dictionary represen
 
 ## Anonymous Tracking Notice
 
-By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user. 
+By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
 Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Special properties
 
 The following special properties can be used when identifying a user or tracking event:
-    
+
 *    `KLPersonEmailDictKey`
 *    `KLPersonFirstNameDictKey`
 *    `KLPersonLastNameDictKey`
@@ -139,7 +139,7 @@ By calling `setUpUserEmail` once, usually upon application login, Klaviyo can tr
 
 ## Push Notifications
 
-Implementing push notifications requires a few additional snippets of code to enable.: 
+Implementing push notifications requires a few additional snippets of code to enable.:
 1. Registering users for push notifications.
 2. Sending resulting push tokens to Klaviyo.
 3. Handlinge when users attempt to open your push notifications.
@@ -183,7 +183,7 @@ The following code example allows you to track when a user opens a push notifica
 
 1. In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
 
-```swift 
+```swift
     if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
         Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
     }
@@ -199,7 +199,7 @@ The following code example allows you to track when a user opens a push notifica
             completionHandler()
         }
     }
-    
+
 ```
 
 Once your first push notifications are sent and opened, you should start to see *Opened Push* metrics within your Klaviyo dashboard.
@@ -233,7 +233,7 @@ Starting with version 1.7.0, the SDK will cache incoming data and flush it back 
 | Cellular    | 30 seconds  |
 
 
-Connection determination is based on notifications from our reachability service. When there is no network available, the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
+Connection determination is based on notifications from our reachability service. When there is no network available, the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK.
 
 
 ### Retries
@@ -243,4 +243,3 @@ The SDK will retry API requests that fail under certain conditions. For example,
 ## License
 
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
-

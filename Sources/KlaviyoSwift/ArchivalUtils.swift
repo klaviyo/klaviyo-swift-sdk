@@ -10,7 +10,7 @@ import Foundation
 struct ArchiverClient {
     var archivedData: (Any, Bool) throws -> Data
     var unarchivedMutableArray: (Data) throws -> NSMutableArray?
-    
+
     static let production = ArchiverClient(
         archivedData: NSKeyedArchiver.archivedData(withRootObject:requiringSecureCoding:),
         unarchivedMutableArray: { data in try NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSArray.self,
@@ -21,27 +21,23 @@ struct ArchiverClient {
                                                                                              NSNumber.self,
                                                                                              NSURL.self],
                                                                                  from: data) as? NSMutableArray
-        }
-    )
-
+        })
 }
-
 
 func archiveQueue(queue: NSArray, to fileURL: URL) {
     guard let archiveData = try? environment.archiverClient.archivedData(queue, true) else {
         print("unable to archive the data to \(fileURL)")
         return
     }
-    
+
     do {
         try environment.fileClient.write(archiveData, fileURL)
-    } catch let error {
+    } catch {
         print("Unable to write archive data to file at URL: \(fileURL) error: \(error.localizedDescription)")
     }
-
 }
 
-func unarchiveFromFile(fileURL: URL)-> NSMutableArray? {
+func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
     guard environment.fileClient.fileExists(fileURL.path) else {
         print("Archive file not found.")
         return nil
@@ -50,12 +46,12 @@ func unarchiveFromFile(fileURL: URL)-> NSMutableArray? {
         print("Unable to read archived data.")
         return nil
     }
-    
+
     guard let unarchivedData = try? environment.archiverClient.unarchivedMutableArray(archivedData) else {
-         print("unable to unarchive data")
-         return nil
+        print("unable to unarchive data")
+        return nil
     }
-    
+
     if !removeFile(at: fileURL) {
         print("Unable to remove archived data!")
     }
