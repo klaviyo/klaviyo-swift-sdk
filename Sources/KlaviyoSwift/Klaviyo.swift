@@ -9,7 +9,7 @@ import AnyCodable
 import Foundation
 import UIKit
 
-private func dispatchOnMainThread(action: KlaviyoAction) {
+func dispatchOnMainThread(action: KlaviyoAction) {
     Task {
         await MainActor.run {
             environment.analytics.send(action)
@@ -19,6 +19,9 @@ private func dispatchOnMainThread(action: KlaviyoAction) {
 
 // MARK: Objective-C
 
+@available(
+  iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+)
 @objc
 public class Klaviyo: NSObject {
     /*
@@ -50,8 +53,19 @@ public class Klaviyo: NSObject {
     let KLPersonPropertiesJSONKey = "properties" // same as customer properties
 
     // Push Notification Event Tracking
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonReceivedPush = "Received Push"
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonOpenedPush = "$opened_push"
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLMessageDimension = "$message"
 
     // KL Definitions File: API URL Constants
@@ -62,6 +76,10 @@ public class Klaviyo: NSObject {
     let KlaviyoServerURLString = "https://a.klaviyo.com"
 
     let CustomerPropertiesAppendDictKey = "$append"
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
 
@@ -78,14 +96,50 @@ public class Klaviyo: NSObject {
     // Public Info Dictionary Keys
     public let KLPersonEmailDictKey = "$email" // email address
     private let KLEmailNSDefaultsKey = "$kl_email"
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonFirstNameDictKey = "$first_name" // first name
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonLastNameDictKey = "$last_name" // last name
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonPhoneNumberDictKey = "$phone_number" // phone number
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonTitleDictKey = "$title" // title at their business or organization
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonOrganizationDictKey = "$organization" // business or organization they belong to
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonCityDictKey = "$city" // city they live in
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonRegionDictKey = "$region" // region or state they live in
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonCountryDictKey = "$country" // country they live in
+    
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     public let KLPersonZipDictKey = "$zip" // postal code where they live
 
     /*
@@ -100,6 +154,9 @@ public class Klaviyo: NSObject {
 
      - Parameter apiKey: string representation of the Klaviyo API Key
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public class func setupWithPublicAPIKey(apiKey: String) {
         // _ avoids warning from xcode
@@ -111,6 +168,9 @@ public class Klaviyo: NSObject {
 
      - Parameter userEmail: the user's email address
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func setUpUserEmail(userEmail: String) {
         Self.sdkInstance.set(email: userEmail)
@@ -120,6 +180,9 @@ public class Klaviyo: NSObject {
      setUpCustomerID: Register the current customer ID and saves it
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func setUpCustomerID(id: String) {
         Self.sdkInstance.set(externalId: id)
@@ -131,6 +194,9 @@ public class Klaviyo: NSObject {
 
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func handlePush(userInfo: NSDictionary) {
         if let properties = userInfo as? [String: Any],
@@ -150,6 +216,9 @@ public class Klaviyo: NSObject {
 
      - Parameter eventName: name of the event
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func trackEvent(eventName: String?) {
         trackEvent(eventName: eventName, properties: nil)
@@ -161,6 +230,9 @@ public class Klaviyo: NSObject {
      - Parameter eventName: name of the event
      - Parameter properties: customerProperties
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func trackEvent(eventName: String?, properties: NSDictionary?) {
         trackEvent(eventName: eventName, customerProperties: nil, properties: properties)
@@ -173,6 +245,9 @@ public class Klaviyo: NSObject {
      - Parameter customerPropertiesDict: dictionary for user info
      - Parameter properties: dictionary for event info
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
         trackEvent(event: eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
@@ -186,6 +261,9 @@ public class Klaviyo: NSObject {
      - Parameter propertiesDict: dictionary for event info
      - Parameter eventDate: date of the event
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate _: NSDate?) {
         guard let eventName = event, !eventName.isEmpty else {
@@ -207,6 +285,9 @@ public class Klaviyo: NSObject {
 
      - Returns: Void
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
@@ -229,6 +310,9 @@ public class Klaviyo: NSObject {
      - Parameter deviceToken: token provided by Apple that registers push notifications to the given device
      - Returns: Void
      */
+    @available(
+      iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings."
+    )
     @objc
     public func addPushDeviceToken(deviceToken: Data) {
         _ = Self.sdkInstance.set(pushToken: deviceToken)
@@ -283,35 +367,33 @@ public class Klaviyo: NSObject {
 /// ```
 ///
 /// From there you can you can call the additional methods below to track events and profile.
-@_spi(KlaviyoPrivate)
 public struct KlaviyoSDK {
+    
     /// Default initializer for the Klaviyo SDK.
-    @_spi(KlaviyoPrivate)
-    public init() {}
-
+    public init() {
+        
+    }
+    
     private var state: KlaviyoState {
         environment.analytics.state()
     }
 
     /// Returns the email for the current user, if any.
-    @_spi(KlaviyoPrivate)
     public var email: String? {
         state.email
     }
 
     /// Returns the phoneNumber for the current user, if any.
-    @_spi(KlaviyoPrivate)
     public var phoneNumber: String? {
         state.phoneNumber
     }
 
     /// Returns the external id for the current user, if any.
-    @_spi(KlaviyoPrivate)
     public var externalId: String? {
         state.externalId
     }
-
-    @_spi(KlaviyoPrivate)
+    
+    /// Returns the push token for the current user, if any.
     public var pushToken: String? {
         state.pushToken
     }
@@ -319,7 +401,6 @@ public struct KlaviyoSDK {
     /// Initialize the swift SDK with the given api key.
     /// - Parameter apiKey: your public api key from the Klaviyo console
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .initialize(apiKey))
@@ -330,7 +411,7 @@ public struct KlaviyoSDK {
     /// Future SDK calls will use this data when making api requests to Klaviyo.
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
-    @_spi(KlaviyoPrivate)
+
     public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProfile(profile))
     }
@@ -339,7 +420,7 @@ public struct KlaviyoSDK {
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
     /// from the current profile. Call ``set(pushToken:)`` again to associate this device to a new profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
-    @_spi(KlaviyoPrivate)
+
     public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
@@ -347,7 +428,6 @@ public struct KlaviyoSDK {
     /// Set the current user's email.
     /// - Parameter email: a string contining the users email.
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setEmail(email))
@@ -360,7 +440,6 @@ public struct KlaviyoSDK {
     /// for information on phone numbers Klaviyo accepts.
     /// - Parameter phonNumber: a string contining the users phone number.
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
@@ -373,7 +452,6 @@ public struct KlaviyoSDK {
     /// and familiarize yourself with identity resolution before using this identifier.
     /// - Parameter externalId: a string containing an external id
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .setExternalId(externalId))
@@ -384,7 +462,6 @@ public struct KlaviyoSDK {
     /// - Parameter profileAttribute: a profile attribute key to be set on the user's profile.
     /// - Parameter value: any encodable value profile property value.
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
@@ -394,7 +471,6 @@ public struct KlaviyoSDK {
 
     /// Create and send an event for the current user.
     /// - Parameter event: the event to be tracked in Klaviyo
-    @_spi(KlaviyoPrivate)
     public func create(event: Event) {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
@@ -402,7 +478,6 @@ public struct KlaviyoSDK {
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
     /// - Parameter pushToken: data object containing a push token.
     /// - Returns: a KlaviyoSDK instance
-    @_spi(KlaviyoPrivate)
     public func set(pushToken: Data) -> KlaviyoSDK {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
@@ -414,7 +489,6 @@ public struct KlaviyoSDK {
     ///   - remoteNotification: the remote notificaiton that was opened
     ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
-    @_spi(KlaviyoPrivate)
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {

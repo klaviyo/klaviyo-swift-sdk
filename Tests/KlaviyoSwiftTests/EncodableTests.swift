@@ -7,7 +7,7 @@
 
 import SnapshotTesting
 import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+@testable import KlaviyoSwift
 
 final class EncodableTests: XCTestCase {
     let testEncoder = encoder

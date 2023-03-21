@@ -9,7 +9,9 @@ import AnyCodable
 import Combine
 import Foundation
 import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import Combine
+@testable import KlaviyoSwift
+import AnyCodable
 
 @MainActor
 class StateManagementTests: XCTestCase {
@@ -382,7 +384,7 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        let event = Event(attributes: .init(name: .OpenedPush, properties: ["push_token": initialState.pushToken!], profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
         _ = await store.send(.enqueueEvent(event)) {
             $0.email = "foo"
             $0.phoneNumber = "666BLOB"

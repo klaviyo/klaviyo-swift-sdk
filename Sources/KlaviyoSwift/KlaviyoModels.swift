@@ -8,9 +8,9 @@
 import AnyCodable
 import Foundation
 
-@_spi(KlaviyoPrivate)
+
 public struct Event: Equatable {
-    @_spi(KlaviyoPrivate)
+    
     public enum EventName: Equatable {
         case OpenedPush
         case ViewedProduct
@@ -28,12 +28,11 @@ public struct Event: Equatable {
         case CustomEvent(String)
     }
 
-    @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
-        @_spi(KlaviyoPrivate)
+        
         public struct Metric: Equatable {
             public let name: EventName
-            @_spi(KlaviyoPrivate)
+            
             public init(name: EventName) {
                 self.name = name
             }
@@ -53,7 +52,7 @@ public struct Event: Equatable {
         public var time: Date
         public let value: Double?
         public let uniqueId: String
-        @_spi(KlaviyoPrivate)
+        
         public init(name: EventName,
                     properties: [String: Any]? = nil,
                     profile: [String: Any]? = nil,
@@ -70,15 +69,15 @@ public struct Event: Equatable {
     }
 
     public var attributes: Attributes
-    @_spi(KlaviyoPrivate)
+    
     public init(attributes: Attributes) {
         self.attributes = attributes
     }
 }
 
-@_spi(KlaviyoPrivate)
+
 public struct Profile: Equatable {
-    @_spi(KlaviyoPrivate)
+    
     public enum ProfileKey: Equatable, Hashable, Codable {
         case firstName
         case lastName
@@ -95,10 +94,8 @@ public struct Profile: Equatable {
         case longitude
         case custom(customKey: String)
     }
-
-    @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
-        @_spi(KlaviyoPrivate)
+        
         public struct Location: Equatable {
             public var address1: String?
             public var address2: String?
@@ -168,7 +165,7 @@ public struct Profile: Equatable {
     }
 
     public let attributes: Attributes
-    @_spi(KlaviyoPrivate)
+    
     public init(attributes: Attributes) {
         self.attributes = attributes
     }

@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+@testable import KlaviyoSwift
 
 // MARK: - KlaviyoSDKTests
 

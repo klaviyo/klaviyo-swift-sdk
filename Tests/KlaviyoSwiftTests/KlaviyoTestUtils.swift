@@ -143,7 +143,7 @@ extension AppContextInfo {
                            appVersion: "1.2.3",
                            appBuild: "1",
                            version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
-                           osName: "kOS")
+                           osName: "iOS")
 }
 
 extension StateChangePublisher {
