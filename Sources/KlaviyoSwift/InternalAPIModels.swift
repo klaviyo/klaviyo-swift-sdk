@@ -252,6 +252,8 @@ extension Profile.Attributes.Location: Codable {
 
 // MARK: Legacy request data
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyIdentifiers {
     let email: String?
     let phoneNumber: String?
@@ -271,6 +273,8 @@ struct LegacyIdentifiers {
     }
 }
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyEvent: Equatable {
     let eventName: String
     let customerProperties: NSDictionary
@@ -312,6 +316,8 @@ struct LegacyEvent: Equatable {
     }
 }
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyProfile: Equatable {
     let customerProperties: NSDictionary
 
@@ -344,40 +350,6 @@ struct LegacyProfile: Equatable {
             .init(data: .init(profile:
                 .init(attributes: attributes),
                 anonymousId: anonymousId)))
-        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-    }
-}
-
-struct ObjcEvent: Equatable {
-    let eventName: String
-    let customerProperties: [String: AnyHashable]
-    let properties: [String: AnyHashable]
-
-    init(eventName: String,
-         customerProperties: [String: AnyHashable],
-         properties: [String: AnyHashable]) {
-        self.eventName = eventName
-        self.customerProperties = customerProperties
-        self.properties = properties
-    }
-
-    func buildEventRequest(with apiKey: String, from state: KlaviyoState) throws -> KlaviyoAPI.KlaviyoRequest? {
-        var eventProperties = properties
-        var customerProperties = customerProperties
-
-        // v3 events api still uses these properties - we are just ensuring we are using the latest
-        // identifiers here.
-        customerProperties["$email"] = state.email
-        customerProperties["$phone_number"] = state.phoneNumber
-        customerProperties["$id"] = state.externalId
-        customerProperties["$anonymous"] = state.anonymousId
-        if eventName == "$opened_push" {
-            // Special handling for $opened_push include push token at the time of open
-            eventProperties["push_token"] = state.pushToken
-        }
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(attributes: .init(name: .CustomEvent(eventName), properties: eventProperties, profile: customerProperties)))
-        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
-        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }

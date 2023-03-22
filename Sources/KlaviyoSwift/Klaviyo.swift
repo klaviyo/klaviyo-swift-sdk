@@ -20,7 +20,7 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 // MARK: Objective-C
 
 @available(
-    iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+    iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use KlaviyoSDK for swift apps and KlaviyoObjc for Objective-C apps.")
 @objc
 public class Klaviyo: NSObject {
     /*
@@ -28,6 +28,8 @@ public class Klaviyo: NSObject {
      */
 
     // Create the singleton instance
+    @available(
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public static let sharedInstance = Klaviyo()
 
     private static let sdkInstance = KlaviyoSDK()
@@ -45,6 +47,8 @@ public class Klaviyo: NSObject {
     // Optional Event Tracking Properties
     let KLEventTrackPropertiesJSONKey = "properties"
     let KLEventTrackTimeJSONKey = "time"
+    @available(
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLEventTrackPurchasePlatform = "platform"
 
     // KL Definitions File: JSON Keys for Tracking People
@@ -53,15 +57,15 @@ public class Klaviyo: NSObject {
 
     // Push Notification Event Tracking
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonReceivedPush = "Received Push"
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonOpenedPush = "$opened_push"
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLMessageDimension = "$message"
 
     // KL Definitions File: API URL Constants
@@ -74,7 +78,7 @@ public class Klaviyo: NSObject {
     let CustomerPropertiesAppendDictKey = "$append"
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let CustomerPropertiesAPNTokensDictKey = "$ios_tokens" // tokens for push notification
     let KLRegisterAPNDeviceTokenEvent = "KL_ReceiveNotificationsDeviceToken"
 
@@ -89,43 +93,45 @@ public class Klaviyo: NSObject {
     private let KLTimezone = "Mobile Timezone"
 
     // Public Info Dictionary Keys
+    @available(
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonEmailDictKey = "$email" // email address
     private let KLEmailNSDefaultsKey = "$kl_email"
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonFirstNameDictKey = "$first_name" // first name
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonLastNameDictKey = "$last_name" // last name
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonPhoneNumberDictKey = "$phone_number" // phone number
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonTitleDictKey = "$title" // title at their business or organization
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonOrganizationDictKey = "$organization" // business or organization they belong to
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonCityDictKey = "$city" // city they live in
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonRegionDictKey = "$region" // region or state they live in
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonCountryDictKey = "$country" // country they live in
 
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. See KlaviyoSDK to set profile properties.")
     public let KLPersonZipDictKey = "$zip" // postal code where they live
 
     /*
@@ -141,7 +147,7 @@ public class Klaviyo: NSObject {
      - Parameter apiKey: string representation of the Klaviyo API Key
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().initialize(apiKey:) instead.")
     @objc
     public class func setupWithPublicAPIKey(apiKey: String) {
         // _ avoids warning from xcode
@@ -154,7 +160,7 @@ public class Klaviyo: NSObject {
      - Parameter userEmail: the user's email address
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().set(email:) instead.")
     @objc
     public func setUpUserEmail(userEmail: String) {
         Self.sdkInstance.set(email: userEmail)
@@ -165,7 +171,7 @@ public class Klaviyo: NSObject {
      If this is called once, there is no need to pass in identifiying dictionaries to tracked events
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().set(externalId:) instead.")
     @objc
     public func setUpCustomerID(id: String) {
         Self.sdkInstance.set(externalId: id)
@@ -178,7 +184,7 @@ public class Klaviyo: NSObject {
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().handle(notificationResponse:withCompletionHandler:) instead.")
     @objc
     public func handlePush(userInfo: NSDictionary) {
         if let properties = userInfo as? [String: Any],
@@ -199,7 +205,7 @@ public class Klaviyo: NSObject {
      - Parameter eventName: name of the event
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().create(event:) instead.")
     @objc
     public func trackEvent(eventName: String?) {
         trackEvent(eventName: eventName, properties: nil)
@@ -212,7 +218,7 @@ public class Klaviyo: NSObject {
      - Parameter properties: customerProperties
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().create(event:) instead.")
     @objc
     public func trackEvent(eventName: String?, properties: NSDictionary?) {
         trackEvent(eventName: eventName, customerProperties: nil, properties: properties)
@@ -226,7 +232,7 @@ public class Klaviyo: NSObject {
      - Parameter properties: dictionary for event info
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().create(event:) instead.")
     @objc
     public func trackEvent(eventName: String?, customerProperties: NSDictionary?, properties: NSDictionary?) {
         trackEvent(event: eventName, customerProperties: customerProperties, propertiesDict: properties, eventDate: nil)
@@ -241,7 +247,7 @@ public class Klaviyo: NSObject {
      - Parameter eventDate: date of the event
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().create(event:) instead.")
     @objc
     public func trackEvent(event: String?, customerProperties: NSDictionary?, propertiesDict: NSDictionary?, eventDate _: NSDate?) {
         guard let eventName = event, !eventName.isEmpty else {
@@ -264,7 +270,7 @@ public class Klaviyo: NSObject {
      - Returns: Void
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().create(profile:) instead.")
     @objc
     public func trackPersonWithInfo(personDictionary: NSDictionary) {
         // No info, return
@@ -288,7 +294,7 @@ public class Klaviyo: NSObject {
      - Returns: Void
      */
     @available(
-        iOS, deprecated: 9999, message: "Use either KlaviyoSDK for swift bindings or KlaviyoObjc for Objective-C bindings.")
+        iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().set(pushToken:) instead.")
     @objc
     public func addPushDeviceToken(deviceToken: Data) {
         _ = Self.sdkInstance.set(pushToken: deviceToken)
