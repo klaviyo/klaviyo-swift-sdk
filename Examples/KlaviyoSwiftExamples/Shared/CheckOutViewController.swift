@@ -67,7 +67,7 @@ class CheckOutViewController: UIViewController {
         let propertiesDictionary = NSMutableDictionary()
         propertiesDictionary[Klaviyo.sharedInstance.KLEventTrackPurchasePlatform] = "iOS \(UIDevice.current.systemVersion)"
         propertiesDictionary["Total Price"] = cartTotal
-        propertiesDictionary["Items Purchased"] = uniqueItemsArray.compactMap(\.name)
+        propertiesDictionary["Items Purchased"] = uniqueItemsArray.map(\.name)
         Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Completed", properties: propertiesDictionary)
 
         // Trigger thank you modal view
