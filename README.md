@@ -287,7 +287,7 @@ Steps 1 & 2 set your app up for receiving deep links but now is when you need to
 
 If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
 
-// TODO: add a link to the example app here once it has been moved to the SDL
+Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
 
 Example:
 
