@@ -1,19 +1,18 @@
 //
 //  KlaviyoStateTests.swift
-//  
+//
 //
 //  Created by Noah Durell on 12/1/22.
 //
 
+import AnyCodable
 import Foundation
 import XCTest
-@testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import SnapshotTesting
-import AnyCodable
 
 @MainActor
 final class KlaviyoStateTests: XCTestCase {
-    
     let TEST_EVENT = [
         "event": "$opened_push",
         "properties": [
@@ -22,14 +21,14 @@ final class KlaviyoStateTests: XCTestCase {
         "customer_properties": [
             "foo": "bar"
         ]
-    ] as [String : Any]
+    ] as [String: Any]
 
     let TEST_PROFILE = [
         "properties": [
             "foo2": "bar2"
         ]
     ]
-    
+
     let TEST_INVALID_EVENT = [
         "properties": [
             "prop1": "propValue"
@@ -60,18 +59,18 @@ final class KlaviyoStateTests: XCTestCase {
         "customer_properties": [
             1: "bar"
         ]
-    ] as [String : Any]
+    ] as [String: Any]
     let TEST_INVALID_PROPERTIES_PROFILE = [
         "event": "$opened_push",
         "properties": [
             1: "propValue"
-        ],
-    ] as [String : Any]
-    
+        ]
+    ] as [String: Any]
+
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
-    
+
     func testLoadNewKlaviyoState() throws {
         environment.getUserDefaultString = { _ in nil }
         environment.fileClient.fileExists = { _ in false }
@@ -79,7 +78,7 @@ final class KlaviyoStateTests: XCTestCase {
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
-    
+
     func testLoadWithRequestMigration() throws {
         var firstCall = true
         environment.fileClient.fileExists = { _ in
@@ -88,7 +87,6 @@ final class KlaviyoStateTests: XCTestCase {
                 return false
             }
             return true
-            
         }
         var firstUnarchiveCall = true
         environment.archiverClient.unarchivedMutableArray = { _ in
@@ -101,12 +99,12 @@ final class KlaviyoStateTests: XCTestCase {
         }
         var removeCounter = 0
         environment.fileClient.removeItem = { _ in removeCounter += 1 }
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .json)
         XCTAssertEqual(removeCounter, 2)
     }
-    
+
     func testMigrateInvalidDataSkipped() throws {
         var firstCall = true
         environment.fileClient.fileExists = { _ in
@@ -115,7 +113,6 @@ final class KlaviyoStateTests: XCTestCase {
                 return false
             }
             return true
-            
         }
         var firstUnarchiveCall = true
         environment.archiverClient.unarchivedMutableArray = { _ in
@@ -125,11 +122,11 @@ final class KlaviyoStateTests: XCTestCase {
             }
             return [self.TEST_INVALID_PROFILE]
         }
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
-    
+
     func testInvalidEventPropertiesOnData() throws {
         var firstCall = true
         environment.fileClient.fileExists = { _ in
@@ -138,7 +135,6 @@ final class KlaviyoStateTests: XCTestCase {
                 return false
             }
             return true
-            
         }
         var firstUnarchiveCall = true
         environment.archiverClient.unarchivedMutableArray = { _ in
@@ -148,15 +144,14 @@ final class KlaviyoStateTests: XCTestCase {
             }
             return [self.TEST_INVALID_PROPERTIES_PROFILE]
         }
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
 
     func testStateFileExistsInvalidData() throws {
         environment.fileClient.fileExists = { _ in
-            return true
-            
+            true
         }
         environment.data = { _ in
             throw NSError(domain: "missing file", code: 1)
@@ -165,46 +160,44 @@ final class KlaviyoStateTests: XCTestCase {
             XCTFail("unarchivedMutableArray should not be called.")
             return []
         }
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
-    
+
     func testStateFileExistsInvalidJSON() throws {
         environment.fileClient.fileExists = { _ in
-            return true
-            
+            true
         }
-        
+
         environment.analytics.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
         environment.archiverClient.unarchivedMutableArray = { _ in
             XCTFail("unarchivedMutableArray should not be called.")
             return []
         }
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
-    
+
     func testValidStateFileExists() throws {
         environment.fileClient.fileExists = { _ in
-            return true
-            
+            true
         }
         environment.data = { _ in
-            return try! JSONEncoder().encode(KlaviyoState(apiKey: "foo", anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: []))
+            try! JSONEncoder().encode(KlaviyoState(apiKey: "foo", anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: []))
         }
         environment.analytics.decoder = DataDecoder(jsonDecoder: decoder)
-        
+
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
-    
+
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
-        let event = Klaviyo.Event.test
-        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
+        let event = Event.test
+        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event))
         let eventRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
-        let profile = Klaviyo.Profile.test
+        let profile = Profile.test
         let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
         let profileRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
@@ -213,31 +206,30 @@ final class KlaviyoStateTests: XCTestCase {
             properties: .init(anonymousId: "foo",
                               pushToken: "foo",
                               email: "foo",
-                              phoneNumber: "foo")
-        )
+                              phoneNumber: "foo"))
         let tokenRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, profileRequest, eventRequest])
         let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(AnyEncodable(state))
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.analytics.decoder.decode(encodedState)
         XCTAssertEqual(decodedState, state)
     }
-    
+
     func testSaveKlaviyoStateWithMissingApiKeyLogsError() {
-        var savedMsg: String? = nil
+        var savedMsg: String?
         environment.logger.error = { msg in savedMsg = msg }
         let state = KlaviyoState(queue: [])
         saveKlaviyoState(state: state)
-        
+
         XCTAssertEqual(savedMsg, "Attempt to save state without an api key.")
     }
-    
+
     // MARK: build token request edge case
-    
+
     func testBuildTokenRequestFailsWithoutPushToken() {
         // Unlikely to happen in prodution
         var initalState = INITIALIZED_TEST_STATE()
         initalState.pushToken = nil
-        
+
         if let _ = try? initalState.buildTokenRequest() {
             XCTFail("Should not be here!")
         }

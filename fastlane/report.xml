@@ -1,48 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="fastlane.lanes">
-    
-    
-    
-      
-      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.009955">
-        
+
+
+
+
+      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000366">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="1: pod_lib_lint" time="10.648734">
-        
+
+
+      <testcase classname="fastlane.lanes" name="1: pod_lib_lint" time="13.438685">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="2: version_bump_podspec" time="0.002598">
-        
+
+
+      <testcase classname="fastlane.lanes" name="2: version_bump_podspec" time="0.000683">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="3: git_add" time="0.012799">
-        
+
+
+      <testcase classname="fastlane.lanes" name="3: git_add" time="0.019611">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="4: git_commit" time="0.035169">
-        
+
+
+      <testcase classname="fastlane.lanes" name="4: git_commit" time="0.025637">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="5: add_git_tag" time="0.015904">
-        
+
+
+      <testcase classname="fastlane.lanes" name="5: add_git_tag" time="0.023307">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="6: push_to_git_remote" time="3.165814">
-        
+
+
+      <testcase classname="fastlane.lanes" name="6: push_to_git_remote" time="2.676389">
+
       </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="7: pod_push" time="45.249699">
-        
+
+
+      <testcase classname="fastlane.lanes" name="7: pod_push" time="47.273144">
+
+          <failure message="/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/actions/actions_helper.rb:67:in `execute_action&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:255:in `block in execute_action&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:229:in `chdir&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:229:in `execute_action&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:157:in `trigger_action_by_name&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/fast_file.rb:159:in `method_missing&apos;&#10;Fastfile:30:in `release&apos;&#10;Fastfile:7:in `block (2 levels) in parsing_binding&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/lane.rb:33:in `call&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:49:in `block in execute&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:45:in `chdir&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/runner.rb:45:in `execute&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/lane_manager.rb:47:in `cruise_lane&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/command_line_handler.rb:36:in `handle&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/commands_generator.rb:110:in `block (2 levels) in run&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/commander-4.6.0/lib/commander/command.rb:187:in `call&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/commander-4.6.0/lib/commander/command.rb:157:in `run&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/commander-4.6.0/lib/commander/runner.rb:444:in `run_active_command&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane_core/lib/fastlane_core/ui/fastlane_runner.rb:124:in `run!&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/commander-4.6.0/lib/commander/delegates.rb:18:in `run!&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/commands_generator.rb:354:in `run&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/commands_generator.rb:43:in `start&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/fastlane/lib/fastlane/cli_tools_distributor.rb:123:in `take_off&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/fastlane-2.212.1/bin/fastlane:23:in `&lt;top (required)&gt;&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/bin/fastlane:25:in `load&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/bin/fastlane:25:in `&lt;top (required)&gt;&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli/exec.rb:58:in `load&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli/exec.rb:58:in `kernel_load&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli/exec.rb:23:in `run&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli.rb:491:in `exec&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/vendor/thor/lib/thor/command.rb:27:in `run&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/vendor/thor/lib/thor/invocation.rb:127:in `invoke_command&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/vendor/thor/lib/thor.rb:392:in `dispatch&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli.rb:34:in `dispatch&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/vendor/thor/lib/thor/base.rb:485:in `start&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/cli.rb:28:in `start&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/bundler-2.4.6/libexec/bundle:45:in `block in &lt;top (required)&gt;&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/3.2.0/bundler/friendly_errors.rb:117:in `with_friendly_errors&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/lib/ruby/gems/3.2.0/gems/bundler-2.4.6/libexec/bundle:33:in `&lt;top (required)&gt;&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/bin/bundle:25:in `load&apos;&#10;/Users/noah.durell/.rbenv/versions/3.2.1/bin/bundle:25:in `&lt;main&gt;&apos;&#10;&#10;Exit status of command &apos;pod trunk push --allow-warnings&apos; was 1 instead of 0.&#10;[32m&#10;[!] Found podspec `KlaviyoSwift.podspec`[0m&#10;Updating spec repo `trunk`&#10;&#10;CocoaPods 1.12.0 is available.&#10;To update use: `gem install cocoapods`&#10;&#10;For more information, see https://blog.cocoapods.org and the CHANGELOG for this version at https://github.com/CocoaPods/CocoaPods/releases/tag/1.12.0&#10;&#10;Validating podspec&#10; -&gt; KlaviyoSwift -&gt; KlaviyoSwift (1.7.1)&#10;    - NOTE  | xcodebuild:  note: Using codesigning identity override: -&#10;    - NOTE  | [iOS] xcodebuild:  note: Building targets in dependency order&#10;    - NOTE  | [iOS] xcodebuild:  note: Metadata extraction skipped. No AppIntents.framework dependency found. (in target &apos;AnyCodable-FlightSchool&apos; from project &apos;Pods&apos;)&#10;    - NOTE  | [iOS] xcodebuild:  note: Metadata extraction skipped. No AppIntents.framework dependency found. (in target &apos;KlaviyoSwift&apos; from project &apos;Pods&apos;)&#10;    - NOTE  | [iOS] xcodebuild:  note: Metadata extraction skipped. No AppIntents.framework dependency found. (in target &apos;App&apos; from project &apos;App&apos;)&#10;    - NOTE  | [iOS] xcodebuild:  Pods.xcodeproj: warning: The iOS Simulator deployment target &apos;IPHONEOS_DEPLOYMENT_TARGET&apos; is set to 9.0, but the range of supported deployment target versions is 11.0 to 16.2.99. (in target &apos;AnyCodable-FlightSchool&apos; from project &apos;Pods&apos;)&#10;&#10;[!] An unexpected error occurred: &lt;!DOCTYPE html&gt;&#10;	&lt;html&gt;&#10;	  &lt;head&gt;&#10;		&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;&#10;		&lt;meta charset=&quot;utf-8&quot;&gt;&#10;		&lt;title&gt;Application Error&lt;/title&gt;&#10;		&lt;style media=&quot;screen&quot;&gt;&#10;		  html,body,iframe {&#10;			margin: 0;&#10;			padding: 0;&#10;		  }&#10;		  html,body {&#10;			height: 100%;&#10;			overflow: hidden;&#10;		  }&#10;		  iframe {&#10;			width: 100%;&#10;			height: 100%;&#10;			border: 0;&#10;		  }&#10;		&lt;/style&gt;&#10;	  &lt;/head&gt;&#10;	  &lt;body&gt;&#10;		&lt;iframe src=&quot;//www.herokucdn.com/error-pages/application-error.html&quot;&gt;&lt;/iframe&gt;&#10;	  &lt;/body&gt;&#10;	&lt;/html&gt;&#10;" />
+
       </testcase>
-    
+
   </testsuite>
 </testsuites>

@@ -1,7 +1,7 @@
 # KlaviyoSwift
 
 [![CI Status](https://travis-ci.org/klaviyo/klaviyo-swift-sdk.svg?branch=master)](https://travis-ci.org/klaviyo/klaviyo-swift-sdk)
-[![Swift](https://img.shields.io/badge/Swift-5.3_5.4_5.5_5.6_5.7-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.3_5.4_5.5_5.6_5.7-Orange?style=flat-square)
+[![Swift](https://img.shields.io/badge/Swift-5.6_5.7-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.6_5.7-Orange?style=flat-square)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
 [![Version](https://img.shields.io/cocoapods/v/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
@@ -10,49 +10,53 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. This will allow you to message your users via push notifications from Klaviyo. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNS.
+KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. The SDK enables you to engage with your customers using push notifications. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
 
-## Installation Options
+### Installation options
 
-1. SPM 
-1. CocoaPods
+1. [Install with SPM](#install-with-spm)
+1. [Install with Cocoapods](#install-with-cocoapods)
 
-## SPM
-KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to get it setup.
+## [Install with SPM](#install-with-spm)
+KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to install.
 
-### Import the SDK
-Open your project and navigate to your project’s settings. Select the Swift Packages tab and click on the add button below the packages list. Enter the URL of our Swift SDK repository (https://github.com/klaviyo/klaviyo-swift-sdk) in the text field and click Next. On the next screen, select the SDK version (1.7.0 as of this writing) and click Next.
+1. Open your project and navigate to your project’s settings.
+2. Select the **Swift Packages** tab and click on the **add** button below the packages list.
+3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field and click **Next**.
+4. On the next screen, select the latest SDK version and click **Next**.
+5. Select the `KlaviyoSwift` package.
+6. Click **Finish**.
 
-### Select the Package
-Select the `KlaviyoSwift` package and click Finish.  
+## [Install with CocoaPods](#install-with-cocoapods)
+KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo).
 
-
-## CocoaPods
-KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo). To install
-it, simply add the following line to your Podfile:
+1. To install, add the following line to your Podfile:
 
 ```ruby
 pod "KlaviyoSwift"
 ```
 
-Then run `pod install` to complete the integration.
+2. Run `pod install` to complete the integration.
+
 The library can be kept up-to-date via `pod update`.
 
-## Example Usage: Event Tracking
 
-Once integration is complete you can begin tracking events in your app. First, make sure any .swift files using the Klaviyo SDK contain the import call.
+## Event tracking
+After the SDK is installed you can begin tracking events in your app.
+
+1. Make sure any .swift files using the Klaviyo SDK contain the following import call:
 
 ```swift
 import KlaviyoSwift
 ```
 
-Adding Klaviyo's tracking functionality requires just a few lines of code. To get started, add the following line to AppDelegate.swift, within application:didFinishLaunchingWithOptions:
+2. To add Klaviyo's tracking functionality, include the following line in AppDelegate.swift, within `application:didFinishLaunchingWithOptions`:
 
-```swift 
+```swift
 Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
-Once Klaviyo has been set up, you can begin tracking events anywhere within your application. Simply call Klaviyo's `trackEvent` method in the relevant location.
+3. Begin tracking events anywhere within your application by calling the `trackEvent` method in the relevant location.
 
 ```swift
 let klaviyo = Klaviyo.sharedInstance
@@ -71,10 +75,21 @@ Klaviyo.sharedInstance.trackEvent(
     properties: propertiesDictionary
 )
 ```
+### Arguments
 
-## Example Usage: Identifying traits of People
+The `track` function can be called with up to four arguments.
 
-Assuming that `setupWithPublicAPIKey` has already been implemented elsewhere in the application, you can identify traits about a person using `trackPersonWithInfo`:
+* `eventName`: The name of the event you want to track, as a string. This argument is required to track an event.
+
+* `customerProperties`: An NSDictionary of properties that belong to the person who did the action you're tracking. If you do not include an `$email`, `$phone_number` or `$id key`, the event cannot be tracked by Klaviyo. This argument is optional but recommended.
+
+* `properties`: An NSDictionary of properties that are specific to the event. This argument is optional.
+
+* `eventDate`: This is the timestamp, as an NSDate, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real- time activity, you can ignore this argument.
+
+## Identifying traits of people
+
+You can identify traits about a person using `trackPersonWithInfo`.
 
 ```swift
 let klaviyo = Klaviyo.sharedInstance
@@ -87,165 +102,154 @@ personInfoDictionary[klaviyo.KLPersonZipDictKey] = "02215"
 klaviyo.trackPersonWithInfo(personDictionary: personInfoDictionary)
 ```
 
-## Argument Description
-
-The `track` function can be called with anywhere between 1-4 arguments:
-
-`eventName` This is the name of the event you want to track. It can be any string. At a bare minimum this must be provided to track an event.
-
-`customerProperties` (optional, but recommended) This is a NSMutableDictionary of properties that belong to the person who did the action you're recording. If you do not include an $email or $id key, the event cannot be tracked by Klaviyo. 
-
-`properties` (optional) This is a NSMutableDictionary of properties that are specific to the event. In the above example we included the items purchased and the total price.
-
-`eventDate` (optional) This is the timestamp (an NSDate) when the event occurred. You only need to include this if you're tracking past events. If you're tracking real time activity, you can ignore this argument.
-
 Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
+
 
 ## Anonymous Tracking Notice
 
-By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided Klaviyo will merge the data from the anonymous user to a new identified user. Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
+By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
-## Integrating with Shopify's Mobile SDK
-If your application makes use of Shopify's Mobile Buy SDK, then Klaviyo can easily port that data into your Klaviyo account. Simply add the following line of code to your app within your Shopify completion handler or wherever your checkout code creates Shopify's `BuyCheckout` instance (if it is within the completion handler, it should be referenced as `checkout`. If you are building the checkout object manually then use whichever name you created):
+Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
-` Klaviyo.sharedInstance.setUpUserEmail(userEmail: checkout.email)`
+## Special properties
 
-## Special Properties
+The following special properties can be used when identifying a user or tracking event:
 
-As was shown in the event tracking example, special person and event properties can be used. This works in a similar manner to the [Klaviyo Analytics API](https://www.klaviyo.com/docs). These are special properties that can be utilized when identifying a user or event. They are:
-    
-    KLPersonEmailDictKey 
-    KLPersonFirstNameDictKey
-    KLPersonLastNameDictKey
-    KLPersonPhoneNumberDictKey
-    KLPersonTitleDictKey
-    KLPersonOrganizationDictKey
-    KLPersonCityDictKey
-    KLPersonRegionDictKey
-    KLPersonCountryDictKey
-    KLPersonZipDictKey
-    KLEventIDDictKey
-    KLEventValueDictKey
+*    `KLPersonEmailDictKey`
+*    `KLPersonFirstNameDictKey`
+*    `KLPersonLastNameDictKey`
+*    `KLPersonPhoneNumberDictKey`
+*    `KLPersonTitleDictKey`
+*    `KLPersonOrganizationDictKey`
+*    `KLPersonCityDictKey`
+*    `KLPersonRegionDictKey`
+*    `KLPersonCountryDictKey`
+*    `KLPersonZipDictKey`
+*    `KLEventIDDictKey`
+*    `KLEventValueDictKey`
 
-Lastly, cases where you wish to call `trackEvent` with only the eventName parameter and not have it result in anoynmous user tracking, you can use `setUpUserEmail` to configure your user's email address. By calling this once, usually upon application login, Klaviyo can track all subsequent events as tied to the given user. However, you are also free to override this functionality by passing in a customer properties dictionary at any given time:
+In cases where you wish to call `trackEvent` with only the `eventName` parameter, you can use `setUpUserEmail` to configure your user's email address. This allows you to avoid anonymous user tracking.
+
+By calling `setUpUserEmail` once, usually upon application login, Klaviyo can track all subsequent events as tied to the given user. However, you are also free to override this functionality by passing in a customer properties dictionary.
 
 ```swift
     Klaviyo.sharedInstance.setUpUserEmail(userEmail: "john.smith@example.com")
 ```
-## Sending Push Notifications
-To be able to send push notifications, you must add a few snippets of code to your application. One to register users for push notifications, one that will send resulting push tokens to Klaviyo, and some final snippets to handle when users attempt to open your push notifications.
 
-Add the below code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. Make sure that whenever this code is called that the Klaviyo SDK has been configured and that `setUpUserEmail:` has been called. This is so that Klaviyo can match app tokens with customers.
+## Push Notifications
+
+Implementing push notifications requires a few additional snippets of code to enable.:
+1. Registering users for push notifications.
+2. Sending resulting push tokens to Klaviyo.
+3. Handlinge when users attempt to open your push notifications.
+
+### Sending push notifications
+
+1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `setUpUserEmail:` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
 
 ```swift
-import UserNotifications
+   import UserNotifications
+	...
+	let center = UNUserNotificationCenter.current()
+	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+	// use the below options if you are interested in using provisional push notifications. Note that using this will not
+	// show the push notifications prompt to the user.
+	// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+	center.requestAuthorization(options: options) { granted, error in
+	    if let error = error {
+	        // Handle the error here.
+	        print("error = ", error)
+	    }
 
-...
+	    // Enable or disable features based on the authorization status.
+	}
 
-let center = UNUserNotificationCenter.current()
-center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
-let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-// use the below options if you are interested in using provisional push notifications. Note that using this will not
-// show the push notifications prompt to the user.
-// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-center.requestAuthorization(options: options) { granted, error in
-    if let error = error {
-        // Handle the error here.
-        print("error = ", error)
+	UIApplication.shared.registerForRemoteNotifications()
+```
+
+2. Add the following code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken`. You may need to add this code to your application delegate if you have not done so already.
+
+```swift
+    func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken)
     }
-    
-    // Enable or disable features based on the authorization status.
-}
-    
-UIApplication.shared.registerForRemoteNotifications()
 ```
 
-Add the below line of code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken:` (note that you might need to add this code to your application delegate if you have not done so already)
+Any users that enable/accept push notifications from your app now will be eligible to receive your custom notifications.
+
+To read more about sending push notifications, check out our additional push notification guides.
+* [How to set up push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971)
+* [How to send a push notification campaign](https://help.klaviyo.com/hc/en-us/articles/360006653972)
+* [How to add a push notification to a flow](https://help.klaviyo.com/hc/en-us/articles/12932504108571)
+
+### Tracking push notifications
+
+The following code example allows you to track when a user opens a push notification.
+
+1. In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
 
 ```swift
-func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken)
-}
-```
-
-That's it! Now any users that accept push notifications from your app will be eligible to receive your custom notifications.
-For information on how to send push notifcations through Klaviyo, please check our support docs.
-
-## Tracking Push Notifications
-
-If you would like to track when a user opens a push notification then there is a little more code that you will need to add to your application.
-
-In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
-
-```swift 
-func application(
-    _ application: UIApplication,
-    didReceiveRemoteNotification userInfo: [AnyHashable : Any],
-    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
-) {
-    if application.applicationState == UIApplication.State.inactive ||
-        application.applicationState == UIApplication.State.background
-    {
+    if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
         Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
     }
     completionHandler(.noData)
-}
 ```
 
-In addition please add the following code that extends your app delegate:
+2. Add the following code that extends your app delegate:
 
 ```swift
-extension AppDelegate: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary)
-        completionHandler()
+    extension AppDelegate: UNUserNotificationCenterDelegate {
+        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+            Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary)
+            completionHandler()
+        }
     }
-}
+
 ```
 
-That is all you need to do to track opens. Now once your first push notifications have been sent and been opened, you should start to see `Opened Push` metrics within your Klaviyo dashboard.
+Once your first push notifications are sent and opened, you should start to see *Opened Push* metrics within your Klaviyo dashboard.
 
-## [OPTIONAL] Foreground Push Handling
+### Foreground push handling
 
-The code below will enable push notifications to show up when you app is running:
+The following code example allows push notifications to be displayed when your app is running:
 
 ```swift
-func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    willPresent notification: UNNotification,
-    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-) {
-    if #available(iOS 14.0, *) {
-        completionHandler([.list, .banner])
-    } else {
-        completionHandler([.alert])
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                  willPresent notification: UNNotification,
+                                  withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        var options: UNNotificationPresentationOptions =  [.alert]
+        if #available(iOS 14.0, *) {
+          options = [.list, .banner]
+        }
+        completionHandler(options)
     }
-}
 ```
 
-If your user taps on the notification this will be tracked back to Klaviyo as an "Opened Push" event assuming you have implemented the tracking changes discussed above.
+If a user taps on the notification with the application open, this event is tracked as an *Opened Push* event.
 
 ## Handling deep linking
 
-There are two use cases for deep linking that can be relevant here - 
+There are two use cases for deep linking that can be relevant here -
 1. When you push a notification to your app with a deep link.
 2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
 
 Note that Klaviyo doesn't officially support universal links yet, but since there is no validation on the klaviyo front end for URI schemes, you can include universal links in your push notifications. Ensuring that Klaviyo push works to your expectations with universal links will be the responsibility of your developers.
 
-In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here - 
+In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here -
 
 ### Step 1: Register the URL scheme
 
-In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly - 
+In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly -
 
-The required fields are as following - 
+The required fields are as following -
 
 1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
 2. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
 3. **Role** - Since your app will be editing the role select the role as editor
 
-In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist - 
+In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist -
 
 ```xml
 <key>CFBundleURLTypes</key>
@@ -266,9 +270,9 @@ In order to edit the Info.plist directly, just fill in your app specific details
 
 ### Step 2: Whitelist supported URL schemes
 
-Since iOS 9 Apple has mandated that the URL schemes that you app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work. 
+Since iOS 9 Apple has mandated that the URL schemes that you app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
 
-This needs to be done in the Info.plist directly - 
+This needs to be done in the Info.plist directly -
 
 ```xml
 <key>LSApplicationQueriesSchemes</key>
@@ -279,13 +283,13 @@ This needs to be done in the Info.plist directly -
 
 ### Step 3: Implement handling deep links in your app
 
-Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app. 
+Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app.
 
 If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
 
 // TODO: add a link to the example app here once it has been moved to the SDL
 
-Example: 
+Example:
 
 ```swift
 func application(
@@ -299,16 +303,16 @@ func application(
        print("Invalid deep linking URL")
        return false
     }
-                   
+
     print("components: \(components.debugDescription)")
-    
+
     return true
 }
 ```
 
-If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)) as a view modifier in the view you intent to handle deep links. This may or may not be the root of your scene 
+If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)) as a view modifier in the view you intent to handle deep links. This may or may not be the root of your scene
 
-Example: 
+Example:
 
 ```swift
 @main
@@ -322,28 +326,30 @@ struct MyApplication: App {
     }
   }
 }
-``` 
+```
 
 Once the above steps are complete, you can try to send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
 
-Additionally, you can also locally try and trigger a deep link to make sure your code is working using the below command in the terminal - 
+Additionally, you can also locally try and trigger a deep link to make sure your code is working using the below command in the terminal -
 
 `xcrun simctl openurl booted {your_URL_here}`
 
 ## SDK Data Transfer
 
-Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. As of this writing the interval is based on the network link currently being used by the app. The table below shows the flush interval used for each type of connection:
+Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
 
 | Network     | Interval    |
 | :---        | :--- |
 | WWAN/Wifi   | 10 seconds  |
 | Cellular    | 30 seconds  |
 
-Connection determination is based on notifications from our reachability service. When there is no network available the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK. 
+
+Connection determination is based on notifications from our reachability service. When there is no network available, the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK.
+
 
 ### Retries
 
-The SDK will retry API requests that fail under certain conditions. For example if a network timeout occurs the request will be retried on the next flush interval. In addition if the SDK receives a rate limiting error (429) from the Klaviyo API it will use exponential backoff with jitter to retry the next request.
+The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval. In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
 
 ## License
 

@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 9/28/22.
 //
 
-import Foundation
 import AnyCodable
 import Combine
+import Foundation
 import UIKit
 
 var environment = KlaviyoEnvironment.production
@@ -65,8 +65,7 @@ struct KlaviyoEnvironment {
             reachabilityService?.currentReachabilityStatus
         },
         randomInt: { Int.random(in: 0...10) },
-        stateChangePublisher: StateChangePublisher().publisher
-    )
+        stateChangePublisher: StateChangePublisher().publisher)
 }
 
 private var networkSession: NetworkSession!
@@ -77,16 +76,15 @@ func createNetworkSession() -> NetworkSession {
     return networkSession
 }
 
-
-
 enum KlaviyoDecodingError: Error {
     case invalidType
 }
 
 struct DataDecoder {
     func decode<T: Decodable>(_ data: Data) throws -> T {
-        return try jsonDecoder.decode(T.self, from: data)
+        try jsonDecoder.decode(T.self, from: data)
     }
+
     var jsonDecoder: JSONDecoder
     static let production = Self(jsonDecoder: decoder)
 }
@@ -101,23 +99,31 @@ struct AnalyticsEnvironment {
     var timeZone: () -> String
     var appContextInfo: () -> AppContextInfo
     var klaviyoAPI: KlaviyoAPI
-    var store: Store<KlaviyoState, KlaviyoAction>
     var timer: (Double) -> AnyPublisher<Date, Never>
-    static let production = AnalyticsEnvironment(
-        networkSession: createNetworkSession,
-        apiURL: PRODUCTION_HOST,
-        encodeJSON: { encodable in try encoder.encode(encodable) },
-        decoder: DataDecoder.production,
-        uuid: { UUID() },
-        date: { Date() },
-        timeZone: { TimeZone.autoupdatingCurrent.identifier },
-        appContextInfo: { AppContextInfo() },
-        klaviyoAPI: KlaviyoAPI(),
-        store: Store.production,
-        timer: { interval in
-            Timer.publish(every: interval, on: .main, in: .default)
-            .autoconnect()
-            .eraseToAnyPublisher()
-        }
-    )
+    var send: (KlaviyoAction) -> Task<Void, Never>?
+    var state: () -> KlaviyoState
+    var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
+    static let production: AnalyticsEnvironment = {
+        let store = Store.production
+        return AnalyticsEnvironment(
+            networkSession: createNetworkSession,
+            apiURL: PRODUCTION_HOST,
+            encodeJSON: { encodable in try encoder.encode(encodable) },
+            decoder: DataDecoder.production,
+            uuid: { UUID() },
+            date: { Date() },
+            timeZone: { TimeZone.autoupdatingCurrent.identifier },
+            appContextInfo: { AppContextInfo() },
+            klaviyoAPI: KlaviyoAPI(),
+            timer: { interval in
+                Timer.publish(every: interval, on: .main, in: .default)
+                    .autoconnect()
+                    .eraseToAnyPublisher()
+            },
+            send: { action in
+                store.send(action)
+            },
+            state: { store.state.value },
+            statePublisher: { store.state.eraseToAnyPublisher() })
+    }()
 }

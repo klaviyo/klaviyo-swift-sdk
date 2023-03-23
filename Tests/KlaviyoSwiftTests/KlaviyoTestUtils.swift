@@ -4,10 +4,10 @@
 //
 //  Created by Noah Durell on 9/30/22.
 //
-import XCTest
-@testable import KlaviyoSwift
 import AnyCodable
 import Combine
+import XCTest
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 enum FakeFileError: Error {
     case fake
@@ -20,7 +20,6 @@ let SAMPLE_DATA: NSMutableArray = [
             "foo": "bar"
         ]
     ]
-
 ]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
@@ -28,8 +27,7 @@ let TEST_RETURN_DATA = Data()
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
+        unarchivedMutableArray: { _ in SAMPLE_DATA })
 }
 
 extension AppLifeCycleEvents {
@@ -44,56 +42,64 @@ extension KlaviyoEnvironment {
         data: { _ in TEST_RETURN_DATA },
         logger: LoggerClient.test,
         analytics: AnalyticsEnvironment.test,
-        getUserDefaultString: { _ in return "value" },
+        getUserDefaultString: { _ in "value" },
         appLifeCycle: AppLifeCycleEvents.test,
         notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
-        legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)"  },
+        legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)" },
         startReachability: {},
         stopReachability: {},
         reachabilityStatus: { nil },
         randomInt: { 0 },
-        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
-    )
+        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() })
     }
 }
 
 class TestJSONDecoder: JSONDecoder {
-    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
-        return KlaviyoState.test as! T
+    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
+        KlaviyoState.test as! T
     }
 }
 
 class InvalidJSONDecoder: JSONDecoder {
-    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable {
+    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         throw KlaviyoDecodingError.invalidType
     }
 }
 
 extension AnalyticsEnvironment {
+    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
     static let test = AnalyticsEnvironment(
         networkSession: { NetworkSession.test() },
         apiURL: "dead_beef",
-        encodeJSON: { _ in TEST_RETURN_DATA},
+        encodeJSON: { _ in TEST_RETURN_DATA },
         decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
         uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
         date: { Date(timeIntervalSince1970: 1_234_567_890) },
         timeZone: { "EST" },
         appContextInfo: { AppContextInfo.test },
         klaviyoAPI: KlaviyoAPI.test(),
-        store: Store.test,
-        timer: { interval in Just(Date()).eraseToAnyPublisher() }
-    )
+        timer: { _ in Just(Date()).eraseToAnyPublisher() },
+        send: { action in
+            testStore.send(action)
+        },
+        state: {
+            AnalyticsEnvironment.testStore.state.value
+        },
+        statePublisher: {
+            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+        })
 }
 
 struct KlaviyoTestReducer: ReducerProtocol {
-    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in return .none }
-    
+    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
+
     func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
-        return reducer(&state, action)
+        reducer(&state, action)
     }
-    
+
     typealias State = KlaviyoState
-    
+
     typealias Action = KlaviyoAction
 }
 
@@ -103,15 +109,14 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
 
 extension FileClient {
     static let test = FileClient(
-        write: { _,_ in },
-        fileExists: { _ in return true },
+        write: { _, _ in },
+        fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
-    )
+        libraryDirectory: { TEST_URL })
 }
 
 extension KlaviyoAPI {
-    static let test = { KlaviyoAPI(send: { _ in return .success(TEST_RETURN_DATA) }) }
+    static let test = { KlaviyoAPI(send: { _ in .success(TEST_RETURN_DATA) }) }
 }
 
 extension LoggerClient {
@@ -123,22 +128,22 @@ extension LoggerClient {
 
 extension NetworkSession {
     static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
-    static let DEFAULT_CALLBACK: (URLRequest) async throws -> (Data, URLResponse) = { request in
-        return (Data(), successfulRepsonse)
+    static let DEFAULT_CALLBACK: (URLRequest) async throws -> (Data, URLResponse) = { _ in
+        (Data(), successfulRepsonse)
     }
+
     static func test(data: @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
-       return NetworkSession(data: data)
+        NetworkSession(data: data)
     }
 }
 
 extension AppContextInfo {
-    static let test = Self.init(excutable: "FooApp",
-                                bundleId: "com.klaviyo.fooapp",
-                                appVersion: "1.2.3",
-                                appBuild: "1",
-                                version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
-                                osName: "kOS"
-    )
+    static let test = Self(excutable: "FooApp",
+                           bundleId: "com.klaviyo.fooapp",
+                           appVersion: "1.2.3",
+                           appBuild: "1",
+                           version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
+                           osName: "kOS")
 }
 
 extension StateChangePublisher {
@@ -148,7 +153,32 @@ extension StateChangePublisher {
                 .debounce(for: .seconds(0), scheduler: DispatchQueue.main)
                 .eraseToAnyPublisher()
         }
-        return Self.init()
+        return Self()
     }()
 }
 
+private final class KeyedArchiver: NSKeyedArchiver {
+    override func decodeObject(forKey _: String) -> Any { "" }
+    override func decodeInt64(forKey _: String) -> Int64 { 0 }
+}
+
+extension UNNotificationResponse {
+    static func with(
+        userInfo: [AnyHashable: Any],
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier) throws -> UNNotificationResponse {
+        let content = UNMutableNotificationContent()
+        content.userInfo = userInfo
+        let request = UNNotificationRequest(
+            identifier: "",
+            content: content,
+            trigger: nil)
+
+        let notification = try XCTUnwrap(UNNotification(coder: KeyedArchiver(requiringSecureCoding: false)))
+        notification.setValue(request, forKey: "request")
+
+        let response = try XCTUnwrap(UNNotificationResponse(coder: KeyedArchiver(requiringSecureCoding: false)))
+        response.setValue(notification, forKey: "notification")
+        response.setValue(actionIdentifier, forKey: "actionIdentifier")
+        return response
+    }
+}

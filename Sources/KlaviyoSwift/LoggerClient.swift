@@ -9,6 +9,6 @@ import Foundation
 import os
 
 struct LoggerClient {
-    var error: (String) -> ()
+    var error: (String) -> Void
     static let production = Self(error: { message in os_log("%{public}s", type: .error, message) })
 }

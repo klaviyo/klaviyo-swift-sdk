@@ -1,119 +1,196 @@
 //
 //  KlaviyoModels.swift
-//  
+//
 //
 //  Created by Noah Durell on 11/25/22.
 //
 
+import AnyCodable
 import Foundation
 
-extension Klaviyo {
-    /**
-     ND: Marking this all as internal until we finalize our API.
-     */
-    struct Event {
-        struct Attributes {
-            struct Metric {
-                let name: String
-                init(name: String) {
-                    self.name = name
-                }
+@_spi(KlaviyoPrivate)
+public struct Event: Equatable {
+    @_spi(KlaviyoPrivate)
+    public enum EventName: Equatable {
+        case OpenedPush
+        case ViewedProduct
+        case SearchedProducts
+        case StartedCheckout
+        case PlacedOrder
+        case OrderedProduct
+        case CancelledOrder
+        case PaidForOrder
+        case SubscribedToBackInStock
+        case SubscribedToComingSoon
+        case SubscribedToList
+        case SuccessfulPayment
+        case FailedPayment
+        case CustomEvent(String)
+    }
+
+    @_spi(KlaviyoPrivate)
+    public struct Attributes: Equatable {
+        @_spi(KlaviyoPrivate)
+        public struct Metric: Equatable {
+            public let name: EventName
+            @_spi(KlaviyoPrivate)
+            public init(name: EventName) {
+                self.name = name
             }
-            let metric: Metric
-            let properties: [String: Any]
-            let profile: [String: Any]
-            var time: Date
-            let value: Double?
-            let uniqueId: String
-            init(metric: Metric,
-                 properties: [String : Any],
-                 profile: [String : Any],
-                 value: Double? = nil,
-                 time: Date? = nil,
-                 uniqueId: String? = nil) {
-                self.profile = profile
-                self.metric = metric
-                self.properties = properties
-                self.value = value
-                self.time = time ?? environment.analytics.date()
-                self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
-            }
-            
         }
-        let attributes: Attributes
-        init(attributes: Attributes) {
-            self.attributes = attributes
+
+        public let metric: Metric
+        public var properties: [String: Any] {
+            _properties.value as! [String: Any]
+        }
+
+        private let _properties: AnyCodable
+        public var profile: [String: Any] {
+            _profile.value as! [String: Any]
+        }
+
+        internal var _profile: AnyCodable
+        public var time: Date
+        public let value: Double?
+        public let uniqueId: String
+        @_spi(KlaviyoPrivate)
+        public init(name: EventName,
+                    properties: [String: Any]? = nil,
+                    profile: [String: Any]? = nil,
+                    value: Double? = nil,
+                    time: Date? = nil,
+                    uniqueId: String? = nil) {
+            _profile = AnyCodable(profile ?? [:])
+            metric = .init(name: name)
+            _properties = AnyCodable(properties ?? [:])
+            self.value = value
+            self.time = time ?? environment.analytics.date()
+            self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
         }
     }
-    
-    struct Profile {
-        struct Attributes {
-            struct Location: Equatable {
-                let address1: String?
-                let address2: String?
-                let city: String?
-                let country: String?
-                let latitude: Double?
-                let longitude: Double?
-                let region: String?
-                let zip: String?
-                let timezone: String?
-                init(address1: String?=nil,
-                     address2: String?=nil,
-                     city: String?=nil,
-                     country: String?=nil,
-                     latitude: Double?=nil,
-                     longitude: Double?=nil,
-                     region: String?=nil,
-                     zip: String?=nil,
-                     timezone: String?=nil) {
-                    self.address1 = address1
-                    self.address2 = address2
-                    self.city = city
-                    self.country = country
-                    self.latitude = latitude
-                    self.longitude = longitude
-                    self.region = region
-                    self.zip = zip
-                    self.timezone = timezone ?? environment.analytics.timeZone()
-                }
-            }
-            let email: String?
-            let phoneNumber: String?
-            let externalId: String?
-            let firstName: String?
-            let lastName: String?
-            let organization: String?
-            let title: String?
-            let image: String?
-            let location: Location?
-            let properties: [String: Any]?
-            init(email: String?=nil,
-                 phoneNumber: String?=nil,
-                 externalId: String?=nil,
-                 firstName: String?=nil,
-                 lastName: String?=nil,
-                 organization: String?=nil,
-                 title: String?=nil,
-                 image: String?=nil,
-                 location: Location?=nil,
-                 properties: [String : Any]?=nil) {
-                self.email = email
-                self.phoneNumber = phoneNumber
-                self.externalId = externalId
-                self.firstName = firstName
-                self.lastName = lastName
-                self.organization = organization
-                self.title = title
-                self.image = image
-                self.location = location
-                self.properties = properties
+
+    public var attributes: Attributes
+    @_spi(KlaviyoPrivate)
+    public init(attributes: Attributes) {
+        self.attributes = attributes
+    }
+}
+
+@_spi(KlaviyoPrivate)
+public struct Profile: Equatable {
+    @_spi(KlaviyoPrivate)
+    public enum ProfileKey: Equatable, Hashable, Codable {
+        case firstName
+        case lastName
+        case address1
+        case address2
+        case title
+        case organization
+        case city
+        case region
+        case country
+        case zip
+        case image
+        case latitude
+        case longitude
+        case custom(customKey: String)
+    }
+
+    @_spi(KlaviyoPrivate)
+    public struct Attributes: Equatable {
+        @_spi(KlaviyoPrivate)
+        public struct Location: Equatable {
+            public var address1: String?
+            public var address2: String?
+            public var city: String?
+            public var country: String?
+            public var latitude: Double?
+            public var longitude: Double?
+            public var region: String?
+            public var zip: String?
+            public var timezone: String?
+            public init(address1: String? = nil,
+                        address2: String? = nil,
+                        city: String? = nil,
+                        country: String? = nil,
+                        latitude: Double? = nil,
+                        longitude: Double? = nil,
+                        region: String? = nil,
+                        zip: String? = nil,
+                        timezone: String? = nil) {
+                self.address1 = address1
+                self.address2 = address2
+                self.city = city
+                self.country = country
+                self.latitude = latitude
+                self.longitude = longitude
+                self.region = region
+                self.zip = zip
+                self.timezone = timezone ?? environment.analytics.timeZone()
             }
         }
-        let attributes: Attributes
-        init(attributes: Attributes) {
-            self.attributes = attributes
+
+        public let email: String?
+        public let phoneNumber: String?
+        public let externalId: String?
+        public let firstName: String?
+        public let lastName: String?
+        public let organization: String?
+        public let title: String?
+        public let image: String?
+        public let location: Location?
+        public var properties: [String: Any] {
+            _properties.value as! [String: Any]
+        }
+
+        let _properties: AnyCodable
+        public init(email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil,
+                    firstName: String? = nil,
+                    lastName: String? = nil,
+                    organization: String? = nil,
+                    title: String? = nil,
+                    image: String? = nil,
+                    location: Location? = nil,
+                    properties: [String: Any]? = nil) {
+            self.email = email
+            self.phoneNumber = phoneNumber
+            self.externalId = externalId
+            self.firstName = firstName
+            self.lastName = lastName
+            self.organization = organization
+            self.title = title
+            self.image = image
+            self.location = location
+            _properties = AnyCodable(properties ?? [:])
         }
     }
-    
+
+    public let attributes: Attributes
+    @_spi(KlaviyoPrivate)
+    public init(attributes: Attributes) {
+        self.attributes = attributes
+    }
+}
+
+extension Event.EventName {
+    var value: String {
+        switch self {
+        case .OpenedPush: return "$opened_push"
+        case .ViewedProduct: return "$viewed_product"
+        case .SearchedProducts: return "$searched_products"
+        case .StartedCheckout: return "$started_checkout"
+        case .PlacedOrder: return "$placed_order"
+        case .OrderedProduct: return "$ordered_product"
+        case .CancelledOrder: return "$cancelled_order"
+        case .PaidForOrder: return "$paid_for_order"
+        case .SubscribedToBackInStock: return "$subscribed_to_back_in_stock"
+        case .SubscribedToComingSoon: return "$subscribed_to_coming_soon"
+        case .SubscribedToList: return "$subscribed_to_list"
+        case .SuccessfulPayment: return "$successful_payment"
+        case .FailedPayment: return "$failed_payment"
+        case let .CustomEvent(value): return "\(value)"
+        }
+    }
 }
