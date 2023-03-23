@@ -276,12 +276,13 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
-            $0.flushInterval = 0
+            $0.flushInterval = Double.infinity
         }
-        await store.receive(.cancelInFlightRequests) {
+        _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false
         }
         _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
+            $0.flushing = false
             $0.flushInterval = WIFI_FLUSH_INTERVAL
         }
         await store.receive(.flushQueue)

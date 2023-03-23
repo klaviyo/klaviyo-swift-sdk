@@ -179,7 +179,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     KlaviyoAction.flushQueue
                 }
                 .eraseToEffect()
-                .cancellable(id: Timer.self, cancelInFlight: true)
+                .cancellable(id: FlushTimer.self, cancelInFlight: true)
         case let .dequeCompletedResults(completedRequest):
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
@@ -228,8 +228,8 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             switch networkStatus {
             case .notReachable:
-                state.flushInterval = 0
-                return EffectPublisher.cancel(ids: [RequestId.self, Timer.self])
+                state.flushInterval = Double.infinity
+                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
@@ -242,7 +242,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 .map { _ in
                     KlaviyoAction.flushQueue
                 }.eraseToEffect()
-                .cancellable(id: Timer.self, cancelInFlight: true)
+                .cancellable(id: FlushTimer.self, cancelInFlight: true)
         case let .enqueueLegacyEvent(legacyEvent):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
                 state.pendingRequests.append(.legacyEvent(legacyEvent))
