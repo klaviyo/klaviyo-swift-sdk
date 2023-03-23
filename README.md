@@ -148,7 +148,7 @@ Implementing push notifications requires a few additional snippets of code to en
 1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `setUpUserEmail:` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
 
 ```swift
-   import UserNotifications
+	import UserNotifications
 	...
 	let center = UNUserNotificationCenter.current()
 	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
@@ -297,8 +297,7 @@ func application(
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey : Any] = [:]
 ) -> Bool {
-    guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true),
-          let host = components.host
+    guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true)
     else {
        print("Invalid deep linking URL")
        return false
