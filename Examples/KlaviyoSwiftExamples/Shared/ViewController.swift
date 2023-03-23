@@ -62,12 +62,11 @@ class ViewController: UIViewController {
             Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
         }
 
-        // swiftformat:disable isEmpty
-        if !userInfo.isEmpty {
+        // swiftformat:disable:next isEmpty
+        if userInfo.count > 0 {
             // EXAMPLE: of tracking event with user properties during app opened
             Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App", customerProperties: userInfo, properties: nil)
         }
-        // swiftformat:enable isEmpty
 
         return true
     }

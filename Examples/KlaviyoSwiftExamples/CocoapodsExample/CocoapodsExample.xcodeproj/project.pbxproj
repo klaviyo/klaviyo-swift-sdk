@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		340590E029CCCC650015991E /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590DE29CCCC650015991E /* DeepLinking.swift */; };
+		340590E129CCCC650015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590DF29CCCC650015991E /* DebugViewController.swift */; };
 		7CC1C7A128D7492C0073197F /* MenuItemTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79528D7492C0073197F /* MenuItemTableViewCell.swift */; };
 		7CC1C7A228D7492C0073197F /* CheckOutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79628D7492C0073197F /* CheckOutViewController.swift */; };
 		7CC1C7A328D7492C0073197F /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79728D7492C0073197F /* User.swift */; };
@@ -16,7 +18,6 @@
 		7CC1C7A728D7492C0073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C79B28D7492C0073197F /* Images.xcassets */; };
 		7CC1C7A828D7492C0073197F /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79C28D7492C0073197F /* ViewController.swift */; };
 		7CC1C7A928D7492C0073197F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79D28D7492C0073197F /* AppDelegate.swift */; };
-		7CC1C7AA28D7492C0073197F /* Assets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C79E28D7492C0073197F /* Assets */; };
 		7CC1C7AB28D7492C0073197F /* MenuPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79F28D7492C0073197F /* MenuPageViewController.swift */; };
 		7CC1C7AC28D7492C0073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C7A028D7492C0073197F /* Main.storyboard */; };
 		891B01FB3F19601D5993FB32 /* Pods_CocoapodsExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09A8EF80264C389A712E95F1 /* Pods_CocoapodsExample.framework */; };
@@ -36,6 +37,8 @@
 		09A8EF80264C389A712E95F1 /* Pods_CocoapodsExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CocoapodsExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		17F18FE8BA1C9E2BBB066E9B /* Pods-CocoapodsExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CocoapodsExample.release.xcconfig"; path = "Target Support Files/Pods-CocoapodsExample/Pods-CocoapodsExample.release.xcconfig"; sourceTree = "<group>"; };
 		1CF060AA53BBC9AEBF8196FA /* Pods-CocoapodsExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CocoapodsExample.debug.xcconfig"; path = "Target Support Files/Pods-CocoapodsExample/Pods-CocoapodsExample.debug.xcconfig"; sourceTree = "<group>"; };
+		340590DE29CCCC650015991E /* DeepLinking.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DeepLinking.swift; path = ../../Shared/DeepLinking.swift; sourceTree = "<group>"; };
+		340590DF29CCCC650015991E /* DebugViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DebugViewController.swift; path = ../../Shared/DebugViewController.swift; sourceTree = "<group>"; };
 		7CC1C76128D748A00073197F /* CocoapodsExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CocoapodsExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C78128D748A20073197F /* CocoapodsExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CocoapodsExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C79428D7492B0073197F /* CocoapodsExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CocoapodsExample-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -48,7 +51,6 @@
 		7CC1C79B28D7492C0073197F /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ../../Shared/Images.xcassets; sourceTree = "<group>"; };
 		7CC1C79C28D7492C0073197F /* ViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ViewController.swift; path = ../../Shared/ViewController.swift; sourceTree = "<group>"; };
 		7CC1C79D28D7492C0073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
-		7CC1C79E28D7492C0073197F /* Assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Assets; path = ../../Shared/Assets; sourceTree = "<group>"; };
 		7CC1C79F28D7492C0073197F /* MenuPageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuPageViewController.swift; path = ../../Shared/MenuPageViewController.swift; sourceTree = "<group>"; };
 		7CC1C7A028D7492C0073197F /* Main.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = Main.storyboard; path = ../../Shared/Main.storyboard; sourceTree = "<group>"; };
 		7CC1C7AF28D749B70073197F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../../Shared/Info.plist; sourceTree = "<group>"; };
@@ -97,9 +99,10 @@
 		7CC1C76328D748A00073197F /* CocoapodsExample */ = {
 			isa = PBXGroup;
 			children = (
+				340590DF29CCCC650015991E /* DebugViewController.swift */,
+				340590DE29CCCC650015991E /* DeepLinking.swift */,
 				7CC1C7AF28D749B70073197F /* Info.plist */,
 				7CC1C79D28D7492C0073197F /* AppDelegate.swift */,
-				7CC1C79E28D7492C0073197F /* Assets */,
 				7CC1C79828D7492C0073197F /* Cart.swift */,
 				7CC1C79A28D7492C0073197F /* CheckOutTableViewCell.swift */,
 				7CC1C79628D7492C0073197F /* CheckOutViewController.swift */,
@@ -218,7 +221,6 @@
 			files = (
 				7CC1C7AC28D7492C0073197F /* Main.storyboard in Resources */,
 				7CC1C7A728D7492C0073197F /* Images.xcassets in Resources */,
-				7CC1C7AA28D7492C0073197F /* Assets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,8 +282,10 @@
 			files = (
 				7CC1C7A928D7492C0073197F /* AppDelegate.swift in Sources */,
 				7CC1C7A228D7492C0073197F /* CheckOutViewController.swift in Sources */,
+				340590E129CCCC650015991E /* DebugViewController.swift in Sources */,
 				7CC1C7A128D7492C0073197F /* MenuItemTableViewCell.swift in Sources */,
 				7CC1C7A328D7492C0073197F /* User.swift in Sources */,
+				340590E029CCCC650015991E /* DeepLinking.swift in Sources */,
 				7CC1C7A628D7492C0073197F /* CheckOutTableViewCell.swift in Sources */,
 				7CC1C7A828D7492C0073197F /* ViewController.swift in Sources */,
 				7CC1C7A428D7492C0073197F /* Cart.swift in Sources */,

@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/klaviyo/klaviyo-swift-sdk",
       "state" : {
-        "revision" : "58bf10a85b5c9bee34821613cff392b5577c78b2",
-        "version" : "1.7.0"
+        "revision" : "df0da7a21e68dda3d17230eddfcac6b7d6fe5c37",
+        "version" : "1.7.1"
       }
     }
   ],

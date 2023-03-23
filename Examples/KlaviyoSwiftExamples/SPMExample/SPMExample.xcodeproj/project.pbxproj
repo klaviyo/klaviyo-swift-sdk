@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		34B2E0E029AED926005BDCD9 /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B2E0DF29AED926005BDCD9 /* DeepLinking.swift */; };
-		34B2E0E229AEDBB7005BDCD9 /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B2E0E129AEDBB7005BDCD9 /* DebugViewController.swift */; };
+		340590E429CCCD520015991E /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E229CCCD520015991E /* DeepLinking.swift */; };
+		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 34F2BEBA29AD203E006B8037 /* KlaviyoSwift */; };
 		7CC1C83828D74DB60073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
 		7CC1C83928D74DB60073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82D28D74DB60073197F /* Main.storyboard */; };
@@ -41,9 +41,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		340590E229CCCD520015991E /* DeepLinking.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DeepLinking.swift; path = ../../Shared/DeepLinking.swift; sourceTree = "<group>"; };
+		340590E329CCCD520015991E /* DebugViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DebugViewController.swift; path = ../../Shared/DebugViewController.swift; sourceTree = "<group>"; };
 		340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExampleRelease.entitlements; sourceTree = "<group>"; };
-		34B2E0DF29AED926005BDCD9 /* DeepLinking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinking.swift; sourceTree = "<group>"; };
-		34B2E0E129AEDBB7005BDCD9 /* DebugViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugViewController.swift; sourceTree = "<group>"; };
 		7CC1C7F828D74D810073197F /* SPMExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SPMExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C80928D74D830073197F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7CC1C80E28D74D840073197F /* SPMExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SPMExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -109,6 +109,8 @@
 		7CC1C7FA28D74D810073197F /* SPMExample */ = {
 			isa = PBXGroup;
 			children = (
+				340590E329CCCD520015991E /* DebugViewController.swift */,
+				340590E229CCCD520015991E /* DeepLinking.swift */,
 				340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */,
 				7CC1C83728D74DB60073197F /* AppDelegate.swift */,
 				7CC1C83528D74DB60073197F /* Cart.swift */,
@@ -123,8 +125,6 @@
 				7CC1C83228D74DB60073197F /* ViewController.swift */,
 				7CC1C80928D74D830073197F /* Info.plist */,
 				7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */,
-				34B2E0DF29AED926005BDCD9 /* DeepLinking.swift */,
-				34B2E0E129AEDBB7005BDCD9 /* DebugViewController.swift */,
 			);
 			path = SPMExample;
 			sourceTree = "<group>";
@@ -268,10 +268,10 @@
 			files = (
 				7CC1C84228D74DB60073197F /* MenuPageViewController.swift in Sources */,
 				7CC1C83D28D74DB60073197F /* CheckOutViewController.swift in Sources */,
+				340590E529CCCD520015991E /* DebugViewController.swift in Sources */,
 				7CC1C83C28D74DB60073197F /* User.swift in Sources */,
 				7CC1C84328D74DB60073197F /* AppDelegate.swift in Sources */,
-				34B2E0E229AEDBB7005BDCD9 /* DebugViewController.swift in Sources */,
-				34B2E0E029AED926005BDCD9 /* DeepLinking.swift in Sources */,
+				340590E429CCCD520015991E /* DeepLinking.swift in Sources */,
 				7CC1C83E28D74DB60073197F /* ViewController.swift in Sources */,
 				7CC1C84128D74DB60073197F /* Cart.swift in Sources */,
 				7CC1C84028D74DB60073197F /* MenuItemTableViewCell.swift in Sources */,
@@ -613,7 +613,7 @@
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 1.7.0;
+				minimumVersion = 1.7.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
