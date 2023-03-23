@@ -104,6 +104,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // If you would like to support deep links the following delegate needs to be implemented
     // it's upto the developer to decide what to do with the URL in this method.
+    // NOTE that for custom URI schemes if you have a path that is deeper than 1, part of it will be the host and
+    // part of it will be in path so please be careful to parse the deep link fully.
+    // Ex: klaviyo://path1/path2 would be host = path1 and path = path2
     func application(
         _ app: UIApplication,
         open url: URL,
