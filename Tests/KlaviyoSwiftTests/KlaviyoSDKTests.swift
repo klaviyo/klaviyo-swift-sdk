@@ -77,7 +77,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test create event
 
     func testCreateEvent() throws {
-        let event = Event(attributes: .init(name: .OrderedProduct))
+        let event = Event(name: .OrderedProduct)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
         klaviyo.create(event: event)
@@ -91,7 +91,7 @@ class KlaviyoSDKTests: XCTestCase {
         let tokenData = "mytoken".data(using: .utf8)!
         let expectation = setupActionAssertion(expectedAction: .setPushToken(tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }))
 
-        _ = klaviyo.set(pushToken: tokenData)
+        klaviyo.set(pushToken: tokenData)
 
         wait(for: [expectation], timeout: 1.0)
     }
@@ -115,7 +115,7 @@ class KlaviyoSDKTests: XCTestCase {
                 "foo": "bar"
             ]
         ]]
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(attributes: .init(name: .OpenedPush, properties: push_body))))
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: .OpenedPush, properties: push_body)))
         let response = try UNNotificationResponse.with(userInfo: push_body)
         let handled = klaviyo.handle(notificationResponse: response) {
             callback.fulfill()

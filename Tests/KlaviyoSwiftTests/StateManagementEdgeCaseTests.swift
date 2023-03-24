@@ -260,7 +260,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testEnqueueEventUninitialized() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }

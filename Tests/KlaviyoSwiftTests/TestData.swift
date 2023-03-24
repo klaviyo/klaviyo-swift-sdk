@@ -58,10 +58,6 @@ extension Profile.Attributes.Location {
 }
 
 extension Event {
-    static let test = Self(attributes: .test)
-}
-
-extension Event.Attributes {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
         "stuff": 2,
@@ -79,7 +75,7 @@ extension Event.Attributes {
     static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
-extension Event.Attributes.Metric {
+extension Event.Metric {
     static let test = Self(name: .CustomEvent("blob"))
 }
 

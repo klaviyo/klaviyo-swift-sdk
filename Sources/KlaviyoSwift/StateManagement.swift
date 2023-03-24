@@ -394,7 +394,7 @@ extension KlaviyoState {
 
 extension Event {
     func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        var profile = attributes.profile
+        var profile = profile
         if let email = profile["$email"] as? String {
             state.email = email
         } else {
@@ -410,16 +410,16 @@ extension Event {
         } else {
             profile["$id"] = state.externalId
         }
-        var properties = attributes.properties
-        if attributes.metric.name == EventName.OpenedPush,
+        var properties = properties
+        if metric.name == EventName.OpenedPush,
            let pushToken = state.pushToken {
             properties["push_token"] = pushToken
         }
-        return Event(attributes: .init(name: attributes.metric.name,
-                                       properties: properties,
-                                       profile: profile,
-                                       value: attributes.value,
-                                       time: attributes.time,
-                                       uniqueId: attributes.uniqueId))
+        return Event(name: metric.name,
+                     properties: properties,
+                     profile: profile,
+                     value: value,
+                     time: time,
+                     uniqueId: uniqueId)
     }
 }

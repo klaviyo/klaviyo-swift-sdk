@@ -190,9 +190,9 @@ public class Klaviyo: NSObject {
         if let properties = userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             Self.sdkInstance
-                .create(event: Event(attributes: .init(name: .OpenedPush,
-                                                       properties: properties,
-                                                       profile: [:])))
+                .create(event: Event(name: .OpenedPush,
+                                     properties: properties,
+                                     profile: [:]))
             if let url = properties["url"] as? String, let url = URL(string: url) {
                 UIApplication.shared.open(url)
             }
@@ -469,7 +469,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(attributes: .init(name: .OpenedPush, properties: properties, profile: [:])))
+            create(event: Event(name: .OpenedPush, properties: properties, profile: [:]))
             Task {
                 await MainActor.run {
                     if let url = properties["url"] as? String, let url = URL(string: url) {

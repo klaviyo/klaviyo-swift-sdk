@@ -26,49 +26,41 @@ public struct Event: Equatable {
         case CustomEvent(String)
     }
 
-    public struct Attributes: Equatable {
-        public struct Metric: Equatable {
-            public let name: EventName
+    public struct Metric: Equatable {
+        public let name: EventName
 
-            public init(name: EventName) {
-                self.name = name
-            }
-        }
-
-        public let metric: Metric
-        public var properties: [String: Any] {
-            _properties.value as! [String: Any]
-        }
-
-        private let _properties: AnyCodable
-        public var profile: [String: Any] {
-            _profile.value as! [String: Any]
-        }
-
-        internal var _profile: AnyCodable
-        public var time: Date
-        public let value: Double?
-        public let uniqueId: String
-
-        public init(name: EventName,
-                    properties: [String: Any]? = nil,
-                    profile: [String: Any]? = nil,
-                    value: Double? = nil,
-                    time: Date? = nil,
-                    uniqueId: String? = nil) {
-            _profile = AnyCodable(profile ?? [:])
-            metric = .init(name: name)
-            _properties = AnyCodable(properties ?? [:])
-            self.value = value
-            self.time = time ?? environment.analytics.date()
-            self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
+        public init(name: EventName) {
+            self.name = name
         }
     }
 
-    public var attributes: Attributes
+    public let metric: Metric
+    public var properties: [String: Any] {
+        _properties.value as! [String: Any]
+    }
 
-    public init(attributes: Attributes) {
-        self.attributes = attributes
+    private let _properties: AnyCodable
+    public var profile: [String: Any] {
+        _profile.value as! [String: Any]
+    }
+
+    internal var _profile: AnyCodable
+    public var time: Date
+    public let value: Double?
+    public let uniqueId: String
+
+    public init(name: EventName,
+                properties: [String: Any]? = nil,
+                profile: [String: Any]? = nil,
+                value: Double? = nil,
+                time: Date? = nil,
+                uniqueId: String? = nil) {
+        _profile = AnyCodable(profile ?? [:])
+        metric = .init(name: name)
+        _properties = AnyCodable(properties ?? [:])
+        self.value = value
+        self.time = time ?? environment.analytics.date()
+        self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
     }
 }
 
