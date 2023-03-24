@@ -270,7 +270,7 @@ In order to edit the Info.plist directly, just fill in your app specific details
 
 ### Step 2: Whitelist supported URL schemes
 
-Since iOS 9 Apple has mandated that the URL schemes that you app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
+Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
 
 This needs to be done in the Info.plist directly -
 
