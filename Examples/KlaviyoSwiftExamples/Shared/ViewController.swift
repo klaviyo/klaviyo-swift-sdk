@@ -41,7 +41,7 @@ class ViewController: UIViewController {
             return false
         }
 
-        let userInfo = NSMutableDictionary()
+        var userInfo = [String: Any]()
 
         // Unwrap textfield value and save it
         if let zip = zipcodeTextField.text {
@@ -59,13 +59,13 @@ class ViewController: UIViewController {
             }
             emailAddr = email
             userInfo[Klaviyo.sharedInstance.KLPersonEmailDictKey] = email
-            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            KlaviyoSDK().set(email: email)
         }
 
         // swiftformat:disable:next isEmpty
         if userInfo.count > 0 {
             // EXAMPLE: of tracking event with user properties during app opened
-            Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App", customerProperties: userInfo, properties: nil)
+            KlaviyoSDK().create(event: .init(name: .CustomEvent("Opened klM App"), profile: userInfo))
         }
 
         return true

@@ -48,8 +48,7 @@ class MenuPageViewController: UIViewController {
             emailLabel.isHidden = false
             emailLabel.text = email
 
-            // TODO: check with Noah if this is needed here as we already do it in app delegate
-            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            KlaviyoSDK().set(email: email)
         }
 
         cartIcon.setImage(
@@ -90,7 +89,7 @@ class MenuPageViewController: UIViewController {
             if let vc = segue.destination as? CheckOutViewController {
                 vc.cart = cart
                 // EXAMPLE: of triggering checkout event
-                Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Started")
+                KlaviyoSDK().create(event: .init(name: .StartedCheckout))
             }
         }
     }
@@ -115,7 +114,7 @@ class MenuPageViewController: UIViewController {
                 self.email = emailTextField.text
                 if let email = self.email {
                     // EXAMPLE: of when the users changes or an existing user changes their email we update the SDK with the new email.
-                    Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+                    KlaviyoSDK().set(email: email)
                     self.emailLabel.text = "Email: \(email)"
                 }
             }
@@ -236,6 +235,17 @@ class MenuPageViewController: UIViewController {
             cartIcon.setImage(UIImage(named: "FullCart"), for: UIControl.State())
         }
         cart.cartItems.append(menuItems[sender.tag])
+
+        if !cart.cartItems.isEmpty {
+            // Create a dictionary of the items not purchased
+            let propertiesDictionary = [
+                "Items in Cart": cart.createCartItemsSet.map(\.name)
+            ]
+
+            // EXAMPLE : of Checkout Started.. but no placed order #
+            KlaviyoSDK().create(event: .init(name: .StartedCheckout, properties: propertiesDictionary))
+        }
+
         tableView.reloadData()
     }
 
@@ -268,10 +278,10 @@ class MenuPageViewController: UIViewController {
 
     private func setKLAppOpenEvent() {
         if let email = email {
-            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            KlaviyoSDK().set(email: email)
         }
         // EXAMPLE: this is when the user opens the app consectective time
-        Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App")
+        KlaviyoSDK().create(event: .init(name: .CustomEvent("Opened klM App")))
     }
 
     private func initializeMenuItems() {
