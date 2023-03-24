@@ -231,6 +231,9 @@ If a user taps on the notification with the application open, this event is trac
 
 ## Handling deep linking
 
+> :warning: **Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.**
+
+
 There are two use cases for deep linking that can be relevant here:
 1. When you push a notification to your app with a deep link.
 2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
