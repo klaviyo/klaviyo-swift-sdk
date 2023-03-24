@@ -59,7 +59,6 @@ Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 3. Begin tracking events anywhere within your application by calling the `trackEvent` method in the relevant location.
 
 ```swift
-
 let klaviyo = Klaviyo.sharedInstance
 
 let customerDictionary : NSMutableDictionary = NSMutableDictionary()
@@ -149,17 +148,24 @@ Implementing push notifications requires a few additional snippets of code to en
 1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `setUpUserEmail:` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
 
 ```swift
-    import UserNotifications
-...
+	import UserNotifications
+	...
+	let center = UNUserNotificationCenter.current()
+	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+	// use the below options if you are interested in using provisional push notifications. Note that using this will not
+	// show the push notifications prompt to the user.
+	// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+	center.requestAuthorization(options: options) { granted, error in
+	    if let error = error {
+	        // Handle the error here.
+	        print("error = ", error)
+	    }
 
-    let center = UNUserNotificationCenter.current()
-    center.delegate = self as? UNUserNotificationCenterDelegate
-    let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+	    // Enable or disable features based on the authorization status.
+	}
 
-    center.requestAuthorization(options: options) { (granted, error) in
-        // Enable / disable features based on response
-    }
-    UIApplication.shared.registerForRemoteNotifications()
+	UIApplication.shared.registerForRemoteNotifications()
 ```
 
 2. Add the following code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken`. You may need to add this code to your application delegate if you have not done so already.
@@ -222,6 +228,110 @@ The following code example allows push notifications to be displayed when your a
 ```
 
 If a user taps on the notification with the application open, this event is tracked as an *Opened Push* event.
+
+## Handling deep linking
+
+There are two use cases for deep linking that can be relevant here:
+1. When you push a notification to your app with a deep link.
+2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
+
+Note that Klaviyo doesn't officially support universal links yet, but since there is no validation on the klaviyo front end for URI schemes, you can include universal links in your push notifications. Ensuring that Klaviyo push works to your expectations with universal links will be the responsibility of your developers.
+
+In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here:
+
+### Step 1: Register the URL scheme
+
+In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
+
+The required fields are as following:
+
+1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
+2. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
+3. **Role** - Since your app will be editing the role select the role as editor.
+
+In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist.
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+	<dict>
+		<key>CFBundleTypeRole</key>
+		<string>Editor</string>
+		<key>CFBundleURLName</key>
+		<string>{your_unique_identifier}</string>
+		<key>CFBundleURLSchemes</key>
+		<array>
+			<string>{your_URL_scheme}</string>
+		</array>
+	</dict>
+</array>
+```
+
+
+### Step 2: Whitelist supported URL schemes
+
+Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
+
+This needs to be done in the Info.plist directly:
+
+```xml
+<key>LSApplicationQueriesSchemes</key>
+<array>
+	<string>{your custom URL scheme}</string>
+</array>
+```
+
+### Step 3: Implement handling deep links in your app
+
+Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app.
+
+If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
+
+Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
+
+Example:
+
+```swift
+func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+) -> Bool {
+    guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true)
+    else {
+       print("Invalid deep linking URL")
+       return false
+    }
+
+    print("components: \(components.debugDescription)")
+
+    return true
+}
+```
+
+If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)) as a view modifier in the view you intent to handle deep links. This may or may not be the root of your scene.
+
+Example:
+
+```swift
+@main
+struct MyApplication: App {
+  var body: some Scene {
+    WindowGroup {
+      ContentView()
+        .onOpenURL { url in
+          // handle the URL that must be opened
+        }
+    }
+  }
+}
+```
+
+Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
+
+Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
+
+`xcrun simctl openurl booted {your_URL_here}`
 
 ## SDK Data Transfer
 
