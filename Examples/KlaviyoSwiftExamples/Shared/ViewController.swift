@@ -45,7 +45,7 @@ class ViewController: UIViewController {
 
         // Unwrap textfield value and save it
         if let zip = zipcodeTextField.text {
-            userInfo[Klaviyo.sharedInstance.KLPersonZipDictKey] = zip
+            KlaviyoSDK().set(profileAttribute: .zip, value: zip)
             zipCode = zip
             if rememberMeSwitch.isOn {
                 UserDefaults.standard.set(zip, forKey: "zip")
@@ -58,7 +58,6 @@ class ViewController: UIViewController {
                 UserDefaults.standard.set(email, forKey: "email")
             }
             emailAddr = email
-            userInfo[Klaviyo.sharedInstance.KLPersonEmailDictKey] = email
             KlaviyoSDK().set(email: email)
         }
 

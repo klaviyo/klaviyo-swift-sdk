@@ -264,16 +264,6 @@ class MenuPageViewController: UIViewController {
     @objc
     private func saveCartItems(_ notification: Notification) {
         cart.saveCart()
-
-        if !cart.cartItems.isEmpty {
-            // Create a dictionary of the items not purchased
-            let propertiesDictionary = NSMutableDictionary()
-            let itemsPurchasedArray = cart.createCartItemsSet.map(\.name)
-            propertiesDictionary["Items in Cart"] = itemsPurchasedArray
-
-            // EXAMPLE : of Checkout Started.. but no placed order #
-            Klaviyo.sharedInstance.trackEvent(eventName: "Abandoned Cart", properties: propertiesDictionary)
-        }
     }
 
     private func setKLAppOpenEvent() {
