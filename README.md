@@ -327,9 +327,9 @@ struct MyApplication: App {
 }
 ```
 
-Once the above steps are complete, you can try to send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
+Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
 
-Additionally, you can also locally try and trigger a deep link to make sure your code is working using the below command in the terminal -
+Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal -
 
 `xcrun simctl openurl booted {your_URL_here}`
 
