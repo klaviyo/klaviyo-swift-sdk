@@ -157,8 +157,6 @@ public struct Profile: Equatable {
             self.location = location
             _properties = AnyCodable(properties ?? [:])
         }
-
-        init(with: [String: AnyHashable]) {}
     }
 
     public let attributes: Attributes
