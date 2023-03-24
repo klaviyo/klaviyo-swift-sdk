@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "anycodable",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Flight-School/AnyCodable",
+      "state" : {
+        "revision" : "862808b2070cd908cb04f9aafe7de83d35f81b05",
+        "version" : "0.6.7"
+      }
+    },
+    {
+      "identity" : "klaviyo-swift-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/klaviyo/klaviyo-swift-sdk",
+      "state" : {
+        "revision" : "df0da7a21e68dda3d17230eddfcac6b7d6fe5c37",
+        "version" : "1.7.1"
+      }
+    }
+  ],
+  "version" : 2
+}
