@@ -7,7 +7,7 @@
 
 import Foundation
 
-// This should be an exhaustive list of deep linking hosts that are handled by the app
+// This should be an exhaustive list of deep linking paths that are handled by the app
 enum DeepLinking: String {
     case home
     case menu

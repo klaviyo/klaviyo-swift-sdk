@@ -41,10 +41,9 @@ class ViewController: UIViewController {
             return false
         }
 
-        var userInfo = [String: Any]()
-
         // Unwrap textfield value and save it
         if let zip = zipcodeTextField.text {
+            // EXAMPLE: of setting user's attributes to their profile.
             KlaviyoSDK().set(profileAttribute: .zip, value: zip)
             zipCode = zip
             if rememberMeSwitch.isOn {
@@ -59,12 +58,6 @@ class ViewController: UIViewController {
             }
             emailAddr = email
             KlaviyoSDK().set(email: email)
-        }
-
-        // swiftformat:disable:next isEmpty
-        if userInfo.count > 0 {
-            // EXAMPLE: of tracking event with user properties during app opened
-            KlaviyoSDK().create(event: .init(name: .CustomEvent("Opened klM App"), profile: userInfo))
         }
 
         return true

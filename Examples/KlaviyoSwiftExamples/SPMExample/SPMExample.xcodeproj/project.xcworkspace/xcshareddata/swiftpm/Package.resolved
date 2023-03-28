@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/klaviyo/klaviyo-swift-sdk",
       "state" : {
-        "branch" : "noah/expose_new_ios_api",
-        "revision" : "6d7715bd50ea556b3e69170665ba5b96219c43b7"
+        "branch" : "master",
+        "revision" : "a7f3d840082be12b1210c0cb47bcabf022556ef8"
       }
     }
   ],

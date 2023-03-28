@@ -612,7 +612,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
-				branch = noah/expose_new_ios_api;
+				branch = master;
 				kind = branch;
 			};
 		};
