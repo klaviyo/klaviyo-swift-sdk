@@ -20,7 +20,6 @@ Describe how you tested this change.
 
 1.
 
-```
 
 # Supporting Materials
 
