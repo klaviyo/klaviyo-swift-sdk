@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+@testable import KlaviyoSwift
 import Foundation
 import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 @MainActor
 class StateManagementEdgeCaseTests: XCTestCase {
@@ -260,7 +260,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testEnqueueEventUninitialized() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let event = Event(attributes: .init(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"]))
+        let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }

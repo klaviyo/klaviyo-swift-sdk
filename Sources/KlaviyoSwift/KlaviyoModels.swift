@@ -8,9 +8,7 @@
 import AnyCodable
 import Foundation
 
-@_spi(KlaviyoPrivate)
 public struct Event: Equatable {
-    @_spi(KlaviyoPrivate)
     public enum EventName: Equatable {
         case OpenedPush
         case ViewedProduct
@@ -28,57 +26,45 @@ public struct Event: Equatable {
         case CustomEvent(String)
     }
 
-    @_spi(KlaviyoPrivate)
-    public struct Attributes: Equatable {
-        @_spi(KlaviyoPrivate)
-        public struct Metric: Equatable {
-            public let name: EventName
-            @_spi(KlaviyoPrivate)
-            public init(name: EventName) {
-                self.name = name
-            }
-        }
+    public struct Metric: Equatable {
+        public let name: EventName
 
-        public let metric: Metric
-        public var properties: [String: Any] {
-            _properties.value as! [String: Any]
-        }
-
-        private let _properties: AnyCodable
-        public var profile: [String: Any] {
-            _profile.value as! [String: Any]
-        }
-
-        internal var _profile: AnyCodable
-        public var time: Date
-        public let value: Double?
-        public let uniqueId: String
-        @_spi(KlaviyoPrivate)
-        public init(name: EventName,
-                    properties: [String: Any]? = nil,
-                    profile: [String: Any]? = nil,
-                    value: Double? = nil,
-                    time: Date? = nil,
-                    uniqueId: String? = nil) {
-            _profile = AnyCodable(profile ?? [:])
-            metric = .init(name: name)
-            _properties = AnyCodable(properties ?? [:])
-            self.value = value
-            self.time = time ?? environment.analytics.date()
-            self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
+        public init(name: EventName) {
+            self.name = name
         }
     }
 
-    public var attributes: Attributes
-    @_spi(KlaviyoPrivate)
-    public init(attributes: Attributes) {
-        self.attributes = attributes
+    public let metric: Metric
+    public var properties: [String: Any] {
+        _properties.value as! [String: Any]
+    }
+
+    private let _properties: AnyCodable
+    public var profile: [String: Any] {
+        _profile.value as! [String: Any]
+    }
+
+    internal var _profile: AnyCodable
+    public var time: Date
+    public let value: Double?
+    public let uniqueId: String
+
+    public init(name: EventName,
+                properties: [String: Any]? = nil,
+                profile: [String: Any]? = nil,
+                value: Double? = nil,
+                time: Date? = nil,
+                uniqueId: String? = nil) {
+        _profile = AnyCodable(profile ?? [:])
+        metric = .init(name: name)
+        _properties = AnyCodable(properties ?? [:])
+        self.value = value
+        self.time = time ?? environment.analytics.date()
+        self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
     }
 }
 
-@_spi(KlaviyoPrivate)
 public struct Profile: Equatable {
-    @_spi(KlaviyoPrivate)
     public enum ProfileKey: Equatable, Hashable, Codable {
         case firstName
         case lastName
@@ -96,9 +82,7 @@ public struct Profile: Equatable {
         case custom(customKey: String)
     }
 
-    @_spi(KlaviyoPrivate)
     public struct Attributes: Equatable {
-        @_spi(KlaviyoPrivate)
         public struct Location: Equatable {
             public var address1: String?
             public var address2: String?
@@ -168,7 +152,7 @@ public struct Profile: Equatable {
     }
 
     public let attributes: Attributes
-    @_spi(KlaviyoPrivate)
+
     public init(attributes: Attributes) {
         self.attributes = attributes
     }
