@@ -1,38 +1,73 @@
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
+name: Bug Report
+description: Something isn't working as expected
+labels: [bug]
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thank you for contributing to the Klaviyo Swift SDK!
 
----
+      Before you submit your issue, please complete each text area below with the relevant details for your bug, and complete the steps in the checklist
+- type: textarea
+  attributes:
+    label: Description
+    description: |
+      A short description of the incorrect behavior.
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+      If you think this issue has been recently introduced and did not occur in an earlier version, please note that. If possible, include the last version that the behavior was correct in addition to your current version.
+  validations:
+    required: true
+- type: checkboxes
+  attributes:
+    label: Checklist
+    options:
+    - label: I have determined whether this bug is also reproducible in a vanilla SwiftUI project.
+      required: false
+    - label: If possible, I've reproduced the issue using the `main` branch of this package.
+      required: false
+    - label: This issue hasn't been addressed in an [existing GitHub issue](https://github.com/klaviyo/klaviyo-swift-sdk/issues) or [discussion](https://github.com/pointfreeco/klaviyo/klaviyo-swift-sdk/discussions).
+      required: true
+- type: textarea
+  attributes:
+    label: Expected behavior
+    description: Describe what you expected to happen.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Actual behavior
+    description: Describe or copy/paste the behavior you observe.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    description: |
+      Explanation of how to reproduce the incorrect behavior.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
-
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+      This could include an attached project or link to code that is exhibiting the issue, and/or a screen recording.
+    placeholder: |
+      1. ...
+  validations:
+    required: false
+- type: input
+  attributes:
+    label: The Klaviyo Swift SDK version information
+    description: The version of the Klaviyo Swift SDK used to reproduce this issue.
+    placeholder: "'1.7.2' for example, or a commit hash"
+- type: input
+  attributes:
+    label: Destination operating system
+    description: The OS running your TCA application.
+    placeholder: "'iOS 15' for example"
+- type: input
+  attributes:
+    label: Xcode version information
+    description: The version of Xcode used to reproduce this issue.
+    placeholder: "The version displayed from 'Xcode 〉About Xcode'"
+- type: textarea
+  attributes:
+    label: Swift Compiler version information
+    description: The version of Swift used to reproduce this issue.
+    placeholder: Output from 'xcrun swiftc --version'
+    render: shell
