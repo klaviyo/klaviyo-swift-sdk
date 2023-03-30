@@ -119,7 +119,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let time: Date
                     let value: Double?
                     let uniqueId: String
-                    init(attributes: KlaviyoSwift.Event.Attributes,
+                    init(attributes: KlaviyoSwift.Event,
                          anonymousId: String? = nil) {
                         metric = Metric(name: attributes.metric.name.value)
                         properties = AnyCodable(attributes.properties)
@@ -149,7 +149,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                 let attributes: Attributes
                 init(event: KlaviyoSwift.Event,
                      anonymousId: String? = nil) {
-                    attributes = .init(attributes: event.attributes, anonymousId: anonymousId)
+                    attributes = .init(attributes: event, anonymousId: anonymousId)
                 }
             }
 
@@ -252,6 +252,8 @@ extension Profile.Attributes.Location: Codable {
 
 // MARK: Legacy request data
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyIdentifiers {
     let email: String?
     let phoneNumber: String?
@@ -271,6 +273,8 @@ struct LegacyIdentifiers {
     }
 }
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyEvent: Equatable {
     let eventName: String
     let customerProperties: NSDictionary
@@ -305,13 +309,15 @@ struct LegacyEvent: Equatable {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken
         }
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(attributes: .init(name: .CustomEvent(eventName), properties: eventProperties, profile: customerProperties)))
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, profile: customerProperties))
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }
 
+@available(
+    iOS, deprecated: 9999, message: "Deprecated do not use.")
 struct LegacyProfile: Equatable {
     let customerProperties: NSDictionary
 
@@ -344,7 +350,6 @@ struct LegacyProfile: Equatable {
             .init(data: .init(profile:
                 .init(attributes: attributes),
                 anonymousId: anonymousId)))
-
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }

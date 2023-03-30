@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 11/16/22.
 //
 
+@testable import KlaviyoSwift
 import SnapshotTesting
 import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 @MainActor
 final class KlaviyoAPITests: XCTestCase {

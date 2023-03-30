@@ -5,11 +5,11 @@
 //  Created by Noah Durell on 12/1/22.
 //
 
+@testable import KlaviyoSwift
 import AnyCodable
 import Foundation
-import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import SnapshotTesting
+import XCTest
 
 @MainActor
 final class KlaviyoStateTests: XCTestCase {

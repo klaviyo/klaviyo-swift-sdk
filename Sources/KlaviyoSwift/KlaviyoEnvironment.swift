@@ -12,7 +12,7 @@ import UIKit
 
 var environment = KlaviyoEnvironment.production
 
-let PRODUCTION_HOST = Klaviyo.sharedInstance.KlaviyoServerURLString
+let PRODUCTION_HOST = "https://a.klaviyo.com"
 let encoder = { () -> JSONEncoder in
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601

@@ -300,26 +300,16 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.event(event))
                 return .none
             }
-            var profile = event.attributes.profile
-            if let email = profile["$email"] as? String {
-                state.email = email
-            } else {
-                profile["$email"] = state.email
-            }
-            if let phoneNumber = profile["$phone_number"] as? String {
-                state.phoneNumber = phoneNumber
-            } else {
-                profile["$phone_number"] = state.phoneNumber
-            }
-            if let externalId = profile["$id"] as? String {
-                state.externalId = externalId
-            } else {
-                profile["$id"] = state.externalId
-            }
-            event.attributes._profile = AnyCodable(profile)
 
+            event = event.updateStateAndEvent(state: &state)
             state.queue.append(.init(apiKey: apiKey,
-                                     endpoint: .createEvent(.init(data: .init(event: event, anonymousId: anonymousId)))))
+                                     endpoint: .createEvent(
+                                         .init(data:
+                                             .init(event: event,
+                                                   anonymousId: anonymousId)
+                                         )
+                                     ))
+            )
             return .none
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState,
@@ -399,5 +389,37 @@ extension KlaviyoState {
                               externalId: externalId))
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.storePushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+}
+
+extension Event {
+    func updateStateAndEvent(state: inout KlaviyoState) -> Event {
+        var profile = profile
+        if let email = profile["$email"] as? String {
+            state.email = email
+        } else {
+            profile["$email"] = state.email
+        }
+        if let phoneNumber = profile["$phone_number"] as? String {
+            state.phoneNumber = phoneNumber
+        } else {
+            profile["$phone_number"] = state.phoneNumber
+        }
+        if let externalId = profile["$id"] as? String {
+            state.externalId = externalId
+        } else {
+            profile["$id"] = state.externalId
+        }
+        var properties = properties
+        if metric.name == EventName.OpenedPush,
+           let pushToken = state.pushToken {
+            properties["push_token"] = pushToken
+        }
+        return Event(name: metric.name,
+                     properties: properties,
+                     profile: profile,
+                     value: value,
+                     time: time,
+                     uniqueId: uniqueId)
     }
 }
