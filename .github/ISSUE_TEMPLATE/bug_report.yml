@@ -58,7 +58,7 @@ body:
 - type: input
   attributes:
     label: Destination operating system
-    description: The OS running your TCA application.
+    description: The OS running your application.
     placeholder: "'iOS 15' for example"
 - type: input
   attributes:
