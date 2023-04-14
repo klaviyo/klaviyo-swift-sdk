@@ -173,7 +173,7 @@ The following code example allows you to track when a user opens a push notifica
 ```swift
     extension AppDelegate: UNUserNotificationCenterDelegate {
         func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            let handled = KlaviyoSDK()(notificationResponse: response, completionHandler: completionHandler)
+            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler)
             if not handled {
                // not a klaviyo notification should be handled by other app code
             }
