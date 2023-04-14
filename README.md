@@ -63,10 +63,11 @@ let klaviyo = KlaviyoSDK()
 
 let event = Event(name: .StartedCheckout, properties: [
     "Total Price": 10.99,
-    "Items Purchased": ["Milk","Cheese", "Yogurt"],
-], profile: [
-    "$first_name": "John",
-    "$last_name": "Smith",
+    "Items Purchased": ["Hot Dog", "Fries", "Shake"]
+], identifiers: .init(email: "junior@blob.com"),
+profile: [
+    "$first_name": "Blob",
+    "$last_name": "Jr"
 ], value: 10.99)
 
 klaviyo.create(event: event)
@@ -87,23 +88,19 @@ The `create` method takes an event object as an argument. The event can be const
 
 ## Identifying traits of people
 
-You can identify traits about a person using `trackPersonWithInfo`.
+If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:) methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
 ```swift
-let klaviyo = KlaviyoSDK()
+let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
+KlaviyoSDK().set(profile: profile)
 
-let event = Event(name: .StartedCheckout, properties: [
-    "Total Price": 10.99,
-    "Items Purchased": ["Milk","Cheese", "Yogurt"],
-], profile: [
-    "$first_name": "John",
-    "$last_name": "Smith",
-], value: 10.99)
-
-klaviyo.create(event: event)
+// or setting individual properties
+KlaviyoSDK().set(profileAttribute: .firstName, "Blob")
+KlaviyoSDK().set(profileAttribute: .lastName, "Jr")
 ```
 
-Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
+
+Note that the only argument `set(profile:)` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
 
 
 ## Anonymous Tracking Notice
@@ -114,12 +111,10 @@ Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (I
 
 ## Profile properties and Identifiers
 
-If you app collects additional data about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:) methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
-
 Whenever an email (or other identifier) is provided to use via our APIs we will retain that information for future calls so that new data is tracked against the right profile. However, you are always free to override the current identifiers by passing new ones into a customer properties dictionary.
 
 ```swift
-    KlaviyoSDK().set(email: "john.smith@example.com")
+KlaviyoSDK().set(email: "junior@blob.com")
 ```
 
 ## Push Notifications
@@ -131,7 +126,7 @@ Implementing push notifications requires a few additional snippets of code to en
 
 ### Sending push notifications
 
-1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `setUpUserEmail:` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
+1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `set(email:)` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
 
 ```swift
 	import UserNotifications

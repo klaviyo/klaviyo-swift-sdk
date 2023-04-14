@@ -38,7 +38,7 @@ final class KlaviyoAPITests: XCTestCase {
     func testEncodingError() async throws {
         environment.analytics.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -54,7 +54,7 @@ final class KlaviyoAPITests: XCTestCase {
         environment.analytics.networkSession = { NetworkSession.test(data: { _ in
             throw NSError(domain: "network error", code: 0)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -70,7 +70,7 @@ final class KlaviyoAPITests: XCTestCase {
         environment.analytics.networkSession = { NetworkSession.test(data: { _ in
             (Data(), .non200Response)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -87,7 +87,7 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(attributes: .init()), anonymousId: "foo"))))
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {

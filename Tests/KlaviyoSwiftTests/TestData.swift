@@ -10,11 +10,6 @@ import Foundation
 
 let TEST_API_KEY = "fake-key"
 
-extension Profile {
-    static let test = Self(
-        attributes: .test)
-}
-
 let INITIALIZED_TEST_STATE = { KlaviyoState(
     apiKey: TEST_API_KEY,
     anonymousId: environment.analytics.uuid().uuidString,
@@ -24,7 +19,7 @@ let INITIALIZED_TEST_STATE = { KlaviyoState(
     initalizationState: .initialized,
     flushing: true) }
 
-extension Profile.Attributes {
+extension Profile {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
         "stuff": 2,
@@ -45,7 +40,7 @@ extension Profile.Attributes {
         properties: SAMPLE_PROPERTIES)
 }
 
-extension Profile.Attributes.Location {
+extension Profile.Location {
     static let test = Self(
         address1: "blob",
         address2: "blob",

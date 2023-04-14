@@ -297,7 +297,7 @@ public class Klaviyo: NSObject {
         iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().set(pushToken:) instead.")
     @objc
     public func addPushDeviceToken(deviceToken: Data) {
-        _ = Self.sdkInstance.set(pushToken: deviceToken)
+        Self.sdkInstance.set(pushToken: deviceToken)
     }
 
     /**

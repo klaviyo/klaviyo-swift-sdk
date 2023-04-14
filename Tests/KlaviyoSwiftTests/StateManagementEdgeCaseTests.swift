@@ -270,7 +270,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testSetProfileUnitialized() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let profile = Profile(attributes: .init(email: "foo"))
+        let profile = Profile(email: "foo")
         _ = await store.send(.enqueueProfile(profile)) {
             $0.pendingRequests = [.profile(profile)]
         }

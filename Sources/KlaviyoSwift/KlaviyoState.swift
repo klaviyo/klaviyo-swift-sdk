@@ -70,9 +70,9 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        email = profile.attributes.email ?? email
-        phoneNumber = profile.attributes.phoneNumber ?? phoneNumber
-        externalId = profile.attributes.externalId ?? externalId
+        email = profile.email ?? email
+        phoneNumber = profile.phoneNumber ?? phoneNumber
+        externalId = profile.externalId ?? externalId
     }
 
     mutating func updateRequestAndStateWithPendingProfile(request: KlaviyoAPI.KlaviyoRequest) throws -> KlaviyoAPI.KlaviyoRequest? {
