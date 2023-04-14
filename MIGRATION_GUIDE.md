@@ -1,7 +1,7 @@
 
 # iOS SDK Migration Guide
 
-This guide outlines how developers can migrate from older versions of our to newer ones.
+This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
 ## Migrating from v1.X.0 to v2.0.0
 
@@ -21,6 +21,7 @@ KlaviyoSDK()
 ### Profile Identification
 Our previous SDK used dictionary as input to track a profile like so:
 ```swift
+let klaviyo = Klaviyo.sharedInstance
 let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
 personInfoDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
 personInfoDictionary[klaviyo.KLPersonZipDictKey] = "02215"
@@ -28,7 +29,7 @@ klaviyo.trackPersonWithInfo(personDictionary: personInfoDictionary)
 ```
 Instead now the same thing can be acheived as follows:
 ```swift
-let profile = Profile(email: "john.smith@example.com", location: .init(zipCode: "02215"))
+let profile = Profile(email: "john.smith@example.com", location: .init(zip: "02215"))
 KlaviyoSDK().set(profile: profile)
 ```
 
