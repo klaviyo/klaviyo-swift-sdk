@@ -34,6 +34,12 @@ public struct Event: Equatable {
         }
     }
 
+    public struct Identifiers {
+        public let email: String
+        public let phoneNumber: String
+        public let externalId: String
+    }
+
     public let metric: Metric
     public var properties: [String: Any] {
         _properties.value as! [String: Any]
@@ -48,9 +54,11 @@ public struct Event: Equatable {
     public var time: Date
     public let value: Double?
     public let uniqueId: String
+    public let identifiers: Identifiers?
 
     public init(name: EventName,
                 properties: [String: Any]? = nil,
+                identifiers: Identifiers? = nil,
                 profile: [String: Any]? = nil,
                 value: Double? = nil,
                 time: Date? = nil,
@@ -61,6 +69,7 @@ public struct Event: Equatable {
         self.value = value
         self.time = time ?? environment.analytics.date()
         self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
+        self.identifiers = identifiers
     }
 }
 

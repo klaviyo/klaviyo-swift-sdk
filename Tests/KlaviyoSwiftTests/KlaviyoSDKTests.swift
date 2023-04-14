@@ -85,6 +85,21 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
+    func testCreateEventFromDocumentation() throws {
+        let event = Event(name: .StartedCheckout, properties: [
+            "Total Price": 10.99,
+            "Items Purchased": ["Milk", "Cheese", "Yogurt"]
+        ], profile: [
+            "$first_name": "John",
+            "$last_name": "Smith"
+        ], value: 10.99)
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
+
+        klaviyo.create(event: event)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
     // MARK: test set push token
 
     func testSetPushToken() throws {

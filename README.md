@@ -53,53 +53,54 @@ import KlaviyoSwift
 2. To add Klaviyo's tracking functionality, include the following line in AppDelegate.swift, within `application:didFinishLaunchingWithOptions`:
 
 ```swift
-Klaviyo.setupWithPublicAPIKey(apiKey: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+KlaviyoSDK().initalize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
-3. Begin tracking events anywhere within your application by calling the `trackEvent` method in the relevant location.
+3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
 
 ```swift
-let klaviyo = Klaviyo.sharedInstance
+let klaviyo = KlaviyoSDK()
 
-let customerDictionary : NSMutableDictionary = NSMutableDictionary()
-customerDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
-customerDictionary[klaviyo.KLPersonFirstNameDictKey] = "John"
-customerDictionary[klaviyo.KLPersonLastNameDictKey] = "Smith"
+let event = Event(name: .StartedCheckout, properties: [
+    "Total Price": 10.99,
+    "Items Purchased": ["Milk","Cheese", "Yogurt"],
+], profile: [
+    "$first_name": "John",
+    "$last_name": "Smith",
+], value: 10.99)
 
-let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
-propertiesDictionary["Total Price"] = 10.99
-propertiesDictionary["Items Purchased"] = ["Milk","Cheese", "Yogurt"]
-Klaviyo.sharedInstance.trackEvent(
-    eventName: "Completed Checkout",
-    customerProperties: customerDictionary,
-    properties: propertiesDictionary
-)
+klaviyo.create(event: event)
 ```
 ### Arguments
 
-The `track` function can be called with up to four arguments.
+The `create` method takes an event object as an argument. The event can be constructed with the following arguments:
 
-* `eventName`: The name of the event you want to track, as a string. This argument is required to track an event.
+* `name`: The name of the event you want to track, as a EventName enum.  The are a number of commonly used event names provided by default. If you need to log an event with a different name use `CustomEvent` with a string of your choosing. This argument is required to track an event.
 
-* `customerProperties`: An NSDictionary of properties that belong to the person who did the action you're tracking. If you do not include an `$email`, `$phone_number` or `$id key`, the event cannot be tracked by Klaviyo. This argument is optional but recommended.
+* `profile`: An dictionary of properties that belong to the person who did the action you're tracking. Including an `$email`, `$phone_number` or `$id` key associates the event with particular profile in Klaviyo. In addition the SDK will retain these properties for use in future sdk calls, therefore if they are not included previously set identifiers will be used to log the event. This argument is optional.
 
-* `properties`: An NSDictionary of properties that are specific to the event. This argument is optional.
+* `properties`: An dictionary of properties that are specific to the event. This argument is optional.
 
-* `eventDate`: This is the timestamp, as an NSDate, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real- time activity, you can ignore this argument.
+* `time`: This is the timestamp, as an `Date`, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real- time activity, you can ignore this argument.
+
+* `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
 
 ## Identifying traits of people
 
 You can identify traits about a person using `trackPersonWithInfo`.
 
 ```swift
-let klaviyo = Klaviyo.sharedInstance
+let klaviyo = KlaviyoSDK()
 
-let personInfoDictionary : NSMutableDictionary = NSMutableDictionary()
-personInfoDictionary[klaviyo.KLPersonEmailDictKey] = "john.smith@example.com"
-personInfoDictionary[klaviyo.KLPersonZipDictKey] = "02215"
+let event = Event(name: .StartedCheckout, properties: [
+    "Total Price": 10.99,
+    "Items Purchased": ["Milk","Cheese", "Yogurt"],
+], profile: [
+    "$first_name": "John",
+    "$last_name": "Smith",
+], value: 10.99)
 
-
-klaviyo.trackPersonWithInfo(personDictionary: personInfoDictionary)
+klaviyo.create(event: event)
 ```
 
 Note that the only argument `trackPersonWithInfo` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
@@ -111,29 +112,14 @@ By default, Klaviyo will begin tracking unidentified users in your app once the 
 
 Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
-## Special properties
+## Profile properties and Identifiers
 
-The following special properties can be used when identifying a user or tracking event:
+If you app collects additional data about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:) methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
-*    `KLPersonEmailDictKey`
-*    `KLPersonFirstNameDictKey`
-*    `KLPersonLastNameDictKey`
-*    `KLPersonPhoneNumberDictKey`
-*    `KLPersonTitleDictKey`
-*    `KLPersonOrganizationDictKey`
-*    `KLPersonCityDictKey`
-*    `KLPersonRegionDictKey`
-*    `KLPersonCountryDictKey`
-*    `KLPersonZipDictKey`
-*    `KLEventIDDictKey`
-*    `KLEventValueDictKey`
-
-In cases where you wish to call `trackEvent` with only the `eventName` parameter, you can use `setUpUserEmail` to configure your user's email address. This allows you to avoid anonymous user tracking.
-
-By calling `setUpUserEmail` once, usually upon application login, Klaviyo can track all subsequent events as tied to the given user. However, you are also free to override this functionality by passing in a customer properties dictionary.
+Whenever an email (or other identifier) is provided to use via our APIs we will retain that information for future calls so that new data is tracked against the right profile. However, you are always free to override the current identifiers by passing new ones into a customer properties dictionary.
 
 ```swift
-    Klaviyo.sharedInstance.setUpUserEmail(userEmail: "john.smith@example.com")
+    KlaviyoSDK().set(email: "john.smith@example.com")
 ```
 
 ## Push Notifications
@@ -172,7 +158,7 @@ Implementing push notifications requires a few additional snippets of code to en
 
 ```swift
     func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken)
+        KlaviyoSDK().set(pushToken: deviceToken)
     }
 ```
 
@@ -187,22 +173,15 @@ To read more about sending push notifications, check out our additional push not
 
 The following code example allows you to track when a user opens a push notification.
 
-1. In your application delegate, under `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` add the following:
-
-```swift
-    if application.applicationState == UIApplication.State.inactive || application.application.State == UIApplicationState.background {
-        Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
-    }
-    completionHandler(.noData)
-```
-
-2. Add the following code that extends your app delegate:
+1. Add the following code that extends your app delegate:
 
 ```swift
     extension AppDelegate: UNUserNotificationCenterDelegate {
         func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary)
-            completionHandler()
+            let handled = KlaviyoSDK()(notificationResponse: response, completionHandler: completionHandler)
+            if not handled {
+               // not a klaviyo notification should be handled by other app code
+            }
         }
     }
 
