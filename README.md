@@ -7,6 +7,11 @@
 [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![Platform](https://img.shields.io/cocoapods/p/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 
+## DISCLAIMER
+
+*This project is in a closed beta,
+breaking changes could still be made to the API.
+This is not yet intended for public use*
 
 ## Overview
 
