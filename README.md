@@ -243,19 +243,35 @@ There are two use cases for deep linking that can be relevant here:
 1. When you push a notification to your app with a deep link.
 2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
 
-Note that Klaviyo doesn't officially support universal links yet, but since there is no validation on the klaviyo front end for URI schemes, you can include universal links in your push notifications. Ensuring that Klaviyo push works to your expectations with universal links will be the responsibility of your developers.
-
 In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here:
 
-### Step 1: Register the URL scheme
+### Option 1: Modify Open Tracking
+If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
+```swift
+    extension AppDelegate: UNUserNotificationCenterDelegate {
+        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+            Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary) { url in
+               // use the url passed back to navigate to appropriate location within your app.
+            }
+            completionHandler()
+        }
+    }
+
+```
+Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
+
+### Option 2: Use URL Schemes
+If you do not need universal link support you can instead implement url schemes for your app and the deepLinkHandler as indicated in Option 1 can be omitted. The Klaviyo SDK will follow all url automatically in this case.
+
+#### Step 1: Register the URL scheme
 
 In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
 
 The required fields are as following:
 
 1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
-2. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
-3. **Role** - Since your app will be editing the role select the role as editor.
+1. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
+1. **Role** - Since your app will be editing the role select the role as editor.
 
 In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist.
 
@@ -276,7 +292,7 @@ In order to edit the Info.plist directly, just fill in your app specific details
 ```
 
 
-### Step 2: Whitelist supported URL schemes
+#### Step 2: Whitelist supported URL schemes
 
 Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
 
@@ -289,7 +305,7 @@ This needs to be done in the Info.plist directly:
 </array>
 ```
 
-### Step 3: Implement handling deep links in your app
+#### Step 3: Implement handling deep links in your app
 
 Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app.
 
