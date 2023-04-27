@@ -470,10 +470,11 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
     }
 
-    /// Track a notificationResponse open event in Klaviyo
+    /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
     ///   - remoteNotification: the remote notificaiton that was opened
-    ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
