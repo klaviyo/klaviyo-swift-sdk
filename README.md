@@ -224,10 +224,12 @@ If you plan to use universal links in your app for deep linking you will need to
 ```swift
     extension AppDelegate: UNUserNotificationCenterDelegate {
         func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary) { url in
-               // use the url passed back to navigate to appropriate location within your app.
+            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
+               // parse deep link and navigate here.
             }
-            completionHandler()
+            if not handled {
+               // not a klaviyo notification should be handled by other app code
+            }
         }
     }
 

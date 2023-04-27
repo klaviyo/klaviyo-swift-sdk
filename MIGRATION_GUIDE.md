@@ -87,5 +87,20 @@ Tracking push opens is also a bit different from before. You can now remove the 
     }
 ```
 
-### Updated Test App
+### Deep Link Updates
+Handling deep link is very similar to how it was done in earlier versions however if you use universal links you may want to update your code as follows:
+```swift
+    extension AppDelegate: UNUserNotificationCenterDelegate {
+        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
+               // parse deep link and navigate here.
+            }
+            if not handled {
+               // not a klaviyo notification should be handled by other app code
+            }
+        }
+    }
+```
+
+### Updated Example App
 We've also updated the test app to include examples of all the above. If you have more questions feel free to drop us a line in the discussion section of this repo.
