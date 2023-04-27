@@ -179,14 +179,15 @@ public class Klaviyo: NSObject {
 
     /**
      handlePush: Extracts tracking information from received push notification and sends the data to Klaviyo for push-tracking
-     analystics.
+     analystics. Note: this will automatically open any urls found in push payloads unless a deep link handler is specified.
 
      - Parameter userInfo: NSDictionary containing the push notification text & metadata
+     - Parameter deepLinkHandler: optional completion handler to be called when a link is found in a notification
      */
     @available(
         iOS, deprecated: 9999, message: "Deprecated as of version 2.0.0. Use `KlaviyoSDK().handle(notificationResponse:withCompletionHandler:) instead.")
     @objc
-    public func handlePush(userInfo: NSDictionary) {
+    public func handlePush(userInfo: NSDictionary, deepLinkHandler: ((URL) -> Void)? = nil) {
         if let properties = userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             Self.sdkInstance
@@ -194,7 +195,15 @@ public class Klaviyo: NSObject {
                                      properties: properties,
                                      profile: [:]))
             if let url = properties["url"] as? String, let url = URL(string: url) {
-                UIApplication.shared.open(url)
+                Task {
+                    await MainActor.run {
+                        if let deepLinkHandler = deepLinkHandler {
+                            deepLinkHandler(url)
+                        } else {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
             }
         }
     }
@@ -466,14 +475,18 @@ public struct KlaviyoSDK {
     ///   - remoteNotification: the remote notificaiton that was opened
     ///   - fetchCompletionHandler: a completion handler that will be called with a result for Klaviyo notifications
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
-    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
+    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(name: .OpenedPush, properties: properties, profile: [:]))
             Task {
                 await MainActor.run {
                     if let url = properties["url"] as? String, let url = URL(string: url) {
-                        UIApplication.shared.open(url)
+                        if let deepLinkHandler = deepLinkHandler {
+                            deepLinkHandler(url)
+                        } else {
+                            UIApplication.shared.open(url)
+                        }
                     }
                     completionHandler()
                 }
