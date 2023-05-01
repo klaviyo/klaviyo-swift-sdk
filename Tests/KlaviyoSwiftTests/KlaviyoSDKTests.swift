@@ -66,7 +66,11 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test set profile
 
     func testSetProfile() throws {
-        let profile = Profile(attributes: .init())
+        let profile = Profile(
+            email: "john.smith@example.com",
+            phoneNumber: "+15555551212",
+            firstName: "John",
+            lastName: "Smith")
         let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile))
 
         klaviyo.set(profile: profile)
@@ -78,6 +82,22 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testCreateEvent() throws {
         let event = Event(name: .OrderedProduct)
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
+
+        klaviyo.create(event: event)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testCreateEventFromDocumentation() throws {
+        let event = Event(name: .StartedCheckout, properties: [
+            "Total Price": 10.99,
+            "Items Purchased": ["Hot Dog", "Fries", "Shake"]
+        ], identifiers: .init(email: "junior@blob.com"),
+        profile: [
+            "$first_name": "Blob",
+            "$last_name": "Jr"
+        ], value: 10.99)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
         klaviyo.create(event: event)

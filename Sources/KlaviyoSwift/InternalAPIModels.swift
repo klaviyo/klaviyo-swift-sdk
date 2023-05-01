@@ -27,7 +27,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     var organization: String?
                     var title: String?
                     var image: String?
-                    var location: KlaviyoSwift.Profile.Attributes.Location?
+                    var location: KlaviyoSwift.Profile.Location?
                     var properties: AnyCodable
                     enum CodingKeys: String, CodingKey {
                         case email
@@ -43,7 +43,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                         case properties
                     }
 
-                    init(attributes: KlaviyoSwift.Profile.Attributes,
+                    init(attributes: KlaviyoSwift.Profile,
                          anonymousId: String) {
                         email = attributes.email
                         phoneNumber = attributes.phoneNumber
@@ -65,7 +65,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                         let phoneNumber: String?
                         let externalId: String?
                         let anonymousId: String
-                        init(attributes: KlaviyoSwift.Profile.Attributes, anonymousId: String) {
+                        init(attributes: KlaviyoSwift.Profile, anonymousId: String) {
                             email = attributes.email
                             phoneNumber = attributes.phoneNumber
                             externalId = attributes.externalId
@@ -87,10 +87,10 @@ extension KlaviyoAPI.KlaviyoRequest {
                 let meta: Meta
                 init(profile: KlaviyoSwift.Profile, anonymousId: String) {
                     attributes = Attributes(
-                        attributes: profile.attributes,
+                        attributes: profile,
                         anonymousId: anonymousId)
                     meta = Meta(identifiers: .init(
-                        attributes: profile.attributes,
+                        attributes: profile,
                         anonymousId: anonymousId))
                 }
 
@@ -210,7 +210,7 @@ extension KlaviyoAPI.KlaviyoRequest {
     }
 }
 
-extension Profile.Attributes.Location: Codable {
+extension Profile.Location: Codable {
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         address1 = try values.decode(String.self, forKey: .address1)
@@ -341,15 +341,14 @@ struct LegacyProfile: Equatable {
         customerProperties.removeValue(forKey: "$anonymous")
 
         // We assume that the state has the latest identifiers
-        let attributes = KlaviyoSwift.Profile.Attributes(
+        let attributes = KlaviyoSwift.Profile(
             email: state.email,
             phoneNumber: state.phoneNumber,
             externalId: state.externalId,
             properties: customerProperties)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(
-            .init(data: .init(profile:
-                .init(attributes: attributes),
-                anonymousId: anonymousId)))
+            .init(data: .init(profile: attributes,
+                              anonymousId: anonymousId)))
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }

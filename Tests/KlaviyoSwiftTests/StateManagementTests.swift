@@ -368,7 +368,7 @@ class StateManagementTests: XCTestCase {
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.enqueueProfile(Profile(attributes: .init(email: "foo")))) {
+        _ = await store.send(.enqueueProfile(Profile(email: "foo"))) {
             $0.phoneNumber = nil
             $0.email = "foo"
             $0.pushToken = nil
