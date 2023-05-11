@@ -41,11 +41,10 @@ class ViewController: UIViewController {
             return false
         }
 
-        let userInfo = NSMutableDictionary()
-
         // Unwrap textfield value and save it
         if let zip = zipcodeTextField.text {
-            userInfo[Klaviyo.sharedInstance.KLPersonZipDictKey] = zip
+            // EXAMPLE: of setting user's attributes to their profile.
+            KlaviyoSDK().set(profileAttribute: .zip, value: zip)
             zipCode = zip
             if rememberMeSwitch.isOn {
                 UserDefaults.standard.set(zip, forKey: "zip")
@@ -58,14 +57,7 @@ class ViewController: UIViewController {
                 UserDefaults.standard.set(email, forKey: "email")
             }
             emailAddr = email
-            userInfo[Klaviyo.sharedInstance.KLPersonEmailDictKey] = email
-            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
-        }
-
-        // swiftformat:disable:next isEmpty
-        if userInfo.count > 0 {
-            // EXAMPLE: of tracking event with user properties during app opened
-            Klaviyo.sharedInstance.trackEvent(eventName: "Opened klM App", customerProperties: userInfo, properties: nil)
+            KlaviyoSDK().set(email: email)
         }
 
         return true

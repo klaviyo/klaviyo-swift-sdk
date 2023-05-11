@@ -62,13 +62,12 @@ class CheckOutViewController: UIViewController {
         }
         cart.saveCart()
 
-        // Trigger "Checkout Completed" Event
-        // TODO: check with Noah why SDK doesn't take in swift dictionary
-        let propertiesDictionary = NSMutableDictionary()
-        propertiesDictionary[Klaviyo.sharedInstance.KLEventTrackPurchasePlatform] = "iOS \(UIDevice.current.systemVersion)"
-        propertiesDictionary["Total Price"] = cartTotal
-        propertiesDictionary["Items Purchased"] = uniqueItemsArray.map(\.name)
-        Klaviyo.sharedInstance.trackEvent(eventName: "Checkout Completed", properties: propertiesDictionary)
+        // Trigger "PlacedOrder" Event
+        let propertiesDictionary = [
+            "Items Purchased": uniqueItemsArray.map(\.name)
+        ]
+
+        KlaviyoSDK().create(event: .init(name: .PlacedOrder, properties: propertiesDictionary, value: cartTotal))
 
         // Trigger thank you modal view
         let alertController = UIAlertController(

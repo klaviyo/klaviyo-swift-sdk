@@ -34,14 +34,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window?.makeKeyAndVisible()
 
         // STEP2: Setup Klaviyo SDK with api key
-        Klaviyo.setupWithPublicAPIKey(apiKey: "magpcN")
+        KlaviyoSDK().initialize(with: "magpcN")
 
         // EXAMPLE: of how to track an event
-        Klaviyo.sharedInstance.trackEvent(eventName: "Opened kLM App")
+        KlaviyoSDK().create(event: .init(name: .CustomEvent("Opened kLM App")))
 
         // STEP3: register the user email with klaviyo so there is an unique way to identify your app user.
         if let email = email {
-            Klaviyo.sharedInstance.setUpUserEmail(userEmail: email)
+            KlaviyoSDK().set(email: email)
         }
 
         // STEP4: Setting up push notifcations
@@ -75,7 +75,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // STEP5: add the push device token to your Klaviyo user profile.
-        Klaviyo.sharedInstance.addPushDeviceToken(deviceToken: deviceToken)
+        KlaviyoSDK().set(pushToken: deviceToken)
     }
 
     func application(
@@ -86,18 +86,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } else {
             print("application:didFailToRegisterForRemoteNotificationsWithError: \(error)")
         }
-    }
-
-    // STEP6: Let Klaviyo SDK know when the user receives a push notification
-    func application(
-        _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        if application.applicationState == UIApplication.State.inactive ||
-            application.applicationState == UIApplication.State.background {
-            Klaviyo.sharedInstance.handlePush(userInfo: userInfo as NSDictionary)
-        }
-        completionHandler(.noData)
     }
 
     // MARK: Deep linking implementation
@@ -182,15 +170,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // MARK: App delegate extensions
 
-// STEP7: Add this extension on AppDelegate for additional push notifications handling
+// STEP6: Add this extension on AppDelegate for additional push notifications handling
 extension AppDelegate: UNUserNotificationCenterDelegate {
     // below method will be called when the user interacts with the push notification
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void) {
-        Klaviyo.sharedInstance.handlePush(userInfo: response.notification.request.content.userInfo as NSDictionary)
-        completionHandler()
+        // If this notifiation is Klaviyo's notification we'll handle it
+        // else pass it on to the next push notification service to which it may belong
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
+        if !handled {
+            completionHandler()
+        }
     }
 
     // below method is called when the app receives push notifications when the app is the foreground

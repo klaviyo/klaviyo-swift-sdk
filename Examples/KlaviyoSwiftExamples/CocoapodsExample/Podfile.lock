@@ -1,10 +1,10 @@
 PODS:
   - AnyCodable-FlightSchool (0.6.7)
-  - KlaviyoSwift (1.7.1):
+  - KlaviyoSwift (2.0.1):
     - AnyCodable-FlightSchool
 
 DEPENDENCIES:
-  - KlaviyoSwift (~> 1.7.1)
+  - KlaviyoSwift (~> 2.0.1)
 
 SPEC REPOS:
   trunk:
@@ -13,8 +13,8 @@ SPEC REPOS:
 
 SPEC CHECKSUMS:
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
-  KlaviyoSwift: 24ea81c910139baeb39e0f848880844da06b780e
+  KlaviyoSwift: 340a348b9ff64d10b66ee7752bcb191f23365d94
 
-PODFILE CHECKSUM: 51a9ece589695cf9883e5606782530562f304fd2
+PODFILE CHECKSUM: 9675ad7a828e4eb44fc2108d8b0e3264874aa97f
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.0
