@@ -58,7 +58,7 @@ import KlaviyoSwift
 2. To add Klaviyo's tracking functionality, include the following line in AppDelegate.swift, within `application:didFinishLaunchingWithOptions`:
 
 ```swift
-KlaviyoSDK().initalize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 ```
 
 3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
