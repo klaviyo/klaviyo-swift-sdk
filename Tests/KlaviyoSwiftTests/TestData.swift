@@ -58,7 +58,15 @@ extension Event {
         "stuff": 2,
         "hello": [
             "sub": "dict"
-        ]
+        ],
+        "Application ID": "com.klaviyo.fooapp",
+        "App Version": "1.2.3",
+        "App Build": "1",
+        "App Name": "FooApp",
+        "OS Version": "1.1.1",
+        "OS Name": "iOS",
+        "Device Manufacturer": "Orange",
+        "Device Model": "jPhone 1,1"
     ] as [String: Any]
     static let SAMPLE_PROFILE_PROPERTIES = [
         "email": "blob@email.com",

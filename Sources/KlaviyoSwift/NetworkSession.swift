@@ -14,7 +14,7 @@ let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
 let defaultUserAgent = { () -> String in
     let appContext = environment.analytics.appContextInfo()
     let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
-    return "\(appContext.excutable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
+    return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
 }()
 
 func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {

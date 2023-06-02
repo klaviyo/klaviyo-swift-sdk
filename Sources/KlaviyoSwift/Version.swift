@@ -7,4 +7,5 @@
 
 import Foundation
 
+public let __klaviyoSwiftName = "klaviyo-swift-sdk"
 public let __klaviyoSwiftVersion = "2.0.1"

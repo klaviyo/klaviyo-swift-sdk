@@ -12,10 +12,20 @@
         "stuff" : 2
       },
       "properties" : {
+        "App Build" : "1",
+        "App Name" : "FooApp",
+        "App Version" : "1.2.3",
+        "Application ID" : "com.klaviyo.fooapp",
         "blob" : "blob",
+        "Device Manufacturer" : "Orange",
+        "Device Model" : "jPhone 1,1",
         "hello" : {
           "sub" : "dict"
         },
+        "OS Name" : "iOS",
+        "OS Version" : "1.1.1",
+        "SDK Name" : "klaviyo-swift-sdk",
+        "SDK Version" : "2.0.1",
         "stuff" : 2
       },
       "time" : "2009-02-13T23:31:30Z",

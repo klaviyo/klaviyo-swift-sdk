@@ -138,12 +138,15 @@ extension NetworkSession {
 }
 
 extension AppContextInfo {
-    static let test = Self(excutable: "FooApp",
+    static let test = Self(executable: "FooApp",
                            bundleId: "com.klaviyo.fooapp",
                            appVersion: "1.2.3",
                            appBuild: "1",
+                           appName: "FooApp",
                            version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
-                           osName: "iOS")
+                           osName: "iOS",
+                           manufacturer: "Orange",
+                           deviceModel: "jPhone 1,1")
 }
 
 extension StateChangePublisher {
