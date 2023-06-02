@@ -59,11 +59,12 @@ public struct Event: Equatable {
             "Application ID": Event._metadata.bundleId,
             "App Version": Event._metadata.appVersion,
             "App Build": Event._metadata.appBuild,
-            "App Name": Event._metadata.appName
-        ]) { (_, new) in new }
+            "App Name": Event._metadata.appName,
+            "Push Token": environment.analytics.state().pushToken
+        ]) { _, new in new }
     }
 
-    static private let _metadata = environment.analytics.appContextInfo()
+    private static let _metadata = environment.analytics.appContextInfo()
     private let _properties: AnyCodable
     public var profile: [String: Any] {
         _profile.value as! [String: Any]
