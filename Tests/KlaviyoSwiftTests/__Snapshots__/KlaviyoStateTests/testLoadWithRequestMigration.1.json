@@ -21,7 +21,17 @@
                   "foo" : "bar"
                 },
                 "properties" : {
-                  "prop1" : "propValue"
+                  "App Build" : "1",
+                  "App Name" : "FooApp",
+                  "App Version" : "1.2.3",
+                  "Application ID" : "com.klaviyo.fooapp",
+                  "Device Manufacturer" : "Orange",
+                  "Device Model" : "jPhone 1,1",
+                  "OS Name" : "iOS",
+                  "OS Version" : "1.1.1",
+                  "prop1" : "propValue",
+                  "SDK Name" : "klaviyo-swift-sdk",
+                  "SDK Version" : "2.0.1"
                 },
                 "time" : 256260690,
                 "unique_id" : "00000000-0000-0000-0000-000000000001"
