@@ -9,9 +9,8 @@
 
 ## DISCLAIMER
 
-*This project is in a closed beta,
-breaking changes could still be made to the API.
-This is not yet intended for public use*
+*This project is currently in open beta while we continue to add additional features and seek feedback from users.
+The release is stable and publicly available, with no known critical bugs or issues.*
 
 ## Overview
 
