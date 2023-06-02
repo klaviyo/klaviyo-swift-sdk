@@ -16,10 +16,10 @@ private let DEFAULT_APP_NAME: String = info?["CFBundleName"] as? String ?? "Unkn
 private let DEFAULT_OS_VERSION = ProcessInfo.processInfo.operatingSystemVersion
 private let DEFAULT_MANUFACTURER = "Apple"
 private let DEFAULT_OS_NAME = "iOS"
-private let DEFAULT_DEVICE_MODEL = {
+private let DEFAULT_DEVICE_MODEL: String = {
     var size = 0
     sysctlbyname("hw.machine", nil, &size, nil, 0)
-    var machine = [CChar](repeating: 0,  count: size)
+    var machine = [CChar](repeating: 0, count: size)
     sysctlbyname("hw.machine", &machine, &size, nil, 0)
     return String(cString: machine)
 }()
@@ -51,8 +51,7 @@ struct AppContextInfo {
          version: OperatingSystemVersion = DEFAULT_OS_VERSION,
          osName: String = DEFAULT_OS_NAME,
          manufacturer: String = DEFAULT_MANUFACTURER,
-         deviceModel: String = DEFAULT_DEVICE_MODEL
-    ) {
+         deviceModel: String = DEFAULT_DEVICE_MODEL) {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
