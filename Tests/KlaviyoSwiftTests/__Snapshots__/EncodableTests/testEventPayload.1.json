@@ -24,6 +24,7 @@
         },
         "OS Name" : "iOS",
         "OS Version" : "1.1.1",
+        "Push Token" : null,
         "SDK Name" : "klaviyo-swift-sdk",
         "SDK Version" : "2.0.1",
         "stuff" : 2
