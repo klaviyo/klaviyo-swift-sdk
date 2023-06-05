@@ -13,6 +13,7 @@
       },
       "properties" : {
         "App Build" : "1",
+        "App ID" : "com.klaviyo.fooapp",
         "App Name" : "FooApp",
         "App Version" : "1.2.3",
         "Application ID" : "com.klaviyo.fooapp",
