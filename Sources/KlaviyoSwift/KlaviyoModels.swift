@@ -49,22 +49,9 @@ public struct Event: Equatable {
 
     public let metric: Metric
     public var properties: [String: Any] {
-        (_properties.value as! [String: Any]).merging([
-            "Device Manufacturer": Event._metadata.manufacturer,
-            "Device Model": Event._metadata.deviceModel,
-            "OS Name": Event._metadata.osName,
-            "OS Version": Event._metadata.osVersion,
-            "SDK Name": __klaviyoSwiftName,
-            "SDK Version": __klaviyoSwiftVersion,
-            "Application ID": Event._metadata.bundleId,
-            "App Version": Event._metadata.appVersion,
-            "App Build": Event._metadata.appBuild,
-            "App Name": Event._metadata.appName,
-            "Push Token": environment.analytics.state().pushToken
-        ]) { _, new in new }
+        _properties.value as! [String: Any]
     }
 
-    private static let _metadata = environment.analytics.appContextInfo()
     private let _properties: AnyCodable
     public var profile: [String: Any] {
         _profile.value as! [String: Any]

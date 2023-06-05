@@ -10,6 +10,8 @@ import AnyCodable
 import Foundation
 
 extension KlaviyoAPI.KlaviyoRequest {
+    private static let _appContextInfo = environment.analytics.appContextInfo()
+
     enum KlaviyoEndpoint: Equatable, Codable {
         struct CreateProfilePayload: Equatable, Codable {
             /**
@@ -121,8 +123,23 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let uniqueId: String
                     init(attributes: KlaviyoSwift.Event,
                          anonymousId: String? = nil) {
+                        let context = KlaviyoAPI.KlaviyoRequest._appContextInfo
+                        let metadata = [
+                            "Device Manufacturer": context.manufacturer,
+                            "Device Model": context.deviceModel,
+                            "OS Name": context.osName,
+                            "OS Version": context.osVersion,
+                            "SDK Name": __klaviyoSwiftName,
+                            "SDK Version": __klaviyoSwiftVersion,
+                            "App Name": context.appName,
+                            "App ID": context.bundleId,
+                            "App Version": context.appVersion,
+                            "App Build": context.appBuild,
+                            "Push Token": environment.analytics.state().pushToken as Any
+                        ]
+
                         metric = Metric(name: attributes.metric.name.value)
-                        properties = AnyCodable(attributes.properties)
+                        properties = AnyCodable(attributes.properties.merging(metadata) { _, new in new })
                         value = attributes.value
                         time = attributes.time
                         uniqueId = attributes.uniqueId
