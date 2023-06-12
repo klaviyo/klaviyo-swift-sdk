@@ -5,6 +5,7 @@
 //  Created by Noah Durell on 11/18/22.
 //
 import Foundation
+import UIKit
 
 private let info = Bundle.main.infoDictionary
 private let DEFAULT_EXECUTABLE: String = (info?["CFBundleExecutable"] as? String) ??
@@ -55,7 +56,7 @@ struct AppContextInfo {
          osName: String = DEFAULT_OS_NAME,
          manufacturer: String = DEFAULT_MANUFACTURER,
          deviceModel: String = DEFAULT_DEVICE_MODEL,
-         deviceId: String? = nil) {
+         deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
@@ -65,14 +66,6 @@ struct AppContextInfo {
         self.osName = osName
         self.manufacturer = manufacturer
         self.deviceModel = deviceModel
-
-        if let _deviceId = deviceId {
-            self.deviceId = _deviceId
-        } else if let _deviceId = UserDefaults.standard.string(forKey: DEVICE_ID_STORE_KEY) {
-            self.deviceId = _deviceId
-        } else {
-            self.deviceId = UUID().uuidString
-            UserDefaults.standard.set(self.deviceId, forKey: DEVICE_ID_STORE_KEY)
-        }
+        self.deviceId = deviceId
     }
 }
