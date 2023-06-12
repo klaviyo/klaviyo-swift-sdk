@@ -25,6 +25,7 @@
                   "App ID" : "com.klaviyo.fooapp",
                   "App Name" : "FooApp",
                   "App Version" : "1.2.3",
+                  "Device ID" : "fe-fi-fo-fum",
                   "Device Manufacturer" : "Orange",
                   "Device Model" : "jPhone 1,1",
                   "OS Name" : "iOS",
