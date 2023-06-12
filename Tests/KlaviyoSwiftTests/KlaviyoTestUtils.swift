@@ -146,7 +146,8 @@ extension AppContextInfo {
                            version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
                            osName: "iOS",
                            manufacturer: "Orange",
-                           deviceModel: "jPhone 1,1")
+                           deviceModel: "jPhone 1,1",
+                           deviceId: "fe-fi-fo-fum")
 }
 
 extension StateChangePublisher {

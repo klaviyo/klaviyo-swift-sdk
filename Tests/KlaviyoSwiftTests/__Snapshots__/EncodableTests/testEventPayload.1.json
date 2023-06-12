@@ -18,6 +18,7 @@
         "App Version" : "1.2.3",
         "Application ID" : "com.klaviyo.fooapp",
         "blob" : "blob",
+        "Device ID" : "fe-fi-fo-fum",
         "Device Manufacturer" : "Orange",
         "Device Model" : "jPhone 1,1",
         "hello" : {

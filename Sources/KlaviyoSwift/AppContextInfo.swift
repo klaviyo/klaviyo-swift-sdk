@@ -24,6 +24,8 @@ private let DEFAULT_DEVICE_MODEL: String = {
     return String(cString: machine)
 }()
 
+private let DEVICE_ID_STORE_KEY = "_klaviyo_device_id"
+
 struct AppContextInfo {
     let executable: String
     let bundleId: String
@@ -34,6 +36,7 @@ struct AppContextInfo {
     let osName: String
     let manufacturer: String
     let deviceModel: String
+    let deviceId: String
 
     var osVersion: String {
         "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
@@ -51,7 +54,8 @@ struct AppContextInfo {
          version: OperatingSystemVersion = DEFAULT_OS_VERSION,
          osName: String = DEFAULT_OS_NAME,
          manufacturer: String = DEFAULT_MANUFACTURER,
-         deviceModel: String = DEFAULT_DEVICE_MODEL) {
+         deviceModel: String = DEFAULT_DEVICE_MODEL,
+         deviceId: String? = nil) {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
@@ -61,5 +65,14 @@ struct AppContextInfo {
         self.osName = osName
         self.manufacturer = manufacturer
         self.deviceModel = deviceModel
+
+        if let _deviceId = deviceId {
+            self.deviceId = _deviceId
+        } else if let _deviceId = UserDefaults.standard.string(forKey: DEVICE_ID_STORE_KEY) {
+            self.deviceId = _deviceId
+        } else {
+            self.deviceId = UUID().uuidString
+            UserDefaults.standard.set(self.deviceId, forKey: DEVICE_ID_STORE_KEY)
+        }
     }
 }

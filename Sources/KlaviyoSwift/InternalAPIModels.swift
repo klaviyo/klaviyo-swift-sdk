@@ -125,6 +125,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                          anonymousId: String? = nil) {
                         let context = KlaviyoAPI.KlaviyoRequest._appContextInfo
                         let metadata = [
+                            "Device ID": context.deviceId,
                             "Device Manufacturer": context.manufacturer,
                             "Device Model": context.deviceModel,
                             "OS Name": context.osName,
