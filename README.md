@@ -92,7 +92,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 ## Identifying traits of people
 
-If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:) methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
+If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
 ```swift
 let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
@@ -331,6 +331,36 @@ Once the above steps are complete, you can send push notifications from the Klav
 Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
 
 `xcrun simctl openurl booted {your_URL_here}`
+
+## Rich push notifications
+
+Rich push notification is the ability to add images, gifs and videos to your push notification messages that Apple has supported since iOS 10. In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension). Following the below steps should help set up your app to receive rich push notifications.
+
+Note that the initial release of this feature will only support images with gifs and videos to follow.
+
+### Prerequisites
+
+* Your app should already support receiving push notifications. Refer to the section above on push notifications on how to do this.
+* Once your app supports push notifications, the user should have given your app permission to send push notifications in order for rich push notifications.
+
+### Step 1: Add notification service app extension to your project
+
+A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+
+1. Select File > New > Target in Xcode.
+2. Select the Notification Service Extension target from the iOS > Application extension section.
+3. Click Next.
+4. Specify a name and other configuration details for your app extension.
+5. Click Finish.
+
+### Step 2: Implement the notification service app extension
+
+The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
+
+Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. You can either implement it using Apple's documentation [here](https://developer.apple.com/documentation/usernotifications/modifying_content_in_newly_delivered_notifications) or use our sample code from [here](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift).
+
+
+### Step 3: Test the rich push notifications locally
 
 ## SDK Data Transfer
 
