@@ -359,6 +359,38 @@ The notification service app extension is responsible for downloading the media 
 
 Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. You can either implement it using Apple's documentation [here](https://developer.apple.com/documentation/usernotifications/modifying_content_in_newly_delivered_notifications) or use our sample code from [here](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift).
 
+### Step 3: Test your rich push notifications
+
+#### Local testing
+
+There are three things you would need to do this -
+
+1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications)
+2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid -
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "Free apple vision pro" ,
+      "body": "Free Apple vision pro when you buy a Klaviyo subscription"
+    },
+    "mutable-content": 1
+  },
+  "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+}
+```
+
+3. A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
+
+Once we have these three things we can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+
+#### Testing with Klaviyo
+
+At this point unfortunately we don't support testing debug builds with Klaviyo. So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
+
+A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications, performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo. Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign with an image to test the full end-to-end integration.
+
 
 ### Step 3: Test the rich push notifications locally
 
