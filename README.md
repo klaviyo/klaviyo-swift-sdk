@@ -336,12 +336,8 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 Rich push notification is the ability to add images, gifs and videos to your push notification messages that Apple has supported since iOS 10. In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension). Following the below steps should help set up your app to receive rich push notifications.
 
-Note that the initial release of this feature will only support images with gifs and videos to follow.
+> :warning: **Note that the initial release of this feature will only support images with gifs and videos to follow.**
 
-### Prerequisites
-
-* Your app should already support receiving push notifications. Refer to the section above on push notifications on how to do this.
-* Once your app supports push notifications, the user should have given your app permission to send push notifications in order for rich push notifications.
 
 ### Step 1: Add notification service app extension to your project
 
@@ -365,14 +361,14 @@ Once step 1 is complete, you should see a file called `NotificationService.swift
 
 There are three things you would need to do this -
 
-1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications)
+1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications).
 2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid -
 ```json
 {
   "aps": {
     "alert": {
-      "title": "Free apple vision pro" ,
-      "body": "Free Apple vision pro when you buy a Klaviyo subscription"
+      "title": "Free apple vision pro",
+      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
     },
     "mutable-content": 1
   },
@@ -391,8 +387,6 @@ At this point unfortunately we don't support testing debug builds with Klaviyo. 
 
 A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications, performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo. Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign with an image to test the full end-to-end integration.
 
-
-### Step 3: Test the rich push notifications locally
 
 ## SDK Data Transfer
 
