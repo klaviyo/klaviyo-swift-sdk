@@ -70,7 +70,6 @@
 		3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3425CA0C2A3A635D0019E33A /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		3425CA0E2A3A635D0019E33A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3425CA162A3A69020019E33A /* SPMExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExample.entitlements; sourceTree = "<group>"; };
 		7CC1C7F828D74D810073197F /* SPMExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SPMExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C80928D74D830073197F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7CC1C80E28D74D840073197F /* SPMExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SPMExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -154,7 +153,6 @@
 		7CC1C7FA28D74D810073197F /* SPMExample */ = {
 			isa = PBXGroup;
 			children = (
-				3425CA162A3A69020019E33A /* SPMExample.entitlements */,
 				340590E329CCCD520015991E /* DebugViewController.swift */,
 				340590E229CCCD520015991E /* DeepLinking.swift */,
 				340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */,
