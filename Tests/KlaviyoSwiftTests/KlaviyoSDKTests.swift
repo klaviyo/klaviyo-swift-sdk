@@ -109,7 +109,11 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testSetPushToken() throws {
         let tokenData = "mytoken".data(using: .utf8)!
-        let expectation = setupActionAssertion(expectedAction: .setPushToken(tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }))
+        let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+        let expectation = setupActionAssertion(expectedAction: .setPushToken(
+            strToken,
+            .authorized,
+            .available))
 
         klaviyo.set(pushToken: tokenData)
 

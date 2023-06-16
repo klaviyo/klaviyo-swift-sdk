@@ -127,7 +127,7 @@ class StateManagementTests: XCTestCase {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blobtoken")) {
+        _ = await store.send(.setPushToken("blobtoken", .authorized, .available)) {
             $0.pushToken = "blobtoken"
             let request = try $0.buildTokenRequest()
             $0.queue = [request]

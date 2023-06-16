@@ -94,6 +94,8 @@ extension URLResponse {
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
     static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
         pushToken: "foo",
+        enablement: "AUTHORIZED",
+        background: "AVAILABLE",
         profile: .init(),
         anonymousId: "anon-id")
 }
