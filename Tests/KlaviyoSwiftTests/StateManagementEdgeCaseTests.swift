@@ -165,7 +165,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token"))
+        _ = await store.send(.setPushToken("blob_token", .authorized, .available))
     }
 
     func testSetPushTokenWithMissingAnonymousIdStillSetsPushToken() async throws {
@@ -177,7 +177,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token")) {
+        _ = await store.send(.setPushToken("blob_token", .authorized, .available)) {
             $0.pushToken = "blob_token"
         }
     }
@@ -251,7 +251,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
             flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blobtoken")) {
+        _ = await store.send(.setPushToken("blobtoken", .authorized, .available)) {
             $0.pushToken = "blobtoken"
         }
     }

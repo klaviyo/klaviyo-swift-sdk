@@ -182,10 +182,14 @@ extension KlaviyoAPI.KlaviyoRequest {
             var attributes: Attributes
 
             init(pushToken: String,
+                 enablement: String,
+                 background: String,
                  profile: KlaviyoSwift.Profile,
                  anonymousId: String) {
                 attributes = .init(
                     pushToken: pushToken,
+                    enablement: enablement,
+                    background: background,
                     profile: profile,
                     anonymousId: anonymousId)
             }
@@ -193,8 +197,8 @@ extension KlaviyoAPI.KlaviyoRequest {
             struct Attributes: Equatable, Codable {
                 let profile: Profile
                 let token: String
-                let enablementStatus: String = ""
-                let background: String = ""
+                let enablementStatus: String
+                let backgroundStatus: String
                 let deviceMetadata: MetaData
                 let platform: String = "ios"
                 let vendor: String = "APNs"
@@ -205,15 +209,19 @@ extension KlaviyoAPI.KlaviyoRequest {
                     case enablementStatus = "enablement_status"
                     case profile
                     case vendor
-                    case background
+                    case backgroundStatus = "background"
                     case deviceMetadata = "device_metadata"
                 }
 
                 init(pushToken: String,
+                     enablement: String,
+                     background: String,
                      profile: KlaviyoSwift.Profile,
                      anonymousId: String) {
                     token = pushToken
 
+                    enablementStatus = enablement
+                    backgroundStatus = background
                     self.profile = .init(attributes: profile, anonymousId: anonymousId)
                     deviceMetadata = .init(context: KlaviyoAPI.KlaviyoRequest._appContextInfo)
                 }

@@ -23,14 +23,41 @@ struct KlaviyoState: Equatable, Codable {
         case profile(Profile)
     }
 
-    enum PushEnablement: Equatable {
-        case available
-        case unavailable
+    enum PushEnablement: String {
+        case notDetermined = "NOT_DETERMINED"
+        case denied = "DENIED"
+        case authorized = "AUTHORIZED"
+        case provisional = "PROVISIONAL"
+        case ephemeral = "EPHEMERAL"
+
+        static func create(from status: UNAuthorizationStatus) -> PushEnablement {
+            switch status {
+            case .denied:
+                return PushEnablement.denied
+            case .authorized:
+                return PushEnablement.authorized
+            case .provisional:
+                return PushEnablement.provisional
+            case .ephemeral:
+                return PushEnablement.ephemeral
+            default:
+                return PushEnablement.notDetermined
+            }
+        }
     }
 
-    enum PushBackground: Equatable {
-        case available
-        case unavailable
+    enum PushBackground: String {
+        case available = "AVAILABLE"
+        case unavailable = "UNAVAILABLE"
+
+        static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
+            switch status {
+            case .available:
+                return PushBackground.available
+            default:
+                return PushBackground.unavailable
+            }
+        }
     }
 
     var apiKey: String?
@@ -39,8 +66,8 @@ struct KlaviyoState: Equatable, Codable {
     var phoneNumber: String?
     var externalId: String?
     var pushToken: String?
-    var pushEnablement: String?
-    var pushBackground: String?
+    var pushEnablement: PushEnablement?
+    var pushBackground: PushBackground?
     var queue: [KlaviyoAPI.KlaviyoRequest]
     var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
     var initalizationState = InitializationSate.uninitialized

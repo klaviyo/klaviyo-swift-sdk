@@ -464,7 +464,13 @@ public struct KlaviyoSDK {
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
-        dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
+
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            dispatchOnMainThread(action: .setPushToken(
+                apnDeviceToken,
+                .create(from: settings.authorizationStatus),
+                .create(from: UIApplication.shared.backgroundRefreshStatus)))
+        }
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
