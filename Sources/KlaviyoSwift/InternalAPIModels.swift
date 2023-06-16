@@ -178,53 +178,105 @@ extension KlaviyoAPI.KlaviyoRequest {
         }
 
         struct PushTokenPayload: Equatable, Codable {
-            struct Properties: Equatable, Codable {
-                let anonymousId: String?
-                let append: Append
-                let email: String?
-                let phoneNumber: String?
-                let externalId: String?
-                struct Append: Equatable, Codable {
-                    let pushToken: String
-                    enum CodingKeys: String, CodingKey {
-                        case pushToken = "$ios_tokens"
+            var type = "push-token"
+            var attributes: Attributes
+
+            init(pushToken: String,
+                 profile: KlaviyoSwift.Profile,
+                 anonymousId: String) {
+                attributes = .init(
+                    pushToken: pushToken,
+                    profile: profile,
+                    anonymousId: anonymousId)
+            }
+
+            struct Attributes: Equatable, Codable {
+                let profile: Profile
+                let token: String
+                let enablementStatus: String = ""
+                let background: String = ""
+                let deviceMetadata: MetaData
+                let platform: String = "ios"
+                let vendor: String = "APNs"
+
+                enum CodingKeys: String, CodingKey {
+                    case token = "token_id"
+                    case platform
+                    case enablementStatus = "enablement_status"
+                    case profile
+                    case vendor
+                    case background
+                    case deviceMetadata = "device_metadata"
+                }
+
+                init(pushToken: String,
+                     profile: KlaviyoSwift.Profile,
+                     anonymousId: String) {
+                    token = pushToken
+
+                    self.profile = .init(attributes: profile, anonymousId: anonymousId)
+                    deviceMetadata = .init(context: KlaviyoAPI.KlaviyoRequest._appContextInfo)
+                }
+
+                struct Profile: Equatable, Codable {
+                    let data: CreateProfilePayload.Profile
+
+                    init(attributes: KlaviyoSwift.Profile,
+                         anonymousId: String) {
+                        data = .init(profile: attributes, anonymousId: anonymousId)
                     }
                 }
 
-                enum CodingKeys: String, CodingKey {
-                    case anonymousId = "$anonymous"
-                    case email = "$email"
-                    case phoneNumber = "$phone_number"
-                    case append = "$append"
-                    case externalId = "$id"
-                }
+                struct MetaData: Equatable, Codable {
+                    let deviceId: String
+                    let deviceModel: String
+                    let manufacturer: String
+                    let osName: String
+                    let osVersion: String
+                    let appId: String
+                    let appName: String
+                    let appVersion: String
+                    let appBuild: String
+                    let environment: String
+                    let klaviyoSdk: String
+                    let sdkVersion: String
 
-                init(anonymousId: String,
-                     pushToken: String,
-                     email: String? = nil,
-                     phoneNumber: String? = nil,
-                     externalId: String? = nil) {
-                    self.email = email
-                    self.phoneNumber = phoneNumber
-                    self.anonymousId = anonymousId
-                    append = Append(pushToken: pushToken)
-                    self.externalId = externalId
-                }
-            }
+                    enum CodingKeys: String, CodingKey {
+                        case deviceId = "device_id"
+                        case klaviyoSdk = "klaviyo_sdk"
+                        case sdkVersion = "sdk_version"
+                        case deviceModel = "device_model"
+                        case osName = "os_name"
+                        case osVersion = "os_version"
+                        case manufacturer
+                        case appName = "app_name"
+                        case appVersion = "app_version"
+                        case appBuild = "app_build"
+                        case appId = "app_id"
+                        case environment
+                    }
 
-            // This is actually the api key for this endpoint
-            let token: String
-            let properties: Properties
-            init(token: String,
-                 properties: Properties) {
-                self.token = token
-                self.properties = properties
+                    init(context: AppContextInfo) {
+                        deviceId = context.deviceId
+                        deviceModel = context.deviceModel
+                        manufacturer = context.manufacturer
+                        osName = context.osName
+                        osVersion = context.osVersion
+                        appId = context.bundleId
+                        appName = context.appName
+                        appVersion = context.appVersion
+                        appBuild = context.appBuild
+                        environment = context.environment
+                        klaviyoSdk = __klaviyoSwiftName
+                        sdkVersion = __klaviyoSwiftName
+                    }
+                }
             }
         }
 
         case createProfile(CreateProfilePayload)
         case createEvent(CreateEventPayload)
-        case storePushToken(PushTokenPayload)
+        case registerPushToken(PushTokenPayload)
     }
 }
 

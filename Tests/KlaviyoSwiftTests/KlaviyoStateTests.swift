@@ -202,12 +202,10 @@ final class KlaviyoStateTests: XCTestCase {
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
         let profileRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
         let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            token: "foo",
-            properties: .init(anonymousId: "foo",
-                              pushToken: "foo",
-                              email: "foo",
-                              phoneNumber: "foo"))
-        let tokenRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
+            pushToken: "foo",
+            profile: .init(email: "foo", phoneNumber: "foo"),
+            anonymousId: "foo")
+        let tokenRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, profileRequest, eventRequest])
         let encodedState = try KlaviyoEnvironment.production.analytics.encodeJSON(AnyEncodable(state))
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.analytics.decoder.decode(encodedState)

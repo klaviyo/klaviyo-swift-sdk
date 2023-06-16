@@ -70,9 +70,6 @@ public class Klaviyo: NSObject {
 
     // KL Definitions File: API URL Constants
 
-    let KlaviyoServerTrackEventEndpoint = "/track"
-    let KlaviyoServerTrackPersonEndpoint = "/identify"
-
     let KlaviyoServerURLString = "https://a.klaviyo.com"
 
     let CustomerPropertiesAppendDictKey = "$append"
