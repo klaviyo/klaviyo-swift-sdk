@@ -59,12 +59,12 @@ public struct SDKRequest: Identifiable, Equatable {
                 return .createEvent(
                     EventInfo(eventName: payload.data.attributes.metric.name),
                     ProfileInfo(anonymousId: profile["$anonymous"] as? String ?? "Unknown"))
-            case let .storePushToken(payload):
-                return .saveToken(token: payload.token, info:
-                    ProfileInfo(email: payload.properties.email,
-                                phoneNumber: payload.properties.phoneNumber,
-                                externalId: payload.properties.externalId,
-                                anonymousId: payload.properties.anonymousId ?? "Unknown"))
+            case let .registerPushToken(payload):
+                return .saveToken(token: payload.attributes.token, info:
+                    ProfileInfo(email: payload.attributes.profile.data.attributes.email,
+                                phoneNumber: payload.attributes.profile.data.attributes.phoneNumber,
+                                externalId: payload.attributes.profile.data.attributes.externalId,
+                                anonymousId: payload.attributes.profile.data.attributes.anonymousId))
             }
         }
     }

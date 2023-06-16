@@ -23,12 +23,24 @@ struct KlaviyoState: Equatable, Codable {
         case profile(Profile)
     }
 
+    enum PushEnablement: Equatable {
+        case available
+        case unavailable
+    }
+
+    enum PushBackground: Equatable {
+        case available
+        case unavailable
+    }
+
     var apiKey: String?
     var email: String?
     var anonymousId: String?
     var phoneNumber: String?
     var externalId: String?
     var pushToken: String?
+    var pushEnablement: String?
+    var pushBackground: String?
     var queue: [KlaviyoAPI.KlaviyoRequest]
     var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
     var initalizationState = InitializationSate.uninitialized

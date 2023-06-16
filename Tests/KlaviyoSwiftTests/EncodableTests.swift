@@ -11,6 +11,7 @@ import XCTest
 
 final class EncodableTests: XCTestCase {
     let testEncoder = encoder
+
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
@@ -31,22 +32,18 @@ final class EncodableTests: XCTestCase {
 
     func testTokenPayload() throws {
         let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            token: "foo",
-            properties: .init(anonymousId: "foo",
-                              pushToken: "foo",
-                              email: "foo",
-                              phoneNumber: "foo"))
+            pushToken: "foo",
+            profile: .init(email: "foo", phoneNumber: "foo"),
+            anonymousId: "foo")
         assertSnapshot(matching: tokenPayload, as: .json(encoder))
     }
 
     func testKlaviyoState() throws {
         let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            token: "foo",
-            properties: .init(anonymousId: "foo",
-                              pushToken: "foo",
-                              email: "foo",
-                              phoneNumber: "foo"))
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
+            pushToken: "foo",
+            profile: .init(email: "foo", phoneNumber: "foo"),
+            anonymousId: "foo")
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
         let klaviyoState = KlaviyoState(email: "foo", anonymousId: "foo",
                                         phoneNumber: "foo", pushToken: "foo",
                                         queue: [request], requestsInFlight: [request])
@@ -55,12 +52,10 @@ final class EncodableTests: XCTestCase {
 
     func testKlaviyoRequest() throws {
         let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            token: "foo",
-            properties: .init(anonymousId: "foo",
-                              pushToken: "foo",
-                              email: "foo",
-                              phoneNumber: "foo"))
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(tokenPayload))
+            pushToken: "foo",
+            profile: .init(email: "foo", phoneNumber: "foo"),
+            anonymousId: "foo")
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
         assertSnapshot(matching: request, as: .json)
     }
 }

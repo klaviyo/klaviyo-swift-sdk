@@ -1,17 +1,50 @@
 {
   "apiKey" : "foo",
   "endpoint" : {
-    "storePushToken" : {
+    "registerPushToken" : {
       "_0" : {
-        "properties" : {
-          "$anonymous" : "foo",
-          "$append" : {
-            "$ios_tokens" : "foo"
+        "attributes" : {
+          "background" : "",
+          "device_metadata" : {
+            "app_build" : "1",
+            "app_id" : "com.klaviyo.fooapp",
+            "app_name" : "FooApp",
+            "app_version" : "1.2.3",
+            "device_id" : "fe-fi-fo-fum",
+            "device_model" : "jPhone 1,1",
+            "environment" : "debug",
+            "klaviyo_sdk" : "klaviyo-swift-sdk",
+            "manufacturer" : "Orange",
+            "os_name" : "iOS",
+            "os_version" : "1.1.1",
+            "sdk_version" : "klaviyo-swift-sdk"
           },
-          "$email" : "foo",
-          "$phone_number" : "foo"
+          "enablement_status" : "",
+          "platform" : "ios",
+          "profile" : {
+            "data" : {
+              "attributes" : {
+                "anonymous_id" : "foo",
+                "email" : "foo",
+                "phone_number" : "foo",
+                "properties" : {
+
+                }
+              },
+              "meta" : {
+                "identifiers" : {
+                  "anonymous_id" : "foo",
+                  "email" : "foo",
+                  "phone_number" : "foo"
+                }
+              },
+              "type" : "profile"
+            }
+          },
+          "token_id" : "foo",
+          "vendor" : "APNs"
         },
-        "token" : "foo"
+        "type" : "push-token"
       }
     }
   },

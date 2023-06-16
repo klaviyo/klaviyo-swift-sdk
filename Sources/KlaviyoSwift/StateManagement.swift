@@ -380,13 +380,10 @@ extension KlaviyoState {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("missing push token")
         }
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            token: apiKey,
-            properties: .init(anonymousId: anonymousId,
-                              pushToken: token,
-                              email: email,
-                              phoneNumber: phoneNumber,
-                              externalId: externalId))
-        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.storePushToken(payload)
+            pushToken: token,
+            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
+            anonymousId: anonymousId)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }

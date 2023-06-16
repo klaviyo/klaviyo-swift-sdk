@@ -92,7 +92,10 @@ extension URLResponse {
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
-    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
+    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+        pushToken: "foo",
+        profile: .init(),
+        anonymousId: "anon-id")
 }
 
 extension KlaviyoState {

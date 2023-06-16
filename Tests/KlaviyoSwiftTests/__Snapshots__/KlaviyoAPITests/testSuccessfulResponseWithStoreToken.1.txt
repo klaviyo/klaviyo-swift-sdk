@@ -1,6 +1,6 @@
-▿ dead_beef/api/identify
+▿ dead_beef/client/push-tokens
   ▿ url: Optional<URL>
-    - some: dead_beef/api/identify
+    - some: dead_beef/client/push-tokens
   - cachePolicy: 0
   - timeoutInterval: 60.0
   - mainDocumentURL: Optional<URL>.none
