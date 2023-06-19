@@ -465,11 +465,10 @@ public struct KlaviyoSDK {
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
 
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
+        environment.getNotificationSettings { enablement in
             dispatchOnMainThread(action: .setPushToken(
                 apnDeviceToken,
-                .create(from: settings.authorizationStatus),
-                .create(from: UIApplication.shared.backgroundRefreshStatus)))
+                enablement))
         }
     }
 

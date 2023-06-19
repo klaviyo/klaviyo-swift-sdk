@@ -14,6 +14,8 @@ let INITIALIZED_TEST_STATE = { KlaviyoState(
     apiKey: TEST_API_KEY,
     anonymousId: environment.analytics.uuid().uuidString,
     pushToken: "blob_token",
+    pushEnablement: .authorized,
+    pushBackground: .available,
     queue: [],
     requestsInFlight: [],
     initalizationState: .initialized,

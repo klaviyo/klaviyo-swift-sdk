@@ -30,7 +30,7 @@ enum KlaviyoAction: Equatable {
     case setEmail(String)
     case setPhoneNumber(String)
     case setExternalId(String)
-    case setPushToken(String, KlaviyoState.PushEnablement, KlaviyoState.PushBackground)
+    case setPushToken(String, KlaviyoState.PushEnablement)
     case dequeCompletedResults(KlaviyoAPI.KlaviyoRequest)
     case networkConnectivityChanged(Reachability.NetworkStatus)
     case flushQueue
@@ -122,13 +122,13 @@ struct KlaviyoReducer: ReducerProtocol {
             state.externalId = externalId
             state.enqueueProfileRequest()
             return .none
-        case let .setPushToken(pushToken, enablement, background):
+        case let .setPushToken(pushToken, enablement):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
             state.pushToken = pushToken
             state.pushEnablement = enablement
-            state.pushBackground = background
+            state.pushBackground = environment.getBackgroundSetting()
             guard let request = try? state.buildTokenRequest() else {
                 return .none
             }
