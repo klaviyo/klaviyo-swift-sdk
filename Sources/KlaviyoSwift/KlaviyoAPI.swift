@@ -94,10 +94,8 @@ extension KlaviyoAPI.KlaviyoRequest {
 
     var url: URL? {
         switch endpoint {
-        case .createProfile, .createEvent:
+        case .createProfile, .createEvent, .registerPushToken:
             return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(apiKey)")
-        case .registerPushToken:
-            return URL(string: "\(environment.analytics.apiURL)/\(path)")
         }
     }
 

@@ -19,7 +19,8 @@ private func getDelaySeconds(for count: Int) -> Int {
 func handleRequestError(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.KlaviyoAPIError, retryInfo: RetryInfo) -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):
-        environment.logger.error("An http error occured status code: \(statuscode) data: \(data)")
+        let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
+        environment.logger.error("An http error occured status code: \(statuscode) data: \(responseString)")
         return .dequeCompletedResults(request)
     case let .networkError(error):
         environment.logger.error("A network error occurred: \(error)")
