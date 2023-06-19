@@ -36,6 +36,8 @@ struct KlaviyoEnvironment {
     var getUserDefaultString: (String) -> String?
     var appLifeCycle: AppLifeCycleEvents
     var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
+    var getNotificationSettings: (@escaping (KlaviyoState.PushEnablement) -> Void) -> Void
+    var getBackgroundSetting: () -> KlaviyoState.PushBackground
     var legacyIdentifier: () -> String
     var startReachability: () throws -> Void
     var stopReachability: () -> Void
@@ -54,6 +56,12 @@ struct KlaviyoEnvironment {
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
+        getNotificationSettings: { callback in
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                callback(.create(from: settings.authorizationStatus))
+            }
+        },
+        getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
         legacyIdentifier: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
         startReachability: {
             try reachabilityService?.startNotifier()

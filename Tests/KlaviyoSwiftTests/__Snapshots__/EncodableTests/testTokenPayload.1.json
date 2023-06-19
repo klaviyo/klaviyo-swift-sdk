@@ -1,6 +1,6 @@
 {
   "attributes" : {
-    "background" : "",
+    "background" : "AVAILABLE",
     "device_metadata" : {
       "app_build" : "1",
       "app_id" : "com.klaviyo.fooapp",
@@ -15,7 +15,7 @@
       "os_version" : "1.1.1",
       "sdk_version" : "klaviyo-swift-sdk"
     },
-    "enablement_status" : "",
+    "enablement_status" : "AUTHORIZED",
     "platform" : "ios",
     "profile" : {
       "data" : {
