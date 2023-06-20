@@ -319,7 +319,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                             appBuild = context.appBuild
                             environment = context.environment
                             klaviyoSdk = __klaviyoSwiftName
-                            sdkVersion = __klaviyoSwiftName
+                            sdkVersion = __klaviyoSwiftVersion
                         }
                     }
                 }
