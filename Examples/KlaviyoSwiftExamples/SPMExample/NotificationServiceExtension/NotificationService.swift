@@ -28,45 +28,42 @@ class NotificationService: UNNotificationServiceExtension {
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
-        if let bestAttemptContent = bestAttemptContent {
-            /// Check if you have a value of rich-media. If not, call the content handler to deliver the push and return
-            guard let imageURLString =
-                bestAttemptContent.userInfo["rich-media"] as? String else {
+        guard let bestAttemptContent = bestAttemptContent else {
+            return
+        }
+
+        // 1a. get the rich media url from the push notification payload
+        guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
+            contentHandler(bestAttemptContent)
+            return
+        }
+
+        // 1b.falling back to .png in case the media type isn't sent from the server.
+        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? "png"
+
+        // 2. once we have the url lets download the media from the server
+        downloadMedia(for: imageURLString) { [weak self] localFileURL in
+            guard let localFileURL = localFileURL else {
                 contentHandler(bestAttemptContent)
                 return
             }
 
-            /// Call the convenience method to retrieve the image with the URL received from the push payload.
-            getMedia(for: imageURLString) { [weak self] image in
-                /// When the completion block fires and the image was downloaded successfully save it to disk
-                /// and get the file URL else call the completion handler and return
-                guard
-                    let self = self,
-                    let image = image,
-                    let fileURL = self.saveImageAttachment(
-                        image: image,
-                        forIdentifier: "attachment.png")
-                else {
+            let localFilePathWithTypeString = "\(localFileURL.path).\(imageTypeString)"
+
+            // 3. once we have the local file URL we will create an attachment
+            self?.createAttachment(
+                localFileURL: localFileURL,
+                localFilePathWithTypeString: localFilePathWithTypeString) { attachment in
+                    guard let attachment = attachment else {
+                        contentHandler(bestAttemptContent)
+                        return
+                    }
+
+                    // 4. assign the create attachement to the best attempt content attachment and call the content handler so that the notification with the
+                    //    media can be delivered to the user.
+                    bestAttemptContent.attachments = [attachment]
                     contentHandler(bestAttemptContent)
-                    return
                 }
-
-                /// Create a UNNotificationAttachment with the file URL. Name the identifier image to set it as the image on the final notification.
-                let imageAttachment = try? UNNotificationAttachment(
-                    identifier: "image",
-                    url: fileURL,
-                    options: nil)
-
-                /// If creating the attachment succeeds, add it to the attachments property on bestAttemptContent.
-                if let imageAttachment = imageAttachment {
-                    bestAttemptContent.attachments = [imageAttachment]
-                }
-
-                /// Call the content handler to deliver the push notification.
-                /// NOTE: if this doesn't happen before the stipulated time then the completion handler is called with
-                /// the bestAttemptContent from the `serviceExtensionTimeWillExpire` function
-                contentHandler(bestAttemptContent)
-            }
         }
     }
 
@@ -83,86 +80,68 @@ class NotificationService: UNNotificationServiceExtension {
 // MARK: supporting methods to notification service
 
 extension NotificationService {
-    private func getMedia(
+    /// downloads the media from the provided URL and writes to disk and provides a URL to the data on disk
+    /// - Parameters:
+    ///   - urlString: the URL from where the media needs to be downloaded
+    ///   - completion: closure that would be called when the image has finished downloading and the URL to the data on disk is available.
+    ///                 note that in the case of failure the closure will still be called but with `nil`.
+    private func downloadMedia(
         for urlString: String,
-        completion: @escaping (UIImage?) -> Void) {
-        guard let url = URL(string: urlString) else {
+        completion: @escaping (URL?) -> Void) {
+        guard let imageURL = URL(string: urlString) else {
             completion(nil)
             return
         }
-        downloadImage(forURL: url) { result in
-            switch result {
-            case let .success(image):
-                completion(image)
-            case let .failure(error):
-                print("received error [\(error.localizedDescription)]")
-                completion(nil)
-            }
-        }
-    }
 
-    private func saveImageAttachment(
-        image: UIImage,
-        forIdentifier identifier: String) -> URL? {
-        /// Obtain a reference to the temp file directory.
-        let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
-
-        /// Using the temp file directory, create a directory URL using a unique string.
-        let directoryPath = tempDirectory.appendingPathComponent(
-            ProcessInfo.processInfo.globallyUniqueString,
-            isDirectory: true)
-
-        do {
-            /// The FileManager is responsible for creating the actual file to store the data.
-            /// Call `createDirectory(at:winthIntermediateDirectories:attributes:)` to create an empty directory
-            try FileManager.default.createDirectory(
-                at: directoryPath,
-                withIntermediateDirectories: true,
-                attributes: nil)
-
-            /// Create a file URL based on the image identifier.
-            let fileURL = directoryPath.appendingPathComponent(identifier)
-
-            /// Create a Data object from the image.
-            guard let imageData = image.pngData() else {
-                return nil
-            }
-
-            /// Attempt to write the file to disk.
-            try imageData.write(to: fileURL)
-
-            return fileURL
-        } catch {
-            return nil
-        }
-    }
-
-    private func downloadImage(
-        forURL url: URL,
-        completion: @escaping (Result<UIImage, Error>) -> Void) {
-        let task = URLSession.shared.dataTask(with: url) { data, _, error in
+        let task = URLSession.shared.downloadTask(with: imageURL) { file, _, error in
             if let error = error {
-                completion(.failure(error))
+                print("error when downloading image = \(error.localizedDescription)")
+                completion(nil)
                 return
             }
 
-            guard let data = data else {
-                completion(.failure(DownloadError.emptyData))
+            guard let file = file else {
+                completion(nil)
                 return
             }
 
-            guard let image = UIImage(data: data) else {
-                completion(.failure(DownloadError.invalidImage))
-                return
-            }
-
-            completion(.success(image))
+            completion(file)
         }
         task.resume()
     }
 
-    enum DownloadError: Error {
-        case emptyData
-        case invalidImage
+    /// creates an attachment that can be attached to the push notification
+    /// - Parameters:
+    ///   - localFileURL: the location of the downloaded file from the download task
+    ///   - localFilePathWithTypeString: the location that we want to move the file to with the file extension received from the server
+    ///   - completion: closure that will be called once the file has been moved and an attachment has been created.
+    ///                 Note that in the case of failure during file transfer or creating an attachment this closure will be called with `nil` indicating a failure.
+    private func createAttachment(
+        localFileURL: URL,
+        localFilePathWithTypeString: String,
+        completion: @escaping (UNNotificationAttachment?) -> Void) {
+        let localFileURLWithType: URL
+        if #available(iOS 16.0, *) {
+            localFileURLWithType = URL(filePath: localFilePathWithTypeString)
+        } else {
+            localFileURLWithType = URL(fileURLWithPath: localFilePathWithTypeString)
+        }
+
+        do {
+            try FileManager.default.moveItem(at: localFileURL, to: localFileURLWithType)
+        } catch {
+            completion(nil)
+            return
+        }
+
+        guard let attachment = try? UNNotificationAttachment(
+            identifier: "",
+            url: localFileURLWithType,
+            options: nil) else {
+            completion(nil)
+            return
+        }
+
+        completion(attachment)
     }
 }
