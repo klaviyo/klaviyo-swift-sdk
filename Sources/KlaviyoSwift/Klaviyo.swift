@@ -497,4 +497,8 @@ public struct KlaviyoSDK {
         }
         return false
     }
+    
+    public func testing(a: String) {
+        print("testing with param a = ", a)
+    }
 }
