@@ -550,7 +550,7 @@ public struct KlaviyoSDK {
         }
     }
     
-    func handleNotificationServiceExtensionTimeWillExpireRequest(
+    public func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void
