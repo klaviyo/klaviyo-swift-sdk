@@ -498,7 +498,19 @@ public struct KlaviyoSDK {
         return false
     }
     
-    public func handleRichPushRequest(
+    
+    /// Call this method when you receive a rich push notification in the notification service extension.
+    /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
+    /// This method mainly does two things - downloads the media attached in the payload and then attaches it to the push notification.
+    ///
+    /// NOTE that there is no guarantees that the content handler will be called within the iOS stipulated time in the case where the download of the rich media takes long. iOS will automatically
+    /// present the notification as received from APNS when this happens and the image will not be attached to the notification.
+    ///
+    /// - Parameters:
+    ///   - request: the request received in the delegate `didReceive(_:withContentHandler:)`
+    ///   - bestAttemptContent: this is also received in `didReceive(_:withContentHandler:)` and is the best attempt at mutating the APNS payload before attaching it to the push notification
+    ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the image is downloaded and attached.
+    public func handleNotificationServiceDidReceivedRequest(
          request: UNNotificationRequest,
          bestAttemptContent: UNMutableNotificationContent,
          contentHandler: @escaping (UNNotificationContent) -> Void
@@ -538,6 +550,14 @@ public struct KlaviyoSDK {
         }
     }
     
+    func handleNotificationServiceExtensionTimeWillExpireRequest(
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent,
+        contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
+        contentHandler(bestAttemptContent)
+    }
+    
     /// downloads the media from the provided URL and writes to disk and provides a URL to the data on disk
     /// - Parameters:
     ///   - urlString: the URL from where the media needs to be downloaded
@@ -553,7 +573,7 @@ public struct KlaviyoSDK {
 
         let task = URLSession.shared.downloadTask(with: imageURL) { file, _, error in
             if let error = error {
-                print("error when downloading image = \(error.localizedDescription)")
+                environment.logger.error("error when downloading push media = \(error.localizedDescription)")
                 completion(nil)
                 return
             }
