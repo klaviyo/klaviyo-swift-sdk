@@ -11,7 +11,7 @@
 		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		3425CA0D2A3A635D0019E33A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
 		3425CA112A3A635D0019E33A /* NotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		3425CA272A44F14E0019E33A /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3425CA262A44F14E0019E33A /* KlaviyoSwift */; };
+		34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */; };
 		34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 34F2BEBA29AD203E006B8037 /* KlaviyoSwift */; };
 		7CC1C83828D74DB60073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
 		7CC1C83928D74DB60073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82D28D74DB60073197F /* Main.storyboard */; };
@@ -94,7 +94,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3425CA272A44F14E0019E33A /* KlaviyoSwift in Frameworks */,
+				34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -200,7 +200,7 @@
 			);
 			name = NotificationServiceExtension;
 			packageProductDependencies = (
-				3425CA262A44F14E0019E33A /* KlaviyoSwift */,
+				34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */,
 			);
 			productName = NotificationServiceExtension;
 			productReference = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */;
@@ -787,10 +787,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		3425CA262A44F14E0019E33A /* KlaviyoSwift */ = {
+		34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
-			productName = KlaviyoSwift;
+			productName = KlaviyoSwiftExtension;
 		};
 		34F2BEBA29AD203E006B8037 /* KlaviyoSwift */ = {
 			isa = XCSwiftPackageProductDependency;

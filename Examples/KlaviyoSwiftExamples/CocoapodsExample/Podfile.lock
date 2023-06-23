@@ -17,7 +17,7 @@ EXTERNAL SOURCES:
 
 CHECKOUT OPTIONS:
   KlaviyoSwift:
-    :commit: a62925ab90aa8a7155f2a7cef35db9b16ab59637
+    :commit: 5ea72614676f4572734ce2722cbdd0ff32d22e37
     :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
 
 SPEC CHECKSUMS:
