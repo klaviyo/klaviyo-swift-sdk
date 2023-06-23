@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
   s.source_files = 'Sources/KlaviyoSwift/**/*.swift'
   s.dependency     'AnyCodable-FlightSchool'
 
-  spec.subspec 'KlaviyoSwiftExtension' do |klaviyoSwiftSDK|
+  s.subspec 'KlaviyoSwiftExtension' do |klaviyoSwiftSDK|
     klaviyoSwiftSDK.source_files = 'Sources/KlaviyoSwiftExtension/**/*.swift'
   end
 end
