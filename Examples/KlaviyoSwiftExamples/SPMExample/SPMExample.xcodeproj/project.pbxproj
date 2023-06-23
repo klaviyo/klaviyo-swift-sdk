@@ -11,6 +11,7 @@
 		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		3425CA0D2A3A635D0019E33A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
 		3425CA112A3A635D0019E33A /* NotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3425CA272A44F14E0019E33A /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3425CA262A44F14E0019E33A /* KlaviyoSwift */; };
 		34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 34F2BEBA29AD203E006B8037 /* KlaviyoSwift */; };
 		7CC1C83828D74DB60073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
 		7CC1C83928D74DB60073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82D28D74DB60073197F /* Main.storyboard */; };
@@ -93,6 +94,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3425CA272A44F14E0019E33A /* KlaviyoSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,12 +132,20 @@
 			path = NotificationServiceExtension;
 			sourceTree = "<group>";
 		};
+		3425CA252A44F14E0019E33A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		7CC1C7EF28D74D810073197F = {
 			isa = PBXGroup;
 			children = (
 				7CC1C7FA28D74D810073197F /* SPMExample */,
 				3425CA0B2A3A635D0019E33A /* NotificationServiceExtension */,
 				7CC1C7F928D74D810073197F /* Products */,
+				3425CA252A44F14E0019E33A /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -189,6 +199,9 @@
 			dependencies = (
 			);
 			name = NotificationServiceExtension;
+			packageProductDependencies = (
+				3425CA262A44F14E0019E33A /* KlaviyoSwift */,
+			);
 			productName = NotificationServiceExtension;
 			productReference = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -767,13 +780,18 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.1;
+				branch = "as/testing-rich-push-in-sdk";
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		3425CA262A44F14E0019E33A /* KlaviyoSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
+			productName = KlaviyoSwift;
+		};
 		34F2BEBA29AD203E006B8037 /* KlaviyoSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;

@@ -2,12 +2,13 @@
 //  NotificationService.swift
 //  NotificationServiceExtension
 //
-//  Created by Ajay Subramanya on 6/14/23.
+//  Created by Ajay Subramanya on 6/22/23.
 //
 
-import UIKit
 import UserNotifications
+import UIKit
 import KlaviyoSwift
+
 
 // MARK: notification service extension implementation.
 
@@ -54,3 +55,4 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
 }
+

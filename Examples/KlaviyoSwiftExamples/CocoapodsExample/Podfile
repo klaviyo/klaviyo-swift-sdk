@@ -2,5 +2,6 @@ platform :ios, '13.0'
 use_frameworks!
 
 target 'CocoapodsExample' do
-  pod 'KlaviyoSwift', '~> 2.0.1'
+  pod 'KlaviyoSwift', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'as/testing-rich-push-in-sdk'
+
 end
