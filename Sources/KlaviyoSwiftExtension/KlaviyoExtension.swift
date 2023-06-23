@@ -86,7 +86,7 @@ public struct KlaviyoExtensionSDK {
 
         let task = URLSession.shared.downloadTask(with: imageURL) { file, _, error in
             if let error = error {
-                environment.logger.error("error when downloading push media = \(error.localizedDescription)")
+                print("error when downloading push media = \(error.localizedDescription)")
                 completion(nil)
                 return
             }
