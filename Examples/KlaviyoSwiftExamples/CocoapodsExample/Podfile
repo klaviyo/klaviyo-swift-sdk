@@ -3,5 +3,9 @@ use_frameworks!
 
 target 'CocoapodsExample' do
   pod 'KlaviyoSwift', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'as/testing-rich-push-in-sdk'
-
 end
+
+target 'NotificationServiceExtension' do
+    pod 'KlaviyoSwift', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'as/testing-rich-push-in-sdk'
+end
+
