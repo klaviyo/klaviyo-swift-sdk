@@ -1,10 +1,10 @@
 Pod::Spec.new do |s|
-  s.name             = "KlaviyoSwift"
+  s.name             = "KlaviyoSwiftExtension"
   s.version          = "2.0.1"
-  s.summary          = "Incorporate Klaviyo's event and person tracking and push notifications functionality into iOS applications"
+  s.summary          = "Incorporate Klaviyo's rich push notifications functionality into your iOS applications"
 
   s.description      = <<-DESC
-                        Use the Klaviyo SDK to incorporate Klaviyo's event and person tracking functionality within iOS applications. Written in Swift.'
+                          Incorporate Klaviyo's rich push notifications functionality into your iOS applications. Written in Swift.'
                        DESC
 
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
@@ -14,6 +14,5 @@ Pod::Spec.new do |s|
   s.swift_version = '5.7'
   s.platform = :ios
   s.ios.deployment_target = '13.0'
-  s.source_files = 'Sources/KlaviyoSwift/**/*.swift'
-  s.dependency     'AnyCodable-FlightSchool'
+  s.source_files = 'Sources/KlaviyoSwiftExtension/**/*.swift'
 end
