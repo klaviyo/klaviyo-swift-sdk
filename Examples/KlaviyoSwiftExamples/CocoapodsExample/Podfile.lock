@@ -2,9 +2,11 @@ PODS:
   - AnyCodable-FlightSchool (0.6.7)
   - KlaviyoSwift (2.0.1):
     - AnyCodable-FlightSchool
+  - KlaviyoSwiftExtension (2.0.1)
 
 DEPENDENCIES:
   - KlaviyoSwift (from `https://github.com/klaviyo/klaviyo-swift-sdk.git`, branch `as/testing-rich-push-in-sdk`)
+  - KlaviyoSwiftExtension (from `https://github.com/klaviyo/klaviyo-swift-sdk.git`, branch `as/testing-rich-push-in-sdk`)
 
 SPEC REPOS:
   trunk:
@@ -14,16 +16,23 @@ EXTERNAL SOURCES:
   KlaviyoSwift:
     :branch: as/testing-rich-push-in-sdk
     :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
+  KlaviyoSwiftExtension:
+    :branch: as/testing-rich-push-in-sdk
+    :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
 
 CHECKOUT OPTIONS:
   KlaviyoSwift:
-    :commit: 5ea72614676f4572734ce2722cbdd0ff32d22e37
+    :commit: 129d9847afafe7ed02cc7a2f05e56a0d8e5d0e07
+    :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
+  KlaviyoSwiftExtension:
+    :commit: 129d9847afafe7ed02cc7a2f05e56a0d8e5d0e07
     :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
 
 SPEC CHECKSUMS:
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
-  KlaviyoSwift: 340a348b9ff64d10b66ee7752bcb191f23365d94
+  KlaviyoSwift: 9013d5c58ad51be45e43d9b0265b0b241ab76000
+  KlaviyoSwiftExtension: 824bd4e752458e013f2295aa6c400a02f244725d
 
-PODFILE CHECKSUM: 5fab34d5fec4d115af8fc83d26a6498f65ad5cd7
+PODFILE CHECKSUM: 01a5c99fee2f2884e35ef78b46bea9050c158c13
 
 COCOAPODS: 1.12.1

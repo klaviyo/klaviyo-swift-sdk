@@ -6,6 +6,6 @@ target 'CocoapodsExample' do
 end
 
 target 'NotificationServiceExtension' do
-    pod 'KlaviyoSwift', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'as/testing-rich-push-in-sdk'
+    pod 'KlaviyoSwiftExtension', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'as/testing-rich-push-in-sdk'
 end
 
