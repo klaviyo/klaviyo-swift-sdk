@@ -336,8 +336,6 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 Rich push notification is the ability to add images, gifs and videos to your push notification messages that Apple has supported since iOS 10. In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension). Following the below steps should help set up your app to receive rich push notifications.
 
-> :warning: **Note that the initial release of this feature will only support images with gifs and videos to follow.**
-
 
 ### Step 1: Add notification service app extension to your project
 
@@ -353,7 +351,30 @@ A notification service app extension ships as a separate bundle inside your iOS 
 
 The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
 
-Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. You can either implement it using Apple's documentation [here](https://developer.apple.com/documentation/usernotifications/modifying_content_in_newly_delivered_notifications) or use our sample code from [here](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift).
+Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different - 
+
+#### Swift Package Manager(SPM)
+
+* Tap on the newly created notification service extension target 
+* Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
+* Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+
+
+#### Cocoapods 
+* In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
+
+	Example: 
+
+	```
+	target 'NotificationServiceExtension' do
+	    pod 'KlaviyoSwiftExtension'
+	end
+	```
+	Be sure to replace the name of your notification service extension target above.
+
+* Once you've added in the dependency make sure to `pod install`.
+* Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+ 
 
 ### Step 3: Test your rich push notifications
 
@@ -363,6 +384,7 @@ There are three things you would need to do this -
 
 1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications).
 2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid -
+
 ```json
 {
   "aps": {
