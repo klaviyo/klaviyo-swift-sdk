@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary          = "Incorporate Klaviyo's event and person tracking and push notifications functionality into iOS applications"
 
   s.description      = <<-DESC
-                        Use the Klaviyo SDK to incorporate Klaviyo's event and person tracking functionality within iOS applications. Written in Swift.'
+                        Use the Klaviyo SDK to incorporate Klaviyo's event and person tracking functionality and push notifications within iOS applications. Written in Swift.'
                        DESC
 
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
