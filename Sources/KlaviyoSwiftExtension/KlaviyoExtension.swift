@@ -31,7 +31,7 @@ public enum KlaviyoExtensionSDK {
         }
 
         // 1b.falling back to .png in case the media type isn't sent from the server.
-        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? "png"
+        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? "jpeg"
 
         // 2. once we have the url lets download the media from the server
         downloadMedia(for: imageURLString) { localFileURL in
@@ -79,7 +79,7 @@ public enum KlaviyoExtensionSDK {
             return
         }
 
-        let task = URLSession.shared.downloadTask(with: imageURL) { file, _, error in
+        URLSession.shared.downloadTask(with: imageURL) { file, _, error in
             if let error = error {
                 print("error when downloading push media = \(error.localizedDescription)")
                 completion(nil)
@@ -92,8 +92,7 @@ public enum KlaviyoExtensionSDK {
             }
 
             completion(file)
-        }
-        task.resume()
+        }.resume()
     }
 
     /// creates an attachment that can be attached to the push notification
