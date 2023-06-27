@@ -109,15 +109,43 @@ extension KlaviyoAPI.KlaviyoRequest {
             struct Event: Equatable, Codable {
                 struct Attributes: Equatable, Codable {
                     struct Metric: Equatable, Codable {
-                        let name: String
+                        let data: MetricData
+
+                        struct MetricData: Equatable, Codable {
+                            var type: String = "metric"
+
+                            let attributes: MetricAttributes
+
+                            init(name: String) {
+                                attributes = .init(name: name)
+                            }
+
+                            struct MetricAttributes: Equatable, Codable {
+                                let name: String
+
+                                init(name: String) {
+                                    self.name = name
+                                }
+                            }
+                        }
+
                         init(name: String) {
-                            self.name = name
+                            data = .init(name: name)
+                        }
+                    }
+
+                    struct Profile: Equatable, Codable {
+                        let data: CreateProfilePayload.Profile
+
+                        init(attributes: KlaviyoSwift.Profile,
+                             anonymousId: String) {
+                            data = .init(profile: attributes, anonymousId: anonymousId)
                         }
                     }
 
                     let metric: Metric
                     let properties: AnyCodable
-                    let profile: AnyCodable
+                    let profile: Profile
                     let time: Date
                     let value: Double?
                     let uniqueId: String
@@ -144,13 +172,12 @@ extension KlaviyoAPI.KlaviyoRequest {
                         value = attributes.value
                         time = attributes.time
                         uniqueId = attributes.uniqueId
-                        if let anonymousId = anonymousId {
-                            var updatedProfile = attributes.profile
-                            updatedProfile["$anonymous"] = anonymousId
-                            profile = AnyCodable(updatedProfile)
-                        } else {
-                            profile = AnyCodable(attributes.profile)
-                        }
+
+                        profile = .init(attributes: .init(
+                            email: attributes.identifiers?.email,
+                            phoneNumber: attributes.identifiers?.phoneNumber,
+                            externalId: attributes.identifiers?.externalId),
+                        anonymousId: anonymousId ?? "")
                     }
 
                     enum CodingKeys: String, CodingKey {
@@ -211,7 +238,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                 }
 
                 struct Attributes: Equatable, Codable {
-                    let profile: ProfileData
+                    let profile: Profile
                     let token: String
                     let enablementStatus: String
                     let backgroundStatus: String
@@ -220,7 +247,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let vendor: String = "APNs"
 
                     enum CodingKeys: String, CodingKey {
-                        case token = "token_id"
+                        case token
                         case platform
                         case enablementStatus = "enablement_status"
                         case profile
@@ -238,43 +265,16 @@ extension KlaviyoAPI.KlaviyoRequest {
 
                         enablementStatus = enablement
                         backgroundStatus = background
-                        self.profile = .init(profile: profile, anonymousId: anonymousId)
+                        self.profile = .init(attributes: profile, anonymousId: anonymousId)
                         deviceMetadata = .init(context: KlaviyoAPI.KlaviyoRequest._appContextInfo)
                     }
 
-                    struct ProfileData: Equatable, Codable {
-                        let data: Profile
+                    struct Profile: Equatable, Codable {
+                        let data: CreateProfilePayload.Profile
 
-                        init(profile: KlaviyoSwift.Profile,
+                        init(attributes: KlaviyoSwift.Profile,
                              anonymousId: String) {
-                            data = .init(profile: profile, anonymousId: anonymousId)
-                        }
-
-                        struct Profile: Equatable, Codable {
-                            var type = "profile"
-                            let attributes: Attributes
-
-                            init(profile: KlaviyoSwift.Profile,
-                                 anonymousId: String) {
-                                attributes = .init(email: profile.email,
-                                                   phoneNumber: profile.phoneNumber,
-                                                   externalId: profile.externalId,
-                                                   anonymousId: anonymousId)
-                            }
-
-                            struct Attributes: Equatable, Codable {
-                                let email: String?
-                                let phoneNumber: String?
-                                let externalId: String?
-                                let anonymousId: String
-
-                                enum CodingKeys: String, CodingKey {
-                                    case email
-                                    case phoneNumber = "phone_number"
-                                    case externalId = "external_id"
-                                    case anonymousId = "anonymous_id"
-                                }
-                            }
+                            data = .init(profile: attributes, anonymousId: anonymousId)
                         }
                     }
 

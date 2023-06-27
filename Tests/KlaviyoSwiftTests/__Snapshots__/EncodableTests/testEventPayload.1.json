@@ -2,14 +2,28 @@
   "data" : {
     "attributes" : {
       "metric" : {
-        "name" : "blob"
+        "data" : {
+          "attributes" : {
+            "name" : "blob"
+          },
+          "type" : "metric"
+        }
       },
       "profile" : {
-        "email" : "blob@email.com",
-        "location" : {
-          "city" : "blob city"
-        },
-        "stuff" : 2
+        "data" : {
+          "attributes" : {
+            "anonymous_id" : "",
+            "properties" : {
+
+            }
+          },
+          "meta" : {
+            "identifiers" : {
+              "anonymous_id" : ""
+            }
+          },
+          "type" : "profile"
+        }
       },
       "properties" : {
         "App Build" : "1",
@@ -27,7 +41,7 @@
         "OS Name" : "iOS",
         "OS Version" : "1.1.1",
         "Push Token" : null,
-        "SDK Name" : "klaviyo-swift-sdk",
+        "SDK Name" : "swift",
         "SDK Version" : "2.0.1",
         "stuff" : 2
       },

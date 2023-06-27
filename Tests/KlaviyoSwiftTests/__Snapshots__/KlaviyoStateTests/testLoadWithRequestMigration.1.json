@@ -12,13 +12,28 @@
             "data" : {
               "attributes" : {
                 "metric" : {
-                  "name" : "$opened_push"
+                  "data" : {
+                    "attributes" : {
+                      "name" : "$opened_push"
+                    },
+                    "type" : "metric"
+                  }
                 },
                 "profile" : {
-                  "$anonymous" : "iOS:00000000-0000-0000-0000-000000000002",
-                  "$email" : "value",
-                  "$id" : "value",
-                  "foo" : "bar"
+                  "data" : {
+                    "attributes" : {
+                      "anonymous_id" : "",
+                      "properties" : {
+
+                      }
+                    },
+                    "meta" : {
+                      "identifiers" : {
+                        "anonymous_id" : ""
+                      }
+                    },
+                    "type" : "profile"
+                  }
                 },
                 "properties" : {
                   "App Build" : "1",
@@ -32,7 +47,7 @@
                   "OS Version" : "1.1.1",
                   "prop1" : "propValue",
                   "Push Token" : null,
-                  "SDK Name" : "klaviyo-swift-sdk",
+                  "SDK Name" : "swift",
                   "SDK Version" : "2.0.1"
                 },
                 "time" : 256260690,
