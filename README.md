@@ -354,7 +354,7 @@ A notification service app extension ships as a separate bundle inside your iOS 
 
 The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
 
-Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different - 
+Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different: 
 
 #### Swift Package Manager(SPM)
 
@@ -386,7 +386,7 @@ Once step 1 is complete, you should see a file called `NotificationService.swift
 There are three things you would need to do this -
 
 1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications).
-2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid -
+2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
 
 ```json
 {
@@ -398,6 +398,7 @@ There are three things you would need to do this -
     "mutable-content": 1
   },
   "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+  "rich-media-type":"jpg"
 }
 ```
 
