@@ -334,6 +334,9 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 ## Rich push notifications
 
+> :warning: **This feature is currently invite-only**
+
+
 Rich push notification is the ability to add images, gifs and videos to your push notification messages that Apple has supported since iOS 10. In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension). Following the below steps should help set up your app to receive rich push notifications.
 
 
