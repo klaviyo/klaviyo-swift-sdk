@@ -1,6 +1,6 @@
 //
 //  KlaviyoExtension.swift
-//  
+//
 //
 //  Created by Ajay Subramanya on 6/23/23.
 //
@@ -11,7 +11,7 @@ import UIKit
 public struct KlaviyoExtensionSDK {
     /// Default initializer for the Klaviyo SDK.
     public init() {}
-    
+
     /// Call this method when you receive a rich push notification in the notification service extension.
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
     /// This method mainly does two things - downloads the media attached in the payload and then attaches it to the push notification.
@@ -24,10 +24,9 @@ public struct KlaviyoExtensionSDK {
     ///   - bestAttemptContent: this is also received in `didReceive(_:withContentHandler:)` and is the best attempt at mutating the APNS payload before attaching it to the push notification
     ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the image is downloaded and attached.
     public func handleNotificationServiceDidReceivedRequest(
-         request: UNNotificationRequest,
-         bestAttemptContent: UNMutableNotificationContent,
-         contentHandler: @escaping (UNNotificationContent) -> Void
-    ) {
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent,
+        contentHandler: @escaping (UNNotificationContent) -> Void) {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
@@ -62,15 +61,14 @@ public struct KlaviyoExtensionSDK {
                 }
         }
     }
-    
+
     public func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void
-    ) {
+        contentHandler: @escaping (UNNotificationContent) -> Void) {
         contentHandler(bestAttemptContent)
     }
-    
+
     /// downloads the media from the provided URL and writes to disk and provides a URL to the data on disk
     /// - Parameters:
     ///   - urlString: the URL from where the media needs to be downloaded
@@ -100,7 +98,7 @@ public struct KlaviyoExtensionSDK {
         }
         task.resume()
     }
-    
+
     /// creates an attachment that can be attached to the push notification
     /// - Parameters:
     ///   - localFileURL: the location of the downloaded file from the download task
@@ -135,5 +133,4 @@ public struct KlaviyoExtensionSDK {
 
         completion(attachment)
     }
-    
 }
