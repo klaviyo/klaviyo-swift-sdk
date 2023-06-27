@@ -22,17 +22,17 @@ EXTERNAL SOURCES:
 
 CHECKOUT OPTIONS:
   KlaviyoSwift:
-    :commit: 129d9847afafe7ed02cc7a2f05e56a0d8e5d0e07
+    :commit: f4fb6a37b9ddf591bc44d5c09e78e235d3cef534
     :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
   KlaviyoSwiftExtension:
-    :commit: 129d9847afafe7ed02cc7a2f05e56a0d8e5d0e07
+    :commit: f4fb6a37b9ddf591bc44d5c09e78e235d3cef534
     :git: https://github.com/klaviyo/klaviyo-swift-sdk.git
 
 SPEC CHECKSUMS:
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
-  KlaviyoSwift: 9013d5c58ad51be45e43d9b0265b0b241ab76000
+  KlaviyoSwift: bcff529a255b8312b5a268d40341df3d23bcc947
   KlaviyoSwiftExtension: 824bd4e752458e013f2295aa6c400a02f244725d
 
-PODFILE CHECKSUM: 01a5c99fee2f2884e35ef78b46bea9050c158c13
+PODFILE CHECKSUM: 36ccdee8bec24365bb7fbb0de544d1d44729bb5f
 
 COCOAPODS: 1.12.1
