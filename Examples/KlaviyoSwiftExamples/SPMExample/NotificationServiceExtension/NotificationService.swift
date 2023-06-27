@@ -5,9 +5,9 @@
 //  Created by Ajay Subramanya on 6/14/23.
 //
 
+import KlaviyoSwiftExtension
 import UIKit
 import UserNotifications
-import KlaviyoSwiftExtension
 
 // MARK: notification service extension implementation.
 
@@ -27,17 +27,15 @@ class NotificationService: UNNotificationServiceExtension {
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-            
         self.request = request
         self.contentHandler = contentHandler
-        self.bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
+        bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
         if let bestAttemptContent = bestAttemptContent {
             KlaviyoExtensionSDK().handleNotificationServiceDidReceivedRequest(
                 request: self.request,
                 bestAttemptContent: bestAttemptContent,
-                contentHandler: contentHandler
-            )
+                contentHandler: contentHandler)
         }
     }
 
@@ -47,10 +45,9 @@ class NotificationService: UNNotificationServiceExtension {
         if let contentHandler = contentHandler,
            let bestAttemptContent = bestAttemptContent {
             KlaviyoExtensionSDK().handleNotificationServiceExtensionTimeWillExpireRequest(
-                request: self.request,
+                request: request,
                 bestAttemptContent: bestAttemptContent,
-                contentHandler: contentHandler
-            )
+                contentHandler: contentHandler)
         }
     }
 }

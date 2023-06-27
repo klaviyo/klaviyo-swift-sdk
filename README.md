@@ -354,19 +354,19 @@ A notification service app extension ships as a separate bundle inside your iOS 
 
 The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
 
-Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different: 
+Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different:
 
 #### Swift Package Manager(SPM)
 
-* Tap on the newly created notification service extension target 
+* Tap on the newly created notification service extension target
 * Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
 * Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
 
 
-#### Cocoapods 
+#### Cocoapods
 * In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
 
-	Example: 
+	Example:
 
 	```
 	target 'NotificationServiceExtension' do
@@ -377,7 +377,7 @@ Once step 1 is complete, you should see a file called `NotificationService.swift
 
 * Once you've added in the dependency make sure to `pod install`.
 * Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
- 
+
 
 ### Step 3: Test your rich push notifications
 
