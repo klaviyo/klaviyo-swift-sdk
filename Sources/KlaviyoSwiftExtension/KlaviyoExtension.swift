@@ -8,10 +8,7 @@
 import Foundation
 import UIKit
 
-public struct KlaviyoExtensionSDK {
-    /// Default initializer for the Klaviyo SDK.
-    public init() {}
-
+public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
     /// This method mainly does two things - downloads the media attached in the payload and then attaches it to the push notification.
@@ -23,7 +20,7 @@ public struct KlaviyoExtensionSDK {
     ///   - request: the request received in the delegate `didReceive(_:withContentHandler:)`
     ///   - bestAttemptContent: this is also received in `didReceive(_:withContentHandler:)` and is the best attempt at mutating the APNS payload before attaching it to the push notification
     ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the image is downloaded and attached.
-    public func handleNotificationServiceDidReceivedRequest(
+    public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void) {
@@ -62,7 +59,7 @@ public struct KlaviyoExtensionSDK {
         }
     }
 
-    public func handleNotificationServiceExtensionTimeWillExpireRequest(
+    public static func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void) {
@@ -74,7 +71,7 @@ public struct KlaviyoExtensionSDK {
     ///   - urlString: the URL from where the media needs to be downloaded
     ///   - completion: closure that would be called when the image has finished downloading and the URL to the data on disk is available.
     ///                 note that in the case of failure the closure will still be called but with `nil`.
-    private func downloadMedia(
+    private static func downloadMedia(
         for urlString: String,
         completion: @escaping (URL?) -> Void) {
         guard let imageURL = URL(string: urlString) else {
@@ -105,7 +102,7 @@ public struct KlaviyoExtensionSDK {
     ///   - localFilePathWithTypeString: the location that we want to move the file to with the file extension received from the server
     ///   - completion: closure that will be called once the file has been moved and an attachment has been created.
     ///                 Note that in the case of failure during file transfer or creating an attachment this closure will be called with `nil` indicating a failure.
-    private func createAttachment(
+    private static func createAttachment(
         localFileURL: URL,
         localFilePathWithTypeString: String,
         completion: @escaping (UNNotificationAttachment?) -> Void) {
