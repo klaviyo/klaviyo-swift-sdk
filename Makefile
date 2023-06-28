@@ -11,6 +11,6 @@ test-library:
 		xcodebuild test \
 			-workspace=.github/package.xcworkspace \
 			-configuration=$(CONFIG) \
-			-scheme KlaviyoSwiftTests \
+			-scheme klaviyo-swift-sdk \
 			-destination platform="$$platform" || exit 1; \
 	done;
