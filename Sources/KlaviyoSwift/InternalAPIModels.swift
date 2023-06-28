@@ -431,7 +431,8 @@ struct LegacyEvent: Equatable {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken
         }
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, profile: customerProperties))
+        let identifiers: Event.Identifiers = .init(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, identifiers: identifiers, profile: customerProperties), anonymousId: state.anonymousId)
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)

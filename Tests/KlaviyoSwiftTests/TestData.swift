@@ -77,7 +77,7 @@ extension Event {
             "city": "blob city"
         ]
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
+    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, identifiers: .init(email: "blob@email.com"), profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
 extension Event.Metric {

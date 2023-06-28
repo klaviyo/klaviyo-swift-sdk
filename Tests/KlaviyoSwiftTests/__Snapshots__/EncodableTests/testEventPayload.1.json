@@ -12,14 +12,16 @@
       "profile" : {
         "data" : {
           "attributes" : {
-            "anonymous_id" : "",
+            "anonymous_id" : "anon-id",
+            "email" : "blob@email.com",
             "properties" : {
 
             }
           },
           "meta" : {
             "identifiers" : {
-              "anonymous_id" : ""
+              "anonymous_id" : "anon-id",
+              "email" : "blob@email.com"
             }
           },
           "type" : "profile"
