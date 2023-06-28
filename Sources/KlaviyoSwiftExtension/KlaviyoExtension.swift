@@ -4,9 +4,9 @@
 //
 //  Created by Ajay Subramanya on 6/23/23.
 //
-
+#if !os(macOS)
 import Foundation
-import UIKit
+import UserNotifications
 
 public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
@@ -130,3 +130,4 @@ public enum KlaviyoExtensionSDK {
         completion(attachment)
     }
 }
+#endif
