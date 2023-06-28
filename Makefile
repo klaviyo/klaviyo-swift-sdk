@@ -8,8 +8,7 @@ test-all: CONFIG=debug test-library
 test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
 		xcodebuild test \
-                        -workspace .github/package.xcworkspace \
 			-configuration=$CONFIG \
-			-scheme klaviyo-swift-sdk \
+			-scheme KlaviyoSwift \
 			-destination platform="$$platform" || exit 1; \
 	done;
