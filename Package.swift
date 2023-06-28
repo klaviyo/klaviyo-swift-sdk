@@ -9,10 +9,10 @@ let package = Package(
     products: [
         .library(
             name: "KlaviyoSwift",
-            targets: ["KlaviyoSwift"]),
-        .library(
-            name: "KlaviyoSwiftExtension",
-            targets: ["KlaviyoSwiftExtension"])
+            targets: ["KlaviyoSwift"])
+        // .library(
+        //     name: "KlaviyoSwiftExtension",
+        //     targets: ["KlaviyoSwiftExtension"])
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
@@ -28,10 +28,10 @@ let package = Package(
             name: "KlaviyoSwift",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
             path: "Sources/KlaviyoSwift"),
-        .target(
-            name: "KlaviyoSwiftExtension",
-            dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension"),
+        // .target(
+        //     name: "KlaviyoSwiftExtension",
+        //     dependencies: [],
+        //     path: "Sources/KlaviyoSwiftExtension"),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [
