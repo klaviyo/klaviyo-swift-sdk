@@ -9,7 +9,7 @@ test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
 		xcodebuild test \
 			-workspace=.github/package.xcworkspace \
-			-configuration=$CONFIG \
-			-scheme KlaviyoSwift \
+			-configuration=$(CONFIG) \
+			-scheme KlaviyoSwiftTests \
 			-destination platform="$$platform" || exit 1; \
 	done;
