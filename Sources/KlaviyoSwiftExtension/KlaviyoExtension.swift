@@ -13,8 +13,8 @@ public enum KlaviyoExtensionSDK {
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
     /// This method mainly does two things - downloads the media attached in the payload and then attaches it to the push notification.
     ///
-    /// NOTE that there is no guarantees that the content handler will be called within the iOS stipulated time in the case where the download of the rich media takes long. iOS will automatically
-    /// present the notification as received from APNS when this happens and the image will not be attached to the notification.
+    /// NOTE that there is no guarantee that the content handler will be called with in the time stipulated by iOS to download the rich media successfully.
+    /// In the case where the download does not complete, iOS will automatically present the notification as received from APNS without the attached image
     ///
     /// - Parameters:
     ///   - request: the request received in the delegate `didReceive(_:withContentHandler:)`
