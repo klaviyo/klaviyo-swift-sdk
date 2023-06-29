@@ -350,6 +350,10 @@ A notification service app extension ships as a separate bundle inside your iOS 
 4. Specify a name and other configuration details for your app extension.
 5. Click Finish.
 
+⚠️ By default the deployment target of your notification service extension might be the latest iOS version and not 
+the minimum you want to support. This may cause push notifications to not show the attached media in devices whose 
+iOS versions are lower than the deployment target of the notification service extension. ⚠️  
+
 ### Step 2: Implement the notification service app extension
 
 The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
