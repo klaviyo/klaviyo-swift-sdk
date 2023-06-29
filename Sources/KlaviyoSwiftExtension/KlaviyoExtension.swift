@@ -23,7 +23,9 @@ public enum KlaviyoExtensionSDK {
     public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void) {
+        contentHandler: @escaping (UNNotificationContent) -> Void,
+        fallbackMediaType: String = "jpeg"
+    ) {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
@@ -31,7 +33,7 @@ public enum KlaviyoExtensionSDK {
         }
 
         // 1b.falling back to .png in case the media type isn't sent from the server.
-        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? "jpeg"
+        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? fallbackMediaType
 
         // 2. once we have the url lets download the media from the server
         downloadMedia(for: imageURLString) { localFileURL in
