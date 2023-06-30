@@ -1,4 +1,4 @@
-# KlaviyoSwift
+ # KlaviyoSwift
 
 [![CI Status](https://travis-ci.org/klaviyo/klaviyo-swift-sdk.svg?branch=master)](https://travis-ci.org/klaviyo/klaviyo-swift-sdk)
 [![Swift](https://img.shields.io/badge/Swift-5.6_5.7-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.6_5.7-Orange?style=flat-square)
@@ -92,7 +92,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 ## Identifying traits of people
 
-If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:) methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
+If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
 ```swift
 let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
@@ -331,6 +331,92 @@ Once the above steps are complete, you can send push notifications from the Klav
 Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
 
 `xcrun simctl openurl booted {your_URL_here}`
+
+## Rich push notifications
+
+> :warning: **This feature is currently invite-only**
+
+
+Rich push notification is the ability to add images, gifs and videos to your push notification messages that Apple has supported since iOS 10. In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension). Following the below steps should help set up your app to receive rich push notifications.
+
+
+### Step 1: Add notification service app extension to your project
+
+A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+
+1. Select File > New > Target in Xcode.
+2. Select the Notification Service Extension target from the iOS > Application extension section.
+3. Click Next.
+4. Specify a name and other configuration details for your app extension.
+5. Click Finish.
+
+⚠️ By default the deployment target of your notification service extension might be the latest iOS version and not
+the minimum you want to support. This may cause push notifications to not show the attached media in devices whose
+iOS versions are lower than the deployment target of the notification service extension. ⚠️
+
+### Step 2: Implement the notification service app extension
+
+The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
+
+Once step 1 is complete, you should see a file called `NotificationService.swift` under the notification service extension target. From here on depending on which dependency manager you use the steps would look slightly different:
+
+#### Swift Package Manager(SPM)
+
+* Tap on the newly created notification service extension target
+* Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
+* Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+
+
+#### Cocoapods
+* In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
+
+	Example:
+
+	```
+	target 'NotificationServiceExtension' do
+	    pod 'KlaviyoSwiftExtension'
+	end
+	```
+	Be sure to replace the name of your notification service extension target above.
+
+* Once you've added in the dependency make sure to `pod install`.
+* Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+
+
+### Step 3: Test your rich push notifications
+
+#### Local testing
+
+There are three things you would need to do this -
+
+1. Any push notifications tester such as [this](https://github.com/onmyway133/PushNotifications).
+2. A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "Free apple vision pro",
+      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
+    },
+    "mutable-content": 1
+  },
+  "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+  "rich-media-type":"jpg"
+}
+```
+
+3. A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
+
+Once we have these three things we can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+
+#### Testing with Klaviyo
+
+At this point unfortunately we don't support testing debug builds with Klaviyo. So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
+
+A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications, performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo. Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign with an image to test the full end-to-end integration.
+
 
 ## SDK Data Transfer
 
