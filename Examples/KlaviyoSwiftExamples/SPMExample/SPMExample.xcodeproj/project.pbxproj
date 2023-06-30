@@ -780,7 +780,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
-				branch = "as/testing-rich-push-in-sdk";
+				branch = master;
 				kind = branch;
 			};
 		};
