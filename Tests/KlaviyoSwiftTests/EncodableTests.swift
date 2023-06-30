@@ -26,7 +26,7 @@ final class EncodableTests: XCTestCase {
 
     func testEventPayload() throws {
         let event = Event.test
-        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event))
+        let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event, anonymousId: "anon-id"))
         assertSnapshot(matching: createEventPayload, as: .json(encoder))
     }
 
