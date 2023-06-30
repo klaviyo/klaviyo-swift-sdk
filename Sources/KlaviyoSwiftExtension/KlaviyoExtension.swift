@@ -24,8 +24,7 @@ public enum KlaviyoExtensionSDK {
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg"
-    ) {
+        fallbackMediaType: String = "jpeg") {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
