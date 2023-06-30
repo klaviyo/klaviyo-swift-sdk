@@ -1,14 +1,15 @@
-PLATFORM_IOS = iOS Simulator,name=iPhone 11 Pro Max
+CONFIG = debug
+PLATFORM_IOS = iOS Simulator,name=iPhone 14
 
 default: test-all
 
-test-all: CONFIG=debug test-library
-	CONFIG=release test-library
+test-all: $(MAKE) CONFIG=debug test-library
+	$(MAKE) CONFIG=release test-library
 
 test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
 		xcodebuild test \
-                        -configuration=$CONFIG \
-			-scheme klaviyo-swift-sdk \
+			-configuration=$(CONFIG) \
+			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" || exit 1; \
 	done;
