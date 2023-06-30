@@ -19,7 +19,7 @@ jobs:
     runs-on: macos-13
     strategy:
       matrix:
-        xcode: [ '14.3']
+        xcode: ['14.3']
         config: ['debug', 'release']
     steps:
       - uses: actions/checkout@v3

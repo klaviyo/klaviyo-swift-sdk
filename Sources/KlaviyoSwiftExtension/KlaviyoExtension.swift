@@ -4,7 +4,6 @@
 //
 //  Created by Ajay Subramanya on 6/23/23.
 //
-#if !os(macOS)
 import Foundation
 import UserNotifications
 
@@ -131,4 +130,3 @@ public enum KlaviyoExtensionSDK {
         completion(attachment)
     }
 }
-#endif
