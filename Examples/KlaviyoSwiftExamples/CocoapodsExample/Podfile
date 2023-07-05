@@ -2,9 +2,9 @@ platform :ios, '13.0'
 use_frameworks!
 
 target 'CocoapodsExample' do
-  pod 'KlaviyoSwift', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'master'
+  pod 'KlaviyoSwift', '2.1.0-beta1'
 end
 
 target 'NotificationServiceExtension' do
-    pod 'KlaviyoSwiftExtension', :git => 'https://github.com/klaviyo/klaviyo-swift-sdk.git', :branch => 'master'
+  pod 'KlaviyoSwiftExtension', '2.1.0-beta1'
 end
