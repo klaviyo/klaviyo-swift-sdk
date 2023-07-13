@@ -7,11 +7,6 @@
 [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![Platform](https://img.shields.io/cocoapods/p/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 
-## DISCLAIMER
-
-_This project is currently in open beta while we continue to add additional features and seek feedback from users.
-The release is stable and publicly available, with no known critical bugs or issues._
-
 ## Overview
 
 KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. The SDK enables you to engage with your customers using push notifications. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
