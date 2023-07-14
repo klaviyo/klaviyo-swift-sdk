@@ -7,7 +7,7 @@
 
 import Foundation
 
-let CURRENT_API_REVISION = "2023-07-15.pre"
+let CURRENT_API_REVISION = "2023-07-15"
 let APPLICATION_JSON = "application/json"
 let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
 

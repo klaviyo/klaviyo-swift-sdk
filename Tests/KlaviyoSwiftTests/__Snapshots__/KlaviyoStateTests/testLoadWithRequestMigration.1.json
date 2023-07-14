@@ -29,13 +29,6 @@
 
                       }
                     },
-                    "meta" : {
-                      "identifiers" : {
-                        "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
-                        "email" : "value",
-                        "external_id" : "value"
-                      }
-                    },
                     "type" : "profile"
                   }
                 },
@@ -52,7 +45,7 @@
                   "prop1" : "propValue",
                   "Push Token" : null,
                   "SDK Name" : "swift",
-                  "SDK Version" : "2.0.1"
+                  "SDK Version" : "2.1.0"
                 },
                 "time" : 256260690,
                 "unique_id" : "00000000-0000-0000-0000-000000000001"
@@ -76,13 +69,6 @@
                 "external_id" : "value",
                 "properties" : {
                   "foo2" : "bar2"
-                }
-              },
-              "meta" : {
-                "identifiers" : {
-                  "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
-                  "email" : "value",
-                  "external_id" : "value"
                 }
               },
               "type" : "profile"

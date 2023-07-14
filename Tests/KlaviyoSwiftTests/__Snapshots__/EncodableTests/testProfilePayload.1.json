@@ -29,14 +29,6 @@
       },
       "title" : "Jelly"
     },
-    "meta" : {
-      "identifiers" : {
-        "anonymous_id" : "foo",
-        "email" : "blobemail",
-        "external_id" : "blobid",
-        "phone_number" : "+15555555555"
-      }
-    },
     "type" : "profile"
   }
 }

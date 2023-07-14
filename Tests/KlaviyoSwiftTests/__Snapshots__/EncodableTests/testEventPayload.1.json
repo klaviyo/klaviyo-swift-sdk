@@ -18,12 +18,6 @@
 
             }
           },
-          "meta" : {
-            "identifiers" : {
-              "anonymous_id" : "anon-id",
-              "email" : "blob@email.com"
-            }
-          },
           "type" : "profile"
         }
       },
@@ -44,7 +38,7 @@
         "OS Version" : "1.1.1",
         "Push Token" : null,
         "SDK Name" : "swift",
-        "SDK Version" : "2.0.1",
+        "SDK Version" : "2.1.0",
         "stuff" : 2
       },
       "time" : "2009-02-13T23:31:30Z",

@@ -18,7 +18,7 @@
               "manufacturer" : "Orange",
               "os_name" : "iOS",
               "os_version" : "1.1.1",
-              "sdk_version" : "2.0.1"
+              "sdk_version" : "2.1.0"
             },
             "enablement_status" : "AUTHORIZED",
             "platform" : "ios",
@@ -30,13 +30,6 @@
                   "phone_number" : "foo",
                   "properties" : {
 
-                  }
-                },
-                "meta" : {
-                  "identifiers" : {
-                    "anonymous_id" : "foo",
-                    "email" : "foo",
-                    "phone_number" : "foo"
                   }
                 },
                 "type" : "profile"
