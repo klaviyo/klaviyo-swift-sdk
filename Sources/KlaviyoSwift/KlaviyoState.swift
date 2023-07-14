@@ -163,7 +163,7 @@ struct KlaviyoState: Equatable, Codable {
         attributes.properties = AnyCodable(properties)
         self.pendingProfile = nil
 
-        return .init(apiKey: request.apiKey, endpoint: .createProfile(.init(data: .init(attributes: attributes, meta: profile.data.meta))))
+        return .init(apiKey: request.apiKey, endpoint: .createProfile(.init(data: .init(attributes: attributes))))
     }
 
     var isIdentified: Bool {

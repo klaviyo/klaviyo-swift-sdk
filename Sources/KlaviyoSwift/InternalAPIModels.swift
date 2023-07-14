@@ -61,44 +61,15 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
                 }
 
-                struct Meta: Equatable, Codable {
-                    struct Identifiers: Equatable, Codable {
-                        let email: String?
-                        let phoneNumber: String?
-                        let externalId: String?
-                        let anonymousId: String
-                        init(attributes: KlaviyoSwift.Profile, anonymousId: String) {
-                            email = attributes.email
-                            phoneNumber = attributes.phoneNumber
-                            externalId = attributes.externalId
-                            self.anonymousId = anonymousId
-                        }
-
-                        enum CodingKeys: String, CodingKey {
-                            case email
-                            case phoneNumber = "phone_number"
-                            case externalId = "external_id"
-                            case anonymousId = "anonymous_id"
-                        }
-                    }
-
-                    let identifiers: Identifiers
-                }
-
                 let attributes: Attributes
-                let meta: Meta
                 init(profile: KlaviyoSwift.Profile, anonymousId: String) {
                     attributes = Attributes(
                         attributes: profile,
                         anonymousId: anonymousId)
-                    meta = Meta(identifiers: .init(
-                        attributes: profile,
-                        anonymousId: anonymousId))
                 }
 
-                init(attributes: Attributes, meta: Meta) {
+                init(attributes: Attributes) {
                     self.attributes = attributes
-                    self.meta = meta
                 }
             }
 
