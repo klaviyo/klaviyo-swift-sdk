@@ -12,16 +12,40 @@
             "data" : {
               "attributes" : {
                 "metric" : {
-                  "name" : "$opened_push"
+                  "data" : {
+                    "attributes" : {
+                      "name" : "$opened_push"
+                    },
+                    "type" : "metric"
+                  }
                 },
                 "profile" : {
-                  "$anonymous" : "iOS:00000000-0000-0000-0000-000000000002",
-                  "$email" : "value",
-                  "$id" : "value",
-                  "foo" : "bar"
+                  "data" : {
+                    "attributes" : {
+                      "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
+                      "email" : "value",
+                      "external_id" : "value",
+                      "properties" : {
+
+                      }
+                    },
+                    "type" : "profile"
+                  }
                 },
                 "properties" : {
-                  "prop1" : "propValue"
+                  "App Build" : "1",
+                  "App ID" : "com.klaviyo.fooapp",
+                  "App Name" : "FooApp",
+                  "App Version" : "1.2.3",
+                  "Device ID" : "fe-fi-fo-fum",
+                  "Device Manufacturer" : "Orange",
+                  "Device Model" : "jPhone 1,1",
+                  "OS Name" : "iOS",
+                  "OS Version" : "1.1.1",
+                  "prop1" : "propValue",
+                  "Push Token" : null,
+                  "SDK Name" : "swift",
+                  "SDK Version" : "2.2.0"
                 },
                 "time" : 256260690,
                 "unique_id" : "00000000-0000-0000-0000-000000000001"
@@ -45,13 +69,6 @@
                 "external_id" : "value",
                 "properties" : {
                   "foo2" : "bar2"
-                }
-              },
-              "meta" : {
-                "identifiers" : {
-                  "anonymous_id" : "iOS:00000000-0000-0000-0000-000000000002",
-                  "email" : "value",
-                  "external_id" : "value"
                 }
               },
               "type" : "profile"

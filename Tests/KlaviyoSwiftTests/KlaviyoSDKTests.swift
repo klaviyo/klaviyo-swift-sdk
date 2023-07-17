@@ -109,7 +109,8 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testSetPushToken() throws {
         let tokenData = "mytoken".data(using: .utf8)!
-        let expectation = setupActionAssertion(expectedAction: .setPushToken(tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }))
+        let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+        let expectation = setupActionAssertion(expectedAction: .setPushToken(strToken, .authorized))
 
         klaviyo.set(pushToken: tokenData)
 
@@ -169,7 +170,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test property getters
 
-    func testPropertGetters() throws {
+    func testPropertyGetters() throws {
         environment.analytics.state = { KlaviyoState(email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id", pushToken: "blobtoken", queue: []) }
         let klaviyo = KlaviyoSDK()
         XCTAssertEqual("foo@foo.com", klaviyo.email)

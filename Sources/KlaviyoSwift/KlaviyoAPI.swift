@@ -94,10 +94,8 @@ extension KlaviyoAPI.KlaviyoRequest {
 
     var url: URL? {
         switch endpoint {
-        case .createProfile, .createEvent:
+        case .createProfile, .createEvent, .registerPushToken:
             return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(apiKey)")
-        case .storePushToken:
-            return URL(string: "\(environment.analytics.apiURL)/\(path)")
         }
     }
 
@@ -107,8 +105,8 @@ extension KlaviyoAPI.KlaviyoRequest {
             return "client/profiles"
         case .createEvent:
             return "client/events"
-        case .storePushToken:
-            return "api/identify"
+        case .registerPushToken:
+            return "client/push-tokens"
         }
     }
 
@@ -118,7 +116,7 @@ extension KlaviyoAPI.KlaviyoRequest {
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
         case let .createEvent(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
-        case let .storePushToken(payload):
+        case let .registerPushToken(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
         }
     }

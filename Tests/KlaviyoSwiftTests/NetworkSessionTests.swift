@@ -26,7 +26,7 @@ class NetworkSessionTests: XCTestCase {
     func testSessionDataTask() async throws {
         URLProtocolOverrides.protocolClasses = [SimpleMockURLProtocol.self]
         let session = NetworkSession.production
-        let sampleRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .storePushToken(.test))
+        let sampleRequest = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
         let (data, response) = try await session.data(sampleRequest.urlRequest())
 
         assertSnapshot(matching: data, as: .dump)

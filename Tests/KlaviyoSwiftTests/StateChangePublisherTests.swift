@@ -65,7 +65,7 @@ final class StateChangePublisherTests: XCTestCase {
             _ = environment.analytics.send(.initialize("foo"))
             testScheduler.run()
             // This should not trigger a save since in our reducer it does not change the state.
-            _ = environment.analytics.send(.setPushToken("foo"))
+            _ = environment.analytics.send(.setPushToken("foo", .authorized))
             _ = environment.analytics.send(.setEmail("foo"))
         }
         runDebouncedEffect()

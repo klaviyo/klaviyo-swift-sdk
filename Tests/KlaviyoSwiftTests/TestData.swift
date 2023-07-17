@@ -14,6 +14,8 @@ let INITIALIZED_TEST_STATE = { KlaviyoState(
     apiKey: TEST_API_KEY,
     anonymousId: environment.analytics.uuid().uuidString,
     pushToken: "blob_token",
+    pushEnablement: .authorized,
+    pushBackground: .available,
     queue: [],
     requestsInFlight: [],
     initalizationState: .initialized,
@@ -58,7 +60,15 @@ extension Event {
         "stuff": 2,
         "hello": [
             "sub": "dict"
-        ]
+        ],
+        "Application ID": "com.klaviyo.fooapp",
+        "App Version": "1.2.3",
+        "App Build": "1",
+        "App Name": "FooApp",
+        "OS Version": "1.1.1",
+        "OS Name": "iOS",
+        "Device Manufacturer": "Orange",
+        "Device Model": "jPhone 1,1"
     ] as [String: Any]
     static let SAMPLE_PROFILE_PROPERTIES = [
         "email": "blob@email.com",
@@ -67,7 +77,7 @@ extension Event {
             "city": "blob city"
         ]
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, profile: SAMPLE_PROFILE_PROPERTIES)
+    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, identifiers: .init(email: "blob@email.com"), profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
 extension Event.Metric {
@@ -84,7 +94,12 @@ extension URLResponse {
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
-    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(token: "foo", properties: Properties(anonymousId: "anon-id", pushToken: "foo"))
+    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+        pushToken: "foo",
+        enablement: "AUTHORIZED",
+        background: "AVAILABLE",
+        profile: .init(),
+        anonymousId: "anon-id")
 }
 
 extension KlaviyoState {

@@ -2,20 +2,43 @@
   "data" : {
     "attributes" : {
       "metric" : {
-        "name" : "blob"
+        "data" : {
+          "attributes" : {
+            "name" : "blob"
+          },
+          "type" : "metric"
+        }
       },
       "profile" : {
-        "email" : "blob@email.com",
-        "location" : {
-          "city" : "blob city"
-        },
-        "stuff" : 2
+        "data" : {
+          "attributes" : {
+            "anonymous_id" : "anon-id",
+            "email" : "blob@email.com",
+            "properties" : {
+
+            }
+          },
+          "type" : "profile"
+        }
       },
       "properties" : {
+        "App Build" : "1",
+        "App ID" : "com.klaviyo.fooapp",
+        "App Name" : "FooApp",
+        "App Version" : "1.2.3",
+        "Application ID" : "com.klaviyo.fooapp",
         "blob" : "blob",
+        "Device ID" : "fe-fi-fo-fum",
+        "Device Manufacturer" : "Orange",
+        "Device Model" : "jPhone 1,1",
         "hello" : {
           "sub" : "dict"
         },
+        "OS Name" : "iOS",
+        "OS Version" : "1.1.1",
+        "Push Token" : null,
+        "SDK Name" : "swift",
+        "SDK Version" : "2.2.0",
         "stuff" : 2
       },
       "time" : "2009-02-13T23:31:30Z",

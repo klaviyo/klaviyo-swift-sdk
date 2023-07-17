@@ -45,6 +45,8 @@ extension KlaviyoEnvironment {
         getUserDefaultString: { _ in "value" },
         appLifeCycle: AppLifeCycleEvents.test,
         notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
+        getNotificationSettings: { callback in callback(.authorized) },
+        getBackgroundSetting: { .available },
         legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)" },
         startReachability: {},
         stopReachability: {},
@@ -138,12 +140,16 @@ extension NetworkSession {
 }
 
 extension AppContextInfo {
-    static let test = Self(excutable: "FooApp",
+    static let test = Self(executable: "FooApp",
                            bundleId: "com.klaviyo.fooapp",
                            appVersion: "1.2.3",
                            appBuild: "1",
+                           appName: "FooApp",
                            version: OperatingSystemVersion(majorVersion: 1, minorVersion: 1, patchVersion: 1),
-                           osName: "iOS")
+                           osName: "iOS",
+                           manufacturer: "Orange",
+                           deviceModel: "jPhone 1,1",
+                           deviceId: "fe-fi-fo-fum")
 }
 
 extension StateChangePublisher {

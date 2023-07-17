@@ -70,9 +70,6 @@ public class Klaviyo: NSObject {
 
     // KL Definitions File: API URL Constants
 
-    let KlaviyoServerTrackEventEndpoint = "/track"
-    let KlaviyoServerTrackPersonEndpoint = "/identify"
-
     let KlaviyoServerURLString = "https://a.klaviyo.com"
 
     let CustomerPropertiesAppendDictKey = "$append"
@@ -467,7 +464,12 @@ public struct KlaviyoSDK {
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
-        dispatchOnMainThread(action: .setPushToken(apnDeviceToken))
+
+        environment.getNotificationSettings { enablement in
+            dispatchOnMainThread(action: .setPushToken(
+                apnDeviceToken,
+                enablement))
+        }
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.

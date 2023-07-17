@@ -55,16 +55,18 @@ public struct SDKRequest: Identifiable, Equatable {
                     externalId: payload.data.attributes.externalId,
                     anonymousId: payload.data.attributes.anonymousId))
             case let .createEvent(payload):
-                let profile = payload.data.attributes.profile.value as? [String: Any] ?? [:]
                 return .createEvent(
-                    EventInfo(eventName: payload.data.attributes.metric.name),
-                    ProfileInfo(anonymousId: profile["$anonymous"] as? String ?? "Unknown"))
-            case let .storePushToken(payload):
-                return .saveToken(token: payload.token, info:
-                    ProfileInfo(email: payload.properties.email,
-                                phoneNumber: payload.properties.phoneNumber,
-                                externalId: payload.properties.externalId,
-                                anonymousId: payload.properties.anonymousId ?? "Unknown"))
+                    EventInfo(eventName: payload.data.attributes.metric.data.attributes.name),
+                    ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
+                                phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
+                                externalId: payload.data.attributes.profile.data.attributes.externalId,
+                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case let .registerPushToken(payload):
+                return .saveToken(token: payload.data.attributes.token, info:
+                    ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
+                                phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
+                                externalId: payload.data.attributes.profile.data.attributes.externalId,
+                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
             }
         }
     }
