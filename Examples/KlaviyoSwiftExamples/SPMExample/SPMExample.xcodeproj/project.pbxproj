@@ -781,7 +781,7 @@
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
 				kind = exactVersion;
-				version = "2.1.0-beta1";
+				version = 2.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
