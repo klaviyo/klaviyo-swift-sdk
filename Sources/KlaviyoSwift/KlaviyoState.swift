@@ -59,6 +59,8 @@ struct KlaviyoState: Equatable, Codable {
                 return PushBackground.restricted
             case .denied:
                 return PushBackground.denied
+            @unknown default:
+                return PushBackground.available
             }
         }
     }
