@@ -394,23 +394,20 @@ extension KlaviyoState {
 
 extension Event {
     func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        let identifiers = identifiers
-        var profile = profile
-        if let email = identifiers?.email ?? profile["$email"] as? String {
+        var identifiers = identifiers ?? Identifiers(
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId)
+        if let email = identifiers.email ?? profile["$email"] as? String {
             state.email = email
-        } else {
-            profile["$email"] = state.email
         }
-        if let phoneNumber = identifiers?.phoneNumber ?? profile["$phone_number"] as? String {
+        if let phoneNumber = identifiers.phoneNumber ?? profile["$phone_number"] as? String {
             state.phoneNumber = phoneNumber
-        } else {
-            profile["$phone_number"] = state.phoneNumber
         }
-        if let externalId = identifiers?.externalId ?? profile["$id"] as? String {
+        if let externalId = identifiers.externalId ?? profile["$id"] as? String {
             state.externalId = externalId
-        } else {
-            profile["$id"] = state.externalId
         }
+
         var properties = properties
         if metric.name == EventName.OpenedPush,
            let pushToken = state.pushToken {
@@ -418,7 +415,7 @@ extension Event {
         }
         return Event(name: metric.name,
                      properties: properties,
-                     profile: profile,
+                     identifiers: identifiers,
                      value: value,
                      time: time,
                      uniqueId: uniqueId)
