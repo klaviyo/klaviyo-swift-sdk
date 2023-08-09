@@ -419,6 +419,7 @@ extension Event {
         return Event(name: metric.name,
                      properties: properties,
                      identifiers: identifiers,
+                     profile: profile,
                      value: value,
                      time: time,
                      uniqueId: uniqueId)

@@ -54,7 +54,7 @@ public struct Event: Equatable {
 
     private let _properties: AnyCodable
     public var profile: [String: Any] {
-        _profile.value as! [String: Any]
+        _profile.value as? [String: Any] ?? [:]
     }
 
     internal var _profile: AnyCodable
@@ -63,8 +63,6 @@ public struct Event: Equatable {
     public let uniqueId: String
     public let identifiers: Identifiers?
 
-    @available(
-        iOS, deprecated: 9999, message: "Please use alternative initializer.")
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 identifiers: Identifiers? = nil,
@@ -72,30 +70,16 @@ public struct Event: Equatable {
                 value: Double? = nil,
                 time: Date? = nil,
                 uniqueId: String? = nil) {
-        let email = profile?["$email"] as? String
-        let phoneNumber = profile?["$phone_number"] as? String
-        let externalId = profile?["$id"] as? String
+        var profile = profile
+        let email = profile?.removeValue(forKey: "$email") as? String
+        let phoneNumber = profile?.removeValue(forKey: "$phone_number") as? String
+        let externalId = profile?.removeValue(forKey: "$id") as? String
+        // identifiers takes precendence if available otherwise fallback to profile.
         let identifiers = identifiers ?? Identifiers(
             email: email,
             phoneNumber: phoneNumber,
             externalId: externalId)
-        self.init(
-            name: name,
-            properties: properties,
-            identifiers: identifiers,
-            value: value,
-            time: time,
-            uniqueId: uniqueId)
-    }
-
-    public init(name: EventName,
-                properties: [String: Any]? = nil,
-                identifiers: Identifiers? = nil,
-                value: Double? = nil,
-                time: Date? = nil,
-                uniqueId: String? = nil) {
-        // leaving legacy property for until we come up with a migration strategy
-        _profile = AnyCodable()
+        _profile = AnyCodable(profile)
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.value = value

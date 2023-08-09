@@ -147,7 +147,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                         profile = .init(attributes: .init(
                             email: attributes.identifiers?.email,
                             phoneNumber: attributes.identifiers?.phoneNumber,
-                            externalId: attributes.identifiers?.externalId),
+                            externalId: attributes.identifiers?.externalId,
+                            properties: attributes.profile),
                         anonymousId: anonymousId ?? "")
                     }
 
@@ -399,7 +400,7 @@ struct LegacyEvent: Equatable {
             eventProperties["push_token"] = state.pushToken
         }
         let identifiers: Event.Identifiers = .init(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, identifiers: identifiers), anonymousId: state.anonymousId)
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, identifiers: identifiers, profile: customerProperties), anonymousId: state.anonymousId)
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
