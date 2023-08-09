@@ -394,17 +394,20 @@ extension KlaviyoState {
 
 extension Event {
     func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        let identifiers = identifiers ?? Identifiers(
-            email: state.email,
-            phoneNumber: state.phoneNumber,
-            externalId: state.externalId)
-        if let email = identifiers.email ?? profile["$email"] as? String {
+        let email = identifiers?.email ?? state.email
+        let phoneNumber = identifiers?.phoneNumber ?? state.phoneNumber
+        let externalId = identifiers?.externalId ?? state.externalId
+        let identifiers = Identifiers(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId)
+        if let email = identifiers.email {
             state.email = email
         }
-        if let phoneNumber = identifiers.phoneNumber ?? profile["$phone_number"] as? String {
+        if let phoneNumber = identifiers.phoneNumber {
             state.phoneNumber = phoneNumber
         }
-        if let externalId = identifiers.externalId ?? profile["$id"] as? String {
+        if let externalId = identifiers.externalId {
             state.externalId = externalId
         }
 
