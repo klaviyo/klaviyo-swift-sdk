@@ -66,10 +66,11 @@ public struct Event: Equatable {
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 identifiers: Identifiers? = nil,
+                profile: [String: Any]? = nil,
                 value: Double? = nil,
                 time: Date? = nil,
                 uniqueId: String? = nil) {
-        _profile = AnyCodable()
+        _profile = AnyCodable(profile ?? [:])
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.value = value

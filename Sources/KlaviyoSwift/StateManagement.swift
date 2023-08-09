@@ -394,7 +394,7 @@ extension KlaviyoState {
 
 extension Event {
     func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        var identifiers = identifiers ?? Identifiers(
+        let identifiers = identifiers ?? Identifiers(
             email: state.email,
             phoneNumber: state.phoneNumber,
             externalId: state.externalId)
