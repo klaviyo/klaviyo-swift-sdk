@@ -90,7 +90,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 ## Identifying traits of people
 
-If your app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the individual setters method for email, phone number, and external id. In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
+If your app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the individual setters methods for email, phone number, and external id. In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
 ```swift
 let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
