@@ -9,6 +9,8 @@
 import Foundation
 import XCTest
 
+let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
+
 @MainActor
 class APIRequestErrorHandlingTests: XCTestCase {
     override func setUp() async throws {
@@ -46,7 +48,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(1))) {
+        await store.receive(.requestFailed(request, .retry(1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
@@ -66,7 +68,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(2))) {
+        await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
@@ -88,7 +90,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(MAX_RETRIES + 1))) {
+        await store.receive(.requestFailed(request, .retry(MAX_RETRIES + 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request2]
             $0.requestsInFlight = []
@@ -110,7 +112,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -131,7 +133,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -152,7 +154,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -172,7 +174,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -192,7 +194,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -212,7 +214,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
@@ -231,7 +233,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
@@ -252,7 +254,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []

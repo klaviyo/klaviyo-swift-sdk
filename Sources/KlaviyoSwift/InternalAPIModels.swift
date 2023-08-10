@@ -147,7 +147,8 @@ extension KlaviyoAPI.KlaviyoRequest {
                         profile = .init(attributes: .init(
                             email: attributes.identifiers?.email,
                             phoneNumber: attributes.identifiers?.phoneNumber,
-                            externalId: attributes.identifiers?.externalId),
+                            externalId: attributes.identifiers?.externalId,
+                            properties: attributes.profile),
                         anonymousId: anonymousId ?? "")
                     }
 
@@ -388,16 +389,10 @@ struct LegacyEvent: Equatable {
         guard var eventProperties = properties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
-        guard var customerProperties = customerProperties as? [String: Any] else {
+        guard let customerProperties = customerProperties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
 
-        // v3 events api still uses these properties - we are just ensuring we are using the latest
-        // identifiers here.
-        customerProperties["$email"] = state.email
-        customerProperties["$phone_number"] = state.phoneNumber
-        customerProperties["$id"] = state.externalId
-        customerProperties["$anonymous"] = state.anonymousId
         if eventName == "$opened_push" {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken

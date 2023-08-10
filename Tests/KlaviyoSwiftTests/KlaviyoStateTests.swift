@@ -45,7 +45,7 @@ final class KlaviyoStateTests: XCTestCase {
     let TEST_INVALID_PROPERTIES_EVENT = [
         "properties": [
             1: "propValue"
-        ],
+        ] as [AnyHashable: String],
         "customer_properties": [
             "foo": "bar"
         ]

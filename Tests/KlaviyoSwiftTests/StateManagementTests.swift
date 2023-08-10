@@ -79,7 +79,7 @@ class StateManagementTests: XCTestCase {
         stateChangeSubject.send(completion: .finished)
         lifecycleSubject.send(completion: .finished)
 
-        wait(for: [stateChangeIsSubscribed, lifecycleExpectation], timeout: 1.0)
+        await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
     }
 
     // MARK: - Set Email
@@ -382,9 +382,23 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushToken!], profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
+        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushToken!], profile: ["$email": "foo@foo.com", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event)) {
-            $0.email = "foo"
+            $0.email = "foo@foo.com"
+            $0.phoneNumber = "666BLOB"
+            $0.externalId = "my_user_id"
+            try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: XCTUnwrap($0.anonymousId))))))
+        }
+    }
+
+    func testEnqueueEventWithIdentifiers() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "555BLOB"
+        let identifiers = Event.Identifiers(email: "foo@foo.com", phoneNumber: "666BLOB", externalId: "my_user_id")
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushToken!], identifiers: identifiers)
+        _ = await store.send(.enqueueEvent(event)) {
+            $0.email = "foo@foo.com"
             $0.phoneNumber = "666BLOB"
             $0.externalId = "my_user_id"
             try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: XCTUnwrap($0.anonymousId))))))

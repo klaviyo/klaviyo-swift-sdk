@@ -8,6 +8,7 @@ import AnyCodable
 import Combine
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import CombineSchedulers
 
 enum FakeFileError: Error {
     case fake
@@ -156,7 +157,7 @@ extension StateChangePublisher {
     static let test = { () -> StateChangePublisher in
         StateChangePublisher.debouncedPublisher = { publisher in
             publisher
-                .debounce(for: .seconds(0), scheduler: DispatchQueue.main)
+                .debounce(for: .seconds(0), scheduler: DispatchQueue.immediate)
                 .eraseToAnyPublisher()
         }
         return Self()
