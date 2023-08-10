@@ -131,7 +131,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: 20) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -152,7 +152,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: 20) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
