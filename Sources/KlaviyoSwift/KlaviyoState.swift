@@ -48,14 +48,19 @@ struct KlaviyoState: Equatable, Codable {
 
     enum PushBackground: String {
         case available = "AVAILABLE"
-        case unavailable = "UNAVAILABLE"
+        case restricted = "RESTRICTED"
+        case denied = "DENIED"
 
         static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
             switch status {
             case .available:
                 return PushBackground.available
-            default:
-                return PushBackground.unavailable
+            case .restricted:
+                return PushBackground.restricted
+            case .denied:
+                return PushBackground.denied
+            @unknown default:
+                return PushBackground.available
             }
         }
     }
