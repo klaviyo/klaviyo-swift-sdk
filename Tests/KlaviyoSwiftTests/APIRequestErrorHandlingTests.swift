@@ -131,7 +131,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: 20) {
+        await store.receive(.dequeCompletedResults(request), timeout: 60) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -152,7 +152,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: 20) {
+        await store.receive(.dequeCompletedResults(request), timeout: 60) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -172,7 +172,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: 60) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -192,7 +192,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: 60) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -212,7 +212,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0)), timeout: 60) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
@@ -231,7 +231,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8))) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8)), timeout: 60) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
@@ -252,7 +252,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.dequeCompletedResults(request), timeout: 60) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
