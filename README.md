@@ -90,7 +90,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 ## Identifying traits of people
 
-If you app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the . In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
+If your app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the individual setters methods for email, phone number, and external id. In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
 
 ```swift
 let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
@@ -123,7 +123,7 @@ Implementing push notifications requires a few additional snippets of code to en
 
 1. Registering users for push notifications.
 2. Sending resulting push tokens to Klaviyo.
-3. Handlinge when users attempt to open your push notifications.
+3. Handling when users attempt to open your push notifications.
 
 ### Sending push notifications
 
