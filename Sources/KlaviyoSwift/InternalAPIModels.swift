@@ -393,8 +393,6 @@ struct LegacyEvent: Equatable {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
 
-        // v3 events api still uses these properties - we are just ensuring we are using the latest
-        // identifiers here.
         if eventName == "$opened_push" {
             // Special handling for $opened_push include push token at the time of open
             eventProperties["push_token"] = state.pushToken
