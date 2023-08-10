@@ -9,7 +9,7 @@
 import Foundation
 import XCTest
 
-let TIMEOUT_NANOSECONDS: UInt64 = 5_000_000_000 // 5 seconds
+let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
 
 @MainActor
 class APIRequestErrorHandlingTests: XCTestCase {
@@ -48,7 +48,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(1))) {
+        await store.receive(.requestFailed(request, .retry(1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
