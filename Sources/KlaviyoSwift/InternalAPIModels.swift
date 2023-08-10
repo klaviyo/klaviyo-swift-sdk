@@ -389,7 +389,7 @@ struct LegacyEvent: Equatable {
         guard var eventProperties = properties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
-        guard var customerProperties = customerProperties as? [String: Any] else {
+        guard let customerProperties = customerProperties as? [String: Any] else {
             throw KlaviyoAPI.KlaviyoAPIError.invalidData
         }
 

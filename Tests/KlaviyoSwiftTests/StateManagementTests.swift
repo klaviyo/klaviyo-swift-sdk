@@ -79,7 +79,7 @@ class StateManagementTests: XCTestCase {
         stateChangeSubject.send(completion: .finished)
         lifecycleSubject.send(completion: .finished)
 
-        wait(for: [stateChangeIsSubscribed, lifecycleExpectation], timeout: 1.0)
+        await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
     }
 
     // MARK: - Set Email
