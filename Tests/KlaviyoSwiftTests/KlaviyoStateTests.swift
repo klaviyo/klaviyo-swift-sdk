@@ -234,4 +234,39 @@ final class KlaviyoStateTests: XCTestCase {
             XCTFail("Should not be here!")
         }
     }
+
+    // MARK: test background and authorization states
+
+    func testBackgroundStates() {
+        let backgroundStates = [
+            UIBackgroundRefreshStatus.available: KlaviyoState.PushBackground.available,
+            .denied: .denied,
+            .restricted: .restricted
+        ]
+
+        for (status, expecation) in backgroundStates {
+            XCTAssertEqual(KlaviyoState.PushBackground.create(from: status), expecation)
+        }
+
+        // Fake value to test availability
+        XCTAssertEqual(KlaviyoState.PushBackground.create(from: UIBackgroundRefreshStatus(rawValue: 20)!), .available)
+    }
+
+    @available(iOS 14.0, *)
+    func testPushEnablementStates() {
+        let enablementStates = [
+            UNAuthorizationStatus.authorized: KlaviyoState.PushEnablement.authorized,
+            .denied: .denied,
+            .ephemeral: .ephemeral,
+            .notDetermined: .notDetermined,
+            .provisional: .provisional
+        ]
+
+        for (status, expecation) in enablementStates {
+            XCTAssertEqual(KlaviyoState.PushEnablement.create(from: status), expecation)
+        }
+
+        // Fake value to test availability
+        XCTAssertEqual(KlaviyoState.PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .authorized)
+    }
 }
