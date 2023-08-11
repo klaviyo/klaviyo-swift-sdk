@@ -267,6 +267,6 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         // Fake value to test availability
-        XCTAssertEqual(KlaviyoState.PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .authorized)
+        XCTAssertEqual(KlaviyoState.PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .notDetermined)
     }
 }
