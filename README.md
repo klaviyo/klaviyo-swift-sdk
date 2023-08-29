@@ -411,6 +411,12 @@ There are three things you would need to do this -
 
 Once we have these three things we can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
+
+#### Sandbox Support
+
+Apple have two environments with push notification support - production, and Sandbox. Sandbox applications that support push notifications are those signed with iOS Development Certificates instead of iOS Distribution Certificates. Applications in the Sandbox environment act as a staging environment allowing you to test your applications in a environment close-to but distinct from production.
+Our SDK supports the use of Sandbox for push as well. Klaviyo's SDK will determine and store the environment that your push token belongs to and communicate that to our backend allowing your tokens to route sends through to the correct environments. There is no additional setup needed, as long as you have deployed your application to sandbox with our SDK employed to transmit push tokens to our backend, the ability to send and receive push on these Sandbox applications should work out-of-the-box.
+
 #### Testing with Klaviyo
 
 At this point unfortunately we don't support testing debug builds with Klaviyo. So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
