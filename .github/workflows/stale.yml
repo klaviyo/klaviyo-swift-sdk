@@ -14,8 +14,12 @@ jobs:
     - uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: -1
-        days-before-issue-close: -1
+        days-before-issue-stale: 14
+        days-before-issue-close: 10
+        stale-issue-label: 'stale'
+        stale-issue-message: 'This issue is stale due to inactivity. Please let us know if you are still encountering issues, otherwise this issue will automatically close in 4 days.'
+        close-issue-message: 'This issue has seen no updates in the past 14 days and will now be closed. Please open a new issue if you wish to report an update.'
+        exempt-issue-labels: 'evergreen'
         days-before-pr-stale: 16
         days-before-pr-close: 14
         stale-pr-message: 'This PR has not seen any updates in the last 16 days. Without further action this PR will be closed in 14 days. To disable further staleness checks add the `evergreen` label.'
