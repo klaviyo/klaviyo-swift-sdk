@@ -20,14 +20,6 @@ class ViewController: UIViewController {
     @IBOutlet var zipcodeTextField: UITextField!
     @IBOutlet var rememberMeSwitch: UISwitch!
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-    }
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-    }
-
     @IBAction func login(_ sender: UIButton) {
         if checkForZipAndEmail {
             performSegue(withIdentifier: "loginSegue", sender: sender)

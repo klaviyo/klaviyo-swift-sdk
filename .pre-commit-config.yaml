@@ -7,7 +7,7 @@ repos:
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/realm/SwiftLint
-    rev: 0.50.3
+    rev: 0.53.0
     hooks:
     -   id: swiftlint
         entry: swiftlint --fix --strict

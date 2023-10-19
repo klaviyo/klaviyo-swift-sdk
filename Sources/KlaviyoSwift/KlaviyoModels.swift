@@ -38,9 +38,9 @@ public struct Event: Equatable {
         public let email: String?
         public let phoneNumber: String?
         public let externalId: String?
-        init(email: String? = nil,
-             phoneNumber: String? = nil,
-             externalId: String? = nil) {
+        public init(email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil) {
             self.email = email
             self.phoneNumber = phoneNumber
             self.externalId = externalId

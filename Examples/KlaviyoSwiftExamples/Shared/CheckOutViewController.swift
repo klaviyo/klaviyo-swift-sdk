@@ -41,10 +41,6 @@ class CheckOutViewController: UIViewController {
         orderTotalLabel.text = "Order Total: \(cart.valueOfCart)"
     }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-    }
-
     // MARK: IBActions
 
     /*

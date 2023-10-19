@@ -23,8 +23,4 @@ class MenuItemTableViewCell: UITableViewCell {
         itemImage.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         itemImage.image = UIImage(contentsOfFile: "monkey.png")
     }
-
-    override func setSelected(_ selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-    }
 }
