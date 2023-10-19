@@ -72,6 +72,15 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initializing = state.initalizationState else {
                 return .none
             }
+            if let email = state.email {
+                initialState.email = email
+            }
+            if let phoneNumber = state.phoneNumber {
+                initialState.phoneNumber = phoneNumber
+            }
+            if let externalId = state.externalId {
+                initialState.externalId = externalId
+            }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
 
