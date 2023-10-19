@@ -94,10 +94,6 @@ class MenuPageViewController: UIViewController {
         }
     }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-    }
-
     // MARK: IB Action
 
     @IBAction func addEmail(_ sender: AnyObject) {

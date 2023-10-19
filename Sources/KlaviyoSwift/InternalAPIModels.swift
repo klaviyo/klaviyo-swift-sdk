@@ -93,10 +93,6 @@ extension KlaviyoAPI.KlaviyoRequest {
 
                             struct MetricAttributes: Equatable, Codable {
                                 let name: String
-
-                                init(name: String) {
-                                    self.name = name
-                                }
                             }
                         }
 
