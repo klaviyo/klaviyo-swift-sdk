@@ -7,7 +7,7 @@ on:
 
 jobs:
   pre-commit:
-    runs-on: macos
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v3
