@@ -79,7 +79,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setEmail("test@blob.com"))
+        _ = await store.send(.setEmail("test@blob.com")) {
+            $0.email = "test@blob.com"
+        }
     }
 
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
@@ -108,7 +110,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId("external-blob-id"))
+        _ = await store.send(.setExternalId("external-blob-id")) {
+            $0.externalId = "external-blob-id"
+        }
     }
 
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
@@ -137,7 +141,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
+            $0.phoneNumber = "1-800-Blobs4u"
+        }
     }
 
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
