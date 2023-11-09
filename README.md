@@ -220,16 +220,15 @@ If you plan to use universal links in your app for deep linking you will need to
 
 ```swift
 extension AppDelegate: UNUserNotificationCenterDelegate {
-func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-    let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
-       // parse deep link and navigate here.
-    }
-    if not handled {
-       // not a klaviyo notification should be handled by other app code
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
+            print("deep link is ", url)
+        }
+        if !handled {
+           // not a klaviyo notification should be handled by other app code
+        }
     }
 }
-}
-
 ```
 
 Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
