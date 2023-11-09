@@ -97,8 +97,8 @@ let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr
 KlaviyoSDK().set(profile: profile)
 
 // or setting individual properties
-KlaviyoSDK().set(profileAttribute: .firstName, "Blob")
-KlaviyoSDK().set(profileAttribute: .lastName, "Jr")
+KlaviyoSDK().set(profileAttribute: .firstName, value: "Blob")
+KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr")
 ```
 
 Note that the only argument `set(profile:)` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
