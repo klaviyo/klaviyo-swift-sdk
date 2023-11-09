@@ -219,16 +219,16 @@ In order for deep linking to work, there are a few configurations that are neede
 If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
 
 ```swift
-    extension AppDelegate: UNUserNotificationCenterDelegate {
-        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
-               // parse deep link and navigate here.
-            }
-            if not handled {
-               // not a klaviyo notification should be handled by other app code
-            }
-        }
+extension AppDelegate: UNUserNotificationCenterDelegate {
+func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
+       // parse deep link and navigate here.
     }
+    if not handled {
+       // not a klaviyo notification should be handled by other app code
+    }
+}
+}
 
 ```
 
