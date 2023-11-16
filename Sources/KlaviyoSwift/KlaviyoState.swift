@@ -145,17 +145,20 @@ struct KlaviyoState: Equatable, Codable {
         if let pushTokenData = pushTokenData {
             self.pushTokenData = nil
             guard let request = try? buildTokenRequest(pushToken: pushTokenData.pushToken, enablement: pushTokenData.pushEnablement) else {
-                // fallback to normal profile if we can't make a token one.
-                enqueueProfileOrTokenRequest()
+                enqueueProfileRequest()
                 return
             }
             enqueueRequest(request: request)
         } else {
-            guard let request = try? buildProfileRequest(), let request = try? updateRequestAndStateWithPendingProfile(request: request) else {
-                return
-            }
-            enqueueRequest(request: request)
+            enqueueProfileRequest()
         }
+    }
+
+    mutating func enqueueProfileRequest() {
+        guard let request = try? buildProfileRequest(), let request = try? updateRequestAndStateWithPendingProfile(request: request) else {
+            return
+        }
+        enqueueRequest(request: request)
     }
 
     mutating func updateStateWithLegacyIdentifiers(identifiers: LegacyIdentifiers) {
