@@ -361,7 +361,6 @@ struct KlaviyoReducer: ReducerProtocol {
         case .resetProfile:
             let pushTokenData = state.pushTokenData
             state.reset()
-            state.enqueueProfileOrTokenRequest()
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
