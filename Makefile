@@ -9,6 +9,7 @@ test-all: $(MAKE) CONFIG=debug test-library
 test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
 		xcodebuild test \
+			-resultBundlePath TestResults \
 			-configuration=$(CONFIG) \
 			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" || exit 1; \
