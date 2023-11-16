@@ -379,7 +379,7 @@ public struct KlaviyoSDK {
 
     /// Returns the push token for the current user, if any.
     public var pushToken: String? {
-        state.pushToken
+        state.pushTokenData?.pushToken
     }
 
     /// Initialize the swift SDK with the given api key.

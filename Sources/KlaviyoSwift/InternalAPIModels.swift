@@ -131,7 +131,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                             "App ID": context.bundleId,
                             "App Version": context.appVersion,
                             "App Build": context.appBuild,
-                            "Push Token": environment.analytics.state().pushToken as Any
+                            "Push Token": environment.analytics.state().pushTokenData?.pushToken as Any
                         ]
 
                         metric = Metric(name: attributes.metric.name.value)
@@ -391,7 +391,7 @@ struct LegacyEvent: Equatable {
 
         if eventName == "$opened_push" {
             // Special handling for $opened_push include push token at the time of open
-            eventProperties["push_token"] = state.pushToken
+            eventProperties["push_token"] = state.pushTokenData?.pushBackground
         }
         let identifiers: Event.Identifiers = .init(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
         let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, identifiers: identifiers, profile: customerProperties), anonymousId: state.anonymousId)

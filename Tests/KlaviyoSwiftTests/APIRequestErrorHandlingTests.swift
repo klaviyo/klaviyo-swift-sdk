@@ -40,7 +40,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     func testSendRequestFailureIncrementsRetryCount() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest()
+        let request2 = try initialState.buildTokenRequest(pushToken: "new_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -60,7 +60,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
         let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest()
+        let request2 = try initialState.buildTokenRequest(pushToken: "new_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -81,7 +81,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryInfo = .retry(MAX_RETRIES)
 
         let request = try initialState.buildProfileRequest()
-        var request2 = try initialState.buildTokenRequest()
+        var request2 = try initialState.buildTokenRequest(pushToken: "new_token", enablement: .authorized)
         request2.uuid = "foo"
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())

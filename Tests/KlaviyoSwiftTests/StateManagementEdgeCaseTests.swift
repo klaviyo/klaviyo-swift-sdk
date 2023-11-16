@@ -87,7 +87,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
-            $0.queue = [try! $0.buildProfileRequest()]
         }
         await store.receive(.start)
         await store.receive(.flushQueue)
@@ -106,7 +105,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setEmail("test@blob.com")) {
-            $0.email = "test@blob.com"
+            $0.pendingRequests.append(.setEmail("test@blob.com"))
         }
     }
 
@@ -137,7 +136,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setExternalId("external-blob-id")) {
-            $0.externalId = "external-blob-id"
+            $0.pendingRequests.append(.setExternalId("external-blob-id"))
         }
     }
 
@@ -168,7 +167,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
-            $0.phoneNumber = "1-800-Blobs4u"
+            $0.pendingRequests.append(.setPhoneNumber("1-800-Blobs4u"))
         }
     }
 
@@ -197,10 +196,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token", .authorized))
+        _ = await store.send(.setPushToken("blob_token", .authorized)) {
+            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
+        }
     }
 
-    func testSetPushTokenWithMissingAnonymousIdStillSetsPushToken() async throws {
+    func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -209,11 +210,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token", .authorized)) {
-            $0.pushToken = "blob_token"
-            $0.pushEnablement = .authorized
-            $0.pushBackground = .available
-        }
+        // Impossible case really but we want coverage
+        _ = await store.send(.setPushToken("blob_token", .authorized))
     }
 
     // MARK: - Stop
@@ -285,11 +283,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blobtoken", .authorized)) {
-            $0.pushToken = "blobtoken"
-            $0.pushEnablement = .authorized
-            $0.pushBackground = .available
-        }
+        // Impossible case really but we want coverage on it.
+        _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
 
     // MARK: - set enqueue event uninitialized

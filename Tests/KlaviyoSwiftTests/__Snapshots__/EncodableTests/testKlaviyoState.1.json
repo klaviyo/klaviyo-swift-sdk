@@ -2,7 +2,11 @@
   "anonymousId" : "foo",
   "email" : "foo",
   "phoneNumber" : "foo",
-  "pushToken" : "foo",
+  "pushTokenData" : {
+    "pushBackground" : "AVAILABLE",
+    "pushEnablement" : "AUTHORIZED",
+    "pushToken" : "foo"
+  },
   "queue" : [
     {
       "apiKey" : "foo",
