@@ -359,8 +359,22 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             return .none
         case .resetProfile:
+            let pushTokenData = state.pushTokenData
             state.reset()
             state.enqueueProfileOrTokenRequest()
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
+                return .none
+            }
+            if let tokenData = pushTokenData {
+                let request = KlaviyoAPI.KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .registerPushToken(.init(pushToken: tokenData.pushToken, enablement: tokenData.pushEnablement.rawValue, background: tokenData.pushBackground.rawValue, profile: .init(), anonymousId: anonymousId)))
+
+                state.enqueueRequest(request: request)
+            }
             return .none
         case let .setProfileProperty(key, value):
             guard var pendingProfile = state.pendingProfile else {

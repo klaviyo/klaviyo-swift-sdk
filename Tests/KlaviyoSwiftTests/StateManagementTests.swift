@@ -406,9 +406,9 @@ class StateManagementTests: XCTestCase {
 
         _ = await store.send(.enqueueProfile(Profile(email: "foo"))) {
             $0.phoneNumber = nil
-            $0.pushTokenData = nil
             $0.email = "foo"
             $0.enqueueProfileOrTokenRequest()
+            $0.pushTokenData = nil
         }
     }
 

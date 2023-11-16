@@ -49,7 +49,7 @@ final class EncodableTests: XCTestCase {
             anonymousId: "foo")
         let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
         let klaviyoState = KlaviyoState(email: "foo", anonymousId: "foo",
-                                        phoneNumber: "foo", pushTokenData: .init(pushToken: "foo", pushEnablement: .authorized, pushBackground: .available),
+                                        phoneNumber: "foo", pushTokenData: .init(pushToken: "foo", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo())),
                                         queue: [request], requestsInFlight: [request])
         assertSnapshot(matching: klaviyoState, as: .json)
     }
