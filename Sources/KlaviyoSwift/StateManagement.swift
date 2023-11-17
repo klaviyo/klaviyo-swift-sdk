@@ -346,9 +346,7 @@ struct KlaviyoReducer: ReducerProtocol {
             )
             return .none
         case let .enqueueProfile(profile):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey,
-                  let _ = state.anonymousId
+            guard case .initialized = state.initalizationState
             else {
                 state.pendingRequests.append(.profile(profile))
                 return .none
@@ -356,7 +354,8 @@ struct KlaviyoReducer: ReducerProtocol {
             let pushTokenData = state.pushTokenData
             state.reset()
             state.updateStateWithProfile(profile: profile)
-            guard let anonymousId = state.anonymousId else {
+            guard let anonymousId = state.anonymousId,
+                  let apiKey = state.apiKey else {
                 return .none
             }
             if let tokenData = pushTokenData {
