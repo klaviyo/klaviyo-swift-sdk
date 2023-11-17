@@ -45,6 +45,16 @@ enum KlaviyoAction: Equatable {
     case enqueueProfile(Profile)
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     case resetProfile
+
+    var requiresInitialization: Bool {
+        switch self {
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile:
+            return true
+
+        case .initialize, .completeInitialization, .dequeCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+            return false
+        }
+    }
 }
 
 struct RequestId {}
@@ -54,6 +64,9 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+        if action.requiresInitialization, case .uninitialized = state.initalizationState {
+            environment.raiseFatalError("SDK must be initialized before usage.")
+        }
         switch action {
         case let .initialize(apiKey):
             guard case .uninitialized = state.initalizationState else {
@@ -135,7 +148,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.updateExternalId(externalId: externalId)
             return .none
         case let .setPushToken(pushToken, enablement):
-            guard case .initialized = state.initalizationState else {
+            guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
                 state.pendingRequests.append(.pushToken(pushToken, enablement))
                 return .none
             }
@@ -143,9 +156,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            guard let request = try? state.buildTokenRequest(pushToken: pushToken, enablement: enablement) else {
-                return .none
-            }
+            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
             state.enqueueRequest(request: request)
             return .none
         case .flushQueue:
@@ -382,6 +393,9 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             return .none
         case let .setProfileProperty(key, value):
+            if case .uninitialized = state.initalizationState {
+                assertionFailure("SDK must be initialized before setting profile properties")
+            }
             guard var pendingProfile = state.pendingProfile else {
                 state.pendingProfile = [key: value]
                 return .none
@@ -399,13 +413,9 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
 }
 
 extension KlaviyoState {
-    func buildProfileRequest(properties: [String: Any] = [:]) throws -> KlaviyoAPI.KlaviyoRequest {
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
-        guard let anonymousId = anonymousId else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
-        }
+    func checkPreconditions() {}
+
+    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoAPI.KlaviyoRequest {
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(
             data: .init(
                 profile: Profile(
@@ -420,13 +430,7 @@ extension KlaviyoState {
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 
-    func buildTokenRequest(pushToken: String, enablement: PushEnablement) throws -> KlaviyoAPI.KlaviyoRequest {
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
-        guard let anonymousId = anonymousId else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
-        }
+    func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
             pushToken: pushToken,
             enablement: enablement.rawValue,

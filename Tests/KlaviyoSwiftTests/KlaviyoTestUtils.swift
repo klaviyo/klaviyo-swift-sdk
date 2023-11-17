@@ -53,7 +53,8 @@ extension KlaviyoEnvironment {
         stopReachability: {},
         reachabilityStatus: { nil },
         randomInt: { 0 },
-        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() })
+        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() },
+        raiseFatalError: { _ in })
     }
 }
 

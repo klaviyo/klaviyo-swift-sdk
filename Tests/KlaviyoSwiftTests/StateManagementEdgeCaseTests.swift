@@ -211,7 +211,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Impossible case really but we want coverage
-        _ = await store.send(.setPushToken("blob_token", .authorized))
+        _ = await store.send(.setPushToken("blob_token", .authorized)) {
+            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
+        }
     }
 
     // MARK: - Stop
@@ -284,7 +286,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Impossible case really but we want coverage on it.
-        _ = await store.send(.setPushToken("blobtoken", .authorized))
+        _ = await store.send(.setPushToken("blobtoken", .authorized)) {
+            $0.pendingRequests = [.pushToken("blobtoken", .authorized)]
+        }
     }
 
     // MARK: - set enqueue event uninitialized

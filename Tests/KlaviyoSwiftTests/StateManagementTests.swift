@@ -79,7 +79,7 @@ class StateManagementTests: XCTestCase {
 
         _ = await store.send(.setEmail("test@blob.com")) {
             $0.email = "test@blob.com"
-            let request = try $0.buildTokenRequest(pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
+            let request = $0.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
             $0.queue = [request]
             $0.pushTokenData = nil
         }
@@ -93,7 +93,7 @@ class StateManagementTests: XCTestCase {
 
         _ = await store.send(.setPhoneNumber("+1800555BLOB")) {
             $0.phoneNumber = "+1800555BLOB"
-            let request = try $0.buildTokenRequest(pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
+            let request = $0.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
             $0.queue = [request]
             $0.pushTokenData = nil
         }
@@ -107,7 +107,7 @@ class StateManagementTests: XCTestCase {
 
         _ = await store.send(.setExternalId("external-blob")) {
             $0.externalId = "external-blob"
-            let request = try $0.buildTokenRequest(pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
+            let request = $0.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)
             $0.queue = [request]
             $0.pushTokenData = nil
         }
@@ -121,7 +121,7 @@ class StateManagementTests: XCTestCase {
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        let pushTokenRequest = try initialState.buildTokenRequest(pushToken: "blobtoken", enablement: .authorized)
+        let pushTokenRequest = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blobtoken", enablement: .authorized)
         _ = await store.send(.setPushToken("blobtoken", .authorized)) {
             $0.queue = [pushTokenRequest]
         }
@@ -147,7 +147,8 @@ class StateManagementTests: XCTestCase {
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        let pushTokenRequest = try initialState.buildTokenRequest(pushToken: "blobtoken", enablement: .authorized)
+        let pushTokenRequest = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blobtoken", enablement: .authorized)
+
         _ = await store.send(.setPushToken("blobtoken", .authorized)) {
             $0.queue = [pushTokenRequest]
         }
@@ -219,8 +220,8 @@ class StateManagementTests: XCTestCase {
         }
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
-        let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest(pushToken: "blob_token", enablement: .authorized)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -249,8 +250,8 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
         initialState.flushing = false
-        let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest(pushToken: "blob_token", enablement: .authorized)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -263,8 +264,8 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
         initialState.flushing = false
-        let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest(pushToken: "blob_token", enablement: .authorized)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -333,8 +334,8 @@ class StateManagementTests: XCTestCase {
         // This test is a little convoluted but essentially want to make when we stop
         // that we save our state.
         var initialState = INITIALIZED_TEST_STATE()
-        let request = try initialState.buildProfileRequest()
-        let request2 = try initialState.buildTokenRequest(pushToken: "blob_token", enablement: .authorized)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 

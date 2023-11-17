@@ -44,6 +44,7 @@ struct KlaviyoEnvironment {
     var reachabilityStatus: () -> Reachability.NetworkStatus?
     var randomInt: () -> Int
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
+    var raiseFatalError: (String) -> Void
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -73,7 +74,11 @@ struct KlaviyoEnvironment {
             reachabilityService?.currentReachabilityStatus
         },
         randomInt: { Int.random(in: 0...10) },
-        stateChangePublisher: StateChangePublisher().publisher)
+        stateChangePublisher: StateChangePublisher().publisher, raiseFatalError: { msg in
+            #if DEBUG
+            fatalError(msg)
+            #endif
+        })
 }
 
 private var networkSession: NetworkSession!

@@ -61,7 +61,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
                 }
 
-                let attributes: Attributes
+                var attributes: Attributes
                 init(profile: KlaviyoSwift.Profile, anonymousId: String) {
                     attributes = Attributes(
                         attributes: profile,
@@ -73,7 +73,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                 }
             }
 
-            let data: Profile
+            var data: Profile
         }
 
         struct CreateEventPayload: Equatable, Codable {
