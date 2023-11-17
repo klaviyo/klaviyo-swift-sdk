@@ -143,9 +143,7 @@ class LegacyTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.enqueueLegacyEvent(legacyEvent)) {
-            $0.pendingRequests = [.legacyEvent(legacyEvent)]
-        }
+        _ = await store.send(.enqueueLegacyEvent(legacyEvent))
     }
 
     func testLegacyProfileUnitializedUpdatesPendingProfiles() async throws {
@@ -158,9 +156,7 @@ class LegacyTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE)) {
-            $0.pendingRequests = [.legacyProfile(LEGACY_PROFILE)]
-        }
+        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE))
     }
 
     func testInvalidLegacyEventCustomerPropertiesHasNoEffect() async throws {

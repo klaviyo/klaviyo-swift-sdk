@@ -109,9 +109,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setEmail("test@blob.com")) {
-            $0.pendingRequests.append(.setEmail("test@blob.com"))
-        }
+        _ = await store.send(.setEmail("test@blob.com"))
 
         await fulfillment(of: [expection])
     }
@@ -142,9 +140,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId("external-blob-id")) {
-            $0.pendingRequests.append(.setExternalId("external-blob-id"))
-        }
+        _ = await store.send(.setExternalId("external-blob-id"))
     }
 
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
@@ -173,9 +169,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
-            $0.pendingRequests.append(.setPhoneNumber("1-800-Blobs4u"))
-        }
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
     }
 
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
@@ -203,9 +197,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token", .authorized)) {
-            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
-        }
+        _ = await store.send(.setPushToken("blob_token", .authorized))
     }
 
     func testSetPushTokenWithMissingAnonymousId() async throws {
@@ -308,9 +300,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
-        _ = await store.send(.enqueueEvent(event)) {
-            $0.pendingRequests = [.event(event)]
-        }
+        _ = await store.send(.enqueueEvent(event))
         await fulfillment(of: [expection])
     }
 
@@ -324,9 +314,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let profile = Profile(email: "foo")
-        _ = await store.send(.enqueueProfile(profile)) {
-            $0.pendingRequests = [.profile(profile)]
-        }
+        _ = await store.send(.enqueueProfile(profile))
         await fulfillment(of: [expection])
     }
 }

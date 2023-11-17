@@ -66,6 +66,7 @@ struct KlaviyoReducer: ReducerProtocol {
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
         if action.requiresInitialization, case .uninitialized = state.initalizationState {
             environment.raiseFatalError("SDK must be initialized before usage.")
+            return .none
         }
         switch action {
         case let .initialize(apiKey):
