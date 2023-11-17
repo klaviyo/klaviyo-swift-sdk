@@ -72,6 +72,15 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initializing = state.initalizationState else {
                 return .none
             }
+            if let email = state.email {
+                initialState.email = email
+            }
+            if let phoneNumber = state.phoneNumber {
+                initialState.phoneNumber = phoneNumber
+            }
+            if let externalId = state.externalId {
+                initialState.externalId = externalId
+            }
             let queuedRequests = state.queue
             initialState.queue += queuedRequests
 
@@ -100,26 +109,24 @@ struct KlaviyoReducer: ReducerProtocol {
             .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
             .merge(with: environment.stateChangePublisher().eraseToEffect())
         case let .setEmail(email):
+            state.email = email
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            // We could move this linebefore initialization...
-            // once the sdk initialized it would send the email.
-            state.email = email
             state.enqueueProfileRequest()
             return .none
         case let .setPhoneNumber(phoneNumber):
+            state.phoneNumber = phoneNumber
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            state.phoneNumber = phoneNumber
             state.enqueueProfileRequest()
             return .none
         case let .setExternalId(externalId):
+            state.externalId = externalId
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            state.externalId = externalId
             state.enqueueProfileRequest()
             return .none
         case let .setPushToken(pushToken, enablement):

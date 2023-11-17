@@ -62,9 +62,35 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initialized,
+                                                         flushing: true), reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.completeInitialization(initialState))
+    }
+
+    func testCompleteInitializationWithExistingIdentifiers() async throws {
+        let apiKey = "fake-key"
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: "foo", queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initializing,
+                                                         flushing: true), reducer: KlaviyoReducer())
+        // Attempting to get more coverage
+        _ = await store.send(.completeInitialization(initialState)) {
+            $0.initalizationState = .initialized
+            $0.anonymousId = "foo"
+            $0.queue = [try! $0.buildProfileRequest()]
+        }
+        await store.receive(.start)
+        await store.receive(.flushQueue)
     }
 
     // MARK: - Set Email
@@ -79,7 +105,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setEmail("test@blob.com"))
+        _ = await store.send(.setEmail("test@blob.com")) {
+            $0.email = "test@blob.com"
+        }
     }
 
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
@@ -108,7 +136,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId("external-blob-id"))
+        _ = await store.send(.setExternalId("external-blob-id")) {
+            $0.externalId = "external-blob-id"
+        }
     }
 
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
@@ -137,7 +167,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
+            $0.phoneNumber = "1-800-Blobs4u"
+        }
     }
 
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
