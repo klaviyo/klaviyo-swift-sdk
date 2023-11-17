@@ -95,6 +95,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Email
 
     func testSetEmailUninitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.analytics.uuid().uuidString,
@@ -107,6 +112,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setEmail("test@blob.com")) {
             $0.pendingRequests.append(.setEmail("test@blob.com"))
         }
+
+        await fulfillment(of: [expection])
     }
 
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
@@ -294,20 +301,32 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - set enqueue event uninitialized
 
     func testEnqueueEventUninitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }
+        await fulfillment(of: [expection])
     }
 
     // MARK: - set profile uninitialized
 
     func testSetProfileUnitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let profile = Profile(email: "foo")
         _ = await store.send(.enqueueProfile(profile)) {
             $0.pendingRequests = [.profile(profile)]
         }
+        await fulfillment(of: [expection])
     }
 }
