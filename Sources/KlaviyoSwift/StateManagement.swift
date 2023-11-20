@@ -336,14 +336,13 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             event = event.updateStateAndEvent(state: &state)
-            state.queue.append(.init(apiKey: apiKey,
-                                     endpoint: .createEvent(
-                                         .init(data:
-                                             .init(event: event,
-                                                   anonymousId: anonymousId)
-                                         )
-                                     ))
-            )
+            state.enqueueRequest(request: .init(apiKey: apiKey,
+                                                endpoint: .createEvent(
+                                                    .init(data:
+                                                        .init(event: event,
+                                                              anonymousId: anonymousId)
+                                                    )
+                                                )))
             return .none
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
