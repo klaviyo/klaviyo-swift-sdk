@@ -109,7 +109,7 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func enqueueRequest(request: KlaviyoAPI.KlaviyoRequest) {
-        guard queue.count + 1 < MAX_QUEUE_SIZE else {
+        guard queue.count + 1 < StateManagementConstants.maxQueueSize else {
             return
         }
         queue.append(request)

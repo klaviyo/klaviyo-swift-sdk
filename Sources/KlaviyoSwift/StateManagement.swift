@@ -1,23 +1,24 @@
 //
-//  StateManagement.swift
+//  KlaviyoStateManagement.swift
 //
+//  Klaviyo Swift SDK
 //
 //  Created by Noah Durell on 12/6/22.
+//
+//  Description: This file contains the state management logic and actions for the Klaviyo Swift SDK.
+//
+//  Copyright (c) 2023 Klaviyo
+//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
 //
 
 import AnyCodable
 import Foundation
 
-/**
-
- Actions and reducers related to klaviyo state.
-
- */
-
-// Request flush interval in seconds.
-let CELLULAR_FLUSH_INTERVAL = 30.0
-let WIFI_FLUSH_INTERVAL = 10.0
-let MAX_QUEUE_SIZE = 200
+struct StateManagementConstants {
+    static let cellularFlushInterval = 30.0
+    static let wifiFlushInterval = 10.0
+    static let maxQueueSize = 200
+}
 
 enum RetryInfo: Equatable {
     case retry(Int) // Int is current count for first request
@@ -268,9 +269,9 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.cancelInFlightRequests)
                     })
             case .reachableViaWiFi:
-                state.flushInterval = WIFI_FLUSH_INTERVAL
+                state.flushInterval = StateManagementConstants.wifiFlushInterval
             case .reachableViaWWAN:
-                state.flushInterval = CELLULAR_FLUSH_INTERVAL
+                state.flushInterval = StateManagementConstants.cellularFlushInterval
             }
             return environment.analytics.timer(state.flushInterval)
                 .map { _ in
@@ -310,10 +311,10 @@ struct KlaviyoReducer: ReducerProtocol {
             var exceededRetries = false
             switch retryInfo {
             case let .retry(count):
-                exceededRetries = count > MAX_RETRIES
+                exceededRetries = count > ErrorHandlingConstants.maxRetries
                 state.retryInfo = .retry(exceededRetries ? 0 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
-                exceededRetries = requestCount > MAX_RETRIES
+                exceededRetries = requestCount > ErrorHandlingConstants.maxRetries
                 state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
             }
             if exceededRetries {

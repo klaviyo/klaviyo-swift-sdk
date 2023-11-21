@@ -16,7 +16,7 @@ class NetworkSessionTests: XCTestCase {
     }
 
     func testDefaultUserAgent() {
-        assertSnapshot(matching: defaultUserAgent, as: .dump)
+        assertSnapshot(matching: NetworkSession.defaultUserAgent, as: .dump)
     }
 
     func testCreateEmphemeralSesionHeaders() {

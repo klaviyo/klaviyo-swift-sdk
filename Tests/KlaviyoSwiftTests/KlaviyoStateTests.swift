@@ -187,7 +187,7 @@ final class KlaviyoStateTests: XCTestCase {
         environment.data = { _ in
             try! JSONEncoder().encode(KlaviyoState(apiKey: "foo", anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: []))
         }
-        environment.analytics.decoder = DataDecoder(jsonDecoder: decoder)
+        environment.analytics.decoder = DataDecoder(jsonDecoder: KlaviyoEnvironment.decoder)
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)

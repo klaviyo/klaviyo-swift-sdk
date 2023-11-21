@@ -10,7 +10,7 @@ import SnapshotTesting
 import XCTest
 
 final class EncodableTests: XCTestCase {
-    let testEncoder = encoder
+    let testEncoder = KlaviyoEnvironment.encoder
 
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
@@ -21,13 +21,13 @@ final class EncodableTests: XCTestCase {
         let profile = Profile.test
         let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
-        assertSnapshot(matching: payload, as: .json(encoder))
+        assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
     }
 
     func testEventPayload() throws {
         let event = Event.test
         let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event, anonymousId: "anon-id"))
-        assertSnapshot(matching: createEventPayload, as: .json(encoder))
+        assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
     func testTokenPayload() throws {
@@ -37,7 +37,7 @@ final class EncodableTests: XCTestCase {
             background: "AVAILABLE",
             profile: .init(email: "foo", phoneNumber: "foo"),
             anonymousId: "foo")
-        assertSnapshot(matching: tokenPayload, as: .json(encoder))
+        assertSnapshot(matching: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
     func testKlaviyoState() throws {

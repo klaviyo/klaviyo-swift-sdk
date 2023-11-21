@@ -319,11 +319,11 @@ class StateManagementTests: XCTestCase {
         }
         _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
             $0.flushing = false
-            $0.flushInterval = WIFI_FLUSH_INTERVAL
+            $0.flushInterval = StateManagementConstants.wifiFlushInterval
         }
         await store.receive(.flushQueue)
         _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
-            $0.flushInterval = CELLULAR_FLUSH_INTERVAL
+            $0.flushInterval = StateManagementConstants.cellularFlushInterval
         }
         await store.receive(.flushQueue)
     }
