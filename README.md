@@ -60,8 +60,6 @@ KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
 
 ```swift
-let klaviyo = KlaviyoSDK()
-
 let event = Event(name: .StartedCheckout, properties: [
     "Total Price": 10.99,
     "Items Purchased": ["Hot Dog", "Fries", "Shake"]
@@ -71,7 +69,7 @@ profile: [
     "$last_name": "Jr"
 ], value: 10.99)
 
-klaviyo.create(event: event)
+KlaviyoSDK().create(event: event)
 ```
 
 ### Arguments
@@ -97,8 +95,8 @@ let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr
 KlaviyoSDK().set(profile: profile)
 
 // or setting individual properties
-KlaviyoSDK().set(profileAttribute: .firstName, "Blob")
-KlaviyoSDK().set(profileAttribute: .lastName, "Jr")
+KlaviyoSDK().set(profileAttribute: .firstName, value: "Blob")
+KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr")
 ```
 
 Note that the only argument `set(profile:)` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
@@ -173,14 +171,14 @@ The following code example allows you to track when a user opens a push notifica
 1. Add the following code that extends your app delegate:
 
 ```swift
-    extension AppDelegate: UNUserNotificationCenterDelegate {
-        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler)
-            if not handled {
-               // not a klaviyo notification should be handled by other app code
-            }
-        }
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+	let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
+	if !handled {
+	   // not a klaviyo notification should be handled by other app code
+	}
     }
+}
 
 ```
 
@@ -221,17 +219,16 @@ In order for deep linking to work, there are a few configurations that are neede
 If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
 
 ```swift
-    extension AppDelegate: UNUserNotificationCenterDelegate {
-        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-            let handled = KlaviyoSDK().handle(notificationResponse: response, completionHandler: completionHandler) { url in
-               // parse deep link and navigate here.
-            }
-            if not handled {
-               // not a klaviyo notification should be handled by other app code
-            }
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
+            print("deep link is ", url)
+        }
+        if !handled {
+           // not a klaviyo notification should be handled by other app code
         }
     }
-
+}
 ```
 
 Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
