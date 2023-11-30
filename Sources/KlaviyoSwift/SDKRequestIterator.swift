@@ -44,6 +44,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case createEvent(EventInfo, ProfileInfo)
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
+        case unregisterToken(token: String, info: ProfileInfo)
 
         static func fromEndpoint(request: KlaviyoAPI.KlaviyoRequest) -> RequestType {
             switch request.endpoint {
@@ -63,6 +64,12 @@ public struct SDKRequest: Identifiable, Equatable {
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
             case let .registerPushToken(payload):
                 return .saveToken(token: payload.data.attributes.token, info:
+                    ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
+                                phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
+                                externalId: payload.data.attributes.profile.data.attributes.externalId,
+                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case let .unregisterPushToken(payload):
+                return .unregisterToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,

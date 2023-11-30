@@ -232,16 +232,27 @@ struct KlaviyoState: Equatable, Codable {
         email != nil || externalId != nil || phoneNumber != nil
     }
 
-    mutating func reset() {
+    mutating func reset(preserveTokenData: Bool = true) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge it this profile with the new profile.
             anonymousId = environment.analytics.uuid().uuidString
         }
+        let previousPushTokenData = pushTokenData
         pendingProfile = nil
         email = nil
         externalId = nil
         phoneNumber = nil
         pushTokenData = nil
+        if preserveTokenData {
+            pushTokenData = previousPushTokenData
+            if let apiKey = apiKey, let anonymousId = anonymousId, let tokenData = previousPushTokenData {
+                let request = KlaviyoAPI.KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .registerPushToken(.init(pushToken: tokenData.pushToken, enablement: tokenData.pushEnablement.rawValue, background: tokenData.pushBackground.rawValue, profile: .init(), anonymousId: anonymousId)))
+
+                enqueueRequest(request: request)
+            }
+        }
     }
 
     func shouldSendTokenUpdate(newToken: String, enablement: PushEnablement) -> Bool {

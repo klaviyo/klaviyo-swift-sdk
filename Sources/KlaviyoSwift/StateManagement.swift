@@ -71,6 +71,18 @@ struct KlaviyoReducer: ReducerProtocol {
         }
         switch action {
         case let .initialize(apiKey):
+            if case .initialized = state.initalizationState {
+                guard apiKey != state.apiKey else {
+                    return .none
+                }
+                // Since we are moving the token to a new company lets remove the token from the old company first.
+                if let apiKey = state.apiKey, let anonymousId = state.anonymousId, let tokenData = state.pushTokenData {
+                    let request = state.buildUnregisterRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: tokenData.pushToken)
+                    state.enqueueRequest(request: request)
+                }
+                state.apiKey = apiKey
+                state.reset()
+            }
             guard case .uninitialized = state.initalizationState else {
                 return .none
             }
@@ -352,7 +364,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             let pushTokenData = state.pushTokenData
-            state.reset()
+            state.reset(preserveTokenData: false)
             state.updateStateWithProfile(profile: profile)
             guard let anonymousId = state.anonymousId,
                   let apiKey = state.apiKey else {
@@ -377,19 +389,7 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let pushTokenData = state.pushTokenData
             state.reset()
-            if let tokenData = pushTokenData {
-                guard let anonymousId = state.anonymousId,
-                      let apiKey = state.apiKey else {
-                    return .none
-                }
-                let request = KlaviyoAPI.KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: .registerPushToken(.init(pushToken: tokenData.pushToken, enablement: tokenData.pushEnablement.rawValue, background: tokenData.pushBackground.rawValue, profile: .init(), anonymousId: anonymousId)))
-
-                state.enqueueRequest(request: request)
-            }
             return .none
         case let .setProfileProperty(key, value):
             if case .uninitialized = state.initalizationState {
@@ -437,6 +437,15 @@ extension KlaviyoState {
             profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
             anonymousId: anonymousId)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+
+    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoAPI.KlaviyoRequest {
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.UnregisterPushTokenPayload(
+            pushToken: pushToken,
+            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
+            anonymousId: anonymousId)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.unregisterPushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }

@@ -294,9 +294,67 @@ extension KlaviyoAPI.KlaviyoRequest {
             }
         }
 
+        struct UnregisterPushTokenPayload: Equatable, Codable {
+            let data: PushToken
+
+            init(pushToken: String,
+                 profile: KlaviyoSwift.Profile,
+                 anonymousId: String) {
+                data = .init(
+                    pushToken: pushToken,
+                    profile: profile,
+                    anonymousId: anonymousId)
+            }
+
+            struct PushToken: Equatable, Codable {
+                var type = "push-token"
+                var attributes: Attributes
+
+                init(pushToken: String,
+                     profile: KlaviyoSwift.Profile,
+                     anonymousId: String) {
+                    attributes = .init(
+                        pushToken: pushToken,
+                        profile: profile,
+                        anonymousId: anonymousId)
+                }
+
+                struct Attributes: Equatable, Codable {
+                    let profile: Profile
+                    let token: String
+                    let platform: String = "ios"
+                    let vendor: String = "APNs"
+
+                    enum CodingKeys: String, CodingKey {
+                        case token
+                        case platform
+                        case profile
+                        case vendor
+                    }
+
+                    init(pushToken: String,
+                         profile: KlaviyoSwift.Profile,
+                         anonymousId: String) {
+                        token = pushToken
+                        self.profile = .init(attributes: profile, anonymousId: anonymousId)
+                    }
+
+                    struct Profile: Equatable, Codable {
+                        let data: CreateProfilePayload.Profile
+
+                        init(attributes: KlaviyoSwift.Profile,
+                             anonymousId: String) {
+                            data = .init(profile: attributes, anonymousId: anonymousId)
+                        }
+                    }
+                }
+            }
+        }
+
         case createProfile(CreateProfilePayload)
         case createEvent(CreateEventPayload)
         case registerPushToken(PushTokenPayload)
+        case unregisterPushToken(UnregisterPushTokenPayload)
     }
 }
 
