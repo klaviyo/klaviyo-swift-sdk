@@ -24,9 +24,16 @@ final class EncodableTests: XCTestCase {
         assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testEventPayload() throws {
+    func testEventPayloadWithoutMetadata() throws {
         let event = Event.test
         let createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event, anonymousId: "anon-id"))
+        assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
+    }
+
+    func testEventPayloadWithMetadata() throws {
+        let event = Event.test
+        var createEventPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: .init(event: event, anonymousId: "anon-id"))
+        createEventPayload.appendMetadataToProperties()
         assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 

@@ -383,6 +383,8 @@ public struct KlaviyoSDK {
     }
 
     /// Initialize the swift SDK with the given api key.
+    /// NOTE: if the SDK has been initialized previously this will result in the profile
+    /// information being reset and the token data being reassigned (see ``resetProfile()`` for details.)
     /// - Parameter apiKey: your public api key from the Klaviyo console
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
@@ -402,7 +404,7 @@ public struct KlaviyoSDK {
 
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
-    /// from the current profile. Call ``set(pushToken:)`` again to associate this device to a new profile.
+    /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
 
     public func resetProfile() {

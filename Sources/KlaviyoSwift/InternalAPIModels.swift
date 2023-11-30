@@ -111,31 +111,15 @@ extension KlaviyoAPI.KlaviyoRequest {
                     }
 
                     let metric: Metric
-                    let properties: AnyCodable
+                    var properties: AnyCodable
                     let profile: Profile
                     let time: Date
                     let value: Double?
                     let uniqueId: String
                     init(attributes: KlaviyoSwift.Event,
                          anonymousId: String? = nil) {
-                        let context = KlaviyoAPI.KlaviyoRequest._appContextInfo
-                        let metadata = [
-                            "Device ID": context.deviceId,
-                            "Device Manufacturer": context.manufacturer,
-                            "Device Model": context.deviceModel,
-                            "OS Name": context.osName,
-                            "OS Version": context.osVersion,
-                            "SDK Name": __klaviyoSwiftName,
-                            "SDK Version": __klaviyoSwiftVersion,
-                            "App Name": context.appName,
-                            "App ID": context.bundleId,
-                            "App Version": context.appVersion,
-                            "App Build": context.appBuild,
-                            "Push Token": environment.analytics.state().pushTokenData?.pushToken as Any
-                        ]
-
                         metric = Metric(name: attributes.metric.name.value)
-                        properties = AnyCodable(attributes.properties.merging(metadata) { _, new in new })
+                        properties = AnyCodable(attributes.properties)
                         value = attributes.value
                         time = attributes.time
                         uniqueId = attributes.uniqueId
@@ -159,14 +143,34 @@ extension KlaviyoAPI.KlaviyoRequest {
                 }
 
                 var type = "event"
-                let attributes: Attributes
+                var attributes: Attributes
                 init(event: KlaviyoSwift.Event,
                      anonymousId: String? = nil) {
                     attributes = .init(attributes: event, anonymousId: anonymousId)
                 }
             }
 
-            let data: Event
+            mutating func appendMetadataToProperties() {
+                let context = KlaviyoAPI.KlaviyoRequest._appContextInfo
+                let metadata = [
+                    "Device ID": context.deviceId,
+                    "Device Manufacturer": context.manufacturer,
+                    "Device Model": context.deviceModel,
+                    "OS Name": context.osName,
+                    "OS Version": context.osVersion,
+                    "SDK Name": __klaviyoSwiftName,
+                    "SDK Version": __klaviyoSwiftVersion,
+                    "App Name": context.appName,
+                    "App ID": context.bundleId,
+                    "App Version": context.appVersion,
+                    "App Build": context.appBuild,
+                    "Push Token": environment.analytics.state().pushTokenData?.pushToken as Any
+                ]
+                let originalProperties = data.attributes.properties.value as? [String: Any] ?? [:]
+                data.attributes.properties = AnyCodable(originalProperties.merging(metadata) { _, new in new })
+            }
+
+            var data: Event
             init(data: Event) {
                 self.data = data
             }

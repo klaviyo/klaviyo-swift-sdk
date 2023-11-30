@@ -116,7 +116,8 @@ extension KlaviyoAPI.KlaviyoRequest {
         switch endpoint {
         case let .createProfile(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
-        case let .createEvent(payload):
+        case var .createEvent(payload):
+            payload.appendMetadataToProperties()
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
         case let .registerPushToken(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))

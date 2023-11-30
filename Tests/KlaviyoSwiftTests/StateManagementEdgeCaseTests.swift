@@ -39,6 +39,22 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.initialize(apiKey))
     }
 
+    func testInitializeAfterInitialized() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Using the same key shouldn't do much
+        _ = await store.send(.initialize(initialState.apiKey!))
+
+        let newApiKey = "new-api-key"
+        // Using a new key should update the key and generate two requests
+        _ = await store.send(.initialize(newApiKey)) {
+            $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
+                        $0.buildTokenRequest(apiKey: newApiKey, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)]
+            $0.apiKey = newApiKey
+        }
+    }
+
     // MARK: - Send Request
 
     func testSendRequestBeforeInitialization() async throws {
