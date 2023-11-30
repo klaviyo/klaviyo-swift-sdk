@@ -311,7 +311,7 @@ extension KlaviyoAPI.KlaviyoRequest {
             }
 
             struct PushToken: Equatable, Codable {
-                var type = "push-token"
+                var type = "push-token-unregister"
                 var attributes: Attributes
 
                 init(pushToken: String,
