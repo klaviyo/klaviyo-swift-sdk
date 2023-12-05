@@ -7,13 +7,15 @@
 
 import Foundation
 
-let MAX_RETRIES = 50
-let MAX_BACKOFF = 60 * 3 // 3 minutes
+struct ErrorHandlingConstants {
+    static let maxRetries = 50
+    static let maxBackoff = 60 * 3 // 3 minutes
+}
 
 private func getDelaySeconds(for count: Int) -> Int {
     let delay = Int(pow(2.0, Double(count)))
     let jitter = environment.randomInt()
-    return min(delay + jitter, MAX_BACKOFF)
+    return min(delay + jitter, ErrorHandlingConstants.maxBackoff)
 }
 
 func handleRequestError(request: KlaviyoAPI.KlaviyoRequest, error: KlaviyoAPI.KlaviyoAPIError, retryInfo: RetryInfo) -> KlaviyoAction {

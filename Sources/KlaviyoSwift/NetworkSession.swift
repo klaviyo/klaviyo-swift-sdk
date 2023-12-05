@@ -7,30 +7,30 @@
 
 import Foundation
 
-let CURRENT_API_REVISION = "2023-07-15"
-let APPLICATION_JSON = "application/json"
-let ACCEPTED_ENCODINGS = ["br", "gzip", "deflate"]
-
-let defaultUserAgent = { () -> String in
-    let appContext = environment.analytics.appContextInfo()
-    let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
-    return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
-}()
-
 func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.httpAdditionalHeaders = [
-        "Accept-Encoding": ACCEPTED_ENCODINGS,
-        "User-Agent": defaultUserAgent,
-        "revision": CURRENT_API_REVISION,
-        "content-type": APPLICATION_JSON,
-        "accept": APPLICATION_JSON
+        "Accept-Encoding": NetworkSession.acceptedEncodings,
+        "User-Agent": NetworkSession.defaultUserAgent,
+        "revision": NetworkSession.currentApiRevision,
+        "content-type": NetworkSession.applicationJson,
+        "accept": NetworkSession.applicationJson
     ]
     configuration.protocolClasses = protocolClasses
     return URLSession(configuration: configuration)
 }
 
 struct NetworkSession {
+    fileprivate static let currentApiRevision = "2023-07-15"
+    fileprivate static let applicationJson = "application/json"
+    fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
+
+    static let defaultUserAgent = { () -> String in
+        let appContext = environment.analytics.appContextInfo()
+        let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
+        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
+    }()
+
     var data: (URLRequest) async throws -> (Data, URLResponse)
 
     static let production = { () -> NetworkSession in

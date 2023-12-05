@@ -2,7 +2,25 @@
   "anonymousId" : "foo",
   "email" : "foo",
   "phoneNumber" : "foo",
-  "pushToken" : "foo",
+  "pushTokenData" : {
+    "deviceData" : {
+      "app_build" : "1",
+      "app_id" : "com.klaviyo.fooapp",
+      "app_name" : "FooApp",
+      "app_version" : "1.2.3",
+      "device_id" : "fe-fi-fo-fum",
+      "device_model" : "jPhone 1,1",
+      "environment" : "debug",
+      "klaviyo_sdk" : "swift",
+      "manufacturer" : "Orange",
+      "os_name" : "iOS",
+      "os_version" : "1.1.1",
+      "sdk_version" : "2.2.1"
+    },
+    "pushBackground" : "AVAILABLE",
+    "pushEnablement" : "AUTHORIZED",
+    "pushToken" : "foo"
+  },
   "queue" : [
     {
       "apiKey" : "foo",

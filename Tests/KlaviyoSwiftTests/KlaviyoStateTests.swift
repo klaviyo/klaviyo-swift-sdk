@@ -187,7 +187,7 @@ final class KlaviyoStateTests: XCTestCase {
         environment.data = { _ in
             try! JSONEncoder().encode(KlaviyoState(apiKey: "foo", anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: []))
         }
-        environment.analytics.decoder = DataDecoder(jsonDecoder: decoder)
+        environment.analytics.decoder = DataDecoder(jsonDecoder: KlaviyoEnvironment.decoder)
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
@@ -221,18 +221,6 @@ final class KlaviyoStateTests: XCTestCase {
         saveKlaviyoState(state: state)
 
         XCTAssertEqual(savedMsg, "Attempt to save state without an api key.")
-    }
-
-    // MARK: build token request edge case
-
-    func testBuildTokenRequestFailsWithoutPushToken() {
-        // Unlikely to happen in prodution
-        var initalState = INITIALIZED_TEST_STATE()
-        initalState.pushToken = nil
-
-        if let _ = try? initalState.buildTokenRequest() {
-            XCTFail("Should not be here!")
-        }
     }
 
     // MARK: test background and authorization states

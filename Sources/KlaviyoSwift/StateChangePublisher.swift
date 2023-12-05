@@ -48,7 +48,7 @@ public struct StateChangePublisher {
     public static func internalStatePublisher() -> AnyPublisher<PrivateState, Never> {
         createStatePublisher()
             .map { state in
-                PrivateState(email: state.email, anonymousId: state.anonymousId, phoneNumber: state.phoneNumber, externalId: state.externalId, pushToken: state.pushToken)
+                PrivateState(email: state.email, anonymousId: state.anonymousId, phoneNumber: state.phoneNumber, externalId: state.externalId, pushToken: state.pushTokenData?.pushToken)
             }
             .eraseToAnyPublisher()
     }

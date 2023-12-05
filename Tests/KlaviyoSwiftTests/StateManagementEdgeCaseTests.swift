@@ -39,6 +39,22 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.initialize(apiKey))
     }
 
+    func testInitializeAfterInitialized() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Using the same key shouldn't do much
+        _ = await store.send(.initialize(initialState.apiKey!))
+
+        let newApiKey = "new-api-key"
+        // Using a new key should update the key and generate two requests
+        _ = await store.send(.initialize(newApiKey)) {
+            $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
+                        $0.buildTokenRequest(apiKey: newApiKey, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)]
+            $0.apiKey = newApiKey
+        }
+    }
+
     // MARK: - Send Request
 
     func testSendRequestBeforeInitialization() async throws {
@@ -87,7 +103,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
-            $0.queue = [try! $0.buildProfileRequest()]
         }
         await store.receive(.start)
         await store.receive(.flushQueue)
@@ -96,6 +111,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Email
 
     func testSetEmailUninitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.analytics.uuid().uuidString,
@@ -105,9 +125,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setEmail("test@blob.com")) {
-            $0.email = "test@blob.com"
-        }
+        _ = await store.send(.setEmail("test@blob.com"))
+
+        await fulfillment(of: [expection])
     }
 
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
@@ -136,9 +156,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId("external-blob-id")) {
-            $0.externalId = "external-blob-id"
-        }
+        _ = await store.send(.setExternalId("external-blob-id"))
     }
 
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
@@ -167,9 +185,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
-            $0.phoneNumber = "1-800-Blobs4u"
-        }
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
     }
 
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
@@ -200,7 +216,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPushToken("blob_token", .authorized))
     }
 
-    func testSetPushTokenWithMissingAnonymousIdStillSetsPushToken() async throws {
+    func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -209,10 +225,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
+        // Impossible case really but we want coverage
         _ = await store.send(.setPushToken("blob_token", .authorized)) {
-            $0.pushToken = "blob_token"
-            $0.pushEnablement = .authorized
-            $0.pushBackground = .available
+            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
         }
     }
 
@@ -285,30 +300,37 @@ class StateManagementEdgeCaseTests: XCTestCase {
             flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
+        // Impossible case really but we want coverage on it.
         _ = await store.send(.setPushToken("blobtoken", .authorized)) {
-            $0.pushToken = "blobtoken"
-            $0.pushEnablement = .authorized
-            $0.pushBackground = .available
+            $0.pendingRequests = [.pushToken("blobtoken", .authorized)]
         }
     }
 
     // MARK: - set enqueue event uninitialized
 
     func testEnqueueEventUninitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
-        _ = await store.send(.enqueueEvent(event)) {
-            $0.pendingRequests = [.event(event)]
-        }
+        _ = await store.send(.enqueueEvent(event))
+        await fulfillment(of: [expection])
     }
 
     // MARK: - set profile uninitialized
 
     func testSetProfileUnitialized() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.raiseFatalError = { _ in
+            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let profile = Profile(email: "foo")
-        _ = await store.send(.enqueueProfile(profile)) {
-            $0.pendingRequests = [.profile(profile)]
-        }
+        _ = await store.send(.enqueueProfile(profile))
+        await fulfillment(of: [expection])
     }
 }

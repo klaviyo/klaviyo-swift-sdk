@@ -7,13 +7,11 @@
   - externalId: Optional<String>.none
   - flushInterval: 10.0
   - flushing: false
-  - initalizationState: InitializationSate.uninitialized
+  - initalizationState: InitializationState.uninitialized
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   - phoneNumber: Optional<String>.none
-  - pushBackground: Optional<PushBackground>.none
-  - pushEnablement: Optional<PushEnablement>.none
-  - pushToken: Optional<String>.none
+  - pushTokenData: Optional<PushTokenData>.none
   - queue: 0 elements
   - requestsInFlight: 0 elements
   ▿ retryInfo: RetryInfo

@@ -7,27 +7,27 @@
 import Foundation
 import UIKit
 
-private let info = Bundle.main.infoDictionary
-private let DEFAULT_EXECUTABLE: String = (info?["CFBundleExecutable"] as? String) ??
-    (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
-private let DEFAULT_BUNDLE_ID: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
-private let DEFAULT_APP_VERSION: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
-private let DEFAULT_APP_BUILD: String = info?["CFBundleVersion"] as? String ?? "Unknown"
-private let DEFAULT_APP_NAME: String = info?["CFBundleName"] as? String ?? "Unknown"
-private let DEFAULT_OS_VERSION = ProcessInfo.processInfo.operatingSystemVersion
-private let DEFAULT_MANUFACTURER = "Apple"
-private let DEFAULT_OS_NAME = "iOS"
-private let DEFAULT_DEVICE_MODEL: String = {
-    var size = 0
-    sysctlbyname("hw.machine", nil, &size, nil, 0)
-    var machine = [CChar](repeating: 0, count: size)
-    sysctlbyname("hw.machine", &machine, &size, nil, 0)
-    return String(cString: machine)
-}()
-
-private let DEVICE_ID_STORE_KEY = "_klaviyo_device_id"
-
 struct AppContextInfo {
+    private static let info = Bundle.main.infoDictionary
+    private static let defaultExecutable: String = (info?["CFBundleExecutable"] as? String) ??
+        (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
+    private static let defaultBundleId: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
+    private static let defaultAppVersion: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    private static let defaultAppBuild: String = info?["CFBundleVersion"] as? String ?? "Unknown"
+    private static let defaultAppName: String = info?["CFBundleName"] as? String ?? "Unknown"
+    private static let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
+    private static let defaultManufacturer = "Apple"
+    private static let defaultOSName = "iOS"
+    private static let defaultDeviceModel: String = {
+        var size = 0
+        sysctlbyname("hw.machine", nil, &size, nil, 0)
+        var machine = [CChar](repeating: 0, count: size)
+        sysctlbyname("hw.machine", &machine, &size, nil, 0)
+        return String(cString: machine)
+    }()
+
+    private static let deviceIdStoreKey = "_klaviyo_device_id"
+
     let executable: String
     let bundleId: String
     let appVersion: String
@@ -48,15 +48,15 @@ struct AppContextInfo {
         "\(osName) \(osVersion)"
     }
 
-    init(executable: String = DEFAULT_EXECUTABLE,
-         bundleId: String = DEFAULT_BUNDLE_ID,
-         appVersion: String = DEFAULT_APP_VERSION,
-         appBuild: String = DEFAULT_APP_BUILD,
-         appName: String = DEFAULT_APP_NAME,
-         version: OperatingSystemVersion = DEFAULT_OS_VERSION,
-         osName: String = DEFAULT_OS_NAME,
-         manufacturer: String = DEFAULT_MANUFACTURER,
-         deviceModel: String = DEFAULT_DEVICE_MODEL,
+    init(executable: String = defaultExecutable,
+         bundleId: String = defaultBundleId,
+         appVersion: String = defaultAppVersion,
+         appBuild: String = defaultAppBuild,
+         appName: String = defaultAppName,
+         version: OperatingSystemVersion = defaultOSVersion,
+         osName: String = defaultOSName,
+         manufacturer: String = defaultManufacturer,
+         deviceModel: String = defaultDeviceModel,
          deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
         self.executable = executable
         self.bundleId = bundleId

@@ -12,22 +12,22 @@ import UIKit
 
 var environment = KlaviyoEnvironment.production
 
-let PRODUCTION_HOST = "https://a.klaviyo.com"
-let encoder = { () -> JSONEncoder in
-    let encoder = JSONEncoder()
-    encoder.dateEncodingStrategy = .iso8601
-    return encoder
-}()
-
-let decoder = { () -> JSONDecoder in
-    let decoder = JSONDecoder()
-    decoder.dateDecodingStrategy = .iso8601
-    return decoder
-}()
-
-private let reachabilityService = Reachability(hostname: URL(string: PRODUCTION_HOST)!.host!)
-
 struct KlaviyoEnvironment {
+    fileprivate static let productionHost = "https://a.klaviyo.com"
+    static let encoder = { () -> JSONEncoder in
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    static let decoder = { () -> JSONDecoder in
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    private static let reachabilityService = Reachability(hostname: URL(string: productionHost)!.host!)
+
     var archiverClient: ArchiverClient
     var fileClient: FileClient
     var data: (URL) throws -> Data
@@ -44,6 +44,7 @@ struct KlaviyoEnvironment {
     var reachabilityStatus: () -> Reachability.NetworkStatus?
     var randomInt: () -> Int
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
+    var raiseFatalError: (String) -> Void
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -73,7 +74,11 @@ struct KlaviyoEnvironment {
             reachabilityService?.currentReachabilityStatus
         },
         randomInt: { Int.random(in: 0...10) },
-        stateChangePublisher: StateChangePublisher().publisher)
+        stateChangePublisher: StateChangePublisher().publisher, raiseFatalError: { msg in
+            #if DEBUG
+            fatalError(msg)
+            #endif
+        })
 }
 
 private var networkSession: NetworkSession!
@@ -94,7 +99,7 @@ struct DataDecoder {
     }
 
     var jsonDecoder: JSONDecoder
-    static let production = Self(jsonDecoder: decoder)
+    static let production = Self(jsonDecoder: KlaviyoEnvironment.decoder)
 }
 
 struct AnalyticsEnvironment {
@@ -115,8 +120,8 @@ struct AnalyticsEnvironment {
         let store = Store.production
         return AnalyticsEnvironment(
             networkSession: createNetworkSession,
-            apiURL: PRODUCTION_HOST,
-            encodeJSON: { encodable in try encoder.encode(encodable) },
+            apiURL: KlaviyoEnvironment.productionHost,
+            encodeJSON: { encodable in try KlaviyoEnvironment.encoder.encode(encodable) },
             decoder: DataDecoder.production,
             uuid: { UUID() },
             date: { Date() },

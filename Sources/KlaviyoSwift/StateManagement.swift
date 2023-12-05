@@ -1,23 +1,24 @@
 //
-//  StateManagement.swift
+//  KlaviyoStateManagement.swift
 //
+//  Klaviyo Swift SDK
 //
 //  Created by Noah Durell on 12/6/22.
+//
+//  Description: This file contains the state management logic and actions for the Klaviyo Swift SDK.
+//
+//  Copyright (c) 2023 Klaviyo
+//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
 //
 
 import AnyCodable
 import Foundation
 
-/**
-
- Actions and reducers related to klaviyo state.
-
- */
-
-// Request flush interval in seconds.
-let CELLULAR_FLUSH_INTERVAL = 30.0
-let WIFI_FLUSH_INTERVAL = 10.0
-let MAX_QUEUE_SIZE = 200
+struct StateManagementConstants {
+    static let cellularFlushInterval = 30.0
+    static let wifiFlushInterval = 10.0
+    static let maxQueueSize = 200
+}
 
 enum RetryInfo: Equatable {
     case retry(Int) // Int is current count for first request
@@ -45,6 +46,16 @@ enum KlaviyoAction: Equatable {
     case enqueueProfile(Profile)
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     case resetProfile
+
+    var requiresInitialization: Bool {
+        switch self {
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile:
+            return true
+
+        case .initialize, .completeInitialization, .dequeCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+            return false
+        }
+    }
 }
 
 struct RequestId {}
@@ -54,8 +65,24 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+        if action.requiresInitialization, case .uninitialized = state.initalizationState {
+            environment.raiseFatalError("SDK must be initialized before usage.")
+            return .none
+        }
         switch action {
         case let .initialize(apiKey):
+            if case .initialized = state.initalizationState {
+                guard apiKey != state.apiKey else {
+                    return .none
+                }
+                // Since we are moving the token to a new company lets remove the token from the old company first.
+                if let apiKey = state.apiKey, let anonymousId = state.anonymousId, let tokenData = state.pushTokenData {
+                    let request = state.buildUnregisterRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: tokenData.pushToken)
+                    state.enqueueRequest(request: request)
+                }
+                state.apiKey = apiKey
+                state.reset()
+            }
             guard case .uninitialized = state.initalizationState else {
                 return .none
             }
@@ -86,9 +113,6 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state = initialState
             state.initalizationState = .initialized
-            if let request = try? state.buildProfileRequest() {
-                state.queue.append(request)
-            }
             let pendingRequests = state.pendingRequests
             state.pendingRequests = []
             return .run { send in
@@ -102,6 +126,14 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueEvent(event))
                     case let .profile(profile):
                         await send(.enqueueProfile(profile))
+                    case let .pushToken(token, enablement):
+                        await send(.setPushToken(token, enablement))
+                    case let .setEmail(email):
+                        await send(.setEmail(email))
+                    case let .setExternalId(externalId):
+                        await send(.setExternalId(externalId))
+                    case let .setPhoneNumber(phoneNumber):
+                        await send(.setPhoneNumber(phoneNumber))
                     }
                 }
                 await send(.start)
@@ -109,37 +141,37 @@ struct KlaviyoReducer: ReducerProtocol {
             .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
             .merge(with: environment.stateChangePublisher().eraseToEffect())
         case let .setEmail(email):
-            state.email = email
             guard case .initialized = state.initalizationState else {
+                state.pendingRequests.append(.setEmail(email))
                 return .none
             }
-            state.enqueueProfileRequest()
+            state.updateEmail(email: email)
             return .none
         case let .setPhoneNumber(phoneNumber):
-            state.phoneNumber = phoneNumber
             guard case .initialized = state.initalizationState else {
+                state.pendingRequests.append(.setPhoneNumber(phoneNumber))
                 return .none
             }
-            state.enqueueProfileRequest()
+            state.updatePhoneNumber(phoneNumber: phoneNumber)
             return .none
         case let .setExternalId(externalId):
-            state.externalId = externalId
             guard case .initialized = state.initalizationState else {
+                state.pendingRequests.append(.setExternalId(externalId))
                 return .none
             }
-            state.enqueueProfileRequest()
+            state.updateExternalId(externalId: externalId)
             return .none
         case let .setPushToken(pushToken, enablement):
-            guard case .initialized = state.initalizationState else {
+            guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
+                state.pendingRequests.append(.pushToken(pushToken, enablement))
                 return .none
             }
-            state.pushToken = pushToken
-            state.pushEnablement = enablement
-            state.pushBackground = environment.getBackgroundSetting()
-            guard let request = try? state.buildTokenRequest() else {
+            guard state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) else {
                 return .none
             }
-            state.queue.append(request)
+
+            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+            state.enqueueRequest(request: request)
             return .none
         case .flushQueue:
             guard case .initialized = state.initalizationState else {
@@ -158,7 +190,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             }
             if state.pendingProfile != nil {
-                state.enqueueProfileRequest()
+                state.enqueueProfileOrTokenRequest()
             }
 
             if state.queue.isEmpty {
@@ -190,6 +222,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 .eraseToEffect()
                 .cancellable(id: FlushTimer.self, cancelInFlight: true)
         case let .dequeCompletedResults(completedRequest):
+            if case let .registerPushToken(payload) = completedRequest.endpoint {
+                let requestData = payload.data.attributes
+                let enablement = KlaviyoState.PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
+                let backgroundStatus = KlaviyoState.PushBackground(rawValue: requestData.backgroundStatus) ?? .available
+                state.pushTokenData = KlaviyoState.PushTokenData(pushToken: requestData.token, pushEnablement: enablement, pushBackground: backgroundStatus, deviceData: requestData.deviceMetadata)
+            }
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
@@ -243,9 +281,9 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.cancelInFlightRequests)
                     })
             case .reachableViaWiFi:
-                state.flushInterval = WIFI_FLUSH_INTERVAL
+                state.flushInterval = StateManagementConstants.wifiFlushInterval
             case .reachableViaWWAN:
-                state.flushInterval = CELLULAR_FLUSH_INTERVAL
+                state.flushInterval = StateManagementConstants.cellularFlushInterval
             }
             return environment.analytics.timer(state.flushInterval)
                 .map { _ in
@@ -285,10 +323,10 @@ struct KlaviyoReducer: ReducerProtocol {
             var exceededRetries = false
             switch retryInfo {
             case let .retry(count):
-                exceededRetries = count > MAX_RETRIES
+                exceededRetries = count > ErrorHandlingConstants.maxRetries
                 state.retryInfo = .retry(exceededRetries ? 0 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
-                exceededRetries = requestCount > MAX_RETRIES
+                exceededRetries = requestCount > ErrorHandlingConstants.maxRetries
                 state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
             }
             if exceededRetries {
@@ -311,35 +349,52 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             event = event.updateStateAndEvent(state: &state)
-            state.queue.append(.init(apiKey: apiKey,
-                                     endpoint: .createEvent(
-                                         .init(data:
-                                             .init(event: event,
-                                                   anonymousId: anonymousId)
-                                         )
-                                     ))
-            )
+            state.enqueueRequest(request: .init(apiKey: apiKey,
+                                                endpoint: .createEvent(
+                                                    .init(data:
+                                                        .init(event: event,
+                                                              anonymousId: anonymousId)
+                                                    )
+                                                )))
             return .none
         case let .enqueueProfile(profile):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey,
-                  let anonymousId = state.anonymousId
+            guard case .initialized = state.initalizationState
             else {
                 state.pendingRequests.append(.profile(profile))
                 return .none
             }
-            state.reset()
+            let pushTokenData = state.pushTokenData
+            state.reset(preserveTokenData: false)
             state.updateStateWithProfile(profile: profile)
-            let request = KlaviyoAPI.KlaviyoRequest(
-                apiKey: apiKey,
-                endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
+            guard let anonymousId = state.anonymousId,
+                  let apiKey = state.apiKey else {
+                return .none
+            }
+            if let tokenData = pushTokenData {
+                let request = KlaviyoAPI.KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .registerPushToken(.init(pushToken: tokenData.pushToken, enablement: tokenData.pushEnablement.rawValue, background: tokenData.pushBackground.rawValue, profile: profile, anonymousId: anonymousId)))
 
-            state.queue.append(request)
+                state.enqueueRequest(request: request)
+            } else {
+                let request = KlaviyoAPI.KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
+
+                state.enqueueRequest(request: request)
+            }
             return .none
         case .resetProfile:
+            guard case .initialized = state.initalizationState
+            else {
+                return .none
+            }
             state.reset()
             return .none
         case let .setProfileProperty(key, value):
+            if case .uninitialized = state.initalizationState {
+                assertionFailure("SDK must be initialized before setting profile properties")
+            }
             guard var pendingProfile = state.pendingProfile else {
                 state.pendingProfile = [key: value]
                 return .none
@@ -357,13 +412,9 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
 }
 
 extension KlaviyoState {
-    func buildProfileRequest(properties: [String: Any] = [:]) throws -> KlaviyoAPI.KlaviyoRequest {
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
-        guard let anonymousId = anonymousId else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
-        }
+    func checkPreconditions() {}
+
+    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoAPI.KlaviyoRequest {
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(
             data: .init(
                 profile: Profile(
@@ -378,23 +429,23 @@ extension KlaviyoState {
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 
-    func buildTokenRequest() throws -> KlaviyoAPI.KlaviyoRequest {
-        guard let apiKey = apiKey else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing api key")
-        }
-        guard let anonymousId = anonymousId else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing anonymous id key")
-        }
-        guard let token = pushToken else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("missing push token")
-        }
+    func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-            pushToken: token,
-            enablement: (pushEnablement ?? .notDetermined).rawValue,
-            background: (pushBackground ?? .available).rawValue,
+            pushToken: pushToken,
+            enablement: enablement.rawValue,
+            background: environment.getBackgroundSetting().rawValue,
             profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
             anonymousId: anonymousId)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+
+    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoAPI.KlaviyoRequest {
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.UnregisterPushTokenPayload(
+            pushToken: pushToken,
+            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
+            anonymousId: anonymousId)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.unregisterPushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }
@@ -420,7 +471,7 @@ extension Event {
 
         var properties = properties
         if metric.name == EventName.OpenedPush,
-           let pushToken = state.pushToken {
+           let pushToken = state.pushTokenData?.pushToken {
             properties["push_token"] = pushToken
         }
         return Event(name: metric.name,

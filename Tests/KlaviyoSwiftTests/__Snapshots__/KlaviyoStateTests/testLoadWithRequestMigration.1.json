@@ -33,19 +33,7 @@
                   }
                 },
                 "properties" : {
-                  "App Build" : "1",
-                  "App ID" : "com.klaviyo.fooapp",
-                  "App Name" : "FooApp",
-                  "App Version" : "1.2.3",
-                  "Device ID" : "fe-fi-fo-fum",
-                  "Device Manufacturer" : "Orange",
-                  "Device Model" : "jPhone 1,1",
-                  "OS Name" : "iOS",
-                  "OS Version" : "1.1.1",
-                  "prop1" : "propValue",
-                  "Push Token" : null,
-                  "SDK Name" : "swift",
-                  "SDK Version" : "2.2.1"
+                  "prop1" : "propValue"
                 },
                 "time" : 256260690,
                 "unique_id" : "00000000-0000-0000-0000-000000000001"

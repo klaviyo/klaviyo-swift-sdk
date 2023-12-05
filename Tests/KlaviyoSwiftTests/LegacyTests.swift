@@ -82,11 +82,9 @@ class LegacyTests: XCTestCase {
         }
 
         let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingRequests: pendingRequests)
-        let profileRequest = try expectedState.buildProfileRequest()
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
-            $0.queue = [profileRequest]
             $0.pendingRequests = []
         }
 
@@ -97,7 +95,7 @@ class LegacyTests: XCTestCase {
                 XCTFail()
                 return
             }
-            $0.queue = [profileRequest, openedPushRequest]
+            $0.queue = [openedPushRequest]
         }
 
         await store.receive(.enqueueLegacyProfile(LEGACY_PROFILE)) {
@@ -108,22 +106,24 @@ class LegacyTests: XCTestCase {
             let secondProfile = try! LEGACY_PROFILE.buildProfileRequest(with: TEST_API_KEY, from: $0)!
             $0.email = "blob@blob.com"
             $0.externalId = "blobid"
-            $0.queue = [profileRequest, openedPushRequest, secondProfile]
+            $0.queue = [openedPushRequest, secondProfile]
         }
         await store.receive(.start)
 
+        var openedPushRequest: KlaviyoAPI.KlaviyoRequest!
         await store.receive(.flushQueue) {
             $0.flushing = true
             $0.queue = []
-            guard let openedPushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: TEST_API_KEY, from: $0) else {
+            guard let pushRequest = try LEGACY_OPENED_PUSH.buildEventRequest(with: TEST_API_KEY, from: $0) else {
                 XCTFail()
                 return
             }
+            openedPushRequest = pushRequest
             let secondProfile = try! LEGACY_PROFILE.buildProfileRequest(with: TEST_API_KEY, from: $0)!
-            $0.requestsInFlight = [profileRequest, openedPushRequest, secondProfile]
+            $0.requestsInFlight = [pushRequest, secondProfile]
         }
         await store.receive(.sendRequest)
-        await store.receive(.dequeCompletedResults(profileRequest)) {
+        await store.receive(.dequeCompletedResults(openedPushRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
         }
@@ -143,9 +143,7 @@ class LegacyTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.enqueueLegacyEvent(legacyEvent)) {
-            $0.pendingRequests = [.legacyEvent(legacyEvent)]
-        }
+        _ = await store.send(.enqueueLegacyEvent(legacyEvent))
     }
 
     func testLegacyProfileUnitializedUpdatesPendingProfiles() async throws {
@@ -158,9 +156,7 @@ class LegacyTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE)) {
-            $0.pendingRequests = [.legacyProfile(LEGACY_PROFILE)]
-        }
+        _ = await store.send(.enqueueLegacyProfile(LEGACY_PROFILE))
     }
 
     func testInvalidLegacyEventCustomerPropertiesHasNoEffect() async throws {
