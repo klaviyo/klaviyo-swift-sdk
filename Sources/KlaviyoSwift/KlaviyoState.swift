@@ -9,7 +9,7 @@ import AnyCodable
 import Foundation
 import UIKit
 
-typealias Metadata = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.PushToken.Attributes.MetaData
+typealias DeviceMetadata = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.PushToken.Attributes.MetaData
 typealias CreateProfilePayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload
 
 struct KlaviyoState: Equatable, Codable {
@@ -34,7 +34,7 @@ struct KlaviyoState: Equatable, Codable {
         var pushToken: String
         var pushEnablement: PushEnablement
         var pushBackground: PushBackground
-        var deviceData: Metadata
+        var deviceData: DeviceMetadata
 
         enum CodingKeys: CodingKey {
             case pushToken
@@ -277,7 +277,7 @@ struct KlaviyoState: Equatable, Codable {
         guard let pushTokenData = pushTokenData else {
             return true
         }
-        let currentDeviceMetadata = Metadata(context: environment.analytics.appContextInfo())
+        let currentDeviceMetadata = DeviceMetadata(context: environment.analytics.appContextInfo())
         let newPushTokenData = PushTokenData(
             pushToken: newToken,
             pushEnablement: enablement,
