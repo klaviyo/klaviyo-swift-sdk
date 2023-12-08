@@ -42,7 +42,7 @@ enum KlaviyoAction: Equatable {
     /// if initilized set the phone number else queue it up
     case setPhoneNumber(String)
 
-    /// if initilized set the external id else queue it up
+    /// if initialized set the external id else queue it up
     case setExternalId(String)
 
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
