@@ -41,6 +41,7 @@ struct KlaviyoAPI {
 
     var send: (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
         let start = Date()
+
         var urlRequest: URLRequest
         do {
             urlRequest = try request.urlRequest()
@@ -50,6 +51,7 @@ struct KlaviyoAPI {
         }
 
         requestStarted(request)
+
         var response: URLResponse
         var data: Data
         do {
@@ -58,20 +60,26 @@ struct KlaviyoAPI {
             requestFailed(request, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))
         }
+
         let end = Date()
         let duration = end.timeIntervalSince(start)
+
         guard let httpResponse = response as? HTTPURLResponse else {
             return .failure(.missingOrInvalidResponse(response))
         }
+
         if httpResponse.statusCode == 429 {
             requestRateLimited(request)
             return .failure(KlaviyoAPIError.rateLimitError)
         }
+
         guard 200..<300 ~= httpResponse.statusCode else {
             requestHttpError(request, httpResponse.statusCode, duration)
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
+
         requestCompleted(request, data, duration)
+
         return .success(data)
     }
 }
@@ -103,10 +111,13 @@ extension KlaviyoAPI.KlaviyoRequest {
         switch endpoint {
         case .createProfile:
             return "client/profiles"
+
         case .createEvent:
             return "client/events"
+
         case .registerPushToken:
             return "client/push-tokens"
+
         case .unregisterPushToken:
             return "client/push-token-unregister"
         }
@@ -116,11 +127,14 @@ extension KlaviyoAPI.KlaviyoRequest {
         switch endpoint {
         case let .createProfile(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
+
         case var .createEvent(payload):
             payload.appendMetadataToProperties()
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
+
         case let .registerPushToken(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
+
         case let .unregisterPushToken(payload):
             return try environment.analytics.encodeJSON(AnyEncodable(payload))
         }
