@@ -33,7 +33,7 @@ enum KlaviyoAction: Equatable {
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
     case initialize(String)
 
-    /// after the SDK is initllized creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
+    /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
     case completeInitialization(KlaviyoState)
 
     /// if initilized set the email else queue it up
