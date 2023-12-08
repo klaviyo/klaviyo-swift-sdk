@@ -57,7 +57,7 @@ enum KlaviyoAction: Equatable {
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
 
-    /// flushes the queue say when the app is forgrounded or we come back to having network from not having
+    /// flushes the queue say when the app is foregrounded or we come back to having network from not having
     case flushQueue
 
     /// picks up in flight requests and sends them out. handles errors and if no errors emits a `dequeCompletedResults`
