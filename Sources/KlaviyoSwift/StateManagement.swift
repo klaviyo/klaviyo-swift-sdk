@@ -36,7 +36,7 @@ enum KlaviyoAction: Equatable {
     /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
     case completeInitialization(KlaviyoState)
 
-    /// if initilized set the email else queue it up
+    /// if initialized, set the email else queue it up
     case setEmail(String)
 
     /// if initilized set the phone number else queue it up
