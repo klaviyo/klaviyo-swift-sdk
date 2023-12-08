@@ -29,7 +29,7 @@ enum RetryInfo: Equatable {
 }
 
 enum KlaviyoAction: Equatable {
-    /// Sets the API key to state. If the state is already initilized then the push token is moved over to the company with the API key provided in this action.
+    /// Sets the API key to state. If the state is already initialized then the push token is moved over to the company with the API key provided in this action.
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
     case initialize(String)
 
