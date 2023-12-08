@@ -322,7 +322,7 @@ private func removeStateFile(at file: URL) {
 }
 
 /// Loads SDK state from disk
-/// - Parameter apiKey: the API key that uniquily identiifies the company
+/// - Parameter apiKey: the API key that uniquely identiifies the company
 /// - Returns: an instance of the `KlaviyoState`
 func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
