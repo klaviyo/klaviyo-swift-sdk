@@ -39,7 +39,7 @@ enum KlaviyoAction: Equatable {
     /// if initialized, set the email else queue it up
     case setEmail(String)
 
-    /// if initilized set the phone number else queue it up
+    /// if initialized set the phone number else queue it up
     case setPhoneNumber(String)
 
     /// if initialized set the external id else queue it up
