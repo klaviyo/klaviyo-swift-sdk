@@ -66,7 +66,7 @@ enum KlaviyoAction: Equatable {
     /// call when the app is backgrounded or terminated
     case stop
 
-    /// call after intilization or when the app is foreghrounded. This action will  flush the queue at some predefined intervals
+    /// call after initialization or when the app is foregrounded. This action will  flush the queue at some predefined intervals
     case start
 
     /// cancels any in flight requests. this can be called when there is no network or from `stop` when app is going to be backgrounded
