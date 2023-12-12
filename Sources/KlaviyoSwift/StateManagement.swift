@@ -90,9 +90,14 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
+    /// resets the state for profile properties before dequeing the request
+    /// this is done in the case where there is http request failure due to
+    /// the data that was passed to the client endpoint
+    case resetStateAndDequeue(KlaviyoAPI.KlaviyoRequest, [InvalidField])
+
     var requiresInitialization: Bool {
         switch self {
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
 
         case .initialize, .completeInitialization, .dequeCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -481,6 +486,18 @@ struct KlaviyoReducer: ReducerProtocol {
             pendingProfile[key] = value
             state.pendingProfile = pendingProfile
             return .none
+
+        case let .resetStateAndDequeue(request, invalidFields):
+            invalidFields.forEach { invalidField in
+                switch invalidField {
+                case .email:
+                    state.email = nil
+                case .phone:
+                    state.phoneNumber = nil
+                }
+            }
+
+            return .task { .dequeCompletedResults(request) }
         }
     }
 }
