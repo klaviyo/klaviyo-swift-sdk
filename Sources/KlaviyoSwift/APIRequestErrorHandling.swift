@@ -125,21 +125,3 @@ func handleRequestError(
         return .dequeCompletedResults(request)
     }
 }
-
-struct ErrorResponse: Codable {
-    let errors: [ErrorDetail]
-}
-
-struct ErrorDetail: Codable {
-    let id: String
-    let status: Int
-    let code: String
-    let title: String
-    let detail: String
-    let source: ErrorSource
-    let meta: [String: String]
-}
-
-struct ErrorSource: Codable {
-    let pointer: String
-}
