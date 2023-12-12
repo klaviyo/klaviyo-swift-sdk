@@ -10,17 +10,49 @@ import Foundation
 
 let TEST_API_KEY = "fake-key"
 
-let INITIALIZED_TEST_STATE = { KlaviyoState(
-    apiKey: TEST_API_KEY,
-    anonymousId: environment.analytics.uuid().uuidString,
-    pushTokenData: .init(pushToken: "blob_token",
-                         pushEnablement: .authorized,
-                         pushBackground: .available,
-                         deviceData: .init(context: environment.analytics.appContextInfo())),
-    queue: [],
-    requestsInFlight: [],
-    initalizationState: .initialized,
-    flushing: true) }
+let INITIALIZED_TEST_STATE = {
+    KlaviyoState(
+        apiKey: TEST_API_KEY,
+        anonymousId: environment.analytics.uuid().uuidString,
+        pushTokenData: .init(pushToken: "blob_token",
+                             pushEnablement: .authorized,
+                             pushBackground: .available,
+                             deviceData: .init(context: environment.analytics.appContextInfo())),
+        queue: [],
+        requestsInFlight: [],
+        initalizationState: .initialized,
+        flushing: true)
+}
+
+let INITIALIZED_TEST_STATE_INVALID_PHONE = {
+    KlaviyoState(
+        apiKey: TEST_API_KEY,
+        anonymousId: environment.analytics.uuid().uuidString,
+        phoneNumber: "invalid_phone_number",
+        pushTokenData: .init(pushToken: "blob_token",
+                             pushEnablement: .authorized,
+                             pushBackground: .available,
+                             deviceData: .init(context: environment.analytics.appContextInfo())),
+        queue: [],
+        requestsInFlight: [],
+        initalizationState: .initialized,
+        flushing: true)
+}
+
+let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
+    KlaviyoState(
+        apiKey: TEST_API_KEY,
+        email: "invalid_email",
+        anonymousId: environment.analytics.uuid().uuidString,
+        pushTokenData: .init(pushToken: "blob_token",
+                             pushEnablement: .authorized,
+                             pushBackground: .available,
+                             deviceData: .init(context: environment.analytics.appContextInfo())),
+        queue: [],
+        requestsInFlight: [],
+        initalizationState: .initialized,
+        flushing: true)
+}
 
 extension Profile {
     static let SAMPLE_PROPERTIES = [

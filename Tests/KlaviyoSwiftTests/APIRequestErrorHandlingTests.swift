@@ -35,6 +35,50 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
+        var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.analytics.klaviyoAPI.send = { _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.resetStateAndDequeue(request, [InvalidField.phone])) {
+            $0.phoneNumber = nil
+        }
+
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(0)
+        }
+    }
+
+    func testSendRequestHttpFailureForEmailResetsStateAndDequesRequest() async throws {
+        var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.analytics.klaviyoAPI.send = { _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.resetStateAndDequeue(request, [InvalidField.email])) {
+            $0.email = nil
+        }
+
+        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(0)
+        }
+    }
+
     // MARK: - network error
 
     func testSendRequestFailureIncrementsRetryCount() async throws {
