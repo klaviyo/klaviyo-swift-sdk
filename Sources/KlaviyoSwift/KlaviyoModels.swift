@@ -208,7 +208,6 @@ struct ErrorDetail: Codable {
     let title: String
     let detail: String
     let source: ErrorSource
-    let meta: [String: String]
 }
 
 struct ErrorSource: Codable {
