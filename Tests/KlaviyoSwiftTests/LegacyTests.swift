@@ -123,7 +123,7 @@ class LegacyTests: XCTestCase {
             $0.requestsInFlight = [pushRequest, secondProfile]
         }
         await store.receive(.sendRequest)
-        await store.receive(.dequeCompletedResults(openedPushRequest)) {
+        await store.receive(.deQueueCompletedResults(openedPushRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
         }

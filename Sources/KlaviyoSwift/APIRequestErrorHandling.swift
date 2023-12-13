@@ -12,10 +12,46 @@ struct ErrorHandlingConstants {
     static let maxBackoff = 60 * 3 // 3 minutes
 }
 
+enum InvalidField: Equatable {
+    case email
+    case phone
+
+    /// gets the invalid field based on the source.pointer from klaviyo API.
+    /// this assumes that source.pointer will not change
+    /// Client APIs to have better error codes in the future at which point we should use that instead of source.pointer
+    /// - Parameter sourcePointer: pointers to the source of the error
+    /// - Returns: the field that is invalid else `nil`
+    static func getInvalidField(sourcePointer: String) -> InvalidField? {
+        if sourcePointer == "/data/attributes/phone_number" {
+            return .phone
+        }
+        if sourcePointer == "/data/attributes/email" {
+            return .email
+        }
+
+        return nil
+    }
+}
+
 private func getDelaySeconds(for count: Int) -> Int {
     let delay = Int(pow(2.0, Double(count)))
     let jitter = environment.randomInt()
     return min(delay + jitter, ErrorHandlingConstants.maxBackoff)
+}
+
+private func parseError(_ data: Data) -> [InvalidField]? {
+    var invalidFields: [InvalidField]?
+    do {
+        let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
+
+        invalidFields = errorResponse.errors.compactMap { error in
+            InvalidField.getInvalidField(sourcePointer: error.source.pointer)
+        }
+    } catch {
+        environment.logger.error("error when decoding error data")
+    }
+
+    return invalidFields
 }
 
 func handleRequestError(
@@ -26,7 +62,13 @@ func handleRequestError(
     case let .httpError(statuscode, data):
         let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
         environment.logger.error("An http error occured status code: \(statuscode) data: \(responseString)")
-        return .dequeCompletedResults(request)
+
+        let invalidFields = parseError(data)
+        if let invalidFields, !invalidFields.isEmpty {
+            return .resetStateAndDequeue(request, invalidFields)
+        } else {
+            return .deQueueCompletedResults(request)
+        }
 
     case let .networkError(error):
         environment.logger.error("A network error occurred: \(error)")
@@ -40,23 +82,23 @@ func handleRequestError(
 
     case let .internalError(data):
         runtimeWarn("An internal error occurred msg: \(data)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case let .internalRequestError(error):
         runtimeWarn("An internal request error occurred msg: \(error)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case let .unknownError(error):
         runtimeWarn("An unknown request error occured \(error)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .dataEncodingError:
         runtimeWarn("A data encoding error occurred during transmission.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .invalidData:
         runtimeWarn("Invalid data supplied for request. Skipping.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .rateLimitError:
         var requestRetryCount = 0
@@ -80,6 +122,6 @@ func handleRequestError(
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
     }
 }

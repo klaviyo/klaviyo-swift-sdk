@@ -52,7 +52,7 @@ enum KlaviyoAction: Equatable {
     case resetProfile
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
-    case dequeCompletedResults(KlaviyoAPI.KlaviyoRequest)
+    case deQueueCompletedResults(KlaviyoAPI.KlaviyoRequest)
 
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
@@ -90,12 +90,17 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
+    /// resets the state for profile properties before dequeing the request
+    /// this is done in the case where there is http request failure due to
+    /// the data that was passed to the client endpoint
+    case resetStateAndDequeue(KlaviyoAPI.KlaviyoRequest, [InvalidField])
+
     var requiresInitialization: Bool {
         switch self {
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
 
-        case .initialize, .completeInitialization, .dequeCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
             return false
         }
     }
@@ -285,7 +290,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 .eraseToEffect()
                 .cancellable(id: FlushTimer.self, cancelInFlight: true)
 
-        case let .dequeCompletedResults(completedRequest):
+        case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(payload) = completedRequest.endpoint {
                 let requestData = payload.data.attributes
                 let enablement = KlaviyoState.PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
@@ -324,7 +329,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
-                    await send(.dequeCompletedResults(request))
+                    await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
@@ -481,6 +486,18 @@ struct KlaviyoReducer: ReducerProtocol {
             pendingProfile[key] = value
             state.pendingProfile = pendingProfile
             return .none
+
+        case let .resetStateAndDequeue(request, invalidFields):
+            invalidFields.forEach { invalidField in
+                switch invalidField {
+                case .email:
+                    state.email = nil
+                case .phone:
+                    state.phoneNumber = nil
+                }
+            }
+
+            return .task { .deQueueCompletedResults(request) }
         }
     }
 }
