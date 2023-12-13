@@ -29,7 +29,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.requestsInFlight = []
         }
@@ -49,7 +49,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.phoneNumber = nil
         }
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -71,7 +71,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.email = nil
         }
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -156,7 +156,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -177,7 +177,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -198,7 +198,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -218,7 +218,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -238,7 +238,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -298,7 +298,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
