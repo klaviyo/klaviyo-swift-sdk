@@ -40,18 +40,14 @@ private func getDelaySeconds(for count: Int) -> Int {
 }
 
 private func parseError(_ data: Data) -> [InvalidField]? {
-    var invalidFields: [InvalidField]?
-    do {
-        let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-
-        invalidFields = errorResponse.errors.compactMap { error in
-            InvalidField.getInvalidField(sourcePointer: error.source.pointer)
-        }
-    } catch {
+    guard let errorResponse: ErrorResponse = try? environment.analytics.decoder.decode(data) else {
         environment.logger.error("error when decoding error data")
+        return nil
     }
 
-    return invalidFields
+    return errorResponse.errors.compactMap { error in
+        InvalidField.getInvalidField(sourcePointer: error.source.pointer)
+    }
 }
 
 func handleRequestError(
