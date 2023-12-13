@@ -134,7 +134,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.sendRequest)
 
-        _ = await store.receive(.dequeCompletedResults(pushTokenRequest)) {
+        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
@@ -161,7 +161,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.sendRequest)
 
-        _ = await store.receive(.dequeCompletedResults(pushTokenRequest)) {
+        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
@@ -232,13 +232,13 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
 
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = true
             $0.requestsInFlight = [request2]
             $0.queue = []
         }
         await store.receive(.sendRequest)
-        await store.receive(.dequeCompletedResults(request2)) {
+        await store.receive(.deQueueCompletedResults(request2)) {
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
@@ -278,7 +278,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.sendRequest)
 
         // didn't fake uuid since we are not testing this.
-        await store.receive(.dequeCompletedResults(request)) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.retryInfo = .retry(0)
             $0.requestsInFlight = []
@@ -391,7 +391,7 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.sendRequest)
-        await store.receive(.dequeCompletedResults(request!)) {
+        await store.receive(.deQueueCompletedResults(request!)) {
             $0.requestsInFlight = $0.queue
             $0.flushing = false
             $0.pushTokenData = initialState.pushTokenData

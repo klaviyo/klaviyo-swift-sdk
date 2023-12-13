@@ -52,7 +52,7 @@ enum KlaviyoAction: Equatable {
     case resetProfile
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
-    case dequeCompletedResults(KlaviyoAPI.KlaviyoRequest)
+    case deQueueCompletedResults(KlaviyoAPI.KlaviyoRequest)
 
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
@@ -100,7 +100,7 @@ enum KlaviyoAction: Equatable {
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
 
-        case .initialize, .completeInitialization, .dequeCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
             return false
         }
     }
@@ -290,7 +290,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 .eraseToEffect()
                 .cancellable(id: FlushTimer.self, cancelInFlight: true)
 
-        case let .dequeCompletedResults(completedRequest):
+        case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(payload) = completedRequest.endpoint {
                 let requestData = payload.data.attributes
                 let enablement = KlaviyoState.PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
@@ -329,7 +329,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
-                    await send(.dequeCompletedResults(request))
+                    await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
@@ -497,7 +497,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             }
 
-            return .task { .dequeCompletedResults(request) }
+            return .task { .deQueueCompletedResults(request) }
         }
     }
 }

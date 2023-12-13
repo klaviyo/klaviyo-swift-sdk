@@ -67,7 +67,7 @@ func handleRequestError(
         if let invalidFields, !invalidFields.isEmpty {
             return .resetStateAndDequeue(request, invalidFields)
         } else {
-            return .dequeCompletedResults(request)
+            return .deQueueCompletedResults(request)
         }
 
     case let .networkError(error):
@@ -82,23 +82,23 @@ func handleRequestError(
 
     case let .internalError(data):
         runtimeWarn("An internal error occurred msg: \(data)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case let .internalRequestError(error):
         runtimeWarn("An internal request error occurred msg: \(error)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case let .unknownError(error):
         runtimeWarn("An unknown request error occured \(error)")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .dataEncodingError:
         runtimeWarn("A data encoding error occurred during transmission.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .invalidData:
         runtimeWarn("Invalid data supplied for request. Skipping.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
 
     case .rateLimitError:
         var requestRetryCount = 0
@@ -122,6 +122,6 @@ func handleRequestError(
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
-        return .dequeCompletedResults(request)
+        return .deQueueCompletedResults(request)
     }
 }
