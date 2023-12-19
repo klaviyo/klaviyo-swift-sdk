@@ -567,11 +567,11 @@ extension Event {
         }
 
         var properties = properties
-        if metric.name == EventName.OpenedPush,
+        if metric.metricName.value == Event.V1.MetricName.OpenedPush.value,
            let pushToken = state.pushTokenData?.pushToken {
             properties["push_token"] = pushToken
         }
-        return Event(name: metric.name,
+        return Event(name: metric.metricName,
                      properties: properties,
                      identifiers: identifiers,
                      profile: profile,

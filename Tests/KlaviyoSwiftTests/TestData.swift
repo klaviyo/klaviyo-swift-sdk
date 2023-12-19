@@ -110,11 +110,11 @@ extension Event {
             "city": "blob city"
         ]
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, identifiers: .init(email: "blob@email.com"), profile: SAMPLE_PROFILE_PROPERTIES)
+    static let test = Self(name: Event.V1.MetricName.CustomEvent("blob"), properties: SAMPLE_PROPERTIES, identifiers: .init(email: "blob@email.com"), profile: SAMPLE_PROFILE_PROPERTIES)
 }
 
 extension Event.Metric {
-    static let test = Self(name: .CustomEvent("blob"))
+    static let test = Self(metricName: Event.V1.MetricName.CustomEvent("blob"))
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {

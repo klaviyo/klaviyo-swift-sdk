@@ -60,7 +60,7 @@ KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
 
 ```swift
-let event = Event(name: .StartedCheckout, properties: [
+let event = Event(name: Event.V1.MetricName.StartedCheckout, properties: [
     "Total Price": 10.99,
     "Items Purchased": ["Hot Dog", "Fries", "Shake"]
 ], identifiers: .init(email: "junior@blob.com"),

@@ -81,7 +81,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test create event
 
     func testCreateEvent() throws {
-        let event = Event(name: .OrderedProduct)
+        let event = Event(name: Event.V1.MetricName.ActiveOnSite)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
         klaviyo.create(event: event)
@@ -90,7 +90,7 @@ class KlaviyoSDKTests: XCTestCase {
     }
 
     func testCreateEventFromDocumentation() throws {
-        let event = Event(name: .StartedCheckout, properties: [
+        let event = Event(name: Event.V1.MetricName.AddedToCart, properties: [
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
         ], identifiers: .init(email: "junior@blob.com"),
@@ -136,7 +136,7 @@ class KlaviyoSDKTests: XCTestCase {
                 "foo": "bar"
             ]
         ]]
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: .OpenedPush, properties: push_body)))
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: Event.V1.MetricName.OpenedPush, properties: push_body)))
         let response = try UNNotificationResponse.with(userInfo: push_body)
         let handled = klaviyo.handle(notificationResponse: response) {
             callback.fulfill()

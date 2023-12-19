@@ -118,7 +118,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     let uniqueId: String
                     init(attributes: KlaviyoSwift.Event,
                          anonymousId: String? = nil) {
-                        metric = Metric(name: attributes.metric.name.value)
+                        metric = Metric(name: attributes.metric.metricName.value)
                         properties = AnyCodable(attributes.properties)
                         value = attributes.value
                         time = attributes.time
@@ -456,7 +456,7 @@ struct LegacyEvent: Equatable {
             eventProperties["push_token"] = state.pushTokenData?.pushToken
         }
         let identifiers: Event.Identifiers = .init(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
-        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: .CustomEvent(eventName), properties: eventProperties, identifiers: identifiers, profile: customerProperties), anonymousId: state.anonymousId)
+        let event = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload.Event(event: .init(name: Event.V1.MetricName.CustomEvent(eventName), properties: eventProperties, identifiers: identifiers, profile: customerProperties), anonymousId: state.anonymousId)
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload(data: event)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createEvent(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)

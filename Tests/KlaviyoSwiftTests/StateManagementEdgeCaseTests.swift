@@ -315,7 +315,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
             expection.fulfill()
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
+        let event = Event(name: Event.V1.MetricName.OpenedPush, profile: ["$email": "foo", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event))
         await fulfillment(of: [expection])
     }

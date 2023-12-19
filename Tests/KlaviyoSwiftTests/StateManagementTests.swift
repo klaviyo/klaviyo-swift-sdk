@@ -419,7 +419,7 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], profile: ["$email": "foo@foo.com", "$phone_number": "666BLOB", "$id": "my_user_id"])
+        let event = Event(name: Event.V1.MetricName.OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], profile: ["$email": "foo@foo.com", "$phone_number": "666BLOB", "$id": "my_user_id"])
         _ = await store.send(.enqueueEvent(event)) {
             $0.email = "foo@foo.com"
             $0.phoneNumber = "666BLOB"
@@ -433,7 +433,7 @@ class StateManagementTests: XCTestCase {
         initialState.phoneNumber = "555BLOB"
         let identifiers = Event.Identifiers(email: "foo@foo.com", phoneNumber: "666BLOB", externalId: "my_user_id")
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], identifiers: identifiers)
+        let event = Event(name: Event.V1.MetricName.OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], identifiers: identifiers)
         _ = await store.send(.enqueueEvent(event)) {
             $0.email = "foo@foo.com"
             $0.phoneNumber = "666BLOB"

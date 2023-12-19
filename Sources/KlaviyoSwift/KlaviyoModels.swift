@@ -8,29 +8,30 @@
 import AnyCodable
 import Foundation
 
+public protocol MetricNameProtocol {
+    var value: String { get }
+}
+
 public struct Event: Equatable {
-    public enum EventName: Equatable {
-        case OpenedPush
-        case ViewedProduct
-        case SearchedProducts
-        case StartedCheckout
-        case PlacedOrder
-        case OrderedProduct
-        case CancelledOrder
-        case PaidForOrder
-        case SubscribedToBackInStock
-        case SubscribedToComingSoon
-        case SubscribedToList
-        case SuccessfulPayment
-        case FailedPayment
-        case CustomEvent(String)
+    public struct Legacy: Equatable {
+        public enum MetricName: MetricNameProtocol {
+            case OpenedPush
+            case ViewedProduct
+            case StartedCheckout
+            case ActiveOnSite
+            case AddedToCart
+            case CustomEvent(String)
+        }
     }
 
-    public struct Metric: Equatable {
-        public let name: EventName
-
-        public init(name: EventName) {
-            self.name = name
+    public struct V1: Equatable {
+        public enum MetricName: MetricNameProtocol {
+            case OpenedPush
+            case ViewedProduct
+            case StartedCheckout
+            case ActiveOnSite
+            case AddedToCart
+            case CustomEvent(String)
         }
     }
 
@@ -45,6 +46,15 @@ public struct Event: Equatable {
             self.phoneNumber = phoneNumber
             self.externalId = externalId
         }
+    }
+
+    public struct Metric: Equatable {
+        public static func ==(lhs: Event.Metric, rhs: Event.Metric) -> Bool {
+            type(of: lhs.metricName) == type(of: rhs.metricName)
+                && lhs.metricName.value == rhs.metricName.value
+        }
+
+        public var metricName: any MetricNameProtocol
     }
 
     public let metric: Metric
@@ -63,7 +73,7 @@ public struct Event: Equatable {
     public let uniqueId: String
     public let identifiers: Identifiers?
 
-    public init(name: EventName,
+    public init(name: any MetricNameProtocol,
                 properties: [String: Any]? = nil,
                 identifiers: Identifiers? = nil,
                 profile: [String: Any]? = nil,
@@ -80,7 +90,7 @@ public struct Event: Equatable {
             phoneNumber: phoneNumber,
             externalId: externalId)
         _profile = AnyCodable(profile)
-        metric = .init(name: name)
+        metric = Metric(metricName: name)
         _properties = AnyCodable(properties ?? [:])
         self.value = value
         self.time = time ?? environment.analytics.date()
@@ -176,22 +186,27 @@ public struct Profile: Equatable {
     }
 }
 
-extension Event.EventName {
-    var value: String {
+extension Event.Legacy.MetricName {
+    public var value: String {
+        switch self {
+        case .OpenedPush: return "$opened_push"
+        case .ViewedProduct: return "$viewed_product"
+        case .StartedCheckout: return "$started_checkout"
+        case .AddedToCart: return "$added_to_cart"
+        case .ActiveOnSite: return "$active_on_site"
+        case let .CustomEvent(value): return "\(value)"
+        }
+    }
+}
+
+extension Event.V1.MetricName {
+    public var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
         case .ViewedProduct: return "Viewed Product"
-        case .SearchedProducts: return "Searched Products"
         case .StartedCheckout: return "Started Checkout"
-        case .PlacedOrder: return "Placed Order"
-        case .OrderedProduct: return "Ordered Product"
-        case .CancelledOrder: return "Cancelled Order"
-        case .PaidForOrder: return "Paid for Order"
-        case .SubscribedToBackInStock: return "Subscribed to Back in Stock"
-        case .SubscribedToComingSoon: return "Subscribed to Coming Soon"
-        case .SubscribedToList: return "Subscribed to List"
-        case .SuccessfulPayment: return "Successful Payment"
-        case .FailedPayment: return "Failed Payment"
+        case .AddedToCart: return "Added to Cart"
+        case .ActiveOnSite: return "Active on Site"
         case let .CustomEvent(value): return "\(value)"
         }
     }
