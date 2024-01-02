@@ -22,8 +22,8 @@ struct AppContextInfo {
         var size = 0
         var deviceModel = ""
         sysctlbyname("hw.machine", nil, &size, nil, 0)
-        var machine = [CChar](repeating: 0, count: size)
         if size > 0 {
+            var machine = [CChar](repeating: 0, count: size)
             sysctlbyname("hw.machine", &machine, &size, nil, 0)
             deviceModel = String(cString: machine)
         }
