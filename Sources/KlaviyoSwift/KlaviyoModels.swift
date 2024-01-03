@@ -18,7 +18,7 @@ public struct Event: Equatable {
             case OpenedPush
             case ViewedProduct
             case StartedCheckout
-            case ActiveOnSite
+            case OpenedApp
             case AddedToCart
             case CustomEvent(String)
         }
@@ -29,7 +29,7 @@ public struct Event: Equatable {
             case OpenedPush
             case ViewedProduct
             case StartedCheckout
-            case ActiveOnSite
+            case OpenedApp
             case AddedToCart
             case CustomEvent(String)
         }
@@ -193,7 +193,7 @@ extension Event.Legacy.MetricName {
         case .ViewedProduct: return "$viewed_product"
         case .StartedCheckout: return "$started_checkout"
         case .AddedToCart: return "$added_to_cart"
-        case .ActiveOnSite: return "$active_on_site"
+        case .OpenedApp: return "$opened_app"
         case let .CustomEvent(value): return "\(value)"
         }
     }
@@ -206,7 +206,7 @@ extension Event.V1.MetricName {
         case .ViewedProduct: return "Viewed Product"
         case .StartedCheckout: return "Started Checkout"
         case .AddedToCart: return "Added to Cart"
-        case .ActiveOnSite: return "Active on Site"
+        case .OpenedApp: return "Opened App"
         case let .CustomEvent(value): return "\(value)"
         }
     }

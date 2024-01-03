@@ -3,8 +3,8 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
-## Migrating from v2.3.0 to v2.3.1
-It was recently discovered that the Swift SDK was using legacy event for some common event names like "Added to Cart", as well as some event names that were associated with server actions like "Product Ordered". This would result in some events being logged with names like "$added_to_cart" which is undesirable. In order to bring the Swift SDK in line with other product we have introduced new types to ensure the correct event name gets logged by default. The exmaple shows how to use the event names:
+## Migrating from v2.3.0 to v3.0.0
+It was recently discovered that the Swift SDK was using legacy event names for some common events, like "Added to Cart," and some events that are associated with server actions, like "Ordered Product." As a result, if your account used these standard events, they were being logged with names like "$added_to_cart," in contrast to website generated events which are logged as "Added to Cart." In order to bring the Swift SDK in line with Klaviyo's other integrations, we have introduced new types to ensure that the correct event name is logged by default. This example shows how to use the event names:
 ```swift
 let event = Event(metricName: Event.V1.MetricName.AddedToCart)
 ```
@@ -13,13 +13,13 @@ If you would like to continue using the old names you can do the following:
 ```swift
 let event = Event(metricName: Event.Legacy.MetricName.AddedToCart)
 ```
-But note that these names will deprecated in a future release. You can also achieve the same result with:
+But note that these names will be deprecated in a future release. You can also achieve the same result with:
 ```swift
 let event = Event(metricName: Event.V1.MetricName.CustomEvent("$added_to_cart")
 ```
 
 
-## Migrating from v1.X.0 to v2.3.1
+## Migrating from v1.X.0 to v2.3.0
 
 Version 2.0.0 of the iOS SDK updates the API to take advantage of modern swift language features to make it easier to integrate
 into your Swift applications. This means our old `Klaviyo` has been deprecated and it will be completely removed in a future SDK version.

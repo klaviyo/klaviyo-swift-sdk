@@ -81,7 +81,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test create event
 
     func testCreateEvent() throws {
-        let event = Event(name: Event.V1.MetricName.ActiveOnSite)
+        let event = Event(name: Event.V1.MetricName.OpenedApp)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
         klaviyo.create(event: event)

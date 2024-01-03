@@ -11,8 +11,8 @@ import XCTest
 
 class KlaviyoModelTests: XCTestCase {
     func testMetricNameEquality() {
-        let metric1 = Event.Metric(metricName: Event.V1.MetricName.ActiveOnSite)
-        let metric2 = Event.Metric(metricName: Event.Legacy.MetricName.ActiveOnSite)
+        let metric1 = Event.Metric(metricName: Event.V1.MetricName.OpenedApp)
+        let metric2 = Event.Metric(metricName: Event.Legacy.MetricName.OpenedApp)
         XCTAssertNotEqual(metric1, metric2)
 
         let metric3 = Event.Metric(metricName: Event.V1.MetricName.CustomEvent("foo"))
