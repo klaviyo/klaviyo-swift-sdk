@@ -20,8 +20,6 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     enum PendingRequest: Equatable {
-        case legacyEvent(LegacyEvent)
-        case legacyProfile(LegacyProfile)
         case event(Event)
         case profile(Profile)
         case pushToken(String, PushEnablement)
@@ -179,12 +177,6 @@ struct KlaviyoState: Equatable, Codable {
         }
     }
 
-    mutating func updateStateWithLegacyIdentifiers(identifiers: LegacyIdentifiers) {
-        email = identifiers.email ?? email
-        phoneNumber = identifiers.phoneNumber ?? phoneNumber
-        externalId = identifiers.externalId ?? externalId
-    }
-
     mutating func updateStateWithProfile(profile: Profile) {
         email = profile.email ?? email
         phoneNumber = profile.phoneNumber ?? phoneNumber
@@ -327,9 +319,6 @@ private func removeStateFile(at file: URL) {
 func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
     guard environment.fileClient.fileExists(fileName.path) else {
-        if needsMigration(with: apiKey) {
-            return migrateLegacyDataToKlaviyoState(with: apiKey, to: fileName)
-        }
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
     guard let stateData = try? environment.data(fileName) else {
@@ -357,79 +346,4 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
-}
-
-// MARK: Klaviyo State Legacy Migration
-
-// It's unclear how long this should live for but it'll probably here for a while.
-
-private func migrateLegacyDataToKlaviyoState(with apiKey: String, to _: URL) -> KlaviyoState {
-    // Read data from user defaults external id, email, push token
-    // Read old events and people data
-    // Remove old keys and data from userdefaults and files
-    // return populated KlaviyoState
-    let email = environment.getUserDefaultString("$kl_email")
-    let anonymousId = environment.legacyIdentifier()
-    let externalId = environment.getUserDefaultString("kl_customerID")
-    var state = KlaviyoState(apiKey: apiKey,
-                             email: email,
-                             anonymousId: anonymousId,
-                             externalId: externalId,
-                             queue: [],
-                             requestsInFlight: [])
-    state.queue = readLegacyRequestData(with: apiKey, from: state)
-    let file = klaviyoStateFile(apiKey: apiKey)
-    storeKlaviyoState(state: state, file: file)
-    return state
-}
-
-private func needsMigration(with apiKey: String) -> Bool {
-    let email = environment.getUserDefaultString("$kl_email")
-    let externalId = environment.getUserDefaultString("kl_customerID")
-    let eventsFileURL = filePathForData(apiKey: apiKey, data: "events")
-    let eventsFileExists = environment.fileClient.fileExists(eventsFileURL.path)
-    let profileFileURL = filePathForData(apiKey: apiKey, data: "people")
-    let profilesFileExists = environment.fileClient.fileExists(profileFileURL.path)
-    return email != nil || externalId != nil || eventsFileExists || profilesFileExists
-}
-
-private func readLegacyRequestData(with apiKey: String, from state: KlaviyoState) -> [KlaviyoAPI.KlaviyoRequest] {
-    var queue = [KlaviyoAPI.KlaviyoRequest]()
-    let eventsFileURL = filePathForData(apiKey: apiKey, data: "events")
-    if let eventsData = unarchiveFromFile(fileURL: eventsFileURL) {
-        for possibleEvent in eventsData {
-            guard let event = possibleEvent as? NSDictionary,
-                  let eventName = event["event"] as? String
-            else {
-                continue
-            }
-            let customerProperties = event["customer_properties"] as? NSDictionary
-            let properties = event["properties"] as? NSDictionary
-            let legacyEvent = LegacyEvent(eventName: eventName,
-                                          customerProperties: customerProperties,
-                                          properties: properties)
-            guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
-                continue
-            }
-            queue.append(request)
-        }
-    }
-
-    let profileFileURL = filePathForData(apiKey: apiKey, data: "people")
-    if let profileData = unarchiveFromFile(fileURL: profileFileURL) {
-        for possibleProfile in profileData {
-            guard let profile = possibleProfile as? NSDictionary else {
-                continue
-            }
-            guard let customerProperties = profile["properties"] as? NSDictionary else {
-                continue
-            }
-            let legacyProfile = LegacyProfile(customerProperties: customerProperties)
-            guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
-                continue
-            }
-            queue.append(request)
-        }
-    }
-    return queue
 }
