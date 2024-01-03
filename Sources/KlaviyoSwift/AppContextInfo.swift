@@ -20,10 +20,14 @@ struct AppContextInfo {
     private static let defaultOSName = "iOS"
     private static let defaultDeviceModel: String = {
         var size = 0
+        var deviceModel = ""
         sysctlbyname("hw.machine", nil, &size, nil, 0)
-        var machine = [CChar](repeating: 0, count: size)
-        sysctlbyname("hw.machine", &machine, &size, nil, 0)
-        return String(cString: machine)
+        if size > 0 {
+            var machine = [CChar](repeating: 0, count: size)
+            sysctlbyname("hw.machine", &machine, &size, nil, 0)
+            deviceModel = String(cString: machine)
+        }
+        return deviceModel
     }()
 
     private static let deviceIdStoreKey = "_klaviyo_device_id"
