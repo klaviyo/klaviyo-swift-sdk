@@ -63,7 +63,7 @@ public struct Event: Equatable {
     public let uniqueId: String
     public let identifiers: Identifiers?
 
-    @available(*, deprecated, renamed: "init(name:properties:value:uniqueId:)", message: "This initializer has been deprecated. Setting profile properties should be set prior to logging events.")
+    @available(*, deprecated, renamed: "init(name:properties:value:uniqueId:)", message: "This initializer has been deprecated. Profile properties should be set prior to logging events.")
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 identifiers: Identifiers? = nil,
