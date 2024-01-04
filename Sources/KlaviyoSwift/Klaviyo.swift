@@ -465,10 +465,15 @@ public struct KlaviyoSDK {
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
-
+        set(pushToken: apnDeviceToken)
+    }
+    
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// - Parameter pushToken: String formatted push token.
+    public func set(pushToken: String) {
         environment.getNotificationSettings { enablement in
             dispatchOnMainThread(action: .setPushToken(
-                apnDeviceToken,
+                pushToken,
                 enablement))
         }
     }
