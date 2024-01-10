@@ -45,7 +45,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.resetStateAndDequeue(request, [InvalidField.phone])) {
+        await store.receive(.resetStateAndDequeue(request, [InvalidField.phone]), timeout: TIMEOUT_NANOSECONDS) {
             $0.phoneNumber = nil
         }
 
@@ -67,7 +67,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.resetStateAndDequeue(request, [InvalidField.email])) {
+        await store.receive(.resetStateAndDequeue(request, [InvalidField.email]), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = nil
         }
 
