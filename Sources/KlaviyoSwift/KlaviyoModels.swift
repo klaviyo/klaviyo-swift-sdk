@@ -11,19 +11,36 @@ import Foundation
 public struct Event: Equatable {
     public enum EventName: Equatable {
         case OpenedPush
-        case ViewedProduct
-        case SearchedProducts
-        case StartedCheckout
-        case PlacedOrder
-        case OrderedProduct
-        case CancelledOrder
-        case PaidForOrder
-        case SubscribedToBackInStock
-        case SubscribedToComingSoon
-        case SubscribedToList
-        case SuccessfulPayment
-        case FailedPayment
+        case OpenedAppMetric
+        case ViewedProductMetric
+        case AddedToCartMetric
+        case StartedCheckoutMetric
         case CustomEvent(String)
+
+        @available(*, deprecated, renamed: "ViewedProductMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
+        case ViewedProduct
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case SearchedProducts
+        @available(*, deprecated, renamed: "StartedCheckoutMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
+        case StartedCheckout
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case PlacedOrder
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case OrderedProduct
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case CancelledOrder
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case PaidForOrder
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case SubscribedToBackInStock
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case SubscribedToComingSoon
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case SubscribedToList
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case SuccessfulPayment
+        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
+        case FailedPayment
     }
 
     public struct Metric: Equatable {
@@ -75,7 +92,7 @@ public struct Event: Equatable {
         let email = profile?.removeValue(forKey: "$email") as? String
         let phoneNumber = profile?.removeValue(forKey: "$phone_number") as? String
         let externalId = profile?.removeValue(forKey: "$id") as? String
-        // identifiers takes precendence if available otherwise fallback to profile.
+        // identifiers takes precedence if available otherwise fallback to profile.
         let identifiers = identifiers ?? Identifiers(
             email: email,
             phoneNumber: phoneNumber,
@@ -194,6 +211,12 @@ extension Event.EventName {
     var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
+        case .OpenedAppMetric: return "Opened App"
+        case .ViewedProductMetric: return "Viewed Product"
+        case .AddedToCartMetric: return "Added to Cart"
+        case .StartedCheckoutMetric: return "Started Checkout"
+        case let .CustomEvent(value): return "\(value)"
+
         case .ViewedProduct: return "$viewed_product"
         case .SearchedProducts: return "$searched_products"
         case .StartedCheckout: return "$started_checkout"
@@ -206,7 +229,6 @@ extension Event.EventName {
         case .SubscribedToList: return "$subscribed_to_list"
         case .SuccessfulPayment: return "$successful_payment"
         case .FailedPayment: return "$failed_payment"
-        case let .CustomEvent(value): return "\(value)"
         }
     }
 }
