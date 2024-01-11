@@ -3,6 +3,30 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v2.4.0
+
+It was recently discovered that the Swift SDK was using legacy event names for some common events,
+like "Viewed Product" and some events that are associated with server actions, like "Ordered Product."
+As a result, if your account used these enum cases, they were being logged with names like "$viewed_product"
+in contrast to website generated events which are logged as "Viewed Product."
+
+In order to bring the Swift SDK in line with Klaviyo's other integrations, we've deprecated the incorrect enum cases
+and introduced new cases to correct spellings where appropriate.
+The deprecated cases will be removed in the next major release.
+
+```swift
+// Old code: using one of the legacy enum cases
+let event = Event(name: .ViewedProduct)
+
+// New code: update to new case with -Metric suffix
+let event = Event(name: .ViewedProductMetric)
+```
+
+If you would are using any of the old names and need to continue using them, you can use the custom enum e.g.
+```swift
+let event = Event(name: .Custom("$viewed_product"))
+```
+
 ## Migrating from v1.X.0 to v2.0.0
 
 Version 2.0.0 of the iOS SDK updates the API to take advantage of modern swift language features to make it easier to integrate
