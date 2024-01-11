@@ -3,6 +3,11 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v3.0.0
+
+Deprecated event type enum cases have been removed.
+The reasoning is explained below, see [Migrating to v2.4.0](#Migrating-to-v240) for details and code samples.
+
 ## Migrating to v2.4.0
 
 It was recently discovered that the Swift SDK was using legacy event names for some common events,

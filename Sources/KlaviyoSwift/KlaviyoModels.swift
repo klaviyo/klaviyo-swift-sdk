@@ -16,31 +16,6 @@ public struct Event: Equatable {
         case AddedToCartMetric
         case StartedCheckoutMetric
         case CustomEvent(String)
-
-        @available(*, deprecated, renamed: "ViewedProductMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
-        case ViewedProduct
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SearchedProducts
-        @available(*, deprecated, renamed: "StartedCheckoutMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
-        case StartedCheckout
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case PlacedOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case OrderedProduct
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case CancelledOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case PaidForOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToBackInStock
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToComingSoon
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToList
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SuccessfulPayment
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case FailedPayment
     }
 
     public struct Metric: Equatable {
@@ -216,19 +191,6 @@ extension Event.EventName {
         case .AddedToCartMetric: return "Added to Cart"
         case .StartedCheckoutMetric: return "Started Checkout"
         case let .CustomEvent(value): return "\(value)"
-
-        case .ViewedProduct: return "$viewed_product"
-        case .SearchedProducts: return "$searched_products"
-        case .StartedCheckout: return "$started_checkout"
-        case .PlacedOrder: return "$placed_order"
-        case .OrderedProduct: return "$ordered_product"
-        case .CancelledOrder: return "$cancelled_order"
-        case .PaidForOrder: return "$paid_for_order"
-        case .SubscribedToBackInStock: return "$subscribed_to_back_in_stock"
-        case .SubscribedToComingSoon: return "$subscribed_to_coming_soon"
-        case .SubscribedToList: return "$subscribed_to_list"
-        case .SuccessfulPayment: return "$successful_payment"
-        case .FailedPayment: return "$failed_payment"
         }
     }
 }
