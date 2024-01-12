@@ -93,10 +93,6 @@ class KlaviyoSDKTests: XCTestCase {
         let event = Event(name: .AddedToCartMetric, properties: [
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
-        ], identifiers: .init(email: "junior@blob.com"),
-        profile: [
-            "$first_name": "Blob",
-            "$last_name": "Jr"
         ], value: 10.99)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 

@@ -13,13 +13,8 @@
         "data" : {
           "attributes" : {
             "anonymous_id" : "anon-id",
-            "email" : "blob@email.com",
             "properties" : {
-              "email" : "blob@email.com",
-              "location" : {
-                "city" : "blob city"
-              },
-              "stuff" : 2
+
             }
           },
           "type" : "profile"

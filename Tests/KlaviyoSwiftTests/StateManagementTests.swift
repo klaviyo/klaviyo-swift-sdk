@@ -419,26 +419,10 @@ class StateManagementTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], profile: ["$email": "foo@foo.com", "$phone_number": "666BLOB", "$id": "my_user_id"])
+        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken])
         _ = await store.send(.enqueueEvent(event)) {
-            $0.email = "foo@foo.com"
-            $0.phoneNumber = "666BLOB"
-            $0.externalId = "my_user_id"
-            try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: XCTUnwrap($0.anonymousId))))))
-        }
-    }
-
-    func testEnqueueEventWithIdentifiers() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.phoneNumber = "555BLOB"
-        let identifiers = Event.Identifiers(email: "foo@foo.com", phoneNumber: "666BLOB", externalId: "my_user_id")
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken], identifiers: identifiers)
-        _ = await store.send(.enqueueEvent(event)) {
-            $0.email = "foo@foo.com"
-            $0.phoneNumber = "666BLOB"
-            $0.externalId = "my_user_id"
-            try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: XCTUnwrap($0.anonymousId))))))
+            let newEvent = Event(name: .OpenedPush, properties: event.properties, identifiers: .init(phoneNumber: $0.phoneNumber))
+            try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId))))))
         }
     }
 }
