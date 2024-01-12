@@ -183,7 +183,7 @@ public struct Profile: Equatable {
 }
 
 extension Event.EventName {
-    var value: String {
+    public var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
         case .OpenedAppMetric: return "Opened App"
