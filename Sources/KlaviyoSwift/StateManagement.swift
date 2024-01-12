@@ -75,12 +75,6 @@ enum KlaviyoAction: Equatable {
     /// called when there is a network or rate limit error
     case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
 
-    /// enqueues legacy events as part of migration of old SDK to newer
-    case enqueueLegacyEvent(LegacyEvent)
-
-    /// enqueues legacy events as part of migration of old SDK to newer
-    case enqueueLegacyProfile(LegacyProfile)
-
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
 
@@ -97,7 +91,7 @@ enum KlaviyoAction: Equatable {
 
     var requiresInitialization: Bool {
         switch self {
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueLegacyEvent, .enqueueLegacyProfile, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -176,10 +170,6 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 for request in pendingRequests {
                     switch request {
-                    case let .legacyEvent(event):
-                        await send(.enqueueLegacyEvent(event))
-                    case let .legacyProfile(profile):
-                        await send(.enqueueLegacyProfile(profile))
                     case let .event(event):
                         await send(.enqueueEvent(event))
                     case let .profile(profile):
@@ -366,37 +356,6 @@ struct KlaviyoReducer: ReducerProtocol {
                     KlaviyoAction.flushQueue
                 }.eraseToEffect()
                 .cancellable(id: FlushTimer.self, cancelInFlight: true)
-
-        case let .enqueueLegacyEvent(legacyEvent):
-            guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
-                state.pendingRequests.append(.legacyEvent(legacyEvent))
-                return .none
-            }
-
-            guard let identifiers = legacyEvent.identifiers else {
-                return .none
-            }
-            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
-            guard let request = try? legacyEvent.buildEventRequest(with: apiKey, from: state) else {
-                return .none
-            }
-            state.enqueueRequest(request: request)
-            return .none
-
-        case let .enqueueLegacyProfile(legacyProfile):
-            guard case .initialized = state.initalizationState, let apiKey = state.apiKey else {
-                state.pendingRequests.append(.legacyProfile(legacyProfile))
-                return .none
-            }
-            guard let identifiers = legacyProfile.identifiers else {
-                return .none
-            }
-            state.updateStateWithLegacyIdentifiers(identifiers: identifiers)
-            guard let request = try? legacyProfile.buildProfileRequest(with: apiKey, from: state) else {
-                return .none
-            }
-            state.enqueueRequest(request: request)
-            return .none
 
         case let .requestFailed(request, retryInfo):
             var exceededRetries = false
