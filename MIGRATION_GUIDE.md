@@ -27,7 +27,7 @@ let event = Event(name: .ViewedProduct)
 let event = Event(name: .ViewedProductMetric)
 ```
 
-If you would are using any of the old names and need to continue using them, you can use the custom enum e.g.
+If you are using any of the old names and need to continue using them, you can use the custom enum e.g.
 ```swift
 let event = Event(name: .Custom("$viewed_product"))
 ```
