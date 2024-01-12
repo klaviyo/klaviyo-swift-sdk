@@ -60,9 +60,9 @@ KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
 
 ```swift
-let event = Event(name: .StartedCheckout, properties: [
+let event = Event(name: .AddedToCartMetric, properties: [
     "Total Price": 10.99,
-    "Items Purchased": ["Hot Dog", "Fries", "Shake"]
+    "Items": ["Hot Dog", "Fries", "Shake"]
 ], identifiers: .init(email: "junior@blob.com"),
 profile: [
     "$first_name": "Blob",
@@ -82,7 +82,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 - `properties`: An dictionary of properties that are specific to the event. This argument is optional.
 
-- `time`: This is the timestamp, as an `Date`, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real- time activity, you can ignore this argument.
+- `time`: This is the timestamp, as an `Date`, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real-time activity, you can ignore this argument.
 
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
 
