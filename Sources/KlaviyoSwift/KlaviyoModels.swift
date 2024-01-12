@@ -45,11 +45,6 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-    var profile: [String: Any] {
-        _profile.value as? [String: Any] ?? [:]
-    }
-
-    let _profile: AnyCodable
     public var time: Date
     public let value: Double?
     public let uniqueId: String
@@ -58,15 +53,13 @@ public struct Event: Equatable {
     init(name: EventName,
          properties: [String: Any]? = nil,
          identifiers: Identifiers? = nil,
-         profile: [String: Any]? = nil,
          value: Double? = nil,
          time: Date? = nil,
          uniqueId: String? = nil) {
-        _profile = AnyCodable(profile)
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        self.value = value
         self.time = time ?? environment.analytics.date()
+        self.value = value
         self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
         self.identifiers = identifiers
     }
@@ -76,7 +69,6 @@ public struct Event: Equatable {
                 value: Double? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
-        _profile = AnyCodable([:])
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value

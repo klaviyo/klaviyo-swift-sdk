@@ -127,8 +127,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                         profile = .init(attributes: .init(
                             email: attributes.identifiers?.email,
                             phoneNumber: attributes.identifiers?.phoneNumber,
-                            externalId: attributes.identifiers?.externalId,
-                            properties: attributes.profile),
+                            externalId: attributes.identifiers?.externalId),
                         anonymousId: anonymousId ?? "")
                     }
 
