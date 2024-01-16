@@ -26,7 +26,7 @@ public struct Event: Equatable {
         }
     }
 
-    public struct Identifiers: Equatable {
+    struct Identifiers: Equatable {
         public let email: String?
         public let phoneNumber: String?
         public let externalId: String?
@@ -45,38 +45,21 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-    public var profile: [String: Any] {
-        _profile.value as? [String: Any] ?? [:]
-    }
-
-    internal var _profile: AnyCodable
     public var time: Date
     public let value: Double?
     public let uniqueId: String
-    public let identifiers: Identifiers?
+    let identifiers: Identifiers?
 
-    @available(*, deprecated, renamed: "init(name:properties:value:uniqueId:)", message: "This initializer has been deprecated. Profile properties should be set prior to logging events.")
-    public init(name: EventName,
-                properties: [String: Any]? = nil,
-                identifiers: Identifiers? = nil,
-                profile: [String: Any]? = nil,
-                value: Double? = nil,
-                time: Date? = nil,
-                uniqueId: String? = nil) {
-        var profile = profile
-        let email = profile?.removeValue(forKey: "$email") as? String
-        let phoneNumber = profile?.removeValue(forKey: "$phone_number") as? String
-        let externalId = profile?.removeValue(forKey: "$id") as? String
-        // identifiers takes precedence if available otherwise fallback to profile.
-        let identifiers = identifiers ?? Identifiers(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId)
-        _profile = AnyCodable(profile)
+    init(name: EventName,
+         properties: [String: Any]? = nil,
+         identifiers: Identifiers? = nil,
+         value: Double? = nil,
+         time: Date? = nil,
+         uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        self.value = value
         self.time = time ?? environment.analytics.date()
+        self.value = value
         self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
         self.identifiers = identifiers
     }
@@ -86,7 +69,6 @@ public struct Event: Equatable {
                 value: Double? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
-        _profile = AnyCodable([:])
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value

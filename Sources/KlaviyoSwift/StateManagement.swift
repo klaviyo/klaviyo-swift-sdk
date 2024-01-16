@@ -386,7 +386,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            event = event.updateStateAndEvent(state: &state)
+            event = event.updateEventWithState(state: &state)
             state.enqueueRequest(request: .init(apiKey: apiKey,
                                                 endpoint: .createEvent(
                                                     .init(data: .init(event: event, anonymousId: anonymousId))
@@ -507,24 +507,11 @@ extension KlaviyoState {
 }
 
 extension Event {
-    func updateStateAndEvent(state: inout KlaviyoState) -> Event {
-        let email = identifiers?.email ?? state.email
-        let phoneNumber = identifiers?.phoneNumber ?? state.phoneNumber
-        let externalId = identifiers?.externalId ?? state.externalId
+    func updateEventWithState(state: inout KlaviyoState) -> Event {
         let identifiers = Identifiers(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId)
-        if let email = identifiers.email {
-            state.email = email
-        }
-        if let phoneNumber = identifiers.phoneNumber {
-            state.phoneNumber = phoneNumber
-        }
-        if let externalId = identifiers.externalId {
-            state.externalId = externalId
-        }
-
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId)
         var properties = properties
         if metric.name == EventName.OpenedPush,
            let pushToken = state.pushTokenData?.pushToken {
@@ -533,7 +520,6 @@ extension Event {
         return Event(name: metric.name,
                      properties: properties,
                      identifiers: identifiers,
-                     profile: profile,
                      value: value,
                      time: time,
                      uniqueId: uniqueId)
