@@ -108,6 +108,7 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias Action = KlaviyoAction
 
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+        print("333")
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.raiseFatalError("SDK must be initialized before usage.")
@@ -159,8 +160,10 @@ struct KlaviyoReducer: ReducerProtocol {
             if let externalId = state.externalId {
                 initialState.externalId = externalId
             }
-            let queuedRequests = state.queue
-            initialState.queue += queuedRequests
+            // For any requets that get added between initilizing and initilized.
+            // Ex: when the app is invoked from a push notification after being killed from the app switcher.
+            initialState.pendingRequests += state.pendingRequests
+            initialState.queue += state.queue
 
             state = initialState
             state.initalizationState = .initialized
