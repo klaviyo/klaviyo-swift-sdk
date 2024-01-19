@@ -441,4 +441,31 @@ class StateManagementTests: XCTestCase {
             try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: event, anonymousId: XCTUnwrap($0.anonymousId))))))
         }
     }
+
+    func testEnqueueEventWhenInitilizingSendsEvent() async throws {
+        let initialState = INITILIZING_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let event = Event(name: .OpenedPush)
+        await store.send(.enqueueEvent(event)) {
+            $0.pendingRequests = [KlaviyoState.PendingRequest.event(event)]
+        }
+
+        await store.send(.completeInitialization(initialState)) {
+            $0.pendingRequests = []
+            $0.initalizationState = .initialized
+        }
+
+        await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
+            let newEvent = Event(name: .OpenedPush, identifiers: .init(phoneNumber: $0.phoneNumber))
+            try $0.enqueueRequest(
+                request: .init(apiKey: XCTUnwrap($0.apiKey),
+                               endpoint: .createEvent(.init(
+                                   data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId)))))
+            )
+        }
+
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+    }
 }
