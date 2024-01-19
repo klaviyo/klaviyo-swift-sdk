@@ -108,6 +108,7 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias Action = KlaviyoAction
 
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+        print("sending event YOOO 999")
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.raiseFatalError("SDK must be initialized before usage.")
@@ -116,6 +117,11 @@ struct KlaviyoReducer: ReducerProtocol {
 
         switch action {
         case let .initialize(apiKey):
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in the start of initialize")
+            } else {
+                // Fallback on earlier versions
+            }
             if case .initialized = state.initalizationState {
                 guard apiKey != state.apiKey else {
                     return .none
@@ -140,6 +146,11 @@ struct KlaviyoReducer: ReducerProtocol {
             state.apiKey = apiKey
             // carry over pending events
             let pendingRequests = state.pendingRequests
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in initialize before run")
+            } else {
+                // Fallback on earlier versions
+            }
             return .run { send in
                 var initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 initialState.pendingRequests = pendingRequests
@@ -147,9 +158,15 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case var .completeInitialization(initialState):
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in COMPLETE initialize")
+            } else {
+                // Fallback on earlier versions
+            }
             guard case .initializing = state.initalizationState else {
                 return .none
             }
+
             if let email = state.email {
                 initialState.email = email
             }
@@ -159,13 +176,27 @@ struct KlaviyoReducer: ReducerProtocol {
             if let externalId = state.externalId {
                 initialState.externalId = externalId
             }
-            let queuedRequests = state.queue
-            initialState.queue += queuedRequests
+
+            // in case any requests were enqueued after initialize
+            initialState.pendingRequests += state.pendingRequests
+            initialState.queue += state.queue
+
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in COMPLETE just before state = initialState")
+            } else {
+                // Fallback on earlier versions
+            }
 
             state = initialState
             state.initalizationState = .initialized
             let pendingRequests = state.pendingRequests
             state.pendingRequests = []
+
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in COMPLETE just before RUN")
+            } else {
+                // Fallback on earlier versions
+            }
 
             return .run { send in
                 for request in pendingRequests {
@@ -227,6 +258,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case .flushQueue:
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in start of flush")
+            } else {
+                // Fallback on earlier versions
+            }
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -273,6 +309,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
+            // when the app starts we try to keep flushing in some interval
             return environment.analytics.timer(state.flushInterval)
                 .map { _ in
                     KlaviyoAction.flushQueue
@@ -302,6 +339,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .task { .sendRequest }
 
         case .sendRequest:
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in the start of sendRequest")
+            } else {
+                // Fallback on earlier versions
+            }
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -378,12 +420,29 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case var .enqueueEvent(event):
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in enqueueEvent before guard with state.initalizationState = \(state.initalizationState)")
+            } else {
+                // Fallback on earlier versions
+            }
+
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
                 state.pendingRequests.append(.event(event))
+                if #available(iOS 15, *) {
+                    sendEvent(count: state.pendingRequests.count, string: "in enqueueEvent")
+                } else {
+                    // Fallback on earlier versions
+                }
                 return .none
+            }
+
+            if #available(iOS 15, *) {
+                sendEvent(count: state.pendingRequests.count, string: "in enqueueEvent after initilization")
+            } else {
+                // Fallback on earlier versions
             }
 
             event = event.updateEventWithState(state: &state)
@@ -524,4 +583,99 @@ extension Event {
                      time: time,
                      uniqueId: uniqueId)
     }
+}
+
+func sendEvent(count: Int, string: String) {
+    // Create a URL
+    if let url = URL(string: "https://a.klaviyo.com/client/events/?company_id=Xr5bFG") {
+        // Create a URLRequest with the specified URL
+        var request = URLRequest(url: url)
+
+        // Set the HTTP method to POST
+        request.httpMethod = "POST"
+
+        request.setValue("2023-10-15", forHTTPHeaderField: "revision")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        // Set the request body (if needed)
+        let requestBody = """
+        {
+          "data": {
+            "type": "event",
+            "attributes": {
+              "properties": {
+             "action": "Reset Password"
+            },
+              "metric": {
+                "data": {
+                  "type": "metric",
+                  "attributes": {
+                    "name": "pending.count = \(count) from \(string)"
+                  }
+                }
+              },
+              "profile": {
+                "data": {
+                  "type": "profile",
+                  "attributes": {
+                    "email": "sarah.mason@klaviyo-demo.com"
+                  },
+                  "properties":{
+                  "PasswordResetLink": "date time = \(currentDateWithMilliseconds())"
+                  }
+                }
+              },
+            "unique_id": "4b5d3f33-2e21-4c1c-b392-2dae2a74a2ed"
+            }
+          }
+        }
+        """
+        request.httpBody = requestBody.data(using: .utf8)
+
+        // Create a URLSession instance
+        let session = URLSession.shared
+
+        // Create a data task
+        let task = session.dataTask(with: request) { data, _, error in
+
+            // Check for errors
+            if let error = error {
+                print("Error: \(error)")
+                return
+            }
+
+            // Check if there is data
+            guard let responseData = data else {
+                print("No data received")
+                return
+            }
+
+            // Parse the data (if needed)
+            do {
+                let json = try JSONSerialization.jsonObject(with: responseData, options: [])
+                print("JSON Response: \(json)")
+            } catch {
+                print("Error parsing JSON: \(error)")
+            }
+        }
+
+        // Resume the task
+//        task.resume()
+    } else {
+        print("Invalid URL")
+    }
+}
+
+func currentDateWithMilliseconds() -> String {
+    let currentDate = Date()
+
+    // Create a date formatter with millisecond precision
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+
+    // Convert the date to a string with millisecond precision
+    let dateString = dateFormatter.string(from: currentDate)
+
+    return dateString
 }

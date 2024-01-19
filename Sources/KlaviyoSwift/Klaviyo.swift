@@ -157,24 +157,116 @@ public struct KlaviyoSDK {
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
-        if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
-           let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(name: .OpenedPush, properties: properties))
-            Task {
-                await MainActor.run {
-                    if let url = properties["url"] as? String, let url = URL(string: url) {
-                        if let deepLinkHandler = deepLinkHandler {
-                            deepLinkHandler(url)
-                        } else {
-                            UIApplication.shared.open(url)
-                        }
+//        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+        create(event: Event(name: .CustomEvent("in handle push notification")))
+//        }
+
+//        sendEvent()
+        completionHandler()
+        return true
+    }
+
+    private func sendEvent() {
+        // Create a URL
+        if let url = URL(string: "https://a.klaviyo.com/client/events/?company_id=Xr5bFG") {
+            // Create a URLRequest with the specified URL
+            var request = URLRequest(url: url)
+
+            // Set the HTTP method to POST
+            request.httpMethod = "POST"
+
+            request.setValue("2023-10-15", forHTTPHeaderField: "revision")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            // Set the request body (if needed)
+            let requestBody = """
+            {
+              "data": {
+                "type": "event",
+                "attributes": {
+                  "properties": {
+                 "action": "Reset Password"
+                },
+                  "metric": {
+                    "data": {
+                      "type": "metric",
+                      "attributes": {
+                        "name": "Reset Password"
+                      }
                     }
-                    completionHandler()
+                  },
+                  "profile": {
+                    "data": {
+                      "type": "profile",
+                      "attributes": {
+                        "email": "sarah.mason@klaviyo-demo.com"
+                      },
+                      "properties":{
+                      "PasswordResetLink": "https://www.website.com/reset/1234567890987654321"
+                      }
+                    }
+                  },
+                "unique_id": "4b5d3f33-2e21-4c1c-b392-2dae2a74a2ed"
+                }
+              }
+            }
+            """
+            request.httpBody = requestBody.data(using: .utf8)
+
+            // Create a URLSession instance
+            let session = URLSession.shared
+
+            // Create a data task
+            let task = session.dataTask(with: request) { data, _, error in
+
+                // Check for errors
+                if let error = error {
+                    print("Error: \(error)")
+                    return
+                }
+
+                // Check if there is data
+                guard let responseData = data else {
+                    print("No data received")
+                    return
+                }
+
+                // Parse the data (if needed)
+                do {
+                    let json = try JSONSerialization.jsonObject(with: responseData, options: [])
+                    print("JSON Response: \(json)")
+                } catch {
+                    print("Error parsing JSON: \(error)")
                 }
             }
 
-            return true
+            // Resume the task
+            task.resume()
+        } else {
+            print("Invalid URL")
         }
-        return false
     }
+
+//    public func handle(userInfo: [AnyHashable: Any], deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
+//        create(event: Event(name: .CustomEvent("user info"), properties: userInfo as? [String: Any]))
+//        if let properties = userInfo as? [String: Any],
+//           let body = properties["body"] as? [String: Any], let _ = body["_k"] {
+//            create(event: Event(name: .OpenedPush, properties: properties))
+//            Task {
+//                await MainActor.run {
+//                    if let url = properties["url"] as? String, let url = URL(string: url) {
+//                        if let deepLinkHandler = deepLinkHandler {
+//                            deepLinkHandler(url)
+//                        } else {
+//                            UIApplication.shared.open(url)
+//                        }
+//                    }
+//                }
+//            }
+//
+//            return true
+//        }
+//        return false
+//    }
 }
