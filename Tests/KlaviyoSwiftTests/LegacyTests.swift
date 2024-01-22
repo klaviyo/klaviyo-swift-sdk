@@ -81,7 +81,7 @@ class LegacyTests: XCTestCase {
             $0.initalizationState = .initializing
         }
 
-        let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [], pendingRequests: pendingRequests)
+        let expectedState = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [])
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
