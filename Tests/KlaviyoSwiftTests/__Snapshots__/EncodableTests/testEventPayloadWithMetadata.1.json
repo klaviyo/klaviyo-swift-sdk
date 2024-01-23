@@ -13,13 +13,8 @@
         "data" : {
           "attributes" : {
             "anonymous_id" : "anon-id",
-            "email" : "blob@email.com",
             "properties" : {
-              "email" : "blob@email.com",
-              "location" : {
-                "city" : "blob city"
-              },
-              "stuff" : 2
+
             }
           },
           "type" : "profile"
@@ -42,7 +37,7 @@
         "OS Version" : "1.1.1",
         "Push Token" : null,
         "SDK Name" : "swift",
-        "SDK Version" : "2.5.1",
+        "SDK Version" : "3.0.0-alpha.1",
         "stuff" : 2
       },
       "time" : "2009-02-13T23:31:30Z",

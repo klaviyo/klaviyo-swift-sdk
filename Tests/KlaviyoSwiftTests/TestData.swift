@@ -113,14 +113,7 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let SAMPLE_PROFILE_PROPERTIES = [
-        "email": "blob@email.com",
-        "stuff": 2,
-        "location": [
-            "city": "blob city"
-        ]
-    ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, identifiers: .init(email: "blob@email.com"), profile: SAMPLE_PROFILE_PROPERTIES)
+    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES)
 }
 
 extension Event.Metric {
@@ -157,16 +150,3 @@ extension KlaviyoState {
                                    initalizationState: .initialized,
                                    flushing: true)
 }
-
-// MARK: - Legacy Stuff
-
-let LEGACY_OPENED_PUSH = LegacyEvent(eventName: "$opened_push", customerProperties: [
-    "$email": "blob@blob.com",
-    "$id": "blobid",
-    "foo": "bar"
-], properties: ["baz": "boo"])
-
-let LEGACY_PROFILE = LegacyProfile(customerProperties: [
-    "$email": "blob@blob.com",
-    "foo": "bar"
-])

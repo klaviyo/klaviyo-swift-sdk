@@ -3,6 +3,11 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v3.0.0
+
+Deprecated event type enum cases have been removed.
+The reasoning is explained below, see [Migrating to v2.4.0](#Migrating-to-v240) for details and code samples.
+
 ## Migrating to v2.4.0
 
 It was recently discovered that the Swift SDK was using legacy event names for some common events,
@@ -22,7 +27,7 @@ let event = Event(name: .ViewedProduct)
 let event = Event(name: .ViewedProductMetric)
 ```
 
-If you would are using any of the old names and need to continue using them, you can use the custom enum e.g.
+If you are using any of the old names and need to continue using them, you can use the custom enum e.g.
 ```swift
 let event = Event(name: .Custom("$viewed_product"))
 ```

@@ -16,31 +16,6 @@ public struct Event: Equatable {
         case AddedToCartMetric
         case StartedCheckoutMetric
         case CustomEvent(String)
-
-        @available(*, deprecated, renamed: "ViewedProductMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
-        case ViewedProduct
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SearchedProducts
-        @available(*, deprecated, renamed: "StartedCheckoutMetric", message: "Will be renamed to correct metric name spelling. See migration guide")
-        case StartedCheckout
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case PlacedOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case OrderedProduct
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case CancelledOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case PaidForOrder
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToBackInStock
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToComingSoon
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SubscribedToList
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case SuccessfulPayment
-        @available(*, deprecated, message: "Will be removed because this metric is intended for serverside integrations. See migration guide")
-        case FailedPayment
     }
 
     public struct Metric: Equatable {
@@ -51,7 +26,7 @@ public struct Event: Equatable {
         }
     }
 
-    public struct Identifiers: Equatable {
+    struct Identifiers: Equatable {
         public let email: String?
         public let phoneNumber: String?
         public let externalId: String?
@@ -70,38 +45,21 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-    public var profile: [String: Any] {
-        _profile.value as? [String: Any] ?? [:]
-    }
-
-    internal var _profile: AnyCodable
     public var time: Date
     public let value: Double?
     public let uniqueId: String
-    public let identifiers: Identifiers?
+    let identifiers: Identifiers?
 
-    @available(*, deprecated, renamed: "init(name:properties:value:uniqueId:)", message: "This initializer has been deprecated. Profile properties should be set prior to logging events.")
-    public init(name: EventName,
-                properties: [String: Any]? = nil,
-                identifiers: Identifiers? = nil,
-                profile: [String: Any]? = nil,
-                value: Double? = nil,
-                time: Date? = nil,
-                uniqueId: String? = nil) {
-        var profile = profile
-        let email = profile?.removeValue(forKey: "$email") as? String
-        let phoneNumber = profile?.removeValue(forKey: "$phone_number") as? String
-        let externalId = profile?.removeValue(forKey: "$id") as? String
-        // identifiers takes precedence if available otherwise fallback to profile.
-        let identifiers = identifiers ?? Identifiers(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId)
-        _profile = AnyCodable(profile)
+    init(name: EventName,
+         properties: [String: Any]? = nil,
+         identifiers: Identifiers? = nil,
+         value: Double? = nil,
+         time: Date? = nil,
+         uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        self.value = value
         self.time = time ?? environment.analytics.date()
+        self.value = value
         self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
         self.identifiers = identifiers
     }
@@ -111,7 +69,6 @@ public struct Event: Equatable {
                 value: Double? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
-        _profile = AnyCodable([:])
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
@@ -216,19 +173,6 @@ extension Event.EventName {
         case .AddedToCartMetric: return "Added to Cart"
         case .StartedCheckoutMetric: return "Started Checkout"
         case let .CustomEvent(value): return "\(value)"
-
-        case .ViewedProduct: return "$viewed_product"
-        case .SearchedProducts: return "$searched_products"
-        case .StartedCheckout: return "$started_checkout"
-        case .PlacedOrder: return "$placed_order"
-        case .OrderedProduct: return "$ordered_product"
-        case .CancelledOrder: return "$cancelled_order"
-        case .PaidForOrder: return "$paid_for_order"
-        case .SubscribedToBackInStock: return "$subscribed_to_back_in_stock"
-        case .SubscribedToComingSoon: return "$subscribed_to_coming_soon"
-        case .SubscribedToList: return "$subscribed_to_list"
-        case .SuccessfulPayment: return "$successful_payment"
-        case .FailedPayment: return "$failed_payment"
         }
     }
 }
