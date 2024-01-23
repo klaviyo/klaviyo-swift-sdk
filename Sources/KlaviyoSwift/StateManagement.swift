@@ -138,11 +138,8 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.initalizationState = .initializing
             state.apiKey = apiKey
-            // carry over pending events
-            let pendingRequests = state.pendingRequests
             return .run { send in
-                var initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
-                initialState.pendingRequests = pendingRequests
+                let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
 
@@ -159,12 +156,14 @@ struct KlaviyoReducer: ReducerProtocol {
             if let externalId = state.externalId {
                 initialState.externalId = externalId
             }
-            let queuedRequests = state.queue
-            initialState.queue += queuedRequests
+            // For any requests that get added between initilizing and initilized.
+            // Ex: when the app is invoked from a push notification after being killed from the app switcher.
+            let pendingRequests = state.pendingRequests
+            initialState.queue += state.queue
 
             state = initialState
             state.initalizationState = .initialized
-            let pendingRequests = state.pendingRequests
+
             state.pendingRequests = []
 
             return .run { send in

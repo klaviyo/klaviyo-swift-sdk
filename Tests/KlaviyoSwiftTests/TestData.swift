@@ -24,6 +24,16 @@ let INITIALIZED_TEST_STATE = {
         flushing: true)
 }
 
+let INITILIZING_TEST_STATE = {
+    KlaviyoState(
+        apiKey: TEST_API_KEY,
+        anonymousId: environment.analytics.uuid().uuidString,
+        queue: [],
+        requestsInFlight: [],
+        initalizationState: .initializing,
+        flushing: true)
+}
+
 let INITIALIZED_TEST_STATE_INVALID_PHONE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
