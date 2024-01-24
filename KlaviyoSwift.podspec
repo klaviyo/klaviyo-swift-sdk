@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoSwift"
-  s.version          = "3.0.0-alpha.1"
+  s.version          = "3.0.0"
   s.summary          = "Incorporate Klaviyo's event and person tracking and push notifications functionality into iOS applications"
 
   s.description      = <<-DESC
