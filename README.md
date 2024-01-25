@@ -203,7 +203,7 @@ The following code example allows push notifications to be displayed when your a
 
 If a user taps on the notification with the application open, this event is tracked as an _Opened Push_ event.
 
-## Handling deep linking
+## Deep Linking
 
 > :warning: **Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.**
 
