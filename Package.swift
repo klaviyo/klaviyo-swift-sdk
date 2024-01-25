@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "klaviyo-swift-sdk",
-    platforms: [.iOS(.v14)],
+    platforms: [.iOS(.v13)],
     products: [
         .library(
             name: "KlaviyoSwift",
