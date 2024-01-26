@@ -63,7 +63,7 @@ class CheckOutViewController: UIViewController {
             "Items Purchased": uniqueItemsArray.map(\.name)
         ]
 
-        KlaviyoSDK().create(event: .init(name: .PlacedOrder, properties: propertiesDictionary, value: cartTotal))
+        KlaviyoSDK().create(event: .init(name: .CustomEvent("Order placed"), properties: propertiesDictionary, value: cartTotal))
 
         // Trigger thank you modal view
         let alertController = UIAlertController(
