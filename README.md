@@ -69,6 +69,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 The SDK **should** be initialized before any other Klaviyo SDK methods are called.
 
 ## Profile Identification
+The SDK provides methods to identify your users as Klaviyo profiles via the [Create Client Profile API](https://developers.klaviyo.com/en/reference/create_client_profile).
+A profile can be identified by any combination of the following:
+
+* External ID: A unique identifier used by customers to associate Klaviyo profiles with profiles in an external system, such as a point-of-sale system. Format varies based on the external system.
+* Individual's email address
+* Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
+
+These above Identifiers are persisted to local storage so that the SDK can keep track of the current user/profile for you when you make event requests or want to set a push token etc.
+
+Profile identifiers can be set all at once or individually. Either way, the SDK will group and batch API calls to improve performance.
+
+The following code demonstrates how to set profile identifiers:
+
+```swift
+// organization, title, image, location and additional properties (dictionary) can also be set using the below constructor
+let profile = Profile(email: "junior@blob.com",  firstName: "Blob",  lastName: "Jr.")
+KlaviyoSDK().set(profile: profile)
+
+// or setting individual properties
+KlaviyoSDK().set(profileAttribute: .firstName, value: "Blob")
+KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
+```
+
+### Reset Profile
+
 
 
 ## Event tracking
