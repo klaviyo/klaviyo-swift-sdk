@@ -1,0 +1,1 @@
+internalRequestError(KlaviyoSwift.KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: "))

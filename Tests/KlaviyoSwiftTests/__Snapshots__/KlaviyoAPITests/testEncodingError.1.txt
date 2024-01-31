@@ -1,0 +1,22 @@
+▿ KlaviyoAPIError
+  ▿ internalRequestError: KlaviyoAPIError
+    ▿ dataEncodingError: KlaviyoRequest
+      - apiKey: "foo"
+      ▿ endpoint: KlaviyoEndpoint
+        ▿ createProfile: CreateProfilePayload
+          ▿ data: Profile
+            ▿ attributes: Attributes
+              - anonymousId: "foo"
+              - email: Optional<String>.none
+              - externalId: Optional<String>.none
+              - firstName: Optional<String>.none
+              - image: Optional<String>.none
+              - lastName: Optional<String>.none
+              - location: Optional<Location>.none
+              - organization: Optional<String>.none
+              - phoneNumber: Optional<String>.none
+              ▿ properties: [:]
+                - value: 0 key/value pairs
+              - title: Optional<String>.none
+            - type: "profile"
+      - uuid: "00000000-0000-0000-0000-000000000001"
