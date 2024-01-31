@@ -1,2 +1,0 @@
-- <NSHTTPURLResponse> { URL: fake_url } { Status Code: 200, Headers {
-} }
