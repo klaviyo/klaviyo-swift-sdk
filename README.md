@@ -1,6 +1,6 @@
-# KlaviyoSwift
+# klaviyo-swift-sdk
 
-[![CI Status](https://travis-ci.org/klaviyo/klaviyo-swift-sdk.svg?branch=master)](https://travis-ci.org/klaviyo/klaviyo-swift-sdk)
+![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
 [![Swift](https://img.shields.io/badge/Swift-5.6_5.7-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.6_5.7-Orange?style=flat-square)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
 [![Version](https://img.shields.io/cocoapods/v/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
@@ -9,16 +9,18 @@
 
 ## Overview
 
-KlaviyoSwift is an SDK, written in Swift that can be integrated into your iOS App. The SDK enables you to engage with your customers using push notifications. In addition you will be able to take advantage of Klaviyo's identification and event tracking functionality. Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
+The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality in their iOS applications.
+The SDK assists in identifying users and tracking events via the latest [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+Top reduce performance overhead, API requests are queued and sent in batches. The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
-### Installation options
+Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
 
-1. [Install with SPM](#install-with-spm)
-1. [Install with Cocoapods](#install-with-cocoapods)
+### Installation
 
-## [Install with SPM](#install-with-spm)
+<details>
+<summary>Swift Package Manager</summary>
 
-KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/package-manager/). Follow the steps below to install.
+KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
 1. Open your project and navigate to your project’s settings.
 2. Select the **Swift Packages** tab and click on the **add** button below the packages list.
@@ -26,8 +28,11 @@ KlaviyoSwift is available via [Swift Package Manager (SPM)](https://swift.org/pa
 4. On the next screen, select the latest SDK version and click **Next**.
 5. Select the `KlaviyoSwift` package.
 6. Click **Finish**.
+</details>
 
-## [Install with CocoaPods](#install-with-cocoapods)
+<details>
+
+<summary>CocoaPods</summary>
 
 KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo).
 
@@ -40,6 +45,31 @@ pod "KlaviyoSwift"
 2. Run `pod install` to complete the integration.
 
 The library can be kept up-to-date via `pod update`.
+
+</details>
+
+### Initialization
+The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
+for your Klaviyo account, also known as your Site ID.
+
+```swift
+// AppDelegate
+
+import KlaviyoSwift
+
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+        return true
+    }
+}
+```
+
+The SDK **should** be initialized before any other Klaviyo SDK methods are called.
+
+## Profile Identification
+
 
 ## Event tracking
 
