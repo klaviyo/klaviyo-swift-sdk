@@ -160,14 +160,50 @@ The `create` method takes an event object as an argument. The event can be const
 * An apple developer account.
 * Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
 
-## Setup
+### Setup
 
-* Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-* [Optional]
+* Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
+* If you intend to use rich push notifications add a notification service extension to your xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+  * Select File > New > Target in Xcode.
+  * Select the Notification Service Extension target from the iOS > Application extension section.
+  * Click Next.
+  * Specify a name and other configuration details for your app extension.
+  * Click Finish.
 
-### Sending push notifications
+> ⚠️ By default the deployment target of your notification service extension might be the latest iOS version and not
+the minimum you want to support. This may cause push notifications to not show the attached media in devices whose
+iOS versions are lower than the deployment target of the notification service extension. ⚠️
 
-1. Add the following code to your application wherever you would like to prompt users to register for push notifications. This is often included within `application:didFinishLaunchingWithOptions:`, but it can be placed elsewhere as well. When this code is called, ensure that the Klaviyo SDK is configured and that `set(email:)` is called. This enables Klaviyo to match app tokens with profiles in Klaviyo customers.
+### Collecting Push Token
+
+In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
+This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers push token and current authorization state
+via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
+
+* Call [`registerForRemoteNotifications()`](https://developer.apple.com/documentation/uikit/uiapplication/1623078-registerforremotenotifications)
+on `UIApplication` instance to request a push token from APNs. Ex: `UIApplication.shared.registerForRemoteNotifications()`. This is typically done in the `application:didFinishLaunchingWithOptions:` method of your app delegate.
+* Implement the `application:didRegisterForRemoteNotificationsWithDeviceToken` method in your app delegate to receive the push token from APNs and register it with Klaviyo.
+>  ℹ️ Please note that the KlaviyoSDK should be initialized prior to calling any SDK methods.
+
+```swift
+import KlaviyoSwift
+
+
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    KlaviyoSDK().set(pushToken: deviceToken)
+}
+```
+#### Push tokens and multiple profiles
+
+Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling
+`set(profile:)` or `resetProfile`. You should call `set(pushToken:)` again after resetting the currently tracked profile
+to explicitly associate the device token to the new profile.
+
+### Request push notification permission
+
+In order to send push notifications to your users, you must request permission to send push notifications.
+Add the following code to your application wherever you would like to prompt users to register for push notifications.
+This is often included within `application:didFinishLaunchingWithOptions:` in the application delegate file, but it can be placed elsewhere as well.
 
 ```swift
 	import UserNotifications
@@ -185,65 +221,53 @@ The `create` method takes an event object as an argument. The event can be const
 	    }
 
 	    // Enable or disable features based on the authorization status.
+	    // if you didn't register for remote notifications above you can call `registerForRemoteNotifications` here
+	    // Klaviyo SDK will automatically update the authorization status on next app launch
 	}
-
-	UIApplication.shared.registerForRemoteNotifications()
 ```
 
-2. Add the following code to the application delegate file in `application:didRegisterForRemoteNotificationsWithDeviceToken`. You may need to add this code to your application delegate if you have not done so already.
-
+### Receiving push notifications and tracking opens
+Implement the [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
+and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received whe the app is in the background and foreground.
+method in your app delegate to track when a user opens a push notification. This will handle tracking opens for when the app is backgrounded and the user taps on the notification.
 ```swift
-    func application(application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        KlaviyoSDK().set(pushToken: deviceToken)
+// be sure to set the UNUserNotificationCenterDelegate to self in the didFinishLaunchingWithOptions method (refer the requesting push notification permission section above for more details on this)
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    // below method will be called when the user interacts with the push notification
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void) {
+        // If this notification is Klaviyo's notification we'll handle it
+        // else pass it on to the next push notification service to which it may belong
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
+        if !handled {
+            completionHandler()
+        }
     }
+
+    // below method is called when the app receives push notifications when the app is the foreground
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        if #available(iOS 14.0, *) {
+            completionHandler([.list, .banner])
+        } else {
+            completionHandler([.alert])
+        }
+    }
+}
 ```
 
-Any users that enable/accept push notifications from your app now will be eligible to receive your custom notifications.
-
-To read more about sending push notifications, check out our additional push notification guides.
+To read more about push notifications, check out our additional push notification guides.
 
 - [How to set up push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971)
 - [How to send a push notification campaign](https://help.klaviyo.com/hc/en-us/articles/360006653972)
 - [How to add a push notification to a flow](https://help.klaviyo.com/hc/en-us/articles/12932504108571)
 
-### Tracking push notifications
+TODO: move this - Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-The following code example allows you to track when a user opens a push notification.
-
-1. Add the following code that extends your app delegate:
-
-```swift
-extension AppDelegate: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-	let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
-	if !handled {
-	   // not a klaviyo notification should be handled by other app code
-	}
-    }
-}
-
-```
-
-Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
-
-### Foreground push handling
-
-The following code example allows push notifications to be displayed when your app is running:
-
-```swift
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                  willPresent notification: UNNotification,
-                                  withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        var options: UNNotificationPresentationOptions =  [.alert]
-        if #available(iOS 14.0, *) {
-          options = [.list, .banner]
-        }
-        completionHandler(options)
-    }
-```
-
-If a user taps on the notification with the application open, this event is tracked as an _Opened Push_ event.
 
 ## Deep Linking
 
