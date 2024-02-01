@@ -93,82 +93,66 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ```
 
 ### Reset Profile
+To start a new profile altogether (e.g. if a user logs out) either call `KlaviyoSDK().resetProfile()` to clear the currently tracked profile identifiers,
+or use `KlaviyoSDK().set(profile: profile)` to overwrite it with a new profile object.
+<TODO: Should we talk about what happens to a push token here?>
 
+```swift
+// start a profile for Blob Jr.
+let profile = Profile(email: "junior@blob.com",  firstName: "Blob",  lastName: "Jr.")
+KlaviyoSDK().set(profile: profile)
 
+// stop tracking Blob Jr.
+KlaviyoSDK().resetProfile()
+
+// start a profile for Robin Hood
+let profile = Profile(email: "junior@blob.com",  firstName: "Robin",  lastName: "Hood")
+KlaviyoSDK().set(profile: profile)
+```
 
 ## Event tracking
 
-After the SDK is installed you can begin tracking events in your app.
-
-1. Make sure any .swift files using the Klaviyo SDK contain the following import call:
-
-```swift
-import KlaviyoSwift
-```
-
-2. To add Klaviyo's tracking functionality, include the following line in AppDelegate.swift, within `application:didFinishLaunchingWithOptions`:
+The SDK provides tools for tracking events that users perform on your app via the [Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
+A list of common Klaviyo defined event metrics can be found in `Event.EventName`. You can also create custom events by using the `CustomEvent` enum case of `Event.EventName`.
 
 ```swift
-KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-```
-
-3. Begin tracking events anywhere within your application by calling the `create(event:)` method in the relevant location.
-
-```swift
-let event = Event(name: .AddedToCartMetric, properties: [
-    "Total Price": 10.99,
-    "Items": ["Hot Dog", "Fries", "Shake"]
-], identifiers: .init(email: "junior@blob.com"),
-profile: [
-    "$first_name": "Blob",
-    "$last_name": "Jr"
-], value: 10.99)
+// using a predefined event name
+let event = Event(name: .StartedCheckoutMetric,
+                      properties: [
+                        "product.1": "t-shirt.99",
+                        "product.2": "pants.67",
+                      ],
+                      value: 166
+    )
 
 KlaviyoSDK().create(event: event)
+
+// using a custom event name
+let event = Event(name: .CustomEvent("Checkout Completed"),
+                      properties: [
+                        "product.1": "t-shirt.99",
+                        "product.2": "pants.67",
+                      ],
+                      value: 166
+    )
 ```
 
 ### Arguments
 
 The `create` method takes an event object as an argument. The event can be constructed with the following arguments:
-
 - `name`: The name of the event you want to track, as a EventName enum. The are a number of commonly used event names provided by default. If you need to log an event with a different name use `CustomEvent` with a string of your choosing. This argument is required to track an event.
-
-- `profile`: An dictionary of properties that belong to the person who did the action you're tracking. Including an `$email`, `$phone_number` or `$id` key associates the event with particular profile in Klaviyo. In addition the SDK will retain these properties for use in future sdk calls, therefore if they are not included previously set identifiers will be used to log the event. This argument is optional.
-
 - `properties`: An dictionary of properties that are specific to the event. This argument is optional.
-
-- `time`: This is the timestamp, as an `Date`, when the event occurred. This argument is optional but recommended if you are tracking past events. If you're tracking real-time activity, you can ignore this argument.
-
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
-
-## Identifying traits of people
-
-If your app collects additional identifying traits about your users you can provide this to Klaviyo via the `set(profileAttribute:value:)` or `set(profile:)` methods and via the individual setters methods for email, phone number, and external id. In both cases we've provided a wide array of commonly used profile properties you can use. If you need something more custom though you can always pass us those properties via the properties dictionary when you create your profile object.
-
-```swift
-let profile = Profile(email: "junior@blob.com", firstName: "Blob", lastName: "Jr")
-KlaviyoSDK().set(profile: profile)
-
-// or setting individual properties
-KlaviyoSDK().set(profileAttribute: .firstName, value: "Blob")
-KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr")
-```
-
-Note that the only argument `set(profile:)` takes is a dictionary representing a customer's attributes. This is different from `trackEvent`, which can take multiple arguments.
 
 ## Anonymous Tracking Notice
 
-By default, Klaviyo will begin tracking unidentified users in your app once the SDK is initialized. This means you will be able to track events from users in your app without any user information provided. When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
+By default, Klaviyo will begin tracking unidentified users in your app when a push token is set or we receive an event to track.
+This means you will be able to track events or set a push notifications token from users in your app without any user information provided.
+When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
-Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking. Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized. For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
-
-## Profile properties and Identifiers
-
-Whenever an email (or other identifier) is provided to use via our APIs we will retain that information for future calls so that new data is tracked against the right profile. However, you are always free to override the current identifiers by passing new ones into a customer properties dictionary.
-
-```swift
-KlaviyoSDK().set(email: "junior@blob.com")
-```
+Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking.
+Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized.
+For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Push Notifications
 
