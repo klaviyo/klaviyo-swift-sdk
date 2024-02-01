@@ -36,7 +36,10 @@
 
 The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality in their iOS applications.
 The SDK assists in identifying users and tracking events via the latest [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
-Top reduce performance overhead, API requests are queued and sent in batches. The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
+To reduce performance overhead, API requests are queued and sent in batches.
+The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
+
+This SDK supports iOS 13 onwa
 
 Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
 
@@ -147,34 +150,34 @@ For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, i
 ## Event tracking
 
 The SDK provides tools for tracking events that users perform on your app via the [Create Client Event API](https://developers.klaviyo.com/en/reference/create_client_event).
-A list of common Klaviyo defined event metrics can be found in `Event.EventName`. You can also create custom events by using the `CustomEvent` enum case of `Event.EventName`.
+Below is an example of how to track an event:
 
 ```swift
 // using a predefined event name
 let event = Event(name: .StartedCheckoutMetric,
-                      properties: [
+                  properties: [
                         "product.1": "t-shirt.99",
                         "product.2": "pants.67",
                       ],
-                      value: 166
-    )
+                  value: 166 )
 
 KlaviyoSDK().create(event: event)
 
 // using a custom event name
-let event = Event(name: .CustomEvent("Checkout Completed"),
-                      properties: [
+let customEvent = Event(name: .CustomEvent("Checkout Completed"),
+                  properties: [
                         "product.1": "t-shirt.99",
                         "product.2": "pants.67",
                       ],
-                      value: 166
-    )
+                  value: 166)
+
+KlaviyoSDK().create(event: customEvent)
 ```
 
 ### Arguments
 
 The `create` method takes an event object as an argument. The event can be constructed with the following arguments:
-- `name`: The name of the event you want to track, as a EventName enum. The are a number of commonly used event names provided by default. If you need to log an event with a different name use `CustomEvent` with a string of your choosing. This argument is required to track an event.
+- [required] `name`: The name of the event you want to track, as a `EventName` enum. A list of common Klaviyo defined event metrics can be found in `Event.EventName`. You can also create custom events by using the `CustomEvent` enum case of `Event.EventName`
 - `properties`: An dictionary of properties that are specific to the event. This argument is optional.
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
 
@@ -182,7 +185,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 ### Prerequisites
 
-* An apple developer account.
+* An apple developer [account](https://developer.apple.com/).
 * Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
 
 ### Setup
@@ -207,13 +210,21 @@ This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers push
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 
 * Call [`registerForRemoteNotifications()`](https://developer.apple.com/documentation/uikit/uiapplication/1623078-registerforremotenotifications)
-on `UIApplication` instance to request a push token from APNs. Ex: `UIApplication.shared.registerForRemoteNotifications()`. This is typically done in the `application:didFinishLaunchingWithOptions:` method of your app delegate.
-* Implement the `application:didRegisterForRemoteNotificationsWithDeviceToken` method in your app delegate to receive the push token from APNs and register it with Klaviyo.
->  ℹ️ Please note that the KlaviyoSDK should be initialized prior to calling any SDK methods.
+to request a push token from APNs. This is typically done in the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application) method of your app delegate.
+* Implement the delegate method [`application:didRegisterForRemoteNotificationsWithDeviceToken`](https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428766-application)
+in your application delegate to receive the push token from APNs and register it with Klaviyo.
 
+Below is the code to do both of the above steps:
 ```swift
 import KlaviyoSwift
 
+func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+
+    UIApplication.shared.registerForRemoteNotifications()
+
+    return true
+}
 
 func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     KlaviyoSDK().set(pushToken: deviceToken)
@@ -227,14 +238,21 @@ to explicitly associate the device token to the new profile.
 
 ### Request push notification permission
 
-In order to send push notifications to your users, you must request permission to send push notifications.
+Now that we have the push token, in order to send push notifications to your users, you must request permission to send push notifications.
 Add the following code to your application wherever you would like to prompt users to register for push notifications.
-This is often included within `application:didFinishLaunchingWithOptions:` in the application delegate file, but it can be placed elsewhere as well.
+This is often included within [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application)
+in the application delegate file, but it can be placed elsewhere as well.
 
+Below is example code to request push notification permission:
 ```swift
-	import UserNotifications
-	...
-	let center = UNUserNotificationCenter.current()
+import UserNotifications
+
+func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+
+    UIApplication.shared.registerForRemoteNotifications()
+
+    let center = UNUserNotificationCenter.current()
 	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
 	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
 	// use the below options if you are interested in using provisional push notifications. Note that using this will not
@@ -250,6 +268,9 @@ This is often included within `application:didFinishLaunchingWithOptions:` in th
 	    // if you didn't register for remote notifications above you can call `registerForRemoteNotifications` here
 	    // Klaviyo SDK will automatically update the authorization status on next app launch
 	}
+
+    return true
+}
 ```
 
 ### Receiving push notifications and tracking opens
