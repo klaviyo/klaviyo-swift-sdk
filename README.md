@@ -109,6 +109,15 @@ KlaviyoSDK().resetProfile()
 let profile = Profile(email: "junior@blob.com",  firstName: "Robin",  lastName: "Hood")
 KlaviyoSDK().set(profile: profile)
 ```
+### Anonymous Tracking Notice
+
+By default, Klaviyo will begin tracking unidentified users in your app when a push token is set or we receive an event to track.
+This means you will be able to track events or set a push notifications token from users in your app without any user information provided.
+When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
+
+Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking.
+Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized.
+For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Event tracking
 
@@ -144,23 +153,17 @@ The `create` method takes an event object as an argument. The event can be const
 - `properties`: An dictionary of properties that are specific to the event. This argument is optional.
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
 
-## Anonymous Tracking Notice
-
-By default, Klaviyo will begin tracking unidentified users in your app when a push token is set or we receive an event to track.
-This means you will be able to track events or set a push notifications token from users in your app without any user information provided.
-When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
-
-Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking.
-Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized.
-For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
-
 ## Push Notifications
 
-Implementing push notifications requires a few additional snippets of code to enable.:
+### Prerequisites
 
-1. Registering users for push notifications.
-2. Sending resulting push tokens to Klaviyo.
-3. Handling when users attempt to open your push notifications.
+* An apple developer account.
+* Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
+
+## Setup
+
+* Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
+* [Optional]
 
 ### Sending push notifications
 
@@ -457,32 +460,37 @@ At this point unfortunately we don't support testing debug builds with Klaviyo. 
 
 A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications, performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo. Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign with an image to test the full end-to-end integration.
 
-## SDK Data Transfer
+## Additional Details
 
-Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval. The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
+### SDK Data Transfer
+Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.
+The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
 
 | Network   | Interval   |
 | :-------- | :--------- |
 | WWAN/Wifi | 10 seconds |
 | Cellular  | 30 seconds |
 
-Connection determination is based on notifications from our reachability service. When there is no network available, the SDK will cache data until the network becomes available again. All data sent by the SDK should be available shortly after it is flushed by the SDK.
+Connection determination is based on notifications from our reachability service.
+When there is no network available, the SDK will cache data until the network becomes available again.
+All data sent by the SDK should be available shortly after it is flushed by the SDK.
 
 ### Retries
+The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval.
+In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
 
-The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval. In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
-
-## License
-
+### License
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
 
+### UserDefaults access (SDK version < 3.0.0)
+As of fall 2023, Apple requires apps that access specific Apple APIs to provide a reason for this access.
+Previous versions of the Klaviyo SDK used UserDefaults to store data about the current user.
+Today, when the SDK starts up, it must access this data to migrate to a new format.
+Below, we've provided a sample reason you can include with your app submission (if requested):
 
-## UserDefaults access
+> UserDefaults is accessed by the Klaviyo SDK within our app to migrate some user data (previously stored there). None of this data is shared with other apps.
 
-As of fall 2023, Apple requires apps that access specific Apple APIs to provide a reason for this access. Previous versions of the Klaviyo SDK used UserDefaults to store data about the current user. Today, when the SDK starts up, it must access this data to migrate to a new format. Below, we've provided a sample reason you can include with your app submission (if requested):
 
-```
-UserDefaults is accessed by the Klaviyo SDK within our app to migrate some user data (previously stored there). None of this data is shared with other apps.
-```
-
-If your app or other SDKs also access UserDefaults, you may need to amend the reason to include that usage as well. Use the string NSPrivacyAccessedAPICategoryUserDefaults as the value for the NSPrivacyAccessedAPIType key in your NSPrivacyAccessedAPITypes dictionary. For more information, see this [guide](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278401).
+If your app or other SDKs also access UserDefaults, you may need to amend the reason to include that usage as well.
+Use the string NSPrivacyAccessedAPICategoryUserDefaults as the value for the NSPrivacyAccessedAPIType key in your NSPrivacyAccessedAPITypes dictionary.
+For more information, see this [guide](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278401).
