@@ -143,7 +143,7 @@ This means you will be able to track events or set a push notification token fro
 When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
 Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking.
-Starting with version 1.7.0, the SDK will use a cached UUID.
+However, starting with version 1.7.0, the SDK will use a cached UUID.
 For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Event tracking
