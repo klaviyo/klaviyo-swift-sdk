@@ -103,11 +103,10 @@ extension KlaviyoAPI.KlaviyoRequest {
     var url: URL? {
         switch endpoint {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if #available(iOS 17.0, *) {
-                return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(apiKey)", encodingInvalidCharacters: false)
-            } else {
+            if !environment.analytics.apiURL.isEmpty {
                 return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(apiKey)")
             }
+            return nil
         }
     }
 
