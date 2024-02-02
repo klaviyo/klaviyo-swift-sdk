@@ -25,7 +25,7 @@
     - [Tracking Open Events](#tracking-open-events)
     - [Rich Push](#rich-push)
     - [Deep Linking](#deep-linking)
-      - [Option 1: URI Schemes](#option-1-uri-schemes)
+      - [Option 1: URL Schemes](#option-1-URL-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
@@ -384,7 +384,7 @@ with the steps outlined here.
 
 You have two options for implementing deep links: URL schemes and Universal Links.
 
-##### Option 1: URI Schemes
+##### Option 1: URL Schemes
 
 URL schemes are the traditional and simpler way of deep linking from a push notification to your app.
 However, these links will only work if your mobile app is installed on a device and will not be understood by
@@ -487,7 +487,7 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 ##### Option 2: Universal links
 
 [Universal links](https://developer.apple.com/ios/universal-links/) are a more modern way of handling deep links and are recommended by Apple.
-They are more secure and provide a better user experience. However, unlike URI schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) Apple docs.
+They are more secure and provide a better user experience. However, unlike URL schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) Apple docs.
 
 Once you have the setup from the Apple docs in place you will need to modify the push open tracking as described below:
 
@@ -504,7 +504,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
-Note that the deep link handler will be called back on the main thread. If you want to handle URI schemes in addition to universal links you implement them as described in [Option1: URI Schemes](#option-1-uri-schemes).
+Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option1: URL Schemes](#option-1-URL-schemes).
 
 ## Additional Details
 
