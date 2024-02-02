@@ -1,14 +1,13 @@
 # klaviyo-swift-sdk
 
 ![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
-[![Swift](https://img.shields.io/badge/Swift-5.6_5.7-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.6_5.7-Orange?style=flat-square)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
+![SPM version](https://img.shields.io/github/v/release/klaviyo/klaviyo-swift-sdk)
 [![Version](https://img.shields.io/cocoapods/v/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
-[![Platform](https://img.shields.io/cocoapods/p/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
+![Minimum deployment version](https://img.shields.io/badge/minimum_iOS_deployment_target-iOS13-brightgreen)
 
 ## Contents
-
 - [Overview](#overview)
 - [Installation](#installation)
 - [Initialization](#initialization)
@@ -29,6 +28,7 @@
       - [Option 1: URI Schemes](#option-1-uri-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
 - [Additional Details](#additional-details)
+  - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
   - [License](#license)
@@ -37,18 +37,16 @@
 ## Overview
 
 The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality in their iOS applications.
-The SDK assists in identifying users and tracking events via the latest [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+The SDK assists in identifying users and tracking events via [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
 To reduce performance overhead, API requests are queued and sent in batches.
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
-
-This SDK supports iOS 13 onwa
 
 Once integrated, your marketing team will be able to better understand your app users' needs and send them timely messages via APNs.
 
 ## Installation
 
 <details>
-<summary>Swift Package Manager</summary>
+<summary>Swift Package Manager [Recommended]</summary>
 
 KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
@@ -501,7 +499,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 Note that the deep link handler will be called back on the main thread. If you want to handle URI schemes in addition to universal links you implement them as described in [Option1: URI Schemes](#option-1-uri-schemes).
 
-#### Sandbox Support
+## Additional Details
+
+### Sandbox Support
 Apple has two environments with push notification support - production and Sandbox.
 The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight.
 In contrast, Sandbox applications that support push notifications are those signed with iOS Development Certificates, instead of iOS Distribution Certificates.
@@ -512,17 +512,6 @@ Klaviyo's SDK will determine and store the environment that your push token belo
 allowing your tokens to route sends to the correct environments. There is no additional setup needed.
 As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend,
 the ability to send and receive push on these Sandbox applications should work out-of-the-box.
-
-#### Testing with Klaviyo
-At this point unfortunately we don't support testing debug builds with Klaviyo.
-So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
-
-A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications,
-performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo.
-Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign
-with an image to test the full end-to-end integration.
-
-## Additional Details
 
 ### SDK Data Transfer
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.
