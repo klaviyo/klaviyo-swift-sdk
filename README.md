@@ -351,7 +351,7 @@ From here on depending on which dependency manager you use the steps would look 
   - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
 </details>
 
-* Test your rich push notifications
+* To test rich push notifications, you will need three things:
   * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
   * A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
 
