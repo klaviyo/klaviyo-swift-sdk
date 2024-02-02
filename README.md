@@ -155,8 +155,9 @@ Below is an example of how to track an event:
 // using a predefined event name
 let event = Event(name: .StartedCheckoutMetric,
                   properties: [
-                        "product.1": "t-shirt.99",
-                        "product.2": "pants.67",
+                        "name": "cool t-shirt",
+                        "color": "blue",
+                        "size": "medium",
                       ],
                   value: 166 )
 
@@ -165,8 +166,9 @@ KlaviyoSDK().create(event: event)
 // using a custom event name
 let customEvent = Event(name: .CustomEvent("Checkout Completed"),
                   properties: [
-                        "product.1": "t-shirt.99",
-                        "product.2": "pants.67",
+                        "name": "cool t-shirt",
+                        "color": "blue",
+                        "size": "medium",
                       ],
                   value: 166)
 
