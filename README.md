@@ -32,7 +32,6 @@
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
   - [License](#license)
-  - [UserDefaults access (SDK version < 3.0.0)](#userdefaults-access-sdk-version--300)
 
 ## Overview
 
@@ -540,14 +539,3 @@ In addition, if the SDK receives a rate limiting error `429` from the Klaviyo AP
 
 ### License
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
-
-### UserDefaults access (SDK version < 3.0.0)
-As of fall 2023, Apple requires apps that access specific Apple APIs to provide a reason for this access.
-Previous versions of the Klaviyo SDK used UserDefaults to store data about the current user.
-Today, when the SDK starts up, it must access this data to migrate to a new format.
-Below, we've provided a sample reason you can include with your app submission (if requested):
-> UserDefaults is accessed by the Klaviyo SDK within our app to migrate some user data (previously stored there). None of this data is shared with other apps.
-
-If your app or other SDKs also access UserDefaults, you may need to amend the reason to include that usage as well.
-Use the string NSPrivacyAccessedAPICategoryUserDefaults as the value for the NSPrivacyAccessedAPIType key in your NSPrivacyAccessedAPITypes dictionary.
-For more information, see this [guide](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278401).
