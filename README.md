@@ -22,7 +22,7 @@
     - [Push Tokens And Multiple Profiles](#push-tokens-and-multiple-profiles)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
-    - [Tracking Open Events](#tracking-opens)
+    - [Tracking Open Events](#tracking-open-events)
     - [Rich Push](#rich-push)
     - [Deep Linking](#deep-linking)
       - [Option 1: URI Schemes](#option-1-uri-schemes)
@@ -480,9 +480,9 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 ##### Option 2: Universal links
 
 [Universal links](https://developer.apple.com/ios/universal-links/) are a more modern way of handling deep links and are recommended by Apple.
-They are more secure and provide a better user experience. However, unlike URI schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) apple docs.
+They are more secure and provide a better user experience. However, unlike URI schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) Apple docs.
 
-Once you have the setup from the apple docs in place you will need to modify the push open tracking as described below:
+Once you have the setup from the Apple docs in place you will need to modify the push open tracking as described below:
 
 ```swift
 extension AppDelegate: UNUserNotificationCenterDelegate {
@@ -502,10 +502,10 @@ Note that the deep link handler will be called back on the main thread. If you w
 ## Additional Details
 
 ### Sandbox Support
-Apple has two environments with push notification support - production and Sandbox.
+Apple has two environments with push notification support - Production and Sandbox.
 The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight.
 In contrast, Sandbox applications that support push notifications are those signed with iOS Development Certificates, instead of iOS Distribution Certificates.
-Sandbox acts as a staging environment, allowing you to test your applications in a environment similar to but distinct from production without having to worry about sending messages to real users.
+Sandbox acts as a staging environment, allowing you to test your applications in a environment similar to but distinct from Production without having to worry about sending messages to real users.
 
 Our SDK supports the use of Sandbox for push as well.
 Klaviyo's SDK will determine and store the environment that your push token belongs to and communicate that to our backend,
