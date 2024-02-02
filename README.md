@@ -18,7 +18,7 @@
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-  - [Collecting Push Token](#collecting-push-token)
+  - [Collecting Push Tokens](#collecting-push-tokens)
     - [Push Tokens And Multiple Profiles](#push-tokens-and-multiple-profiles)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
@@ -202,7 +202,7 @@ A notification service app extension ships as a separate bundle inside your iOS 
 the minimum you want to support. This may cause push notifications to not show the attached media in devices whose
 iOS versions are lower than the deployment target of the notification service extension. ⚠️
 
-### Collecting Push Token
+### Collecting Push Tokens
 
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
 This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers push token and current authorization state
