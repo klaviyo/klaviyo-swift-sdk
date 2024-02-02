@@ -22,8 +22,8 @@
     - [Push Tokens And Multiple Profiles](#push-tokens-and-multiple-profiles)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
-    - [Tracking opens](#tracking-opens)
-    - [Rich Push Notifications](#rich-push-notifications)
+    - [Tracking Open Events](#tracking-opens)
+    - [Rich Push](#rich-push)
     - [Deep Linking](#deep-linking)
       - [Option 1: URI Schemes](#option-1-uri-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
@@ -177,7 +177,7 @@ KlaviyoSDK().create(event: customEvent)
 
 The `create` method takes an event object as an argument. The event can be constructed with the following arguments:
 - [required] `name`: The name of the event you want to track, as a `EventName` enum. A list of common Klaviyo defined event metrics can be found in `Event.EventName`. You can also create custom events by using the `CustomEvent` enum case of `Event.EventName`
-- `properties`: An dictionary of properties that are specific to the event. This argument is optional.
+- `properties`: A dictionary of properties that are specific to the event. This argument is optional.
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
 
 ## Push Notifications
@@ -199,13 +199,13 @@ A notification service app extension ships as a separate bundle inside your iOS 
   * Click Finish.
 
 > ⚠️ By default the deployment target of your notification service extension might be the latest iOS version and not
-the minimum you want to support. This may cause push notifications to not show the attached media in devices whose
+the minimum you want to support. This may cause push notifications to not show the attached media on devices whose
 iOS versions are lower than the deployment target of the notification service extension. ⚠️
 
 ### Collecting Push Tokens
 
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
-This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers push token and current authorization state
+This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers a push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 
 * Call [`registerForRemoteNotifications()`](https://developer.apple.com/documentation/uikit/uiapplication/1623078-registerforremotenotifications)
@@ -277,7 +277,7 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 #### Tracking Opens
 
 Implement the [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
-and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received whe the app is in the background and foreground.
+and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received when the app is in the background and foreground.
 method in your app delegate to track when a user opens a push notification. This will handle tracking opens for when the app is backgrounded and the user taps on the notification.
 ```swift
 // be sure to set the UNUserNotificationCenterDelegate to self in the didFinishLaunchingWithOptions method (refer the requesting push notification permission section above for more details on this)
