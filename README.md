@@ -279,8 +279,8 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 #### Tracking Open Events
 
 When a user taps on a push notification, Implement  [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
-and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) in your application delegate to handle push notifications
-received when the app is in the background and foreground respectively.
+and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) in your application delegate to handle receiving push notifications
+when the app is in the background and foreground respectively.
 
 Below is an example of how to handle push notifications in your app delegate:
 ```swift
