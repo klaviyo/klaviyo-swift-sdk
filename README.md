@@ -316,7 +316,8 @@ Once your first push notifications are sent and opened, you should start to see 
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
-Rich push notification is the ability to add images to your push notification messages that Apple has supported since iOS 10.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
+push notification messages.
 In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
 Following the below steps should help set up your app to receive rich push notifications.
 
