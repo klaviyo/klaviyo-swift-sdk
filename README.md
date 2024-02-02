@@ -367,18 +367,19 @@ From here on depending on which dependency manager you use the steps would look 
     }
     ```
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
-  * Once we have these three things we can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+  * Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
 #### Deep Linking
 
 >  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
 
-There are two use cases for deep linking that can be relevant here:
+[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification.
 
-1. When you push a notification to your app with a deep link.
-2. Any other cases where you may want to deep link into your app via SMS, email, web browser etc.
+You need to configure deep links in your app for them to work. The configuration process for Klaviyo is no different from what is required for handling deep linking in general,
+so you can follow the [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) for deep linking in conjunction
+with the steps outlined here.
 
-In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here:
+You have two options for implementing deep links: URL schemes and Universal Links.
 
 ##### Option 1: URI Schemes
 
