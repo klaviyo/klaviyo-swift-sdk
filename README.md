@@ -9,28 +9,30 @@
 
 ## Contents
 
-- [klaviyo-swift-sdk](#klaviyo-swift-sdk)
-- [Contents](#contents)
-  - [Overview](#overview)
-  - [Installation](#installation)
-  - [Initialization](#initialization)
-  - [Profile Identification](#profile-identification)
-    - [Reset Profile](#reset-profile)
-    - [Anonymous Tracking Notice](#anonymous-tracking-notice)
-  - [Event tracking](#event-tracking)
-  - [Push Notifications](#push-notifications)
-    - [Prerequisites](#prerequisites)
-    - [Setup](#setup)
-    - [Collecting Push Token](#collecting-push-token)
-    - [Request push notification permission](#request-push-notification-permission)
-    - [Receiving push notifications and tracking opens](#receiving-push-notifications-and-tracking-opens)
-    - [Rich push notifications](#rich-push-notifications)
-  - [Deep Linking](#deep-linking)
-  - [Additional Details](#additional-details)
-    - [SDK Data Transfer](#sdk-data-transfer)
-    - [Retries](#retries)
-    - [License](#license)
-    - [UserDefaults access (SDK version < 3.0.0)](#userdefaults-access-sdk-version--300)
+- [Overview](#overview)
+- [Installation](#installation)
+- [Initialization](#initialization)
+- [Profile Identification](#profile-identification)
+  - [Reset Profile](#reset-profile)
+  - [Anonymous Tracking Notice](#anonymous-tracking-notice)
+- [Event tracking](#event-tracking)
+- [Push Notifications](#push-notifications)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Collecting Push Token](#collecting-push-token)
+    - [Push Tokens And Multiple Profiles](#push-tokens-and-multiple-profiles)
+  - [Request Push Notification Permission](#request-push-notification-permission)
+  - [Receiving Push Notifications](#receiving-push-notifications)
+    - [Tracking opens](#tracking-opens)
+    - [Rich Push Notifications](#rich-push-notifications)
+    - [Deep Linking](#deep-linking)
+      - [Option 1: Use URL Schemes](#option-1-use-url-schemes)
+      - [Option 2: Universal Links](#option-2-universal-links)
+- [Additional Details](#additional-details)
+  - [SDK Data Transfer](#sdk-data-transfer)
+  - [Retries](#retries)
+  - [License](#license)
+  - [UserDefaults access (SDK version < 3.0.0)](#userdefaults-access-sdk-version--300)
 
 ## Overview
 
@@ -230,13 +232,13 @@ func application(_ application: UIApplication, didRegisterForRemoteNotifications
     KlaviyoSDK().set(pushToken: deviceToken)
 }
 ```
-#### Push tokens and multiple profiles
+#### Push Tokens And Multiple Profiles
 
 Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling
 `set(profile:)` or `resetProfile`. You should call `set(pushToken:)` again after resetting the currently tracked profile
 to explicitly associate the device token to the new profile.
 
-### Request push notification permission
+### Request Push Notification Permission
 
 Now that we have the push token, in order to send push notifications to your users, you must request permission to send push notifications.
 Add the following code to your application wherever you would like to prompt users to register for push notifications.
@@ -273,7 +275,10 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 }
 ```
 
-### Receiving push notifications and tracking opens
+### Receiving Push Notifications
+
+#### Tracking Opens
+
 Implement the [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
 and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received whe the app is in the background and foreground.
 method in your app delegate to track when a user opens a push notification. This will handle tracking opens for when the app is backgrounded and the user taps on the notification.
@@ -306,18 +311,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 ```
-
-To read more about push notifications, check out our additional push notification guides.
-
-- [How to set up push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971)
-- [How to send a push notification campaign](https://help.klaviyo.com/hc/en-us/articles/360006653972)
-- [How to add a push notification to a flow](https://help.klaviyo.com/hc/en-us/articles/12932504108571)
-
-TODO: move this - Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
+Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
 #### Rich push notifications
 
-> :warning: **Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher**
+>  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
 Rich push notification is the ability to add images to your push notification messages that Apple has supported since iOS 10.
 In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
@@ -374,9 +372,9 @@ From here on depending on which dependency manager you use the steps would look 
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
   * Once we have these three things we can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
-## Deep Linking
+#### Deep Linking
 
-> :warning: **Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.**
+>  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
 
 There are two use cases for deep linking that can be relevant here:
 
@@ -385,30 +383,11 @@ There are two use cases for deep linking that can be relevant here:
 
 In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here:
 
-### Option 1: Modify Open Tracking
-
-If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
-
-```swift
-extension AppDelegate: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
-            print("deep link is ", url)
-        }
-        if !handled {
-           // not a klaviyo notification should be handled by other app code
-        }
-    }
-}
-```
-
-Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
-
-### Option 2: Use URL Schemes
+##### Option 1: Use URL Schemes
 
 If you do not need universal link support you can instead implement url schemes for your app and the deepLinkHandler as indicated in Option 1 can be omitted. The Klaviyo SDK will follow all url automatically in this case.
 
-#### Step 1: Register the URL scheme
+###### Step 1: Register the URL scheme
 
 In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
 
@@ -436,7 +415,7 @@ In order to edit the Info.plist directly, just fill in your app specific details
 </array>
 ```
 
-#### Step 2: Whitelist supported URL schemes
+###### Step 2: Whitelist supported URL schemes
 
 Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
 
@@ -449,7 +428,7 @@ This needs to be done in the Info.plist directly:
 </array>
 ```
 
-#### Step 3: Implement handling deep links in your app
+###### Step 3: Implement handling deep links in your app
 
 Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app.
 
@@ -501,6 +480,24 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 `xcrun simctl openurl booted {your_URL_here}`
 
+##### Option 2: Universal links
+
+If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
+
+```swift
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
+            print("deep link is ", url)
+        }
+        if !handled {
+           // not a klaviyo notification should be handled by other app code
+        }
+    }
+}
+```
+
+Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
 
 #### Sandbox Support
 
@@ -540,9 +537,7 @@ As of fall 2023, Apple requires apps that access specific Apple APIs to provide 
 Previous versions of the Klaviyo SDK used UserDefaults to store data about the current user.
 Today, when the SDK starts up, it must access this data to migrate to a new format.
 Below, we've provided a sample reason you can include with your app submission (if requested):
-
 > UserDefaults is accessed by the Klaviyo SDK within our app to migrate some user data (previously stored there). None of this data is shared with other apps.
-
 
 If your app or other SDKs also access UserDefaults, you may need to amend the reason to include that usage as well.
 Use the string NSPrivacyAccessedAPICategoryUserDefaults as the value for the NSPrivacyAccessedAPIType key in your NSPrivacyAccessedAPITypes dictionary.
