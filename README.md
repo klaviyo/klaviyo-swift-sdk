@@ -36,7 +36,7 @@
 
 ## Overview
 
-The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality in their iOS applications.
+The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality into their iOS applications.
 The SDK assists in identifying users and tracking events via [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
 To reduce performance overhead, API requests are queued and sent in batches.
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
@@ -278,9 +278,11 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 
 #### Tracking Open Events
 
-Implement the [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
-and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received when the app is in the background and foreground.
-method in your app delegate to track when a user opens a push notification. This will handle tracking opens for when the app is backgrounded and the user taps on the notification.
+When a user taps on a push notification, Implement  [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
+and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) in your application delegate to handle push notifications
+received when the app is in the background and foreground respectively.
+
+Below is an example of how to handle push notifications in your app delegate:
 ```swift
 // be sure to set the UNUserNotificationCenterDelegate to self in the didFinishLaunchingWithOptions method (refer the requesting push notification permission section above for more details on this)
 extension AppDelegate: UNUserNotificationCenterDelegate {
@@ -352,7 +354,7 @@ From here on depending on which dependency manager you use the steps would look 
 </details>
 
 * Test your rich push notifications
-  * Any push notifications tester like apple official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
+  * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
   * A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
 
     ```json
