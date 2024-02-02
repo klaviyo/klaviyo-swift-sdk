@@ -382,7 +382,9 @@ In order for deep linking to work, there are a few configurations that are neede
 
 ##### Option 1: URI Schemes
 
-If you do not need universal link support you can instead implement url schemes for your app and the deepLinkHandler as indicated in Option 1 can be omitted. The Klaviyo SDK will follow all url automatically in this case.
+URL schemes are the traditional and simpler way of deep linking from a push notification to your app.
+However, these links will only work if your mobile app is installed on a device and will not be understood by
+a web browser if, for example, you want to link from an email to your app.
 
 ###### Step 1: Register the URL scheme
 
