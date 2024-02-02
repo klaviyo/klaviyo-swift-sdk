@@ -274,7 +274,7 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 
 ### Receiving Push Notifications
 
-#### Tracking Opens
+#### Tracking Open Events
 
 Implement the [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
 and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) to handle push notifications received whe the app is in the background and foreground.
