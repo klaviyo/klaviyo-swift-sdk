@@ -52,7 +52,7 @@ KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-
 
 1. Open your project and navigate to your project’s settings.
 2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
-3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field, and you should see the result.
+3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
 4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
 5. Click **Add Package**.
 </details>
@@ -133,12 +133,12 @@ KlaviyoSDK().set(profile: profile)
 KlaviyoSDK().resetProfile()
 
 // start a profile for Robin Hood
-let profile = Profile(email: "junior@blob.com",  firstName: "Robin",  lastName: "Hood")
+let profile = Profile(email: "robin@hood.com",  firstName: "Robin",  lastName: "Hood")
 KlaviyoSDK().set(profile: profile)
 ```
 ### Anonymous Tracking Notice
 
-By default, Klaviyo will begin tracking unidentified users in your app when a push token is set or we receive an event to track.
+By default, Klaviyo will begin tracking unidentified users in your app when a push token is set, or if it receives an event to track.
 This means you will be able to track events or set a push notifications token from users in your app without any user information provided.
 When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
