@@ -121,7 +121,6 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ### Reset Profile
 To start a new profile altogether (e.g. if a user logs out) either call `KlaviyoSDK().resetProfile()` to clear the currently tracked profile identifiers,
 or use `KlaviyoSDK().set(profile: profile)` to overwrite it with a new profile object.
-<TODO: Should we talk about what happens to a push token here?>
 
 ```swift
 // start a profile for Blob Jr.
