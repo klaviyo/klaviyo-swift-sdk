@@ -139,11 +139,11 @@ KlaviyoSDK().set(profile: profile)
 ### Anonymous Tracking Notice
 
 By default, Klaviyo will begin tracking unidentified users in your app when a push token is set, or if it receives an event to track.
-This means you will be able to track events or set a push notifications token from users in your app without any user information provided.
+This means you will be able to track events or set a push notification token from users in your app without any user information provided.
 When an email or other primary identifier is provided, Klaviyo will merge the data from the anonymous user to a new identified user.
 
 Prior to version 1.7.0, the Klaviyo SDK used the [Apple identifier for vendor (IDFV)](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor) to facilitate anonymous tracking.
-Starting with version 1.7.0, the SDK will use a cached UUID that is generated when the SDK is initialized.
+Starting with version 1.7.0, the SDK will use a cached UUID.
 For existing anonymous profiles using IDFV, the SDK will continue to use IDFV, instead of generating a new UUID.
 
 ## Event tracking
