@@ -427,11 +427,9 @@ This needs to be done in the Info.plist directly:
 
 ###### Step 3: Implement handling deep links in your app
 
-Steps 1 & 2 set your app up for receiving deep links but now is when you need to figure out how to handle them within your app.
-
-If you are using UIKit, you need to implement [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application) in your application's app delegate.
-
-Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
+Steps 1 and 2 enable your app to receive deep links, but you also need to handle these links within your app.
+This is done by implementing the [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application)
+method in your app delegate.
 
 Example:
 
@@ -471,7 +469,10 @@ struct MyApplication: App {
 }
 ```
 
-Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
+Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
+
+Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website.
+Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
 
 Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
 
