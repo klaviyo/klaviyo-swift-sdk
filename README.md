@@ -310,7 +310,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 ```
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Rich push notifications
+#### Rich Push
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
