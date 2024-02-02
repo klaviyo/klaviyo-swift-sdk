@@ -26,7 +26,7 @@
     - [Tracking opens](#tracking-opens)
     - [Rich Push Notifications](#rich-push-notifications)
     - [Deep Linking](#deep-linking)
-      - [Option 1: Use URL Schemes](#option-1-use-url-schemes)
+      - [Option 1: URI Schemes](#option-1-uri-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
 - [Additional Details](#additional-details)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -53,11 +53,10 @@ Once integrated, your marketing team will be able to better understand your app 
 KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
 1. Open your project and navigate to your project’s settings.
-2. Select the **Swift Packages** tab and click on the **add** button below the packages list.
-3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field and click **Next**.
-4. On the next screen, select the latest SDK version and click **Next**.
-5. Select the `KlaviyoSwift` package.
-6. Click **Finish**.
+2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
+3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field, and you should see the result.
+4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
+5. Click **Add Package**.
 </details>
 
 <details>
@@ -383,7 +382,7 @@ There are two use cases for deep linking that can be relevant here:
 
 In order for deep linking to work, there are a few configurations that are needed and these are no different from what are required for handling deep linking in general and [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) on this can be followed in conjunction with the steps highlighted here:
 
-##### Option 1: Use URL Schemes
+##### Option 1: URI Schemes
 
 If you do not need universal link support you can instead implement url schemes for your app and the deepLinkHandler as indicated in Option 1 can be omitted. The Klaviyo SDK will follow all url automatically in this case.
 
@@ -482,7 +481,10 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 ##### Option 2: Universal links
 
-If you plan to use universal links in your app for deep linking you will need to modify the push open tracking as described below:
+[Universal links](https://developer.apple.com/ios/universal-links/) are a more modern way of handling deep links and are recommended by Apple.
+They are more secure and provide a better user experience. However, unlike URI schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) apple docs.
+
+Once you have the setup from the apple docs in place you will need to modify the push open tracking as described below:
 
 ```swift
 extension AppDelegate: UNUserNotificationCenterDelegate {
@@ -497,18 +499,28 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
-Note that the deep link handler will be called back on the main thread. If you want to handle uri schemes in addition to universal links you implement them as described below.
+Note that the deep link handler will be called back on the main thread. If you want to handle URI schemes in addition to universal links you implement them as described in [Option1: URI Schemes](#option-1-uri-schemes).
 
 #### Sandbox Support
+Apple has two environments with push notification support - production and Sandbox.
+The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight.
+In contrast, Sandbox applications that support push notifications are those signed with iOS Development Certificates, instead of iOS Distribution Certificates.
+Sandbox acts as a staging environment, allowing you to test your applications in a environment similar to but distinct from production without having to worry about sending messages to real users.
 
-Apple has two environments with push notification support - production and Sandbox. The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight. In contrast, Sandbox applications that support push notifications are those signed with iOS Development Certificates, instead of iOS Distribution Certificates. Sandbox acts as a staging environment, allowing you to test your applications in a environment similar to but distinct from production without having to worry about sending messages to real users.
+Our SDK supports the use of Sandbox for push as well.
+Klaviyo's SDK will determine and store the environment that your push token belongs to and communicate that to our backend,
+allowing your tokens to route sends to the correct environments. There is no additional setup needed.
+As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend,
+the ability to send and receive push on these Sandbox applications should work out-of-the-box.
 
-Our SDK supports the use of Sandbox for push as well. Klaviyo's SDK will determine and store the environment that your push token belongs to and communicate that to our backend, allowing your tokens to route sends to the correct environments. There is no additional setup needed. As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend, the ability to send and receive push on these Sandbox applications should work out-of-the-box.
 #### Testing with Klaviyo
+At this point unfortunately we don't support testing debug builds with Klaviyo.
+So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
 
-At this point unfortunately we don't support testing debug builds with Klaviyo. So if you are trying to send a test push notification to a debug build you'll see an error on Klaviyo.
-
-A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications, performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo. Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign with an image to test the full end-to-end integration.
+A suggested temporary workaround would be creating a test flight build with the above changes required for rich push notifications,
+performing some actions on the test flight build to identify the device and making sure you are able to see that device in Klaviyo.
+Once you have that device's push token in any profile you can create a list or segment with that profile and send a push campaign
+with an image to test the full end-to-end integration.
 
 ## Additional Details
 
