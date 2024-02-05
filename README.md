@@ -198,9 +198,9 @@ A notification service app extension ships as a separate bundle inside your iOS 
   * Specify a name and other configuration details for your app extension.
   * Click Finish.
 
-> ⚠️ By default the deployment target of your notification service extension might be the latest iOS version and not
-the minimum you want to support. This may cause push notifications to not show the attached media on devices whose
-iOS versions are lower than the deployment target of the notification service extension. ⚠️
+ > ⚠️ The deployment target of your notification service extension defaults to the latest iOS version.
+ > If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
+ > To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
 
 ### Collecting Push Tokens
 
@@ -342,7 +342,7 @@ From here on depending on which dependency manager you use the steps would look 
 
   ```
   target 'NotificationServiceExtension' do
-      pod 'KlaviyoSwiftExtension', '2.1.0-beta1'
+      pod 'KlaviyoSwiftExtension'
   end
   ```
 
