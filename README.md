@@ -36,7 +36,7 @@
 ## Overview
 
 The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality into their iOS applications.
-The SDK assists in identifying users and tracking events via [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+The SDK assists in identifying users and tracking events via [Klaviyo Client APIs](https://developers.klaviyo.com/en/reference/api_overview).
 To reduce performance overhead, API requests are queued and sent in batches.
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
