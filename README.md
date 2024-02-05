@@ -36,7 +36,7 @@
 ## Overview
 
 The Klaviyo Swift SDK allows developers to incorporate Klaviyo's analytics and push notification functionality into their iOS applications.
-The SDK assists in identifying users and tracking events via [Klaviyo client APIs](https://developers.klaviyo.com/en/reference/api_overview).
+The SDK assists in identifying users and tracking events via [Klaviyo Client APIs](https://developers.klaviyo.com/en/reference/api_overview).
 To reduce performance overhead, API requests are queued and sent in batches.
 The queue is persisted to local storage so that data is not lost if the device is offline or the app is terminated.
 
@@ -102,7 +102,7 @@ A profile can be identified by any combination of the following:
 * Individual's email address
 * Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
 
-These above Identifiers are persisted to local storage so that the SDK can keep track of the current user/profile for you when you make event requests or want to set a push token etc.
+These above identifiers are persisted to local storage so that the SDK can keep track of the current user/profile for you when you make event requests or want to set a push token etc.
 
 Profile identifiers can be set all at once or individually. Either way, the SDK will group and batch API calls to improve performance.
 
@@ -504,7 +504,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
-Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option1: URL Schemes](#option-1-URL-schemes).
+Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
 
 ## Additional Details
 
