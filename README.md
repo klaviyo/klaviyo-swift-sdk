@@ -102,7 +102,7 @@ A profile can be identified by any combination of the following:
 * Individual's email address
 * Individual's phone number in [E.164 format](https://help.klaviyo.com/hc/en-us/articles/360046055671#h_01HE5ZYJEAHZKY6WZW7BAD36BG)
 
-These above Identifiers are persisted to local storage so that the SDK can keep track of the current user/profile for you when you make event requests or want to set a push token etc.
+These above identifiers are persisted to local storage so that the SDK can keep track of the current user/profile for you when you make event requests or want to set a push token etc.
 
 Profile identifiers can be set all at once or individually. Either way, the SDK will group and batch API calls to improve performance.
 
