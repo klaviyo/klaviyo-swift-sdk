@@ -504,7 +504,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
-Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option1: URL Schemes](#option-1-URL-schemes).
+Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
 
 ## Additional Details
 
