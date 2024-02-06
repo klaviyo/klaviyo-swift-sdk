@@ -89,7 +89,7 @@ class MenuPageViewController: UIViewController {
             if let vc = segue.destination as? CheckOutViewController {
                 vc.cart = cart
                 // EXAMPLE: of triggering checkout event
-                KlaviyoSDK().create(event: .init(name: .StartedCheckout))
+                KlaviyoSDK().create(event: .init(name: .StartedCheckoutMetric))
             }
         }
     }
@@ -239,7 +239,7 @@ class MenuPageViewController: UIViewController {
             ]
 
             // EXAMPLE : of Checkout Started.. but no placed order #
-            KlaviyoSDK().create(event: .init(name: .StartedCheckout, properties: propertiesDictionary))
+            KlaviyoSDK().create(event: .init(name: .StartedCheckoutMetric, properties: propertiesDictionary))
         }
 
         tableView.reloadData()

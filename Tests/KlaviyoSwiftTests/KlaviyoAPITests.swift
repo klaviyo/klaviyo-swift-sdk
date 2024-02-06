@@ -22,10 +22,9 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidURL() async throws {
-        environment.analytics.apiURL = ": : ::"
+        environment.analytics.apiURL = ""
 
         await sendAndAssert(with: .init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .description)
