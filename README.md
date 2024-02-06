@@ -19,7 +19,6 @@
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
   - [Collecting Push Tokens](#collecting-push-tokens)
-    - [Push Tokens And Multiple Profiles](#push-tokens-and-multiple-profiles)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
@@ -225,11 +224,6 @@ func application(_ application: UIApplication, didRegisterForRemoteNotifications
     KlaviyoSDK().set(pushToken: deviceToken)
 }
 ```
-#### Push Tokens And Multiple Profiles
-
-Klaviyo SDK will disassociate the device push token from the current profile whenever it is reset by calling
-`set(profile:)` or `resetProfile`. You should call `set(pushToken:)` again after resetting the currently tracked profile
-to explicitly associate the device token to the new profile.
 
 ### Request Push Notification Permission
 
