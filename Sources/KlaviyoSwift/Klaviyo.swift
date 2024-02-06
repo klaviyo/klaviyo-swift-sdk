@@ -67,9 +67,9 @@ public struct KlaviyoSDK {
 
     /// Set a profile in your Klaviyo account.
     /// Future SDK calls will use this data when making api requests to Klaviyo.
+    /// NOTE: this will move any set push tokens over to this profile.
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
-
     public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProfile(profile))
     }
@@ -78,7 +78,6 @@ public struct KlaviyoSDK {
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
-
     public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
