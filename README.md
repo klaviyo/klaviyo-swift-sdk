@@ -233,10 +233,12 @@ to explicitly associate the device token to the new profile.
 
 ### Request Push Notification Permission
 
-Now that we have the push token, in order to send push notifications to your users, you must request permission to send push notifications.
-Add the following code to your application wherever you would like to prompt users to register for push notifications.
-This is often included within [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application)
-in the application delegate file, but it can be placed elsewhere as well.
+Once the push token is obtained, the next step is to request permission from your users to send them push notifications.
+You can add the permission request code anywhere in your application where it makes sense to prompt users for this permission.
+Apple provides some [guidelines](https://developer.apple.com/documentation/usernotifications/asking_permission_to_use_notifications)
+on the best practices for when and how to ask for this permission. The following example demonstrates how to request push permissions
+within the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application)
+method in the application delegate file. However, it's worth noting that this may not be the ideal location as it could interrupt the app's startup experience.
 
 Below is example code to request push notification permission:
 ```swift
