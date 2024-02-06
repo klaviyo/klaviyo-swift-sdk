@@ -23,10 +23,10 @@
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
-    - [Rich Push](#rich-push)
     - [Deep Linking](#deep-linking)
       - [Option 1: URL Schemes](#option-1-URL-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
+    - [Rich Push](#rich-push)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -310,66 +310,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 ```
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Rich Push
-
->  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
-
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
-push notification messages.
-In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
-Following the below steps should help set up your app to receive rich push notifications.
-
-* Implement the notification service app extension: The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
-You should see a file called `NotificationService.swift` under the notification service extension target (created during setup).
-From here on depending on which dependency manager you use the steps would look slightly different:
-
-<details>
-<summary> Swift Package Manager(SPM) </summary>
-
-- Tap on the newly created notification service extension target
-  - Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
-  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
-</details>
-
-<details>
-<summary> Cocoapods </summary>
-
-- In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
-
-  Example:
-
-  ```
-  target 'NotificationServiceExtension' do
-      pod 'KlaviyoSwiftExtension'
-  end
-  ```
-
-  Be sure to replace the name of your notification service extension target above.
-
-  - Once you've added in the dependency make sure to `pod install`.
-  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
-</details>
-
-* To test rich push notifications, you will need three things:
-  * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
-  * A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
-
-    ```json
-    {
-    "aps": {
-    "alert": {
-      "title": "Free apple vision pro",
-      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
-    },
-    "mutable-content": 1
-    },
-    "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
-    "rich-media-type": "jpg"
-    }
-    ```
-  * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
-  * Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
-
 #### Deep Linking
 
 >  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
@@ -503,6 +443,66 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 ```
 
 Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
+
+#### Rich Push
+
+>  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
+
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
+push notification messages.
+In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
+Following the below steps should help set up your app to receive rich push notifications.
+
+* Implement the notification service app extension: The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
+  You should see a file called `NotificationService.swift` under the notification service extension target (created during setup).
+  From here on depending on which dependency manager you use the steps would look slightly different:
+
+<details>
+<summary> Swift Package Manager(SPM) </summary>
+
+- Tap on the newly created notification service extension target
+  - Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
+  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+</details>
+
+<details>
+<summary> Cocoapods </summary>
+
+- In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
+
+  Example:
+
+  ```
+  target 'NotificationServiceExtension' do
+      pod 'KlaviyoSwiftExtension'
+  end
+  ```
+
+  Be sure to replace the name of your notification service extension target above.
+
+  - Once you've added in the dependency make sure to `pod install`.
+  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+</details>
+
+* To test rich push notifications, you will need three things:
+  * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
+  * A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
+
+    ```json
+    {
+    "aps": {
+    "alert": {
+      "title": "Free apple vision pro",
+      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
+    },
+    "mutable-content": 1
+    },
+    "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+    "rich-media-type": "jpg"
+    }
+    ```
+  * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
+  * Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
 ## Additional Details
 
