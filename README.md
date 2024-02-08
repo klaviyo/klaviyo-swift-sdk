@@ -18,8 +18,7 @@
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-  - [Collecting Push Tokens](#collecting-push-tokens)
-  - [Request Push Notification Permission](#request-push-notification-permission)
+  - [Requesting Push Notification Permission & Collecting tokens](#requesting-push-notification-permission--collecting-tokens)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
     - [Deep Linking](#deep-linking)
@@ -52,16 +51,16 @@ KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-
 2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
 3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
 4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
-5. Click **Add Package**.
+5. Click **Add Package** on the next two prompts.
 </details>
 
 <details>
 
 <summary>CocoaPods</summary>
 
-KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo).
+KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/pods/KlaviyoSwift).
 
-1. To install, add the following line to your Podfile:
+1. To install, add the following line to your Podfile under your app target:
 
 ```ruby
 pod "KlaviyoSwift"
@@ -197,42 +196,24 @@ A notification service app extension ships as a separate bundle inside your iOS 
  > If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
  > To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
 
-### Collecting Push Tokens
+### Requesting Push Notification Permission & Collecting tokens
 
-In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
+In order to send push notifications to your users, you must request push permission, collect their push tokens and register them with Klaviyo.
 This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers a push token and current authorization state
 via the [Create Client Push Token API](https://developers.klaviyo.com/en/reference/create_client_push_token).
 
-* Call [`registerForRemoteNotifications()`](https://developer.apple.com/documentation/uikit/uiapplication/1623078-registerforremotenotifications)
-to request a push token from APNs. This is typically done in the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application) method of your app delegate.
-* Implement the delegate method [`application:didRegisterForRemoteNotificationsWithDeviceToken`](https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428766-application)
-in your application delegate to receive the push token from APNs and register it with Klaviyo.
-
-Below is the code to do both of the above steps:
-```swift
-import KlaviyoSwift
-
-func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-
-    UIApplication.shared.registerForRemoteNotifications()
-
-    return true
-}
-
-func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    KlaviyoSDK().set(pushToken: deviceToken)
-}
-```
-
-### Request Push Notification Permission
-
-Once the push token is obtained, the next step is to request permission from your users to send them push notifications.
+* Request push notification permission from the user using
+[`UNUserNotificationCenter.current.requestAuthorization(options:completionHandler:)`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenter/1649527-requestauthorization) method.
 You can add the permission request code anywhere in your application where it makes sense to prompt users for this permission.
 Apple provides some [guidelines](https://developer.apple.com/documentation/usernotifications/asking_permission_to_use_notifications)
 on the best practices for when and how to ask for this permission. The following example demonstrates how to request push permissions
 within the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application)
 method in the application delegate file. However, it's worth noting that this may not be the ideal location as it could interrupt the app's startup experience.
+* Call [`registerForRemoteNotifications()`](https://developer.apple.com/documentation/uikit/uiapplication/1623078-registerforremotenotifications)
+  to request a push token from APNs. This is typically done in the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application) method of your app delegate.
+* Implement the delegate method [`application:didRegisterForRemoteNotificationsWithDeviceToken`](https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428766-application)
+  in your application delegate to receive the push token from APNs and register it with Klaviyo. This method should be implemented in the app delegate file.
+
 
 Below is example code to request push notification permission:
 ```swift
@@ -255,12 +236,19 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 	        print("error = ", error)
 	    }
 
-	    // Enable or disable features based on the authorization status.
-	    // if you didn't register for remote notifications above you can call `registerForRemoteNotifications` here
-	    // Klaviyo SDK will automatically update the authorization status on next app launch
+        // you can check if the permission was granted or not but it's not necessary
+        // especially if you are using provisional push notifications (or silent push notifications if we end up supporting them)
+	    DispatchQueue.main.async {
+	         // this will trigger the didRegisterForRemoteNotificationsWithDeviceToken method to be called where you can collect the push token
+             UIApplication.shared.registerForRemoteNotifications()
+         }
 	}
 
     return true
+}
+
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    KlaviyoSDK().set(pushToken: deviceToken)
 }
 ```
 
@@ -442,8 +430,7 @@ Note that the deep link handler will be called back on the main thread. If you w
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
-push notification messages.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.
 In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
 Following the below steps should help set up your app to receive rich push notifications.
 
