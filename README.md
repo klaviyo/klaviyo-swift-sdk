@@ -236,8 +236,7 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 	        print("error = ", error)
 	    }
 
-        // you can check if the permission was granted or not but it's not necessary
-        // especially if you are using provisional push notifications (or silent push notifications if we end up supporting them)
+        // you can check if the permission was granted or not but it's not necessary especially if you are using provisional push notifications
         DispatchQueue.main.async {
             // this will trigger the didRegisterForRemoteNotificationsWithDeviceToken method to be called where you can collect the push token
             UIApplication.shared.registerForRemoteNotifications()
