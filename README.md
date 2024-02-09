@@ -17,7 +17,6 @@
 - [Event tracking](#event-tracking)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
@@ -43,35 +42,56 @@ Once integrated, your marketing team will be able to better understand your app 
 
 ## Installation
 
-<details>
-<summary>Swift Package Manager [Recommended]</summary>
+1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
+2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) add a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+   - Select File > New > Target in Xcode.
+   - Select the Notification Service Extension target from the iOS > Application extension section.
+   - Click Next.
+   - Specify a name and other configuration details for your app extension.
+   - Click Finish.
 
-KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+    > ⚠️ The deployment target of your notification service extension defaults to the latest iOS version.
+             If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
+             To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
 
-1. Open your project and navigate to your project’s settings.
-2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
-3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
-4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
-5. Click **Add Package**.
-</details>
+3. Based on which dependency manager you use, follow the instructions below to install the Klaviyo's dependencies.
 
-<details>
+      <details>
+      <summary>Swift Package Manager [Recommended]</summary>
 
-<summary>CocoaPods</summary>
+      KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
-KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/?q=klaviyo).
+      1. Open your project and navigate to your project’s settings.
+      2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
+      3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
+      4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
+      5. Click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift`  to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
-1. To install, add the following line to your Podfile:
+      </details>
 
-```ruby
-pod "KlaviyoSwift"
-```
+      <details>
+      <summary>CocoaPods</summary>
 
-2. Run `pod install` to complete the integration.
+      KlaviyoSwift is available through [CocoaPods](https://cocoapods.org/pods/KlaviyoSwift).
 
-The library can be kept up-to-date via `pod update`.
+      1. To install, add the following lines to your Podfile. Be sure to replace `YourAppTarget` and `YourAppNotificationServiceExtenionTarget` with the names of your app and notification service extension targets respectively.
 
-</details>
+      ```ruby
+      target 'YourAppTarget' do
+        pod 'KlaviyoSwift'
+      end
+
+      target 'YourAppNotificationServiceExtenionTarget' do
+        pod 'KlaviyoSwiftExtension'
+      end
+      ```
+      2. Run `pod install` to complete the integration.
+      The library can be kept up-to-date via `pod update KlaviyoSwift` and `pod update KlaviyoSwiftExtension`.
+      </details>
+
+4. Finally, in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file.
+  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
 
 ## Initialization
 The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
@@ -181,21 +201,6 @@ The `create` method takes an event object as an argument. The event can be const
 
 * An apple developer [account](https://developer.apple.com/).
 * Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
-
-### Setup
-
-* Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-* If you intend to use rich push notifications add a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your xcode project.
-A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
-  * Select File > New > Target in Xcode.
-  * Select the Notification Service Extension target from the iOS > Application extension section.
-  * Click Next.
-  * Specify a name and other configuration details for your app extension.
-  * Click Finish.
-
- > ⚠️ The deployment target of your notification service extension defaults to the latest iOS version.
- > If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
- > To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
 
 ### Collecting Push Tokens
 
@@ -445,61 +450,32 @@ Note that the deep link handler will be called back on the main thread. If you w
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to
-push notification messages.
-In order to do this Apple requires your app to implement a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension).
-Following the below steps should help set up your app to receive rich push notifications.
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.  Once the steps
+in the [Installation](#installation) section are complete, you should have a notification service extension in your
+project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
 
-* Implement the notification service app extension: The notification service app extension is responsible for downloading the media resource and attaching it to the push notification.
-  You should see a file called `NotificationService.swift` under the notification service extension target (created during setup).
-  From here on depending on which dependency manager you use the steps would look slightly different:
-
-<details>
-<summary> Swift Package Manager(SPM) </summary>
-
-- Tap on the newly created notification service extension target
-  - Under General > Frameworks and libraries add `KlaviyoSwiftExtension` using the + button at the bottom left.
-  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
-</details>
-
-<details>
-<summary> Cocoapods </summary>
-
-- In your `Podfile` add in `KlaviyoSwiftExtension` as a dependency to the newly added notification service extension target.
-
-  Example:
-
-  ```
-  target 'NotificationServiceExtension' do
-      pod 'KlaviyoSwiftExtension'
-  end
-  ```
-
-  Be sure to replace the name of your notification service extension target above.
-
-  - Once you've added in the dependency make sure to `pod install`.
-  - Then in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/CocoapodsExample/NotificationServiceExtension/NotificationService.swift) file. This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
-</details>
+##### Testing rich push notifications
 
 * To test rich push notifications, you will need three things:
   * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
-  * A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
+* A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
 
-    ```json
-    {
-    "aps": {
+```json
+{
+  "aps": {
     "alert": {
       "title": "Free apple vision pro",
       "body": "Free Apple vision pro when you buy a Klaviyo subscription."
     },
     "mutable-content": 1
-    },
-    "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
-    "rich-media-type": "jpg"
-    }
-    ```
+  },
+  "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+  "rich-media-type": "jpg"
+}
+```
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
-  * Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
 ## Additional Details
 
