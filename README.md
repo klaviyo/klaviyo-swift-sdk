@@ -255,9 +255,12 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 	        print("error = ", error)
 	    }
 
-	    // Enable or disable features based on the authorization status.
-	    // if you didn't register for remote notifications above you can call `registerForRemoteNotifications` here
-	    // Klaviyo SDK will automatically update the authorization status on next app launch
+	    // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+	    // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+	    // will make sure that Klaviyo always has the latest push authorization status.
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
 	}
 
     return true
