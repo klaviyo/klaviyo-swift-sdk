@@ -258,6 +258,9 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 	    // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
 	    // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
 	    // will make sure that Klaviyo always has the latest push authorization status.
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
 	}
 
     return true
