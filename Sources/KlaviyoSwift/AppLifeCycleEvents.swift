@@ -27,7 +27,7 @@ struct AppLifeCycleEvents {
                 do {
                     try environment.startReachability()
                 } catch {
-                    runtimeWarn("failure to start reachability notifier")
+                    environment.emitDeveloperWarning("failure to start reachability notifier")
                 }
             })
             .map { _ in KlaviyoAction.start }
@@ -55,7 +55,7 @@ struct AppLifeCycleEvents {
                 do {
                     try environment.startReachability()
                 } catch {
-                    runtimeWarn("failure to start reachability notifier")
+                    environment.emitDeveloperWarning("failure to start reachability notifier")
                 }
             })
             .receive(on: RunLoop.main)

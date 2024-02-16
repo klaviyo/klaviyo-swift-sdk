@@ -145,7 +145,7 @@ struct KlaviyoState: Equatable, Codable {
     mutating func enqueueProfileOrTokenRequest() {
         guard let apiKey = apiKey,
               let anonymousId = anonymousId else {
-            runtimeWarn("SDK internal error")
+            environment.emitDeveloperWarning("SDK internal error")
             return
         }
         // if we have push data and we are switching emails

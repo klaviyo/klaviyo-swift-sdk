@@ -110,7 +110,7 @@ struct KlaviyoReducer: ReducerProtocol {
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
-            environment.raiseFatalError("SDK must be initialized before usage.")
+            environment.emitDeveloperWarning("SDK must be initialized before usage.")
             return .none
         }
 
@@ -324,7 +324,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             } catch: { error, send in
                 // For now assuming this is cancellation since nothing else can throw AFAICT
-                runtimeWarn("Unknown error thrown during request processing \(error)")
+                environment.emitDeveloperWarning("Unknown error thrown during request processing \(error)")
                 await send(.cancelInFlightRequests)
             }.cancellable(id: RequestId.self)
 

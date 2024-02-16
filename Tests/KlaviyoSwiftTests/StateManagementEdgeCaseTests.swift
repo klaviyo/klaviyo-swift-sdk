@@ -112,7 +112,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testSetEmailUninitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
-        environment.raiseFatalError = { _ in
+        environment.emitDeveloperWarning = { _ in
             // Would really fatalError - not happening because we can't do that in tests so we fake it.
             expection.fulfill()
         }
@@ -310,8 +310,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testEnqueueEventUninitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
-        environment.raiseFatalError = { _ in
-            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+        environment.emitDeveloperWarning = { _ in
+            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
             expection.fulfill()
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
@@ -324,8 +324,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     func testSetProfileUnitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
-        environment.raiseFatalError = { _ in
-            // Would really fatalError - not happening because we can't do that in tests so we fake it.
+        environment.emitDeveloperWarning = { _ in
+            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
             expection.fulfill()
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
