@@ -81,23 +81,23 @@ func handleRequestError(
         }
 
     case let .internalError(data):
-        runtimeWarn("An internal error occurred msg: \(data)")
+        environment.emitDeveloperWarning("An internal error occurred msg: \(data)")
         return .deQueueCompletedResults(request)
 
     case let .internalRequestError(error):
-        runtimeWarn("An internal request error occurred msg: \(error)")
+        environment.emitDeveloperWarning("An internal request error occurred msg: \(error)")
         return .deQueueCompletedResults(request)
 
     case let .unknownError(error):
-        runtimeWarn("An unknown request error occured \(error)")
+        environment.emitDeveloperWarning("An unknown request error occured \(error)")
         return .deQueueCompletedResults(request)
 
     case .dataEncodingError:
-        runtimeWarn("A data encoding error occurred during transmission.")
+        environment.emitDeveloperWarning("A data encoding error occurred during transmission.")
         return .deQueueCompletedResults(request)
 
     case .invalidData:
-        runtimeWarn("Invalid data supplied for request. Skipping.")
+        environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
 
     case .rateLimitError:

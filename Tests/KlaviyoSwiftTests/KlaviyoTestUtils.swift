@@ -90,7 +90,7 @@ extension KlaviyoEnvironment {
         reachabilityStatus: { nil },
         randomInt: { 0 },
         stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() },
-        raiseFatalError: { _ in })
+        raiseFatalError: { _ in }, emitDeveloperWarning: { _ in })
     }
 }
 

@@ -45,6 +45,7 @@ struct KlaviyoEnvironment {
     var randomInt: () -> Int
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
     var raiseFatalError: (String) -> Void
+    var emitDeveloperWarning: (String) -> Void
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -78,7 +79,7 @@ struct KlaviyoEnvironment {
             #if DEBUG
             fatalError(msg)
             #endif
-        })
+        }, emitDeveloperWarning: { runtimeWarn($0) })
 }
 
 private var networkSession: NetworkSession!
