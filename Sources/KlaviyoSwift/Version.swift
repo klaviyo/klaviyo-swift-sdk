@@ -8,4 +8,4 @@
 import Foundation
 
 public let __klaviyoSwiftName = "swift"
-public let __klaviyoSwiftVersion = "3.0.2"
+public let __klaviyoSwiftVersion = "3.0.3"
