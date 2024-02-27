@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest an idea for this project
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for contributing to the Klaviyo SDK!
+
+        Before you submit your issue, please read our [contributing guidelines](./CONTRIBUTING.md) and complete each
+        text area below with the relevant details for your bug.
+
+        Note: incomplete issues may be de-prioritized or closed.
+
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to
+        [submit a pull request](https://github.com/klaviyo/klaviyo-swift-sdk/pulls) after creating an issue.
+  - type: textarea
+    attributes:
+      label: Description
+      render: markdown
+      description: |
+        A clear and concise description of what the problem is. Ex. I'm always frustrated when...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed Solution
+      render: markdown
+      description: |
+        A clear and concise description of what you want to happen.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Alternatives Considered
+      render: markdown
+      description: |
+        A clear and concise description of any alternative solutions or features you've considered.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Additional Context
+      render: markdown
+      description: |
+        Add any other context or screenshots about the feature request here.
+    validations:
+      required: false

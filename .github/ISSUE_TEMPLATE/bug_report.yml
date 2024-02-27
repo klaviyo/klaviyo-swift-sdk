@@ -5,16 +5,23 @@ body:
 - type: markdown
   attributes:
     value: |
-      Thank you for contributing to the Klaviyo Swift SDK!
+        Thank you for contributing to the Klaviyo Android SDK!
 
-      Before you submit your issue, please complete each text area below with the relevant details for your bug, and complete the steps in the checklist
+        Before you submit your issue, please read our [contributing guidelines](./CONTRIBUTING.md) and complete each
+        text area below with the relevant details for your bug.
+
+        Note: incomplete issues may be de-prioritized or closed.
+
+        We welcome your input! If you have any code suggestions regarding your issue, feel free to
+        [submit a pull request](https://github.com/klaviyo/klaviyo-swift-sdk/pulls) after creating an issue.
 - type: textarea
   attributes:
     label: Description
     description: |
       A short description of the incorrect behavior.
 
-      If you think this issue has been recently introduced and did not occur in an earlier version, please note that. If possible, include the last version that the behavior was correct in addition to your current version.
+      If you think this issue has been recently introduced and did not occur in an earlier version, please note that.
+      If possible, include the last version that the behavior was correct in addition to your current version.
   validations:
     required: true
 - type: checkboxes
@@ -32,13 +39,13 @@ body:
     label: Expected behavior
     description: Describe what you expected to happen.
   validations:
-    required: false
+    required: true
 - type: textarea
   attributes:
     label: Actual behavior
     description: Describe or copy/paste the behavior you observe.
   validations:
-    required: false
+    required: true
 - type: textarea
   attributes:
     label: Steps to reproduce
@@ -49,22 +56,28 @@ body:
     placeholder: |
       1. ...
   validations:
-    required: false
+    required: true
 - type: input
   attributes:
     label: The Klaviyo Swift SDK version information
     description: The version of the Klaviyo Swift SDK used to reproduce this issue.
     placeholder: "'1.7.2' for example, or a commit hash"
+  validations:
+    required: true
 - type: input
   attributes:
     label: Destination operating system
     description: The OS running your application.
     placeholder: "'iOS 15' for example"
+  validations:
+    required: true
 - type: input
   attributes:
     label: Xcode version information
     description: The version of Xcode used to reproduce this issue.
     placeholder: "The version displayed from 'Xcode 〉About Xcode'"
+  validations:
+    required: true
 - type: textarea
   attributes:
     label: Swift Compiler version information
