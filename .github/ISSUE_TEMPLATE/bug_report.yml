@@ -7,13 +7,25 @@ body:
     value: |
         Thank you for contributing to the Klaviyo Swift SDK!
 
-        Before you submit your issue, please read our [contributing guidelines](./CONTRIBUTING.md) and complete each
-        text area below with the relevant details for your bug.
+        Before you submit your issue, please read our [contributing guidelines](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/.github/CONTRIBUTING.md)
+        and answer each question with as much detail as you can.
 
-        Note: incomplete issues may be de-prioritized or closed.
+        > Note: incomplete issues may be de-prioritized or closed.
 
         We welcome your input! If you have any code suggestions regarding your issue, feel free to
         [submit a pull request](https://github.com/klaviyo/klaviyo-swift-sdk/pulls) after creating an issue.
+- type: checkboxes
+  attributes:
+    label: Checklist
+    options:
+    - label: I have read the [contributing guidelines](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/.github/CONTRIBUTING.md)
+      required: true
+    - label: I have determined whether this bug is also reproducible in a vanilla SwiftUI project.
+      required: false
+    - label: If possible, I've reproduced the issue using the `main` branch of this package.
+      required: false
+    - label: This issue hasn't been addressed in an [existing GitHub issue](https://github.com/klaviyo/klaviyo-swift-sdk/issues) or [discussion](https://github.com/pointfreeco/klaviyo/klaviyo-swift-sdk/discussions).
+      required: true
 - type: textarea
   attributes:
     label: Description
@@ -24,16 +36,6 @@ body:
       If possible, include the last version that the behavior was correct in addition to your current version.
   validations:
     required: true
-- type: checkboxes
-  attributes:
-    label: Checklist
-    options:
-    - label: I have determined whether this bug is also reproducible in a vanilla SwiftUI project.
-      required: false
-    - label: If possible, I've reproduced the issue using the `main` branch of this package.
-      required: false
-    - label: This issue hasn't been addressed in an [existing GitHub issue](https://github.com/klaviyo/klaviyo-swift-sdk/issues) or [discussion](https://github.com/pointfreeco/klaviyo/klaviyo-swift-sdk/discussions).
-      required: true
 - type: textarea
   attributes:
     label: Expected behavior
