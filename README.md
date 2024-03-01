@@ -513,7 +513,7 @@ In addition, if the SDK receives a rate limiting error `429` from the Klaviyo AP
 
 ## Contributing
 See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Swift SDK.
-We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-android-sdk/issues) section of our public GitHub repository.
+We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-swift-sdk/issues) section of our public GitHub repository.
 
 ### License
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.

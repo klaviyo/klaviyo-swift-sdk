@@ -1,6 +1,6 @@
-# Welcome to Klaviyo SDK contributing guide
+# Welcome to Klaviyo Swift SDK contributing guide
 
-Thank you for considering contributing to the Klaviyo SDK!
+Thank you for considering contributing to the Klaviyo Swift SDK!
 
 In this guide you will get an overview of the contribution workflow from engaging in discussion to
 opening an issue, creating a PR, reviewing, and merging the PR.

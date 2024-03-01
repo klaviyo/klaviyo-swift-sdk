@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for contributing to the Klaviyo SDK!
+        Thank you for contributing to the Klaviyo Swift SDK!
 
         Before you submit your issue, please read our [contributing guidelines](./CONTRIBUTING.md) and complete each
         text area below with the relevant details for your bug.
