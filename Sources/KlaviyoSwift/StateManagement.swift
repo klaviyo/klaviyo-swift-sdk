@@ -484,12 +484,96 @@ extension KlaviyoState {
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 
-    func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
+    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
+        print("in token update", pendingProfile)
+        guard let pendingProfile = pendingProfile else {
+            let payload = PushTokenPayload(
+                pushToken: pushToken,
+                enablement: enablement.rawValue,
+                background: environment.getBackgroundSetting().rawValue,
+                profile: Profile(email: email, phoneNumber: phoneNumber, externalId: externalId),
+                anonymousId: anonymousId)
+            let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
+            return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        }
+
+        var firstName: String?
+        var lastName: String?
+        var address1: String?
+        var address2: String?
+        var title: String?
+        var organization: String?
+        var city: String?
+        var region: String?
+        var country: String?
+        var zip: String?
+        var image: String?
+        var latitude: Double?
+        var longitude: Double?
+        var customProperties: [String: Any] = [:]
+
+        for (key, value) in pendingProfile {
+            switch key {
+            case .firstName:
+                firstName = value.value as? String
+            case .lastName:
+                lastName = value.value as? String
+            case .address1:
+                address1 = value.value as? String
+            case .address2:
+                address2 = value.value as? String
+            case .title:
+                title = value.value as? String
+            case .organization:
+                organization = value.value as? String
+            case .city:
+                city = value.value as? String
+            case .region:
+                region = value.value as? String
+            case .country:
+                country = value.value as? String
+            case .zip:
+                zip = value.value as? String
+            case .image:
+                image = value.value as? String
+            case .latitude:
+                latitude = value.value as? Double
+            case .longitude:
+                longitude = value.value as? Double
+            case let .custom(customKey: customKey):
+                customProperties[customKey] = value.value
+            }
+        }
+
+        let location = Profile.Location(
+            address1: address1,
+            address2: address2,
+            city: city,
+            country: country,
+            latitude: latitude,
+            longitude: longitude,
+            region: region,
+            zip: zip)
+
+        let profile = Profile(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            firstName: firstName,
+            lastName: lastName,
+            organization: organization,
+            title: title,
+            image: image,
+            location: location,
+            properties: customProperties)
+
+        self.pendingProfile = nil
+
         let payload = PushTokenPayload(
             pushToken: pushToken,
             enablement: enablement.rawValue,
             background: environment.getBackgroundSetting().rawValue,
-            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
+            profile: profile,
             anonymousId: anonymousId)
         let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
         return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
