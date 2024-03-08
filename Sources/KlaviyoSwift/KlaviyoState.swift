@@ -84,6 +84,7 @@ struct KlaviyoState: Equatable, Codable {
         }
     }
 
+    // state related stuff
     var apiKey: String?
     var email: String?
     var anonymousId: String?
@@ -190,42 +191,53 @@ struct KlaviyoState: Equatable, Codable {
         var attributes = profile.data.attributes
         var location = profile.data.attributes.location ?? .init()
         var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
+        let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)
 
-        // Optionally (if not already specified) overwrite attributes and location with pending profile information.
-        for (key, value) in pendingProfile {
-            switch key {
-            case .firstName:
-                attributes.firstName = attributes.firstName ?? value.value as? String
-            case .lastName:
-                attributes.lastName = attributes.lastName ?? value.value as? String
-            case .address1:
-                location.address1 = location.address1 ?? value.value as? String
-            case .address2:
-                location.address2 = location.address2 ?? value.value as? String
-            case .title:
-                attributes.title = attributes.title ?? value.value as? String
-            case .organization:
-                attributes.organization = attributes.organization ?? value.value as? String
-            case .city:
-                location.city = location.city ?? value.value as? String
-            case .region:
-                location.region = location.region ?? value.value as? String
-            case .country:
-                location.country = location.country ?? value.value as? String
-            case .zip:
-                location.zip = location.zip ?? value.value as? String
-            case .image:
-                attributes.image = attributes.image ?? value.value as? String
-            case .latitude:
-                location.latitude = location.latitude ?? value.value as? Double
-            case .longitude:
-                location.longitude = location.longitude ?? value.value as? Double
-            case let .custom(customKey: customKey):
-                properties[customKey] = properties[customKey] ?? value.value
-            }
+        if let firstName = updatedProfile.firstName {
+            attributes.firstName = attributes.firstName ?? firstName
         }
+        if let lastName = updatedProfile.lastName {
+            attributes.lastName = attributes.lastName ?? lastName
+        }
+        if let title = updatedProfile.title {
+            attributes.title = attributes.title ?? title
+        }
+        if let organization = updatedProfile.organization {
+            attributes.organization = attributes.organization ?? organization
+        }
+        if !updatedProfile.properties.isEmpty {
+            attributes.properties = AnyCodable(properties.merging(updatedProfile.properties, uniquingKeysWith: { _, new in new }))
+        }
+
+        if let address1 = updatedProfile.location?.address1 {
+            location.address1 = location.address1 ?? address1
+        }
+        if let address2 = updatedProfile.location?.address2 {
+            location.address2 = location.address2 ?? address2
+        }
+        if let city = updatedProfile.location?.city {
+            location.city = location.city ?? city
+        }
+        if let region = updatedProfile.location?.region {
+            location.region = location.region ?? region
+        }
+        if let country = updatedProfile.location?.country {
+            location.country = location.country ?? country
+        }
+        if let zip = updatedProfile.location?.zip {
+            location.zip = location.zip ?? zip
+        }
+        if let image = updatedProfile.image {
+            attributes.image = attributes.image ?? image
+        }
+        if let latitude = updatedProfile.location?.latitude {
+            location.latitude = location.latitude ?? latitude
+        }
+        if let longitude = updatedProfile.location?.longitude {
+            location.longitude = location.longitude ?? longitude
+        }
+
         attributes.location = location
-        attributes.properties = AnyCodable(properties)
         self.pendingProfile = nil
 
         return .init(data: .init(attributes: attributes))
@@ -277,6 +289,54 @@ struct KlaviyoState: Equatable, Codable {
             deviceData: currentDeviceMetadata)
 
         return pushTokenData != newPushTokenData
+    }
+
+    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoAPI.KlaviyoRequest {
+        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(
+            data: .init(
+                profile: Profile(
+                    email: email,
+                    phoneNumber: phoneNumber,
+                    externalId: externalId,
+                    properties: properties),
+                anonymousId: anonymousId)
+        )
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
+
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+
+    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
+        var profile: Profile
+
+        if let pendingProfile = pendingProfile {
+            profile = Profile.updateProfileWithProperties(
+                email: email,
+                phoneNumber: phoneNumber,
+                externalId: externalId,
+                dict: pendingProfile)
+            self.pendingProfile = nil
+        } else {
+            profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
+        }
+
+        let payload = PushTokenPayload(
+            pushToken: pushToken,
+            enablement: enablement.rawValue,
+            background: environment.getBackgroundSetting().rawValue,
+            profile: profile,
+            anonymousId: anonymousId)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+    }
+
+    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoAPI.KlaviyoRequest {
+        let payload = UnregisterPushTokenPayload(
+            pushToken: pushToken,
+            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
+            anonymousId: anonymousId)
+        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.unregisterPushToken(payload)
+        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
 }
 
@@ -346,4 +406,84 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
+}
+
+extension Profile {
+    fileprivate static func updateProfileWithProperties(
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        dict: [Profile.ProfileKey: AnyEncodable]) -> Self {
+        var firstName: String?
+        var lastName: String?
+        var address1: String?
+        var address2: String?
+        var title: String?
+        var organization: String?
+        var city: String?
+        var region: String?
+        var country: String?
+        var zip: String?
+        var image: String?
+        var latitude: Double?
+        var longitude: Double?
+        var customProperties: [String: Any] = [:]
+
+        for (key, value) in dict {
+            switch key {
+            case .firstName:
+                firstName = value.value as? String
+            case .lastName:
+                lastName = value.value as? String
+            case .address1:
+                address1 = value.value as? String
+            case .address2:
+                address2 = value.value as? String
+            case .title:
+                title = value.value as? String
+            case .organization:
+                organization = value.value as? String
+            case .city:
+                city = value.value as? String
+            case .region:
+                region = value.value as? String
+            case .country:
+                country = value.value as? String
+            case .zip:
+                zip = value.value as? String
+            case .image:
+                image = value.value as? String
+            case .latitude:
+                latitude = value.value as? Double
+            case .longitude:
+                longitude = value.value as? Double
+            case let .custom(customKey: customKey):
+                customProperties[customKey] = value.value
+            }
+        }
+
+        let location = Profile.Location(
+            address1: address1,
+            address2: address2,
+            city: city,
+            country: country,
+            latitude: latitude,
+            longitude: longitude,
+            region: region,
+            zip: zip)
+
+        let profile = Profile(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            firstName: firstName,
+            lastName: lastName,
+            organization: organization,
+            title: title,
+            image: image,
+            location: location,
+            properties: customProperties)
+
+        return profile
+    }
 }
