@@ -355,26 +355,26 @@ class StateManagementTests: XCTestCase {
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        let profileActions: [(Profile.ProfileKey, Any)] = [
-            (.city, "Sharon"),
-            (.region, "New England"),
-            (.address1, "123 Main Street"),
-            (.address2, "Apt 6"),
-            (.zip, "02067"),
-            (.country, "Mexico"),
-            (.latitude, 23.0),
-            (.longitude, 46.0),
-            (.title, "King"),
-            (.organization, "Klaviyo"),
-            (.firstName, "Jeffrey"),
-            (.lastName, "Lebowski"),
-            (.image, "foto.png"),
+        let profileAttributes: [(Profile.ProfileKey, Any)] = [
+            (.city, Profile.test.location!.city!),
+            (.region, Profile.test.location!.region!),
+            (.address1, Profile.test.location!.address1!),
+            (.address2, Profile.test.location!.address2!),
+            (.zip, Profile.test.location!.zip!),
+            (.country, Profile.test.location!.country!),
+            (.latitude, Profile.test.location!.latitude!),
+            (.longitude, Profile.test.location!.longitude!),
+            (.title, Profile.test.title!),
+            (.organization, Profile.test.organization!),
+            (.firstName, Profile.test.firstName!),
+            (.lastName, Profile.test.lastName!),
+            (.image, Profile.test.image!),
             (.custom(customKey: "foo"), 20)
         ]
 
         var pendingProfile = [Profile.ProfileKey: AnyEncodable]()
 
-        for (key, value) in profileActions {
+        for (key, value) in profileAttributes {
             pendingProfile[key] = AnyEncodable(value)
             _ = await store.send(.setProfileProperty(key, AnyEncodable(value))) {
                 $0.pendingProfile = pendingProfile
@@ -382,18 +382,44 @@ class StateManagementTests: XCTestCase {
         }
 
         var request: KlaviyoAPI.KlaviyoRequest?
+
         _ = await store.send(.flushQueue) {
             $0.enqueueProfileOrTokenRequest()
             $0.requestsInFlight = $0.queue
             $0.queue = []
             $0.flushing = true
+            $0.pendingProfile = nil
             request = $0.requestsInFlight[0]
+            switch request?.endpoint {
+            case let .registerPushToken(payload):
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.city, Profile.test.location!.city)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.region, Profile.test.location!.region!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.address1, Profile.test.location!.address1!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.address2, Profile.test.location!.address2!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.zip, Profile.test.location!.zip!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.country, Profile.test.location!.country!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.latitude, Profile.test.location!.latitude!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.longitude, Profile.test.location!.longitude!)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.title, Profile.test.title)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.organization, Profile.test.organization)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.firstName, Profile.test.firstName)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.lastName, Profile.test.lastName)
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.image, Profile.test.image)
+
+                if let customProperties = payload.data.attributes.profile.data.attributes.properties.value as? [String: Any],
+                   let foo = customProperties["foo"] as? Int {
+                    XCTAssertEqual(foo, 20)
+                }
+            default:
+                XCTFail("Wrong endpoint called, expected token update when store's initial state contains token data")
+            }
         }
 
         await store.receive(.sendRequest)
         await store.receive(.deQueueCompletedResults(request!)) {
             $0.requestsInFlight = $0.queue
             $0.flushing = false
+            $0.pendingProfile = nil
             $0.pushTokenData = initialState.pushTokenData
         }
     }
