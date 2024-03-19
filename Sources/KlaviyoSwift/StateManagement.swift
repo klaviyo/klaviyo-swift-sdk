@@ -217,7 +217,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.pushToken(pushToken, enablement))
                 return .none
             }
-            guard state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) else {
+            if !state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) {
                 return .none
             }
 
@@ -464,45 +464,6 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
         initialState: KlaviyoState(queue: [], requestsInFlight: []),
         reducer: KlaviyoReducer())
-}
-
-extension KlaviyoState {
-    func checkPreconditions() {}
-
-    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoAPI.KlaviyoRequest {
-        let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(
-            data: .init(
-                profile: Profile(
-                    email: email,
-                    phoneNumber: phoneNumber,
-                    externalId: externalId,
-                    properties: properties),
-                anonymousId: anonymousId)
-        )
-        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.createProfile(payload)
-
-        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-    }
-
-    func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoAPI.KlaviyoRequest {
-        let payload = PushTokenPayload(
-            pushToken: pushToken,
-            enablement: enablement.rawValue,
-            background: environment.getBackgroundSetting().rawValue,
-            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
-            anonymousId: anonymousId)
-        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.registerPushToken(payload)
-        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-    }
-
-    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoAPI.KlaviyoRequest {
-        let payload = UnregisterPushTokenPayload(
-            pushToken: pushToken,
-            profile: .init(email: email, phoneNumber: phoneNumber, externalId: externalId),
-            anonymousId: anonymousId)
-        let endpoint = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.unregisterPushToken(payload)
-        return KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-    }
 }
 
 extension Event {
