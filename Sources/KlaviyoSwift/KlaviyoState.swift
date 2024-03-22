@@ -190,7 +190,7 @@ struct KlaviyoState: Equatable, Codable {
         }
         var attributes = profile.data.attributes
         var location = profile.data.attributes.location ?? .init()
-        var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
+        let properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
         let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)
 
         if let firstName = updatedProfile.firstName {

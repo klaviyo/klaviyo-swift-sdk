@@ -11,14 +11,15 @@ import Combine
 import Foundation
 import XCTest
 
-@MainActor
 class StateManagementTests: XCTestCase {
+    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
 
     // MARK: - Initialization
 
+    @MainActor
     func testInitialize() async throws {
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -41,6 +42,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.flushQueue)
     }
 
+    @MainActor
     func testInitializeSubscribesToAppropriatePublishers() async throws {
         let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
         let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
@@ -73,6 +75,7 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set Email
 
+    @MainActor
     func testSetEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -87,6 +90,7 @@ class StateManagementTests: XCTestCase {
 
     // MARK: Set Phone Number
 
+    @MainActor
     func testSetPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -101,6 +105,7 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set External Id.
 
+    @MainActor
     func testSetExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -115,6 +120,7 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set Push Token
 
+    @MainActor
     func testSetPushToken() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
@@ -141,6 +147,7 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetPushTokenMultipleTimes() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
@@ -171,6 +178,7 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - flush
 
+    @MainActor
     func testFlushUninitializedQueueDoesNotFlush() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -182,6 +190,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.flushQueue)
     }
 
+    @MainActor
     func testQueueThatIsFlushingDoesNotFlush() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
