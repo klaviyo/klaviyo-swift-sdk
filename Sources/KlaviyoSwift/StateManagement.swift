@@ -313,8 +313,13 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             let retryInfo = state.retryInfo
-            return .run { send in
-                let result = await environment.analytics.klaviyoAPI.send(request)
+            var numAttempts = 0
+            if case let .retry(attempts) = retryInfo {
+                numAttempts = attempts
+            }
+
+            return .run { [numAttempts] send in
+                let result = await environment.analytics.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
