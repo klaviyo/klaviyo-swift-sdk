@@ -156,7 +156,7 @@ extension FileClient {
 }
 
 extension KlaviyoAPI {
-    static let test = { KlaviyoAPI(send: { _ in .success(TEST_RETURN_DATA) }) }
+    static let test = { KlaviyoAPI(send: { _, _ in .success(TEST_RETURN_DATA) }) }
 }
 
 extension LoggerClient {
