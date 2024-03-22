@@ -11,14 +11,15 @@ import XCTest
 
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
 
-@MainActor
 class APIRequestErrorHandlingTests: XCTestCase {
+    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
 
     // MARK: - http error
 
+    @MainActor
     func testSendRequestHttpFailureDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -35,6 +36,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -57,6 +59,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSendRequestHttpFailureForEmailResetsStateAndDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -81,6 +84,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - network error
 
+    @MainActor
     func testSendRequestFailureIncrementsRetryCount() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -100,6 +104,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSendRequestFailureWithBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
@@ -120,6 +125,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSendRequestMaxRetries() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retry(ErrorHandlingConstants.maxRetries)
@@ -144,6 +150,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - internal error
 
+    @MainActor
     func testSendRequestInternalError() async throws {
         // NOTE: should really happen but putting this in for possible future cases and test coverage
         var initialState = INITIALIZED_TEST_STATE()
@@ -166,6 +173,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - internal request error
 
+    @MainActor
     func testSendRequestInternalRequestError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
 
@@ -187,6 +195,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - unknown error
 
+    @MainActor
     func testSendRequestUnknownError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
 
@@ -208,6 +217,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - data decoding error
 
+    @MainActor
     func testSendRequestDataDecodingError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -228,6 +238,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - invalid data
 
+    @MainActor
     func testSendRequestInvalidData() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -248,6 +259,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - rate limit error
 
+    @MainActor
     func testRateLimitErrorWithExistingRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -266,6 +278,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRateLimitErrorWithExistingBackoffRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
@@ -287,6 +300,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - Missing or invalid response
 
+    @MainActor
     func testMissingOrInvalidResponse() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)

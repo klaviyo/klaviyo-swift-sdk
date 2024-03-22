@@ -10,7 +10,6 @@ import Combine
 import Foundation
 import XCTest
 
-@MainActor
 class AppLifeCycleEventsTests: XCTestCase {
     let passThroughSubject = PassthroughSubject<Notification, Never>()
 
@@ -25,12 +24,14 @@ class AppLifeCycleEventsTests: XCTestCase {
         }
     }
 
+    @MainActor
     override func setUp() {
         environment = KlaviyoEnvironment.test()
     }
 
     // MARK: - App Terminate
 
+    @MainActor
     func testAppTerminateStopsReachability() {
         environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.willTerminateNotification)
         let expection = XCTestExpectation(description: "Stop reachability is called.")
