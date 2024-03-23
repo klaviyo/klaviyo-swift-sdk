@@ -100,7 +100,7 @@ func handleRequestError(
         environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
 
-    case .rateLimitError:
+    case let .rateLimitError(retryAfter):
         var requestRetryCount = 0
         var totalRetryCount = 0
         var nextBackoff = 0
@@ -112,7 +112,7 @@ func handleRequestError(
         case let .retryWithBackoff(requestCount, totalCount, _):
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
-            nextBackoff = getDelaySeconds(for: totalRetryCount)
+            nextBackoff = retryAfter ?? getDelaySeconds(for: totalRetryCount)
         }
         return .requestFailed(
             request, .retryWithBackoff(
