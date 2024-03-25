@@ -310,7 +310,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 ```
- When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
+When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
 
 ```swift
     func userNotificationCenter(
