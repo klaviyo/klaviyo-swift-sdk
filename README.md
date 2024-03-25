@@ -21,6 +21,7 @@
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
+    - [Updating the badge](#updating-the-badge)
     - [Deep Linking](#deep-linking)
       - [Option 1: URL Schemes](#option-1-URL-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
@@ -311,6 +312,18 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
+
+#### Updating the badge
+
+If badge permissions were requested when requesting push permission please use the following code to decrement the badge count when handling opened push.
+
+```swift
+if #available(iOS 16.0, *) {
+    UNUserNotificationCenter.current().setBadgeCount(UIApplication.shared.applicationIconBadgeNumber - 1)
+} else {
+    UIApplication.shared.applicationIconBadgeNumber -= 1
+}
+```
 
 #### Deep Linking
 
