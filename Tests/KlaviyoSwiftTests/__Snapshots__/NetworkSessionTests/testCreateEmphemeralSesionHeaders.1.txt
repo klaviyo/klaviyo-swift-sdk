@@ -1,5 +1,5 @@
 ▿ Optional<Dictionary<AnyHashable, Any>>
-  ▿ some: 5 key/value pairs
+  ▿ some: 6 key/value pairs
     ▿ (2 elements)
       - key: "Accept-Encoding"
       ▿ value: 3 elements
@@ -9,6 +9,9 @@
     ▿ (2 elements)
       - key: "User-Agent"
       - value: "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-ios/3.0.4"
+    ▿ (2 elements)
+      - key: "X-Klaviyo-Mobile"
+      - value: "1"
     ▿ (2 elements)
       - key: "accept"
       - value: "application/json"

@@ -39,7 +39,7 @@ struct KlaviyoAPI {
     static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
     static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 
-    var send: (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
+    var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
 
         var urlRequest: URLRequest
@@ -49,6 +49,7 @@ struct KlaviyoAPI {
             requestFailed(request, error, 0.0)
             return .failure(.internalRequestError(error))
         }
+        urlRequest.allHTTPHeaderFields?["X-Klaviyo-Retry-Attempt"] = "\(attemptNumber)/50"
 
         requestStarted(request)
 

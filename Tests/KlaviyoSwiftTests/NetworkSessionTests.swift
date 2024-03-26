@@ -9,8 +9,8 @@
 import SnapshotTesting
 import XCTest
 
-@MainActor
 class NetworkSessionTests: XCTestCase {
+    @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
     }

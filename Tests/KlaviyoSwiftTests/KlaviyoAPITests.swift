@@ -9,16 +9,12 @@
 import SnapshotTesting
 import XCTest
 
-@MainActor
 final class KlaviyoAPITests: XCTestCase {
+    @MainActor
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
         environment = KlaviyoEnvironment.test()
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     func testInvalidURL() async throws {
@@ -134,7 +130,7 @@ final class KlaviyoAPITests: XCTestCase {
 
     func sendAndAssert(with request: KlaviyoAPI.KlaviyoRequest,
                        assertion: (Result<Data, KlaviyoAPI.KlaviyoAPIError>) -> Void) async {
-        let result = await KlaviyoAPI().send(request)
+        let result = await KlaviyoAPI().send(request, 0)
         assertion(result)
     }
 }
