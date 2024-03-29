@@ -144,6 +144,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    func testSetEmptyEmail() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setEmail(""))
+    }
+
     // MARK: - Set External Id
 
     func testSetExternalIdUninitialized() async throws {
@@ -173,6 +180,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    func testSetEmptyExternalId() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setExternalId(""))
+    }
+
     // MARK: - Set Phone number
 
     func testSetPhoneNumberUninitialized() async throws {
@@ -199,6 +213,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
             $0.phoneNumber = "1-800-Blobs4u"
         }
+    }
+
+    func testSetEmptyPhoneNumber() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setPhoneNumber(""))
     }
 
     // MARK: - Set Push Token

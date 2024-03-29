@@ -120,25 +120,28 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateEmail(email: String) {
-        guard email != self.email else {
+        if email.isEmpty || email == self.email {
             return
         }
+
         self.email = email
         enqueueProfileOrTokenRequest()
     }
 
     mutating func updateExternalId(externalId: String) {
-        guard externalId != self.externalId else {
+        if externalId.isEmpty || externalId == self.externalId {
             return
         }
+
         self.externalId = externalId
         enqueueProfileOrTokenRequest()
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
-        guard phoneNumber != self.phoneNumber else {
+        if phoneNumber.isEmpty || phoneNumber == self.phoneNumber {
             return
         }
+
         self.phoneNumber = phoneNumber
         enqueueProfileOrTokenRequest()
     }
@@ -190,7 +193,7 @@ struct KlaviyoState: Equatable, Codable {
         }
         var attributes = profile.data.attributes
         var location = profile.data.attributes.location ?? .init()
-        var properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
+        let properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
         let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)
 
         if let firstName = updatedProfile.firstName {
