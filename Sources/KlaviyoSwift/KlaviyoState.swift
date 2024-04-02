@@ -182,9 +182,17 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        email = profile.email ?? email
-        phoneNumber = profile.phoneNumber ?? phoneNumber
-        externalId = profile.externalId ?? externalId
+        if let profileEmail = profile.email, !profileEmail.isEmpty, profileEmail != email {
+            email = profileEmail
+        }
+
+        if let profilePhoneNumber = profile.phoneNumber, !profilePhoneNumber.isEmpty, profilePhoneNumber != phoneNumber {
+            phoneNumber = profilePhoneNumber
+        }
+
+        if let profileExternalId = profile.externalId, !profileExternalId.isEmpty, profileExternalId != externalId {
+            externalId = profileExternalId
+        }
     }
 
     mutating func updateRequestAndStateWithPendingProfile(profile: CreateProfilePayload) -> CreateProfilePayload {

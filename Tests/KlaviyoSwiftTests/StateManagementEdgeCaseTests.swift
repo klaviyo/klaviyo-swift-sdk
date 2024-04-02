@@ -354,4 +354,31 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.enqueueProfile(profile))
         await fulfillment(of: [expection])
     }
+
+    func testSetProfileWithEmptyStringIdentifiers() async throws {
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "foo@bar.com",
+            anonymousId: environment.analytics.uuid().uuidString,
+            phoneNumber: "99999999",
+            externalId: "12345",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.analytics.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
+            $0.email = nil // since we reset state
+            $0.phoneNumber = nil // since we reset state
+            $0.externalId = nil // since we reset state
+            $0.enqueueProfileOrTokenRequest()
+            $0.pushTokenData = nil
+        }
+    }
 }
