@@ -121,6 +121,7 @@ struct KlaviyoState: Equatable, Codable {
 
     mutating func updateEmail(email: String) {
         if email.isEmpty || email == self.email {
+            logDevWarning(for: "email")
             return
         }
 
@@ -130,6 +131,7 @@ struct KlaviyoState: Equatable, Codable {
 
     mutating func updateExternalId(externalId: String) {
         if externalId.isEmpty || externalId == self.externalId {
+            logDevWarning(for: "externalId")
             return
         }
 
@@ -139,6 +141,7 @@ struct KlaviyoState: Equatable, Codable {
 
     mutating func updatePhoneNumber(phoneNumber: String) {
         if phoneNumber.isEmpty || phoneNumber == self.phoneNumber {
+            logDevWarning(for: "phone number")
             return
         }
 
@@ -184,14 +187,20 @@ struct KlaviyoState: Equatable, Codable {
     mutating func updateStateWithProfile(profile: Profile) {
         if let profileEmail = profile.email, !profileEmail.isEmpty, profileEmail != email {
             email = profileEmail
+        } else {
+            logDevWarning(for: "email")
         }
 
         if let profilePhoneNumber = profile.phoneNumber, !profilePhoneNumber.isEmpty, profilePhoneNumber != phoneNumber {
             phoneNumber = profilePhoneNumber
+        } else {
+            logDevWarning(for: "phone number")
         }
 
         if let profileExternalId = profile.externalId, !profileExternalId.isEmpty, profileExternalId != externalId {
             externalId = profileExternalId
+        } else {
+            logDevWarning(for: "external id")
         }
     }
 
@@ -382,6 +391,14 @@ private func removeStateFile(at file: URL) {
     } catch {
         environment.logger.error("Unable to remove state file.")
     }
+}
+
+private func logDevWarning(for identifier: String) {
+    environment.emitDeveloperWarning("""
+    \(identifier) is either empty or same as what is already set earlier.
+    The SDK will ignore this change, please use resetProfile for
+    resetting profile identifiers
+    """)
 }
 
 /// Loads SDK state from disk
