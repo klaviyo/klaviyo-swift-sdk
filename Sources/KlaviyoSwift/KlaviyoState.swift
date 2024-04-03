@@ -120,33 +120,24 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateEmail(email: String) {
-        if email.isEmpty || email == self.email {
-            logDevWarning(for: "email")
-            return
+        if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
+            self.email = email
+            enqueueProfileOrTokenRequest()
         }
-
-        self.email = email
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func updateExternalId(externalId: String) {
-        if externalId.isEmpty || externalId == self.externalId {
-            logDevWarning(for: "externalId")
-            return
+        if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
+            self.externalId = externalId
+            enqueueProfileOrTokenRequest()
         }
-
-        self.externalId = externalId
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
-        if phoneNumber.isEmpty || phoneNumber == self.phoneNumber {
-            logDevWarning(for: "phone number")
-            return
+        if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
+            self.phoneNumber = phoneNumber
+            enqueueProfileOrTokenRequest()
         }
-
-        self.phoneNumber = phoneNumber
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func enqueueProfileOrTokenRequest() {
@@ -185,28 +176,19 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        if let profileEmail = profile.email {
-            if !profileEmail.isEmpty, profileEmail != email {
-                email = profileEmail
-            } else {
-                logDevWarning(for: "email")
-            }
+        if let profileEmail = profile.email,
+           profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
+            email = profileEmail
         }
 
-        if let profilePhoneNumber = profile.phoneNumber {
-            if !profilePhoneNumber.isEmpty, profilePhoneNumber != phoneNumber {
-                phoneNumber = profilePhoneNumber
-            } else {
-                logDevWarning(for: "phone number")
-            }
+        if let profilePhoneNumber = profile.phoneNumber,
+           profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
+            phoneNumber = profilePhoneNumber
         }
 
-        if let profileExternalId = profile.externalId {
-            if !profileExternalId.isEmpty, profileExternalId != externalId {
-                externalId = profileExternalId
-            } else {
-                logDevWarning(for: "external id")
-            }
+        if let profileExternalId = profile.externalId,
+           profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
+            externalId = profileExternalId
         }
     }
 
@@ -519,5 +501,16 @@ extension Profile {
             properties: customProperties)
 
         return profile
+    }
+}
+
+extension String {
+    fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
+        let incoming = self
+        if incoming.isEmpty || incoming == state {
+            logDevWarning(for: identifier)
+        }
+
+        return !incoming.isEmpty && incoming != state
     }
 }
