@@ -185,22 +185,28 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        if let profileEmail = profile.email, !profileEmail.isEmpty, profileEmail != email {
-            email = profileEmail
-        } else {
-            logDevWarning(for: "email")
+        if let profileEmail = profile.email {
+            if !profileEmail.isEmpty, profileEmail != email {
+                email = profileEmail
+            } else {
+                logDevWarning(for: "email")
+            }
         }
 
-        if let profilePhoneNumber = profile.phoneNumber, !profilePhoneNumber.isEmpty, profilePhoneNumber != phoneNumber {
-            phoneNumber = profilePhoneNumber
-        } else {
-            logDevWarning(for: "phone number")
+        if let profilePhoneNumber = profile.phoneNumber {
+            if !profilePhoneNumber.isEmpty, profilePhoneNumber != phoneNumber {
+                phoneNumber = profilePhoneNumber
+            } else {
+                logDevWarning(for: "phone number")
+            }
         }
 
-        if let profileExternalId = profile.externalId, !profileExternalId.isEmpty, profileExternalId != externalId {
-            externalId = profileExternalId
-        } else {
-            logDevWarning(for: "external id")
+        if let profileExternalId = profile.externalId {
+            if !profileExternalId.isEmpty, profileExternalId != externalId {
+                externalId = profileExternalId
+            } else {
+                logDevWarning(for: "external id")
+            }
         }
     }
 
