@@ -98,7 +98,7 @@ struct KlaviyoState: Equatable, Codable {
     var initalizationState = InitializationState.uninitialized
     var flushing = false
     var flushInterval = StateManagementConstants.wifiFlushInterval
-    var retryInfo = RetryInfo.retry(0)
+    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 

@@ -44,12 +44,11 @@ struct KlaviyoAPI {
 
         var urlRequest: URLRequest
         do {
-            urlRequest = try request.urlRequest()
+            urlRequest = try request.urlRequest(attemptNumber)
         } catch {
             requestFailed(request, error, 0.0)
             return .failure(.internalRequestError(error))
         }
-        urlRequest.allHTTPHeaderFields?["X-Klaviyo-Retry-Attempt"] = "\(attemptNumber)/50"
 
         requestStarted(request)
 
@@ -86,7 +85,7 @@ struct KlaviyoAPI {
 }
 
 extension KlaviyoAPI.KlaviyoRequest {
-    func urlRequest() throws -> URLRequest {
+    func urlRequest(_ attemptNumber: Int = StateManagementConstants.initialAttempt) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.analytics.apiURL)")
         }
@@ -97,6 +96,7 @@ extension KlaviyoAPI.KlaviyoRequest {
         }
         request.httpBody = body
         request.httpMethod = "POST"
+        request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
     }
