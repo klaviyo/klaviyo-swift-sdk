@@ -55,7 +55,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -78,7 +78,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -96,11 +96,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(1)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryInfo = .retry(2)
         }
     }
 
@@ -144,7 +144,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -167,7 +167,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -189,7 +189,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -211,7 +211,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -232,7 +232,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -253,7 +253,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 
@@ -270,11 +270,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 0)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 0)
+            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 0)
         }
     }
 
@@ -316,7 +316,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
         }
     }
 }
