@@ -416,13 +416,15 @@ struct KlaviyoReducer: ReducerProtocol {
                         pushToken: tokenData.pushToken,
                         enablement: tokenData.pushEnablement.rawValue,
                         background: tokenData.pushBackground.rawValue,
-                        profile: profile,
+                        profile: profile.profile(from: state),
                         anonymousId: anonymousId)
                     ))
             } else {
                 request = KlaviyoAPI.KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: .createProfile(.init(data: .init(profile: profile, anonymousId: anonymousId))))
+                    endpoint: .createProfile(
+                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
+                    ))
             }
             state.enqueueRequest(request: request)
 
@@ -483,5 +485,18 @@ extension Event {
                      value: value,
                      time: time,
                      uniqueId: uniqueId)
+    }
+}
+
+extension Profile {
+    fileprivate func profile(from state: KlaviyoState) -> Profile {
+        Profile(
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId,
+            firstName: firstName,
+            image: image,
+            location: location,
+            properties: properties)
     }
 }

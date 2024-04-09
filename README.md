@@ -310,6 +310,45 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 ```
+When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
+
+```swift
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void) {
+        // decrement the badge count on the app icon
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(UIApplication.shared.applicationIconBadgeNumber - 1)
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber -= 1
+        }
+
+        // If this notification is Klaviyo's notification we'll handle it
+        // else pass it on to the next push notification service to which it may belong
+        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
+        if !handled {
+            completionHandler()
+        }
+    }
+```
+
+Additionally, if you just want to reset the badge count to zero when the app is opened(note that this could be from
+the user just opening the app independent of the push message), you can add the following code to
+the `applicationDidBecomeActive` method in the app delegate:
+
+```swift
+
+func applicationDidBecomeActive(_ application: UIApplication) {
+    // reset the badge count on the app icon
+    if #available(iOS 16.0, *) {
+        UNUserNotificationCenter.current().setBadgeCount(0)
+    } else {
+        UIApplication.shared.applicationIconBadgeNumber = 0
+    }
+}
+```
+
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
 #### Deep Linking

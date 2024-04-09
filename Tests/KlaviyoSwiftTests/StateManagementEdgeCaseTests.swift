@@ -144,6 +144,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    func testSetEmptyEmail() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setEmail(""))
+    }
+
     // MARK: - Set External Id
 
     func testSetExternalIdUninitialized() async throws {
@@ -173,6 +180,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    func testSetEmptyExternalId() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setExternalId(""))
+    }
+
     // MARK: - Set Phone number
 
     func testSetPhoneNumberUninitialized() async throws {
@@ -199,6 +213,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
             $0.phoneNumber = "1-800-Blobs4u"
         }
+    }
+
+    func testSetEmptyPhoneNumber() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setPhoneNumber(""))
     }
 
     // MARK: - Set Push Token
@@ -332,5 +353,32 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let profile = Profile(email: "foo")
         _ = await store.send(.enqueueProfile(profile))
         await fulfillment(of: [expection])
+    }
+
+    func testSetProfileWithEmptyStringIdentifiers() async throws {
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "foo@bar.com",
+            anonymousId: environment.analytics.uuid().uuidString,
+            phoneNumber: "99999999",
+            externalId: "12345",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.analytics.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
+            $0.email = nil // since we reset state
+            $0.phoneNumber = nil // since we reset state
+            $0.externalId = nil // since we reset state
+            $0.enqueueProfileOrTokenRequest()
+            $0.pushTokenData = nil
+        }
     }
 }
