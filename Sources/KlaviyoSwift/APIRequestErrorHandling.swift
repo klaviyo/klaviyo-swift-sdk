@@ -33,10 +33,9 @@ enum InvalidField: Equatable {
     }
 }
 
-private func getDelaySeconds(for count: Int) -> Int {
-    let delay = Int(pow(2.0, Double(count)))
+private func addJitter(to value: Int) -> Int {
     let jitter = environment.randomInt()
-    return min(delay + jitter, ErrorHandlingConstants.maxBackoff)
+    return value + jitter
 }
 
 private func parseError(_ data: Data) -> [InvalidField]? {
@@ -112,7 +111,9 @@ func handleRequestError(
         case let .retryWithBackoff(requestCount, totalCount, _):
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
-            nextBackoff = retryAfter ?? getDelaySeconds(for: totalRetryCount)
+            let exponentialBackOff = Int(pow(2.0, Double(totalRetryCount)))
+
+            nextBackoff = addJitter(to: retryAfter ?? exponentialBackOff)
         }
         return .requestFailed(
             request, .retryWithBackoff(
