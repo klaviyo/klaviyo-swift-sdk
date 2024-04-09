@@ -70,7 +70,7 @@ struct KlaviyoAPI {
 
         if httpResponse.statusCode == 429 {
             requestRateLimited(request)
-            let retryAfter = httpResponse.allHeaderFields["Retry-After"] as? Int
+            let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
             return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
         }
 
