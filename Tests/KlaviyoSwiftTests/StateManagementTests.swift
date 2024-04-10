@@ -293,7 +293,7 @@ class StateManagementTests: XCTestCase {
         // didn't fake uuid since we are not testing this.
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
-            $0.retryInfo = .retry(0)
+            $0.retryInfo = .retry(1)
             $0.requestsInFlight = []
             $0.queue = []
         }
