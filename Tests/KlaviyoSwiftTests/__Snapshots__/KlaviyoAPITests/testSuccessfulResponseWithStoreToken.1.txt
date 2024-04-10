@@ -11,7 +11,7 @@
   ▿ allHTTPHeaderFields: Optional<Dictionary<String, String>>
     ▿ some: 1 key/value pair
       ▿ (2 elements)
-        - key: "X-Klaviyo-Retry-Attempt"
+        - key: "X-Klaviyo-Attempt-Count"
         - value: "0/50"
   ▿ httpBody: Optional<Data>
     - some: 0 bytes

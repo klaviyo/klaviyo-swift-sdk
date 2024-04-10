@@ -9,8 +9,8 @@
 import SnapshotTesting
 import XCTest
 
+@MainActor
 final class KlaviyoAPITests: XCTestCase {
-    @MainActor
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
@@ -101,7 +101,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
         await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 assertSnapshot(matching: data, as: .dump)
