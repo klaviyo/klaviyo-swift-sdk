@@ -11,7 +11,6 @@ import Foundation
 import SnapshotTesting
 import XCTest
 
-@MainActor
 final class KlaviyoStateTests: XCTestCase {
     let TEST_EVENT = [
         "event": "$opened_push",

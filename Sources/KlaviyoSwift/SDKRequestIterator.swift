@@ -137,6 +137,7 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
             KlaviyoAPI.requestFailed = { _, _, _ in }
             KlaviyoAPI.requestCompleted = { _, _, _ in }
             KlaviyoAPI.requestHttpError = { _, _, _ in }
+            KlaviyoAPI.requestRateLimited = { _ in }
         }
         KlaviyoAPI.requestStarted = { request in
             continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .inProgress))
@@ -150,6 +151,9 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
         }
         KlaviyoAPI.requestHttpError = { request, statusCode, duration in
             continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .httpError(statusCode, duration)))
+        }
+        KlaviyoAPI.requestRateLimited = { request in
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .reqeustError("Rate Limited", 0.0)))
         }
     }
 }

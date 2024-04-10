@@ -17,10 +17,6 @@ final class KlaviyoAPITests: XCTestCase {
         environment = KlaviyoEnvironment.test()
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     func testInvalidURL() async throws {
         environment.analytics.apiURL = ""
 
@@ -105,7 +101,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
         await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 assertSnapshot(matching: data, as: .dump)
@@ -134,7 +129,7 @@ final class KlaviyoAPITests: XCTestCase {
 
     func sendAndAssert(with request: KlaviyoAPI.KlaviyoRequest,
                        assertion: (Result<Data, KlaviyoAPI.KlaviyoAPIError>) -> Void) async {
-        let result = await KlaviyoAPI().send(request)
+        let result = await KlaviyoAPI().send(request, 0)
         assertion(result)
     }
 }

@@ -9,7 +9,10 @@
   ▿ httpMethod: Optional<String>
     - some: "POST"
   ▿ allHTTPHeaderFields: Optional<Dictionary<String, String>>
-    - some: 0 key/value pairs
+    ▿ some: 1 key/value pair
+      ▿ (2 elements)
+        - key: "X-Klaviyo-Attempt-Count"
+        - value: "0/50"
   ▿ httpBody: Optional<Data>
     - some: 0 bytes
   - httpBodyStream: Optional<NSInputStream>.none
