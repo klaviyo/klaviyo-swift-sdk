@@ -298,6 +298,25 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    func testRetryWithRetryAfter() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.analytics.klaviyoAPI.send = { _ in .failure(.rateLimitError(20)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryInfo = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
+        }
+    }
+
     // MARK: - Missing or invalid response
 
     @MainActor

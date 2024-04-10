@@ -120,27 +120,24 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateEmail(email: String) {
-        guard email != self.email else {
-            return
+        if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
+            self.email = email
+            enqueueProfileOrTokenRequest()
         }
-        self.email = email
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func updateExternalId(externalId: String) {
-        guard externalId != self.externalId else {
-            return
+        if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
+            self.externalId = externalId
+            enqueueProfileOrTokenRequest()
         }
-        self.externalId = externalId
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
-        guard phoneNumber != self.phoneNumber else {
-            return
+        if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
+            self.phoneNumber = phoneNumber
+            enqueueProfileOrTokenRequest()
         }
-        self.phoneNumber = phoneNumber
-        enqueueProfileOrTokenRequest()
     }
 
     mutating func enqueueProfileOrTokenRequest() {
@@ -179,9 +176,20 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        email = profile.email ?? email
-        phoneNumber = profile.phoneNumber ?? phoneNumber
-        externalId = profile.externalId ?? externalId
+        if let profileEmail = profile.email,
+           profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
+            email = profileEmail
+        }
+
+        if let profilePhoneNumber = profile.phoneNumber,
+           profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
+            phoneNumber = profilePhoneNumber
+        }
+
+        if let profileExternalId = profile.externalId,
+           profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
+            externalId = profileExternalId
+        }
     }
 
     mutating func updateRequestAndStateWithPendingProfile(profile: CreateProfilePayload) -> CreateProfilePayload {
@@ -373,6 +381,14 @@ private func removeStateFile(at file: URL) {
     }
 }
 
+private func logDevWarning(for identifier: String) {
+    environment.emitDeveloperWarning("""
+    \(identifier) is either empty or same as what is already set earlier.
+    The SDK will ignore this change, please use resetProfile for
+    resetting profile identifiers
+    """)
+}
+
 /// Loads SDK state from disk
 /// - Parameter apiKey: the API key that uniquely identiifies the company
 /// - Returns: an instance of the `KlaviyoState`
@@ -485,5 +501,16 @@ extension Profile {
             properties: customProperties)
 
         return profile
+    }
+}
+
+extension String {
+    fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
+        let incoming = self
+        if incoming.isEmpty || incoming == state {
+            logDevWarning(for: identifier)
+        }
+
+        return !incoming.isEmpty && incoming != state
     }
 }
