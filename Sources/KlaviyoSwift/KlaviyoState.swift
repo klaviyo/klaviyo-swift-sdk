@@ -506,7 +506,7 @@ extension Profile {
 
 extension String {
     fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
-        let incoming = self
+        let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
         if incoming.isEmpty || incoming == state {
             logDevWarning(for: identifier)
         }

@@ -158,6 +158,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setEmail(""))
     }
 
+    func testSetEmailWithWhiteSpace() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setEmail("        "))
+    }
+
     // MARK: - Set External Id
 
     @MainActor
@@ -196,6 +203,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setExternalId(""))
     }
 
+    func testSetExternalIdWithWhiteSpaces() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setExternalId(""))
+    }
+
     // MARK: - Set Phone number
 
     @MainActor
@@ -227,6 +241,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     func testSetEmptyPhoneNumber() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setPhoneNumber(""))
+    }
+
+    func testSetPhoneNumberWithWhiteSpaces() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
