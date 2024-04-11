@@ -22,7 +22,7 @@ struct KlaviyoAPI {
 
     enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
-        case rateLimitError
+        case rateLimitError(Int?)
         case missingOrInvalidResponse(URLResponse?)
         case networkError(Error)
         case internalError(String)
@@ -39,12 +39,12 @@ struct KlaviyoAPI {
     static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
     static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 
-    var send: (KlaviyoRequest) async -> Result<Data, KlaviyoAPIError> = { request in
+    var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
 
         var urlRequest: URLRequest
         do {
-            urlRequest = try request.urlRequest()
+            urlRequest = try request.urlRequest(attemptNumber)
         } catch {
             requestFailed(request, error, 0.0)
             return .failure(.internalRequestError(error))
@@ -70,7 +70,8 @@ struct KlaviyoAPI {
 
         if httpResponse.statusCode == 429 {
             requestRateLimited(request)
-            return .failure(KlaviyoAPIError.rateLimitError)
+            let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
+            return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
@@ -85,7 +86,7 @@ struct KlaviyoAPI {
 }
 
 extension KlaviyoAPI.KlaviyoRequest {
-    func urlRequest() throws -> URLRequest {
+    func urlRequest(_ attemptNumber: Int = StateManagementConstants.initialAttempt) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.analytics.apiURL)")
         }
@@ -96,6 +97,7 @@ extension KlaviyoAPI.KlaviyoRequest {
         }
         request.httpBody = body
         request.httpMethod = "POST"
+        request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
     }

@@ -9,14 +9,15 @@
 import Foundation
 import XCTest
 
-@MainActor
 class StateManagementEdgeCaseTests: XCTestCase {
+    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
 
     // MARK: - initialization
 
+    @MainActor
     func testInitializeWhileInitializing() async throws {
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -39,6 +40,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.initialize(apiKey))
     }
 
+    @MainActor
     func testInitializeAfterInitialized() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -57,6 +59,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Send Request
 
+    @MainActor
     func testSendRequestBeforeInitialization() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -71,6 +74,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Complete Initialization
 
+    @MainActor
     func testCompleteInitializationWhileAlreadyInitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -87,6 +91,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.completeInitialization(initialState))
     }
 
+    @MainActor
     func testCompleteInitializationWithExistingIdentifiers() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -110,6 +115,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Set Email
 
+    @MainActor
     func testSetEmailUninitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
@@ -130,6 +136,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await fulfillment(of: [expection])
     }
 
+    @MainActor
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -151,8 +158,16 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setEmail(""))
     }
 
+    func testSetEmailWithWhiteSpace() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setEmail("        "))
+    }
+
     // MARK: - Set External Id
 
+    @MainActor
     func testSetExternalIdUninitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -166,6 +181,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setExternalId("external-blob-id"))
     }
 
+    @MainActor
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -187,8 +203,16 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setExternalId(""))
     }
 
+    func testSetExternalIdWithWhiteSpaces() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setExternalId(""))
+    }
+
     // MARK: - Set Phone number
 
+    @MainActor
     func testSetPhoneNumberUninitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -202,6 +226,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
     }
 
+    @MainActor
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
         let initialState = KlaviyoState(anonymousId: environment.analytics.uuid().uuidString,
                                         queue: [],
@@ -222,8 +247,16 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber(""))
     }
 
+    func testSetPhoneNumberWithWhiteSpaces() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setPhoneNumber(""))
+    }
+
     // MARK: - Set Push Token
 
+    @MainActor
     func testSetPushTokenUninitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -237,6 +270,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPushToken("blob_token", .authorized))
     }
 
+    @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -254,6 +288,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Stop
 
+    @MainActor
     func testStopUninitialized() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -267,6 +302,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.stop)
     }
 
+    @MainActor
     func testStopInitializing() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -282,6 +318,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Start
 
+    @MainActor
     func testStartUninitialized() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -297,6 +334,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Network Status Changed
 
+    @MainActor
     func testNetworkStatusChangedUninitialized() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -312,6 +350,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - Missing api key for token request
 
+    @MainActor
     func testTokenRequestMissingApiKey() async {
         let initialState = KlaviyoState(
             anonymousId: environment.analytics.uuid().uuidString,
@@ -329,6 +368,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - set enqueue event uninitialized
 
+    @MainActor
     func testEnqueueEventUninitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
@@ -343,6 +383,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     // MARK: - set profile uninitialized
 
+    @MainActor
     func testSetProfileUnitialized() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in

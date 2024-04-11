@@ -21,6 +21,7 @@ enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
     static let wifiFlushInterval = 10.0
     static let maxQueueSize = 200
+    static let initialAttempt = 1
 }
 
 enum RetryInfo: Equatable {
@@ -293,7 +294,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
-            state.retryInfo = RetryInfo.retry(0)
+            state.retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -313,8 +314,13 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             let retryInfo = state.retryInfo
-            return .run { send in
-                let result = await environment.analytics.klaviyoAPI.send(request)
+            var numAttempts = 1
+            if case let .retry(attempts) = retryInfo {
+                numAttempts = attempts
+            }
+
+            return .run { [numAttempts] send in
+                let result = await environment.analytics.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
@@ -361,7 +367,7 @@ struct KlaviyoReducer: ReducerProtocol {
             switch retryInfo {
             case let .retry(count):
                 exceededRetries = count > ErrorHandlingConstants.maxRetries
-                state.retryInfo = .retry(exceededRetries ? 0 : count)
+                state.retryInfo = .retry(exceededRetries ? 1 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
                 exceededRetries = requestCount > ErrorHandlingConstants.maxRetries
                 state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)

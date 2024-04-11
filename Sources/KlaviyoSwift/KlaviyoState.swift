@@ -98,7 +98,7 @@ struct KlaviyoState: Equatable, Codable {
     var initalizationState = InitializationState.uninitialized
     var flushing = false
     var flushInterval = StateManagementConstants.wifiFlushInterval
-    var retryInfo = RetryInfo.retry(0)
+    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
@@ -506,7 +506,7 @@ extension Profile {
 
 extension String {
     fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
-        let incoming = self
+        let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
         if incoming.isEmpty || incoming == state {
             logDevWarning(for: identifier)
         }
