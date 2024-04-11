@@ -270,11 +270,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 0)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 0)
+            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 1)
         }
     }
 
@@ -290,11 +290,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 8)
+            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 1)
         }
     }
 

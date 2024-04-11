@@ -102,7 +102,9 @@ func handleRequestError(
     case let .rateLimitError(retryAfter):
         var requestRetryCount = 0
         var totalRetryCount = 0
-        var nextBackoff = 0
+        let exponentialBackOff = Int(pow(2.0, Double(totalRetryCount)))
+
+        let nextBackoff = addJitter(to: retryAfter ?? exponentialBackOff)
         switch retryInfo {
         case let .retry(count):
             requestRetryCount = count + 1
@@ -111,9 +113,6 @@ func handleRequestError(
         case let .retryWithBackoff(requestCount, totalCount, _):
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
-            let exponentialBackOff = Int(pow(2.0, Double(totalRetryCount)))
-
-            nextBackoff = addJitter(to: retryAfter ?? exponentialBackOff)
         }
         return .requestFailed(
             request, .retryWithBackoff(
