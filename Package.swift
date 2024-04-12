@@ -27,11 +27,13 @@ let package = Package(
         .target(
             name: "KlaviyoSwift",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
-            path: "Sources/KlaviyoSwift"),
+            path: "Sources/KlaviyoSwift",
+            resources: [.copy("PrivacyInfo.xcprivacy")]),
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension"),
+            path: "Sources/KlaviyoSwiftExtension",
+            resources: [.copy("PrivacyInfo.xcprivacy")]),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [
