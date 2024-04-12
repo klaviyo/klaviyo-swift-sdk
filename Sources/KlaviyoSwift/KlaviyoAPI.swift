@@ -36,7 +36,7 @@ struct KlaviyoAPI {
     static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
     static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
     static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
-    static var requestRateLimited: (KlaviyoRequest) -> Void = { _ in }
+    static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
     static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 
     var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
@@ -69,8 +69,8 @@ struct KlaviyoAPI {
         }
 
         if httpResponse.statusCode == 429 {
-            requestRateLimited(request)
             let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
+            requestRateLimited(request, retryAfter)
             return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
         }
 
