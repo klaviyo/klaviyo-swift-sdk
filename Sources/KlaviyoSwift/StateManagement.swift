@@ -501,6 +501,9 @@ extension Profile {
             phoneNumber: state.phoneNumber,
             externalId: state.externalId,
             firstName: firstName,
+            lastName: lastName,
+            organization: organization,
+            title: title,
             image: image,
             location: location,
             properties: properties)
