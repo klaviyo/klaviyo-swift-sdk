@@ -15,5 +15,4 @@ Pod::Spec.new do |s|
   s.platform = :ios
   s.ios.deployment_target = '13.0'
   s.source_files = 'Sources/KlaviyoSwiftExtension/**/*.swift'
-  s.resource_bundles = {"KlaviyoSwiftExtension" => ["Sources/KlaviyoSwiftExtension/PrivacyInfo.xcprivacy"]}
 end
