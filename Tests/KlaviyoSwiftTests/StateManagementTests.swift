@@ -458,6 +458,30 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testSetProfileWithAllProfileIdentifiersAndProperties() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile.test)) {
+            $0.email = Profile.test.email
+            $0.phoneNumber = Profile.test.phoneNumber
+            $0.externalId = Profile.test.externalId
+            $0.pushTokenData = nil
+
+            let request = KlaviyoAPI.KlaviyoRequest(
+                apiKey: initialState.apiKey!,
+                endpoint: .registerPushToken(.init(
+                    pushToken: initialState.pushTokenData!.pushToken,
+                    enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                    background: initialState.pushTokenData!.pushBackground.rawValue,
+                    profile: Profile.test,
+                    anonymousId: initialState.anonymousId!)
+                ))
+            $0.queue = [request]
+        }
+    }
+
     // MARK: - Test enqueue event
 
     @MainActor
