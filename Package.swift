@@ -32,8 +32,7 @@ let package = Package(
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension",
-            resources: [.copy("PrivacyInfo.xcprivacy")]),
+            path: "Sources/KlaviyoSwiftExtension"),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [
