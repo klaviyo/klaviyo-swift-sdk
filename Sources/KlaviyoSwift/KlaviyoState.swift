@@ -13,6 +13,53 @@ typealias DeviceMetadata = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPa
 typealias CreateProfilePayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload
 
 struct KlaviyoState: Equatable, Codable {
+    // MARK: state
+
+    var apiKey: String?
+    var email: String?
+    var anonymousId: String?
+    var phoneNumber: String?
+    var externalId: String?
+    var pushTokenData: PushTokenData?
+
+    // represents if the SDK has been initilized with the company id
+    var initalizationState = InitializationState.uninitialized
+
+    // MARK: queueing
+
+    // primary queue to which requests are added and dequeued from when flushing
+    var queue: [KlaviyoAPI.KlaviyoRequest]
+
+    // to hold requests when flushing
+    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
+
+    // when the SDK is not initilized we hold any requests to the SDK here
+    var pendingRequests: [PendingRequest] = []
+
+    // flag that indicates if the SDK is flushing it's queue
+    var flushing = false
+
+    // the flush internal based on network conditions
+    var flushInterval = StateManagementConstants.wifiFlushInterval
+
+    // retry when there is a retryable failure like HTTP status code 429 etc
+    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
+
+    // need to figure out when this is set, but its used when profile property is set and the SDK is not initilized
+    var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
+
+    // MARK: models
+
+    enum CodingKeys: CodingKey {
+        case apiKey
+        case email
+        case anonymousId
+        case phoneNumber
+        case externalId
+        case queue
+        case pushTokenData
+    }
+
     enum InitializationState: Equatable, Codable {
         case uninitialized
         case initializing
@@ -82,34 +129,6 @@ struct KlaviyoState: Equatable, Codable {
                 return PushBackground.available
             }
         }
-    }
-
-    // state related stuff
-    var apiKey: String?
-    var email: String?
-    var anonymousId: String?
-    var phoneNumber: String?
-    var externalId: String?
-    var pushTokenData: PushTokenData?
-
-    // queueing related stuff
-    var queue: [KlaviyoAPI.KlaviyoRequest]
-    var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
-    var initalizationState = InitializationState.uninitialized
-    var flushing = false
-    var flushInterval = StateManagementConstants.wifiFlushInterval
-    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
-    var pendingRequests: [PendingRequest] = []
-    var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
-
-    enum CodingKeys: CodingKey {
-        case apiKey
-        case email
-        case anonymousId
-        case phoneNumber
-        case externalId
-        case queue
-        case pushTokenData
     }
 
     mutating func enqueueRequest(request: KlaviyoAPI.KlaviyoRequest) {
@@ -394,19 +413,23 @@ private func logDevWarning(for identifier: String) {
 /// - Returns: an instance of the `KlaviyoState`
 func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
-    guard environment.fileClient.fileExists(fileName.path) else {
+
+    if !environment.fileClient.fileExists(fileName.path) {
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard let stateData = try? environment.data(fileName) else {
+
+    guard let stateData: Data = try? environment.data(fileName) else {
         environment.logger.error("Klaviyo state file invalid starting from scratch.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
+
     guard var state: KlaviyoState = try? environment.analytics.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file. Removing.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
+
     if state.apiKey != apiKey {
         // Clear existing state since we are using a new api state.
         state = KlaviyoState(
@@ -423,6 +446,8 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
     storeKlaviyoState(state: state, file: file)
     return state
 }
+
+// MARK: Convience Extensions
 
 extension Profile {
     fileprivate static func updateProfileWithProperties(

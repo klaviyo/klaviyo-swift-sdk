@@ -305,7 +305,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            guard state.flushing else {
+            if !state.flushing {
                 return .none
             }
 
