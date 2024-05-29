@@ -400,3 +400,32 @@ extension Profile.Location: Codable {
         case timezone
     }
 }
+
+extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint {
+    var isRegisterToken: Bool {
+        switch self {
+        case .registerPushToken:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isProfile: Bool {
+        switch self {
+        case .createProfile:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isEvent: Bool {
+        switch self {
+        case .createEvent:
+            return true
+        default:
+            return false
+        }
+    }
+}

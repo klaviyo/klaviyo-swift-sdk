@@ -1,0 +1,6 @@
+framework module KlaviyoSwiftExtension {
+  umbrella header "KlaviyoSwiftExtension-umbrella.h"
+
+  export *
+  module * { export * }
+}

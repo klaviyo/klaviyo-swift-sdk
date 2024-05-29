@@ -12,6 +12,13 @@ import UIKit
 typealias DeviceMetadata = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.PushToken.Attributes.MetaData
 typealias CreateProfilePayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload
 
+enum Endpoint {
+    case registerToken
+    case unregisterToken
+    case profile
+    case events
+}
+
 struct KlaviyoState: Equatable, Codable {
     // MARK: state
 
@@ -30,6 +37,10 @@ struct KlaviyoState: Equatable, Codable {
     // primary queue to which requests are added and dequeued from when flushing
     var queue: [KlaviyoAPI.KlaviyoRequest]
 
+    var tokenQueue: [KlaviyoAPI.KlaviyoRequest]
+
+    var eventsQueue: [KlaviyoAPI.KlaviyoRequest]
+
     // to hold requests when flushing
     var requestsInFlight: [KlaviyoAPI.KlaviyoRequest] = []
 
@@ -39,11 +50,20 @@ struct KlaviyoState: Equatable, Codable {
     // flag that indicates if the SDK is flushing it's queue
     var flushing = false
 
+    var flushingTokens = false
+
+    var flushingEvents = false
+
     // the flush internal based on network conditions
     var flushInterval = StateManagementConstants.wifiFlushInterval
 
     // retry when there is a retryable failure like HTTP status code 429 etc
-    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
+    var retryInfo: [Endpoint: RetryInfo] = [
+        .registerToken: .retry(StateManagementConstants.initialAttempt),
+        .unregisterToken: .retry(StateManagementConstants.initialAttempt),
+        .events: .retry(StateManagementConstants.initialAttempt),
+        .profile: .retry(StateManagementConstants.initialAttempt)
+    ]
 
     // need to figure out when this is set, but its used when profile property is set and the SDK is not initilized
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
@@ -57,6 +77,8 @@ struct KlaviyoState: Equatable, Codable {
         case phoneNumber
         case externalId
         case queue
+        case tokenQueue
+        case eventsQueue
         case pushTokenData
     }
 
@@ -132,10 +154,34 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func enqueueRequest(request: KlaviyoAPI.KlaviyoRequest) {
-        guard queue.count + 1 < StateManagementConstants.maxQueueSize else {
+        print("########## enqueing request ##########")
+
+        print("request = ", request.endpoint)
+
+        if case .registerPushToken = request.endpoint {
+            enqueueTokenRequest(request: request)
+        } else if case .createEvent = request.endpoint {
+            enqueueEventsRequest(request: request)
+        } else {
+            guard queue.count + 1 < StateManagementConstants.maxQueueSize else {
+                return
+            }
+            queue.append(request)
+        }
+    }
+
+    mutating func enqueueTokenRequest(request: KlaviyoAPI.KlaviyoRequest) {
+        guard tokenQueue.count + 1 < StateManagementConstants.maxQueueSize else {
             return
         }
-        queue.append(request)
+        tokenQueue.append(request)
+    }
+
+    mutating func enqueueEventsRequest(request: KlaviyoAPI.KlaviyoRequest) {
+        guard eventsQueue.count + 1 < StateManagementConstants.maxQueueSize else {
+            return
+        }
+        eventsQueue.append(request)
     }
 
     mutating func updateEmail(email: String) {
@@ -435,14 +481,16 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         state = KlaviyoState(
             apiKey: apiKey,
             anonymousId: environment.analytics.uuid().uuidString,
-            queue: [])
+            queue: [],
+            tokenQueue: [],
+            eventsQueue: [])
     }
     return state
 }
 
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
     let anonymousId = environment.analytics.uuid().uuidString
-    let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
+    let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], tokenQueue: [], eventsQueue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
 }
@@ -537,5 +585,20 @@ extension String {
         }
 
         return !incoming.isEmpty && incoming != state
+    }
+}
+
+extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint {
+    var getEndpoint: Endpoint {
+        switch self {
+        case .registerPushToken:
+            return .registerToken
+        case .createEvent:
+            return .events
+        case .createProfile:
+            return .profile
+        case .unregisterPushToken:
+            return .unregisterToken
+        }
     }
 }

@@ -1,0 +1,4 @@
+${PODS_ROOT}/Target Support Files/Pods-CocoapodsExample/Pods-CocoapodsExample-frameworks.sh
+${BUILT_PRODUCTS_DIR}/AnyCodable-FlightSchool/AnyCodable.framework
+${BUILT_PRODUCTS_DIR}/KlaviyoSwift/KlaviyoSwift.framework
+${BUILT_PRODUCTS_DIR}/KlaviyoSwiftExtension/KlaviyoSwiftExtension.framework

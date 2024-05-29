@@ -66,9 +66,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
 
             // Enable or disable features based on the authorization status.
-        }
 
-        UIApplication.shared.registerForRemoteNotifications()
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
     }
 
     func application(

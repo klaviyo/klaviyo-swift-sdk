@@ -1,0 +1,3 @@
+${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AnyCodable.framework
+${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/KlaviyoSwift.framework
+${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/KlaviyoSwiftExtension.framework

@@ -26,7 +26,7 @@ enum StateManagementConstants {
 
 enum RetryInfo: Equatable {
     case retry(Int) // Int is current count for first request
-    case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
+    case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int, endpoint: KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint)
 }
 
 enum KlaviyoAction: Equatable {
@@ -230,32 +230,112 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            if state.flushing {
+            if state.flushing && state.flushingEvents && state.flushingTokens {
                 return .none
             }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryInfo {
-                let newBackOff = max(backOff - Int(state.flushInterval), 0)
-                if newBackOff > 0 {
-                    state.retryInfo = .retryWithBackoff(
-                        requestCount: requestCount,
-                        totalRetryCount: totalCount,
-                        currentBackoff: newBackOff)
-                    return .none
-                } else {
-                    state.retryInfo = .retry(requestCount)
+
+            for (endpoint, retryInfo) in state.retryInfo {
+                switch endpoint {
+                case .registerToken:
+                    if case let .retryWithBackoff(requestCount, totalCount, backOff, endpoint) = retryInfo {
+                        let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                        if newBackOff > 0 {
+                            state.retryInfo[endpoint.getEndpoint] = .retryWithBackoff(
+                                requestCount: requestCount,
+                                totalRetryCount: totalCount,
+                                currentBackoff: newBackOff,
+                                endpoint: endpoint)
+                            return .none // dont return none since we want to flush other queues
+                        } else {
+                            state.retryInfo[endpoint.getEndpoint] = .retry(requestCount)
+                        }
+                    }
+                case .unregisterToken:
+                    if case let .retryWithBackoff(requestCount, totalCount, backOff, endpoint) = retryInfo {
+                        let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                        if newBackOff > 0 {
+                            state.retryInfo[endpoint.getEndpoint] = .retryWithBackoff(
+                                requestCount: requestCount,
+                                totalRetryCount: totalCount,
+                                currentBackoff: newBackOff,
+                                endpoint: endpoint)
+                            return .none // dont return none since we want to flush other queues
+                        } else {
+                            state.retryInfo[endpoint.getEndpoint] = .retry(requestCount)
+                        }
+                    }
+                case .profile:
+                    if case let .retryWithBackoff(requestCount, totalCount, backOff, endpoint) = retryInfo {
+                        let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                        if newBackOff > 0 {
+                            state.retryInfo[endpoint.getEndpoint] = .retryWithBackoff(
+                                requestCount: requestCount,
+                                totalRetryCount: totalCount,
+                                currentBackoff: newBackOff,
+                                endpoint: endpoint)
+                            return .none // dont return none since we want to flush other queues
+                        } else {
+                            state.retryInfo[endpoint.getEndpoint] = .retry(requestCount)
+                        }
+                    }
+                case .events:
+                    if case let .retryWithBackoff(requestCount, totalCount, backOff, endpoint) = retryInfo {
+                        let newBackOff = max(backOff - Int(state.flushInterval), 0)
+                        if newBackOff > 0 {
+                            state.retryInfo[endpoint.getEndpoint] = .retryWithBackoff(
+                                requestCount: requestCount,
+                                totalRetryCount: totalCount,
+                                currentBackoff: newBackOff,
+                                endpoint: endpoint)
+                            return .none // dont return none since we want to flush other queues
+                        } else {
+                            state.retryInfo[endpoint.getEndpoint] = .retry(requestCount)
+                        }
+                    }
                 }
             }
+
             if state.pendingProfile != nil {
                 state.enqueueProfileOrTokenRequest()
             }
 
-            if state.queue.isEmpty {
+            if state.queue.isEmpty && state.tokenQueue.isEmpty && state.eventsQueue.isEmpty {
                 return .none
             }
 
-            state.requestsInFlight.append(contentsOf: state.queue)
-            state.queue.removeAll()
-            state.flushing = true
+            if !state.queue.isEmpty {
+                print("########## flushing regular queue ##########")
+                state.queue.forEach {
+                    print("\($0) \n")
+                }
+
+                state.requestsInFlight.append(contentsOf: state.queue)
+                state.queue.removeAll()
+                state.flushing = true
+            }
+
+            if !state.tokenQueue.isEmpty {
+                print("########## flushing token queue ##########")
+                state.tokenQueue.forEach {
+                    print("\($0) \n")
+                }
+
+                state.requestsInFlight.append(contentsOf: state.tokenQueue)
+                state.tokenQueue.removeAll()
+                state.flushingTokens = true
+            }
+
+            if !state.eventsQueue.isEmpty {
+                print("########## flushing events queue ##########")
+                state.eventsQueue.forEach {
+                    print("\($0) \n")
+                }
+
+                state.requestsInFlight.append(contentsOf: state.eventsQueue)
+                state.eventsQueue.removeAll()
+                state.flushingEvents = true
+            }
+
             return .task {
                 .sendRequest
             }
@@ -294,7 +374,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
-            state.retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
+            state.retryInfo[completedRequest.endpoint.getEndpoint] = RetryInfo.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -313,7 +393,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
-            let retryInfo = state.retryInfo
+            let retryInfo = state.retryInfo[request.endpoint.getEndpoint] ?? RetryInfo.retry(StateManagementConstants.initialAttempt)
             var numAttempts = 1
             if case let .retry(attempts) = retryInfo {
                 numAttempts = attempts
@@ -367,10 +447,10 @@ struct KlaviyoReducer: ReducerProtocol {
             switch retryInfo {
             case let .retry(count):
                 exceededRetries = count > ErrorHandlingConstants.maxRetries
-                state.retryInfo = .retry(exceededRetries ? 1 : count)
-            case let .retryWithBackoff(requestCount, totalCount, backOff):
+                state.retryInfo[request.endpoint.getEndpoint] = .retry(exceededRetries ? 1 : count)
+            case let .retryWithBackoff(requestCount, totalCount, backOff, endpoint):
                 exceededRetries = requestCount > ErrorHandlingConstants.maxRetries
-                state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
+                state.retryInfo[request.endpoint.getEndpoint] = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff, endpoint: endpoint)
             }
             if exceededRetries {
                 state.requestsInFlight.removeAll { inflightRequest in
@@ -470,7 +550,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
-        initialState: KlaviyoState(queue: [], requestsInFlight: []),
+        initialState: KlaviyoState(queue: [], tokenQueue: [], eventsQueue: [], requestsInFlight: []),
         reducer: KlaviyoReducer())
 }
 

@@ -75,7 +75,7 @@ func handleRequestError(
         case let .retry(count):
             let requestRetryCount = count + 1
             return .requestFailed(request, .retry(requestRetryCount))
-        case let .retryWithBackoff(requestCount, _, _):
+        case let .retryWithBackoff(requestCount, _, _, _):
             return .requestFailed(request, .retry(requestCount + 1))
         }
 
@@ -110,7 +110,7 @@ func handleRequestError(
             requestRetryCount = count + 1
             totalRetryCount = requestRetryCount
 
-        case let .retryWithBackoff(requestCount, totalCount, _):
+        case let .retryWithBackoff(requestCount, totalCount, _, _):
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
         }
@@ -118,7 +118,8 @@ func handleRequestError(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
-                currentBackoff: nextBackoff))
+                currentBackoff: nextBackoff,
+                endpoint: request.endpoint))
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
