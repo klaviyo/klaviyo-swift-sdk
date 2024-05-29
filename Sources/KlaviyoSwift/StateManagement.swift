@@ -112,7 +112,6 @@ struct KlaviyoReducer: ReducerProtocol {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.emitDeveloperWarning("SDK must be initialized before usage.")
-            return .none
         }
 
         switch action {
