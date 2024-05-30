@@ -92,7 +92,11 @@ enum KlaviyoAction: Equatable {
 
     var requiresInitialization: Bool {
         switch self {
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
+        case let .enqueueEvent(event):
+            // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
+            return event.metric.name == .OpenedPush ? false : true
+
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -112,6 +116,7 @@ struct KlaviyoReducer: ReducerProtocol {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.emitDeveloperWarning("SDK must be initialized before usage.")
+            return .none
         }
 
         switch action {

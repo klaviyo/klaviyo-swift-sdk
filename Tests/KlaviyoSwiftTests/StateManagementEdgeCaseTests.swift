@@ -131,9 +131,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setEmail("test@blob.com")) {
-            $0.pendingRequests = [.setEmail("test@blob.com")]
-        }
+        _ = await store.send(.setEmail("test@blob.com"))
 
         await fulfillment(of: [expection])
     }
@@ -180,9 +178,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId("external-blob-id")) {
-            $0.pendingRequests = [.setExternalId("external-blob-id")]
-        }
+        _ = await store.send(.setExternalId("external-blob-id"))
     }
 
     @MainActor
@@ -227,9 +223,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
-            $0.pendingRequests = [.setPhoneNumber("1-800-Blobs4u")]
-        }
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
     }
 
     @MainActor
@@ -273,9 +267,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPushToken("blob_token", .authorized)) {
-            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
-        }
+        _ = await store.send(.setPushToken("blob_token", .authorized))
     }
 
     @MainActor
@@ -378,17 +370,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testEnqueueEventUninitialized() async throws {
-        let expection = XCTestExpectation(description: "fatal error expected")
-        environment.emitDeveloperWarning = { _ in
-            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
-            expection.fulfill()
-        }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: .OpenedPush)
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }
-        await fulfillment(of: [expection])
     }
 
     // MARK: - set profile uninitialized
@@ -402,9 +388,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let profile = Profile(email: "foo")
-        _ = await store.send(.enqueueProfile(profile)) {
-            $0.pendingRequests = [.profile(profile)]
-        }
+        _ = await store.send(.enqueueProfile(profile))
         await fulfillment(of: [expection])
     }
 
