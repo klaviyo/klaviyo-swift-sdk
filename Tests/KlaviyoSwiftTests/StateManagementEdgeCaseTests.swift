@@ -116,7 +116,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Email
 
     @MainActor
-    func testSetEmailUninitialized() async throws {
+    func testSetEmailUninitializedDoesNotAddToPendingRequest() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
             // Would really fatalError - not happening because we can't do that in tests so we fake it.
@@ -168,7 +168,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set External Id
 
     @MainActor
-    func testSetExternalIdUninitialized() async throws {
+    func testSetExternalIdUninitializedDoesNotAddToPendingRequest() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.analytics.uuid().uuidString,
@@ -213,7 +213,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Phone number
 
     @MainActor
-    func testSetPhoneNumberUninitialized() async throws {
+    func testSetPhoneNumberUninitializedDoesNotAddToPendingRequest() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.analytics.uuid().uuidString,
@@ -257,7 +257,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Push Token
 
     @MainActor
-    func testSetPushTokenUninitialized() async throws {
+    func testSetPushTokenUninitializedDoesNotAddToPendingRequest() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.analytics.uuid().uuidString,
@@ -369,12 +369,31 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - set enqueue event uninitialized
 
     @MainActor
-    func testEnqueueEventUninitialized() async throws {
+    func testOpenedPushEventUninitializedAddsToPendingRequests() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: .OpenedPush)
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }
+    }
+
+    @MainActor
+    func testEnqueueNonOpenedPushEventUninitializedDoesNotAddToPendingRequest() async throws {
+        let expection = XCTestExpectation(description: "fatal error expected")
+        environment.emitDeveloperWarning = { _ in
+            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
+            expection.fulfill()
+        }
+        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
+
+        let nonOpenedPushEvents = Event.EventName.allCases.filter { $0 != .OpenedPush }
+
+        for event in nonOpenedPushEvents {
+            let event = Event(name: event)
+            _ = await store.send(.enqueueEvent(event))
+        }
+
+        await fulfillment(of: [expection])
     }
 
     // MARK: - set profile uninitialized
@@ -417,5 +436,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.enqueueProfileOrTokenRequest()
             $0.pushTokenData = nil
         }
+    }
+}
+
+extension Event.EventName: CaseIterable {
+    public static var allCases: [KlaviyoSwift.Event.EventName] {
+        [.OpenedPush, .OpenedAppMetric, .ViewedProductMetric, .AddedToCartMetric, .StartedCheckoutMetric, .CustomEvent("someEvent")]
     }
 }
