@@ -94,7 +94,7 @@ enum KlaviyoAction: Equatable {
         switch self {
         case let .enqueueEvent(event):
             // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
-            return event.metric.name == .OpenedPush ? false : true
+            return event.metric.name != .OpenedPush
 
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
             return true
