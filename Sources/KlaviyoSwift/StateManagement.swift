@@ -226,7 +226,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken.lowercased(), enablement: enablement)
             state.enqueueRequest(request: request)
             return .none
 
@@ -290,7 +290,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 let enablement = KlaviyoState.PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = KlaviyoState.PushBackground(rawValue: requestData.backgroundStatus) ?? .available
                 state.pushTokenData = KlaviyoState.PushTokenData(
-                    pushToken: requestData.token,
+                    pushToken: requestData.token.lowercased(),
                     pushEnablement: enablement,
                     pushBackground: backgroundStatus,
                     deviceData: requestData.deviceMetadata)
