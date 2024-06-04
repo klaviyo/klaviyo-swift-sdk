@@ -485,14 +485,22 @@ class StateManagementTests: XCTestCase {
     // MARK: - Test enqueue event
 
     @MainActor
-    func testEnqueueEvent() async throws {
+    func testEnqueueEvents() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush, properties: ["push_token": initialState.pushTokenData!.pushToken])
-        _ = await store.send(.enqueueEvent(event)) {
-            let newEvent = Event(name: .OpenedPush, properties: event.properties, identifiers: .init(phoneNumber: $0.phoneNumber))
-            try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId))))))
+
+        for eventName in Event.EventName.allCases {
+            let event = Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
+            await store.send(.enqueueEvent(event)) {
+                let newEvent = Event(name: eventName, properties: event.properties, identifiers: .init(phoneNumber: $0.phoneNumber))
+                try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId))))))
+            }
+
+            // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
+            if eventName == .OpenedPush {
+                await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+            }
         }
     }
 
@@ -501,7 +509,7 @@ class StateManagementTests: XCTestCase {
         let initialState = INITILIZING_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        let event = Event(name: .OpenedPush)
+        let event = Event(name: .OpenedAppMetric)
         await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [KlaviyoState.PendingRequest.event(event)]
         }
@@ -512,7 +520,7 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
-            let newEvent = Event(name: .OpenedPush, identifiers: .init(phoneNumber: $0.phoneNumber))
+            let newEvent = Event(name: .OpenedAppMetric, identifiers: .init(phoneNumber: $0.phoneNumber))
             try $0.enqueueRequest(
                 request: .init(apiKey: XCTUnwrap($0.apiKey),
                                endpoint: .createEvent(.init(
