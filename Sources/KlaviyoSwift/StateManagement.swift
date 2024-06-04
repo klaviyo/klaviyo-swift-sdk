@@ -92,7 +92,11 @@ enum KlaviyoAction: Equatable {
 
     var requiresInitialization: Bool {
         switch self {
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueEvent, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue:
+        // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
+        case let .enqueueEvent(event) where event.metric.name == .OpenedPush:
+            return false
+
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
