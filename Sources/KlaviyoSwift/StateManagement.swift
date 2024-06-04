@@ -400,7 +400,13 @@ struct KlaviyoReducer: ReducerProtocol {
                                                 endpoint: .createEvent(
                                                     .init(data: .init(event: event, anonymousId: anonymousId))
                                                 )))
-            return .none
+
+            /*
+             if we receive an opened push event we want to flush the queue right away so that
+             we don't miss any user engagement events. In all other cases we will flush the queue
+             using the flush intervals defined above in `StateManagementConstants`
+             */
+            return event.metric.name == .OpenedPush ? .task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
