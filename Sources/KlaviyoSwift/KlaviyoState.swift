@@ -40,6 +40,13 @@ struct KlaviyoState: Equatable, Codable {
             case pushBackground
             case deviceData
         }
+
+        static func ==(lhs: PushTokenData, rhs: PushTokenData) -> Bool {
+            lhs.pushToken.lowercased() == rhs.pushToken.lowercased() &&
+                lhs.pushEnablement == rhs.pushEnablement &&
+                lhs.pushBackground == rhs.pushBackground &&
+                lhs.deviceData == rhs.deviceData
+        }
     }
 
     enum PushEnablement: String, Codable {

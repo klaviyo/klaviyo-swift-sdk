@@ -186,4 +186,22 @@ final class KlaviyoStateTests: XCTestCase {
         // Fake value to test availability
         XCTAssertEqual(KlaviyoState.PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .notDetermined)
     }
+
+    func testPushTokenDataEquatableIgnoresCaseForPushToken() {
+        let pushTokenData = ["abcd", "ABCD"].map { tokens in
+            KlaviyoState.PushTokenData(pushToken: tokens, pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+        }
+
+        XCTAssertEqual(pushTokenData.first!, pushTokenData.last!)
+    }
+
+    func testPushTokenDataEquatableWithDifferentEnablement() {
+        let pushTokenData = [
+            ("abcd", KlaviyoState.PushEnablement.authorized),
+            ("ABCD", KlaviyoState.PushEnablement.denied)
+        ].map { tuple in
+            KlaviyoState.PushTokenData(pushToken: tuple.0, pushEnablement: tuple.1, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+        }
+        XCTAssertNotEqual(pushTokenData.first!, pushTokenData.last!)
+    }
 }
