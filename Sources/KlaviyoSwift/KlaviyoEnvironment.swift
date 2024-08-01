@@ -8,6 +8,7 @@
 import AnyCodable
 import Combine
 import Foundation
+import KlaviyoCore
 import UIKit
 
 var environment = KlaviyoEnvironment.production

@@ -8,6 +8,9 @@ let package = Package(
     platforms: [.iOS(.v13)],
     products: [
         .library(
+            name: "KlaviyoCore",
+            targets: ["KlaviyoCore"]),
+        .library(
             name: "KlaviyoSwift",
             targets: ["KlaviyoSwift"]),
         .library(
@@ -25,8 +28,12 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "KlaviyoSwift",
+            name: "KlaviyoCore",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            path: "Sources/KlaviyoCore"),
+        .target(
+            name: "KlaviyoSwift",
+            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]),
         .target(
