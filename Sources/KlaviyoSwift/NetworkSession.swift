@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 
 func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral

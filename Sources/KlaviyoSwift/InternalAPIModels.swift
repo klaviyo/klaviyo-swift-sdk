@@ -8,6 +8,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 extension KlaviyoAPI.KlaviyoRequest {
     private static let _appContextInfo = environment.analytics.appContextInfo()

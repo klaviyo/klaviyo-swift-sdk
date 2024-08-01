@@ -7,18 +7,18 @@
 import Foundation
 import UIKit
 
-struct AppContextInfo {
-    private static let info = Bundle.main.infoDictionary
-    private static let defaultExecutable: String = (info?["CFBundleExecutable"] as? String) ??
+public struct AppContextInfo {
+    private let info = Bundle.main.infoDictionary
+    public static let defaultExecutable: String = (Bundle.main.infoDictionary?["CFBundleExecutable"] as? String) ??
         (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
-    private static let defaultBundleId: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
-    private static let defaultAppVersion: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    private static let defaultAppBuild: String = info?["CFBundleVersion"] as? String ?? "Unknown"
-    private static let defaultAppName: String = info?["CFBundleName"] as? String ?? "Unknown"
-    private static let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
-    private static let defaultManufacturer = "Apple"
-    private static let defaultOSName = "iOS"
-    private static let defaultDeviceModel: String = {
+    public static let defaultBundleId: String = Bundle.main.infoDictionary?["CFBundleIdentifier"] as? String ?? "Unknown"
+    public static let defaultAppVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    public static let defaultAppBuild: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    public static let defaultAppName: String = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Unknown"
+    public static let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
+    public static let defaultManufacturer = "Apple"
+    public static let defaultOSName = "iOS"
+    public static let defaultDeviceModel: String = {
         var size = 0
         var deviceModel = ""
         sysctlbyname("hw.machine", nil, &size, nil, 0)
@@ -32,36 +32,36 @@ struct AppContextInfo {
 
     private static let deviceIdStoreKey = "_klaviyo_device_id"
 
-    let executable: String
-    let bundleId: String
-    let appVersion: String
-    let appBuild: String
-    let appName: String
-    let version: OperatingSystemVersion
-    let osName: String
-    let manufacturer: String
-    let deviceModel: String
-    let deviceId: String
-    let environment: String
+    public let executable: String
+    public let bundleId: String
+    public let appVersion: String
+    public let appBuild: String
+    public let appName: String
+    public let version: OperatingSystemVersion
+    public let osName: String
+    public let manufacturer: String
+    public let deviceModel: String
+    public let deviceId: String
+    public let environment: String
 
-    var osVersion: String {
+    public var osVersion: String {
         "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 
-    var osVersionName: String {
+    public var osVersionName: String {
         "\(osName) \(osVersion)"
     }
 
-    init(executable: String = defaultExecutable,
-         bundleId: String = defaultBundleId,
-         appVersion: String = defaultAppVersion,
-         appBuild: String = defaultAppBuild,
-         appName: String = defaultAppName,
-         version: OperatingSystemVersion = defaultOSVersion,
-         osName: String = defaultOSName,
-         manufacturer: String = defaultManufacturer,
-         deviceModel: String = defaultDeviceModel,
-         deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
+    public init(executable: String = defaultExecutable,
+                bundleId: String = defaultBundleId,
+                appVersion: String = defaultAppVersion,
+                appBuild: String = defaultAppBuild,
+                appName: String = defaultAppName,
+                version: OperatingSystemVersion = defaultOSVersion,
+                osName: String = defaultOSName,
+                manufacturer: String = defaultManufacturer,
+                deviceModel: String = defaultDeviceModel,
+                deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
