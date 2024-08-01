@@ -127,6 +127,8 @@ extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
 extension URLResponse {
     static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)!
     static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
+    static let retryableResponse = HTTPURLResponse(url: TEST_URL, statusCode: 429, httpVersion: nil, headerFields: nil)!
+    static let retryable503Response = HTTPURLResponse(url: TEST_URL, statusCode: 503, httpVersion: nil, headerFields: nil)!
 }
 
 extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {

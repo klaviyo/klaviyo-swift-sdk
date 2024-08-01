@@ -77,6 +77,38 @@ final class KlaviyoAPITests: XCTestCase {
         }
     }
 
+    func testRetryableStatusCode() async throws {
+        environment.analytics.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), .retryableResponse)
+        }) }
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        await sendAndAssert(with: request) { result in
+
+            switch result {
+            case let .failure(error):
+                assertSnapshot(matching: error, as: .dump)
+            default:
+                XCTFail("Expected failure here.")
+            }
+        }
+    }
+
+    func testRetryable503StatusCode() async throws {
+        environment.analytics.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), .retryable503Response)
+        }) }
+        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        await sendAndAssert(with: request) { result in
+
+            switch result {
+            case let .failure(error):
+                assertSnapshot(matching: error, as: .dump)
+            default:
+                XCTFail("Expected failure here.")
+            }
+        }
+    }
+
     func testSuccessfulResponseWithProfile() async throws {
         environment.analytics.networkSession = { NetworkSession.test(data: { request in
             assertSnapshot(matching: request, as: .dump)

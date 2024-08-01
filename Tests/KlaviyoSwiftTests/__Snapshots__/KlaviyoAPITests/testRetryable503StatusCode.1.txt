@@ -1,0 +1,3 @@
+▿ KlaviyoAPIError
+  ▿ rateLimitError: Optional<Int>
+    - some: 0

@@ -68,7 +68,7 @@ struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        if httpResponse.statusCode == 429 {
+        if [429, 503].contains(httpResponse.statusCode) {
             let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
             requestRateLimited(request, retryAfter)
             return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
