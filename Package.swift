@@ -8,11 +8,17 @@ let package = Package(
     platforms: [.iOS(.v13)],
     products: [
         .library(
+            name: "Core",
+            targets: ["Core"]),
+        .library(
             name: "KlaviyoSwift",
             targets: ["KlaviyoSwift"]),
         .library(
             name: "KlaviyoSwiftExtension",
-            targets: ["KlaviyoSwiftExtension"])
+            targets: ["KlaviyoSwiftExtension"]),
+        .library(
+            name: "UI",
+            targets: ["UI"])
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
@@ -24,15 +30,24 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.9.1")
     ],
     targets: [
+        // Core module
+        .target(
+            name: "Core",
+            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            path: "Sources/Core"),
         .target(
             name: "KlaviyoSwift",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "Core"],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]),
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
             path: "Sources/KlaviyoSwiftExtension"),
+        .target(
+            name: "UI",
+            dependencies: ["Core"],
+            path: "Sources/UI"),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [

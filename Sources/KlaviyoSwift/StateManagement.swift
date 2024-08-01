@@ -12,6 +12,7 @@
 //
 
 import AnyCodable
+import Core
 import Foundation
 
 typealias PushTokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload
@@ -190,8 +191,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 await send(.start)
             }
-            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
-            .merge(with: environment.stateChangePublisher().eraseToEffect())
+            // TODO: these two need to be fixed in core before doing anything here
+//            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+//            .merge(with: environment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
@@ -396,6 +398,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             event = event.updateEventWithState(state: &state)
+            // TODO: FIXME
             state.enqueueRequest(request: .init(apiKey: apiKey,
                                                 endpoint: .createEvent(
                                                     .init(data: .init(event: event, anonymousId: anonymousId))
@@ -426,21 +429,23 @@ struct KlaviyoReducer: ReducerProtocol {
             let request: KlaviyoAPI.KlaviyoRequest!
 
             if let tokenData = pushTokenData {
-                request = KlaviyoAPI.KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: .registerPushToken(.init(
-                        pushToken: tokenData.pushToken,
-                        enablement: tokenData.pushEnablement.rawValue,
-                        background: tokenData.pushBackground.rawValue,
-                        profile: profile.profile(from: state),
-                        anonymousId: anonymousId)
-                    ))
+                // TODO: FIXME
+//                request = KlaviyoAPI.KlaviyoRequest(
+//                    apiKey: apiKey,
+//                    endpoint: .registerPushToken(.init(
+//                        pushToken: tokenData.pushToken,
+//                        enablement: tokenData.pushEnablement.rawValue,
+//                        background: tokenData.pushBackground.rawValue,
+//                        profile: profile.profile(from: state),
+//                        anonymousId: anonymousId)
+//                    ))
             } else {
-                request = KlaviyoAPI.KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: .createProfile(
-                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
-                    ))
+                // TODO: FIXME
+//                request = KlaviyoAPI.KlaviyoRequest(
+//                    apiKey: apiKey,
+//                    endpoint: .createProfile(
+//                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
+//                    ))
             }
             state.enqueueRequest(request: request)
 

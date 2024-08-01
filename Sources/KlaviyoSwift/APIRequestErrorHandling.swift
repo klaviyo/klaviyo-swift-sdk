@@ -5,6 +5,7 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+import Core
 import Foundation
 
 struct ErrorHandlingConstants {

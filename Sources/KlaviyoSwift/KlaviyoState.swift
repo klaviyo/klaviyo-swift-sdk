@@ -6,6 +6,7 @@
 //
 
 import AnyCodable
+import Core
 import Foundation
 import UIKit
 
@@ -168,7 +169,8 @@ struct KlaviyoState: Equatable, Codable {
         switch request.endpoint {
         case let .createProfile(payload):
             let updatedPayload = updateRequestAndStateWithPendingProfile(profile: payload)
-            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload))
+            // TODO: FIXME
+//            let request = KlaviyoAPI.KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload))
             enqueueRequest(request: request)
         default:
             environment.raiseFatalError("Unexpected request type. \(request.endpoint)")

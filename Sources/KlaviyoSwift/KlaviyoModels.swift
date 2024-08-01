@@ -6,6 +6,7 @@
 //
 
 import AnyCodable
+import Core
 import Foundation
 
 public struct Event: Equatable {

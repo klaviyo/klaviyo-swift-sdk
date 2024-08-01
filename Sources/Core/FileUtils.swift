@@ -11,16 +11,16 @@ func write(data: Data, url: URL) throws {
     try data.write(to: url, options: .atomic)
 }
 
-struct FileClient {
+public struct FileClient {
     static let production = FileClient(
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
         libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! })
-    var write: (Data, URL) throws -> Void
-    var fileExists: (String) -> Bool
-    var removeItem: (String) throws -> Void
-    var libraryDirectory: () -> URL
+    public var write: (Data, URL) throws -> Void
+    public var fileExists: (String) -> Bool
+    public var removeItem: (String) throws -> Void
+    public var libraryDirectory: () -> URL
 }
 
 /**
