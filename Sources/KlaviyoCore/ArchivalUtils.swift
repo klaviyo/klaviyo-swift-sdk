@@ -7,11 +7,11 @@
 
 import Foundation
 
-struct ArchiverClient {
-    var archivedData: (Any, Bool) throws -> Data
-    var unarchivedMutableArray: (Data) throws -> NSMutableArray?
+public struct ArchiverClient {
+    public var archivedData: (Any, Bool) throws -> Data
+    public var unarchivedMutableArray: (Data) throws -> NSMutableArray?
 
-    static let production = ArchiverClient(
+    public static let production = ArchiverClient(
         archivedData: NSKeyedArchiver.archivedData(withRootObject:requiringSecureCoding:),
         unarchivedMutableArray: { data in try NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSArray.self,
                                                                                              NSDictionary.self,
@@ -24,7 +24,7 @@ struct ArchiverClient {
         })
 }
 
-func archiveQueue(queue: NSArray, to fileURL: URL) {
+public func archiveQueue(queue: NSArray, to fileURL: URL) {
     guard let archiveData = try? environment.archiverClient.archivedData(queue, true) else {
         print("unable to archive the data to \(fileURL)")
         return
@@ -37,7 +37,7 @@ func archiveQueue(queue: NSArray, to fileURL: URL) {
     }
 }
 
-func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
+public func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
     guard environment.fileClient.fileExists(fileURL.path) else {
         print("Archive file not found.")
         return nil

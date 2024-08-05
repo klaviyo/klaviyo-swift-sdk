@@ -6,9 +6,8 @@
 //
 
 import Foundation
-import KlaviyoCore
 
-func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
+public func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.httpAdditionalHeaders = [
         "Accept-Encoding": NetworkSession.acceptedEncodings,
@@ -22,21 +21,24 @@ func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.
     return URLSession(configuration: configuration)
 }
 
-struct NetworkSession {
+public struct NetworkSession {
     fileprivate static let currentApiRevision = "2023-07-15"
     fileprivate static let applicationJson = "application/json"
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
     fileprivate static let mobileHeader = "1"
 
-    static let defaultUserAgent = { () -> String in
-        let appContext = environment.analytics.appContextInfo()
-        let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
-        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
+    public static let defaultUserAgent = { () -> String in
+        // TODO: fixme
+        // let appContext = environment.analytics.appContextInfo()
+//        let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
+//        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
+
+        "FIXME"
     }()
 
-    var data: (URLRequest) async throws -> (Data, URLResponse)
+    public var data: (URLRequest) async throws -> (Data, URLResponse)
 
-    static let production = { () -> NetworkSession in
+    public static let production = { () -> NetworkSession in
         let session = createEmphemeralSession()
 
         return NetworkSession(data: { request async throws -> (Data, URLResponse) in

@@ -7,6 +7,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 public struct Event: Equatable {
     public enum EventName: Equatable {
@@ -58,9 +59,9 @@ public struct Event: Equatable {
          uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        self.time = time ?? environment.analytics.date()
+        self.time = time ?? analytics.date()
         self.value = value
-        self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
+        self.uniqueId = uniqueId ?? analytics.uuid().uuidString
         self.identifiers = identifiers
     }
 
@@ -72,8 +73,8 @@ public struct Event: Equatable {
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
-        time = environment.analytics.date()
-        self.uniqueId = uniqueId ?? environment.analytics.uuid().uuidString
+        time = analytics.date()
+        self.uniqueId = uniqueId ?? analytics.uuid().uuidString
     }
 }
 
@@ -122,7 +123,7 @@ public struct Profile: Equatable {
             self.longitude = longitude
             self.region = region
             self.zip = zip
-            self.timezone = timezone ?? environment.analytics.timeZone()
+            self.timezone = timezone ?? analytics.timeZone()
         }
     }
 

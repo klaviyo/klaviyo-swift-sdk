@@ -18,7 +18,7 @@ public struct StateChangePublisher {
     }
 
     private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
-        environment.analytics.statePublisher()
+        analytics.statePublisher()
             .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
             .eraseToAnyPublisher()

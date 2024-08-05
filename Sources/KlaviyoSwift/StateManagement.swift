@@ -13,6 +13,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 typealias PushTokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload
 typealias UnregisterPushTokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.UnregisterPushTokenPayload
@@ -47,7 +48,7 @@ enum KlaviyoAction: Equatable {
     case setExternalId(String)
 
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
-    case setPushToken(String, KlaviyoState.PushEnablement)
+    case setPushToken(String, PushEnablement)
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
@@ -190,8 +191,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 await send(.start)
             }
-            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
-            .merge(with: environment.stateChangePublisher().eraseToEffect())
+            // TODO: fixme
+//            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
+//            .merge(with: environment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
@@ -277,7 +279,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return environment.analytics.timer(state.flushInterval)
+            return analytics.timer(state.flushInterval)
                 .map { _ in
                     KlaviyoAction.flushQueue
                 }
@@ -287,8 +289,8 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(payload) = completedRequest.endpoint {
                 let requestData = payload.data.attributes
-                let enablement = KlaviyoState.PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
-                let backgroundStatus = KlaviyoState.PushBackground(rawValue: requestData.backgroundStatus) ?? .available
+                let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
+                let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
                 state.pushTokenData = KlaviyoState.PushTokenData(
                     pushToken: requestData.token,
                     pushEnablement: enablement,
@@ -324,7 +326,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .run { [numAttempts] send in
-                let result = await environment.analytics.klaviyoAPI.send(request, numAttempts)
+                let result = await analytics.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
@@ -360,7 +362,7 @@ struct KlaviyoReducer: ReducerProtocol {
             case .reachableViaWWAN:
                 state.flushInterval = StateManagementConstants.cellularFlushInterval
             }
-            return environment.analytics.timer(state.flushInterval)
+            return analytics.timer(state.flushInterval)
                 .map { _ in
                     KlaviyoAction.flushQueue
                 }.eraseToEffect()

@@ -9,6 +9,7 @@ import Combine
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import CombineSchedulers
+import KlaviyoCore
 
 enum FakeFileError: Error {
     case fake

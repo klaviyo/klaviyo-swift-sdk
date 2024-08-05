@@ -11,7 +11,7 @@ import Foundation
 import KlaviyoCore
 
 extension KlaviyoAPI.KlaviyoRequest {
-    private static let _appContextInfo = environment.analytics.appContextInfo()
+    private static let _appContextInfo = analytics.appContextInfo()
 
     enum KlaviyoEndpoint: Equatable, Codable {
         struct CreateProfilePayload: Equatable, Codable {
@@ -164,7 +164,7 @@ extension KlaviyoAPI.KlaviyoRequest {
                     "App ID": context.bundleId,
                     "App Version": context.appVersion,
                     "App Build": context.appBuild,
-                    "Push Token": environment.analytics.state().pushTokenData?.pushToken as Any
+                    "Push Token": analytics.state().pushTokenData?.pushToken as Any
                 ]
                 let originalProperties = data.attributes.properties.value as? [String: Any] ?? [:]
                 data.attributes.properties = AnyCodable(originalProperties.merging(metadata) { _, new in new })

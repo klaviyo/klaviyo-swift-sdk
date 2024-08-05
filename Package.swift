@@ -47,7 +47,8 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths"),
-                .product(name: "CombineSchedulers", package: "combine-schedulers")
+                .product(name: "CombineSchedulers", package: "combine-schedulers"),
+                "KlaviyoCore"
             ],
             exclude: [
                 "__Snapshots__"

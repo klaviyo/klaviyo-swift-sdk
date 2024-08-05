@@ -7,6 +7,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 import UIKit
 
 typealias DeviceMetadata = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload.PushToken.Attributes.MetaData
@@ -39,48 +40,6 @@ struct KlaviyoState: Equatable, Codable {
             case pushEnablement
             case pushBackground
             case deviceData
-        }
-    }
-
-    enum PushEnablement: String, Codable {
-        case notDetermined = "NOT_DETERMINED"
-        case denied = "DENIED"
-        case authorized = "AUTHORIZED"
-        case provisional = "PROVISIONAL"
-        case ephemeral = "EPHEMERAL"
-
-        static func create(from status: UNAuthorizationStatus) -> PushEnablement {
-            switch status {
-            case .denied:
-                return PushEnablement.denied
-            case .authorized:
-                return PushEnablement.authorized
-            case .provisional:
-                return PushEnablement.provisional
-            case .ephemeral:
-                return PushEnablement.ephemeral
-            default:
-                return PushEnablement.notDetermined
-            }
-        }
-    }
-
-    enum PushBackground: String, Codable {
-        case available = "AVAILABLE"
-        case restricted = "RESTRICTED"
-        case denied = "DENIED"
-
-        static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
-            switch status {
-            case .available:
-                return PushBackground.available
-            case .restricted:
-                return PushBackground.restricted
-            case .denied:
-                return PushBackground.denied
-            @unknown default:
-                return PushBackground.available
-            }
         }
     }
 
@@ -258,7 +217,7 @@ struct KlaviyoState: Equatable, Codable {
     mutating func reset(preserveTokenData: Bool = true) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
-            anonymousId = environment.analytics.uuid().uuidString
+            anonymousId = analytics.uuid().uuidString
         }
         let previousPushTokenData = pushTokenData
         pendingProfile = nil
@@ -289,7 +248,7 @@ struct KlaviyoState: Equatable, Codable {
         guard let pushTokenData = pushTokenData else {
             return true
         }
-        let currentDeviceMetadata = DeviceMetadata(context: environment.analytics.appContextInfo())
+        let currentDeviceMetadata = DeviceMetadata(context: analytics.appContextInfo())
         let newPushTokenData = PushTokenData(
             pushToken: newToken,
             pushEnablement: enablement,
@@ -367,7 +326,7 @@ private func klaviyoStateFile(apiKey: String) -> URL {
 
 private func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
-        try environment.fileClient.write(environment.analytics.encodeJSON(AnyEncodable(state)), file)
+        try environment.fileClient.write(analytics.encodeJSON(AnyEncodable(state)), file)
     } catch {
         environment.logger.error("Unable to save klaviyo state.")
     }
@@ -402,7 +361,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard var state: KlaviyoState = try? environment.analytics.decoder.decode(stateData) else {
+    guard var state: KlaviyoState = try? analytics.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file. Removing.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
@@ -411,14 +370,14 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         // Clear existing state since we are using a new api state.
         state = KlaviyoState(
             apiKey: apiKey,
-            anonymousId: environment.analytics.uuid().uuidString,
+            anonymousId: analytics.uuid().uuidString,
             queue: [])
     }
     return state
 }
 
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
-    let anonymousId = environment.analytics.uuid().uuidString
+    let anonymousId = analytics.uuid().uuidString
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state

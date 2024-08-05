@@ -7,12 +7,13 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
     Task {
         await MainActor.run {
-            environment.analytics.send(action)
+            analytics.send(action)
         }
     }
 }
@@ -31,7 +32,7 @@ public struct KlaviyoSDK {
     public init() {}
 
     private var state: KlaviyoState {
-        environment.analytics.state()
+        analytics.state()
     }
 
     /// Returns the email for the current user, if any.

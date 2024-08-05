@@ -7,17 +7,18 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 @_spi(KlaviyoPrivate)
 public func setKlaviyoAPIURL(url: String) {
-    environment.analytics.apiURL = url
+    analytics.apiURL = url
 }
 
 struct KlaviyoAPI {
     struct KlaviyoRequest: Equatable, Codable {
         public let apiKey: String
         public let endpoint: KlaviyoEndpoint
-        public var uuid = environment.analytics.uuid().uuidString
+        public var uuid = analytics.uuid().uuidString
     }
 
     enum KlaviyoAPIError: Error {
@@ -55,7 +56,7 @@ struct KlaviyoAPI {
         var response: URLResponse
         var data: Data
         do {
-            (data, response) = try await environment.analytics.networkSession().data(urlRequest)
+            (data, response) = try await analytics.networkSession().data(urlRequest)
         } catch {
             requestFailed(request, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))
@@ -88,7 +89,7 @@ struct KlaviyoAPI {
 extension KlaviyoAPI.KlaviyoRequest {
     func urlRequest(_ attemptNumber: Int = StateManagementConstants.initialAttempt) throws -> URLRequest {
         guard let url = url else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.analytics.apiURL)")
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(analytics.apiURL)")
         }
         var request = URLRequest(url: url)
         // We only support post right now
@@ -105,8 +106,8 @@ extension KlaviyoAPI.KlaviyoRequest {
     var url: URL? {
         switch endpoint {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !environment.analytics.apiURL.isEmpty {
-                return URL(string: "\(environment.analytics.apiURL)/\(path)/?company_id=\(apiKey)")
+            if !analytics.apiURL.isEmpty {
+                return URL(string: "\(analytics.apiURL)/\(path)/?company_id=\(apiKey)")
             }
             return nil
         }
@@ -131,17 +132,17 @@ extension KlaviyoAPI.KlaviyoRequest {
     func encodeBody() throws -> Data {
         switch endpoint {
         case let .createProfile(payload):
-            return try environment.analytics.encodeJSON(AnyEncodable(payload))
+            return try analytics.encodeJSON(AnyEncodable(payload))
 
         case var .createEvent(payload):
             payload.appendMetadataToProperties()
-            return try environment.analytics.encodeJSON(AnyEncodable(payload))
+            return try analytics.encodeJSON(AnyEncodable(payload))
 
         case let .registerPushToken(payload):
-            return try environment.analytics.encodeJSON(AnyEncodable(payload))
+            return try analytics.encodeJSON(AnyEncodable(payload))
 
         case let .unregisterPushToken(payload):
-            return try environment.analytics.encodeJSON(AnyEncodable(payload))
+            return try analytics.encodeJSON(AnyEncodable(payload))
         }
     }
 }

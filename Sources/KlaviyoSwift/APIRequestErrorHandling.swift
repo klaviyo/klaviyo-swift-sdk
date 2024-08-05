@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 
 struct ErrorHandlingConstants {
     static let maxRetries = 50
