@@ -18,7 +18,8 @@ public struct StateChangePublisher {
     }
 
     private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
-        analytics.statePublisher()
+        // TODO: Fixme
+        Store.production.state.eraseToAnyPublisher()
             .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
             .eraseToAnyPublisher()

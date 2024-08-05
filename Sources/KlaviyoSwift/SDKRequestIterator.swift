@@ -7,6 +7,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 @_spi(KlaviyoPrivate)
 public struct SDKRequest: Identifiable, Equatable {

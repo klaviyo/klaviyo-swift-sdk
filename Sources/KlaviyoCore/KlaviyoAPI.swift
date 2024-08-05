@@ -7,21 +7,31 @@
 
 import AnyCodable
 import Foundation
-import KlaviyoCore
 
 @_spi(KlaviyoPrivate)
 public func setKlaviyoAPIURL(url: String) {
     analytics.apiURL = url
 }
 
-struct KlaviyoAPI {
-    struct KlaviyoRequest: Equatable, Codable {
+public struct KlaviyoAPI {
+    public init() {}
+
+    public struct KlaviyoRequest: Equatable, Codable {
+        public init(
+            apiKey: String,
+            endpoint: KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint,
+            uuid: String = analytics.uuid().uuidString) {
+            self.apiKey = apiKey
+            self.endpoint = endpoint
+            self.uuid = uuid
+        }
+
         public let apiKey: String
         public let endpoint: KlaviyoEndpoint
         public var uuid = analytics.uuid().uuidString
     }
 
-    enum KlaviyoAPIError: Error {
+    public enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
         case rateLimitError(Int?)
         case missingOrInvalidResponse(URLResponse?)
@@ -34,13 +44,13 @@ struct KlaviyoAPI {
     }
 
     // For internal testing use only
-    static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
-    static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
-    static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
-    static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
-    static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
+    public static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
+    public static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
+    public static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
+    public static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
+    public static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 
-    var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
+    public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
 
         var urlRequest: URLRequest
@@ -87,7 +97,7 @@ struct KlaviyoAPI {
 }
 
 extension KlaviyoAPI.KlaviyoRequest {
-    func urlRequest(_ attemptNumber: Int = StateManagementConstants.initialAttempt) throws -> URLRequest {
+    public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(analytics.apiURL)")
         }

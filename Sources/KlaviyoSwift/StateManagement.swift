@@ -398,10 +398,10 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             event = event.updateEventWithState(state: &state)
-            state.enqueueRequest(request: .init(apiKey: apiKey,
-                                                endpoint: .createEvent(
-                                                    .init(data: .init(event: event, anonymousId: anonymousId))
-                                                )))
+//            state.enqueueRequest(request: .init(apiKey: apiKey,
+//                                                endpoint: .createEvent(
+//                                                    .init(data: .init(event: event, anonymousId: anonymousId))
+//                                                )))
 
             /*
              if we receive an opened push event we want to flush the queue right away so that
@@ -427,24 +427,24 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let request: KlaviyoAPI.KlaviyoRequest!
 
-            if let tokenData = pushTokenData {
-                request = KlaviyoAPI.KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: .registerPushToken(.init(
-                        pushToken: tokenData.pushToken,
-                        enablement: tokenData.pushEnablement.rawValue,
-                        background: tokenData.pushBackground.rawValue,
-                        profile: profile.profile(from: state),
-                        anonymousId: anonymousId)
-                    ))
-            } else {
-                request = KlaviyoAPI.KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: .createProfile(
-                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
-                    ))
-            }
-            state.enqueueRequest(request: request)
+//            if let tokenData = pushTokenData {
+//                request = KlaviyoAPI.KlaviyoRequest(
+//                    apiKey: apiKey,
+//                    endpoint: .registerPushToken(.init(
+//                        pushToken: tokenData.pushToken,
+//                        enablement: tokenData.pushEnablement.rawValue,
+//                        background: tokenData.pushBackground.rawValue,
+//                        profile: profile.profile(from: state),
+//                        anonymousId: anonymousId)
+//                    ))
+//            } else {
+//                request = KlaviyoAPI.KlaviyoRequest(
+//                    apiKey: apiKey,
+//                    endpoint: .createProfile(
+//                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
+//                    ))
+//            }
+//            state.enqueueRequest(request: request)
 
             return .none
 
