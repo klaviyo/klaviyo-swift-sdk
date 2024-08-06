@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  PushTokenPayload.swift
 //
 //
 //  Created by Ajay Subramanya on 8/5/24.
@@ -17,13 +17,31 @@ public struct PushTokenPayload: Equatable, Codable {
     public init(pushToken: String,
                 enablement: String,
                 background: String,
-                profile: PublicProfile,
+                email: String? = nil,
+                phoneNumber: String? = nil,
+                externalId: String? = nil,
+                firstName: String? = nil,
+                lastName: String? = nil,
+                organization: String? = nil,
+                title: String? = nil,
+                image: String? = nil,
+                location: ProfilePayload.Attributes.Location? = nil,
+                properties: [String: Any]? = nil,
                 anonymousId: String) {
-        data = .init(
+        data = PushToken(
             pushToken: pushToken,
             enablement: enablement,
             background: background,
-            profile: profile,
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            firstName: firstName,
+            lastName: lastName,
+            organization: organization,
+            title: title,
+            image: image,
+            location: location,
+            properties: properties,
             anonymousId: anonymousId)
     }
 
@@ -34,13 +52,31 @@ public struct PushTokenPayload: Equatable, Codable {
         public init(pushToken: String,
                     enablement: String,
                     background: String,
-                    profile: PublicProfile,
+                    email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil,
+                    firstName: String? = nil,
+                    lastName: String? = nil,
+                    organization: String? = nil,
+                    title: String? = nil,
+                    image: String? = nil,
+                    location: ProfilePayload.Attributes.Location? = nil,
+                    properties: [String: Any]? = nil,
                     anonymousId: String) {
-            attributes = .init(
+            attributes = Attributes(
                 pushToken: pushToken,
                 enablement: enablement,
                 background: background,
-                profile: profile,
+                email: email,
+                phoneNumber: phoneNumber,
+                externalId: externalId,
+                firstName: firstName,
+                lastName: lastName,
+                organization: organization,
+                title: title,
+                image: image,
+                location: location,
+                properties: properties,
                 anonymousId: anonymousId)
         }
 
@@ -66,22 +102,62 @@ public struct PushTokenPayload: Equatable, Codable {
             public init(pushToken: String,
                         enablement: String,
                         background: String,
-                        profile: PublicProfile,
+                        email: String? = nil,
+                        phoneNumber: String? = nil,
+                        externalId: String? = nil,
+                        firstName: String? = nil,
+                        lastName: String? = nil,
+                        organization: String? = nil,
+                        title: String? = nil,
+                        image: String? = nil,
+                        location: ProfilePayload.Attributes.Location? = nil,
+                        properties: [String: Any]? = nil,
                         anonymousId: String) {
                 token = pushToken
 
                 enablementStatus = enablement
                 backgroundStatus = background
-                self.profile = .init(attributes: profile, anonymousId: anonymousId)
+                profile = Profile(
+                    email: email,
+                    phoneNumber: phoneNumber,
+                    externalId: externalId,
+                    firstName: firstName,
+                    lastName: lastName,
+                    organization: organization,
+                    title: title,
+                    image: image,
+                    location: location,
+                    properties: properties,
+                    anonymousId: anonymousId)
                 deviceMetadata = .init(context: KlaviyoAPI._appContextInfo)
             }
 
             public struct Profile: Equatable, Codable {
-                public let data: CreateProfilePayload.Profile
+                public let data: ProfilePayload
 
-                public init(attributes: PublicProfile,
+                public init(email: String? = nil,
+                            phoneNumber: String? = nil,
+                            externalId: String? = nil,
+                            firstName: String? = nil,
+                            lastName: String? = nil,
+                            organization: String? = nil,
+                            title: String? = nil,
+                            image: String? = nil,
+                            location: ProfilePayload.Attributes.Location? = nil,
+                            properties: [String: Any]? = nil,
                             anonymousId: String) {
-                    data = .init(profile: attributes, anonymousId: anonymousId)
+                    data = ProfilePayload(attributes: ProfilePayload.Attributes(
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        externalId: externalId,
+                        firstName: firstName,
+                        lastName: lastName,
+                        organization: organization,
+                        title: title,
+                        image: image,
+                        location: location,
+                        properties: properties,
+                        anonymousId: anonymousId))
                 }
             }
 

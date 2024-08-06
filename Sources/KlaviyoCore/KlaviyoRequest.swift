@@ -70,7 +70,8 @@ public struct KlaviyoRequest: Equatable, Codable {
             return try analytics.encodeJSON(AnyEncodable(payload))
 
         case var .createEvent(payload):
-            payload.appendMetadataToProperties()
+            // TODO: fixme get push token here
+            payload.appendMetadataToProperties(pushToken: "")
             return try analytics.encodeJSON(AnyEncodable(payload))
 
         case let .registerPushToken(payload):

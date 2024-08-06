@@ -473,28 +473,3 @@ extension String {
         return !incoming.isEmpty && incoming != state
     }
 }
-
-// TODO: FIXME
-extension PublicProfile {
-    public init(profile: Profile) {
-        self.init(
-            email: profile.email,
-            phoneNumber: profile.phoneNumber,
-            externalId: profile.externalId,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            organization: profile.organization,
-            title: profile.title,
-            image: profile.image,
-            location: profile.location.map { Location(address1: $0.address1,
-                                                      address2: $0.address2,
-                                                      city: $0.city,
-                                                      country: $0.country,
-                                                      latitude: $0.latitude,
-                                                      longitude: $0.longitude,
-                                                      region: $0.region,
-                                                      zip: $0.zip,
-                                                      timezone: $0.timezone) },
-            properties: profile.properties)
-    }
-}

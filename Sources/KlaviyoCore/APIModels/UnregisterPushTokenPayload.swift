@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  UnregisterPushTokenPayload.swift
 //
 //
 //  Created by Ajay Subramanya on 8/5/24.
@@ -11,24 +11,32 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
     public let data: PushToken
 
     public init(pushToken: String,
-                profile: PublicProfile,
+                email: String? = nil,
+                phoneNumber: String? = nil,
+                externalId: String? = nil,
                 anonymousId: String) {
-        data = .init(
+        data = PushToken(
             pushToken: pushToken,
-            profile: profile,
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
             anonymousId: anonymousId)
     }
 
     public struct PushToken: Equatable, Codable {
         var type = "push-token-unregister"
-        public var attributes: Attributes
+        public let attributes: Attributes
 
         public init(pushToken: String,
-                    profile: PublicProfile,
+                    email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil,
                     anonymousId: String) {
-            attributes = .init(
+            attributes = Attributes(
                 pushToken: pushToken,
-                profile: profile,
+                email: email,
+                phoneNumber: phoneNumber,
+                externalId: externalId,
                 anonymousId: anonymousId)
         }
 
@@ -46,18 +54,58 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
             }
 
             public init(pushToken: String,
-                        profile: PublicProfile,
+                        email: String? = nil,
+                        phoneNumber: String? = nil,
+                        externalId: String? = nil,
+                        firstName: String? = nil,
+                        lastName: String? = nil,
+                        organization: String? = nil,
+                        title: String? = nil,
+                        image: String? = nil,
+                        location: ProfilePayload.Attributes.Location? = nil,
+                        properties: [String: Any]? = nil,
                         anonymousId: String) {
                 token = pushToken
-                self.profile = .init(attributes: profile, anonymousId: anonymousId)
+                profile = Profile(
+                    email: email,
+                    phoneNumber: phoneNumber,
+                    externalId: externalId,
+                    firstName: firstName,
+                    lastName: lastName,
+                    organization: organization,
+                    title: title,
+                    image: image,
+                    location: location,
+                    properties: properties,
+                    anonymousId: anonymousId)
             }
 
             public struct Profile: Equatable, Codable {
-                public let data: CreateProfilePayload.Profile
+                public let data: ProfilePayload
 
-                public init(attributes: PublicProfile,
+                public init(email: String? = nil,
+                            phoneNumber: String? = nil,
+                            externalId: String? = nil,
+                            firstName: String? = nil,
+                            lastName: String? = nil,
+                            organization: String? = nil,
+                            title: String? = nil,
+                            image: String? = nil,
+                            location: ProfilePayload.Attributes.Location? = nil,
+                            properties: [String: Any]? = nil,
                             anonymousId: String) {
-                    data = .init(profile: attributes, anonymousId: anonymousId)
+                    data = ProfilePayload(attributes: ProfilePayload.Attributes(
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        externalId: externalId,
+                        firstName: firstName,
+                        lastName: lastName,
+                        organization: organization,
+                        title: title,
+                        image: image,
+                        location: location,
+                        properties: properties,
+                        anonymousId: anonymousId))
                 }
             }
         }

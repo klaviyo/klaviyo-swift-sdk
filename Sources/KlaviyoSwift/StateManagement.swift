@@ -425,21 +425,23 @@ struct KlaviyoReducer: ReducerProtocol {
             let request: KlaviyoRequest!
 
             if let tokenData = pushTokenData {
+                let payload = PushTokenPayload(
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement.rawValue,
+                    background: tokenData.pushBackground.rawValue,
+                    anonymousId: anonymousId)
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: .registerPushToken(.init(
-                        pushToken: tokenData.pushToken,
-                        enablement: tokenData.pushEnablement.rawValue,
-                        background: tokenData.pushBackground.rawValue,
-                        profile: PublicProfile(profile: profile.profile(from: state)),
-                        anonymousId: anonymousId)
-                    ))
+                    endpoint: KlaviyoEndpoint.registerPushToken(payload))
             } else {
+                let payload = profile.toAPIModel(
+                    email: state.email,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId,
+                    anonymousId: anonymousId)
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: .createProfile(
-                        .init(data: .init(profile: PublicProfile(profile: profile.profile(from: state)), anonymousId: anonymousId))
-                    ))
+                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload)))
             }
             state.enqueueRequest(request: request)
 
@@ -500,21 +502,5 @@ extension Event {
                      value: value,
                      time: time,
                      uniqueId: uniqueId)
-    }
-}
-
-extension Profile {
-    fileprivate func profile(from state: KlaviyoState) -> Profile {
-        Profile(
-            email: state.email,
-            phoneNumber: state.phoneNumber,
-            externalId: state.externalId,
-            firstName: firstName,
-            lastName: lastName,
-            organization: organization,
-            title: title,
-            image: image,
-            location: location,
-            properties: properties)
     }
 }

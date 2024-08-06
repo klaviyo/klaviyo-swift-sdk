@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  CreateEventPayload.swift
 //
 //
 //  Created by Ajay Subramanya on 8/5/24.
@@ -34,11 +34,31 @@ public struct CreateEventPayload: Equatable, Codable {
             }
 
             public struct Profile: Equatable, Codable {
-                public let data: CreateProfilePayload.Profile
+                public let data: ProfilePayload
 
-                public init(attributes: PublicProfile,
+                public init(email: String? = nil,
+                            phoneNumber: String? = nil,
+                            externalId: String? = nil,
+                            firstName: String? = nil,
+                            lastName: String? = nil,
+                            organization: String? = nil,
+                            title: String? = nil,
+                            image: String? = nil,
+                            location: ProfilePayload.Attributes.Location? = nil,
+                            properties: [String: Any]? = nil,
                             anonymousId: String) {
-                    data = .init(profile: attributes, anonymousId: anonymousId)
+                    data = ProfilePayload(attributes: ProfilePayload.Attributes(
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        externalId: externalId,
+                        firstName: firstName,
+                        lastName: lastName,
+                        organization: organization,
+                        title: title,
+                        image: image,
+                        location: location,
+                        properties: properties,
+                        anonymousId: anonymousId))
                 }
             }
 
@@ -48,19 +68,26 @@ public struct CreateEventPayload: Equatable, Codable {
             public let time: Date
             public let value: Double?
             public let uniqueId: String
-            public init(attributes: PublicEvent,
-                        anonymousId: String? = nil) {
-                metric = Metric(name: attributes.metric.name.value)
-                properties = AnyCodable(attributes.properties)
-                value = attributes.value
-                time = attributes.time
-                uniqueId = attributes.uniqueId
+            public init(name: String,
+                        properties: [String: Any]? = nil,
+                        email: String? = nil,
+                        phoneNumber: String? = nil,
+                        externalId: String? = nil,
+                        anonymousId: String? = nil,
+                        value: Double? = nil,
+                        time: Date? = nil,
+                        uniqueId: String? = nil) {
+                metric = Metric(name: name)
+                self.properties = AnyCodable(properties)
+                self.value = value
+                self.time = time ?? Date()
+                self.uniqueId = uniqueId ?? analytics.uuid().uuidString
 
-                profile = .init(attributes: .init(
-                    email: attributes.identifiers?.email,
-                    phoneNumber: attributes.identifiers?.phoneNumber,
-                    externalId: attributes.identifiers?.externalId),
-                anonymousId: anonymousId ?? "")
+                profile = Profile(
+                    email: email,
+                    phoneNumber: phoneNumber,
+                    externalId: externalId,
+                    anonymousId: anonymousId ?? "")
             }
 
             enum CodingKeys: String, CodingKey {
@@ -75,31 +102,31 @@ public struct CreateEventPayload: Equatable, Codable {
 
         var type = "event"
         public var attributes: Attributes
-        public init(event: PublicEvent,
-                    anonymousId: String? = nil) {
-            attributes = .init(attributes: event, anonymousId: anonymousId)
-        }
+        // TODO: fixme
+//        public init(event: PublicEvent,
+//                    anonymousId: String? = nil) {
+//            attributes = Attributes(attributes: event, anonymousId: anonymousId)
+//        }
     }
 
-    mutating func appendMetadataToProperties() {
+    mutating func appendMetadataToProperties(pushToken: String) {
         let context = KlaviyoAPI._appContextInfo
         // TODO: Fixme
-//                let metadata: [String: Any] = [
-//                    "Device ID": context.deviceId,
-//                    "Device Manufacturer": context.manufacturer,
-//                    "Device Model": context.deviceModel,
-//                    "OS Name": context.osName,
-//                    "OS Version": context.osVersion,
-//                    "SDK Name": __klaviyoSwiftName,
-//                    "SDK Version": __klaviyoSwiftVersion,
-//                    "App Name": context.appName,
-//                    "App ID": context.bundleId,
-//                    "App Version": context.appVersion,
-//                    "App Build": context.appBuild,
-//                    "Push Token": analytics.state().pushTokenData?.pushToken as Any
-//                ]
+        let metadata: [String: Any] = [
+            "Device ID": context.deviceId,
+            "Device Manufacturer": context.manufacturer,
+            "Device Model": context.deviceModel,
+            "OS Name": context.osName,
+            "OS Version": context.osVersion,
+            "SDK Name": __klaviyoSwiftName,
+            "SDK Version": __klaviyoSwiftVersion,
+            "App Name": context.appName,
+            "App ID": context.bundleId,
+            "App Version": context.appVersion,
+            "App Build": context.appBuild,
+            "Push Token": pushToken
+        ]
 
-        let metadata = [String: Any]()
         let originalProperties = data.attributes.properties.value as? [String: Any] ?? [:]
         data.attributes.properties = AnyCodable(originalProperties.merging(metadata) { _, new in new })
     }
