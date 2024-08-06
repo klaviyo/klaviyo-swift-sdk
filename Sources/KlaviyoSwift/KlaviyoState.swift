@@ -10,8 +10,7 @@ import Foundation
 import KlaviyoCore
 import UIKit
 
-typealias DeviceMetadata = KlaviyoEndpoint.PushTokenPayload.PushToken.Attributes.MetaData
-typealias CreateProfilePayload = KlaviyoEndpoint.CreateProfilePayload
+typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
@@ -259,7 +258,7 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoRequest {
-        let payload = KlaviyoEndpoint.CreateProfilePayload(
+        let payload = CreateProfilePayload(
             data: .init(
                 profile: PublicProfile(
                     email: email,

@@ -15,9 +15,6 @@ import AnyCodable
 import Foundation
 import KlaviyoCore
 
-typealias PushTokenPayload = KlaviyoEndpoint.PushTokenPayload
-typealias UnregisterPushTokenPayload = KlaviyoEndpoint.UnregisterPushTokenPayload
-
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
     static let wifiFlushInterval = 10.0
