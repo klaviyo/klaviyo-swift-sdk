@@ -15,8 +15,8 @@ import AnyCodable
 import Foundation
 import KlaviyoCore
 
-typealias PushTokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload
-typealias UnregisterPushTokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.UnregisterPushTokenPayload
+typealias PushTokenPayload = KlaviyoEndpoint.PushTokenPayload
+typealias UnregisterPushTokenPayload = KlaviyoEndpoint.UnregisterPushTokenPayload
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -54,7 +54,7 @@ enum KlaviyoAction: Equatable {
     case resetProfile
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
-    case deQueueCompletedResults(KlaviyoAPI.KlaviyoRequest)
+    case deQueueCompletedResults(KlaviyoRequest)
 
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
@@ -75,7 +75,7 @@ enum KlaviyoAction: Equatable {
     case cancelInFlightRequests
 
     /// called when there is a network or rate limit error
-    case requestFailed(KlaviyoAPI.KlaviyoRequest, RetryInfo)
+    case requestFailed(KlaviyoRequest, RetryInfo)
 
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
@@ -89,7 +89,7 @@ enum KlaviyoAction: Equatable {
     /// resets the state for profile properties before dequeing the request
     /// this is done in the case where there is http request failure due to
     /// the data that was passed to the client endpoint
-    case resetStateAndDequeue(KlaviyoAPI.KlaviyoRequest, [InvalidField])
+    case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
     var requiresInitialization: Bool {
         switch self {
@@ -425,26 +425,26 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let request: KlaviyoAPI.KlaviyoRequest!
+            let request: KlaviyoRequest!
 
-//            if let tokenData = pushTokenData {
-//                request = KlaviyoAPI.KlaviyoRequest(
-//                    apiKey: apiKey,
-//                    endpoint: .registerPushToken(.init(
-//                        pushToken: tokenData.pushToken,
-//                        enablement: tokenData.pushEnablement.rawValue,
-//                        background: tokenData.pushBackground.rawValue,
-//                        profile: profile.profile(from: state),
-//                        anonymousId: anonymousId)
-//                    ))
-//            } else {
-//                request = KlaviyoAPI.KlaviyoRequest(
-//                    apiKey: apiKey,
-//                    endpoint: .createProfile(
-//                        .init(data: .init(profile: profile.profile(from: state), anonymousId: anonymousId))
-//                    ))
-//            }
-//            state.enqueueRequest(request: request)
+            if let tokenData = pushTokenData {
+                request = KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .registerPushToken(.init(
+                        pushToken: tokenData.pushToken,
+                        enablement: tokenData.pushEnablement.rawValue,
+                        background: tokenData.pushBackground.rawValue,
+                        profile: PublicProfile(profile: profile.profile(from: state)),
+                        anonymousId: anonymousId)
+                    ))
+            } else {
+                request = KlaviyoRequest(
+                    apiKey: apiKey,
+                    endpoint: .createProfile(
+                        .init(data: .init(profile: PublicProfile(profile: profile.profile(from: state)), anonymousId: anonymousId))
+                    ))
+            }
+            state.enqueueRequest(request: request)
 
             return .none
 

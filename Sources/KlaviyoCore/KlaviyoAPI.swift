@@ -13,23 +13,23 @@ public func setKlaviyoAPIURL(url: String) {
     analytics.apiURL = url
 }
 
+public struct KlaviyoRequest: Equatable, Codable {
+    public init(
+        apiKey: String,
+        endpoint: KlaviyoEndpoint,
+        uuid: String = analytics.uuid().uuidString) {
+        self.apiKey = apiKey
+        self.endpoint = endpoint
+        self.uuid = uuid
+    }
+
+    public let apiKey: String
+    public let endpoint: KlaviyoEndpoint
+    public var uuid = analytics.uuid().uuidString
+}
+
 public struct KlaviyoAPI {
     public init() {}
-
-    public struct KlaviyoRequest: Equatable, Codable {
-        public init(
-            apiKey: String,
-            endpoint: KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint,
-            uuid: String = analytics.uuid().uuidString) {
-            self.apiKey = apiKey
-            self.endpoint = endpoint
-            self.uuid = uuid
-        }
-
-        public let apiKey: String
-        public let endpoint: KlaviyoEndpoint
-        public var uuid = analytics.uuid().uuidString
-    }
 
     public enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
@@ -96,7 +96,7 @@ public struct KlaviyoAPI {
     }
 }
 
-extension KlaviyoAPI.KlaviyoRequest {
+extension KlaviyoRequest {
     public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(analytics.apiURL)")
