@@ -18,7 +18,7 @@ public struct KlaviyoAPI {
 
     public enum KlaviyoAPIError: Error {
         case httpError(Int, Data)
-        case rateLimitError(Int?)
+        case rateLimitError(Int)
         case missingOrInvalidResponse(URLResponse?)
         case networkError(Error)
         case internalError(String)
@@ -64,10 +64,18 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        if httpResponse.statusCode == 429 {
-            let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
-            requestRateLimited(request, retryAfter)
-            return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
+        if httpResponse.statusCode == 429, httpResponse.statusCode == 503 {
+            let exponentialBackOff = Int(pow(2.0, Double(attemptNumber)))
+            var nextBackoff: Int = exponentialBackOff
+            if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {
+                nextBackoff = Int(retryAfter) ?? exponentialBackOff
+            }
+
+            let jitter = environment.randomInt()
+            let nextBackOffWithJitter = nextBackoff + jitter
+
+            requestRateLimited(request, nextBackOffWithJitter)
+            return .failure(KlaviyoAPIError.rateLimitError(nextBackOffWithJitter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {

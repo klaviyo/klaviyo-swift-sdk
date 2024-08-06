@@ -34,11 +34,6 @@ enum InvalidField: Equatable {
     }
 }
 
-private func addJitter(to value: Int) -> Int {
-    let jitter = environment.randomInt()
-    return value + jitter
-}
-
 private func parseError(_ data: Data) -> [InvalidField]? {
     var invalidFields: [InvalidField]?
     do {
@@ -103,9 +98,6 @@ func handleRequestError(
     case let .rateLimitError(retryAfter):
         var requestRetryCount = 0
         var totalRetryCount = 0
-        let exponentialBackOff = Int(pow(2.0, Double(totalRetryCount)))
-
-        let nextBackoff = addJitter(to: retryAfter ?? exponentialBackOff)
         switch retryInfo {
         case let .retry(count):
             requestRetryCount = count + 1
@@ -119,7 +111,7 @@ func handleRequestError(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
-                currentBackoff: nextBackoff))
+                currentBackoff: retryAfter))
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
