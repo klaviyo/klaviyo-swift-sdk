@@ -424,24 +424,25 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let request: KlaviyoRequest!
 
+            let profilePayload = profile.toAPIModel(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: anonymousId)
+
             if let tokenData = pushTokenData {
                 let payload = PushTokenPayload(
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    anonymousId: anonymousId)
+                    profile: profilePayload)
                 request = KlaviyoRequest(
                     apiKey: apiKey,
                     endpoint: KlaviyoEndpoint.registerPushToken(payload))
             } else {
-                let payload = profile.toAPIModel(
-                    email: state.email,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    anonymousId: anonymousId)
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload)))
+                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload)))
             }
             state.enqueueRequest(request: request)
 
