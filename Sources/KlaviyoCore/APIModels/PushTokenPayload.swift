@@ -8,22 +8,7 @@
 import Foundation
 
 public struct PushTokenPayload: Equatable, Codable {
-    public init(data: PushTokenPayload.PushToken) {
-        self.data = data
-    }
-
     public let data: PushToken
-
-    public init(pushToken: String,
-                enablement: String,
-                background: String,
-                profile: ProfilePayload) {
-        data = PushToken(
-            pushToken: pushToken,
-            enablement: enablement,
-            background: background,
-            profile: profile)
-    }
 
     public struct PushToken: Equatable, Codable {
         var type = "push-token"
@@ -124,5 +109,20 @@ public struct PushTokenPayload: Equatable, Codable {
                 }
             }
         }
+    }
+
+    public init(data: PushTokenPayload.PushToken) {
+        self.data = data
+    }
+
+    public init(pushToken: String,
+                enablement: String,
+                background: String,
+                profile: ProfilePayload) {
+        data = PushToken(
+            pushToken: pushToken,
+            enablement: enablement,
+            background: background,
+            profile: profile)
     }
 }

@@ -10,19 +10,6 @@ import Foundation
 public struct UnregisterPushTokenPayload: Equatable, Codable {
     public let data: PushToken
 
-    public init(pushToken: String,
-                email: String? = nil,
-                phoneNumber: String? = nil,
-                externalId: String? = nil,
-                anonymousId: String) {
-        data = PushToken(
-            pushToken: pushToken,
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            anonymousId: anonymousId)
-    }
-
     public struct PushToken: Equatable, Codable {
         var type = "push-token-unregister"
         public let attributes: Attributes
@@ -109,5 +96,18 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
                 }
             }
         }
+    }
+
+    public init(pushToken: String,
+                email: String? = nil,
+                phoneNumber: String? = nil,
+                externalId: String? = nil,
+                anonymousId: String) {
+        data = PushToken(
+            pushToken: pushToken,
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: anonymousId)
     }
 }

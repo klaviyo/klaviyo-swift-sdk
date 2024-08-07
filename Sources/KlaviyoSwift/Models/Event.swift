@@ -78,7 +78,7 @@ public struct Event: Equatable {
 }
 
 extension Event.EventName {
-    public var value: String {
+    var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
         case .OpenedAppMetric: return "Opened App"
