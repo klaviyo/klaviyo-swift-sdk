@@ -64,6 +64,12 @@ public struct Event: Equatable {
         self.identifiers = identifiers
     }
 
+    /// Create a new event to track a profile's activity, the SDK will associate the event with any identified/anonymous profile in the SDK state
+    /// - Parameters:
+    ///   - name: Name of the event. Must be less than 128 characters., pick from `Event.EventName` which can also contain custom events
+    ///   - properties: Properties of this event.
+    ///   - value: A numeric, monetary value to associate with this event. For example, the dollar amount of a purchase.
+    ///   - uniqueId: A unique identifier for an event
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 value: Double? = nil,
