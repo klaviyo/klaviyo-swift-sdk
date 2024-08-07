@@ -395,10 +395,23 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             event = event.updateEventWithState(state: &state)
-//            state.enqueueRequest(request: .init(apiKey: apiKey,
-//                                                endpoint: .createEvent(
-//                                                    .init(data: .init(event: event, anonymousId: anonymousId))
-//                                                )))
+
+            let payload = CreateEventPayload(
+                data: CreateEventPayload.Event(
+                    name: event.metric.name.value,
+                    properties: event.properties,
+                    email: event.identifiers?.email,
+                    phoneNumber: event.identifiers?.phoneNumber,
+                    externalId: event.identifiers?.externalId,
+                    anonymousId: anonymousId,
+                    value: event.value,
+                    time: event.time,
+                    uniqueId: event.uniqueId))
+
+            let endpoint = KlaviyoEndpoint.createEvent(payload)
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+
+            state.enqueueRequest(request: request)
 
             /*
              if we receive an opened push event we want to flush the queue right away so that

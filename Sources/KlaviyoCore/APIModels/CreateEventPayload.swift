@@ -36,29 +36,8 @@ public struct CreateEventPayload: Equatable, Codable {
             public struct Profile: Equatable, Codable {
                 public let data: ProfilePayload
 
-                public init(email: String? = nil,
-                            phoneNumber: String? = nil,
-                            externalId: String? = nil,
-                            firstName: String? = nil,
-                            lastName: String? = nil,
-                            organization: String? = nil,
-                            title: String? = nil,
-                            image: String? = nil,
-                            location: ProfilePayload.Attributes.Location? = nil,
-                            properties: [String: Any]? = nil,
-                            anonymousId: String) {
-                    data = ProfilePayload(attributes: ProfilePayload.Attributes(
-                        email: email,
-                        phoneNumber: phoneNumber,
-                        externalId: externalId,
-                        firstName: firstName,
-                        lastName: lastName,
-                        organization: organization,
-                        title: title,
-                        image: image,
-                        location: location,
-                        properties: properties,
-                        anonymousId: anonymousId))
+                public init(data: ProfilePayload) {
+                    self.data = data
                 }
             }
 
@@ -82,12 +61,13 @@ public struct CreateEventPayload: Equatable, Codable {
                 self.value = value
                 self.time = time ?? Date()
                 self.uniqueId = uniqueId ?? analytics.uuid().uuidString
-
                 profile = Profile(
-                    email: email,
-                    phoneNumber: phoneNumber,
-                    externalId: externalId,
-                    anonymousId: anonymousId ?? "")
+                    data: ProfilePayload(
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        externalId: externalId,
+                        anonymousId: anonymousId ?? "")
+                )
             }
 
             enum CodingKeys: String, CodingKey {
@@ -102,11 +82,26 @@ public struct CreateEventPayload: Equatable, Codable {
 
         var type = "event"
         public var attributes: Attributes
-        // TODO: fixme
-//        public init(event: PublicEvent,
-//                    anonymousId: String? = nil) {
-//            attributes = Attributes(attributes: event, anonymousId: anonymousId)
-//        }
+        public init(name: String,
+                    properties: [String: Any]? = nil,
+                    email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil,
+                    anonymousId: String? = nil,
+                    value: Double? = nil,
+                    time: Date? = nil,
+                    uniqueId: String? = nil) {
+            attributes = Attributes(
+                name: name,
+                properties: properties,
+                email: email,
+                phoneNumber: phoneNumber,
+                externalId: externalId,
+                anonymousId: anonymousId,
+                value: value,
+                time: time,
+                uniqueId: uniqueId)
+        }
     }
 
     mutating func appendMetadataToProperties(pushToken: String) {
