@@ -1,5 +1,5 @@
 //
-//  InternalAPIModels.swift
+//  KlaviyoEndpoint.swift
 //  Internal models typically used at the networking layer.
 //  NOTE: Ensure that new request types are equatable and encodable.
 //
@@ -14,8 +14,4 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case createEvent(CreateEventPayload)
     case registerPushToken(PushTokenPayload)
     case unregisterPushToken(UnregisterPushTokenPayload)
-}
-
-extension KlaviyoAPI {
-    public static let _appContextInfo = environment.appContextInfo()
 }

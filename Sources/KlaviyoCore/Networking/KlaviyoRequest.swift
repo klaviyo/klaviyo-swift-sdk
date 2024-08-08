@@ -69,9 +69,7 @@ public struct KlaviyoRequest: Equatable, Codable {
         case let .createProfile(payload):
             return try environment.encodeJSON(AnyEncodable(payload))
 
-        case var .createEvent(payload):
-            // TODO: fixme get push token here
-            payload.appendMetadataToProperties(pushToken: "")
+        case let .createEvent(payload):
             return try environment.encodeJSON(AnyEncodable(payload))
 
         case let .registerPushToken(payload):

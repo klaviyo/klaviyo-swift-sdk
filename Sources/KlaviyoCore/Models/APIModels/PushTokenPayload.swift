@@ -53,7 +53,7 @@ public struct PushTokenPayload: Equatable, Codable {
                 enablementStatus = enablement
                 backgroundStatus = background
                 self.profile = Profile(data: profile)
-                deviceMetadata = MetaData(context: KlaviyoAPI._appContextInfo)
+                deviceMetadata = MetaData(context: environment.appContextInfo())
             }
 
             public struct Profile: Equatable, Codable {

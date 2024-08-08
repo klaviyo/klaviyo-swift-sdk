@@ -90,10 +90,11 @@ public struct CreateEventPayload: Equatable, Codable {
                     anonymousId: String? = nil,
                     value: Double? = nil,
                     time: Date? = nil,
-                    uniqueId: String? = nil) {
+                    uniqueId: String? = nil,
+                    pushToken: String? = nil) {
             attributes = Attributes(
                 name: name,
-                properties: properties,
+                properties: properties?.appendMetadataToProperties(pushToken: pushToken),
                 email: email,
                 phoneNumber: phoneNumber,
                 externalId: externalId,
@@ -104,9 +105,15 @@ public struct CreateEventPayload: Equatable, Codable {
         }
     }
 
-    mutating func appendMetadataToProperties(pushToken: String) {
-        let context = KlaviyoAPI._appContextInfo
-        // TODO: Fixme
+    public var data: Event
+    public init(data: Event) {
+        self.data = data
+    }
+}
+
+extension Dictionary where Key == String, Value == Any {
+    fileprivate func appendMetadataToProperties(pushToken: String?) -> [String: Any]? {
+        let context = environment.appContextInfo()
         let metadata: [String: Any] = [
             "Device ID": context.deviceId,
             "Device Manufacturer": context.manufacturer,
@@ -119,15 +126,9 @@ public struct CreateEventPayload: Equatable, Codable {
             "App ID": context.bundleId,
             "App Version": context.appVersion,
             "App Build": context.appBuild,
-            "Push Token": pushToken
+            "Push Token": pushToken ?? ""
         ]
 
-        let originalProperties = data.attributes.properties.value as? [String: Any] ?? [:]
-        data.attributes.properties = AnyCodable(originalProperties.merging(metadata) { _, new in new })
-    }
-
-    public var data: Event
-    public init(data: Event) {
-        self.data = data
+        return merging(metadata) { _, new in new }
     }
 }

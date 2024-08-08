@@ -406,7 +406,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     anonymousId: anonymousId,
                     value: event.value,
                     time: event.time,
-                    uniqueId: event.uniqueId))
+                    uniqueId: event.uniqueId,
+                    pushToken: state.pushTokenData?.pushToken))
 
             let endpoint = KlaviyoEndpoint.createEvent(payload)
             let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
