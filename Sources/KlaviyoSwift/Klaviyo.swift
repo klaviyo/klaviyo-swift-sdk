@@ -13,8 +13,7 @@ import UIKit
 func dispatchOnMainThread(action: KlaviyoAction) {
     Task {
         await MainActor.run {
-            // TODO: FIXME
-            Store.production.send(action)
+            klaviyoSwiftEnvironment.send(action)
         }
     }
 }
@@ -33,8 +32,7 @@ public struct KlaviyoSDK {
     public init() {}
 
     private var state: KlaviyoState {
-        // TODO: fixme
-        Store.production.state.value
+        klaviyoSwiftEnvironment.state()
     }
 
     /// Returns the email for the current user, if any.

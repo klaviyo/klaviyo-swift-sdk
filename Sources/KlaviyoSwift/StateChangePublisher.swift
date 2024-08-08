@@ -18,8 +18,7 @@ public struct StateChangePublisher {
     }
 
     private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
-        // TODO: Fixme
-        Store.production.state.eraseToAnyPublisher()
+        klaviyoSwiftEnvironment.statePublisher()
             .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
             .eraseToAnyPublisher()

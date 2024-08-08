@@ -326,7 +326,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 let result = await environment.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case .success:
-                    // TODO: may want to inspect response further.
                     await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))

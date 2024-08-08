@@ -282,7 +282,6 @@ struct KlaviyoState: Equatable, Codable {
                 dict: pendingProfile)
             self.pendingProfile = nil
         } else {
-            // TODO: FIXME
             profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
         }
 
