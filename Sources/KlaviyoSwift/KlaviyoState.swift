@@ -356,7 +356,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     guard environment.fileClient.fileExists(fileName.path) else {
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard let stateData = try? environment.data(fileName) else {
+    guard let stateData = try? environment.dataFromUrl(fileName) else {
         environment.logger.error("Klaviyo state file invalid starting from scratch.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)

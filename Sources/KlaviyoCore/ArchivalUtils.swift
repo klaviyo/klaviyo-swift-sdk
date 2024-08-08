@@ -42,7 +42,7 @@ public func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
         print("Archive file not found.")
         return nil
     }
-    guard let archivedData = try? environment.data(fileURL) else {
+    guard let archivedData = try? environment.dataFromUrl(fileURL) else {
         print("Unable to read archived data.")
         return nil
     }

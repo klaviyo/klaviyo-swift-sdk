@@ -9,6 +9,10 @@ import AnyCodable
 import Foundation
 
 public struct KlaviyoRequest: Equatable, Codable {
+    public let apiKey: String
+    public let endpoint: KlaviyoEndpoint
+    public var uuid: String
+
     public init(
         apiKey: String,
         endpoint: KlaviyoEndpoint,
@@ -18,18 +22,14 @@ public struct KlaviyoRequest: Equatable, Codable {
         self.uuid = uuid
     }
 
-    public let apiKey: String
-    public let endpoint: KlaviyoEndpoint
-    public var uuid = environment.uuid().uuidString
-
     public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
         guard let url = url else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL)")
+            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL)")
         }
         var request = URLRequest(url: url)
         // We only support post right now
         guard let body = try? encodeBody() else {
-            throw KlaviyoAPI.KlaviyoAPIError.dataEncodingError(self)
+            throw KlaviyoAPIError.dataEncodingError(self)
         }
         request.httpBody = body
         request.httpMethod = "POST"

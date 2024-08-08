@@ -51,7 +51,7 @@ private func parseError(_ data: Data) -> [InvalidField]? {
 
 func handleRequestError(
     request: KlaviyoRequest,
-    error: KlaviyoAPI.KlaviyoAPIError,
+    error: KlaviyoAPIError,
     retryInfo: RetryInfo) -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):

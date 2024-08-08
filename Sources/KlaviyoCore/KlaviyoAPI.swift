@@ -16,18 +16,6 @@ public func setKlaviyoAPIURL(url: String) {
 public struct KlaviyoAPI {
     public init() {}
 
-    public enum KlaviyoAPIError: Error {
-        case httpError(Int, Data)
-        case rateLimitError(Int)
-        case missingOrInvalidResponse(URLResponse?)
-        case networkError(Error)
-        case internalError(String)
-        case internalRequestError(Error)
-        case unknownError(Error)
-        case dataEncodingError(KlaviyoRequest)
-        case invalidData
-    }
-
     // For internal testing use only
     public static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
     public static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
@@ -36,7 +24,7 @@ public struct KlaviyoAPI {
     public static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 
     public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
-        let start = Date()
+        let start = environment.date()
 
         var urlRequest: URLRequest
         do {
@@ -57,7 +45,7 @@ public struct KlaviyoAPI {
             return .failure(KlaviyoAPIError.networkError(error))
         }
 
-        let end = Date()
+        let end = environment.date()
         let duration = end.timeIntervalSince(start)
 
         guard let httpResponse = response as? HTTPURLResponse else {

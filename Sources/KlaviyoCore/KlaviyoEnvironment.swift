@@ -16,14 +16,14 @@ import os
 public var environment = KlaviyoEnvironment.production
 
 public struct KlaviyoEnvironment {
-    public static let productionHost = "https://a.klaviyo.com"
-    public static let encoder = { () -> JSONEncoder in
+    static let productionHost = "https://a.klaviyo.com"
+    static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return encoder
     }()
 
-    public static let decoder = { () -> JSONDecoder in
+    static let decoder = { () -> JSONDecoder in
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
@@ -33,24 +33,26 @@ public struct KlaviyoEnvironment {
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient
-    public var data: (URL) throws -> Data
+    public var dataFromUrl: (URL) throws -> Data
+
     public var logger: LoggerClient
-    public var getUserDefaultString: (String) -> String?
+
     public var appLifeCycle: AppLifeCycleEvents
+
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
     public var getNotificationSettings: (@escaping (PushEnablement) -> Void) -> Void
     public var getBackgroundSetting: () -> PushBackground
-    public var legacyIdentifier: () -> String
+
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
     public var reachabilityStatus: () -> Reachability.NetworkStatus?
+
     public var randomInt: () -> Int
     // TODO: need to fix this
 //    public var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
+
     public var raiseFatalError: (String) -> Void
     public var emitDeveloperWarning: (String) -> Void
-
-    // analytics environment
 
     public var networkSession: () -> NetworkSession
     public var apiURL: String
@@ -66,11 +68,8 @@ public struct KlaviyoEnvironment {
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
-        data: { url in try Data(contentsOf: url) },
+        dataFromUrl: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
-        // TODO: fixme
-        // analytics: AnalyticsEnvironment.production,
-        getUserDefaultString: { key in UserDefaults.standard.string(forKey: key) },
         appLifeCycle: AppLifeCycleEvents.production,
         notificationCenterPublisher: { name in
             NotificationCenter.default.publisher(for: name)
@@ -82,7 +81,6 @@ public struct KlaviyoEnvironment {
             }
         },
         getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
-        legacyIdentifier: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
         startReachability: {
             try reachabilityService?.startNotifier()
         },
@@ -103,7 +101,7 @@ public struct KlaviyoEnvironment {
         emitDeveloperWarning: { runtimeWarn($0) },
         networkSession: createNetworkSession,
         apiURL: KlaviyoEnvironment.productionHost,
-        encodeJSON: { encodable in try KlaviyoEnvironment.encoder.encode(encodable) },
+        encodeJSON: { encodable in try encoder.encode(encodable) },
         decoder: DataDecoder.production,
         uuid: { UUID() },
         date: { Date() },
@@ -130,53 +128,11 @@ enum KlaviyoDecodingError: Error {
 }
 
 public struct DataDecoder {
-    public func decode<T: Decodable>(_ data: Data) throws -> T {
-        try jsonDecoder.decode(T.self, from: data)
-    }
-
     public var jsonDecoder: JSONDecoder
     public static let production = Self(jsonDecoder: KlaviyoEnvironment.decoder)
-}
 
-public enum PushEnablement: String, Codable {
-    case notDetermined = "NOT_DETERMINED"
-    case denied = "DENIED"
-    case authorized = "AUTHORIZED"
-    case provisional = "PROVISIONAL"
-    case ephemeral = "EPHEMERAL"
-
-    static func create(from status: UNAuthorizationStatus) -> PushEnablement {
-        switch status {
-        case .denied:
-            return PushEnablement.denied
-        case .authorized:
-            return PushEnablement.authorized
-        case .provisional:
-            return PushEnablement.provisional
-        case .ephemeral:
-            return PushEnablement.ephemeral
-        default:
-            return PushEnablement.notDetermined
-        }
-    }
-}
-
-public enum PushBackground: String, Codable {
-    case available = "AVAILABLE"
-    case restricted = "RESTRICTED"
-    case denied = "DENIED"
-
-    static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
-        switch status {
-        case .available:
-            return PushBackground.available
-        case .restricted:
-            return PushBackground.restricted
-        case .denied:
-            return PushBackground.denied
-        @unknown default:
-            return PushBackground.available
-        }
+    public func decode<T: Decodable>(_ data: Data) throws -> T {
+        try jsonDecoder.decode(T.self, from: data)
     }
 }
 

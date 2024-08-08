@@ -28,12 +28,9 @@ public struct NetworkSession {
     fileprivate static let mobileHeader = "1"
 
     public static let defaultUserAgent = { () -> String in
-        // TODO: fixme
-        // let appContext = environment.analytics.appContextInfo()
-//        let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
-//        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
-
-        "FIXME"
+        let appContext = environment.appContextInfo()
+        let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
+        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
     }()
 
     public var data: (URLRequest) async throws -> (Data, URLResponse)
