@@ -216,7 +216,7 @@ struct KlaviyoState: Equatable, Codable {
     mutating func reset(preserveTokenData: Bool = true) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
-            anonymousId = analytics.uuid().uuidString
+            anonymousId = environment.uuid().uuidString
         }
         let previousPushTokenData = pushTokenData
         pendingProfile = nil
@@ -248,7 +248,7 @@ struct KlaviyoState: Equatable, Codable {
         guard let pushTokenData = pushTokenData else {
             return true
         }
-        let currentDeviceMetadata = DeviceMetadata(context: analytics.appContextInfo())
+        let currentDeviceMetadata = DeviceMetadata(context: environment.appContextInfo())
         let newPushTokenData = PushTokenData(
             pushToken: newToken,
             pushEnablement: enablement,
@@ -326,7 +326,7 @@ private func klaviyoStateFile(apiKey: String) -> URL {
 
 private func storeKlaviyoState(state: KlaviyoState, file: URL) {
     do {
-        try environment.fileClient.write(analytics.encodeJSON(AnyEncodable(state)), file)
+        try environment.fileClient.write(environment.encodeJSON(AnyEncodable(state)), file)
     } catch {
         environment.logger.error("Unable to save klaviyo state.")
     }
@@ -361,7 +361,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
     }
-    guard var state: KlaviyoState = try? analytics.decoder.decode(stateData) else {
+    guard var state: KlaviyoState = try? environment.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file. Removing.")
         removeStateFile(at: fileName)
         return createAndStoreInitialState(with: apiKey, at: fileName)
@@ -370,14 +370,14 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         // Clear existing state since we are using a new api state.
         state = KlaviyoState(
             apiKey: apiKey,
-            anonymousId: analytics.uuid().uuidString,
+            anonymousId: environment.uuid().uuidString,
             queue: [])
     }
     return state
 }
 
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
-    let anonymousId = analytics.uuid().uuidString
+    let anonymousId = environment.uuid().uuidString
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state

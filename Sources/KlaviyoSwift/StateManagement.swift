@@ -276,7 +276,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return analytics.timer(state.flushInterval)
+            return environment.timer(state.flushInterval)
                 .map { _ in
                     KlaviyoAction.flushQueue
                 }
@@ -323,7 +323,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .run { [numAttempts] send in
-                let result = await analytics.klaviyoAPI.send(request, numAttempts)
+                let result = await environment.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case .success:
                     // TODO: may want to inspect response further.
@@ -359,7 +359,7 @@ struct KlaviyoReducer: ReducerProtocol {
             case .reachableViaWWAN:
                 state.flushInterval = StateManagementConstants.cellularFlushInterval
             }
-            return analytics.timer(state.flushInterval)
+            return environment.timer(state.flushInterval)
                 .map { _ in
                     KlaviyoAction.flushQueue
                 }.eraseToEffect()

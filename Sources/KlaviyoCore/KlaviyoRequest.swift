@@ -12,7 +12,7 @@ public struct KlaviyoRequest: Equatable, Codable {
     public init(
         apiKey: String,
         endpoint: KlaviyoEndpoint,
-        uuid: String = analytics.uuid().uuidString) {
+        uuid: String = environment.uuid().uuidString) {
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.uuid = uuid
@@ -20,11 +20,11 @@ public struct KlaviyoRequest: Equatable, Codable {
 
     public let apiKey: String
     public let endpoint: KlaviyoEndpoint
-    public var uuid = analytics.uuid().uuidString
+    public var uuid = environment.uuid().uuidString
 
     public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
         guard let url = url else {
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(analytics.apiURL)")
+            throw KlaviyoAPI.KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL)")
         }
         var request = URLRequest(url: url)
         // We only support post right now
@@ -41,8 +41,8 @@ public struct KlaviyoRequest: Equatable, Codable {
     var url: URL? {
         switch endpoint {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !analytics.apiURL.isEmpty {
-                return URL(string: "\(analytics.apiURL)/\(path)/?company_id=\(apiKey)")
+            if !environment.apiURL.isEmpty {
+                return URL(string: "\(environment.apiURL)/\(path)/?company_id=\(apiKey)")
             }
             return nil
         }
@@ -67,18 +67,18 @@ public struct KlaviyoRequest: Equatable, Codable {
     func encodeBody() throws -> Data {
         switch endpoint {
         case let .createProfile(payload):
-            return try analytics.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(AnyEncodable(payload))
 
         case var .createEvent(payload):
             // TODO: fixme get push token here
             payload.appendMetadataToProperties(pushToken: "")
-            return try analytics.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(AnyEncodable(payload))
 
         case let .registerPushToken(payload):
-            return try analytics.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(AnyEncodable(payload))
 
         case let .unregisterPushToken(payload):
-            return try analytics.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(AnyEncodable(payload))
         }
     }
 }

@@ -60,7 +60,7 @@ public struct CreateEventPayload: Equatable, Codable {
                 self.properties = AnyCodable(properties)
                 self.value = value
                 self.time = time ?? Date()
-                self.uniqueId = uniqueId ?? analytics.uuid().uuidString
+                self.uniqueId = uniqueId ?? environment.uuid().uuidString
                 profile = Profile(
                     data: ProfilePayload(
                         email: email,

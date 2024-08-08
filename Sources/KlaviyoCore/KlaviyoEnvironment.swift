@@ -35,7 +35,6 @@ public struct KlaviyoEnvironment {
     public var fileClient: FileClient
     public var data: (URL) throws -> Data
     public var logger: LoggerClient
-//    public var analytics: AnalyticsEnvironment
     public var getUserDefaultString: (String) -> String?
     public var appLifeCycle: AppLifeCycleEvents
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
@@ -50,6 +49,20 @@ public struct KlaviyoEnvironment {
 //    public var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
     public var raiseFatalError: (String) -> Void
     public var emitDeveloperWarning: (String) -> Void
+
+    // analytics environment
+
+    public var networkSession: () -> NetworkSession
+    public var apiURL: String
+    public var encodeJSON: (AnyEncodable) throws -> Data
+    public var decoder: DataDecoder
+    public var uuid: () -> UUID
+    public var date: () -> Date
+    public var timeZone: () -> String
+    public var appContextInfo: () -> AppContextInfo
+    public var klaviyoAPI: KlaviyoAPI
+    public var timer: (Double) -> AnyPublisher<Date, Never>
+
     static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -87,7 +100,21 @@ public struct KlaviyoEnvironment {
             fatalError(msg)
             #endif
         },
-        emitDeveloperWarning: { runtimeWarn($0) })
+        emitDeveloperWarning: { runtimeWarn($0) },
+        networkSession: createNetworkSession,
+        apiURL: KlaviyoEnvironment.productionHost,
+        encodeJSON: { encodable in try KlaviyoEnvironment.encoder.encode(encodable) },
+        decoder: DataDecoder.production,
+        uuid: { UUID() },
+        date: { Date() },
+        timeZone: { TimeZone.autoupdatingCurrent.identifier },
+        appContextInfo: { AppContextInfo() },
+        klaviyoAPI: KlaviyoAPI(),
+        timer: { interval in
+            Timer.publish(every: interval, on: .main, in: .default)
+                .autoconnect()
+                .eraseToAnyPublisher()
+        })
 }
 
 public var networkSession: NetworkSession!
@@ -171,34 +198,4 @@ func runtimeWarn(
         message)
     #endif
     #endif
-}
-
-public var analytics = AnalyticsEnvironment.production
-
-public struct AnalyticsEnvironment {
-    var networkSession: () -> NetworkSession
-    var apiURL: String
-    var encodeJSON: (AnyEncodable) throws -> Data
-    var decoder: DataDecoder
-    public var uuid: () -> UUID
-    var date: () -> Date
-    var timeZone: () -> String
-    var appContextInfo: () -> AppContextInfo
-    var klaviyoAPI: KlaviyoAPI
-    var timer: (Double) -> AnyPublisher<Date, Never>
-    static let production: AnalyticsEnvironment = .init(
-        networkSession: createNetworkSession,
-        apiURL: KlaviyoEnvironment.productionHost,
-        encodeJSON: { encodable in try KlaviyoEnvironment.encoder.encode(encodable) },
-        decoder: DataDecoder.production,
-        uuid: { UUID() },
-        date: { Date() },
-        timeZone: { TimeZone.autoupdatingCurrent.identifier },
-        appContextInfo: { AppContextInfo() },
-        klaviyoAPI: KlaviyoAPI(),
-        timer: { interval in
-            Timer.publish(every: interval, on: .main, in: .default)
-                .autoconnect()
-                .eraseToAnyPublisher()
-        })
 }

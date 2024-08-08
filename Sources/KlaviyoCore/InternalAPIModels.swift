@@ -17,5 +17,5 @@ public enum KlaviyoEndpoint: Equatable, Codable {
 }
 
 extension KlaviyoAPI {
-    public static let _appContextInfo = analytics.appContextInfo()
+    public static let _appContextInfo = environment.appContextInfo()
 }

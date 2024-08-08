@@ -10,7 +10,7 @@ import Foundation
 
 @_spi(KlaviyoPrivate)
 public func setKlaviyoAPIURL(url: String) {
-    analytics.apiURL = url
+    environment.apiURL = url
 }
 
 public struct KlaviyoAPI {
@@ -51,7 +51,7 @@ public struct KlaviyoAPI {
         var response: URLResponse
         var data: Data
         do {
-            (data, response) = try await analytics.networkSession().data(urlRequest)
+            (data, response) = try await environment.networkSession().data(urlRequest)
         } catch {
             requestFailed(request, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))

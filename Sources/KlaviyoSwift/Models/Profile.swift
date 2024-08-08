@@ -7,6 +7,7 @@
 
 import AnyCodable
 import Foundation
+import KlaviyoCore
 
 public struct Profile: Equatable {
     public enum ProfileKey: Equatable, Hashable, Codable {
@@ -64,7 +65,7 @@ public struct Profile: Equatable {
             self.longitude = longitude
             self.region = region
             self.zip = zip
-            self.timezone = timezone ?? analytics.timeZone()
+            self.timezone = timezone ?? environment.timeZone()
         }
     }
 

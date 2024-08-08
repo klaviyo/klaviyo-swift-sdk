@@ -90,7 +90,7 @@ public struct ProfilePayload: Equatable, Codable {
                 self.longitude = longitude
                 self.region = region
                 self.zip = zip
-                self.timezone = timezone ?? analytics.timeZone()
+                self.timezone = timezone ?? environment.timeZone()
             }
         }
     }
