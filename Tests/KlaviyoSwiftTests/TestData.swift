@@ -7,17 +7,18 @@
 
 import Foundation
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import KlaviyoCore
 
 let TEST_API_KEY = "fake-key"
 
 let INITIALIZED_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -27,7 +28,7 @@ let INITIALIZED_TEST_STATE = {
 let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
@@ -37,12 +38,12 @@ let INITILIZING_TEST_STATE = {
 let INITIALIZED_TEST_STATE_INVALID_PHONE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         phoneNumber: "invalid_phone_number",
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -53,11 +54,11 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         email: "invalid_email",
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -120,8 +121,8 @@ extension Event.Metric {
     static let test = Self(name: .CustomEvent("blob"))
 }
 
-extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
-    static let test = Self(data: .init(event: .test))
+extension CreateEventPayload {
+    static let test = CreateEventPayload(data: Event(name: "test"))
 }
 
 extension URLResponse {
@@ -129,22 +130,25 @@ extension URLResponse {
     static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
 }
 
-extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
-    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+extension PushTokenPayload {
+    static let test = PushTokenPayload(
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: .init(),
-        anonymousId: "anon-id")
+        profile: ProfilePayload(anonymousId: "anon-id"))
 }
 
 extension KlaviyoState {
     static let test = KlaviyoState(apiKey: "foo",
                                    email: "test@test.com",
-                                   anonymousId: environment.analytics.uuid().uuidString,
+                                   anonymousId: environment.uuid().uuidString,
                                    phoneNumber: "phoneNumber",
                                    externalId: "externalId",
-                                   pushTokenData: .init(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo())),
+                                   pushTokenData: PushTokenData(
+                                       pushToken: "blob_token",
+                                       pushEnablement: .authorized,
+                                       pushBackground: .available,
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,

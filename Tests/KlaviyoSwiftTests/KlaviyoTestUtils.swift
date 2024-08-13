@@ -68,7 +68,6 @@ extension ArchiverClient {
         unarchivedMutableArray: { _ in SAMPLE_DATA })
 }
 
-// TODO: Fixme
 extension AppLifeCycleEvents {
     static let test = Self(lifeCycleEvents: { Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
 }

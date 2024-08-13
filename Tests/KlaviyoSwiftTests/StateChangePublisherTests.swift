@@ -10,6 +10,7 @@ import CombineSchedulers
 import Foundation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import KlaviyoCore
 
 final class StateChangePublisherTests: XCTestCase {
     @MainActor

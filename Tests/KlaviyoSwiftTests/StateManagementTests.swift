@@ -32,7 +32,7 @@ class StateManagementTests: XCTestCase {
             $0.initalizationState = .initializing
         }
 
-        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [])
+        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.uuid().uuidString, queue: [], requestsInFlight: [])
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
@@ -47,7 +47,7 @@ class StateManagementTests: XCTestCase {
     func testInitializeSubscribesToAppropriatePublishers() async throws {
         let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
         let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
-        let lifecycleSubject = PassthroughSubject<KlaviyoAction, Never>()
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         environment.appLifeCycle.lifeCycleEvents = {
             lifecycleSubject.handleEvents(receiveSubscription: { _ in
                 lifecycleExpectation.fulfill()
@@ -55,7 +55,7 @@ class StateManagementTests: XCTestCase {
             .eraseToAnyPublisher()
         }
         let stateChangeSubject = PassthroughSubject<KlaviyoAction, Never>()
-        environment.stateChangePublisher = {
+        klaviyoSwiftEnvironment.stateChangePublisher = {
             stateChangeSubject.handleEvents(receiveSubscription: { _ in
                 stateChangeIsSubscribed.fulfill()
             })
@@ -144,7 +144,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
     }
 
@@ -172,7 +172,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
         _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
@@ -219,7 +219,7 @@ class StateManagementTests: XCTestCase {
     func testFlushQueueWithMultipleRequests() async throws {
         var count = 0
         // request uuids need to be unique :)
-        environment.analytics.uuid = {
+        environment.uuid = {
             count += 1
             switch count {
             case 1:
@@ -251,7 +251,7 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
         await store.receive(.deQueueCompletedResults(request2)) {
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
             $0.queue = []
@@ -400,7 +400,7 @@ class StateManagementTests: XCTestCase {
             }
         }
 
-        var request: KlaviyoAPI.KlaviyoRequest?
+        var request: KlaviyoRequest?
 
         _ = await store.send(.flushQueue) {
             $0.enqueueProfileOrTokenRequest()
@@ -470,7 +470,7 @@ class StateManagementTests: XCTestCase {
             $0.externalId = Profile.test.externalId
             $0.pushTokenData = nil
 
-            let request = KlaviyoAPI.KlaviyoRequest(
+            let request = KlaviyoRequest(
                 apiKey: initialState.apiKey!,
                 endpoint: .registerPushToken(.init(
                     pushToken: initialState.pushTokenData!.pushToken,
