@@ -58,7 +58,7 @@ final class StateChangePublisherTests: XCTestCase {
             test.send($0)
         }
 
-        environment.analytics.statePublisher = {
+        klaviyoSwiftEnvironment.statePublisher = {
             test.state.eraseToAnyPublisher()
         }
 

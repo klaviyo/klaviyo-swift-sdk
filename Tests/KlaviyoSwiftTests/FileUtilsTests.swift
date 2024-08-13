@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoSwift
+import KlaviyoCore
 import XCTest
 
 class FileUtilsTests: XCTestCase {

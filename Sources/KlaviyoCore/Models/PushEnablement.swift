@@ -14,7 +14,7 @@ public enum PushEnablement: String, Codable {
     case provisional = "PROVISIONAL"
     case ephemeral = "EPHEMERAL"
 
-    static func create(from status: UNAuthorizationStatus) -> PushEnablement {
+    public static func create(from status: UNAuthorizationStatus) -> PushEnablement {
         switch status {
         case .denied:
             return PushEnablement.denied

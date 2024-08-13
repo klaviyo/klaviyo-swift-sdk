@@ -68,7 +68,7 @@ public struct KlaviyoEnvironment {
     }
 
     static let productionHost = "https://a.klaviyo.com"
-    static let encoder = { () -> JSONEncoder in
+    public static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return encoder

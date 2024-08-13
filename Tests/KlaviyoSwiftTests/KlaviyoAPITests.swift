@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoSwift
+import KlaviyoCore
 import SnapshotTesting
 import XCTest
 
@@ -18,7 +19,7 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidURL() async throws {
-        environment.analytics.apiURL = ""
+        environment.apiURL = ""
 
         await sendAndAssert(with: .init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))) { result in
             switch result {
@@ -31,9 +32,9 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testEncodingError() async throws {
-        environment.analytics.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
+        environment.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -46,10 +47,10 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testNetworkError() async throws {
-        environment.analytics.networkSession = { NetworkSession.test(data: { _ in
+        environment.networkSession = { NetworkSession.test(data: { _ in
             throw NSError(domain: "network error", code: 0)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -62,10 +63,10 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidStatusCode() async throws {
-        environment.analytics.networkSession = { NetworkSession.test(data: { _ in
+        environment.networkSession = { NetworkSession.test(data: { _ in
             (Data(), .non200Response)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -78,11 +79,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithProfile() async throws {
-        environment.analytics.networkSession = { NetworkSession.test(data: { request in
+        environment.networkSession = { NetworkSession.test(data: { request in
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -95,11 +96,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithEvent() async throws {
-        environment.analytics.networkSession = { NetworkSession.test(data: { request in
+        environment.networkSession = { NetworkSession.test(data: { request in
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(.init(data: .init(event: .test))))
         await sendAndAssert(with: request) { result in
             switch result {
             case let .success(data):
@@ -111,11 +112,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithStoreToken() async throws {
-        environment.analytics.networkSession = { NetworkSession.test(data: { request in
+        environment.networkSession = { NetworkSession.test(data: { request in
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoAPI.KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -127,8 +128,8 @@ final class KlaviyoAPITests: XCTestCase {
         }
     }
 
-    func sendAndAssert(with request: KlaviyoAPI.KlaviyoRequest,
-                       assertion: (Result<Data, KlaviyoAPI.KlaviyoAPIError>) -> Void) async {
+    func sendAndAssert(with request: KlaviyoRequest,
+                       assertion: (Result<Data, KlaviyoAPIError>) -> Void) async {
         let result = await KlaviyoAPI().send(request, 0)
         assertion(result)
     }

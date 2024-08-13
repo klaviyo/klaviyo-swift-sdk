@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoSwift
+import KlaviyoCore
 import SnapshotTesting
 import XCTest
 
@@ -19,7 +20,7 @@ final class EncodableTests: XCTestCase {
 
     func testProfilePayload() throws {
         let profile = Profile.test
-        let data = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
+        let data = CreateProfilePayload.Profile(profile: profile, anonymousId: "foo")
         let payload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateProfilePayload(data: data)
         assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
     }
@@ -48,7 +49,7 @@ final class EncodableTests: XCTestCase {
     }
 
     func testUnregisterTokenPayload() throws {
-        let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.UnregisterPushTokenPayload(
+        let tokenPayload = UnregisterPushTokenPayload(
             pushToken: "foo",
             profile: .init(email: "foo", phoneNumber: "foo"),
             anonymousId: "foo")
@@ -56,7 +57,7 @@ final class EncodableTests: XCTestCase {
     }
 
     func testKlaviyoState() throws {
-        let tokenPayload = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
+        let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",

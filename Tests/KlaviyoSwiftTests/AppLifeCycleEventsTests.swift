@@ -8,6 +8,7 @@
 @testable import KlaviyoSwift
 import Combine
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class AppLifeCycleEventsTests: XCTestCase {
@@ -149,7 +150,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         let expection = XCTestExpectation(description: "Start reachability is called.")
         environment.startReachability = {
             expection.fulfill()
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("foo")
+            throw KlaviyoAPIError.internalError("foo")
         }
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 

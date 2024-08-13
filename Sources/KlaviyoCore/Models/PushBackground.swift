@@ -12,7 +12,7 @@ public enum PushBackground: String, Codable {
     case restricted = "RESTRICTED"
     case denied = "DENIED"
 
-    static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
+    public static func create(from status: UIBackgroundRefreshStatus) -> PushBackground {
         switch status {
         case .available:
             return PushBackground.available
