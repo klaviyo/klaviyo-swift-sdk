@@ -16,6 +16,57 @@ import os
 public var environment = KlaviyoEnvironment.production
 
 public struct KlaviyoEnvironment {
+    public init(
+        archiverClient: ArchiverClient,
+        fileClient: FileClient,
+        dataFromUrl: @escaping (URL) throws -> Data,
+        logger: LoggerClient,
+        appLifeCycle: AppLifeCycleEvents,
+        notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
+        getNotificationSettings: @escaping (@escaping (PushEnablement) -> Void) -> Void,
+        getBackgroundSetting: @escaping () -> PushBackground,
+        startReachability: @escaping () throws -> Void,
+        stopReachability: @escaping () -> Void,
+        reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
+        randomInt: @escaping () -> Int,
+        raiseFatalError: @escaping (String) -> Void,
+        emitDeveloperWarning: @escaping (String) -> Void,
+        networkSession: @escaping () -> NetworkSession,
+        apiURL: String,
+        encodeJSON: @escaping (AnyEncodable) throws -> Data,
+        decoder: DataDecoder,
+        uuid: @escaping () -> UUID,
+        date: @escaping () -> Date,
+        timeZone: @escaping () -> String,
+        appContextInfo: @escaping () -> AppContextInfo,
+        klaviyoAPI: KlaviyoAPI,
+        timer: @escaping (Double) -> AnyPublisher<Date, Never>) {
+        self.archiverClient = archiverClient
+        self.fileClient = fileClient
+        self.dataFromUrl = dataFromUrl
+        self.logger = logger
+        self.appLifeCycle = appLifeCycle
+        self.notificationCenterPublisher = notificationCenterPublisher
+        self.getNotificationSettings = getNotificationSettings
+        self.getBackgroundSetting = getBackgroundSetting
+        self.startReachability = startReachability
+        self.stopReachability = stopReachability
+        self.reachabilityStatus = reachabilityStatus
+        self.randomInt = randomInt
+        self.raiseFatalError = raiseFatalError
+        self.emitDeveloperWarning = emitDeveloperWarning
+        self.networkSession = networkSession
+        self.apiURL = apiURL
+        self.encodeJSON = encodeJSON
+        self.decoder = decoder
+        self.uuid = uuid
+        self.date = date
+        self.timeZone = timeZone
+        self.appContextInfo = appContextInfo
+        self.klaviyoAPI = klaviyoAPI
+        self.timer = timer
+    }
+
     static let productionHost = "https://a.klaviyo.com"
     static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
@@ -119,11 +170,15 @@ public func createNetworkSession() -> NetworkSession {
     return networkSession
 }
 
-enum KlaviyoDecodingError: Error {
+public enum KlaviyoDecodingError: Error {
     case invalidType
 }
 
 public struct DataDecoder {
+    public init(jsonDecoder: JSONDecoder) {
+        self.jsonDecoder = jsonDecoder
+    }
+
     public var jsonDecoder: JSONDecoder
     public static let production = Self(jsonDecoder: KlaviyoEnvironment.decoder)
 

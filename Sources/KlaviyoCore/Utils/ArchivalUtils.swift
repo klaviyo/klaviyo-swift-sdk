@@ -8,6 +8,13 @@
 import Foundation
 
 public struct ArchiverClient {
+    public init(
+        archivedData: @escaping (Any, Bool) throws -> Data,
+        unarchivedMutableArray: @escaping (Data) throws -> NSMutableArray?) {
+        self.archivedData = archivedData
+        self.unarchivedMutableArray = unarchivedMutableArray
+    }
+
     public var archivedData: (Any, Bool) throws -> Data
     public var unarchivedMutableArray: (Data) throws -> NSMutableArray?
 

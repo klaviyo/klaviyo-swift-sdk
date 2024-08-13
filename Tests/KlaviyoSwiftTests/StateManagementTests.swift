@@ -9,6 +9,7 @@
 import AnyCodable
 import Combine
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class StateManagementTests: XCTestCase {
@@ -26,7 +27,7 @@ class StateManagementTests: XCTestCase {
 
         let apiKey = "fake-key"
         // Avoids a warning in xcode despite the result being discardable.
-        _ = await store.send(.initialize(apiKey)) {
+        await store.send(.initialize(apiKey)) {
             $0.apiKey = apiKey
             $0.initalizationState = .initializing
         }

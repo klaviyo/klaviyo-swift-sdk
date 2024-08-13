@@ -68,30 +68,39 @@ extension ArchiverClient {
         unarchivedMutableArray: { _ in SAMPLE_DATA })
 }
 
+// TODO: Fixme
 extension AppLifeCycleEvents {
-    static let test = Self(lifeCycleEvents: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() })
+    static let test = Self(lifeCycleEvents: { Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
 }
 
 extension KlaviyoEnvironment {
     static var lastLog: String?
-    static var test = { KlaviyoEnvironment(
-        archiverClient: ArchiverClient.test,
-        fileClient: FileClient.test,
-        data: { _ in TEST_RETURN_DATA },
-        logger: LoggerClient.test,
-        analytics: AnalyticsEnvironment.test,
-        getUserDefaultString: { _ in "value" },
-        appLifeCycle: AppLifeCycleEvents.test,
-        notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
-        getNotificationSettings: { callback in callback(.authorized) },
-        getBackgroundSetting: { .available },
-        legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)" },
-        startReachability: {},
-        stopReachability: {},
-        reachabilityStatus: { nil },
-        randomInt: { 0 },
-        stateChangePublisher: { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() },
-        raiseFatalError: { _ in }, emitDeveloperWarning: { _ in })
+    static var test = {
+        KlaviyoEnvironment(
+            archiverClient: ArchiverClient.test,
+            fileClient: FileClient.test,
+            dataFromUrl: { _ in TEST_RETURN_DATA },
+            logger: LoggerClient.test,
+            appLifeCycle: AppLifeCycleEvents.test,
+            notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
+            getNotificationSettings: { callback in callback(.authorized) },
+            getBackgroundSetting: { .available },
+            startReachability: {},
+            stopReachability: {},
+            reachabilityStatus: { nil },
+            randomInt: { 0 },
+            raiseFatalError: { _ in },
+            emitDeveloperWarning: { _ in },
+            networkSession: { NetworkSession.test() },
+            apiURL: "dead_beef",
+            encodeJSON: { _ in TEST_RETURN_DATA },
+            decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
+            uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+            date: { Date(timeIntervalSince1970: 1_234_567_890) },
+            timeZone: { "EST" },
+            appContextInfo: { AppContextInfo.test },
+            klaviyoAPI: KlaviyoAPI.test(),
+            timer: { _ in Just(Date()).eraseToAnyPublisher() })
     }
 }
 
@@ -105,31 +114,6 @@ class InvalidJSONDecoder: JSONDecoder {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         throw KlaviyoDecodingError.invalidType
     }
-}
-
-extension AnalyticsEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
-
-    static let test = AnalyticsEnvironment(
-        networkSession: { NetworkSession.test() },
-        apiURL: "dead_beef",
-        encodeJSON: { _ in TEST_RETURN_DATA },
-        decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
-        uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
-        date: { Date(timeIntervalSince1970: 1_234_567_890) },
-        timeZone: { "EST" },
-        appContextInfo: { AppContextInfo.test },
-        klaviyoAPI: KlaviyoAPI.test(),
-        timer: { _ in Just(Date()).eraseToAnyPublisher() },
-        send: { action in
-            testStore.send(action)
-        },
-        state: {
-            AnalyticsEnvironment.testStore.state.value
-        },
-        statePublisher: {
-            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
-        })
 }
 
 struct KlaviyoTestReducer: ReducerProtocol {

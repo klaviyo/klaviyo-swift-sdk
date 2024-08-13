@@ -14,16 +14,9 @@ public func setKlaviyoAPIURL(url: String) {
 }
 
 public struct KlaviyoAPI {
-    public init() {}
+    public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError>
 
-    // For internal testing use only
-    public static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
-    public static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
-    public static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
-    public static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
-    public static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
-
-    public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
+    public init(send: @escaping (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = environment.date()
 
         var urlRequest: URLRequest
@@ -74,5 +67,14 @@ public struct KlaviyoAPI {
         requestCompleted(request, data, duration)
 
         return .success(data)
+    }) {
+        self.send = send
     }
+
+    // For internal testing use only
+    public static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
+    public static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
+    public static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
+    public static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
+    public static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
 }

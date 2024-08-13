@@ -12,15 +12,27 @@ func write(data: Data, url: URL) throws {
 }
 
 public struct FileClient {
+    public init(
+        write: @escaping (Data, URL) throws -> Void,
+        fileExists: @escaping (String) -> Bool,
+        removeItem: @escaping (String) throws -> Void,
+        libraryDirectory: @escaping () -> URL) {
+        self.write = write
+        self.fileExists = fileExists
+        self.removeItem = removeItem
+        self.libraryDirectory = libraryDirectory
+    }
+
+    public var write: (Data, URL) throws -> Void
+    public var fileExists: (String) -> Bool
+    public var removeItem: (String) throws -> Void
+    public var libraryDirectory: () -> URL
+
     public static let production = FileClient(
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
         libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! })
-    public var write: (Data, URL) throws -> Void
-    public var fileExists: (String) -> Bool
-    public var removeItem: (String) throws -> Void
-    public var libraryDirectory: () -> URL
 }
 
 /**

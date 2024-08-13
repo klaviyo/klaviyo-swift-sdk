@@ -22,6 +22,12 @@ public func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOve
 }
 
 public struct NetworkSession {
+    public var data: (URLRequest) async throws -> (Data, URLResponse)
+
+    public init(data: @escaping (URLRequest) async throws -> (Data, URLResponse)) {
+        self.data = data
+    }
+
     fileprivate static let currentApiRevision = "2023-07-15"
     fileprivate static let applicationJson = "application/json"
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
@@ -32,8 +38,6 @@ public struct NetworkSession {
         let klaivyoSDKVersion = "klaviyo-ios/\(__klaviyoSwiftVersion)"
         return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
     }()
-
-    public var data: (URLRequest) async throws -> (Data, URLResponse)
 
     public static let production = { () -> NetworkSession in
         let session = createEmphemeralSession()

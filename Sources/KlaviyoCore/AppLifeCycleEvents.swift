@@ -21,7 +21,9 @@ public enum LifeCycleEvents {
 }
 
 public struct AppLifeCycleEvents {
-    public var lifeCycleEvents: () -> AnyPublisher<LifeCycleEvents, Never> = {
+    public var lifeCycleEvents: () -> AnyPublisher<LifeCycleEvents, Never>
+
+    public init(lifeCycleEvents: @escaping () -> AnyPublisher<LifeCycleEvents, Never> = {
         let terminated = environment
             .notificationCenterPublisher(UIApplication.willTerminateNotification)
             .handleEvents(receiveOutput: { _ in
@@ -65,6 +67,8 @@ public struct AppLifeCycleEvents {
             })
             .receive(on: RunLoop.main)
             .eraseToAnyPublisher()
+    }) {
+        self.lifeCycleEvents = lifeCycleEvents
     }
 
     static let production = Self()
