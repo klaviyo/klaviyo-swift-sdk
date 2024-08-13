@@ -17,6 +17,7 @@ public enum LifeCycleEvents {
     case terminated
     case forgrounded
     case backgrounded
+    case reachabilityChanged(status: Reachability.NetworkStatus)
 }
 
 public struct AppLifeCycleEvents {
@@ -43,20 +44,17 @@ public struct AppLifeCycleEvents {
                 environment.stopReachability()
             })
             .map { _ in LifeCycleEvents.backgrounded }
-        // TODO: fix me
         // The below is a bit convoluted since network status can be nil.
-//        let reachability = environment
-//            .notificationCenterPublisher(ReachabilityChangedNotification)
-//            .compactMap { _ -> KlaviyoAction? in
-//                guard let status = environment.reachabilityStatus() else {
-//                    return nil
-//                }
-//                return KlaviyoAction.networkConnectivityChanged(status)
-//            }
-//            .eraseToAnyPublisher()
+        let reachability = environment
+            .notificationCenterPublisher(ReachabilityChangedNotification)
+            .map { _ in
+                // TODO: compact map isn't working, need to fix
+                let status = environment.reachabilityStatus() ?? .reachableViaWWAN
+                return LifeCycleEvents.reachabilityChanged(status: status)
+            }
 
         return terminated
-//            .merge(with: reachability) // TODO: fixme
+            .merge(with: reachability)
             .merge(with: foregrounded, backgrounded)
             .handleEvents(receiveSubscription: { _ in
                 do {

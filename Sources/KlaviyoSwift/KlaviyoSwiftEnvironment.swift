@@ -14,6 +14,7 @@ struct KlaviyoSwiftEnvironment {
     var send: (KlaviyoAction) -> Task<Void, Never>?
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
+    var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
 
     static let production: KlaviyoSwiftEnvironment = {
         let store = Store.production
@@ -23,6 +24,7 @@ struct KlaviyoSwiftEnvironment {
                 store.send(action)
             },
             state: { store.state.value },
-            statePublisher: { store.state.eraseToAnyPublisher() })
+            statePublisher: { store.state.eraseToAnyPublisher() },
+            stateChangePublisher: StateChangePublisher().publisher)
     }()
 }

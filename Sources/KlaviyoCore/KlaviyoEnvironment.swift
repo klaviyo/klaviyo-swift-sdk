@@ -48,8 +48,6 @@ public struct KlaviyoEnvironment {
     public var reachabilityStatus: () -> Reachability.NetworkStatus?
 
     public var randomInt: () -> Int
-    // TODO: need to fix this
-//    public var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
 
     public var raiseFatalError: (String) -> Void
     public var emitDeveloperWarning: (String) -> Void
@@ -91,8 +89,6 @@ public struct KlaviyoEnvironment {
             reachabilityService?.currentReachabilityStatus
         },
         randomInt: { Int.random(in: 0...10) },
-        // TODO: need to fix this
-//        stateChangePublisher: StateChangePublisher().publisher,
         raiseFatalError: { msg in
             #if DEBUG
             fatalError(msg)

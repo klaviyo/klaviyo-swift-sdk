@@ -188,9 +188,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 await send(.start)
             }
-            // TODO: fixme
-//            .merge(with: environment.appLifeCycle.lifeCycleEvents().eraseToEffect())
-//            .merge(with: environment.stateChangePublisher().eraseToEffect())
+            .merge(with: environment.appLifeCycle.lifeCycleEvents().map(\.transformToKlaviyoAction).eraseToEffect())
+            .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
