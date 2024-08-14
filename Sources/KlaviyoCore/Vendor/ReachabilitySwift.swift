@@ -48,8 +48,33 @@ func callback(reachability: SCNetworkReachability, flags: SCNetworkReachabilityF
 }
 
 public class Reachability {
-    typealias NetworkReachable = (Reachability) -> Void
-    typealias NetworkUnreachable = (Reachability) -> Void
+    public init(
+        whenReachable: Reachability.NetworkReachable? = nil,
+        whenUnreachable: Reachability.NetworkUnreachable? = nil,
+        reachableOnWWAN: Bool = false,
+        notificationCenter: NotificationCenter = .default,
+        previousFlags: SCNetworkReachabilityFlags? = nil,
+        isRunningOnDevice: Bool = {
+            #if targetEnvironment(simulator)
+            return false
+            #else
+            return true
+            #endif
+        }(),
+        notifierRunning: Bool = false,
+        reachabilityRef: SCNetworkReachability? = nil) {
+        self.whenReachable = whenReachable
+        self.whenUnreachable = whenUnreachable
+        self.reachableOnWWAN = reachableOnWWAN
+        self.notificationCenter = notificationCenter
+        self.previousFlags = previousFlags
+        self.isRunningOnDevice = isRunningOnDevice
+        self.notifierRunning = notifierRunning
+        self.reachabilityRef = reachabilityRef
+    }
+
+    public typealias NetworkReachable = (Reachability) -> Void
+    public typealias NetworkUnreachable = (Reachability) -> Void
 
     public enum NetworkStatus: CustomStringConvertible {
         case notReachable, reachableViaWiFi, reachableViaWWAN
