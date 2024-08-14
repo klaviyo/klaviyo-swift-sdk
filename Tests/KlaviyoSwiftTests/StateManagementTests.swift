@@ -472,12 +472,11 @@ class StateManagementTests: XCTestCase {
 
             let request = KlaviyoRequest(
                 apiKey: initialState.apiKey!,
-                endpoint: .registerPushToken(.init(
+                endpoint: .registerPushToken(PushTokenPayload(
                     pushToken: initialState.pushTokenData!.pushToken,
                     enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                     background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test,
-                    anonymousId: initialState.anonymousId!)
+                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!))
                 ))
             $0.queue = [request]
         }
@@ -494,8 +493,15 @@ class StateManagementTests: XCTestCase {
         for eventName in Event.EventName.allCases {
             let event = Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
             await store.send(.enqueueEvent(event)) {
-                let newEvent = Event(name: eventName, properties: event.properties, identifiers: .init(phoneNumber: $0.phoneNumber))
-                try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId))))))
+                try $0.enqueueRequest(
+                    request: KlaviyoRequest(
+                        apiKey: XCTUnwrap($0.apiKey),
+                        endpoint: .createEvent(CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: eventName.value,
+                                properties: event.properties,
+                                phoneNumber: $0.phoneNumber)
+                        ))))
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -521,11 +527,14 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
-            let newEvent = Event(name: .OpenedAppMetric, identifiers: .init(phoneNumber: $0.phoneNumber))
             try $0.enqueueRequest(
-                request: .init(apiKey: XCTUnwrap($0.apiKey),
-                               endpoint: .createEvent(.init(
-                                   data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId)))))
+                request: KlaviyoRequest(
+                    apiKey: XCTUnwrap($0.apiKey),
+                    endpoint: .createEvent(CreateEventPayload(
+                        data: CreateEventPayload.Event(
+                            name: Event.EventName.OpenedAppMetric.value,
+                            phoneNumber: $0.phoneNumber)
+                    )))
             )
         }
 
