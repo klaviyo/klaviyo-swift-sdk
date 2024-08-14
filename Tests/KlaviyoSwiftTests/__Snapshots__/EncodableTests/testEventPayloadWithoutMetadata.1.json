@@ -1,0 +1,27 @@
+{
+  "data" : {
+    "attributes" : {
+      "metric" : {
+        "data" : {
+          "attributes" : {
+            "name" : "blob"
+          },
+          "type" : "metric"
+        }
+      },
+      "profile" : {
+        "data" : {
+          "attributes" : {
+            "anonymous_id" : "anon-id",
+            "properties" : null
+          },
+          "type" : "profile"
+        }
+      },
+      "properties" : null,
+      "time" : "2009-02-13T23:31:30Z",
+      "unique_id" : "00000000-0000-0000-0000-000000000001"
+    },
+    "type" : "event"
+  }
+}

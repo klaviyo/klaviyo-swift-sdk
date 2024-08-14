@@ -1,0 +1,31 @@
+{
+  "data" : {
+    "attributes" : {
+      "anonymous_id" : "foo",
+      "first_name" : "Blob",
+      "image" : "foo",
+      "last_name" : "Junior",
+      "location" : {
+        "address1" : "blob",
+        "address2" : "blob",
+        "city" : "blob city",
+        "country" : "Blobland",
+        "latitude" : 1,
+        "longitude" : 1,
+        "region" : "BL",
+        "timezone" : "EST",
+        "zip" : "0BLOB"
+      },
+      "organization" : "Blobco",
+      "properties" : {
+        "blob" : "blob",
+        "hello" : {
+          "sub" : "dict"
+        },
+        "stuff" : 2
+      },
+      "title" : "Jelly"
+    },
+    "type" : "profile"
+  }
+}

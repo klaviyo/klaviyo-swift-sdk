@@ -114,7 +114,7 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES)
+    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, time: KlaviyoEnvironment.test().date())
 }
 
 extension Event.Metric {

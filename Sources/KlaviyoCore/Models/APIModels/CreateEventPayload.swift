@@ -59,7 +59,7 @@ public struct CreateEventPayload: Equatable, Codable {
                 metric = Metric(name: name)
                 self.properties = AnyCodable(properties)
                 self.value = value
-                self.time = time ?? Date()
+                self.time = time ?? environment.date()
                 self.uniqueId = uniqueId ?? environment.uuid().uuidString
                 profile = Profile(
                     data: ProfilePayload(

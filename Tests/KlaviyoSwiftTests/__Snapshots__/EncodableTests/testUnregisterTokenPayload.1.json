@@ -1,0 +1,21 @@
+{
+  "data" : {
+    "attributes" : {
+      "platform" : "ios",
+      "profile" : {
+        "data" : {
+          "attributes" : {
+            "anonymous_id" : "foo",
+            "email" : "foo",
+            "phone_number" : "foo",
+            "properties" : null
+          },
+          "type" : "profile"
+        }
+      },
+      "token" : "foo",
+      "vendor" : "APNs"
+    },
+    "type" : "push-token-unregister"
+  }
+}

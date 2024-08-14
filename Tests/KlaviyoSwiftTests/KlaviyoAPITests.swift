@@ -21,7 +21,10 @@
 //    func testInvalidURL() async throws {
 //        environment.apiURL = ""
 //
-//        await sendAndAssert(with: .init(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))) { result in
+//        await sendAndAssert(with: KlaviyoRequest(
+//            apiKey: "foo",
+//            endpoint: .createProfile(.init(data: .init(profile: .test, anonymousId: "foo"))))
+//        ) { result in
 //            switch result {
 //            case let .failure(error):
 //                assertSnapshot(matching: error, as: .description)
@@ -66,7 +69,7 @@
 //        environment.networkSession = { NetworkSession.test(data: { _ in
 //            (Data(), .non200Response)
 //        }) }
-//        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
+////        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(.init(data: .init(profile: .init(), anonymousId: "foo"))))
 //        await sendAndAssert(with: request) { result in
 //
 //            switch result {
