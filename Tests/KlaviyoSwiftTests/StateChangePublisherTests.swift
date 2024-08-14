@@ -54,7 +54,7 @@ final class StateChangePublisherTests: XCTestCase {
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
         let test = Store(initialState: .test, reducer: reducer)
-        environment.analytics.send = {
+        klaviyoSwiftEnvironment.send = {
             test.send($0)
         }
 
@@ -64,11 +64,11 @@ final class StateChangePublisherTests: XCTestCase {
 
         testScheduler.run()
         @MainActor func runDebouncedEffect() {
-            _ = environment.analytics.send(.initialize("foo"))
+            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
             testScheduler.run()
             // This should not trigger a save since in our reducer it does not change the state.
-            _ = environment.analytics.send(.setPushToken("foo", .authorized))
-            _ = environment.analytics.send(.setEmail("foo"))
+            _ = klaviyoSwiftEnvironment.send(.setPushToken("foo", .authorized))
+            _ = klaviyoSwiftEnvironment.send(.setEmail("foo"))
         }
         runDebouncedEffect()
         testScheduler.advance(by: .seconds(2.0))
@@ -100,18 +100,18 @@ final class StateChangePublisherTests: XCTestCase {
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
         let test = Store(initialState: .test, reducer: reducer)
-        environment.analytics.send = {
+        klaviyoSwiftEnvironment.send = {
             test.send($0)
         }
 
-        environment.analytics.statePublisher = {
+        klaviyoSwiftEnvironment.statePublisher = {
             test.state.eraseToAnyPublisher()
         }
 
         @MainActor func runDebouncedEffect() {
-            _ = environment.analytics.send(.initialize("foo"))
-            _ = environment.analytics.send(.flushQueue)
-            _ = environment.analytics.send(.flushQueue)
+            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
+            _ = klaviyoSwiftEnvironment.send(.flushQueue)
+            _ = klaviyoSwiftEnvironment.send(.flushQueue)
         }
 
         runDebouncedEffect()
@@ -150,17 +150,17 @@ final class StateChangePublisherTests: XCTestCase {
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
         let test = Store(initialState: .test, reducer: reducer)
-        environment.analytics.send = {
+        klaviyoSwiftEnvironment.send = {
             test.send($0)
         }
 
-        environment.analytics.statePublisher = {
+        klaviyoSwiftEnvironment.statePublisher = {
             test.state.eraseToAnyPublisher()
         }
-        _ = environment.analytics.send(.initialize("foo"))
+        _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
         testScheduler.run()
         for i in 0...10 {
-            _ = environment.analytics.send(.setEmail("foo\(i)"))
+            _ = klaviyoSwiftEnvironment.send(.setEmail("foo\(i)"))
         }
         testScheduler.advance(by: 1.0)
         wait(for: [savedCalledExpectation], timeout: 1.0)

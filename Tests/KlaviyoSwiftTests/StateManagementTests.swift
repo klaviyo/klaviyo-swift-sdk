@@ -500,7 +500,10 @@ class StateManagementTests: XCTestCase {
                             data: CreateEventPayload.Event(
                                 name: eventName.value,
                                 properties: event.properties,
-                                phoneNumber: $0.phoneNumber)
+                                phoneNumber: $0.phoneNumber,
+                                anonymousId: initialState.anonymousId!,
+                                time: event.time,
+                                pushToken: initialState.pushTokenData!.pushToken)
                         ))))
             }
 
@@ -521,6 +524,9 @@ class StateManagementTests: XCTestCase {
             $0.pendingRequests = [KlaviyoState.PendingRequest.event(event)]
         }
 
+        // TODO: this passes if I comment the below line in state management
+        // `.merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())`
+        // fails with - An effect returned for this action is still running. It must complete before the end of the test. …
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
@@ -533,7 +539,10 @@ class StateManagementTests: XCTestCase {
                     endpoint: .createEvent(CreateEventPayload(
                         data: CreateEventPayload.Event(
                             name: Event.EventName.OpenedAppMetric.value,
-                            phoneNumber: $0.phoneNumber)
+                            properties: event.properties,
+                            phoneNumber: $0.phoneNumber,
+                            anonymousId: initialState.anonymousId!,
+                            time: event.time)
                     )))
             )
         }

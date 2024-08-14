@@ -15,9 +15,9 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: email ?? self.email,
-            phoneNumber: phoneNumber ?? self.phoneNumber,
-            externalId: externalId ?? self.externalId,
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
             firstName: firstName,
             lastName: lastName,
             organization: organization,
