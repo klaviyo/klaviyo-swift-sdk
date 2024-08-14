@@ -56,7 +56,7 @@ public struct KlaviyoAPI {
             let nextBackOffWithJitter = nextBackoff + jitter
 
             requestRateLimited(request, nextBackOffWithJitter)
-            return .failure(KlaviyoAPIError.rateLimitError(nextBackOffWithJitter))
+            return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {

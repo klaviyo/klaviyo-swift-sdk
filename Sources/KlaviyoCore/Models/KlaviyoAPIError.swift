@@ -9,7 +9,7 @@ import Foundation
 
 public enum KlaviyoAPIError: Error {
     case httpError(Int, Data)
-    case rateLimitError(Int)
+    case rateLimitError(backOff: Int)
     case missingOrInvalidResponse(URLResponse?)
     case networkError(Error)
     case internalError(String)
