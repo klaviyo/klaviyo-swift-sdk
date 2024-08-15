@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 9/26/22.
 //
 
-@testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 import XCTest
 

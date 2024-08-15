@@ -154,3 +154,49 @@ extension KlaviyoState {
                                    initalizationState: .initialized,
                                    flushing: true)
 }
+
+let SAMPLE_DATA: NSMutableArray = [
+    [
+        "properties": [
+            "foo": "bar"
+        ]
+    ]
+]
+let TEST_URL = URL(string: "fake_url")!
+let TEST_RETURN_DATA = Data()
+
+let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER = """
+{
+    "errors": [
+      {
+        "id": "9997bd4f-7d5f-4f01-bbd1-df0065ef4faa",
+        "status": 400,
+        "code": "invalid",
+        "title": "Invalid input.",
+        "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+        "source": {
+          "pointer": "/data/attributes/phone_number"
+        },
+        "meta": {}
+      }
+    ]
+}
+"""
+
+let TEST_FAILURE_JSON_INVALID_EMAIL = """
+{
+  "errors": [
+    {
+      "id": "dce2d180-0f36-4312-aa6d-92d025c17147",
+      "status": 400,
+      "code": "invalid",
+      "title": "Invalid input.",
+      "detail": "Invalid email address",
+      "source": {
+        "pointer": "/data/attributes/email"
+      },
+      "meta": {}
+    }
+  ]
+}
+"""
