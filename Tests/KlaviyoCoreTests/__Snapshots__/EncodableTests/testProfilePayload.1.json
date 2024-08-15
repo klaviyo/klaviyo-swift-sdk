@@ -2,6 +2,8 @@
   "data" : {
     "attributes" : {
       "anonymous_id" : "foo",
+      "email" : "blobemail",
+      "external_id" : "blobid",
       "first_name" : "Blob",
       "image" : "foo",
       "last_name" : "Junior",
@@ -17,13 +19,8 @@
         "zip" : "0BLOB"
       },
       "organization" : "Blobco",
-      "properties" : {
-        "blob" : "blob",
-        "hello" : {
-          "sub" : "dict"
-        },
-        "stuff" : 2
-      },
+      "phone_number" : "+15555555555",
+      "properties" : null,
       "title" : "Jelly"
     },
     "type" : "profile"

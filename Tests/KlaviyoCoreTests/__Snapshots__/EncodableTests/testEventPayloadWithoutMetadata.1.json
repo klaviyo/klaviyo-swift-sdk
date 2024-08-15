@@ -4,7 +4,7 @@
       "metric" : {
         "data" : {
           "attributes" : {
-            "name" : "blob"
+            "name" : "test"
           },
           "type" : "metric"
         }

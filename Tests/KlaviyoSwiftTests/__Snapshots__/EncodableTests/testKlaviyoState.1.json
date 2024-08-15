@@ -4,17 +4,17 @@
   "phoneNumber" : "foo",
   "pushTokenData" : {
     "deviceData" : {
-      "app_build" : "1",
-      "app_id" : "com.klaviyo.fooapp",
-      "app_name" : "FooApp",
-      "app_version" : "1.2.3",
-      "device_id" : "fe-fi-fo-fum",
-      "device_model" : "jPhone 1,1",
+      "app_build" : "22189",
+      "app_id" : "com.apple.dt.xctest.tool",
+      "app_name" : "xctest",
+      "app_version" : "15.0",
+      "device_id" : "278E698D-7E37-477E-BD83-60BB4FCF404E",
+      "device_model" : "arm64",
       "environment" : "debug",
       "klaviyo_sdk" : "swift",
-      "manufacturer" : "Orange",
+      "manufacturer" : "Apple",
       "os_name" : "iOS",
-      "os_version" : "1.1.1",
+      "os_version" : "17.0.0",
       "sdk_version" : "3.2.0"
     },
     "pushBackground" : "AVAILABLE",
@@ -31,17 +31,17 @@
               "attributes" : {
                 "background" : "AVAILABLE",
                 "device_metadata" : {
-                  "app_build" : "1",
-                  "app_id" : "com.klaviyo.fooapp",
-                  "app_name" : "FooApp",
-                  "app_version" : "1.2.3",
-                  "device_id" : "fe-fi-fo-fum",
-                  "device_model" : "jPhone 1,1",
+                  "app_build" : "22189",
+                  "app_id" : "com.apple.dt.xctest.tool",
+                  "app_name" : "xctest",
+                  "app_version" : "15.0",
+                  "device_id" : "278E698D-7E37-477E-BD83-60BB4FCF404E",
+                  "device_model" : "arm64",
                   "environment" : "debug",
                   "klaviyo_sdk" : "swift",
-                  "manufacturer" : "Orange",
+                  "manufacturer" : "Apple",
                   "os_name" : "iOS",
-                  "os_version" : "1.1.1",
+                  "os_version" : "17.0.0",
                   "sdk_version" : "3.2.0"
                 },
                 "enablement_status" : "AUTHORIZED",
@@ -65,7 +65,7 @@
           }
         }
       },
-      "uuid" : "00000000-0000-0000-0000-000000000001"
+      "uuid" : "7C626F6D-0239-4049-B0E6-67038C781106"
     }
   ]
 }

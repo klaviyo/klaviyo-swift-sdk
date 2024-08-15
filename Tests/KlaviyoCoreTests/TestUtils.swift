@@ -162,3 +162,27 @@ extension PushTokenPayload {
         background: "AVAILABLE",
         profile: ProfilePayload(anonymousId: "anon-id"))
 }
+
+extension ProfilePayload {
+    static let location = ProfilePayload.Attributes.Location(
+        address1: "blob",
+        address2: "blob",
+        city: "blob city",
+        country: "Blobland",
+        latitude: 1,
+        longitude: 1,
+        region: "BL",
+        zip: "0BLOB")
+
+    static let test = ProfilePayload(
+        email: "blobemail",
+        phoneNumber: "+15555555555",
+        externalId: "blobid",
+        firstName: "Blob",
+        lastName: "Junior",
+        organization: "Blobco",
+        title: "Jelly",
+        image: "foo",
+        location: location,
+        anonymousId: "foo")
+}

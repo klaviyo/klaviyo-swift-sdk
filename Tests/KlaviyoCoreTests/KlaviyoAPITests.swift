@@ -5,7 +5,6 @@
 //  Created by Noah Durell on 11/16/22.
 //
 
-@testable import KlaviyoSwift
 import KlaviyoCore
 import SnapshotTesting
 import XCTest
@@ -23,7 +22,7 @@ final class KlaviyoAPITests: XCTestCase {
 
         await sendAndAssert(with: KlaviyoRequest(
             apiKey: "foo",
-            endpoint: .createProfile(CreateProfilePayload(data: Profile.test.toAPIModel(anonymousId: "foo"))))
+            endpoint: .createProfile(CreateProfilePayload(data: .test)))
         ) { result in
             switch result {
             case let .failure(error):
@@ -37,7 +36,7 @@ final class KlaviyoAPITests: XCTestCase {
     func testEncodingError() async throws {
         environment.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: Profile().toAPIModel(anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -53,7 +52,7 @@ final class KlaviyoAPITests: XCTestCase {
         environment.networkSession = { NetworkSession.test(data: { _ in
             throw NSError(domain: "network error", code: 0)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: Profile().toAPIModel(anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -69,7 +68,7 @@ final class KlaviyoAPITests: XCTestCase {
         environment.networkSession = { NetworkSession.test(data: { _ in
             (Data(), .non200Response)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: Profile().toAPIModel(anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
         await sendAndAssert(with: request) { result in
 
             switch result {
@@ -86,7 +85,7 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: Profile().toAPIModel(anonymousId: "foo"))))
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
         await sendAndAssert(with: request) { result in
 
             switch result {
