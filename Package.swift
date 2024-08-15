@@ -33,7 +33,12 @@ let package = Package(
             path: "Sources/KlaviyoCore"),
         .testTarget(
             name: "KlaviyoCoreTests",
-            dependencies: ["KlaviyoCore"]),
+            dependencies: [
+                "KlaviyoCore",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+                .product(name: "CustomDump", package: "swift-custom-dump"),
+                .product(name: "CasePaths", package: "swift-case-paths")
+            ]),
         .target(
             name: "KlaviyoSwift",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
