@@ -20,7 +20,9 @@
       },
       "organization" : "Blobco",
       "phone_number" : "+15555555555",
-      "properties" : null,
+      "properties" : {
+
+      },
       "title" : "Jelly"
     },
     "type" : "profile"

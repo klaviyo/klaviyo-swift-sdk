@@ -8,7 +8,9 @@
             "anonymous_id" : "foo",
             "email" : "foo",
             "phone_number" : "foo",
-            "properties" : null
+            "properties" : {
+
+            }
           },
           "type" : "profile"
         }

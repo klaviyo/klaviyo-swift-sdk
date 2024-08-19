@@ -41,8 +41,8 @@
                 - some: "Blobco"
               ▿ phoneNumber: Optional<String>
                 - some: "+15555555555"
-              ▿ properties: nil
-                - value: (0 elements)
+              ▿ properties: [:]
+                - value: 0 key/value pairs
               ▿ title: Optional<String>
                 - some: "Jelly"
             - type: "profile"
