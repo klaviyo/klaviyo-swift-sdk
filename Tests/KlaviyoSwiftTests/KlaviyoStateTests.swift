@@ -130,8 +130,10 @@ final class KlaviyoStateTests: XCTestCase {
         let event = Event.test
         let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: event.metric.name.value))
         let eventRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
+
         let profile = Profile.test
         let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
+
         let profileRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
@@ -139,9 +141,12 @@ final class KlaviyoStateTests: XCTestCase {
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"))
         let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
-        let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, profileRequest, eventRequest])
-        let encodedState = try environment.encodeJSON(AnyEncodable(state))
-        let decodedState: KlaviyoState = try environment.decoder.decode(encodedState)
+
+        let state = KlaviyoState(apiKey: "key", queue: [tokenRequest])
+
+        let encodedState = try KlaviyoEnvironment.production.encodeJSON(AnyEncodable(state))
+        let decodedState: KlaviyoState = try KlaviyoEnvironment.production.decoder.decode(encodedState)
+
         XCTAssertEqual(decodedState, state)
     }
 

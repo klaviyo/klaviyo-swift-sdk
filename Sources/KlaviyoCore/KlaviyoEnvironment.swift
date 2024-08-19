@@ -114,7 +114,7 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
 
-    static var production = KlaviyoEnvironment(
+    public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         dataFromUrl: { url in try Data(contentsOf: url) },
