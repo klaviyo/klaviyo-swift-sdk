@@ -33,11 +33,11 @@ struct KlaviyoAPI {
     }
 
     // For internal testing use only
-    static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
-    static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
-    static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
-    static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
-    static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
+    static var requestStarted: (KlaviyoRequest, URLRequest) -> Void = {  _, _ in }
+    static var requestCompleted: (KlaviyoRequest, URLRequest, Data, Double) -> Void = { _, _, _, _ in }
+    static var requestFailed: (KlaviyoRequest, URLRequest?, Error, Double) -> Void = { _, _, _, _ in }
+    static var requestRateLimited: (KlaviyoRequest, URLRequest, Int?) -> Void = { _, _, _ in }
+    static var requestHttpError: (KlaviyoRequest, URLRequest, Int, Double) -> Void = { _, _, _, _ in }
 
     var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
@@ -46,18 +46,18 @@ struct KlaviyoAPI {
         do {
             urlRequest = try request.urlRequest(attemptNumber)
         } catch {
-            requestFailed(request, error, 0.0)
+            requestFailed(request, nil, error, 0.0)
             return .failure(.internalRequestError(error))
         }
 
-        requestStarted(request)
+        requestStarted(request, urlRequest)
 
         var response: URLResponse
         var data: Data
         do {
             (data, response) = try await environment.analytics.networkSession().data(urlRequest)
         } catch {
-            requestFailed(request, error, 0.0)
+            requestFailed(request, urlRequest, error, 0.0)
             return .failure(KlaviyoAPIError.networkError(error))
         }
 
@@ -70,16 +70,16 @@ struct KlaviyoAPI {
 
         if httpResponse.statusCode == 429 {
             let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0")
-            requestRateLimited(request, retryAfter)
+            requestRateLimited(request, urlRequest, retryAfter)
             return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            requestHttpError(request, httpResponse.statusCode, duration)
+            requestHttpError(request, urlRequest, httpResponse.statusCode, duration)
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
 
-        requestCompleted(request, data, duration)
+        requestCompleted(request, urlRequest, data, duration)
 
         return .success(data)
     }

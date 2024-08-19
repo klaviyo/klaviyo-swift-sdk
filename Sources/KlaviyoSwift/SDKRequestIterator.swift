@@ -86,9 +86,8 @@ public struct SDKRequest: Identifiable, Equatable {
         case reqeustError(String, Double)
     }
 
-    static func fromAPIRequest(request: KlaviyoAPI.KlaviyoRequest, response: SDKRequest.Response) -> SDKRequest {
+    static func fromAPIRequest(request: KlaviyoAPI.KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
         let type = RequestType.fromEndpoint(request: request)
-        let urlRequest = try? request.urlRequest()
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
         return SDKRequest(id: request.uuid,
@@ -133,27 +132,27 @@ public struct SDKRequest: Identifiable, Equatable {
 public func requestIterator() -> AsyncStream<SDKRequest> {
     AsyncStream<SDKRequest> { continuation in
         continuation.onTermination = { _ in
-            KlaviyoAPI.requestStarted = { _ in }
-            KlaviyoAPI.requestFailed = { _, _, _ in }
-            KlaviyoAPI.requestCompleted = { _, _, _ in }
-            KlaviyoAPI.requestHttpError = { _, _, _ in }
-            KlaviyoAPI.requestRateLimited = { _, _ in }
+            KlaviyoAPI.requestStarted = { _, _ in }
+            KlaviyoAPI.requestFailed = { _, _, _, _ in }
+            KlaviyoAPI.requestCompleted = { _, _, _, _ in }
+            KlaviyoAPI.requestHttpError = { _, _, _, _ in }
+            KlaviyoAPI.requestRateLimited = { _, _, _ in }
         }
-        KlaviyoAPI.requestStarted = { request in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .inProgress))
+        KlaviyoAPI.requestStarted = { request, urlRequest in
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .inProgress))
         }
-        KlaviyoAPI.requestCompleted = { request, data, duration in
+        KlaviyoAPI.requestCompleted = { request, urlRequest, data, duration in
             let dataDescription = String(data: data, encoding: .utf8) ?? "Invalid Data"
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .success(dataDescription, duration)))
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .success(dataDescription, duration)))
         }
-        KlaviyoAPI.requestFailed = { request, error, duration in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .reqeustError(error.localizedDescription, duration)))
+        KlaviyoAPI.requestFailed = { request, urlRequest, error, duration in
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .reqeustError(error.localizedDescription, duration)))
         }
-        KlaviyoAPI.requestHttpError = { request, statusCode, duration in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .httpError(statusCode, duration)))
+        KlaviyoAPI.requestHttpError = { request, urlRequest, statusCode, duration in
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration)))
         }
-        KlaviyoAPI.requestRateLimited = { request, retryAfter in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .reqeustError("Rate Limited", Double(retryAfter ?? 0))))
+        KlaviyoAPI.requestRateLimited = { request, urlRequest, retryAfter in
+            continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .reqeustError("Rate Limited", Double(retryAfter ?? 0))))
         }
     }
 }
