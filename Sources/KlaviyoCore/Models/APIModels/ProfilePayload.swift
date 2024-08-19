@@ -59,7 +59,7 @@ public struct ProfilePayload: Equatable, Codable {
             self.title = title
             self.image = image
             self.location = location
-            self.properties = AnyCodable(properties)
+            self.properties = AnyCodable(properties ?? [:])
             self.anonymousId = anonymousId
         }
 

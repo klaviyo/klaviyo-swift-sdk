@@ -57,7 +57,7 @@ public struct CreateEventPayload: Equatable, Codable {
                         time: Date? = nil,
                         uniqueId: String? = nil) {
                 metric = Metric(name: name)
-                self.properties = AnyCodable(properties)
+                self.properties = AnyCodable(properties ?? [:])
                 self.value = value
                 self.time = time ?? environment.date()
                 self.uniqueId = uniqueId ?? environment.uuid().uuidString
