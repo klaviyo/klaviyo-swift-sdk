@@ -161,7 +161,7 @@ extension PushTokenPayload {
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: ProfilePayload(properties: AnyCodable([:]), anonymousId: "anon-id"))
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"))
 }
 
 extension ProfilePayload {
@@ -184,6 +184,7 @@ extension ProfilePayload {
         organization: "Blobco",
         title: "Jelly",
         image: "foo",
-        location: location, properties: AnyCodable([:]),
+        location: location,
+        properties: [:],
         anonymousId: "foo")
 }

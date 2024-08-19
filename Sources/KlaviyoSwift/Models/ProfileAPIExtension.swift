@@ -8,6 +8,12 @@
 import Foundation
 import KlaviyoCore
 
+extension String {
+    fileprivate func returnNilIfEmpty() -> String? {
+        isEmpty ? nil : self
+    }
+}
+
 extension Profile {
     func toAPIModel(
         email: String? = nil,
@@ -15,9 +21,9 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
+            email: email ?? self.email?.returnNilIfEmpty(),
+            phoneNumber: phoneNumber ?? self.phoneNumber?.returnNilIfEmpty(),
+            externalId: externalId ?? self.externalId?.returnNilIfEmpty(),
             firstName: firstName,
             lastName: lastName,
             organization: organization,
