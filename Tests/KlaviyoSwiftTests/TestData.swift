@@ -83,7 +83,7 @@ extension Profile {
         title: "Jelly",
         image: "foo",
         location: .test,
-        properties: SAMPLE_PROPERTIES)
+        properties: [:])
 }
 
 extension Profile.Location {
@@ -114,28 +114,11 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES, time: KlaviyoEnvironment.test().date())
+    static let test = Self(name: .CustomEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date())
 }
 
 extension Event.Metric {
     static let test = Self(name: .CustomEvent("blob"))
-}
-
-extension CreateEventPayload {
-    static let test = CreateEventPayload(data: Event(name: "test"))
-}
-
-extension URLResponse {
-    static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)!
-    static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
-}
-
-extension PushTokenPayload {
-    static let test = PushTokenPayload(
-        pushToken: "foo",
-        enablement: "AUTHORIZED",
-        background: "AVAILABLE",
-        profile: ProfilePayload(anonymousId: "anon-id"))
 }
 
 extension KlaviyoState {

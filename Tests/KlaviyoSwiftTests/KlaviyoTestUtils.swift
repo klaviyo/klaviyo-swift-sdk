@@ -11,10 +11,6 @@ import XCTest
 import CombineSchedulers
 import KlaviyoCore
 
-enum FakeFileError: Error {
-    case fake
-}
-
 let ARCHIVED_RETURNED_DATA = Data()
 
 extension ArchiverClient {

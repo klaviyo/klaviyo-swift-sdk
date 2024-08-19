@@ -5,6 +5,7 @@
 //  Created by Ajay Subramanya on 8/15/24.
 //
 
+import AnyCodable
 import Combine
 import Foundation
 import KlaviyoCore
@@ -160,7 +161,7 @@ extension PushTokenPayload {
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: ProfilePayload(anonymousId: "anon-id"))
+        profile: ProfilePayload(properties: AnyCodable([:]), anonymousId: "anon-id"))
 }
 
 extension ProfilePayload {
@@ -183,6 +184,6 @@ extension ProfilePayload {
         organization: "Blobco",
         title: "Jelly",
         image: "foo",
-        location: location,
+        location: location, properties: AnyCodable([:]),
         anonymousId: "foo")
 }
