@@ -149,10 +149,10 @@ public enum RequestStatus {
 public func requestIterator() -> AsyncStream<SDKRequest> {
     AsyncStream<SDKRequest> { continuation in
         continuation.onTermination = { _ in
-            KlaviyoAPI.requestCompletion = { _, _, _ in }
+            KlaviyoAPI.requestHandler = { _, _, _ in }
         }
         
-        KlaviyoAPI.requestCompletion = { request, urlRequest, result in
+        KlaviyoAPI.requestHandler = { request, urlRequest, result in
             switch result {
             case .started:
                 continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .inProgress))

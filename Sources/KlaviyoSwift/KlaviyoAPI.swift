@@ -33,7 +33,7 @@ struct KlaviyoAPI {
     }
 
     // For internal testing use only
-    static var requestCompletion: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
+    static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
     
     var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
@@ -42,18 +42,18 @@ struct KlaviyoAPI {
         do {
             urlRequest = try request.urlRequest(attemptNumber)
         } catch {
-            requestCompletion(request, nil, .error(.requestFailed(error)))
+            requestHandler(request, nil, .error(.requestFailed(error)))
             return .failure(.internalRequestError(error))
         }
 
-        requestCompletion(request, urlRequest, .started)
+        requestHandler(request, urlRequest, .started)
 
         var response: URLResponse
         var data: Data
         do {
             (data, response) = try await environment.analytics.networkSession().data(urlRequest)
         } catch {
-            requestCompletion(request, urlRequest, .error(.requestFailed(error)))
+            requestHandler(request, urlRequest, .error(.requestFailed(error)))
             return .failure(KlaviyoAPIError.networkError(error))
         }
 
@@ -66,16 +66,16 @@ struct KlaviyoAPI {
 
         if httpResponse.statusCode == 429 {
             let retryAfter = Int(httpResponse.value(forHTTPHeaderField: "Retry-After") ?? "0") ?? 0
-            requestCompletion(request, urlRequest, .error(.rateLimited(retryAfter: retryAfter)))
+            requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: retryAfter)))
             return .failure(KlaviyoAPIError.rateLimitError(retryAfter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            requestCompletion(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration)))
+            requestHandler(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration)))
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
 
-        requestCompletion(request, urlRequest, .completed(data: data, duration: duration))
+        requestHandler(request, urlRequest, .completed(data: data, duration: duration))
 
         return .success(data)
     }
