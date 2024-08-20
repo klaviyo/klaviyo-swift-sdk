@@ -129,6 +129,23 @@ public struct SDKRequest: Identifiable, Equatable {
 }
 
 @_spi(KlaviyoPrivate)
+public enum RequestStatus {
+    public enum RequestError: Error {
+        case requestFailed(Error)
+        /// The server responded with a 429 HTTP status code, indicating that the client is being rate-limited.
+        /// - Parameter retryAfter: The amount of time, in seconds, that the client should wait before making another request.
+        case rateLimited(retryAfter: Int)
+        /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
+        case httpError(statusCode: Int, duration: TimeInterval)
+    }
+    
+    case started
+    /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
+    case completed(data: Data, duration: TimeInterval)
+    case error(RequestError)
+}
+
+@_spi(KlaviyoPrivate)
 public func requestIterator() -> AsyncStream<SDKRequest> {
     AsyncStream<SDKRequest> { continuation in
         continuation.onTermination = { _ in
