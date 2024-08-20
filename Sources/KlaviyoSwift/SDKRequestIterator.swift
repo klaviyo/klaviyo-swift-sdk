@@ -138,7 +138,7 @@ public enum RequestStatus {
         /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
         case httpError(statusCode: Int, duration: TimeInterval)
     }
-    
+
     case started
     /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
     case completed(data: Data, duration: TimeInterval)
@@ -151,22 +151,22 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
         continuation.onTermination = { _ in
             KlaviyoAPI.requestHandler = { _, _, _ in }
         }
-        
+
         KlaviyoAPI.requestHandler = { request, urlRequest, result in
             switch result {
             case .started:
                 continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .inProgress))
-            case .completed(let data, let duration):
+            case let .completed(data, duration):
                 let dataDescription = String(data: data, encoding: .utf8) ?? "Invalid Data"
                 continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .success(dataDescription, duration)))
-            case .error(let error):
+            case let .error(error):
                 switch error {
-                case .requestFailed(let requestError):
+                case let .requestFailed(requestError):
                     let duration = 0.0
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError(requestError.localizedDescription, duration)))
-                case .httpError(let statusCode, duration: let duration):
+                case let .httpError(statusCode, duration: duration):
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration)))
-                case .rateLimited(let retryAfter):
+                case let .rateLimited(retryAfter):
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError("Rate Limited", Double(retryAfter))))
                 }
             }

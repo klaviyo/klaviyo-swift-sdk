@@ -34,7 +34,7 @@ struct KlaviyoAPI {
 
     // For internal testing use only
     static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
-    
+
     var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
         let start = Date()
 
