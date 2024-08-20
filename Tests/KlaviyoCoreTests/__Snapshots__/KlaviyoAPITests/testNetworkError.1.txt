@@ -1,2 +1,0 @@
-▿ KlaviyoAPIError
-  - networkError: Error Domain=network error Code=0 "(null)"

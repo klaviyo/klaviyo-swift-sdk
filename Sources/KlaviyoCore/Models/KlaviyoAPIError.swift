@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  KlaviyoAPIError.swift
 //
 //
 //  Created by Ajay Subramanya on 8/8/24.

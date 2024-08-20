@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Event.swift
 //
 //
 //  Created by Ajay Subramanya on 8/6/24.
