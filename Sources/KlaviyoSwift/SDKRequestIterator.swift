@@ -83,7 +83,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case inProgress
         case success(String, Double)
         case httpError(Int, Double)
-        case reqeustError(String, Double)
+        case requestError(String, Double)
     }
 
     static func fromAPIRequest(request: KlaviyoAPI.KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
@@ -163,11 +163,11 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
                 switch error {
                 case .requestFailed(let requestError):
                     let duration = 0.0
-                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .reqeustError(requestError.localizedDescription, duration)))
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError(requestError.localizedDescription, duration)))
                 case .httpError(let statusCode, duration: let duration):
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration)))
                 case .rateLimited(let retryAfter):
-                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .reqeustError("Rate Limited", Double(retryAfter))))
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError("Rate Limited", Double(retryAfter))))
                 }
             }
         }
