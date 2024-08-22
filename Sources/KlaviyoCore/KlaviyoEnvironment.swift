@@ -9,9 +9,6 @@ import AnyCodable
 import Combine
 import Foundation
 import UIKit
-#if canImport(os)
-import os
-#endif
 
 public var environment = KlaviyoEnvironment.production
 
@@ -185,24 +182,4 @@ public struct DataDecoder {
     public func decode<T: Decodable>(_ data: Data) throws -> T {
         try jsonDecoder.decode(T.self, from: data)
     }
-}
-
-@usableFromInline
-@inline(__always)
-func runtimeWarn(
-    _ message: @autoclosure () -> String,
-    category: String? = __klaviyoSwiftName,
-    file: StaticString? = nil,
-    line: UInt? = nil) {
-    #if DEBUG
-    let message = message()
-    let category = category ?? "Runtime Warning"
-    #if canImport(os)
-    os_log(
-        .fault,
-        log: OSLog(subsystem: "com.apple.runtime-issues", category: category),
-        "%@",
-        message)
-    #endif
-    #endif
 }
