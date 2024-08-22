@@ -83,12 +83,11 @@ public struct SDKRequest: Identifiable, Equatable {
         case inProgress
         case success(String, Double)
         case httpError(Int, Double)
-        case reqeustError(String, Double)
+        case requestError(String, Double)
     }
 
-    static func fromAPIRequest(request: KlaviyoAPI.KlaviyoRequest, response: SDKRequest.Response) -> SDKRequest {
+    static func fromAPIRequest(request: KlaviyoAPI.KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
         let type = RequestType.fromEndpoint(request: request)
-        let urlRequest = try? request.urlRequest()
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
         return SDKRequest(id: request.uuid,
@@ -130,30 +129,47 @@ public struct SDKRequest: Identifiable, Equatable {
 }
 
 @_spi(KlaviyoPrivate)
+public enum RequestStatus {
+    public enum RequestError: Error {
+        case requestFailed(Error)
+        /// The server responded with a 429 HTTP status code, indicating that the client is being rate-limited.
+        /// - Parameter retryAfter: The amount of time, in seconds, that the client should wait before making another request.
+        case rateLimited(retryAfter: Int)
+        /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
+        case httpError(statusCode: Int, duration: TimeInterval)
+    }
+
+    case started
+    /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
+    case completed(data: Data, duration: TimeInterval)
+    case error(RequestError)
+}
+
+@_spi(KlaviyoPrivate)
 public func requestIterator() -> AsyncStream<SDKRequest> {
     AsyncStream<SDKRequest> { continuation in
         continuation.onTermination = { _ in
-            KlaviyoAPI.requestStarted = { _ in }
-            KlaviyoAPI.requestFailed = { _, _, _ in }
-            KlaviyoAPI.requestCompleted = { _, _, _ in }
-            KlaviyoAPI.requestHttpError = { _, _, _ in }
-            KlaviyoAPI.requestRateLimited = { _, _ in }
+            KlaviyoAPI.requestHandler = { _, _, _ in }
         }
-        KlaviyoAPI.requestStarted = { request in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .inProgress))
-        }
-        KlaviyoAPI.requestCompleted = { request, data, duration in
-            let dataDescription = String(data: data, encoding: .utf8) ?? "Invalid Data"
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .success(dataDescription, duration)))
-        }
-        KlaviyoAPI.requestFailed = { request, error, duration in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .reqeustError(error.localizedDescription, duration)))
-        }
-        KlaviyoAPI.requestHttpError = { request, statusCode, duration in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .httpError(statusCode, duration)))
-        }
-        KlaviyoAPI.requestRateLimited = { request, retryAfter in
-            continuation.yield(SDKRequest.fromAPIRequest(request: request, response: .reqeustError("Rate Limited", Double(retryAfter ?? 0))))
+
+        KlaviyoAPI.requestHandler = { request, urlRequest, result in
+            switch result {
+            case .started:
+                continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .inProgress))
+            case let .completed(data, duration):
+                let dataDescription = String(data: data, encoding: .utf8) ?? "Invalid Data"
+                continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .success(dataDescription, duration)))
+            case let .error(error):
+                switch error {
+                case let .requestFailed(requestError):
+                    let duration = 0.0
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError(requestError.localizedDescription, duration)))
+                case let .httpError(statusCode, duration: duration):
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration)))
+                case let .rateLimited(retryAfter):
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError("Rate Limited", Double(retryAfter))))
+                }
+            }
         }
     }
 }
