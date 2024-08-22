@@ -11,6 +11,7 @@ import KlaviyoCore
 
 public struct Event: Equatable {
     public enum EventName: Equatable {
+        @_spi(KlaviyoPrivate)
         case OpenedPush
         case OpenedAppMetric
         case ViewedProductMetric
