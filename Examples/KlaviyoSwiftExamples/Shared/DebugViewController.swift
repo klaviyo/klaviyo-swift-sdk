@@ -1,5 +1,5 @@
 //
-//  ViewController.swift
+//  DebugViewController.swift
 //  SPMExample
 //
 //  Created by Ajay Subramanya on 2/28/23.

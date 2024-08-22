@@ -1,5 +1,5 @@
 //
-//  KlaviyoStateManagement.swift
+//  StateManagement.swift
 //
 //  Klaviyo Swift SDK
 //
@@ -478,7 +478,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .resetStateAndDequeue(request, invalidFields):
-            invalidFields.forEach { invalidField in
+            for invalidField in invalidFields {
                 switch invalidField {
                 case .email:
                     state.email = nil

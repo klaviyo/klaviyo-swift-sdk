@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  SDKRequestIterator.swift
 //
 //
 //  Created by Noah Durell on 2/13/23.
@@ -127,7 +127,6 @@ public struct SDKRequest: Identifiable, Equatable {
         self.requestBody = requestBody
     }
 }
-
 
 public enum RequestStatus {
     public enum RequestError: Error {

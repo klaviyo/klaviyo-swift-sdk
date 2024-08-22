@@ -73,5 +73,4 @@ public struct KlaviyoAPI {
 
     // For internal testing use only
     public static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
-
 }

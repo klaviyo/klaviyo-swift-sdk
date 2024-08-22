@@ -1,5 +1,5 @@
 //
-//  LifeCycleEventsExtension.swift
+//  LifecycleEventsExtension.swift
 //
 //
 //  Created by Ajay Subramanya on 8/13/24.
