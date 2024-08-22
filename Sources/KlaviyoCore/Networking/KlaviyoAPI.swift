@@ -23,18 +23,18 @@ public struct KlaviyoAPI {
         do {
             urlRequest = try request.urlRequest(attemptNumber)
         } catch {
-            requestFailed(request, error, 0.0)
+            requestHandler(request, nil, .error(.requestFailed(error)))
             return .failure(.internalRequestError(error))
         }
 
-        requestStarted(request)
+        requestHandler(request, urlRequest, .started)
 
         var response: URLResponse
         var data: Data
         do {
             (data, response) = try await environment.networkSession().data(urlRequest)
         } catch {
-            requestFailed(request, error, 0.0)
+            requestHandler(request, urlRequest, .error(.requestFailed(error)))
             return .failure(KlaviyoAPIError.networkError(error))
         }
 
@@ -55,16 +55,16 @@ public struct KlaviyoAPI {
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = nextBackoff + jitter
 
-            requestRateLimited(request, nextBackOffWithJitter)
+            requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
             return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            requestHttpError(request, httpResponse.statusCode, duration)
+            requestHandler(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration)))
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
 
-        requestCompleted(request, data, duration)
+        requestHandler(request, urlRequest, .completed(data: data, duration: duration))
 
         return .success(data)
     }) {
@@ -72,9 +72,6 @@ public struct KlaviyoAPI {
     }
 
     // For internal testing use only
-    public static var requestStarted: (KlaviyoRequest) -> Void = { _ in }
-    public static var requestCompleted: (KlaviyoRequest, Data, Double) -> Void = { _, _, _ in }
-    public static var requestFailed: (KlaviyoRequest, Error, Double) -> Void = { _, _, _ in }
-    public static var requestRateLimited: (KlaviyoRequest, Int?) -> Void = { _, _ in }
-    public static var requestHttpError: (KlaviyoRequest, Int, Double) -> Void = { _, _, _ in }
+    public static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
+
 }
