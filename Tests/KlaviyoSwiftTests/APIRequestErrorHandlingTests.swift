@@ -1,9 +1,9 @@
-////
-////  APIRequestErrorHandlingTests.swift
-////  State management tests related to api request error handling.
-////
-////  Created by Noah Durell on 12/15/22.
-////
+//
+//  APIRequestErrorHandlingTests.swift
+//  State management tests related to api request error handling.
+//
+//  Created by Noah Durell on 12/15/22.
+//
 
 @testable import KlaviyoSwift
 import Foundation

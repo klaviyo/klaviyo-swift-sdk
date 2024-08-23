@@ -47,7 +47,7 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-    public var time: Date
+    public let time: Date
     public let value: Double?
     public let uniqueId: String
     let identifiers: Identifiers?
@@ -56,13 +56,13 @@ public struct Event: Equatable {
          properties: [String: Any]? = nil,
          identifiers: Identifiers? = nil,
          value: Double? = nil,
-         time: Date? = nil,
-         uniqueId: String? = nil) {
+         time: Date = environment.date(),
+         uniqueId: String = environment.uuid().uuidString) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        self.time = time ?? environment.date()
+        self.time = time
         self.value = value
-        self.uniqueId = uniqueId ?? environment.uuid().uuidString
+        self.uniqueId = uniqueId
         self.identifiers = identifiers
     }
 

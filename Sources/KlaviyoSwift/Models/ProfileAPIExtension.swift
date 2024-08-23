@@ -21,7 +21,7 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: email ?? self.email?.returnNilIfEmpty(),
+            email: email ?? self.email,
             phoneNumber: phoneNumber ?? self.phoneNumber?.returnNilIfEmpty(),
             externalId: externalId ?? self.externalId?.returnNilIfEmpty(),
             firstName: firstName,
@@ -45,7 +45,7 @@ extension Profile.Location {
             latitude: latitude,
             longitude: longitude,
             region: region,
-            zip: self.zip,
+            zip: zip,
             timezone: timezone)
     }
 }

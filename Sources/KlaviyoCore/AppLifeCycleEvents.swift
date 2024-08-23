@@ -15,7 +15,7 @@ public enum LifeCycleErrors: Error {
 
 public enum LifeCycleEvents {
     case terminated
-    case forgrounded
+    case foregrounded
     case backgrounded
     case reachabilityChanged(status: Reachability.NetworkStatus)
 }
@@ -39,7 +39,7 @@ public struct AppLifeCycleEvents {
                     environment.emitDeveloperWarning("failure to start reachability notifier")
                 }
             })
-            .map { _ in LifeCycleEvents.forgrounded }
+            .map { _ in LifeCycleEvents.foregrounded }
         let backgrounded = environment
             .notificationCenterPublisher(UIApplication.didEnterBackgroundNotification)
             .handleEvents(receiveOutput: { _ in

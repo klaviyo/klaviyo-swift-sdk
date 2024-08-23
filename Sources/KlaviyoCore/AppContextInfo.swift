@@ -8,13 +8,13 @@ import Foundation
 import UIKit
 
 public struct AppContextInfo {
-    private let info = Bundle.main.infoDictionary
-    public static let defaultExecutable: String = (Bundle.main.infoDictionary?["CFBundleExecutable"] as? String) ??
+    private static let info = Bundle.main.infoDictionary
+    public static let defaultExecutable: String = (info?["CFBundleExecutable"] as? String) ??
         (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
-    public static let defaultBundleId: String = Bundle.main.infoDictionary?["CFBundleIdentifier"] as? String ?? "Unknown"
-    public static let defaultAppVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    public static let defaultAppBuild: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
-    public static let defaultAppName: String = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Unknown"
+    public static let defaultBundleId: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
+    public static let defaultAppVersion: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    public static let defaultAppBuild: String = info?["CFBundleVersion"] as? String ?? "Unknown"
+    public static let defaultAppName: String = info?["CFBundleName"] as? String ?? "Unknown"
     public static let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
     public static let defaultManufacturer = "Apple"
     public static let defaultOSName = "iOS"

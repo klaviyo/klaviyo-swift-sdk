@@ -13,7 +13,7 @@ extension LifeCycleEvents {
         switch self {
         case .terminated:
             return .stop
-        case .forgrounded:
+        case .foregrounded:
             return .start
         case .backgrounded:
             return .stop
