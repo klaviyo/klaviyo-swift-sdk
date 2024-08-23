@@ -21,7 +21,7 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: email ?? self.email,
+            email: email ?? self.email?.returnNilIfEmpty(),
             phoneNumber: phoneNumber ?? self.phoneNumber?.returnNilIfEmpty(),
             externalId: externalId ?? self.externalId?.returnNilIfEmpty(),
             firstName: firstName,

@@ -13,6 +13,7 @@ class KlaviyoModelsTest: XCTestCase {
     func testProfileModelConvertsToAPIModel() {
         let profile = Profile(
             email: "walter.white@breakingbad.com",
+            phoneNumber: "1800-better-call-saul",
             externalId: "999",
             firstName: "Walter",
             lastName: "White",
@@ -47,6 +48,50 @@ class KlaviyoModelsTest: XCTestCase {
         let orderAmount = apiProps["order amount"] as! String
 
         XCTAssertEqual(orderAmount, profile.properties["order amount"] as! String)
+        XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
+    }
+
+    func testProfileWithNoIdsModelConvertsToAPIModel() {
+        let profile = Profile(
+            firstName: "Walter",
+            lastName: "White")
+        let anonymousId = "C10H15N"
+        let apiProfile = profile.toAPIModel(
+            email: "walter.white@breakingbad.com",
+            phoneNumber: "1800-better-call-saul",
+            externalId: "999",
+            anonymousId: anonymousId)
+        XCTAssertNil(profile.email)
+        XCTAssertNil(profile.phoneNumber)
+        XCTAssertNil(profile.externalId)
+        XCTAssertEqual(apiProfile.attributes.email, "walter.white@breakingbad.com")
+        XCTAssertEqual(apiProfile.attributes.phoneNumber, "1800-better-call-saul")
+        XCTAssertEqual(apiProfile.attributes.externalId, "999")
+        XCTAssertEqual(apiProfile.attributes.firstName, profile.firstName)
+        XCTAssertEqual(apiProfile.attributes.lastName, profile.lastName)
+        XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
+    }
+
+    func testEmptyStringIdsConvertToNil() {
+        let profile = Profile(
+            firstName: "Walter",
+            lastName: "White")
+        let anonymousId = "C10H15N"
+        let apiProfile = profile.toAPIModel(
+            email: " ",
+            phoneNumber: " ",
+            externalId: " ",
+            anonymousId: anonymousId)
+        XCTAssertNil(profile.email)
+        XCTAssertNil(profile.phoneNumber)
+        XCTAssertNil(profile.externalId)
+
+        XCTAssertNil(apiProfile.attributes.email)
+        XCTAssertNil(apiProfile.attributes.phoneNumber)
+        XCTAssertNil(apiProfile.attributes.externalId)
+
+        XCTAssertEqual(apiProfile.attributes.firstName, profile.firstName)
+        XCTAssertEqual(apiProfile.attributes.lastName, profile.lastName)
         XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
     }
 }
