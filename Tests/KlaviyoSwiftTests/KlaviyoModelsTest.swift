@@ -74,22 +74,18 @@ class KlaviyoModelsTest: XCTestCase {
 
     func testEmptyStringIdsConvertToNil() {
         let profile = Profile(
+            email: "",
+            phoneNumber: "",
+            externalId: "",
             firstName: "Walter",
             lastName: "White")
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(
-            email: " ",
-            phoneNumber: " ",
-            externalId: " ",
             anonymousId: anonymousId)
-        XCTAssertNil(profile.email)
-        XCTAssertNil(profile.phoneNumber)
-        XCTAssertNil(profile.externalId)
 
         XCTAssertNil(apiProfile.attributes.email)
         XCTAssertNil(apiProfile.attributes.phoneNumber)
         XCTAssertNil(apiProfile.attributes.externalId)
-
         XCTAssertEqual(apiProfile.attributes.firstName, profile.firstName)
         XCTAssertEqual(apiProfile.attributes.lastName, profile.lastName)
         XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
