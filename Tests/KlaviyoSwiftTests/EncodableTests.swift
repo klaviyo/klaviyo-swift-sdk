@@ -15,6 +15,11 @@ import XCTest
 final class EncodableTests: XCTestCase {
     let testEncoder = KlaviyoEnvironment.encoder
 
+    override func setUpWithError() throws {
+        environment = KlaviyoEnvironment.test()
+        testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
+    }
+
     func testKlaviyoState() throws {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",

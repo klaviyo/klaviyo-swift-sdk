@@ -1,1 +1,73 @@
-{"anonymousId":"foo","pushTokenData":{"deviceData":{"klaviyo_sdk":"swift","os_name":"iOS","os_version":"1.1.1","environment":"debug","device_id":"fe-fi-fo-fum","manufacturer":"Orange","sdk_version":"3.2.0","device_model":"jPhone 1,1","app_version":"1.2.3","app_id":"com.klaviyo.fooapp","app_name":"FooApp","app_build":"1"},"pushBackground":"AVAILABLE","pushToken":"foo","pushEnablement":"AUTHORIZED"},"phoneNumber":"foo","queue":[{"uuid":"00000000-0000-0000-0000-000000000001","apiKey":"foo","endpoint":{"registerPushToken":{"_0":{"data":{"type":"push-token","attributes":{"vendor":"APNs","enablement_status":"AUTHORIZED","token":"foo","device_metadata":{"device_model":"jPhone 1,1","os_name":"iOS","os_version":"1.1.1","device_id":"fe-fi-fo-fum","sdk_version":"3.2.0","manufacturer":"Orange","app_name":"FooApp","app_version":"1.2.3","app_build":"1","environment":"debug","klaviyo_sdk":"swift","app_id":"com.klaviyo.fooapp"},"platform":"ios","background":"AVAILABLE","profile":{"data":{"type":"profile","attributes":{"phone_number":"foo","email":"foo","anonymous_id":"foo","properties":{}}}}}}}}}}],"email":"foo"}
+{
+  "anonymousId" : "foo",
+  "email" : "foo",
+  "phoneNumber" : "foo",
+  "pushTokenData" : {
+    "deviceData" : {
+      "app_build" : "1",
+      "app_id" : "com.klaviyo.fooapp",
+      "app_name" : "FooApp",
+      "app_version" : "1.2.3",
+      "device_id" : "fe-fi-fo-fum",
+      "device_model" : "jPhone 1,1",
+      "environment" : "debug",
+      "klaviyo_sdk" : "swift",
+      "manufacturer" : "Orange",
+      "os_name" : "iOS",
+      "os_version" : "1.1.1",
+      "sdk_version" : "3.2.0"
+    },
+    "pushBackground" : "AVAILABLE",
+    "pushEnablement" : "AUTHORIZED",
+    "pushToken" : "foo"
+  },
+  "queue" : [
+    {
+      "apiKey" : "foo",
+      "endpoint" : {
+        "registerPushToken" : {
+          "_0" : {
+            "data" : {
+              "attributes" : {
+                "background" : "AVAILABLE",
+                "device_metadata" : {
+                  "app_build" : "1",
+                  "app_id" : "com.klaviyo.fooapp",
+                  "app_name" : "FooApp",
+                  "app_version" : "1.2.3",
+                  "device_id" : "fe-fi-fo-fum",
+                  "device_model" : "jPhone 1,1",
+                  "environment" : "debug",
+                  "klaviyo_sdk" : "swift",
+                  "manufacturer" : "Orange",
+                  "os_name" : "iOS",
+                  "os_version" : "1.1.1",
+                  "sdk_version" : "3.2.0"
+                },
+                "enablement_status" : "AUTHORIZED",
+                "platform" : "ios",
+                "profile" : {
+                  "data" : {
+                    "attributes" : {
+                      "anonymous_id" : "foo",
+                      "email" : "foo",
+                      "phone_number" : "foo",
+                      "properties" : {
+
+                      }
+                    },
+                    "type" : "profile"
+                  }
+                },
+                "token" : "foo",
+                "vendor" : "APNs"
+              },
+              "type" : "push-token"
+            }
+          }
+        }
+      },
+      "uuid" : "00000000-0000-0000-0000-000000000001"
+    }
+  ]
+}
