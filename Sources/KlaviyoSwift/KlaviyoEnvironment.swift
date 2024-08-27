@@ -36,7 +36,7 @@ struct KlaviyoEnvironment {
     var getUserDefaultString: (String) -> String?
     var appLifeCycle: AppLifeCycleEvents
     var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
-    var getNotificationSettings: (@escaping (KlaviyoState.PushEnablement) -> Void) -> Void
+    var getNotificationSettings: () async -> KlaviyoState.PushEnablement
     var getBackgroundSetting: () -> KlaviyoState.PushBackground
     var legacyIdentifier: () -> String
     var startReachability: () throws -> Void
@@ -58,10 +58,9 @@ struct KlaviyoEnvironment {
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
-        getNotificationSettings: { callback in
-            UNUserNotificationCenter.current().getNotificationSettings { settings in
-                callback(.create(from: settings.authorizationStatus))
-            }
+        getNotificationSettings: {
+            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
+            return KlaviyoState.PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
         getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
         legacyIdentifier: { "iOS:\(UIDevice.current.identifierForVendor!.uuidString)" },
