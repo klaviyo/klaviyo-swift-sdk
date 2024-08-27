@@ -37,7 +37,9 @@ public struct KlaviyoEnvironment {
         timeZone: @escaping () -> String,
         appContextInfo: @escaping () -> AppContextInfo,
         klaviyoAPI: KlaviyoAPI,
-        timer: @escaping (Double) -> AnyPublisher<Date, Never>) {
+        timer: @escaping (Double) -> AnyPublisher<Date, Never>,
+        SDKName: String,
+        SDKVersion: String) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -62,6 +64,8 @@ public struct KlaviyoEnvironment {
         self.appContextInfo = appContextInfo
         self.klaviyoAPI = klaviyoAPI
         self.timer = timer
+        self.SDKName = SDKName
+        self.SDKVersion = SDKVersion
     }
 
     static let productionHost = "https://a.klaviyo.com"
@@ -111,6 +115,9 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
 
+    public var SDKName: String
+    public var SDKVersion: String
+
     public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -156,7 +163,9 @@ public struct KlaviyoEnvironment {
             Timer.publish(every: interval, on: .main, in: .default)
                 .autoconnect()
                 .eraseToAnyPublisher()
-        })
+        },
+        SDKName: __klaviyoSwiftName,
+        SDKVersion: __klaviyoSwiftVersion)
 }
 
 public var networkSession: NetworkSession!

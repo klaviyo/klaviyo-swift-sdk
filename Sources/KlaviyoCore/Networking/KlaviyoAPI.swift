@@ -13,6 +13,15 @@ public func setKlaviyoAPIURL(url: String) {
     environment.apiURL = url
 }
 
+@_spi(KlaviyoPrivate)
+public func setKlaviyoSDKNameAndVersion(name: String, version: String) {
+    print("name = \(name) | version = \(version)")
+    environment.SDKName = name
+    environment.SDKVersion = version
+
+    print("name = \(environment.SDKName) | version = \(environment.SDKVersion)")
+}
+
 public struct KlaviyoAPI {
     public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError>
 
