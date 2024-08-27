@@ -7,6 +7,7 @@
 
 import Foundation
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 
 let TEST_API_KEY = "fake-key"
@@ -183,3 +184,19 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
   ]
 }
 """
+
+extension KlaviyoSwiftEnvironment {
+    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+    static let test = {
+        KlaviyoSwiftEnvironment(send: { action in
+            testStore.send(action)
+        }, state: {
+            KlaviyoSwiftEnvironment.testStore.state.value
+        }, statePublisher: {
+            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+        }, stateChangePublisher: {
+            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+        })
+    }
+}
