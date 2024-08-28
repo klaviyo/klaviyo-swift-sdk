@@ -49,6 +49,9 @@ enum KlaviyoAction: Equatable {
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
     case setPushToken(String, KlaviyoState.PushEnablement)
 
+    /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
+    case setPushEnablement(KlaviyoState.PushEnablement)
+
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
@@ -96,7 +99,7 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == .OpenedPush:
             return false
 
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -230,6 +233,15 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
             return .none
 
+        case let .setPushEnablement(enablement):
+            guard let pushToken = state.pushTokenData?.pushToken else {
+                return .none
+            }
+
+            return .run { send in
+                await send(KlaviyoAction.setPushToken(pushToken, enablement))
+            }
+
         case .flushQueue:
             guard case .initialized = state.initalizationState else {
                 return .none
@@ -277,12 +289,19 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return environment.analytics.timer(state.flushInterval)
-                .map { _ in
-                    KlaviyoAction.flushQueue
-                }
-                .eraseToEffect()
-                .cancellable(id: FlushTimer.self, cancelInFlight: true)
+
+            return .merge([
+                .run { send in
+                    let settings = await environment.getNotificationSettings()
+                    await send(KlaviyoAction.setPushEnablement(settings))
+                },
+                environment.analytics.timer(state.flushInterval)
+                    .map { _ in
+                        KlaviyoAction.flushQueue
+                    }
+                    .eraseToEffect()
+                    .cancellable(id: FlushTimer.self, cancelInFlight: true)
+            ])
 
         case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(payload) = completedRequest.endpoint {
