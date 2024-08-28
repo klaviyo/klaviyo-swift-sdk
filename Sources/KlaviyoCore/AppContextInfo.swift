@@ -32,23 +32,23 @@ public struct AppContextInfo {
 
     private static let deviceIdStoreKey = "_klaviyo_device_id"
 
-    public let executable: String
-    public let bundleId: String
-    public let appVersion: String
-    public let appBuild: String
-    public let appName: String
-    public let version: OperatingSystemVersion
-    public let osName: String
-    public let manufacturer: String
-    public let deviceModel: String
-    public let deviceId: String
-    public let environment: String
+    let executable: String
+    let bundleId: String
+    let appVersion: String
+    let appBuild: String
+    let appName: String
+    let version: OperatingSystemVersion
+    let osName: String
+    let manufacturer: String
+    let deviceModel: String
+    let deviceId: String
+    let environment: String
 
-    public var osVersion: String {
+    var osVersion: String {
         "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 
-    public var osVersionName: String {
+    var osVersionName: String {
         "\(osName) \(osVersion)"
     }
 
