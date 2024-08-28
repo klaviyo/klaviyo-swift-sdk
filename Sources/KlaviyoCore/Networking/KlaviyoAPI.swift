@@ -15,11 +15,8 @@ public func setKlaviyoAPIURL(url: String) {
 
 @_spi(KlaviyoPrivate)
 public func setKlaviyoSDKNameAndVersion(name: String, version: String) {
-    print("name = \(name) | version = \(version)")
     environment.SDKName = name
     environment.SDKVersion = version
-
-    print("name = \(environment.SDKName) | version = \(environment.SDKVersion)")
 }
 
 public struct KlaviyoAPI {
