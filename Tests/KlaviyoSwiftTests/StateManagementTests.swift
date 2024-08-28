@@ -40,6 +40,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.start)
         await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized))
     }
 
     @MainActor
@@ -530,5 +531,6 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
     }
 }

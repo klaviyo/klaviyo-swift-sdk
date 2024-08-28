@@ -111,6 +111,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         await store.receive(.start)
         await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized))
     }
 
     // MARK: - Set Email
