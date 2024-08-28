@@ -82,7 +82,7 @@ extension KlaviyoEnvironment {
         getUserDefaultString: { _ in "value" },
         appLifeCycle: AppLifeCycleEvents.test,
         notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
-        getNotificationSettings: { callback in callback(.authorized) },
+        getNotificationSettings: { .authorized },
         getBackgroundSetting: { .available },
         legacyIdentifier: { "iOS:\(UUID(uuidString: "00000000-0000-0000-0000-000000000002")!.uuidString)" },
         startReachability: {},
