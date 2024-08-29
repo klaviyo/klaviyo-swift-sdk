@@ -33,7 +33,7 @@ extension KlaviyoEnvironment {
             logger: LoggerClient.test,
             appLifeCycle: AppLifeCycleEvents.test,
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
-            getNotificationSettings: { callback in callback(.authorized) },
+            getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
             startReachability: {},
             stopReachability: {},

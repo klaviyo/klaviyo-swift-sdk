@@ -20,7 +20,7 @@ public struct KlaviyoEnvironment {
         logger: LoggerClient,
         appLifeCycle: AppLifeCycleEvents,
         notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
-        getNotificationSettings: @escaping (@escaping (PushEnablement) -> Void) -> Void,
+        getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
@@ -88,7 +88,7 @@ public struct KlaviyoEnvironment {
     public var appLifeCycle: AppLifeCycleEvents
 
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
-    public var getNotificationSettings: (@escaping (PushEnablement) -> Void) -> Void
+    public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
 
     public var startReachability: () throws -> Void
@@ -121,10 +121,9 @@ public struct KlaviyoEnvironment {
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
-        getNotificationSettings: { callback in
-            UNUserNotificationCenter.current().getNotificationSettings { settings in
-                callback(.create(from: settings.authorizationStatus))
-            }
+        getNotificationSettings: {
+            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
+            return PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
         getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
         startReachability: {
