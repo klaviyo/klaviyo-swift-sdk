@@ -64,8 +64,8 @@ public struct KlaviyoEnvironment {
         self.appContextInfo = appContextInfo
         self.klaviyoAPI = klaviyoAPI
         self.timer = timer
-        self.SDKName = SDKName
-        self.SDKVersion = SDKVersion
+        sdkName = SDKName
+        sdkVersion = SDKVersion
     }
 
     static let productionHost = "https://a.klaviyo.com"
@@ -115,8 +115,8 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
 
-    public var SDKName: () -> String
-    public var SDKVersion: () -> String
+    public var sdkName: () -> String
+    public var sdkVersion: () -> String
 
     public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,

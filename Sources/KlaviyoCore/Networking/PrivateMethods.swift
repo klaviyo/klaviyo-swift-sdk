@@ -18,10 +18,10 @@ public func overrideSDKDefaults(url: String? = nil, name: String? = nil, version
     }
 
     if let name = name {
-        environment.SDKName = { name }
+        environment.sdkName = { name }
     }
 
     if let version = version {
-        environment.SDKVersion = { version }
+        environment.sdkVersion = { version }
     }
 }
