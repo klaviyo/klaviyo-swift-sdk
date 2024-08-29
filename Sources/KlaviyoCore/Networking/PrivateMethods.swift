@@ -8,21 +8,20 @@
 import Foundation
 
 @_spi(KlaviyoPrivate)
-/// Used to override the URL that the SDK will interface for network activity
-/// This is used internally to test the SDK against different backends, DO NOT use this in your apps.
-/// - Parameter url: the backing url to use for setting API
-public func setKlaviyoAPIURL(url: String) {
-    environment.apiURL = url
-}
+/// Used to override SDK defailts for INTERNAL USE ONLY
+/// - Parameter url: The  URL to use for Klaviyo client APIs, This is used internally to test the SDK against different backends, DO NOT use this in your apps.
+/// - Parameter name: The name of the SDK, defaults to swift but react native will pass it's own name. DO NOT override this in your apps as our backend will not accept unsupported values here and your network requests will fail.
+/// - Parameter version: The version of the swift SDK default to hard coded values here but react native will pass it's own values here. DO NOT override this in your apps.
+public func overrideSDKDefaults(url: String? = nil, name: String? = nil, version: String? = nil) {
+    if let url = url {
+        environment.apiURL = url
+    }
 
-@_spi(KlaviyoPrivate)
-/// Used to set the SDK name and version.
-/// This is mainly used by Klaviyo's react native SDK to override native platform values
-/// DO NOT overrrifde this in yout apps as it will lead to network errors as our backend will not accept unsupported values here and your network requests will fail.
-/// - Parameters:
-///   - name: The name of the SDK
-///   - version: The version of the SDK
-public func setKlaviyoSDKNameAndVersion(name: String, version: String) {
-    environment.SDKName = name
-    environment.SDKVersion = version
+    if let name = name {
+        environment.SDKName = name
+    }
+
+    if let version = version {
+        environment.SDKVersion = version
+    }
 }
