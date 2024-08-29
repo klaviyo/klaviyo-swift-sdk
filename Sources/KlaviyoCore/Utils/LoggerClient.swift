@@ -23,7 +23,7 @@ public struct LoggerClient {
 @inline(__always)
 func runtimeWarn(
     _ message: @autoclosure () -> String,
-    category: String? = environment.SDKName,
+    category: String? = environment.SDKName(),
     file: StaticString? = nil,
     line: UInt? = nil) {
     #if DEBUG

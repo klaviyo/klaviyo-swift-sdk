@@ -104,8 +104,8 @@ public struct PushTokenPayload: Equatable, Codable {
                     appVersion = context.appVersion
                     appBuild = context.appBuild
                     environment = context.environment
-                    klaviyoSdk = KlaviyoCore.environment.SDKName
-                    sdkVersion = KlaviyoCore.environment.SDKVersion
+                    klaviyoSdk = KlaviyoCore.environment.SDKName()
+                    sdkVersion = KlaviyoCore.environment.SDKVersion()
                 }
             }
         }

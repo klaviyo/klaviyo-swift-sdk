@@ -14,14 +14,14 @@ import Foundation
 /// - Parameter version: The version of the swift SDK default to hard coded values here but react native will pass it's own values here. DO NOT override this in your apps.
 public func overrideSDKDefaults(url: String? = nil, name: String? = nil, version: String? = nil) {
     if let url = url {
-        environment.apiURL = url
+        environment.apiURL = { url }
     }
 
     if let name = name {
-        environment.SDKName = name
+        environment.SDKName = { name }
     }
 
     if let version = version {
-        environment.SDKVersion = version
+        environment.SDKVersion = { version }
     }
 }

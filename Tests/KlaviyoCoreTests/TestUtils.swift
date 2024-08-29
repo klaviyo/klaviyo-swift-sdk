@@ -86,7 +86,7 @@ extension KlaviyoEnvironment {
             raiseFatalError: { _ in },
             emitDeveloperWarning: { _ in },
             networkSession: { NetworkSession.test() },
-            apiURL: "dead_beef",
+            apiURL: { "dead_beef" },
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
@@ -95,8 +95,8 @@ extension KlaviyoEnvironment {
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
-            SDKName: __klaviyoSwiftName,
-            SDKVersion: __klaviyoSwiftVersion)
+            SDKName: { __klaviyoSwiftName },
+            SDKVersion: { __klaviyoSwiftVersion })
     }
 }
 
