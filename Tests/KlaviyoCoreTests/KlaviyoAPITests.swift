@@ -18,7 +18,7 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidURL() async throws {
-        environment.apiURL = ""
+        environment.apiURL = { "" }
 
         await sendAndAssert(with: KlaviyoRequest(
             apiKey: "foo",

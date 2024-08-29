@@ -8,11 +8,6 @@
 import AnyCodable
 import Foundation
 
-@_spi(KlaviyoPrivate)
-public func setKlaviyoAPIURL(url: String) {
-    environment.apiURL = url
-}
-
 public struct KlaviyoAPI {
     public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError>
 

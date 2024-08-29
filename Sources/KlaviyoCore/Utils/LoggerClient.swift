@@ -23,7 +23,7 @@ public struct LoggerClient {
 @inline(__always)
 func runtimeWarn(
     _ message: @autoclosure () -> String,
-    category: String? = __klaviyoSwiftName,
+    category: String? = environment.sdkName(),
     file: StaticString? = nil,
     line: UInt? = nil) {
     #if DEBUG

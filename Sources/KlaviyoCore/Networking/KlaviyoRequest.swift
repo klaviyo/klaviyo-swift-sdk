@@ -24,7 +24,7 @@ public struct KlaviyoRequest: Equatable, Codable {
 
     public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
         guard let url = url else {
-            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL)")
+            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
         }
         var request = URLRequest(url: url)
         // We only support post right now
@@ -41,8 +41,8 @@ public struct KlaviyoRequest: Equatable, Codable {
     var url: URL? {
         switch endpoint {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !environment.apiURL.isEmpty {
-                return URL(string: "\(environment.apiURL)/\(path)/?company_id=\(apiKey)")
+            if !environment.apiURL().isEmpty {
+                return URL(string: "\(environment.apiURL())/\(path)/?company_id=\(apiKey)")
             }
             return nil
         }
