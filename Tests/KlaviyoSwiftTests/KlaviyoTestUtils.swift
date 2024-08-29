@@ -50,7 +50,9 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() })
+            timer: { _ in Just(Date()).eraseToAnyPublisher() },
+            SDKName: __klaviyoSwiftName,
+            SDKVersion: __klaviyoSwiftVersion)
     }
 }
 
