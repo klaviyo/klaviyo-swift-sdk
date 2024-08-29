@@ -29,7 +29,7 @@ public struct KlaviyoEnvironment {
         raiseFatalError: @escaping (String) -> Void,
         emitDeveloperWarning: @escaping (String) -> Void,
         networkSession: @escaping () -> NetworkSession,
-        apiURL: String,
+        apiURL: @escaping () -> String,
         encodeJSON: @escaping (AnyEncodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @escaping () -> UUID,
@@ -37,7 +37,9 @@ public struct KlaviyoEnvironment {
         timeZone: @escaping () -> String,
         appContextInfo: @escaping () -> AppContextInfo,
         klaviyoAPI: KlaviyoAPI,
-        timer: @escaping (Double) -> AnyPublisher<Date, Never>) {
+        timer: @escaping (Double) -> AnyPublisher<Date, Never>,
+        SDKName: @escaping () -> String,
+        SDKVersion: @escaping () -> String) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -62,6 +64,8 @@ public struct KlaviyoEnvironment {
         self.appContextInfo = appContextInfo
         self.klaviyoAPI = klaviyoAPI
         self.timer = timer
+        sdkName = SDKName
+        sdkVersion = SDKVersion
     }
 
     static let productionHost = "https://a.klaviyo.com"
@@ -101,7 +105,7 @@ public struct KlaviyoEnvironment {
     public var emitDeveloperWarning: (String) -> Void
 
     public var networkSession: () -> NetworkSession
-    public var apiURL: String
+    public var apiURL: () -> String
     public var encodeJSON: (AnyEncodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: () -> UUID
@@ -110,6 +114,9 @@ public struct KlaviyoEnvironment {
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
+
+    public var sdkName: () -> String
+    public var sdkVersion: () -> String
 
     public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
@@ -144,7 +151,7 @@ public struct KlaviyoEnvironment {
         },
         emitDeveloperWarning: { runtimeWarn($0) },
         networkSession: createNetworkSession,
-        apiURL: KlaviyoEnvironment.productionHost,
+        apiURL: { KlaviyoEnvironment.productionHost },
         encodeJSON: { encodable in try encoder.encode(encodable) },
         decoder: DataDecoder.production,
         uuid: { UUID() },
@@ -156,7 +163,9 @@ public struct KlaviyoEnvironment {
             Timer.publish(every: interval, on: .main, in: .default)
                 .autoconnect()
                 .eraseToAnyPublisher()
-        })
+        },
+        SDKName: { __klaviyoSwiftName },
+        SDKVersion: { __klaviyoSwiftVersion })
 }
 
 public var networkSession: NetworkSession!
