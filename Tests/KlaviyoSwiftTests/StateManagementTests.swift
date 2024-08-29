@@ -148,6 +148,7 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetPushTokenEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
@@ -223,6 +224,7 @@ class StateManagementTests: XCTestCase {
         await store.send(.setPushEnablement(.authorized))
     }
 
+    @MainActor
     func testSetPushEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
