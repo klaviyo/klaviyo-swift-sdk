@@ -40,6 +40,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.start)
         await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized))
     }
 
     @MainActor
@@ -148,6 +149,42 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
+    func testSetPushTokenEnablementChanged() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData?.pushEnablement = .denied
+        initialState.flushing = false
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let pushTokenRequest = initialState.buildTokenRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken,
+            enablement: .authorized)
+
+        _ = await store.send(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
+            $0.queue = [pushTokenRequest]
+        }
+
+        _ = await store.send(.flushQueue) {
+            $0.flushing = true
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+        }
+
+        await store.receive(.sendRequest)
+
+        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
+            $0.flushing = false
+            $0.requestsInFlight = []
+            $0.pushTokenData = KlaviyoState.PushTokenData(
+                pushToken: initialState.pushTokenData!.pushToken,
+                pushEnablement: .authorized,
+                pushBackground: initialState.pushTokenData!.pushBackground,
+                deviceData: initialState.pushTokenData!.deviceData)
+        }
+    }
+
+    @MainActor
     func testSetPushTokenMultipleTimes() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
@@ -174,6 +211,36 @@ class StateManagementTests: XCTestCase {
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
         }
         _ = await store.send(.setPushToken("blobtoken", .authorized))
+    }
+
+    // MARK: - Set Push Enablement
+
+    @MainActor
+    func testSetPushEnablementPushTokenIsNil() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData = nil
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.setPushEnablement(.authorized))
+    }
+
+    @MainActor
+    func testSetPushEnablementChanged() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData?.pushEnablement = .denied
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let pushTokenRequest = initialState.buildTokenRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken,
+            enablement: .authorized)
+
+        _ = await store.send(.setPushEnablement(.authorized))
+
+        await store.receive(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
+            $0.queue = [pushTokenRequest]
+        }
     }
 
     // MARK: - flush
@@ -530,5 +597,6 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
     }
 }
