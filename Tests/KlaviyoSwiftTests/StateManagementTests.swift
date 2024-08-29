@@ -148,6 +148,41 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    func testSetPushTokenEnablementChanged() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData?.pushEnablement = .denied
+        initialState.flushing = false
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let pushTokenRequest = initialState.buildTokenRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken,
+            enablement: .authorized)
+
+        _ = await store.send(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
+            $0.queue = [pushTokenRequest]
+        }
+
+        _ = await store.send(.flushQueue) {
+            $0.flushing = true
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+        }
+
+        await store.receive(.sendRequest)
+
+        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
+            $0.flushing = false
+            $0.requestsInFlight = []
+            $0.pushTokenData = KlaviyoState.PushTokenData(
+                pushToken: initialState.pushTokenData!.pushToken,
+                pushEnablement: .authorized,
+                pushBackground: initialState.pushTokenData!.pushBackground,
+                deviceData: initialState.pushTokenData!.deviceData)
+        }
+    }
+
     @MainActor
     func testSetPushTokenMultipleTimes() async throws {
         var initialState = INITIALIZED_TEST_STATE()
