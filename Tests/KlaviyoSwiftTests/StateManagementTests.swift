@@ -212,6 +212,35 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
 
+    // MARK: - Set Push Enablement
+
+    @MainActor
+    func testSetPushEnablementPushTokenIsNil() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData = nil
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.setPushEnablement(.authorized))
+    }
+
+    func testSetPushEnablementChanged() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData?.pushEnablement = .denied
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let pushTokenRequest = initialState.buildTokenRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken,
+            enablement: .authorized)
+
+        _ = await store.send(.setPushEnablement(.authorized))
+
+        await store.receive(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
+            $0.queue = [pushTokenRequest]
+        }
+    }
+
     // MARK: - flush
 
     @MainActor
