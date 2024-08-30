@@ -120,7 +120,6 @@ final class KlaviyoStateTests: XCTestCase {
                 queue: [],
                 requestsInFlight: []))
         }
-//        environment.decoder = DataDecoder(jsonDecoder: KlaviyoEnvironment.decoder)
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
