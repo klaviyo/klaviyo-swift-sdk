@@ -49,8 +49,7 @@ public struct AppLifeCycleEvents {
         // The below is a bit convoluted since network status can be nil.
         let reachability = environment
             .notificationCenterPublisher(ReachabilityChangedNotification)
-            .map { _ in
-                // TODO: compact map isn't working, need to fix
+            .compactMap { _ in
                 let status = environment.reachabilityStatus() ?? .reachableViaWWAN
                 return LifeCycleEvents.reachabilityChanged(status: status)
             }
