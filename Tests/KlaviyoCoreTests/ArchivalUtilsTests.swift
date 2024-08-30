@@ -106,6 +106,7 @@ class ArchivalSystemTest: XCTestCase {
     let TEST_URL = filePathForData(apiKey: "foo", data: "people")
 
     override func setUpWithError() throws {
+        environment = KlaviyoEnvironment.production
         try? FileManager.default.removeItem(atPath: TEST_URL.path)
     }
 
