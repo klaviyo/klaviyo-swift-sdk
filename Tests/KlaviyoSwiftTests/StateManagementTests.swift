@@ -576,7 +576,7 @@ class StateManagementTests: XCTestCase {
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
-            if eventName == .OpenedPush {
+            if eventName == ._openedPush {
                 await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
             }
         }
