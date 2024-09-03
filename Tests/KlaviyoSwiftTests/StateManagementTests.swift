@@ -592,9 +592,6 @@ class StateManagementTests: XCTestCase {
             $0.pendingRequests = [KlaviyoState.PendingRequest.event(event)]
         }
 
-        // TODO: this passes if I comment the below line in state management
-        // `.merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())`
-        // fails with - An effect returned for this action is still running. It must complete before the end of the test. …
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
