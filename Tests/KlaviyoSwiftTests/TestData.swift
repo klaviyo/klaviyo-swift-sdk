@@ -115,11 +115,11 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date())
+    static let test = Self(name: .customEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date())
 }
 
 extension Event.Metric {
-    static let test = Self(name: .CustomEvent("blob"))
+    static let test = Self(name: .customEvent("blob"))
 }
 
 extension KlaviyoState {

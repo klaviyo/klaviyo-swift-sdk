@@ -82,7 +82,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test create event
 
     func testCreateEvent() throws {
-        let event = Event(name: .OpenedAppMetric)
+        let event = Event(name: .openedAppMetric)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
         klaviyo.create(event: event)
@@ -91,7 +91,7 @@ class KlaviyoSDKTests: XCTestCase {
     }
 
     func testCreateEventFromDocumentation() throws {
-        let event = Event(name: .AddedToCartMetric, properties: [
+        let event = Event(name: .addedToCartMetric, properties: [
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
         ], value: 10.99)

@@ -587,7 +587,7 @@ class StateManagementTests: XCTestCase {
         let initialState = INITILIZING_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        let event = Event(name: .OpenedAppMetric)
+        let event = Event(name: .openedAppMetric)
         await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [KlaviyoState.PendingRequest.event(event)]
         }
@@ -603,7 +603,7 @@ class StateManagementTests: XCTestCase {
                     apiKey: XCTUnwrap($0.apiKey),
                     endpoint: .createEvent(CreateEventPayload(
                         data: CreateEventPayload.Event(
-                            name: Event.EventName.OpenedAppMetric.value,
+                            name: Event.EventName.openedAppMetric.value,
                             properties: event.properties,
                             phoneNumber: $0.phoneNumber,
                             anonymousId: initialState.anonymousId!,
