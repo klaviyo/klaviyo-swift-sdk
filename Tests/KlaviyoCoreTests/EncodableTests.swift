@@ -22,8 +22,9 @@ final class EncodableTests: XCTestCase {
         assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testEventPayloadWithoutMetadata() throws {
-        let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: "test", anonymousId: "anon-id"))
+    func testEventPayload() throws {
+        let payloadData = CreateEventPayload.Event(name: "test", properties: SAMPLE_PROPERTIES, anonymousId: "anon-id")
+        let createEventPayload = CreateEventPayload(data: payloadData)
         assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
