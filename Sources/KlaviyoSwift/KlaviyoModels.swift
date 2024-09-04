@@ -10,11 +10,22 @@ import Foundation
 
 public struct Event: Equatable {
     public enum EventName: Equatable {
+        @available(*, deprecated, message: "This enum case will be removed in SDK v4.0.0")
         case OpenedPush
+
+        @available(*, deprecated, message: "This will be renamed to `openedAppMetric` in SDK v4.0.0")
         case OpenedAppMetric
+
+        @available(*, deprecated, message: "This will be renamed to `viewedProductMetric` in SDK v4.0.0")
         case ViewedProductMetric
+
+        @available(*, deprecated, message: "This will be renamed to `addedToCartMetric` in SDK v4.0.0")
         case AddedToCartMetric
+
+        @available(*, deprecated, message: "This will be renamed to `startedCheckoutMetric` in SDK v4.0.0")
         case StartedCheckoutMetric
+
+        @available(*, deprecated, message: "This will be renamed to `customEvent(...)` in SDK v4.0.0")
         case CustomEvent(String)
     }
 
