@@ -10,7 +10,7 @@
 import KlaviyoSwift
 import UIKit
 
-@UIApplicationMain
+@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Private members
 
@@ -156,7 +156,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         case .checkout:
             // this is where we could present the checkout view
             break
-
         case .debug:
             // sending debug should show the deeplink URL in code
             let debugViewController = DebugViewController()

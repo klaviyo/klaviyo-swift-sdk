@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import Foundation
+import KlaviyoCore
 import XCTest
 
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
@@ -26,7 +27,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
 
         _ = await store.send(.sendRequest)
 
@@ -43,7 +44,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
 
         _ = await store.send(.sendRequest)
 
@@ -66,7 +67,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
 
         _ = await store.send(.sendRequest)
 
@@ -92,7 +93,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
@@ -113,7 +114,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
@@ -136,7 +137,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
@@ -159,7 +160,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
 
         _ = await store.send(.sendRequest)
 
@@ -181,7 +182,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.internalRequestError(KlaviyoAPI.KlaviyoAPIError.internalError("foo"))) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.internalRequestError(KlaviyoAPIError.internalError("foo"))) }
 
         _ = await store.send(.sendRequest)
 
@@ -203,7 +204,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPI.KlaviyoAPIError.internalError("foo"))) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
 
         _ = await store.send(.sendRequest)
 
@@ -224,7 +225,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
 
         _ = await store.send(.sendRequest)
 
@@ -245,7 +246,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
 
         _ = await store.send(.sendRequest)
 
@@ -266,15 +267,15 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(nil)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 1)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 1)
+            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
     }
 
@@ -286,15 +287,15 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(nil)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 1)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 1)
+            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
     }
 
@@ -305,7 +306,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(20)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 20)) }
 
         _ = await store.send(.sendRequest)
 
@@ -327,7 +328,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.analytics.klaviyoAPI.send = { _, _ in .failure(.missingOrInvalidResponse(nil)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.missingOrInvalidResponse(nil)) }
 
         _ = await store.send(.sendRequest)
 

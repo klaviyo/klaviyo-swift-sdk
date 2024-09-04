@@ -7,17 +7,19 @@
 
 import Foundation
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import Combine
+import KlaviyoCore
 
 let TEST_API_KEY = "fake-key"
 
 let INITIALIZED_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -27,7 +29,7 @@ let INITIALIZED_TEST_STATE = {
 let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
@@ -37,12 +39,12 @@ let INITILIZING_TEST_STATE = {
 let INITIALIZED_TEST_STATE_INVALID_PHONE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         phoneNumber: "invalid_phone_number",
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -53,11 +55,11 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         email: "invalid_email",
-        anonymousId: environment.analytics.uuid().uuidString,
+        anonymousId: environment.uuid().uuidString,
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.analytics.appContextInfo())),
+                             deviceData: .init(context: environment.appContextInfo())),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -82,7 +84,7 @@ extension Profile {
         title: "Jelly",
         image: "foo",
         location: .test,
-        properties: SAMPLE_PROPERTIES)
+        properties: [:])
 }
 
 extension Profile.Location {
@@ -113,40 +115,88 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let test = Self(name: .CustomEvent("blob"), properties: SAMPLE_PROPERTIES)
+    static let test = Self(name: .CustomEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date())
 }
 
 extension Event.Metric {
     static let test = Self(name: .CustomEvent("blob"))
 }
 
-extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.CreateEventPayload {
-    static let test = Self(data: .init(event: .test))
-}
-
-extension URLResponse {
-    static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)!
-    static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
-}
-
-extension KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload {
-    static let test = KlaviyoAPI.KlaviyoRequest.KlaviyoEndpoint.PushTokenPayload(
-        pushToken: "foo",
-        enablement: "AUTHORIZED",
-        background: "AVAILABLE",
-        profile: .init(),
-        anonymousId: "anon-id")
-}
-
 extension KlaviyoState {
     static let test = KlaviyoState(apiKey: "foo",
                                    email: "test@test.com",
-                                   anonymousId: environment.analytics.uuid().uuidString,
+                                   anonymousId: environment.uuid().uuidString,
                                    phoneNumber: "phoneNumber",
                                    externalId: "externalId",
-                                   pushTokenData: .init(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo())),
+                                   pushTokenData: PushTokenData(
+                                       pushToken: "blob_token",
+                                       pushEnablement: .authorized,
+                                       pushBackground: .available,
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)
+}
+
+let SAMPLE_DATA: NSMutableArray = [
+    [
+        "properties": [
+            "foo": "bar"
+        ]
+    ]
+]
+let TEST_URL = URL(string: "fake_url")!
+let TEST_RETURN_DATA = Data()
+
+let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER = """
+{
+    "errors": [
+      {
+        "id": "9997bd4f-7d5f-4f01-bbd1-df0065ef4faa",
+        "status": 400,
+        "code": "invalid",
+        "title": "Invalid input.",
+        "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+        "source": {
+          "pointer": "/data/attributes/phone_number"
+        },
+        "meta": {}
+      }
+    ]
+}
+"""
+
+let TEST_FAILURE_JSON_INVALID_EMAIL = """
+{
+  "errors": [
+    {
+      "id": "dce2d180-0f36-4312-aa6d-92d025c17147",
+      "status": 400,
+      "code": "invalid",
+      "title": "Invalid input.",
+      "detail": "Invalid email address",
+      "source": {
+        "pointer": "/data/attributes/email"
+      },
+      "meta": {}
+    }
+  ]
+}
+"""
+
+extension KlaviyoSwiftEnvironment {
+    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+    static let test = {
+        KlaviyoSwiftEnvironment(send: { action in
+            testStore.send(action)
+        }, state: {
+            KlaviyoSwiftEnvironment.testStore.state.value
+        }, statePublisher: {
+            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+        }, stateChangePublisher: {
+            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+        })
+    }
 }
