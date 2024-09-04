@@ -3,15 +3,35 @@
     - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
     - some: "foo"
-  - email: Optional<String>.none
-  - externalId: Optional<String>.none
+  ▿ email: Optional<String>
+    - some: "test@test.com"
+  ▿ externalId: Optional<String>
+    - some: "externalId"
   - flushInterval: 10.0
-  - flushing: false
-  - initalizationState: InitializationState.uninitialized
+  - flushing: true
+  - initalizationState: InitializationState.initialized
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
-  - phoneNumber: Optional<String>.none
-  - pushTokenData: Optional<PushTokenData>.none
+  ▿ phoneNumber: Optional<String>
+    - some: "phoneNumber"
+  ▿ pushTokenData: Optional<PushTokenData>
+    ▿ some: PushTokenData
+      ▿ deviceData: MetaData
+        - appBuild: "1"
+        - appId: "com.klaviyo.fooapp"
+        - appName: "FooApp"
+        - appVersion: "1.2.3"
+        - deviceId: "fe-fi-fo-fum"
+        - deviceModel: "jPhone 1,1"
+        - environment: "debug"
+        - klaviyoSdk: "swift"
+        - manufacturer: "Orange"
+        - osName: "iOS"
+        - osVersion: "1.1.1"
+        - sdkVersion: "3.2.0"
+      - pushBackground: PushBackground.available
+      - pushEnablement: PushEnablement.authorized
+      - pushToken: "blob_token"
   - queue: 0 elements
   - requestsInFlight: 0 elements
   ▿ retryInfo: RetryInfo

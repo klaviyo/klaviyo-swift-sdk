@@ -51,7 +51,7 @@ final class Box<Wrapped> {
 @inline(__always)
 func runtimeWarn(
   _ message: @autoclosure () -> String,
-  category: String? = __klaviyoSwiftName,
+  category: String? = "",
   file: StaticString? = nil,
   line: UInt? = nil
 ) {

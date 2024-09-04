@@ -9,12 +9,14 @@
 import AnyCodable
 import Combine
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class StateManagementTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
     }
 
     // MARK: - Initialization
@@ -26,12 +28,12 @@ class StateManagementTests: XCTestCase {
 
         let apiKey = "fake-key"
         // Avoids a warning in xcode despite the result being discardable.
-        _ = await store.send(.initialize(apiKey)) {
+        await store.send(.initialize(apiKey)) {
             $0.apiKey = apiKey
             $0.initalizationState = .initializing
         }
 
-        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.analytics.uuid().uuidString, queue: [], requestsInFlight: [])
+        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.uuid().uuidString, queue: [], requestsInFlight: [])
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = expectedState.anonymousId
             $0.initalizationState = .initialized
@@ -40,14 +42,14 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.start)
         await store.receive(.flushQueue)
-        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized))
+        await store.receive(.setPushEnablement(PushEnablement.authorized))
     }
 
     @MainActor
     func testInitializeSubscribesToAppropriatePublishers() async throws {
         let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
         let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
-        let lifecycleSubject = PassthroughSubject<KlaviyoAction, Never>()
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         environment.appLifeCycle.lifeCycleEvents = {
             lifecycleSubject.handleEvents(receiveSubscription: { _ in
                 lifecycleExpectation.fulfill()
@@ -55,7 +57,7 @@ class StateManagementTests: XCTestCase {
             .eraseToAnyPublisher()
         }
         let stateChangeSubject = PassthroughSubject<KlaviyoAction, Never>()
-        environment.stateChangePublisher = {
+        klaviyoSwiftEnvironment.stateChangePublisher = {
             stateChangeSubject.handleEvents(receiveSubscription: { _ in
                 stateChangeIsSubscribed.fulfill()
             })
@@ -144,7 +146,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
     }
 
@@ -208,7 +210,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
         _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
@@ -285,7 +287,7 @@ class StateManagementTests: XCTestCase {
     func testFlushQueueWithMultipleRequests() async throws {
         var count = 0
         // request uuids need to be unique :)
-        environment.analytics.uuid = {
+        environment.uuid = {
             count += 1
             switch count {
             case 1:
@@ -317,7 +319,7 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
         await store.receive(.deQueueCompletedResults(request2)) {
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.analytics.appContextInfo()))
+            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
             $0.queue = []
@@ -466,7 +468,7 @@ class StateManagementTests: XCTestCase {
             }
         }
 
-        var request: KlaviyoAPI.KlaviyoRequest?
+        var request: KlaviyoRequest?
 
         _ = await store.send(.flushQueue) {
             $0.enqueueProfileOrTokenRequest()
@@ -536,14 +538,13 @@ class StateManagementTests: XCTestCase {
             $0.externalId = Profile.test.externalId
             $0.pushTokenData = nil
 
-            let request = KlaviyoAPI.KlaviyoRequest(
+            let request = KlaviyoRequest(
                 apiKey: initialState.apiKey!,
-                endpoint: .registerPushToken(.init(
+                endpoint: .registerPushToken(PushTokenPayload(
                     pushToken: initialState.pushTokenData!.pushToken,
                     enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                     background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test,
-                    anonymousId: initialState.anonymousId!)
+                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!))
                 ))
             $0.queue = [request]
         }
@@ -560,8 +561,18 @@ class StateManagementTests: XCTestCase {
         for eventName in Event.EventName.allCases {
             let event = Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
             await store.send(.enqueueEvent(event)) {
-                let newEvent = Event(name: eventName, properties: event.properties, identifiers: .init(phoneNumber: $0.phoneNumber))
-                try $0.enqueueRequest(request: .init(apiKey: XCTUnwrap($0.apiKey), endpoint: .createEvent(.init(data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId))))))
+                try $0.enqueueRequest(
+                    request: KlaviyoRequest(
+                        apiKey: XCTUnwrap($0.apiKey),
+                        endpoint: .createEvent(CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: eventName.value,
+                                properties: event.properties,
+                                phoneNumber: $0.phoneNumber,
+                                anonymousId: initialState.anonymousId!,
+                                time: event.time,
+                                pushToken: initialState.pushTokenData!.pushToken)
+                        ))))
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -587,16 +598,22 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
-            let newEvent = Event(name: .OpenedAppMetric, identifiers: .init(phoneNumber: $0.phoneNumber))
             try $0.enqueueRequest(
-                request: .init(apiKey: XCTUnwrap($0.apiKey),
-                               endpoint: .createEvent(.init(
-                                   data: .init(event: newEvent, anonymousId: XCTUnwrap($0.anonymousId)))))
+                request: KlaviyoRequest(
+                    apiKey: XCTUnwrap($0.apiKey),
+                    endpoint: .createEvent(CreateEventPayload(
+                        data: CreateEventPayload.Event(
+                            name: Event.EventName.OpenedAppMetric.value,
+                            properties: event.properties,
+                            phoneNumber: $0.phoneNumber,
+                            anonymousId: initialState.anonymousId!,
+                            time: event.time)
+                    )))
             )
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setPushEnablement(KlaviyoState.PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
     }
 }

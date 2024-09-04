@@ -8,6 +8,7 @@
 @testable import KlaviyoSwift
 import Combine
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class AppLifeCycleEventsTests: XCTestCase {
@@ -50,7 +51,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action
+            receivedAction = action.transformToKlaviyoAction
             stopActionExpection.fulfill()
         }
 
@@ -81,7 +82,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action
+            receivedAction = action.transformToKlaviyoAction
             stopActionExpection.fulfill()
         }
 
@@ -119,7 +120,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action
+            receivedAction = action.transformToKlaviyoAction
             stopActionExpection.fulfill()
         }
 
@@ -149,7 +150,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         let expection = XCTestExpectation(description: "Start reachability is called.")
         environment.startReachability = {
             expection.fulfill()
-            throw KlaviyoAPI.KlaviyoAPIError.internalError("foo")
+            throw KlaviyoAPIError.internalError("foo")
         }
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 
@@ -206,7 +207,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         let reachabilityAction = XCTestExpectation(description: "Reachabilty changed is received.")
         var receivedAction: KlaviyoAction?
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action
+            receivedAction = action.transformToKlaviyoAction
             reachabilityAction.fulfill()
         }
 
