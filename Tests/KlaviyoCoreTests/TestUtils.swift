@@ -61,6 +61,14 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 }
 """
 
+let SAMPLE_PROPERTIES = [
+    "blob": "blob",
+    "stuff": 2,
+    "hello": [
+        "sub": "dict"
+    ]
+] as [String: Any]
+
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },

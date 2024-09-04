@@ -23,13 +23,6 @@ final class EncodableTests: XCTestCase {
     }
 
     func testEventPayload() throws {
-        let SAMPLE_PROPERTIES = [
-            "blob": "blob",
-            "stuff": 2,
-            "hello": [
-                "sub": "dict"
-            ]
-        ] as [String: Any]
         let payloadData = CreateEventPayload.Event(name: "test", properties: SAMPLE_PROPERTIES, anonymousId: "anon-id")
         let createEventPayload = CreateEventPayload(data: payloadData)
         assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
