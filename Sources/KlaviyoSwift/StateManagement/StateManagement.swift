@@ -94,7 +94,7 @@ enum KlaviyoAction: Equatable {
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
-        case let .enqueueEvent(event) where event.metric.name == .OpenedPush:
+        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
 
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
@@ -436,7 +436,7 @@ struct KlaviyoReducer: ReducerProtocol {
              we don't miss any user engagement events. In all other cases we will flush the queue
              using the flush intervals defined above in `StateManagementConstants`
              */
-            return event.metric.name == .OpenedPush ? .task { .flushQueue } : .none
+            return event.metric.name == ._openedPush ? .task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
@@ -524,7 +524,7 @@ extension Event {
             phoneNumber: state.phoneNumber,
             externalId: state.externalId)
         var properties = properties
-        if metric.name == EventName.OpenedPush,
+        if metric.name == EventName._openedPush,
            let pushToken = state.pushTokenData?.pushToken {
             properties["push_token"] = pushToken
         }

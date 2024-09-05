@@ -158,7 +158,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(name: .OpenedPush, properties: properties))
+            create(event: Event(name: ._openedPush, properties: properties))
             Task {
                 await MainActor.run {
                     if let url = properties["url"] as? String, let url = URL(string: url) {

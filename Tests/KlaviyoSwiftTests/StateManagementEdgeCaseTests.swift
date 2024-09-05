@@ -374,7 +374,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     func testOpenedPushEventUninitializedAddsToPendingRequests() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let event = Event(name: .OpenedPush)
+        let event = Event(name: ._openedPush)
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }
@@ -389,7 +389,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
 
-        let nonOpenedPushEvents = Event.EventName.allCases.filter { $0 != .OpenedPush }
+        let nonOpenedPushEvents = Event.EventName.allCases.filter { $0 != ._openedPush }
 
         for event in nonOpenedPushEvents {
             let event = Event(name: event)
@@ -444,6 +444,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
 extension Event.EventName: CaseIterable {
     public static var allCases: [KlaviyoSwift.Event.EventName] {
-        [.OpenedPush, .OpenedAppMetric, .ViewedProductMetric, .AddedToCartMetric, .StartedCheckoutMetric, .CustomEvent("someEvent")]
+        [._openedPush, .OpenedAppMetric, .ViewedProductMetric, .AddedToCartMetric, .StartedCheckoutMetric, .CustomEvent("someEvent")]
     }
 }
