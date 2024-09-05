@@ -11,14 +11,14 @@ import KlaviyoCore
 
 public struct Event: Equatable {
     public enum EventName: Equatable {
-        case OpenedAppMetric
-        case ViewedProductMetric
-        case AddedToCartMetric
-        case StartedCheckoutMetric
-        case CustomEvent(String)
+        case openedAppMetric
+        case viewedProductMetric
+        case addedToCartMetric
+        case startedCheckoutMetric
+        case customEvent(String)
 
         internal static var _openedPush: EventName {
-            EventName.CustomEvent("_openedPush")
+            EventName.customEvent("_openedPush")
         }
     }
 
@@ -91,11 +91,11 @@ extension Event.EventName {
     public var value: String {
         switch self {
         case ._openedPush: return "$opened_push"
-        case .OpenedAppMetric: return "Opened App"
-        case .ViewedProductMetric: return "Viewed Product"
-        case .AddedToCartMetric: return "Added to Cart"
-        case .StartedCheckoutMetric: return "Started Checkout"
-        case let .CustomEvent(value): return "\(value)"
+        case .openedAppMetric: return "Opened App"
+        case .viewedProductMetric: return "Viewed Product"
+        case .addedToCartMetric: return "Added to Cart"
+        case .startedCheckoutMetric: return "Started Checkout"
+        case let .customEvent(value): return "\(value)"
         }
     }
 }
