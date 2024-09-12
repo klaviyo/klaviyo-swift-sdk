@@ -89,7 +89,7 @@ class MenuPageViewController: UIViewController {
             if let vc = segue.destination as? CheckOutViewController {
                 vc.cart = cart
                 // EXAMPLE: of triggering checkout event
-                KlaviyoSDK().create(event: .init(name: .StartedCheckoutMetric))
+                KlaviyoSDK().create(event: .init(name: .startedCheckoutMetric))
             }
         }
     }
@@ -239,7 +239,7 @@ class MenuPageViewController: UIViewController {
             ]
 
             // EXAMPLE : of Checkout Started.. but no placed order #
-            KlaviyoSDK().create(event: .init(name: .StartedCheckoutMetric, properties: propertiesDictionary))
+            KlaviyoSDK().create(event: .init(name: .startedCheckoutMetric, properties: propertiesDictionary))
         }
 
         tableView.reloadData()
@@ -267,7 +267,7 @@ class MenuPageViewController: UIViewController {
             KlaviyoSDK().set(email: email)
         }
         // EXAMPLE: this is when the user opens the app consectective time
-        KlaviyoSDK().create(event: .init(name: .CustomEvent("Opened klM App")))
+        KlaviyoSDK().create(event: .init(name: .customEvent("Opened klM App")))
     }
 
     private func initializeMenuItems() {

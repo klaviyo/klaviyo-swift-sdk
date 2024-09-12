@@ -16,5 +16,6 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '13.0'
   s.source_files = 'Sources/**/**/*.swift'
   s.resource_bundles = {"KlaviyoSwift" => ["Sources/KlaviyoSwift/PrivacyInfo.xcprivacy"]}
+  s.dependency       'KlaviyoCore', '~> 0.1.0'
   s.dependency     'AnyCodable-FlightSchool'
 end
