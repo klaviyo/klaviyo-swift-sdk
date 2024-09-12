@@ -12,5 +12,6 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.7'
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoUI/**/*.swift'
-  s.dependency       'KlaviyoSwift', :path => '../KlaviyoSwift'
+  # update once modularization changes are merged in.
+  s.dependency     'KlaviyoSwift', '~> 3.2.0'
 end
