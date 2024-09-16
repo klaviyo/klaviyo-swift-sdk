@@ -273,7 +273,7 @@ final class Store<State, Action> {
     }
 
     guard !tasks.wrappedValue.isEmpty else { return nil }
-    return Task {
+    return Task { @MainActor in
       await withTaskCancellationHandler {
         var index = tasks.wrappedValue.startIndex
         while index < tasks.wrappedValue.endIndex {
