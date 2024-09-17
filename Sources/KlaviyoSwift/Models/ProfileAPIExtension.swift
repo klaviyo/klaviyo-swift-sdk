@@ -10,7 +10,7 @@ import KlaviyoCore
 
 extension String {
     fileprivate func returnNilIfEmpty() -> String? {
-        isEmpty ? nil : self
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
     }
 }
 
