@@ -8,7 +8,7 @@ This guide outlines how developers can migrate from older versions of our SDK to
 We've updated the case names in the `Event.EventName` enum from PascalCase to camelCase, to be consistent with [Swift naming conventions](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/enumerations/).
 The old case PascalCase names are currently still in place and have the same functionality as the new camelCase names, but will be removed in a future release. Any direct references to the old PascalCase names will now show a deprecation warning, along with an option to "fix" the name by replacing it with the camelCase version.
 
-This update is non-breaking for most use-cases, but any consumers who are `switch`ing over the `Event.EventName` enum will need to make minor changes. There are two scenarios that will require different changes:
+This update is non-breaking for most use-cases, but any consumers who are `switch`ing over the `Event.EventName` enum will need to make minor changes. There are two scenarios:
 
 1. If the existing `switch` statement does not include a `default` case, the compiler will throw a "Switch must be exhaustive" error. You may click "Fix" to have Xcode automatically add the missing cases, but we recommend that you add the new camelCase names alongside the old ones in your branching logic. For example:
 
