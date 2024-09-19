@@ -11,6 +11,7 @@ The old case PascalCase names are currently still in place and have the same fun
 This update is non-breaking for most use-cases, but any consumers who are `switch`ing over the `Event.EventName` enum will need to make minor changes. There are two scenarios that will require different changes:
 
     1. If the existing `switch` statement does not include a `default` case, the compiler will throw a "Switch must be exhaustive" error. You may click "Fix" to have Xcode automatically add the missing cases, but we recommend that you add the new camelCase names alongside the old ones in your branching logic. For example:
+
     ```swift
     switch event {
     case .OpenedPush:
