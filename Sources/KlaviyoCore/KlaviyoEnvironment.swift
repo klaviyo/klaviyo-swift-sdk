@@ -163,8 +163,30 @@ public struct KlaviyoEnvironment {
                 .autoconnect()
                 .eraseToAnyPublisher()
         },
-        SDKName: { __klaviyoSwiftName },
-        SDKVersion: { __klaviyoSwiftVersion })
+        SDKName: {
+            let config = getRNSDKConfig()
+            if let sdkName = config["sdk_name"] as? String {
+                return sdkName
+            } else {
+                return __klaviyoSwiftName
+            }
+        },
+        SDKVersion: {
+            let config = getRNSDKConfig()
+            if let sdkVersion = config["sdk_version"] as? String {
+                return sdkVersion
+            } else {
+                return __klaviyoSwiftVersion
+            }
+        })
+}
+
+private func getRNSDKConfig() -> [String: AnyObject] {
+    if let path = Bundle.main.path(forResource: "klaviyo-sdk-configuration", ofType: "plist"),
+       let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] {
+        return dict
+    }
+    return [:]
 }
 
 public var networkSession: NetworkSession!
