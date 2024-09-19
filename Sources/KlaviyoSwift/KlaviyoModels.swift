@@ -15,18 +15,23 @@ public struct Event: Equatable {
 
         @available(*, deprecated, message: "This will be renamed to `openedAppMetric` in SDK v4.0.0")
         case OpenedAppMetric
+        case openedAppMetric
 
         @available(*, deprecated, message: "This will be renamed to `viewedProductMetric` in SDK v4.0.0")
         case ViewedProductMetric
+        case viewedProductMetric
 
         @available(*, deprecated, message: "This will be renamed to `addedToCartMetric` in SDK v4.0.0")
         case AddedToCartMetric
+        case addedToCartMetric
 
         @available(*, deprecated, message: "This will be renamed to `startedCheckoutMetric` in SDK v4.0.0")
         case StartedCheckoutMetric
+        case startedCheckoutMetric
 
         @available(*, deprecated, message: "This will be renamed to `customEvent(...)` in SDK v4.0.0")
         case CustomEvent(String)
+        case customEvent(String)
     }
 
     public struct Metric: Equatable {
