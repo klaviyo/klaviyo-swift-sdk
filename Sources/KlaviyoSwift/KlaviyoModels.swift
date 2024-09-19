@@ -10,23 +10,28 @@ import Foundation
 
 public struct Event: Equatable {
     public enum EventName: Equatable {
-        @available(*, deprecated, message: "This enum case will be removed in SDK v4.0.0")
+        @available(*, deprecated, message: "This enum case will be removed in a future release")
         case OpenedPush
 
-        @available(*, deprecated, message: "This will be renamed to `openedAppMetric` in SDK v4.0.0")
+        @available(*, deprecated, renamed: "openedAppMetric", message: "Use `openedAppMetric` instead. See migration guide.")
         case OpenedAppMetric
+        case openedAppMetric
 
-        @available(*, deprecated, message: "This will be renamed to `viewedProductMetric` in SDK v4.0.0")
+        @available(*, deprecated, renamed: "viewedProductMetric", message: "Use `viewedProductMetric` instead. See migration guide.")
         case ViewedProductMetric
+        case viewedProductMetric
 
-        @available(*, deprecated, message: "This will be renamed to `addedToCartMetric` in SDK v4.0.0")
+        @available(*, deprecated, renamed: "addedToCartMetric", message: "Use `addedToCartMetric` instead. See migration guide.")
         case AddedToCartMetric
+        case addedToCartMetric
 
-        @available(*, deprecated, message: "This will be renamed to `startedCheckoutMetric` in SDK v4.0.0")
+        @available(*, deprecated, renamed: "startedCheckoutMetric", message: "Use `startedCheckoutMetric` instead. See migration guide.")
         case StartedCheckoutMetric
+        case startedCheckoutMetric
 
-        @available(*, deprecated, message: "This will be renamed to `customEvent(...)` in SDK v4.0.0")
+        @available(*, deprecated, renamed: "customEvent", message: "Use `customEvent(...)` instead. See migration guide.")
         case CustomEvent(String)
+        case customEvent(String)
     }
 
     public struct Metric: Equatable {
@@ -179,11 +184,11 @@ extension Event.EventName {
     public var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
-        case .OpenedAppMetric: return "Opened App"
-        case .ViewedProductMetric: return "Viewed Product"
-        case .AddedToCartMetric: return "Added to Cart"
-        case .StartedCheckoutMetric: return "Started Checkout"
-        case let .CustomEvent(value): return "\(value)"
+        case .OpenedAppMetric, .openedAppMetric: return "Opened App"
+        case .ViewedProductMetric, .viewedProductMetric: return "Viewed Product"
+        case .AddedToCartMetric, .addedToCartMetric: return "Added to Cart"
+        case .StartedCheckoutMetric, .startedCheckoutMetric: return "Started Checkout"
+        case let .CustomEvent(value), let .customEvent(value): return "\(value)"
         }
     }
 }
