@@ -184,11 +184,11 @@ extension Event.EventName {
     public var value: String {
         switch self {
         case .OpenedPush: return "$opened_push"
-        case .OpenedAppMetric: return "Opened App"
-        case .ViewedProductMetric: return "Viewed Product"
-        case .AddedToCartMetric: return "Added to Cart"
-        case .StartedCheckoutMetric: return "Started Checkout"
-        case let .CustomEvent(value): return "\(value)"
+        case .OpenedAppMetric, .openedAppMetric: return "Opened App"
+        case .ViewedProductMetric, .viewedProductMetric: return "Viewed Product"
+        case .AddedToCartMetric, .addedToCartMetric: return "Added to Cart"
+        case .StartedCheckoutMetric, .startedCheckoutMetric: return "Started Checkout"
+        case let .CustomEvent(value), let .customEvent(value): return "\(value)"
         }
     }
 }
