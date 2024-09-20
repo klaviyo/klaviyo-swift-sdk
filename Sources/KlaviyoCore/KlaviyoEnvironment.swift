@@ -118,24 +118,6 @@ public struct KlaviyoEnvironment {
     public var sdkName: () -> String
     public var sdkVersion: () -> String
 
-    private static let rnSDKConfig: [String: AnyObject] = {
-        loadPlist(named: "klaviyo-react-native-sdk-configuration") ?? [:]
-    }()
-
-    private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_name"] as? String {
-            return sdkName
-        }
-        return __klaviyoSwiftName
-    }
-
-    private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_version"] as? String {
-            return sdkVersion
-        }
-        return __klaviyoSwiftVersion
-    }
-
     public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -181,8 +163,8 @@ public struct KlaviyoEnvironment {
                 .autoconnect()
                 .eraseToAnyPublisher()
         },
-        SDKName: KlaviyoEnvironment.getSDKName,
-        SDKVersion: KlaviyoEnvironment.getSDKVersion)
+        SDKName: { __klaviyoSwiftName },
+        SDKVersion: { __klaviyoSwiftVersion })
 }
 
 public var networkSession: NetworkSession!

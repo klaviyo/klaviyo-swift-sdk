@@ -66,14 +66,3 @@ public func removeFile(at url: URL) -> Bool {
     }
     return false
 }
-
-/// load any plist from app main bundle
-/// - Parameter name: the name of the plist
-/// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
-func loadPlist(named name: String) -> [String: AnyObject]? {
-    if let path = Bundle.main.path(forResource: name, ofType: "plist"),
-       let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] {
-        return dict
-    }
-    return nil
-}
