@@ -3,6 +3,41 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v4.0.0
+
+### `Event.EventName` enum:
+
+- We have removed the PascalCase names in the `Event.EventName` enum, leaving only the camelCase names. You will need to remove any references to the old PascalCase names.
+- We have removed the `.OpenedPush` case (there is no camelCase replacement), as this is intended for internal use only. You will need to remove any references to the `.OpenedPush` case.
+
+## Migrating to v3.3.0
+
+We've updated the case names in the `Event.EventName` enum from PascalCase to camelCase, to be consistent with [Swift naming conventions](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/enumerations/).
+The old case PascalCase names are currently still in place and have the same functionality as the new camelCase names, but will be removed in a future release. Any direct references to the old PascalCase names will now show a deprecation warning, along with an option to "fix" the name by replacing it with the camelCase version.
+
+This update is non-breaking for most use-cases, but any consumers who are `switch`ing over the `Event.EventName` enum will need to make minor changes. There are two scenarios:
+
+1. If the existing `switch` statement does not include a `default` case, the compiler will throw a "Switch must be exhaustive" error. You may click "Fix" to have Xcode automatically add the missing cases, but we recommend that you add the new camelCase names alongside the old ones in your branching logic. For example:
+
+    ```swift
+    switch event {
+    case .OpenedPush:
+        <...>
+    case .OpenedAppMetric, .openedAppMetric:
+        <...>
+    case .ViewedProductMetric, .viewedProductMetric:
+        <...>
+    case .AddedToCartMetric, .addedToCartMetric:
+        <...>
+    case .StartedCheckoutMetric, .startedCheckoutMetric:
+        <...>
+    case .CustomEvent(let string), .customEvent(let string):
+        <...>
+    }
+    ```
+
+2. If the existing `switch` statement does include a `default` case, any logic touching the new camelCase names will be branched into the `default` case unless the `switch` statement is updated. We recommend updating the `switch` statement as described in (1) above to address this situation.
+
 ## Migrating to v3.3.0
 
 We've updated the case names in the `Event.EventName` enum from PascalCase to camelCase, to be consistent with [Swift naming conventions](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/enumerations/).
