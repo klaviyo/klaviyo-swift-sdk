@@ -7,7 +7,7 @@ This guide outlines how developers can migrate from older versions of our SDK to
 
 ### `Event.EventName` enum:
 
-- We have removed the PascalCase names in the `Event.EventName` enum, leaving only the camelCase names. You will need to remove any references to the old PascalCase names.
+- We have removed the PascalCase names in the `Event.EventName` enum, leaving only the camelCase names. You will need to remove any references to the old PascalCase names. See [Migrating to v3.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/blob/as/rel-400/MIGRATION_GUIDE.md#migrating-to-v330) below for more details.
 - We have removed the `.OpenedPush` case (there is no camelCase replacement), as this is intended for internal use only. You will need to remove any references to the `.OpenedPush` case.
 
 ## Migrating to v3.3.0
