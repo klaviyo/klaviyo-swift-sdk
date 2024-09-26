@@ -11,6 +11,9 @@ let package = Package(
             name: "KlaviyoSwift",
             targets: ["KlaviyoSwift"]),
         .library(
+            name: "KlaviyoUI",
+            targets: ["KlaviyoUI"]),
+        .library(
             name: "KlaviyoSwiftExtension",
             targets: ["KlaviyoSwiftExtension"])
     ],
@@ -53,6 +56,16 @@ let package = Package(
             ],
             exclude: [
                 "__Snapshots__"
+            ]),
+        .target(
+            name: "KlaviyoUI",
+            dependencies: ["KlaviyoSwift"],
+            path: "Sources/KlaviyoUI"),
+        .testTarget(
+            name: "KlaviyoUITests",
+            dependencies: [
+                "KlaviyoSwift",
+                "KlaviyoCore"
             ]),
         .target(
             name: "KlaviyoSwiftExtension",

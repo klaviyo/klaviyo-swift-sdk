@@ -782,8 +782,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 3.0.0;
+				branch = master;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
