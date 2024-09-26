@@ -8,6 +8,7 @@ Pod::Spec.new do |s|
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   s.license          = { :type => "MIT", :file => "LICENSE" }
   s.author           = { "Mobile @ Klaviyo" => "mobile@klaviyo.com" }
+  # TODO: update the branch to a tag once created
   s.source           = { :git => "https://github.com/klaviyo/klaviyo-swift-sdk.git", :branch => 'master' }
   s.swift_version    = '5.7'
   s.platform         = :ios, '13.0'
