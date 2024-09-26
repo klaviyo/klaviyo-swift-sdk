@@ -1,10 +1,10 @@
 PODS:
   - AnyCodable-FlightSchool (0.6.7)
-  - KlaviyoCore (0.1.0):
+  - KlaviyoCore (4.0.0):
     - AnyCodable-FlightSchool
-  - KlaviyoSwift (3.2.0):
+  - KlaviyoSwift (4.0.0):
     - AnyCodable-FlightSchool
-    - KlaviyoCore (~> 0.1.0)
+    - KlaviyoCore (~> 4.0.0)
   - KlaviyoSwiftExtension (3.0.1)
 
 DEPENDENCIES:
@@ -23,10 +23,10 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
-  KlaviyoCore: a1c8bce61e3bf059e2122c68de67c0848ab18691
-  KlaviyoSwift: c846f16783dcf74b57a002479806453f9533291f
+  KlaviyoCore: 64cf0767bd46055245b778702a55ccc1f18d4eb1
+  KlaviyoSwift: f7ee04bdd50b42dcc6ede4efdeb6f05d1cc4549f
   KlaviyoSwiftExtension: 3aa3f39f2d8b25424d17cd41e1e717939dea91dd
 
-PODFILE CHECKSUM: 2d7781d04aac78e610350f0ce4d243bf150f8667
+PODFILE CHECKSUM: 44a7fe4dd4e0011a89381b330b57033015d73a87
 
 COCOAPODS: 1.15.2
