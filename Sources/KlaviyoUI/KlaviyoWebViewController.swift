@@ -17,6 +17,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         webView = createWebView()
 
         view.addSubview(webView)
+
+        configureSubviewConstraints()
     }
 
     func createWebView() -> WKWebView {
@@ -24,5 +26,13 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
         return webView
+    }
+
+    func configureSubviewConstraints() {
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
+        webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
+        webView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+        webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
     }
 }
