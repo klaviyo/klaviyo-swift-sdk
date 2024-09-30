@@ -36,3 +36,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
     }
 }
+
+// MARK: - Previews
+
+@available(iOS 17.0, *)
+#Preview("Klaviyo.com") {
+    KlaviyoWebViewController()
+}
