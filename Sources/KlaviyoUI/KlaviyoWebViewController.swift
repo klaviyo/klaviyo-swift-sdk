@@ -21,8 +21,15 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         configureSubviewConstraints()
     }
 
+    func createWebViewConfiguration() -> WKWebViewConfiguration {
+        let config = WKWebViewConfiguration()
+        // customize any WKWebViewConfiguration properties here
+        // ex: config.allowsInlineMediaPlayback = true
+        return config
+    }
+
     func createWebView() -> WKWebView {
-        let webView = WKWebView()
+        let webView = WKWebView(frame: .zero, configuration: config)
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
         return webView
