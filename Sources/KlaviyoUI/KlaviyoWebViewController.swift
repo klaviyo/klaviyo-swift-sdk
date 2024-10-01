@@ -5,12 +5,14 @@
 //  Created by Andrew Balmer on 9/28/24.
 //
 
+import Combine
 import UIKit
 import WebKit
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     var webView: WKWebView!
     private let viewModel: KlaviyoWebViewModel
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initializers
 
@@ -37,6 +39,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         view.addSubview(webView)
 
         configureLoadScripts()
+        configureScriptEvaluator()
         configureSubviewConstraints()
     }
 
@@ -69,6 +72,19 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
             webView.configuration.userContentController.addUserScript(script)
             webView.configuration.userContentController.add(self, name: name)
         }
+    }
+
+    func configureScriptEvaluator() {
+        viewModel.scriptSubject.sink { [weak self] script in
+            Task { [weak self] in
+                do {
+                    let result = try await self?.webView.evaluateJavaScript(script) as? String ?? ""
+                    // TODO: handle result
+                } catch {
+                    // TODO: handle error
+                }
+            }
+        }.store(in: &cancellables)
     }
 
     // MARK: - Layout
