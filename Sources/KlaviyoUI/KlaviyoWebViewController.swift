@@ -11,12 +11,12 @@ import WebKit
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     var webView: WKWebView!
-    private let viewModel: KlaviyoWebViewModel
+    private let viewModel: KlaviyoWebViewModeling
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModel) {
+    init(viewModel: KlaviyoWebViewModeling) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
