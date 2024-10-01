@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import WebKit
 
 class KlaviyoWebViewModel {
     let url: URL
@@ -18,5 +19,9 @@ class KlaviyoWebViewModel {
 
     func handleNavigationEvent(_ event: WKNavigationEvent) {
         // TODO: handle navigation events
+    }
+
+    func handleScriptMessage(_ message: WKScriptMessage) {
+        // TODO: handle script message
     }
 }

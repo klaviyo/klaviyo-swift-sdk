@@ -83,7 +83,7 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
 extension KlaviyoWebViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        <#TODO: code to handle WKSCriptMessage#>
+        viewModel.handleScriptMessage(message)
     }
 }
 
