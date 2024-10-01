@@ -26,7 +26,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     override func loadView() {
         super.loadView()
 
-        webView = createWebView()
+        let config = createWebViewConfiguration()
+        webView = createWebView(with: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -47,7 +48,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         return config
     }
 
-    func createWebView() -> WKWebView {
+    func createWebView(with config: WKWebViewConfiguration) -> WKWebView {
         let webView = WKWebView(frame: .zero, configuration: config)
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
