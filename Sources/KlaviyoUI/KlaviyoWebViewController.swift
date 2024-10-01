@@ -10,11 +10,10 @@ import WebKit
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     var webView: WKWebView!
+    private let viewModel: KlaviyoWebViewModel
 
-    private let url: URL
-
-    init(url: URL) {
-        self.url = url
+    init(viewModel: KlaviyoWebViewModel) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -37,7 +36,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     }
 
     override func viewDidLoad() {
-        let request = URLRequest(url: url)
+        let request = URLRequest(url: viewModel.url)
         webView.load(request)
     }
 
@@ -92,5 +91,7 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
-    KlaviyoWebViewController(url: URL(string: "https://www.klaviyo.com")!)
+    let url = URL(string: "https://www.klaviyo.com")!
+    let viewModel = KlaviyoWebViewModel(url: url)
+    KlaviyoWebViewController(viewModel: viewModel)
 }
