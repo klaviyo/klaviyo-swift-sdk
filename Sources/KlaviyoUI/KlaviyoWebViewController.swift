@@ -32,6 +32,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
         view.addSubview(webView)
 
+        configureLoadScripts()
         configureSubviewConstraints()
     }
 
@@ -52,6 +53,14 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
         return webView
+    }
+
+    /// Configures the scripts to be injected into the website when the website loads.
+    func configureLoadScripts() {
+        for (name, script) in viewModel.loadScripts {
+            webView.configuration.userContentController.addUserScript(script)
+            webView.configuration.userContentController.add(self, name: name)
+        }
     }
 
     func configureSubviewConstraints() {
