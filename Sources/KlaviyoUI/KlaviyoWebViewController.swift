@@ -12,6 +12,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     var webView: WKWebView!
     private let viewModel: KlaviyoWebViewModel
 
+    // MARK: - Initializers
+
     init(viewModel: KlaviyoWebViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -21,6 +23,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    // MARK: - View loading
 
     override func loadView() {
         super.loadView()
@@ -41,6 +45,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         webView.load(request)
     }
 
+    // MARK: - WKWebView configuration
+
     func createWebViewConfiguration() -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
         // customize any WKWebViewConfiguration properties here
@@ -55,6 +61,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         return webView
     }
 
+    // MARK: - Scripts
+
     /// Configures the scripts to be injected into the website when the website loads.
     func configureLoadScripts() {
         for (name, script) in viewModel.loadScripts {
@@ -62,6 +70,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
             webView.configuration.userContentController.add(self, name: name)
         }
     }
+
+    // MARK: - Layout
 
     func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
