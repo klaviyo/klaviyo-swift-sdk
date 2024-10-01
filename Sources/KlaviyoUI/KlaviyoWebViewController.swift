@@ -27,6 +27,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         super.loadView()
 
         webView = createWebView()
+        webView.navigationDelegate = self
 
         view.addSubview(webView)
 
@@ -58,6 +59,24 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
         webView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
         webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+    }
+}
+
+extension KlaviyoWebViewController: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        <#TODO: code to handle navigation event#>
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        <#TODO: code to handle navigation event#>
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        <#TODO: code to handle navigation event#>
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        <#TODO: code to handle navigation event#>
     }
 }
 
