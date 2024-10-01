@@ -65,19 +65,19 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
 extension KlaviyoWebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        <#TODO: code to handle navigation event#>
+        viewModel.handleNavigationEvent(.didStartProvisionalNavigation)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        <#TODO: code to handle navigation event#>
+        viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        <#TODO: code to handle navigation event#>
+        viewModel.handleNavigationEvent(.didFinishNavigation)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        <#TODO: code to handle navigation event#>
+        viewModel.handleNavigationEvent(.didFailNavigation)
     }
 }
 
