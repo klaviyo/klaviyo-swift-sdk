@@ -13,4 +13,10 @@ class KlaviyoWebViewModel {
     init(url: URL) {
         self.url = url
     }
+
+    // MARK: handle WKWebView events
+
+    func handleNavigationEvent(_ event: WKNavigationEvent) {
+        // TODO: handle navigation events
+    }
 }
