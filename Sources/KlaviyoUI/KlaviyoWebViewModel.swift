@@ -14,7 +14,7 @@ class KlaviyoWebViewModel {
     let loadScripts: [String: WKUserScript]
 
     /// Publishes scripts for the `WKWebView` to execute.
-    let scriptSubject = PassthroughSubject<String, Never>()
+    let scriptSubject = PassthroughSubject<(script: String, callback: ((Result<Any?, Error>) -> Void)?), Never>()
 
     init(url: URL) {
         self.url = url

@@ -75,13 +75,13 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     }
 
     func configureScriptEvaluator() {
-        viewModel.scriptSubject.sink { [weak self] script in
+        viewModel.scriptSubject.sink { [weak self] script, callback in
             Task { [weak self] in
                 do {
-                    let result = try await self?.webView.evaluateJavaScript(script) as? String ?? ""
-                    // TODO: handle result
+                    let result = try await self?.webView.evaluateJavaScript(script)
+                    callback?(.success(result))
                 } catch {
-                    // TODO: handle error
+                    callback?(.failure(error))
                 }
             }
         }.store(in: &cancellables)
