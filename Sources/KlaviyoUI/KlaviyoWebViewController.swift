@@ -68,7 +68,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
     /// Configures the scripts to be injected into the website when the website loads.
     func configureLoadScripts() {
-        for (name, script) in viewModel.loadScripts {
+        guard let scriptsDict = viewModel.loadScripts else { return }
+
+        for (name, script) in scriptsDict {
             webView.configuration.userContentController.addUserScript(script)
             webView.configuration.userContentController.add(self, name: name)
         }
