@@ -28,6 +28,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
         webView = createWebView()
         webView.navigationDelegate = self
+        webView.uiDelegate = self
 
         view.addSubview(webView)
 
@@ -77,6 +78,12 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
         <#TODO: code to handle navigation event#>
+    }
+}
+
+extension KlaviyoWebViewController: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        <#TODO: code to handle WKSCriptMessage#>
     }
 }
 
