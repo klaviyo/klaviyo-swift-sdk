@@ -133,4 +133,11 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
     let viewModel = KlaviyoWebViewModel(url: url)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
+
+@available(iOS 17.0, *)
+#Preview("Local File") {
+    let indexHtmlFileUrl = Bundle.module.url(forResource: "index", withExtension: "html")!
+    let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
+    KlaviyoWebViewController(viewModel: viewModel)
+}
 #endif
