@@ -61,7 +61,7 @@ let package = Package(
             name: "KlaviyoUI",
             dependencies: ["KlaviyoSwift"],
             path: "Sources/KlaviyoUI",
-            resources: [.process("Resources")]),
+            resources: [.process("KlaviyoWebView/Resources")]),
         .testTarget(
             name: "KlaviyoUITests",
             dependencies: [
