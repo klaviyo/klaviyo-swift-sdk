@@ -130,5 +130,5 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 #Preview("Klaviyo.com") {
     let url = URL(string: "https://www.klaviyo.com")!
     let viewModel = KlaviyoWebViewModel(url: url)
-    KlaviyoWebViewController(viewModel: viewModel)
+    return KlaviyoWebViewController(viewModel: viewModel)
 }
