@@ -126,9 +126,11 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 
 // MARK: - Previews
 
+#if swift(>=5.9)
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
     let url = URL(string: "https://www.klaviyo.com")!
     let viewModel = KlaviyoWebViewModel(url: url)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
+#endif
