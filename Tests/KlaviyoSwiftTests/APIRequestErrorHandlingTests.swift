@@ -35,6 +35,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.requestsInFlight = []
         }
+
+        await store.finish()
     }
 
     @MainActor
@@ -58,6 +60,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     @MainActor
@@ -81,6 +85,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - network error
@@ -103,6 +109,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(2)
         }
+
+        await store.finish()
     }
 
     @MainActor
@@ -124,6 +132,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(2)
         }
+
+        await store.finish()
     }
 
     @MainActor
@@ -147,6 +157,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - internal error
@@ -170,6 +182,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - internal request error
@@ -192,6 +206,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - unknown error
@@ -214,6 +230,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - data decoding error
@@ -235,6 +253,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - invalid data
@@ -256,6 +276,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 
     // MARK: - rate limit error
@@ -277,6 +299,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
+
+        await store.finish()
     }
 
     @MainActor
@@ -297,8 +321,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
+
+        await store.finish()
     }
 
+    @MainActor
     func testRetryWithRetryAfter() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
@@ -316,6 +343,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
         }
+
+        await store.finish()
     }
 
     // MARK: - Missing or invalid response
@@ -338,5 +367,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
+
+        await store.finish()
     }
 }
