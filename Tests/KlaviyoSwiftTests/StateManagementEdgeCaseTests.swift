@@ -449,16 +449,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 }
 
-#if swift(>=5.9)
-extension Event.EventName: @retroactive CaseIterable {
-    public static var allCases: [KlaviyoSwift.Event.EventName] {
-        [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
-    }
-}
-#else
 extension Event.EventName: CaseIterable {
     public static var allCases: [KlaviyoSwift.Event.EventName] {
         [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
     }
 }
-#endif
