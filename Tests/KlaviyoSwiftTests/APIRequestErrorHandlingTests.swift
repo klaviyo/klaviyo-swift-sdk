@@ -16,6 +16,13 @@ class APIRequestErrorHandlingTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+    }
+
+    func cleanup(testStore: TestStore<KlaviyoReducer.State, KlaviyoReducer.Action, KlaviyoReducer.State, KlaviyoReducer.Action, Void>) async {
+        await testStore.send(.stop)
+
+        await testStore.receive(.cancelInFlightRequests)
     }
 
     // MARK: - http error
@@ -36,6 +43,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -61,6 +69,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -85,7 +94,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -110,6 +119,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(2)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -133,6 +143,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(2)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -158,6 +169,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -183,6 +195,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -207,6 +220,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -231,6 +245,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -254,6 +269,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -277,6 +293,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -300,6 +317,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -322,6 +340,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -344,6 +363,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 
@@ -368,6 +388,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
 
+        await cleanup(testStore: store)
         await store.finish()
     }
 }
