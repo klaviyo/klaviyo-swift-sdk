@@ -142,7 +142,7 @@ extension NetworkSession {
     }
 }
 
-class TestJSONDecoder: JSONDecoder {
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         AppLifeCycleEvents.test as! T
     }

@@ -21,8 +21,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     func cleanup(testStore: TestStore<KlaviyoReducer.State, KlaviyoReducer.Action, KlaviyoReducer.State, KlaviyoReducer.Action, Void>) async {
         await testStore.send(.stop)
-
         await testStore.receive(.cancelInFlightRequests)
+        await testStore.finish()
     }
 
     // MARK: - http error
@@ -44,7 +44,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -70,7 +69,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -95,7 +93,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - network error
@@ -120,7 +117,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -144,7 +140,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -170,7 +165,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - internal error
@@ -196,7 +190,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - internal request error
@@ -221,7 +214,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - unknown error
@@ -246,7 +238,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - data decoding error
@@ -270,7 +261,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - invalid data
@@ -294,7 +284,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - rate limit error
@@ -318,7 +307,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -341,7 +329,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     @MainActor
@@ -364,7 +351,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 
     // MARK: - Missing or invalid response
@@ -389,6 +375,5 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
 
         await cleanup(testStore: store)
-        await store.finish()
     }
 }
