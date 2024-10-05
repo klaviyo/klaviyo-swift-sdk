@@ -28,7 +28,7 @@ jobs:
       - name: Run ${{ matrix.config }} tests
         run: make CONFIG=${{ matrix.config }} test-library
 
-      - uses: conradev/xcresulttool@v1
+      - uses: conradev/xcresulttool@v1.8.0
         with:
           path: TestResults.xcresult
         if: success() || failure()
