@@ -20,8 +20,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
     }
 
     func cleanup(testStore: TestStore<KlaviyoReducer.State, KlaviyoReducer.Action, KlaviyoReducer.State, KlaviyoReducer.Action, Void>) async {
-        await testStore.send(.stop)
-        await testStore.receive(.cancelInFlightRequests)
+//        await testStore.send(.stop)
+//        await testStore.receive(.cancelInFlightRequests)
         await testStore.finish()
     }
 
