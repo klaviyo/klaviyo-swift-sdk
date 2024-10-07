@@ -1,5 +1,6 @@
 CONFIG = debug
-PLATFORM_IOS = iOS Simulator,name=iPhone 14
+PLATFORM_IOS = iOS Simulator,id=$(call udid_for,iOS 17.2,iPhone \d\+ Pro [^M])
+
 
 default: test-all
 
@@ -15,3 +16,7 @@ test-library:
 			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" || exit 1; \
 	done;
+
+define udid_for
+$(shell xcrun simctl list devices available '$(1)' | grep '$(2)' | sort -r | head -1 | awk -F '[()]' '{ print $$(NF-3) }')
+endef
