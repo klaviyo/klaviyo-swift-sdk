@@ -14,6 +14,9 @@ let package = Package(
             name: "KlaviyoUI",
             targets: ["KlaviyoUI"]),
         .library(
+            name: "KlaviyoGeo",
+            targets: ["KlaviyoGeo"]),
+        .library(
             name: "KlaviyoSwiftExtension",
             targets: ["KlaviyoSwiftExtension"])
     ],
@@ -66,6 +69,15 @@ let package = Package(
             name: "KlaviyoUITests",
             dependencies: [
                 "KlaviyoSwift",
+                "KlaviyoCore"
+            ]),
+        .target(
+            name: "KlaviyoGeo",
+            path: "Sources/KlaviyoGeo"),
+        .testTarget(
+            name: "KlaviyoGeoTests",
+            dependencies: [
+                "KlaviyoGeo",
                 "KlaviyoCore"
             ]),
         .target(
