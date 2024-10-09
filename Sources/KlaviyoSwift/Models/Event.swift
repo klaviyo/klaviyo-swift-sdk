@@ -15,10 +15,16 @@ public struct Event: Equatable {
         case viewedProductMetric
         case addedToCartMetric
         case startedCheckoutMetric
+        case locationEvent(LocationEvent)
         case customEvent(String)
 
-        internal static var _openedPush: EventName {
+        static var _openedPush: EventName {
             EventName.customEvent("_openedPush")
+        }
+
+        public enum LocationEvent: Equatable {
+            case enteredBoundary
+            case exitedBoundary
         }
     }
 
@@ -95,6 +101,13 @@ extension Event.EventName {
         case .viewedProductMetric: return "Viewed Product"
         case .addedToCartMetric: return "Added to Cart"
         case .startedCheckoutMetric: return "Started Checkout"
+        case let .locationEvent(type):
+            switch type {
+            case .enteredBoundary:
+                return "Entered Location"
+            case .exitedBoundary:
+                return "Exited Location"
+            }
         case let .customEvent(value): return "\(value)"
         }
     }
