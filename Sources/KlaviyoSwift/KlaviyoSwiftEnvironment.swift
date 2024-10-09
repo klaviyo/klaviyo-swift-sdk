@@ -8,10 +8,12 @@
 import Combine
 import Foundation
 
-var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
+@_spi(KlaviyoPrivate)
+public var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
 
-struct KlaviyoSwiftEnvironment {
-    var send: (KlaviyoAction) -> Task<Void, Never>?
+@_spi(KlaviyoPrivate)
+public struct KlaviyoSwiftEnvironment {
+    public var send: (KlaviyoAction) -> Task<Void, Never>?
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
@@ -25,6 +27,7 @@ struct KlaviyoSwiftEnvironment {
             },
             state: { store.state.value },
             statePublisher: { store.state.eraseToAnyPublisher() },
-            stateChangePublisher: StateChangePublisher().publisher)
+            stateChangePublisher: StateChangePublisher().publisher
+        )
     }()
 }

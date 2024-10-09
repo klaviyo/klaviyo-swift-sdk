@@ -12,7 +12,8 @@ import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
-struct KlaviyoState: Equatable, Codable {
+@_spi(KlaviyoPrivate)
+public struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
         case uninitialized
         case initializing
@@ -112,12 +113,14 @@ struct KlaviyoState: Equatable, Codable {
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: pushTokenData.pushToken,
-                enablement: pushTokenData.pushEnablement)
+                enablement: pushTokenData.pushEnablement
+            )
             enqueueRequest(request: request)
         } else {
             enqueueProfileRequest(
                 apiKey: apiKey,
-                anonymousId: anonymousId)
+                anonymousId: anonymousId
+            )
         }
     }
 
@@ -233,11 +236,13 @@ struct KlaviyoState: Equatable, Codable {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: Profile().toAPIModel(anonymousId: anonymousId))
+                    profile: Profile().toAPIModel(anonymousId: anonymousId)
+                )
 
                 let request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload))
+                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                )
 
                 enqueueRequest(request: request)
             }
@@ -253,7 +258,8 @@ struct KlaviyoState: Equatable, Codable {
             pushToken: newToken,
             pushEnablement: enablement,
             pushBackground: environment.getBackgroundSetting(),
-            deviceData: currentDeviceMetadata)
+            deviceData: currentDeviceMetadata
+        )
 
         return pushTokenData != newPushTokenData
     }
@@ -264,7 +270,8 @@ struct KlaviyoState: Equatable, Codable {
             phoneNumber: phoneNumber,
             externalId: externalId,
             properties: properties,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
 
         let endpoint = KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload))
 
@@ -279,7 +286,8 @@ struct KlaviyoState: Equatable, Codable {
                 email: email,
                 phoneNumber: phoneNumber,
                 externalId: externalId,
-                dict: pendingProfile)
+                dict: pendingProfile
+            )
             self.pendingProfile = nil
         } else {
             profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
@@ -289,7 +297,8 @@ struct KlaviyoState: Equatable, Codable {
             pushToken: pushToken,
             enablement: enablement.rawValue,
             background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId))
+            profile: profile.toAPIModel(anonymousId: anonymousId)
+        )
         let endpoint = KlaviyoEndpoint.registerPushToken(payload)
         return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
@@ -300,7 +309,8 @@ struct KlaviyoState: Equatable, Codable {
             email: email,
             phoneNumber: phoneNumber,
             externalId: externalId,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
         let endpoint = KlaviyoEndpoint.unregisterPushToken(payload)
         return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
     }
@@ -370,7 +380,8 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
         state = KlaviyoState(
             apiKey: apiKey,
             anonymousId: environment.uuid().uuidString,
-            queue: [])
+            queue: []
+        )
     }
     return state
 }
@@ -387,7 +398,8 @@ extension Profile {
         email: String? = nil,
         phoneNumber: String? = nil,
         externalId: String? = nil,
-        dict: [Profile.ProfileKey: AnyEncodable]) -> Self {
+        dict: [Profile.ProfileKey: AnyEncodable]
+    ) -> Self {
         var firstName: String?
         var lastName: String?
         var address1: String?
@@ -444,7 +456,8 @@ extension Profile {
             latitude: latitude,
             longitude: longitude,
             region: region,
-            zip: zip)
+            zip: zip
+        )
 
         let profile = Profile(
             email: email,
@@ -456,7 +469,8 @@ extension Profile {
             title: title,
             image: image,
             location: location,
-            properties: customProperties)
+            properties: customProperties
+        )
 
         return profile
     }

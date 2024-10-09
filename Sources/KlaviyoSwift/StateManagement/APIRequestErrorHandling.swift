@@ -13,7 +13,7 @@ enum ErrorHandlingConstants {
     static let maxBackoff = 60 * 3 // 3 minutes
 }
 
-enum InvalidField: Equatable {
+public enum InvalidField: Equatable {
     case email
     case phone
 
@@ -52,7 +52,8 @@ private func parseError(_ data: Data) -> [InvalidField]? {
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,
-    retryInfo: RetryInfo) -> KlaviyoAction {
+    retryInfo: RetryInfo
+) -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):
         let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
@@ -111,7 +112,9 @@ func handleRequestError(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
-                currentBackoff: retryAfter))
+                currentBackoff: retryAfter
+            )
+        )
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")

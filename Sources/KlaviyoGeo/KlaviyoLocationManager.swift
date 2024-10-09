@@ -8,7 +8,7 @@
 import CoreLocation
 import Foundation
 import OSLog
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+@_spi(KlaviyoPrivate) import KlaviyoSwift
 
 public class KlaviyoLocationManager: NSObject {
     let manager = CLLocationManager()
