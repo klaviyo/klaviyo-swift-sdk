@@ -33,17 +33,19 @@ public struct GeofenceService: GeofenceServiceProvider {
         let region2 = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: 40.74859487385327, longitude: -73.98563220742138),
             radius: 100,
-            identifier: "Empire State Building")
+            identifier: "Empire State Building"
+        )
         region2.notifyOnEntry = true
         region2.notifyOnExit = true
         newRegions.insert(region2)
 
         let region3 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 42.353245188054096, longitude: -71.05754685168745),
-            radius: 100,
-            identifier: "Klaviyo HQ")
+            center: CLLocationCoordinate2D(latitude: 42.3586000204366, longitude: -71.05831575152477),
+            radius: 10,
+            identifier: "Tatte"
+        )
         region3.notifyOnEntry = true
-        region3.notifyOnExit = true
+        region3.notifyOnExit = false
         newRegions.insert(region3)
 
         return newRegions
