@@ -48,6 +48,33 @@ public struct GeofenceService: GeofenceServiceProvider {
         region3.notifyOnExit = false
         newRegions.insert(region3)
 
+        let region4 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 42.39377283506793, longitude: -71.11933974002551),
+            radius: 10,
+            identifier: "George Dilboy VFW"
+        )
+        region4.notifyOnEntry = true
+        region4.notifyOnExit = true
+        newRegions.insert(region4)
+
+        let region5 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 42.39545953282365, longitude: -71.12336490695512),
+            radius: 50,
+            identifier: "Day Street Parking Lot"
+        )
+        region5.notifyOnEntry = true
+        region5.notifyOnExit = true
+        newRegions.insert(region5)
+
+        let region6 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 42.29742802785763, longitude: -71.11579719578968),
+            radius: 1000,
+            identifier: "Forest Hills"
+        )
+        region6.notifyOnEntry = true
+        region6.notifyOnExit = true
+        newRegions.insert(region6)
+
         return newRegions
     }
 }
