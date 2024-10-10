@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 10/7/24.
 //
 
+import Combine
 import CoreLocation
 import Foundation
 import OSLog
@@ -13,6 +14,7 @@ import OSLog
 public class KlaviyoLocationManager: NSObject {
     let manager = CLLocationManager()
     let geofenceManager: KlaviyoGeofenceManager
+    public let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
     override private convenience init() {
         self.init()
@@ -99,7 +101,8 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(enterEvent))
+                _ = klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(enterEvent))
+                geofencePublisher.send("Entered \(region.identifier)")
             }
         }
     }
@@ -119,7 +122,8 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(exitEvent))
+                _ = klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(exitEvent))
+                geofencePublisher.send("Exited \(region.identifier)")
             }
         }
     }
