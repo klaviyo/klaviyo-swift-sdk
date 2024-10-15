@@ -16,13 +16,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
-        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-    }
-
-    func cleanup(testStore: TestStore<KlaviyoReducer.State, KlaviyoReducer.Action, KlaviyoReducer.State, KlaviyoReducer.Action, Void>) async {
-//        await testStore.send(.stop)
-//        await testStore.receive(.cancelInFlightRequests)
-        await testStore.finish()
     }
 
     // MARK: - http error
@@ -42,8 +35,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.requestsInFlight = []
         }
-
-        await cleanup(testStore: store)
     }
 
     @MainActor
@@ -67,8 +58,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     @MainActor
@@ -92,7 +81,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-        await cleanup(testStore: store)
     }
 
     // MARK: - network error
@@ -115,8 +103,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(2)
         }
-
-        await cleanup(testStore: store)
     }
 
     @MainActor
@@ -138,8 +124,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(2)
         }
-
-        await cleanup(testStore: store)
     }
 
     @MainActor
@@ -163,8 +147,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - internal error
@@ -188,8 +170,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - internal request error
@@ -212,8 +192,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - unknown error
@@ -236,8 +214,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - data decoding error
@@ -259,8 +235,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - invalid data
@@ -282,8 +256,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - rate limit error
@@ -305,8 +277,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
-
-        await cleanup(testStore: store)
     }
 
     @MainActor
@@ -327,11 +297,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
-
-        await cleanup(testStore: store)
     }
 
-    @MainActor
     func testRetryWithRetryAfter() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
@@ -349,8 +316,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
         }
-
-        await cleanup(testStore: store)
     }
 
     // MARK: - Missing or invalid response
@@ -373,7 +338,5 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.retryInfo = .retry(1)
         }
-
-        await cleanup(testStore: store)
     }
 }
