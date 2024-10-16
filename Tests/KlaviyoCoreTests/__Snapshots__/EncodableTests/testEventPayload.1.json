@@ -25,19 +25,19 @@
         "App ID" : "com.klaviyo.fooapp",
         "App Name" : "FooApp",
         "App Version" : "1.2.3",
-        "blob" : "blob",
+        "Blob" : "blob",
         "Device ID" : "fe-fi-fo-fum",
         "Device Manufacturer" : "Orange",
         "Device Model" : "jPhone 1,1",
-        "hello" : {
-          "sub" : "dict"
+        "Hello" : {
+          "Sub" : "dict"
         },
         "OS Name" : "iOS",
         "OS Version" : "1.1.1",
         "Push Token" : "",
         "SDK Name" : "swift",
         "SDK Version" : "4.0.0",
-        "stuff" : 2
+        "Stuff" : 2
       },
       "time" : "2009-02-13T23:31:30Z",
       "unique_id" : "00000000-0000-0000-0000-000000000001"

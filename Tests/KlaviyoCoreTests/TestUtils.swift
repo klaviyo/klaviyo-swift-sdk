@@ -62,10 +62,10 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 let SAMPLE_PROPERTIES = [
-    "blob": "blob",
-    "stuff": 2,
-    "hello": [
-        "sub": "dict"
+    "Blob": "blob",
+    "Stuff": 2,
+    "Hello": [
+        "Sub": "dict"
     ]
 ] as [String: Any]
 
@@ -142,7 +142,7 @@ extension NetworkSession {
     }
 }
 
-class TestJSONDecoder: JSONDecoder {
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         AppLifeCycleEvents.test as! T
     }

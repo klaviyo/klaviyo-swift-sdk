@@ -320,7 +320,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
-            return .task { .sendRequest }
+            return .task { .sendRequest }.cancellable(id: RequestId.self)
 
         case .sendRequest:
             guard case .initialized = state.initalizationState else {
