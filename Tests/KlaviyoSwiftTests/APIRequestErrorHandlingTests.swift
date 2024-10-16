@@ -299,6 +299,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRetryWithRetryAfter() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
