@@ -1,9 +1,9 @@
 Pod::Spec.new do |s|
-  s.name             = "KlaviyoCore"
-  s.version          = "4.0.0"
-  s.summary          = "Core functionalities for the Klaviyo SDK"
+  s.name             = "KlaviyoUI"
+  s.version          = "0.1.0"
+  s.summary          = "UI components for the Klaviyo"
   s.description      = <<-DESC
-                        Core functionalities and utilities for the Klaviyo SDK.
+                        UI components and utilities for the Klaviyo SDK.
                        DESC
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   s.license          = { :type => "MIT", :file => "LICENSE" }
@@ -11,6 +11,7 @@ Pod::Spec.new do |s|
   s.source           = { :git => "https://github.com/klaviyo/klaviyo-swift-sdk.git", :tag => s.version.to_s }
   s.swift_version    = '5.7'
   s.platform         = :ios, '13.0'
-  s.source_files     = 'Sources/KlaviyoCore/**/*.swift'
-  s.dependency       'AnyCodable-FlightSchool'
+  s.source_files     = 'Sources/KlaviyoUI/**/*.swift'
+  # update once modularization changes are merged in.
+  s.dependency     'KlaviyoSwift', '~> 4.0.0'
 end
