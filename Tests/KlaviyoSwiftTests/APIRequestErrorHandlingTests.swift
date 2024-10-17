@@ -193,70 +193,70 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
     }
-//
-//    // MARK: - unknown error
-//
-//    @MainActor
-//    func testSendRequestUnknownError() async throws {
-//        var initialState = INITIALIZED_TEST_STATE()
-//
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        initialState.requestsInFlight = [request]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = []
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(1)
-//        }
-//    }
-//
-//    // MARK: - data decoding error
-//
-//    @MainActor
-//    func testSendRequestDataDecodingError() async throws {
-//        var initialState = INITIALIZED_TEST_STATE()
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        initialState.requestsInFlight = [request]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = []
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(1)
-//        }
-//    }
-//
-//    // MARK: - invalid data
-//
-//    @MainActor
-//    func testSendRequestInvalidData() async throws {
-//        var initialState = INITIALIZED_TEST_STATE()
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        initialState.requestsInFlight = [request]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = []
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(1)
-//        }
-//    }
+
+    // MARK: - unknown error
+
+    @MainActor
+    func testSendRequestUnknownError() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(1)
+        }
+    }
+
+    // MARK: - data decoding error
+
+    @MainActor
+    func testSendRequestDataDecodingError() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(1)
+        }
+    }
+
+    // MARK: - invalid data
+
+    @MainActor
+    func testSendRequestInvalidData() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(1)
+        }
+    }
 //
 //    // MARK: - rate limit error
 //
