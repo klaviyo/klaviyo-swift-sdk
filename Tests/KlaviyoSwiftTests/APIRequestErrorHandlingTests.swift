@@ -37,28 +37,29 @@ class APIRequestErrorHandlingTests: XCTestCase {
 //        }
 //    }
 //
-//    @MainActor
-//    func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
-//        var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        initialState.requestsInFlight = [request]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.resetStateAndDequeue(request, [InvalidField.phone]), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.phoneNumber = nil
-//        }
-//
-//        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = []
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(1)
-//        }
-//    }
+    @MainActor
+    func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
+        var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.resetStateAndDequeue(request, [InvalidField.phone]), timeout: TIMEOUT_NANOSECONDS) {
+            $0.phoneNumber = nil
+        }
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(1)
+        }
+    }
+
 //
 //    @MainActor
 //    func testSendRequestHttpFailureForEmailResetsStateAndDequesRequest() async throws {
