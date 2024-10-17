@@ -31,7 +31,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request)) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.requestsInFlight = []
         }
