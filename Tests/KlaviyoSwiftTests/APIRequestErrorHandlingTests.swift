@@ -148,29 +148,29 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.retryInfo = .retry(1)
         }
     }
-//
-//    // MARK: - internal error
-//
-//    @MainActor
-//    func testSendRequestInternalError() async throws {
-//        // NOTE: should really happen but putting this in for possible future cases and test coverage
-//        var initialState = INITIALIZED_TEST_STATE()
-//
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        initialState.requestsInFlight = [request]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = []
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(1)
-//        }
-//    }
+
+    // MARK: - internal error
+
+    @MainActor
+    func testSendRequestInternalError() async throws {
+        // NOTE: should really happen but putting this in for possible future cases and test coverage
+        var initialState = INITIALIZED_TEST_STATE()
+
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = []
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(1)
+        }
+    }
 //
 //    // MARK: - internal request error
 //
