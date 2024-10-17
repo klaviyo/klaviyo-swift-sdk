@@ -105,26 +105,26 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-//    @MainActor
-//    func testSendRequestFailureWithBackoff() async throws {
-//        var initialState = INITIALIZED_TEST_STATE()
-//        initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
-//        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-//        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
-//        initialState.requestsInFlight = [request, request2]
-//        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-//
-//        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
-//
-//        _ = await store.send(.sendRequest)
-//
-//        await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
-//            $0.flushing = false
-//            $0.queue = [request, request2]
-//            $0.requestsInFlight = []
-//            $0.retryInfo = .retry(2)
-//        }
-//    }
+    @MainActor
+    func testSendRequestFailureWithBackoff() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
+        initialState.requestsInFlight = [request, request2]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request, request2]
+            $0.requestsInFlight = []
+            $0.retryInfo = .retry(2)
+        }
+    }
 //
 //    @MainActor
 //    func testSendRequestMaxRetries() async throws {
