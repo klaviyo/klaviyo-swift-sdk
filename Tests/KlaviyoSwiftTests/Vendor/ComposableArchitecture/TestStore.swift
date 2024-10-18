@@ -34,6 +34,7 @@ import CustomDump
 import Foundation
 import CasePaths
 import XCTestDynamicOverlay
+import Dispatch
 
 /// A testable runtime for a reducer.
 ///
@@ -454,10 +455,22 @@ import XCTestDynamicOverlay
 /// [merowing.info]: https://www.merowing.info
 /// [exhaustive-testing-in-tca]: https://www.merowing.info/exhaustive-testing-in-tca/
 /// [Composable-Architecture-at-Scale]: https://vimeo.com/751173570
+#if swift(<5.10)
+  @MainActor(unsafe)
+#else
+  @preconcurrency@MainActor
+#endif
 final class TestStore<State, Action, ScopedState, ScopedAction, Environment> {
 
   /// The current exhaustivity level of the test store.
   var exhaustivity: Exhaustivity = .on
+
+  /// Serializes all async work to the main thread for the lifetime of the test store.
+  public var useMainSerialExecutor: Bool {
+    get { uncheckedUseMainSerialExecutor }
+    set { uncheckedUseMainSerialExecutor = newValue }
+  }
+  private let originalUseMainSerialExecutor = uncheckedUseMainSerialExecutor
 
   /// The current environment.
   ///
@@ -580,6 +593,7 @@ final class TestStore<State, Action, ScopedState, ScopedAction, Environment> {
     self.store = Store(initialState: initialState, reducer: reducer)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = { $0 }
+    self.useMainSerialExecutor = true
   }
 
   init(
@@ -671,7 +685,8 @@ final class TestStore<State, Action, ScopedState, ScopedAction, Environment> {
   }
 
   deinit {
-    self.completed()
+      uncheckedUseMainSerialExecutor = self.originalUseMainSerialExecutor
+      mainActorNow { self.completed() }
   }
 
   func completed() {
@@ -831,7 +846,13 @@ extension TestStore where ScopedState: Equatable {
     let previousState = self.reducer.state
     let task = self.store
       .send(.init(origin: .send(self.fromScopedAction(action)), file: file, line: line))
-    await self.reducer.effectDidSubscribe.stream.first(where: { _ in true })
+
+    if uncheckedUseMainSerialExecutor {
+      await Task.yield()
+    } else {
+      await self.reducer.effectDidSubscribe.stream.first(where: { _ in true })
+    }
+
     do {
       let currentState = self.state
       self.reducer.state = previousState
@@ -1241,13 +1262,13 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
   ///     expected.
   @MainActor
   @_disfavoredOverload
-  func receive(
+    func receive(
     _ expectedAction: Action,
     timeout nanoseconds: UInt64? = nil,
     assert updateStateToExpectedResult: ((inout ScopedState) throws -> Void)? = nil,
     file: StaticString = #file,
     line: UInt = #line
-  ) async {
+    ) async {
     guard !self.reducer.inFlightEffects.isEmpty
     else {
       _ = {
@@ -2122,5 +2143,82 @@ struct Reduce<State, Action>: ReducerProtocol {
   @inlinable
   func reduce(into state: inout State, action: Action) -> EffectTask<Action> {
     self.reduce(&state, action)
+  }
+}
+
+// ND: Pulled from recent version of TCA to address test threading issues.
+
+#if !os(WASI) && !os(Windows) && !os(Android)
+private typealias Original = @convention(thin) (UnownedJob) -> Void
+private typealias Hook = @convention(thin) (UnownedJob, Original) -> Void
+
+public var uncheckedUseMainSerialExecutor: Bool {
+  get { swift_task_enqueueGlobal_hook != nil }
+  set {
+    swift_task_enqueueGlobal_hook =
+      newValue
+      ? { job, _ in MainActor.shared.enqueue(job) }
+      : nil
+  }
+}
+
+private var swift_task_enqueueGlobal_hook: Hook? {
+    get { _swift_task_enqueueGlobal_hook.wrappedValue.pointee }
+    set { _swift_task_enqueueGlobal_hook.wrappedValue.pointee = newValue }
+  }
+  private let _swift_task_enqueueGlobal_hook = UncheckedSendable(
+    dlsym(dlopen(nil, 0), "swift_task_enqueueGlobal_hook").assumingMemoryBound(to: Hook?.self)
+  )
+
+#endif
+
+func mainActorNow<R: Sendable>(execute block: @MainActor @Sendable () -> R) -> R {
+  if DispatchQueue.getSpecific(key: key) == value {
+    return MainActor._assumeIsolated {
+      block()
+    }
+  } else {
+    return DispatchQueue.main.sync {
+      MainActor._assumeIsolated {
+        block()
+      }
+    }
+  }
+}
+
+private let key: DispatchSpecificKey<UInt8> = {
+  let key = DispatchSpecificKey<UInt8>()
+  DispatchQueue.main.setSpecific(key: key, value: value)
+  return key
+}()
+private let value: UInt8 = 0
+
+
+extension MainActor {
+  // NB: This functionality was not back-deployed in Swift 5.9
+  static func _assumeIsolated<T: Sendable>(
+    _ operation: @MainActor () throws -> T,
+    file: StaticString = #fileID,
+    line: UInt = #line
+  ) rethrows -> T {
+    #if swift(<5.10)
+      typealias YesActor = @MainActor () throws -> T
+      typealias NoActor = () throws -> T
+
+      guard Thread.isMainThread else {
+        fatalError(
+          "Incorrect actor executor assumption; Expected same executor as \(self).",
+          file: file,
+          line: line
+        )
+      }
+
+      return try withoutActuallyEscaping(operation) { (_ fn: @escaping YesActor) throws -> T in
+        let rawFn = unsafeBitCast(fn, to: NoActor.self)
+        return try rawFn()
+      }
+    #else
+      return try assumeIsolated(operation, file: file, line: line)
+    #endif
   }
 }
