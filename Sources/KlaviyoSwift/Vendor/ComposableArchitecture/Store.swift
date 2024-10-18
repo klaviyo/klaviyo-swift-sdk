@@ -151,161 +151,161 @@ import Foundation
 /// Further, all actions sent to the store and all scopes (see ``scope(state:action:)``) of the
 /// store are also checked to make sure that work is performed on the main thread.
 final class Store<State, Action> {
-  private var bufferedActions: [Action] = []
-  var effectCancellables: [UUID: AnyCancellable] = [:]
-  private var isSending = false
-  var parentCancellable: AnyCancellable?
+    private var bufferedActions: [Action] = []
+    var effectCancellables: [UUID: AnyCancellable] = [:]
+    private var isSending = false
+    var parentCancellable: AnyCancellable?
 #if swift(>=5.7)
-  private let reducer: any ReducerProtocol<State, Action>
+    private let reducer: any ReducerProtocol<State, Action>
 #else
-  private let reducer: (inout State, Action) -> EffectTask<Action>
+    private let reducer: (inout State, Action) -> EffectTask<Action>
 #endif
-  var state: CurrentValueSubject<State, Never>
-  #if DEBUG
+    var state: CurrentValueSubject<State, Never>
+#if DEBUG
     private let mainThreadChecksEnabled: Bool
-  #endif
+#endif
 
-  /// Initializes a store from an initial state and a reducer.
-  ///
-  /// - Parameters:
-  ///   - initialState: The state to start the application in.
-  ///   - reducer: The reducer that powers the business logic of the application.
-  convenience init<R: ReducerProtocol>(
-    initialState: R.State,
-    reducer: R
-  ) where R.State == State, R.Action == Action {
-    self.init(
-      initialState: initialState,
-      reducer: reducer,
-      mainThreadChecksEnabled: true
-    )
-  }
-
-  func send(
-    _ action: Action,
-    originatingFrom originatingAction: Action? = nil
-  ) -> Task<Void, Never>? {
-    self.threadCheck(status: .send(action, originatingAction: originatingAction))
-
-    self.bufferedActions.append(action)
-    guard !self.isSending else { return nil }
-
-    self.isSending = true
-    var currentState = self.state.value
-    let tasks = Box<[Task<Void, Never>]>(wrappedValue: [])
-    defer {
-      withExtendedLifetime(self.bufferedActions) {
-        self.bufferedActions.removeAll()
-      }
-      self.state.value = currentState
-      self.isSending = false
-      if !self.bufferedActions.isEmpty {
-        if let task = self.send(
-          self.bufferedActions.removeLast(), originatingFrom: originatingAction
-        ) {
-          tasks.wrappedValue.append(task)
-        }
-      }
-    }
-
-    var index = self.bufferedActions.startIndex
-    while index < self.bufferedActions.endIndex {
-      defer { index += 1 }
-      let action = self.bufferedActions[index]
-    #if swift(>=5.7)
-        let effect = self.reducer.reduce(into: &currentState, action: action)
-      #else
-        let effect = self.reducer(&currentState, action)
-      #endif
-
-      switch effect.operation {
-      case .none:
-        break
-      case let .publisher(publisher):
-        var didComplete = false
-        let boxedTask = Box<Task<Void, Never>?>(wrappedValue: nil)
-        let uuid = UUID()
-        let effectCancellable =
-          publisher
-          .handleEvents(
-            receiveCancel: { [weak self] in
-              self?.threadCheck(status: .effectCompletion(action))
-              self?.effectCancellables[uuid] = nil
-            }
-          )
-          .sink(
-            receiveCompletion: { [weak self] _ in
-              self?.threadCheck(status: .effectCompletion(action))
-              boxedTask.wrappedValue?.cancel()
-              didComplete = true
-              self?.effectCancellables[uuid] = nil
-            },
-            receiveValue: { [weak self] effectAction in
-              guard let self = self else { return }
-              if let task = self.send(effectAction, originatingFrom: action) {
-                tasks.wrappedValue.append(task)
-              }
-            }
-          )
-
-        if !didComplete {
-          let task = Task<Void, Never> { @MainActor in
-            for await _ in AsyncStream<Void>.never {}
-            effectCancellable.cancel()
-          }
-          boxedTask.wrappedValue = task
-          tasks.wrappedValue.append(task)
-          self.effectCancellables[uuid] = effectCancellable
-        }
-      case let .run(priority, operation):
-        tasks.wrappedValue.append(
-          Task(priority: priority) {
-            await operation(
-              Send {
-                if let task = self.send($0, originatingFrom: action) {
-                  tasks.wrappedValue.append(task)
-                }
-              }
-            )
-          }
+    /// Initializes a store from an initial state and a reducer.
+    ///
+    /// - Parameters:
+    ///   - initialState: The state to start the application in.
+    ///   - reducer: The reducer that powers the business logic of the application.
+    convenience init<R: ReducerProtocol>(
+        initialState: R.State,
+        reducer: R
+    ) where R.State == State, R.Action == Action {
+        self.init(
+            initialState: initialState,
+            reducer: reducer,
+            mainThreadChecksEnabled: true
         )
-      }
     }
 
-    guard !tasks.wrappedValue.isEmpty else { return nil }
-    return Task { @MainActor in
-      await withTaskCancellationHandler {
-        var index = tasks.wrappedValue.startIndex
-        while index < tasks.wrappedValue.endIndex {
-          defer { index += 1 }
-          await tasks.wrappedValue[index].value
+    func send(
+        _ action: Action,
+        originatingFrom originatingAction: Action? = nil
+    ) -> Task<Void, Never>? {
+        self.threadCheck(status: .send(action, originatingAction: originatingAction))
+
+        self.bufferedActions.append(action)
+        guard !self.isSending else { return nil }
+
+        self.isSending = true
+        var currentState = self.state.value
+        let tasks = Box<[Task<Void, Never>]>(wrappedValue: [])
+        defer {
+            withExtendedLifetime(self.bufferedActions) {
+                self.bufferedActions.removeAll()
+            }
+            self.state.value = currentState
+            self.isSending = false
+            if !self.bufferedActions.isEmpty {
+                if let task = self.send(
+                    self.bufferedActions.removeLast(), originatingFrom: originatingAction
+                ) {
+                    tasks.wrappedValue.append(task)
+                }
+            }
         }
-      } onCancel: {
-        var index = tasks.wrappedValue.startIndex
-        while index < tasks.wrappedValue.endIndex {
-          defer { index += 1 }
-          tasks.wrappedValue[index].cancel()
+
+        var index = self.bufferedActions.startIndex
+        while index < self.bufferedActions.endIndex {
+            defer { index += 1 }
+            let action = self.bufferedActions[index]
+#if swift(>=5.7)
+            let effect = self.reducer.reduce(into: &currentState, action: action)
+#else
+            let effect = self.reducer(&currentState, action)
+#endif
+
+            switch effect.operation {
+            case .none:
+                break
+            case let .publisher(publisher):
+                var didComplete = false
+                let boxedTask = Box<Task<Void, Never>?>(wrappedValue: nil)
+                let uuid = UUID()
+                let effectCancellable =
+                publisher
+                    .handleEvents(
+                        receiveCancel: { [weak self] in
+                            self?.threadCheck(status: .effectCompletion(action))
+                            self?.effectCancellables[uuid] = nil
+                        }
+                    )
+                    .sink(
+                        receiveCompletion: { [weak self] _ in
+                            self?.threadCheck(status: .effectCompletion(action))
+                            boxedTask.wrappedValue?.cancel()
+                            didComplete = true
+                            self?.effectCancellables[uuid] = nil
+                        },
+                        receiveValue: { [weak self] effectAction in
+                            guard let self = self else { return }
+                            if let task = self.send(effectAction, originatingFrom: action) {
+                                tasks.wrappedValue.append(task)
+                            }
+                        }
+                    )
+
+                if !didComplete {
+                    let task = Task<Void, Never> { @MainActor in
+                        for await _ in AsyncStream<Void>.never {}
+                        effectCancellable.cancel()
+                    }
+                    boxedTask.wrappedValue = task
+                    tasks.wrappedValue.append(task)
+                    self.effectCancellables[uuid] = effectCancellable
+                }
+            case let .run(priority, operation):
+                tasks.wrappedValue.append(
+                    Task(priority: priority) {
+                        await operation(
+                            Send {
+                                if let task = self.send($0, originatingFrom: action) {
+                                    tasks.wrappedValue.append(task)
+                                }
+                            }
+                        )
+                    }
+                )
+            }
         }
-      }
+
+        guard !tasks.wrappedValue.isEmpty else { return nil }
+        return Task { @MainActor in
+            await withTaskCancellationHandler {
+                var index = tasks.wrappedValue.startIndex
+                while index < tasks.wrappedValue.endIndex {
+                    defer { index += 1 }
+                    await tasks.wrappedValue[index].value
+                }
+            } onCancel: {
+                var index = tasks.wrappedValue.startIndex
+                while index < tasks.wrappedValue.endIndex {
+                    defer { index += 1 }
+                    tasks.wrappedValue[index].cancel()
+                }
+            }
+        }
     }
-  }
 
-  private enum ThreadCheckStatus {
-    case effectCompletion(Action)
-    case `init`
-    case scope
-    case send(Action, originatingAction: Action?)
-  }
+    private enum ThreadCheckStatus {
+        case effectCompletion(Action)
+        case `init`
+        case scope
+        case send(Action, originatingAction: Action?)
+    }
 
-  @inline(__always)
-  private func threadCheck(status: ThreadCheckStatus) {
-    #if DEBUG
-      guard self.mainThreadChecksEnabled && !Thread.isMainThread
-      else { return }
+    @inline(__always)
+    private func threadCheck(status: ThreadCheckStatus) {
+#if DEBUG
+        guard self.mainThreadChecksEnabled && !Thread.isMainThread
+        else { return }
 
-      switch status {
-      case let .effectCompletion(action):
-        runtimeWarn(
+        switch status {
+        case let .effectCompletion(action):
+            runtimeWarn(
           """
           An effect completed on a non-main thread. …
 
@@ -319,10 +319,10 @@ final class Store<State, Action> {
           "Store" (including all of its scopes and derived view stores) must be done on the main \
           thread.
           """
-        )
+            )
 
-      case .`init`:
-        runtimeWarn(
+        case .`init`:
+            runtimeWarn(
           """
           A store initialized on a non-main thread. …
 
@@ -330,10 +330,10 @@ final class Store<State, Action> {
           "Store" (including all of its scopes and derived view stores) must be done on the main \
           thread.
           """
-        )
+            )
 
-      case .scope:
-        runtimeWarn(
+        case .scope:
+            runtimeWarn(
           """
           "Store.scope" was called on a non-main thread. …
 
@@ -341,10 +341,10 @@ final class Store<State, Action> {
           "Store" (including all of its scopes and derived view stores) must be done on the main \
           thread.
           """
-        )
+            )
 
-      case let .send(action, originatingAction: nil):
-        runtimeWarn(
+        case let .send(action, originatingAction: nil):
+            runtimeWarn(
           """
           "ViewStore.send" was called on a non-main thread with: \(debugCaseOutput(action)) …
 
@@ -352,10 +352,10 @@ final class Store<State, Action> {
           "Store" (including all of its scopes and derived view stores) must be done on the main \
           thread.
           """
-        )
+            )
 
-      case let .send(action, originatingAction: .some(originatingAction)):
-        runtimeWarn(
+        case let .send(action, originatingAction: .some(originatingAction)):
+            runtimeWarn(
           """
           An effect published an action on a non-main thread. …
 
@@ -372,26 +372,26 @@ final class Store<State, Action> {
           "Store" (including all of its scopes and derived view stores) must be done on the main \
           thread.
           """
-        )
-      }
-    #endif
-  }
+            )
+        }
+#endif
+    }
 
     init<R: ReducerProtocol>(
-      initialState: R.State,
-      reducer: R,
-      mainThreadChecksEnabled: Bool
+        initialState: R.State,
+        reducer: R,
+        mainThreadChecksEnabled: Bool
     ) where R.State == State, R.Action == Action {
-      self.state = CurrentValueSubject(initialState)
-      #if swift(>=5.7)
+        self.state = CurrentValueSubject(initialState)
+#if swift(>=5.7)
         self.reducer = reducer
-      #else
+#else
         self.reducer = reducer.reduce
-      #endif
-      #if DEBUG
+#endif
+#if DEBUG
         self.mainThreadChecksEnabled = mainThreadChecksEnabled
-      #endif
-      self.threadCheck(status: .`init`)
+#endif
+        self.threadCheck(status: .`init`)
     }
 }
 

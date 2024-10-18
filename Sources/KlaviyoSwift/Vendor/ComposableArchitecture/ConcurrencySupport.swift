@@ -9,184 +9,184 @@ import Foundation
 
 extension AsyncStream {
 
-  /// Constructs and returns a stream along with its backing continuation.
-  ///
-  /// This is handy for immediately escaping the continuation from an async stream, which typically
-  /// requires multiple steps:
-  ///
-  /// ```swift
-  /// var _continuation: AsyncStream<Int>.Continuation!
-  /// let stream = AsyncStream<Int> { continuation = $0 }
-  /// let continuation = _continuation!
-  ///
-  /// // vs.
-  ///
-  /// let (stream, continuation) = AsyncStream<Int>.streamWithContinuation()
-  /// ```
-  ///
-  /// This tool is usually used for tests where we need to supply an async sequence to a dependency
-  /// endpoint and get access to its continuation so that we can emulate the dependency
-  /// emitting data. For example, suppose you have a dependency exposing an async sequence for
-  /// listening to notifications. To test this you can use `streamWithContinuation`:
-  ///
-  /// ```swift
-  /// let notifications = AsyncStream<Void>.streamWithContinuation()
-  ///
-  /// let store = TestStore(
-  ///   initialState: Feature.State(),
-  ///   reducer: Feature()
-  /// )
-  ///
-  /// store.dependencies.notifications = { notifications.stream }
-  ///
-  /// await store.send(.task)
-  /// notifications.continuation.yield("Hello")  // Simulate notification being posted
-  /// await store.receive(.notification("Hello")) {
-  ///   $0.message = "Hello"
-  /// }
-  /// ```
-  ///
-  /// > Warning: ⚠️ `AsyncStream` does not support multiple subscribers, therefore you can only use
-  /// > this helper to test features that do not subscribe multiple times to the dependency
-  /// > endpoint.
-  ///
-  /// - Parameters:
-  ///   - elementType: The type of element the `AsyncStream` produces.
-  ///   - limit: A Continuation.BufferingPolicy value to set the stream’s buffering behavior. By
-  ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
-  ///   buffer a specified number of oldest or newest elements.
-  /// - Returns: An `AsyncStream`.
-  static func streamWithContinuation(
-    _ elementType: Element.Type = Element.self,
-    bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
-  ) -> (stream: Self, continuation: Continuation) {
-    var continuation: Continuation!
-    return (Self(elementType, bufferingPolicy: limit) { continuation = $0 }, continuation)
-  }
+    /// Constructs and returns a stream along with its backing continuation.
+    ///
+    /// This is handy for immediately escaping the continuation from an async stream, which typically
+    /// requires multiple steps:
+    ///
+    /// ```swift
+    /// var _continuation: AsyncStream<Int>.Continuation!
+    /// let stream = AsyncStream<Int> { continuation = $0 }
+    /// let continuation = _continuation!
+    ///
+    /// // vs.
+    ///
+    /// let (stream, continuation) = AsyncStream<Int>.streamWithContinuation()
+    /// ```
+    ///
+    /// This tool is usually used for tests where we need to supply an async sequence to a dependency
+    /// endpoint and get access to its continuation so that we can emulate the dependency
+    /// emitting data. For example, suppose you have a dependency exposing an async sequence for
+    /// listening to notifications. To test this you can use `streamWithContinuation`:
+    ///
+    /// ```swift
+    /// let notifications = AsyncStream<Void>.streamWithContinuation()
+    ///
+    /// let store = TestStore(
+    ///   initialState: Feature.State(),
+    ///   reducer: Feature()
+    /// )
+    ///
+    /// store.dependencies.notifications = { notifications.stream }
+    ///
+    /// await store.send(.task)
+    /// notifications.continuation.yield("Hello")  // Simulate notification being posted
+    /// await store.receive(.notification("Hello")) {
+    ///   $0.message = "Hello"
+    /// }
+    /// ```
+    ///
+    /// > Warning: ⚠️ `AsyncStream` does not support multiple subscribers, therefore you can only use
+    /// > this helper to test features that do not subscribe multiple times to the dependency
+    /// > endpoint.
+    ///
+    /// - Parameters:
+    ///   - elementType: The type of element the `AsyncStream` produces.
+    ///   - limit: A Continuation.BufferingPolicy value to set the stream’s buffering behavior. By
+    ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
+    ///   buffer a specified number of oldest or newest elements.
+    /// - Returns: An `AsyncStream`.
+    static func streamWithContinuation(
+        _ elementType: Element.Type = Element.self,
+        bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
+    ) -> (stream: Self, continuation: Continuation) {
+        var continuation: Continuation!
+        return (Self(elementType, bufferingPolicy: limit) { continuation = $0 }, continuation)
+    }
 
-  /// An `AsyncStream` that never emits and never completes unless cancelled.
-  static var never: Self {
-    Self { _ in }
-  }
+    /// An `AsyncStream` that never emits and never completes unless cancelled.
+    static var never: Self {
+        Self { _ in }
+    }
 
-  static var finished: Self {
-    Self { $0.finish() }
-  }
+    static var finished: Self {
+        Self { $0.finish() }
+    }
 }
 
 extension AsyncThrowingStream where Failure == Error {
-  /// Initializes an `AsyncThrowingStream` from any `AsyncSequence`.
-  ///
-  /// - Parameters:
-  ///   - sequence: An `AsyncSequence`.
-  ///   - limit: The maximum number of elements to hold in the buffer. By default, this value is
-  ///   unlimited. Use a `Continuation.BufferingPolicy` to buffer a specified number of oldest or
-  ///   newest elements.
-  init<S: AsyncSequence & Sendable>(
-    _ sequence: S,
-    bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
-  ) where S.Element == Element {
-    self.init(bufferingPolicy: limit) { (continuation: Continuation) in
-      let task = Task {
-        do {
-          for try await element in sequence {
-            continuation.yield(element)
-          }
-          continuation.finish()
-        } catch {
-          continuation.finish(throwing: error)
+    /// Initializes an `AsyncThrowingStream` from any `AsyncSequence`.
+    ///
+    /// - Parameters:
+    ///   - sequence: An `AsyncSequence`.
+    ///   - limit: The maximum number of elements to hold in the buffer. By default, this value is
+    ///   unlimited. Use a `Continuation.BufferingPolicy` to buffer a specified number of oldest or
+    ///   newest elements.
+    init<S: AsyncSequence & Sendable>(
+        _ sequence: S,
+        bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
+    ) where S.Element == Element {
+        self.init(bufferingPolicy: limit) { (continuation: Continuation) in
+            let task = Task {
+                do {
+                    for try await element in sequence {
+                        continuation.yield(element)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination =
+            { _ in
+                task.cancel()
+            }
+            // NB: This explicit cast is needed to work around a compiler bug in Swift 5.5.2
+            as @Sendable (Continuation.Termination) -> Void
         }
-      }
-      continuation.onTermination =
-        { _ in
-          task.cancel()
-        }
-        // NB: This explicit cast is needed to work around a compiler bug in Swift 5.5.2
-        as @Sendable (Continuation.Termination) -> Void
     }
-  }
 
-  /// Constructs and returns a stream along with its backing continuation.
-  ///
-  /// This is handy for immediately escaping the continuation from an async stream, which typically
-  /// requires multiple steps:
-  ///
-  /// ```swift
-  /// var _continuation: AsyncThrowingStream<Int, Error>.Continuation!
-  /// let stream = AsyncThrowingStream<Int, Error> { continuation = $0 }
-  /// let continuation = _continuation!
-  ///
-  /// // vs.
-  ///
-  /// let (stream, continuation) = AsyncThrowingStream<Int, Error>.streamWithContinuation()
-  /// ```
-  ///
-  /// This tool is usually used for tests where we need to supply an async sequence to a dependency
-  /// endpoint and get access to its continuation so that we can emulate the dependency
-  /// emitting data. For example, suppose you have a dependency exposing an async sequence for
-  /// listening to notifications. To test this you can use `streamWithContinuation`:
-  ///
-  /// ```swift
-  /// let notifications = AsyncThrowingStream<Void>.streamWithContinuation()
-  ///
-  /// let store = TestStore(
-  ///   initialState: Feature.State(),
-  ///   reducer: Feature()
-  /// )
-  ///
-  /// store.dependencies.notifications = { notifications.stream }
-  ///
-  /// await store.send(.task)
-  /// notifications.continuation.yield("Hello")  // Simulate a notification being posted
-  /// await store.receive(.notification("Hello")) {
-  ///   $0.message = "Hello"
-  /// }
-  /// ```
-  ///
-  /// > Warning: ⚠️ `AsyncStream` does not support multiple subscribers, therefore you can only use
-  /// > this helper to test features that do not subscribe multiple times to the dependency
-  /// > endpoint.
-  ///
-  /// - Parameters:
-  ///   - elementType: The type of element the `AsyncThrowingStream` produces.
-  ///   - limit: A Continuation.BufferingPolicy value to set the stream’s buffering behavior. By
-  ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
-  ///   buffer a specified number of oldest or newest elements.
-  /// - Returns: An `AsyncThrowingStream`.
-  static func streamWithContinuation(
-    _ elementType: Element.Type = Element.self,
-    bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
-  ) -> (stream: Self, continuation: Continuation) {
-    var continuation: Continuation!
-    return (Self(elementType, bufferingPolicy: limit) { continuation = $0 }, continuation)
-  }
+    /// Constructs and returns a stream along with its backing continuation.
+    ///
+    /// This is handy for immediately escaping the continuation from an async stream, which typically
+    /// requires multiple steps:
+    ///
+    /// ```swift
+    /// var _continuation: AsyncThrowingStream<Int, Error>.Continuation!
+    /// let stream = AsyncThrowingStream<Int, Error> { continuation = $0 }
+    /// let continuation = _continuation!
+    ///
+    /// // vs.
+    ///
+    /// let (stream, continuation) = AsyncThrowingStream<Int, Error>.streamWithContinuation()
+    /// ```
+    ///
+    /// This tool is usually used for tests where we need to supply an async sequence to a dependency
+    /// endpoint and get access to its continuation so that we can emulate the dependency
+    /// emitting data. For example, suppose you have a dependency exposing an async sequence for
+    /// listening to notifications. To test this you can use `streamWithContinuation`:
+    ///
+    /// ```swift
+    /// let notifications = AsyncThrowingStream<Void>.streamWithContinuation()
+    ///
+    /// let store = TestStore(
+    ///   initialState: Feature.State(),
+    ///   reducer: Feature()
+    /// )
+    ///
+    /// store.dependencies.notifications = { notifications.stream }
+    ///
+    /// await store.send(.task)
+    /// notifications.continuation.yield("Hello")  // Simulate a notification being posted
+    /// await store.receive(.notification("Hello")) {
+    ///   $0.message = "Hello"
+    /// }
+    /// ```
+    ///
+    /// > Warning: ⚠️ `AsyncStream` does not support multiple subscribers, therefore you can only use
+    /// > this helper to test features that do not subscribe multiple times to the dependency
+    /// > endpoint.
+    ///
+    /// - Parameters:
+    ///   - elementType: The type of element the `AsyncThrowingStream` produces.
+    ///   - limit: A Continuation.BufferingPolicy value to set the stream’s buffering behavior. By
+    ///   default, the stream buffers an unlimited number of elements. You can also set the policy to
+    ///   buffer a specified number of oldest or newest elements.
+    /// - Returns: An `AsyncThrowingStream`.
+    static func streamWithContinuation(
+        _ elementType: Element.Type = Element.self,
+        bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
+    ) -> (stream: Self, continuation: Continuation) {
+        var continuation: Continuation!
+        return (Self(elementType, bufferingPolicy: limit) { continuation = $0 }, continuation)
+    }
 
-  /// An `AsyncThrowingStream` that never emits and never completes unless cancelled.
-  static var never: Self {
-    Self { _ in }
-  }
+    /// An `AsyncThrowingStream` that never emits and never completes unless cancelled.
+    static var never: Self {
+        Self { _ in }
+    }
 
-  static var finished: Self {
-    Self { $0.finish() }
-  }
+    static var finished: Self {
+        Self { $0.finish() }
+    }
 }
 
 extension Task where Failure == Never {
-  /// An async function that never returns.
-  static func never() async throws -> Success {
-    for await element in AsyncStream<Success>.never {
-      return element
+    /// An async function that never returns.
+    static func never() async throws -> Success {
+        for await element in AsyncStream<Success>.never {
+            return element
+        }
+        throw _Concurrency.CancellationError()
     }
-    throw _Concurrency.CancellationError()
-  }
 }
 
 extension Task where Success == Never, Failure == Never {
-  /// An async function that never returns.
-  static func never() async throws {
-    for await _ in AsyncStream<Never>.never {}
-    throw _Concurrency.CancellationError()
-  }
+    /// An async function that never returns.
+    static func never() async throws {
+        for await _ in AsyncStream<Never>.never {}
+        throw _Concurrency.CancellationError()
+    }
 }
 
 /// A generic wrapper for isolating a mutable value to an actor.
@@ -229,60 +229,60 @@ extension Task where Success == Never, Failure == Never {
 /// ```
 @dynamicMemberLookup
 final actor ActorIsolated<Value: Sendable> {
-  /// The actor-isolated value.
-  var value: Value
+    /// The actor-isolated value.
+    var value: Value
 
-  /// Initializes actor-isolated state around a value.
-  ///
-  /// - Parameter value: A value to isolate in an actor.
-  init(_ value: Value) {
-    self.value = value
-  }
+    /// Initializes actor-isolated state around a value.
+    ///
+    /// - Parameter value: A value to isolate in an actor.
+    init(_ value: Value) {
+        self.value = value
+    }
 
-  subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
-    self.value[keyPath: keyPath]
-  }
+    subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
+        self.value[keyPath: keyPath]
+    }
 
-  /// Perform an operation with isolated access to the underlying value.
-  ///
-  /// Useful for inspecting an actor-isolated value for a test assertion:
-  ///
-  /// ```swift
-  /// let didOpenSettings = ActorIsolated(false)
-  /// store.dependencies.openSettings = { await didOpenSettings.setValue(true) }
-  ///
-  /// await store.send(.settingsButtonTapped)
-  ///
-  /// await didOpenSettings.withValue { XCTAssertTrue($0) }
-  /// ```
-  ///
-  /// - Parameters: operation: An operation to be performed on the actor with the underlying value.
-  /// - Returns: The result of the operation.
-  func withValue<T: Sendable>(
-    _ operation: @Sendable (inout Value) async throws -> T
-  ) async rethrows -> T {
-    var value = self.value
-    defer { self.value = value }
-    return try await operation(&value)
-  }
+    /// Perform an operation with isolated access to the underlying value.
+    ///
+    /// Useful for inspecting an actor-isolated value for a test assertion:
+    ///
+    /// ```swift
+    /// let didOpenSettings = ActorIsolated(false)
+    /// store.dependencies.openSettings = { await didOpenSettings.setValue(true) }
+    ///
+    /// await store.send(.settingsButtonTapped)
+    ///
+    /// await didOpenSettings.withValue { XCTAssertTrue($0) }
+    /// ```
+    ///
+    /// - Parameters: operation: An operation to be performed on the actor with the underlying value.
+    /// - Returns: The result of the operation.
+    func withValue<T: Sendable>(
+        _ operation: @Sendable (inout Value) async throws -> T
+    ) async rethrows -> T {
+        var value = self.value
+        defer { self.value = value }
+        return try await operation(&value)
+    }
 
-  /// Overwrite the isolated value with a new value.
-  ///
-  /// Useful for setting an actor-isolated value when a tested dependency runs.
-  ///
-  /// ```swift
-  /// let didOpenSettings = ActorIsolated(false)
-  /// store.dependencies.openSettings = { await didOpenSettings.setValue(true) }
-  ///
-  /// await store.send(.settingsButtonTapped)
-  ///
-  /// await didOpenSettings.withValue { XCTAssertTrue($0) }
-  /// ```
-  ///
-  /// - Parameter newValue: The value to replace the current isolated value with.
-  func setValue(_ newValue: Value) {
-    self.value = newValue
-  }
+    /// Overwrite the isolated value with a new value.
+    ///
+    /// Useful for setting an actor-isolated value when a tested dependency runs.
+    ///
+    /// ```swift
+    /// let didOpenSettings = ActorIsolated(false)
+    /// store.dependencies.openSettings = { await didOpenSettings.setValue(true) }
+    ///
+    /// await store.send(.settingsButtonTapped)
+    ///
+    /// await didOpenSettings.withValue { XCTAssertTrue($0) }
+    /// ```
+    ///
+    /// - Parameter newValue: The value to replace the current isolated value with.
+    func setValue(_ newValue: Value) {
+        self.value = newValue
+    }
 }
 
 /// A generic wrapper for turning any non-`Sendable` type into a `Sendable` one, in an unchecked
@@ -299,58 +299,58 @@ final actor ActorIsolated<Value: Sendable> {
 @dynamicMemberLookup
 @propertyWrapper
 struct UncheckedSendable<Value>: @unchecked Sendable {
-  /// The unchecked value.
-  var value: Value
+    /// The unchecked value.
+    var value: Value
 
-  init(_ value: Value) {
-    self.value = value
-  }
+    init(_ value: Value) {
+        self.value = value
+    }
 
-  init(wrappedValue: Value) {
-    self.value = wrappedValue
-  }
+    init(wrappedValue: Value) {
+        self.value = wrappedValue
+    }
 
-  var wrappedValue: Value {
-    _read { yield self.value }
-    _modify { yield &self.value }
-  }
+    var wrappedValue: Value {
+        _read { yield self.value }
+        _modify { yield &self.value }
+    }
 
-  var projectedValue: Self {
-    get { self }
-    set { self = newValue }
-  }
+    var projectedValue: Self {
+        get { self }
+        set { self = newValue }
+    }
 
-  subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
-    self.value[keyPath: keyPath]
-  }
+    subscript<Subject>(dynamicMember keyPath: KeyPath<Value, Subject>) -> Subject {
+        self.value[keyPath: keyPath]
+    }
 
-  subscript<Subject>(dynamicMember keyPath: WritableKeyPath<Value, Subject>) -> Subject {
-    _read { yield self.value[keyPath: keyPath] }
-    _modify { yield &self.value[keyPath: keyPath] }
-  }
+    subscript<Subject>(dynamicMember keyPath: WritableKeyPath<Value, Subject>) -> Subject {
+        _read { yield self.value[keyPath: keyPath] }
+        _modify { yield &self.value[keyPath: keyPath] }
+    }
 }
 
 extension UncheckedSendable: Equatable where Value: Equatable {}
 extension UncheckedSendable: Hashable where Value: Hashable {}
 
 extension UncheckedSendable: Decodable where Value: Decodable {
-   init(from decoder: Decoder) throws {
-    do {
-      let container = try decoder.singleValueContainer()
-      self.init(wrappedValue: try container.decode(Value.self))
-    } catch {
-      self.init(wrappedValue: try Value(from: decoder))
+    init(from decoder: Decoder) throws {
+        do {
+            let container = try decoder.singleValueContainer()
+            self.init(wrappedValue: try container.decode(Value.self))
+        } catch {
+            self.init(wrappedValue: try Value(from: decoder))
+        }
     }
-  }
 }
 
 extension UncheckedSendable: Encodable where Value: Encodable {
-  func encode(to encoder: Encoder) throws {
-    do {
-      var container = encoder.singleValueContainer()
-      try container.encode(self.wrappedValue)
-    } catch {
-      try self.wrappedValue.encode(to: encoder)
+    func encode(to encoder: Encoder) throws {
+        do {
+            var container = encoder.singleValueContainer()
+            try container.encode(self.wrappedValue)
+        } catch {
+            try self.wrappedValue.encode(to: encoder)
+        }
     }
-  }
 }
