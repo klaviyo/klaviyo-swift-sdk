@@ -57,7 +57,7 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
             let script = "document.getElementById('title').innerText = \"\(newTitle)\""
 
-            scriptSubject.send((script, { result in
+            continuation?.yield((script, { result in
                 switch result {
                 case let .success(content):
                     if let successMessage = content as? String {
