@@ -14,7 +14,10 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let loadScripts: [String: WKUserScript]?
 
     /// Publishes scripts for the `WKWebView` to execute.
-    let scriptSubject = PassthroughSubject<(script: String, callback: ((Result<Any?, Error>) -> Void)?), Never>()
+    private var continuation: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)>.Continuation?
+    lazy var scriptStream: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
+        self?.continuation = continuation
+    }
 
     init(url: URL) {
         self.url = url
