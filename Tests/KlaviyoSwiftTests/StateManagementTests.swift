@@ -12,8 +12,8 @@ import Foundation
 import KlaviyoCore
 import XCTest
 
+@MainActor
 class StateManagementTests: XCTestCase {
-    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
@@ -21,10 +21,10 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Initialization
 
-    @MainActor
     func testInitialize() async throws {
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let apiKey = "fake-key"
         // Avoids a warning in xcode despite the result being discardable.
@@ -41,11 +41,10 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.start)
-        await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.flushQueue)
     }
 
-    @MainActor
     func testInitializeSubscribesToAppropriatePublishers() async throws {
         let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
         let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
@@ -64,7 +63,8 @@ class StateManagementTests: XCTestCase {
             .eraseToAnyPublisher()
         }
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         store.exhaustivity = .off
 
         let apiKey = "fake-key"
@@ -78,10 +78,10 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set Email
 
-    @MainActor
     func testSetEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.setEmail("test@blob.com")) {
             $0.email = "test@blob.com"
@@ -93,10 +93,10 @@ class StateManagementTests: XCTestCase {
 
     // MARK: Set Phone Number
 
-    @MainActor
     func testSetPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.setPhoneNumber("+1800555BLOB")) {
             $0.phoneNumber = "+1800555BLOB"
@@ -108,10 +108,10 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set External Id.
 
-    @MainActor
     func testSetExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.setExternalId("external-blob")) {
             $0.externalId = "external-blob"
@@ -123,12 +123,12 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set Push Token
 
-    @MainActor
     func testSetPushToken() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
         initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let pushTokenRequest = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blobtoken", enablement: .authorized)
         _ = await store.send(.setPushToken("blobtoken", .authorized)) {
@@ -150,12 +150,12 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSetPushTokenEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
         initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let pushTokenRequest = initialState.buildTokenRequest(
             apiKey: initialState.apiKey!,
@@ -186,12 +186,12 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSetPushTokenMultipleTimes() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
         initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let pushTokenRequest = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blobtoken", enablement: .authorized)
 
@@ -217,20 +217,20 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Set Push Enablement
 
-    @MainActor
     func testSetPushEnablementPushTokenIsNil() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         await store.send(.setPushEnablement(.authorized))
     }
 
-    @MainActor
     func testSetPushEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let pushTokenRequest = initialState.buildTokenRequest(
             apiKey: initialState.apiKey!,
@@ -247,7 +247,6 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - flush
 
-    @MainActor
     func testFlushUninitializedQueueDoesNotFlush() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -255,11 +254,11 @@ class StateManagementTests: XCTestCase {
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         _ = await store.send(.flushQueue)
     }
 
-    @MainActor
     func testQueueThatIsFlushingDoesNotFlush() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -267,11 +266,11 @@ class StateManagementTests: XCTestCase {
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         _ = await store.send(.flushQueue)
     }
 
-    @MainActor
     func testEmptyQueueDoesNotFlush() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -279,11 +278,11 @@ class StateManagementTests: XCTestCase {
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         _ = await store.send(.flushQueue)
     }
 
-    @MainActor
     func testFlushQueueWithMultipleRequests() async throws {
         var count = 0
         // request uuids need to be unique :)
@@ -303,7 +302,8 @@ class StateManagementTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.flushQueue) {
             $0.flushing = true
@@ -326,7 +326,6 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testFlushQueueDuringExponentialBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
@@ -334,14 +333,14 @@ class StateManagementTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.flushQueue) {
             $0.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
         }
     }
 
-    @MainActor
     func testFlushQueueExponentialBackoffGoesToSize() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
@@ -349,7 +348,8 @@ class StateManagementTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.queue = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.flushQueue) {
             $0.retryInfo = .retry(23)
@@ -368,21 +368,21 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSendRequestWhenNotFlushing() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.sendRequest)
     }
 
     // MARK: - send request
 
-    @MainActor
     func testSendRequestWithNoRequestsInFlight() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.sendRequest) {
             $0.flushing = false
@@ -391,10 +391,10 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Network Connectivity Changed
 
-    @MainActor
     func testNetworkConnectivityChanges() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
@@ -415,7 +415,6 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Stop
 
-    @MainActor
     func testStopWithRequestsInFlight() async throws {
         // This test is a little convoluted but essentially want to make when we stop
         // that we save our state.
@@ -423,7 +422,8 @@ class StateManagementTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.stop)
 
@@ -436,11 +436,11 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Test pending profile
 
-    @MainActor
     func testFlushWithPendingProfile() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let profileAttributes: [(Profile.ProfileKey, Any)] = [
             (.city, Profile.test.location!.city!),
@@ -513,11 +513,11 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Test set profile
 
-    @MainActor
     func testSetProfileWithExistingProperties() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.enqueueProfile(Profile(email: "foo"))) {
             $0.phoneNumber = nil
@@ -527,10 +527,10 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSetProfileWithAllProfileIdentifiersAndProperties() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         _ = await store.send(.enqueueProfile(Profile.test)) {
             $0.email = Profile.test.email
@@ -552,11 +552,11 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Test enqueue event
 
-    @MainActor
     func testEnqueueEvents() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         for eventName in Event.EventName.allCases {
             let event = Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
@@ -582,10 +582,10 @@ class StateManagementTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testEnqueueEventWhenInitilizingSendsEvent() async throws {
         let initialState = INITILIZING_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) { KlaviyoReducer()
+        }
 
         let event = Event(name: .openedAppMetric)
         await store.send(.enqueueEvent(event)) {
@@ -613,7 +613,7 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
     }
 }

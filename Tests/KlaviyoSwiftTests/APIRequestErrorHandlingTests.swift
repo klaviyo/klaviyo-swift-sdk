@@ -25,7 +25,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
 
@@ -42,7 +44,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
 
@@ -65,7 +69,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
 
@@ -91,7 +97,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
@@ -112,7 +120,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
@@ -135,7 +145,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
         request2.uuid = "foo"
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
@@ -158,7 +170,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
 
@@ -180,7 +194,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.internalRequestError(KlaviyoAPIError.internalError("foo"))) }
 
@@ -202,7 +218,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
 
@@ -223,7 +241,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
 
@@ -244,7 +264,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
 
@@ -265,7 +287,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
@@ -285,7 +309,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
@@ -305,7 +331,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 20)) }
 
@@ -327,7 +355,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         environment.klaviyoAPI.send = { _, _ in .failure(.missingOrInvalidResponse(nil)) }
 

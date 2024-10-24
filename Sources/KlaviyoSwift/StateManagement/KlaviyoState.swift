@@ -8,6 +8,7 @@
 import AnyCodable
 import Foundation
 import KlaviyoCore
+import Perception
 import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
@@ -60,7 +61,7 @@ struct KlaviyoState: Equatable, Codable {
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
-    enum CodingKeys: CodingKey {
+    enum CodingKeys: String, CodingKey {
         case apiKey
         case email
         case anonymousId

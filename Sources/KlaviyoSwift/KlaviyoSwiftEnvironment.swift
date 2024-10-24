@@ -21,10 +21,10 @@ struct KlaviyoSwiftEnvironment {
 
         return KlaviyoSwiftEnvironment(
             send: { action in
-                store.send(action)
+                store.send(action).rawValue
             },
-            state: { store.state.value },
-            statePublisher: { store.state.eraseToAnyPublisher() },
+            state: { store.currentState },
+            statePublisher: { store.publisher.eraseToAnyPublisher() },
             stateChangePublisher: StateChangePublisher().publisher)
     }()
 }

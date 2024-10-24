@@ -68,20 +68,25 @@ class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
     }
 }
 
-struct KlaviyoTestReducer: ReducerProtocol {
-    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
-
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
-        reducer(&state, action)
-    }
+@Reducer
+struct KlaviyoTestReducer {
+    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> Effect<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
 
     typealias State = KlaviyoState
 
     typealias Action = KlaviyoAction
+
+    var body: some Reducer<KlaviyoState, KlaviyoAction> {
+        Reduce { state, action in
+            reducer(&state, action)
+        }
+    }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
+    static let test = Store(initialState: .test) {
+        KlaviyoTestReducer()
+    }
 }
 
 extension FileClient {
