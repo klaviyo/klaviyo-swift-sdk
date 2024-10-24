@@ -12,13 +12,13 @@ import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import KlaviyoCore
 
+@MainActor
 final class StateChangePublisherTests: XCTestCase {
-    @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
     }
 
-    @MainActor
     func testStateChangePublisher() throws {
         let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
         // Third call set email should trigger again
@@ -84,7 +84,6 @@ final class StateChangePublisherTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 
-    @MainActor
     func testStateChangeDuplicateAreRemoved() throws {
         let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
         savedCalledExpectation.assertForOverFulfill = true
@@ -152,7 +151,7 @@ final class StateChangePublisherTests: XCTestCase {
             case .initialize:
                 state.initalizationState = .initialized
                 return .run { send in
-                    for await action in StateChangePublisher().publisher().values {
+                    for await action in StateChangePublisher.test.publisher().values {
                         await send(action)
                     }
                 }

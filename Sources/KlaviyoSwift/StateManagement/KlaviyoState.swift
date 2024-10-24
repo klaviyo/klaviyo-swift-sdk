@@ -13,7 +13,6 @@ import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
-@ObservableState
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
         case uninitialized
@@ -63,13 +62,13 @@ struct KlaviyoState: Equatable, Codable {
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
     enum CodingKeys: String, CodingKey {
-        case _apiKey = "apiKey"
-        case _email = "email"
-        case _anonymousId = "anonymousId"
-        case _phoneNumber = "phoneNumber"
-        case _externalId = "externalId"
-        case _queue = "queue"
-        case _pushTokenData = "pushTokenData"
+        case apiKey
+        case email
+        case anonymousId
+        case phoneNumber
+        case externalId
+        case queue
+        case pushTokenData
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
