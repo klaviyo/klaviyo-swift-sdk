@@ -33,7 +33,7 @@ extension Reducer {
   }
 }
 
-public struct _SignpostReducer<Base: Reducer>: Reducer {
+struct _SignpostReducer<Base: Reducer>: Reducer {
   @usableFromInline
   let base: Base
 
@@ -57,7 +57,7 @@ public struct _SignpostReducer<Base: Reducer>: Reducer {
   }
 
   @inlinable
-  public func reduce(
+  func reduce(
     into state: inout Base.State, action: Base.Action
   ) -> Effect<Base.Action> {
     var actionOutput: String!

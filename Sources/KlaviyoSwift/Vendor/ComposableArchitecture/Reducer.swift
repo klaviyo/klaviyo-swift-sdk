@@ -1,6 +1,6 @@
 /// A protocol that describes how to evolve the current state of an application to the next state,
 /// given an action, and describes what ``Effect``s should be executed later by the store, if any.
-public protocol Reducer<State, Action> {
+protocol Reducer<State, Action> {
   /// A type that holds the current state of the reducer.
   associatedtype State
 
@@ -67,7 +67,7 @@ extension Reducer where Body == Never {
   ///
   /// > Warning: Do not invoke this property directly. It will trigger a fatal error at runtime.
   @_transparent
-  public var body: Body {
+  var body: Body {
     fatalError(
       """
       '\(Self.self)' has no body. …
@@ -82,7 +82,7 @@ extension Reducer where Body == Never {
 extension Reducer where Body: Reducer<State, Action> {
   /// Invokes the ``Body-40qdd``'s implementation of ``reduce(into:action:)-1t2ri``.
   @inlinable
-  public func reduce(
+  func reduce(
     into state: inout Body.State, action: Body.Action
   ) -> Effect<Body.Action> {
     self.body.reduce(into: &state, action: action)
@@ -106,4 +106,4 @@ extension Reducer where Body: Reducer<State, Action> {
 ///   // ...
 /// }
 /// ```
-public typealias ReducerOf<R: Reducer> = Reducer<R.State, R.Action>
+typealias ReducerOf<R: Reducer> = Reducer<R.State, R.Action>

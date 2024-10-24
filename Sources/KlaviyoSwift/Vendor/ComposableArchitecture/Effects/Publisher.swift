@@ -5,22 +5,22 @@ extension Effect {
   ///
   /// - Parameter createPublisher: The closure to execute when the effect is performed.
   /// - Returns: An effect wrapping a Combine publisher.
-  public static func publisher(_ createPublisher: () -> some Publisher<Action, Never>) -> Self {
+  static func publisher(_ createPublisher: () -> some Publisher<Action, Never>) -> Self {
     Self(operation: .publisher(createPublisher().eraseToAnyPublisher()))
   }
 }
 
-public struct _EffectPublisher<Action>: Publisher {
-  public typealias Output = Action
-  public typealias Failure = Never
+struct _EffectPublisher<Action>: Publisher {
+  typealias Output = Action
+  typealias Failure = Never
 
   let effect: Effect<Action>
 
-  public init(_ effect: Effect<Action>) {
+  init(_ effect: Effect<Action>) {
     self.effect = effect
   }
 
-  public func receive(subscriber: some Combine.Subscriber<Action, Failure>) {
+  func receive(subscriber: some Combine.Subscriber<Action, Failure>) {
     publisher.subscribe(subscriber)
   }
 

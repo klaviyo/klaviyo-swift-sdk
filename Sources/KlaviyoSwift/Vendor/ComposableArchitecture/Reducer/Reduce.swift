@@ -2,7 +2,7 @@
 ///
 /// ``Reduce`` is useful for injecting logic into a reducer tree without the overhead of introducing
 /// a new type that conforms to ``Reducer``.
-public struct Reduce<State, Action>: Reducer {
+struct Reduce<State, Action>: Reducer {
   @usableFromInline
   let reduce: (inout State, Action) -> Effect<Action>
 

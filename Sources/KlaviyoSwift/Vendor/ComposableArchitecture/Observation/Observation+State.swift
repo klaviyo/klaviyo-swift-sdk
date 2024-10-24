@@ -18,23 +18,23 @@ extension Store where State: ObservableState {
   }
 
   /// Direct access to state in the store when `State` conforms to ``ObservableState``.
-  public var state: State {
+  var state: State {
     self.observableState
   }
 
-  public subscript<Value>(dynamicMember keyPath: KeyPath<State, Value>) -> Value {
+  subscript<Value>(dynamicMember keyPath: KeyPath<State, Value>) -> Value {
     self.state[keyPath: keyPath]
   }
 }
 
 extension Store: Equatable {
-  public static nonisolated func == (lhs: Store, rhs: Store) -> Bool {
+    public static nonisolated func == (lhs: Store, rhs: Store) -> Bool {
     lhs === rhs
   }
 }
 
 extension Store: Hashable {
-  public nonisolated func hash(into hasher: inout Hasher) {
+    nonisolated public func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(self))
   }
 }
@@ -79,7 +79,7 @@ extension Store where State: ObservableState {
   ///   - state: A key path to optional child state.
   ///   - action: A case key path to child actions.
   /// - Returns: An optional store of non-optional child state and actions.
-  public func scope<ChildState, ChildAction>(
+  func scope<ChildState, ChildAction>(
     state: KeyPath<State, ChildState?>,
     action: CaseKeyPath<Action, ChildAction>,
     fileID: StaticString = #fileID,

@@ -6,7 +6,7 @@
 ///
 /// See ``CombineReducers`` for an entry point into a reducer builder context.
 @resultBuilder
-public enum ReducerBuilder<State, Action> {
+enum ReducerBuilder<State, Action> {
   @inlinable
   public static func buildArray(
     _ reducers: [some Reducer<State, Action>]
@@ -15,77 +15,77 @@ public enum ReducerBuilder<State, Action> {
   }
 
   @inlinable
-  public static func buildBlock() -> some Reducer<State, Action> {
+  static func buildBlock() -> some Reducer<State, Action> {
     EmptyReducer()
   }
 
   @inlinable
-  public static func buildBlock<R: Reducer<State, Action>>(_ reducer: R) -> R {
+  static func buildBlock<R: Reducer<State, Action>>(_ reducer: R) -> R {
     reducer
   }
 
   @inlinable
-  public static func buildEither<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
+  static func buildEither<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
     first reducer: R0
   ) -> _Conditional<R0, R1> {
     .first(reducer)
   }
 
   @inlinable
-  public static func buildEither<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
+  static func buildEither<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
     second reducer: R1
   ) -> _Conditional<R0, R1> {
     .second(reducer)
   }
 
   @inlinable
-  public static func buildExpression<R: Reducer<State, Action>>(_ expression: R) -> R {
+  static func buildExpression<R: Reducer<State, Action>>(_ expression: R) -> R {
     expression
   }
 
   @inlinable
   @_disfavoredOverload
-  public static func buildExpression(
+  static func buildExpression(
     _ expression: any Reducer<State, Action>
   ) -> Reduce<State, Action> {
     Reduce(expression)
   }
 
   @inlinable
-  public static func buildFinalResult<R: Reducer<State, Action>>(_ reducer: R) -> R {
+  static func buildFinalResult<R: Reducer<State, Action>>(_ reducer: R) -> R {
     reducer
   }
 
   @inlinable
-  public static func buildLimitedAvailability(
+  static func buildLimitedAvailability(
     _ wrapped: some Reducer<State, Action>
   ) -> Reduce<State, Action> {
     Reduce(wrapped)
   }
 
   @inlinable
-  public static func buildOptional<R: Reducer<State, Action>>(_ wrapped: R?) -> R? {
+  static func buildOptional<R: Reducer<State, Action>>(_ wrapped: R?) -> R? {
     wrapped
   }
 
   @inlinable
-  public static func buildPartialBlock<R: Reducer<State, Action>>(first: R) -> R {
+  static func buildPartialBlock<R: Reducer<State, Action>>(first: R) -> R {
     first
   }
 
   @inlinable
-  public static func buildPartialBlock<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
+  static func buildPartialBlock<R0: Reducer<State, Action>, R1: Reducer<State, Action>>(
     accumulated: R0, next: R1
   ) -> _Sequence<R0, R1> {
     _Sequence(accumulated, next)
   }
 
-  public enum _Conditional<First: Reducer, Second: Reducer<First.State, First.Action>>: Reducer {
+  enum _Conditional<First: Reducer, Second: Reducer<First.State, First.Action>>: Reducer {
     case first(First)
     case second(Second)
 
     @inlinable
-    public func reduce(into state: inout First.State, action: First.Action) -> Effect<
+    func reduce(into state: inout First.State, action: First.Action) -> Effect<
       First.Action
     > {
       switch self {
@@ -98,7 +98,7 @@ public enum ReducerBuilder<State, Action> {
     }
   }
 
-  public struct _Sequence<R0: Reducer, R1: Reducer<R0.State, R0.Action>>: Reducer {
+  struct _Sequence<R0: Reducer, R1: Reducer<R0.State, R0.Action>>: Reducer {
     @usableFromInline
     let r0: R0
 
@@ -112,13 +112,13 @@ public enum ReducerBuilder<State, Action> {
     }
 
     @inlinable
-    public func reduce(into state: inout R0.State, action: R0.Action) -> Effect<R0.Action> {
+    func reduce(into state: inout R0.State, action: R0.Action) -> Effect<R0.Action> {
       self.r0.reduce(into: &state, action: action)
         .merge(with: self.r1.reduce(into: &state, action: action))
     }
   }
 
-  public struct _SequenceMany<Element: Reducer>: Reducer {
+  struct _SequenceMany<Element: Reducer>: Reducer {
     @usableFromInline
     let reducers: [Element]
 
@@ -128,7 +128,7 @@ public enum ReducerBuilder<State, Action> {
     }
 
     @inlinable
-    public func reduce(
+    func reduce(
       into state: inout Element.State, action: Element.Action
     ) -> Effect<Element.Action> {
       self.reducers.reduce(.none) { $0.merge(with: $1.reduce(into: &state, action: action)) }

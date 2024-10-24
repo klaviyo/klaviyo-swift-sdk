@@ -2,7 +2,7 @@
 ///
 /// You should not conform to this protocol directly. Instead, the ``Reducer()`` macro will add a
 /// conformance to enums.
-public protocol CaseReducer<State, Action>: Reducer
+protocol CaseReducer<State, Action>: Reducer
 where State: CaseReducerState, Body: Reducer, Body.State == State, Body.Action == Action {
   associatedtype State = State
   associatedtype Action = Action
@@ -27,7 +27,7 @@ extension CaseReducer {
 }
 
 /// A state type that is associated with a ``CaseReducer``.
-public protocol CaseReducerState {
+protocol CaseReducerState {
   associatedtype StateReducer: CaseReducer where StateReducer.State == Self
 }
 
@@ -57,7 +57,7 @@ public protocol CaseReducerState {
 
 extension Store where State: CaseReducerState, State.StateReducer.Action == Action {
   /// A destructurable view of a store on a collection of cases.
-  public var `case`: State.StateReducer.CaseScope {
+  var `case`: State.StateReducer.CaseScope {
     State.StateReducer.scope(self)
   }
 }

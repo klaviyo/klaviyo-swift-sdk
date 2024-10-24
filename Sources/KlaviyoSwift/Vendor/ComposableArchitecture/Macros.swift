@@ -105,7 +105,7 @@ extension _SynthesizedConformance {
 /// }
 /// ```
 @attached(peer, names: named(_))
-public macro ReducerCaseEphemeral() =
+macro ReducerCaseEphemeral() =
   #externalMacro(module: "KlaviyoMacros", type: "ReducerCaseEphemeralMacro")
 
 /// Marks the case of an enum reducer as "ignored", and as such will not compose the case's domain
@@ -123,23 +123,23 @@ public macro ReducerCaseEphemeral() =
 /// }
 /// ```
 @attached(peer, names: named(_))
-public macro ReducerCaseIgnored() =
+macro ReducerCaseIgnored() =
   #externalMacro(module: "KlaviyoMacros", type: "ReducerCaseIgnoredMacro")
 
 /// Defines and implements conformance of the Observable protocol.
 @attached(extension, conformances: Observable, ObservableState)
 @attached(member, names: named(_$id), named(_$observationRegistrar), named(_$willModify))
 @attached(memberAttribute)
-public macro ObservableState() =
+macro ObservableState() =
   #externalMacro(module: "KlaviyoMacros", type: "ObservableStateMacro")
 
 @attached(accessor, names: named(init), named(get), named(set))
 @attached(peer, names: prefixed(_))
-public macro ObservationStateTracked() =
+macro ObservationStateTracked() =
   #externalMacro(module: "KlaviyoMacros", type: "ObservationStateTrackedMacro")
 
 @attached(accessor, names: named(willSet))
-public macro ObservationStateIgnored() =
+macro ObservationStateIgnored() =
   #externalMacro(module: "KlaviyoMacros", type: "ObservationStateIgnoredMacro")
 
 // ND: View related.

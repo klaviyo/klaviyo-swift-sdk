@@ -1,7 +1,7 @@
 import Perception
 
 /// Provides storage for tracking and access to data changes.
-public struct ObservationStateRegistrar: Sendable {
+struct ObservationStateRegistrar: Sendable {
   public private(set) var id = ObservableStateID()
   #if !os(visionOS)
     @usableFromInline
@@ -10,15 +10,15 @@ public struct ObservationStateRegistrar: Sendable {
     @usableFromInline
     let registrar = ObservationRegistrar()
   #endif
-  public init() {}
-  public mutating func _$willModify() { self.id._$willModify() }
+  init() {}
+  mutating func _$willModify() { self.id._$willModify() }
 }
 
 extension ObservationStateRegistrar: Equatable, Hashable, Codable {
-  public static func == (_: Self, _: Self) -> Bool { true }
-  public func hash(into hasher: inout Hasher) {}
-  public init(from decoder: any Decoder) throws { self.init() }
-  public func encode(to encoder: any Encoder) throws {}
+  static func == (_: Self, _: Self) -> Bool { true }
+  func hash(into hasher: inout Hasher) {}
+  init(from decoder: any Decoder) throws { self.init() }
+  func encode(to encoder: any Encoder) throws {}
 }
 
 #if canImport(Observation)
@@ -30,7 +30,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
     ///   - subject: An instance of an observable type.
     ///   - keyPath: The key path of an observed property.
     @inlinable
-    public func access<Subject: Observable, Member>(
+    func access<Subject: Observable, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>
     ) {
@@ -48,7 +48,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
     ///   - isIdentityEqual: A comparison function that determines whether two values have the
     ///     same identity or not.
     @inlinable
-    public func mutate<Subject: Observable, Member, Value>(
+    func mutate<Subject: Observable, Member, Value>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ value: inout Value,
@@ -69,7 +69,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
     /// See ``willModify(_:keyPath:_:)-29op6`` info on what this method does when used with
     /// observable values.
     @inlinable
-    public func willModify<Subject: Observable, Member>(
+    func willModify<Subject: Observable, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member
@@ -84,7 +84,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
     ///   - keyPath: The key path of an observed property.
     ///   - member: The value in the subject that will be set.
     @inlinable
-    public func willModify<Subject: Observable, Member: ObservableState>(
+    func willModify<Subject: Observable, Member: ObservableState>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member
@@ -98,7 +98,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
     /// If the identity of the value changed between ``willModify(_:keyPath:_:)-29op6`` and
     /// ``didModify(_:keyPath:_:_:_:)-34nhq``, observers are notified.
     @inlinable
-    public func didModify<Subject: Observable, Member>(
+    func didModify<Subject: Observable, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member,
@@ -118,7 +118,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
   extension ObservationStateRegistrar {
     @_disfavoredOverload
     @inlinable
-    public func access<Subject: Perceptible, Member>(
+    func access<Subject: Perceptible, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>
     ) {
@@ -127,7 +127,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
 
     @_disfavoredOverload
     @inlinable
-    public func mutate<Subject: Perceptible, Member, Value>(
+    func mutate<Subject: Perceptible, Member, Value>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ value: inout Value,
@@ -145,7 +145,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
 
     @_disfavoredOverload
     @inlinable
-    public func willModify<Subject: Perceptible, Member>(
+    func willModify<Subject: Perceptible, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member
@@ -155,7 +155,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
 
     @_disfavoredOverload
     @inlinable
-    public func willModify<Subject: Perceptible, Member: ObservableState>(
+    func willModify<Subject: Perceptible, Member: ObservableState>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member
@@ -166,7 +166,7 @@ extension ObservationStateRegistrar: Equatable, Hashable, Codable {
 
     @_disfavoredOverload
     @inlinable
-    public func didModify<Subject: Perceptible, Member>(
+    func didModify<Subject: Perceptible, Member>(
       _ subject: Subject,
       keyPath: KeyPath<Subject, Member>,
       _ member: inout Member,

@@ -140,7 +140,7 @@ import Perception
 #else
   @preconcurrency@MainActor
 #endif
-public final class Store<State, Action> {
+final class Store<State, Action> {
   var canCacheChildren = true
   private var children: [ScopeID<State, Action>: AnyObject] = [:]
   var _isInvalidated: @MainActor @Sendable () -> Bool = { false }
@@ -165,7 +165,7 @@ public final class Store<State, Action> {
   ///   - reducer: The reducer that powers the business logic of the application.
   ///   - prepareDependencies: A closure that can be used to override dependencies that will be accessed
   ///     by the reducer.
-  public convenience init<R: Reducer<State, Action>>(
+  convenience init<R: Reducer<State, Action>>(
     initialState: @autoclosure () -> R.State,
     @ReducerBuilder<State, Action> reducer: () -> R
 //    withDependencies prepareDependencies: ((inout DependencyValues) -> Void)? = nil
@@ -466,7 +466,7 @@ extension Store: CustomDebugStringConvertible {
 /// ```swift
 /// let store: StoreOf<Feature>
 /// ```
-public typealias StoreOf<R: Reducer> = Store<R.State, R.Action>
+typealias StoreOf<R: Reducer> = Store<R.State, R.Action>
 
 /// A publisher of store state.
 @dynamicMemberLookup

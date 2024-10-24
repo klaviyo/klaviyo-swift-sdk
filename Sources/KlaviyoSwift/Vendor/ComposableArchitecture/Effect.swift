@@ -6,7 +6,7 @@ import ConcurrencyExtras
 import IssueReporting
 
 
-public struct Effect<Action>: Sendable {
+struct Effect<Action>: Sendable {
   @usableFromInline
   enum Operation: Sendable {
     case none
@@ -36,7 +36,7 @@ public struct Effect<Action>: Sendable {
 /// ```swift
 /// let effect: EffectOf<Feature>
 /// ```
-public typealias EffectOf<R: Reducer> = Effect<R.Action>
+typealias EffectOf<R: Reducer> = Effect<R.Action>
 
 // MARK: - Creating Effects
 
@@ -44,7 +44,7 @@ extension Effect {
   /// An effect that does nothing and completes immediately. Useful for situations where you must
   /// return an effect, but you don't need to do anything.
   @inlinable
-  public static var none: Self {
+  static var none: Self {
     Self(operation: .none)
   }
 
@@ -84,7 +84,7 @@ extension Effect {
   ///   - catch: An error handler, invoked if the operation throws an error other than
   ///     `CancellationError`.
   /// - Returns: An effect wrapping the given asynchronous work.
-  public static func run(
+  static func run(
     priority: TaskPriority? = nil,
     operation: @escaping @Sendable (_ send: Send<Action>) async throws -> Void,
     catch handler: (@Sendable (_ error: any Error, _ send: Send<Action>) async -> Void)? = nil,
@@ -133,7 +133,7 @@ extension Effect {
   /// > For more information, see <doc:Performance#Sharing-logic-with-actions>.
   ///
   /// - Parameter action: The action that is immediately emitted by the effect.
-  public static func send(_ action: Action) -> Self {
+  static func send(_ action: Action) -> Self {
     Self(operation: .publisher(Just(action).eraseToAnyPublisher()))
   }
 
@@ -149,7 +149,7 @@ extension Effect {
 //  /// - Parameters:
 //  ///   - action: The action that is immediately emitted by the effect.
 //  ///   - animation: An animation.
-//  public static func send(_ action: Action, animation: Animation? = nil) -> Self {
+//  static func send(_ action: Action, animation: Animation? = nil) -> Self {
 //    .send(action).animation(animation)
 //  }
 }
@@ -183,17 +183,17 @@ extension Effect {
 ///
 /// [callAsFunction]: https://docs.swift.org/swift-book/ReferenceManual/Declarations.html#ID622
 @MainActor
-public struct Send<Action>: Sendable {
+struct Send<Action>: Sendable {
   let send: @MainActor @Sendable (Action) -> Void
 
-  public init(send: @escaping @MainActor @Sendable (Action) -> Void) {
+  init(send: @escaping @MainActor @Sendable (Action) -> Void) {
     self.send = send
   }
 
   /// Sends an action back into the system from an effect.
   ///
   /// - Parameter action: An action.
-  public func callAsFunction(_ action: Action) {
+  func callAsFunction(_ action: Action) {
     guard !Task.isCancelled else { return }
     self.send(action)
   }
@@ -203,7 +203,7 @@ public struct Send<Action>: Sendable {
   /// - Parameters:
   ///   - action: An action.
   ///   - animation: An animation.
-  public func callAsFunction(_ action: Action, animation: Animation?) {
+  func callAsFunction(_ action: Action, animation: Animation?) {
     callAsFunction(action, transaction: Transaction(animation: animation))
   }
 
@@ -212,7 +212,7 @@ public struct Send<Action>: Sendable {
   /// - Parameters:
   ///   - action: An action.
   ///   - transaction: A transaction.
-  public func callAsFunction(_ action: Action, transaction: Transaction) {
+  func callAsFunction(_ action: Action, transaction: Transaction) {
     guard !Task.isCancelled else { return }
     withTransaction(transaction) {
       self(action)
@@ -229,7 +229,7 @@ extension Effect {
   /// - Parameter effects: A variadic list of effects.
   /// - Returns: A new effect
   @inlinable
-  public static func merge(_ effects: Self...) -> Self {
+  static func merge(_ effects: Self...) -> Self {
     Self.merge(effects)
   }
 
@@ -239,7 +239,7 @@ extension Effect {
   /// - Parameter effects: A sequence of effects.
   /// - Returns: A new effect
   @inlinable
-  public static func merge(_ effects: some Sequence<Self>) -> Self {
+  static func merge(_ effects: some Sequence<Self>) -> Self {
     effects.reduce(.none) { $0.merge(with: $1) }
   }
 
@@ -248,7 +248,7 @@ extension Effect {
   /// - Parameter other: Another effect.
   /// - Returns: An effect that runs this effect and the other at the same time.
   @inlinable
-  public func merge(with other: Self) -> Self {
+  func merge(with other: Self) -> Self {
     switch (self.operation, other.operation) {
     case (_, .none):
       return self
@@ -286,7 +286,7 @@ extension Effect {
   /// - Parameter effects: A variadic list of effects.
   /// - Returns: A new effect
   @inlinable
-  public static func concatenate(_ effects: Self...) -> Self {
+  static func concatenate(_ effects: Self...) -> Self {
     Self.concatenate(effects)
   }
 
@@ -296,7 +296,7 @@ extension Effect {
   /// - Parameter effects: A collection of effects.
   /// - Returns: A new effect
   @inlinable
-  public static func concatenate(_ effects: some Collection<Self>) -> Self {
+  static func concatenate(_ effects: some Collection<Self>) -> Self {
     effects.reduce(.none) { $0.concatenate(with: $1) }
   }
 
@@ -308,7 +308,7 @@ extension Effect {
   ///   other.
   @inlinable
   @_disfavoredOverload
-  public func concatenate(with other: Self) -> Self {
+  func concatenate(with other: Self) -> Self {
     switch (self.operation, other.operation) {
     case (_, .none):
       return self
@@ -348,7 +348,7 @@ extension Effect {
   /// - Returns: A publisher that uses the provided closure to map elements from the upstream effect
   ///   to new elements that it then publishes.
   @inlinable
-  public func map<T>(_ transform: @escaping @Sendable (Action) -> T) -> Effect<T> {
+  func map<T>(_ transform: @escaping @Sendable (Action) -> T) -> Effect<T> {
     switch self.operation {
     case .none:
       return .none

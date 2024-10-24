@@ -34,7 +34,7 @@ extension Effect {
     ///   - cancelInFlight: Determines if any in-flight effect with the same identifier should be
     ///     canceled before starting this new one.
     /// - Returns: A new effect that is capable of being canceled by an identifier.
-    public func cancellable(id: some Hashable & Sendable, cancelInFlight: Bool = false) -> Self {
+    func cancellable(id: some Hashable & Sendable, cancelInFlight: Bool = false) -> Self {
         // @Dependency(\.navigationIDPath) var navigationIDPath
 
         switch self.operation {
@@ -100,7 +100,7 @@ extension Effect {
     /// - Parameter id: An effect identifier.
     /// - Returns: A new effect that will cancel any currently in-flight effect with the given
     ///   identifier.
-    public static func cancel(id: some Hashable & Sendable) -> Self {
+    static func cancel(id: some Hashable & Sendable) -> Self {
         // NB: Ideally we'd return a `Deferred` wrapping an `Empty(completeImmediately: true)`, but
         //     due to a bug in iOS 13.2 that publisher will never complete. The bug was fixed in
         //     iOS 13.3, but to remain compatible with iOS 13.2 and higher we need to do a little
@@ -159,7 +159,7 @@ extension Effect {
 ///   - operation: An async operation.
 /// - Throws: An error thrown by the operation.
 /// - Returns: A value produced by operation.
-public func withTaskCancellation<T: Sendable>(
+func withTaskCancellation<T: Sendable>(
     id: some Hashable & Sendable,
     cancelInFlight: Bool = false,
     isolation: isolated (any Actor)? = #isolation,
@@ -192,7 +192,7 @@ public func withTaskCancellation<T: Sendable>(
 }
 #else
 @_unsafeInheritExecutor
-public func withTaskCancellation<T: Sendable>(
+func withTaskCancellation<T: Sendable>(
     id: some Hashable,
     cancelInFlight: Bool = false,
     operation: @Sendable @escaping () async throws -> T
@@ -228,7 +228,7 @@ extension Task<Never, Never> {
     /// Cancel any currently in-flight operation with the given identifier.
     ///
     /// - Parameter id: An identifier.
-    public static func cancel(id: some Hashable & Sendable) {
+    static func cancel(id: some Hashable & Sendable) {
         // ND: remove dependencies
         // @Dependency(\.navigationIDPath) var navigationIDPath
 
@@ -307,11 +307,11 @@ public class CancellablesCollection {
         self.storage[_CancelID(id: id)] != nil
     }
 
-    public var count: Int {
+    var count: Int {
         self.storage.count
     }
 
-    public func removeAll() {
+    func removeAll() {
         self.storage.removeAll()
     }
 }
