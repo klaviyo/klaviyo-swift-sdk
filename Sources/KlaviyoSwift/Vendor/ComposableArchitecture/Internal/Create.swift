@@ -1,12 +1,3 @@
-//
-//  Create.swift
-//
-//
-//  Created by Noah Durell on 12/7/22.
-//
-
-import Foundation
-
 // https://github.com/CombineCommunity/CombineExt/blob/master/Sources/Operators/Create.swift
 
 // Copyright (c) 2020 Combine Community, and/or Shai Mishali
@@ -29,8 +20,9 @@ import Foundation
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import Combine
+@preconcurrency import Combine
 import Darwin
+import ConcurrencyExtras
 
 final class DemandBuffer<S: Subscriber>: @unchecked Sendable {
   private var buffer = [S.Input]()
@@ -112,25 +104,27 @@ final class DemandBuffer<S: Subscriber>: @unchecked Sendable {
   }
 }
 
-extension AnyPublisher {
+extension AnyPublisher where Failure == Never {
   private init(
-    _ callback: @escaping (EffectPublisher<Output, Failure>.Subscriber) -> Cancellable
+    _ callback: @escaping @Sendable (Effect<Output>.Subscriber) -> any Cancellable
   ) {
     self = Publishers.Create(callback: callback).eraseToAnyPublisher()
   }
 
   static func create(
-    _ factory: @escaping (EffectPublisher<Output, Failure>.Subscriber) -> Cancellable
+    _ factory: @escaping @Sendable (Effect<Output>.Subscriber) -> any Cancellable
   ) -> AnyPublisher<Output, Failure> {
     AnyPublisher(factory)
   }
 }
 
 extension Publishers {
-  fileprivate class Create<Output, Failure: Swift.Error>: Publisher {
-    private let callback: (EffectPublisher<Output, Failure>.Subscriber) -> Cancellable
+  fileprivate final class Create<Output>: Publisher, Sendable {
+    typealias Failure = Never
 
-    init(callback: @escaping (EffectPublisher<Output, Failure>.Subscriber) -> Cancellable) {
+    private let callback: @Sendable (Effect<Output>.Subscriber) -> any Cancellable
+
+    init(callback: @escaping @Sendable (Effect<Output>.Subscriber) -> any Cancellable) {
       self.callback = callback
     }
 
@@ -141,25 +135,25 @@ extension Publishers {
 }
 
 extension Publishers.Create {
-  fileprivate final class Subscription<Downstream: Subscriber>: Combine.Subscription
-  where Downstream.Input == Output, Downstream.Failure == Failure {
+  fileprivate final class Subscription<Downstream: Subscriber>: Combine.Subscription, Sendable
+  where Downstream.Input == Output, Downstream.Failure == Never {
     private let buffer: DemandBuffer<Downstream>
-    private var cancellable: Cancellable?
+    private let cancellable = LockIsolated<(any Cancellable)?>(nil)
 
     init(
-      callback: @escaping (EffectPublisher<Output, Failure>.Subscriber) -> Cancellable,
+      callback: @escaping @Sendable (Effect<Output>.Subscriber) -> any Cancellable,
       downstream: Downstream
     ) {
       self.buffer = DemandBuffer(subscriber: downstream)
 
-      let cancellable = callback(
-        .init(
-          send: { [weak self] in _ = self?.buffer.buffer(value: $0) },
-          complete: { [weak self] in self?.buffer.complete(completion: $0) }
+      self.cancellable.setValue(
+        callback(
+          .init(
+            send: { [weak self] in _ = self?.buffer.buffer(value: $0) },
+            complete: { [weak self] in self?.buffer.complete(completion: $0) }
+          )
         )
       )
-
-      self.cancellable = cancellable
     }
 
     func request(_ demand: Subscribers.Demand) {
@@ -167,35 +161,35 @@ extension Publishers.Create {
     }
 
     func cancel() {
-      self.cancellable?.cancel()
+      self.cancellable.value?.cancel()
     }
   }
 }
 
 extension Publishers.Create.Subscription: CustomStringConvertible {
   var description: String {
-    return "Create.Subscription<\(Output.self), \(Failure.self)>"
+    return "Create.Subscription<\(Output.self)>"
   }
 }
 
-extension EffectPublisher {
-  struct Subscriber {
-    private let _send: (Action) -> Void
-    private let _complete: (Subscribers.Completion<Failure>) -> Void
+extension Effect {
+  struct Subscriber: Sendable {
+    private let _send: @Sendable (Action) -> Void
+    private let _complete: @Sendable (Subscribers.Completion<Never>) -> Void
 
     init(
-      send: @escaping (Action) -> Void,
-      complete: @escaping (Subscribers.Completion<Failure>) -> Void
+      send: @escaping @Sendable (Action) -> Void,
+      complete: @escaping @Sendable (Subscribers.Completion<Never>) -> Void
     ) {
       self._send = send
       self._complete = complete
     }
 
-    func send(_ value: Action) {
+    public func send(_ value: Action) {
       self._send(value)
     }
 
-    func send(completion: Subscribers.Completion<Failure>) {
+    public func send(completion: Subscribers.Completion<Never>) {
       self._complete(completion)
     }
   }

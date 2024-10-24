@@ -39,11 +39,15 @@ final class StateChangePublisherTests: XCTestCase {
                 .debounce(for: .seconds(1), scheduler: testScheduler)
                 .eraseToAnyPublisher()
         }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
+        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> Effect<KlaviyoAction> in
             switch action {
             case .initialize:
                 state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
+                return .run { send in
+                    for await action in StateChangePublisher().publisher().values {
+                        await send(action)
+                    }
+                }
             case let .setEmail(email):
                 state.email = email
                 return .none
@@ -53,13 +57,15 @@ final class StateChangePublisherTests: XCTestCase {
         }
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
+        let test = Store(initialState: .test) {
+            reducer
+        }
         klaviyoSwiftEnvironment.send = {
-            test.send($0)
+            test.send($0).rawValue
         }
 
         klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
+            test.publisher.eraseToAnyPublisher()
         }
 
         testScheduler.run()
@@ -86,11 +92,15 @@ final class StateChangePublisherTests: XCTestCase {
         environment.fileClient.write = { _, _ in
             savedCalledExpectation.fulfill()
         }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
+        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> Effect<KlaviyoAction> in
             switch action {
             case .initialize:
                 state.initalizationState = .initialized
-                return StateChangePublisher.test.publisher().eraseToEffect()
+                return .run { send in
+                    for await action in StateChangePublisher().publisher().values {
+                        await send(action)
+                    }
+                }
             case .flushQueue:
                 return .none
             default:
@@ -99,13 +109,15 @@ final class StateChangePublisherTests: XCTestCase {
         }
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
+        let test = Store(initialState: .test) {
+            reducer
+        }
         klaviyoSwiftEnvironment.send = {
-            test.send($0)
+            test.send($0).rawValue
         }
 
         klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
+            test.publisher.eraseToAnyPublisher()
         }
 
         @MainActor func runDebouncedEffect() {
@@ -135,11 +147,15 @@ final class StateChangePublisherTests: XCTestCase {
                 .debounce(for: .seconds(1), scheduler: testScheduler)
                 .eraseToAnyPublisher()
         }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
+        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> Effect<KlaviyoAction> in
             switch action {
             case .initialize:
                 state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
+                return .run { send in
+                    for await action in StateChangePublisher().publisher().values {
+                        await send(action)
+                    }
+                }
             case let .setEmail(email):
                 state.email = email
                 return .none
@@ -149,13 +165,15 @@ final class StateChangePublisherTests: XCTestCase {
         }
 
         let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
+        let test = Store(initialState: .test) {
+            reducer
+        }
         klaviyoSwiftEnvironment.send = {
-            test.send($0)
+            test.send($0).rawValue
         }
 
         klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
+            test.publisher.eraseToAnyPublisher()
         }
         _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
         testScheduler.run()

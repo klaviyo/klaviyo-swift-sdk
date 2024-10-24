@@ -186,13 +186,13 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 extension KlaviyoSwiftEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    static let testStore = Store.production
 
     static let test = {
         KlaviyoSwiftEnvironment(send: { action in
-            testStore.send(action)
+            testStore.send(action).rawValue
         }, state: {
-            KlaviyoSwiftEnvironment.testStore.state.value
+            INITIALIZED_TEST_STATE()
         }, statePublisher: {
             Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
         }, stateChangePublisher: {
