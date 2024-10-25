@@ -37,9 +37,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
         view.addSubview(webView)
 
+        configureSubviewConstraints()
         configureLoadScripts()
         configureScriptEvaluator()
-        configureSubviewConstraints()
     }
 
     override func viewDidLoad() {
