@@ -135,7 +135,7 @@ func createKlaviyoWebPreview(url: URL, style: KlaviyoWebWrapperStyle) -> UIViewC
 @available(iOS 17.0, *)
 #Preview("Default style") {
     let url = URL(string: "https://www.google.com")!
-    createKlaviyoWebPreview(url: url, style: .default)
+    return createKlaviyoWebPreview(url: url, style: .default)
 }
 
 @available(iOS 17.0, *)
@@ -147,6 +147,6 @@ func createKlaviyoWebPreview(url: URL, style: KlaviyoWebWrapperStyle) -> UIViewC
         cornerRadius: 24,
         shadowStyle: .default)
 
-    createKlaviyoWebPreview(url: url, style: style)
+    return createKlaviyoWebPreview(url: url, style: style)
 }
 #endif
