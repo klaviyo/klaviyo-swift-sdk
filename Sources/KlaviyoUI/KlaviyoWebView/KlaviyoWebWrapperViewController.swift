@@ -14,6 +14,13 @@ public class KlaviyoWebWrapperViewController: UIViewController {
     let viewModel: KlaviyoWebViewModeling
     let style: KlaviyoWebWrapperStyle
 
+    private lazy var dismissGestureRecognizer: UITapGestureRecognizer = {
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDismissGesture))
+        tapRecognizer.numberOfTapsRequired = 1
+        tapRecognizer.numberOfTouchesRequired = 1
+        return tapRecognizer
+    }()
+
     // MARK: - Subviews
 
     private lazy var blurEffectView: UIVisualEffectView? = {
@@ -21,6 +28,8 @@ public class KlaviyoWebWrapperViewController: UIViewController {
 
         let blurEffect = UIBlurEffect(style: effect)
         let blurEffectView = UIVisualEffectView(effect: blurEffect)
+
+        blurEffectView.addGestureRecognizer(dismissGestureRecognizer)
 
         return blurEffectView
     }()
@@ -31,6 +40,8 @@ public class KlaviyoWebWrapperViewController: UIViewController {
         let tintView = UIView()
         tintView.backgroundColor = color
         tintView.layer.opacity = opacity
+
+        tintView.addGestureRecognizer(dismissGestureRecognizer)
 
         return tintView
     }()
@@ -109,6 +120,12 @@ public class KlaviyoWebWrapperViewController: UIViewController {
             addChild(webViewController)
             webViewController.didMove(toParent: self)
         }
+    }
+
+    // MARK: - user interactions
+
+    @objc private func handleDismissGesture() {
+        viewModel.dismiss()
     }
 }
 
