@@ -34,7 +34,7 @@ public struct NetworkSession {
     fileprivate static let mobileHeader = "1"
 
     public static let defaultUserAgent = { () -> String in
-        let appContext = environment.appContextInfo()
+        let appContext = environment.appContextInfo() 
         let klaivyoSDKVersion = "\(environment.sdkName())/\(environment.sdkVersion())"
         return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
     }()
