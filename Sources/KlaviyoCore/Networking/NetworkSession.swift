@@ -35,7 +35,7 @@ public struct NetworkSession {
 
     public static let defaultUserAgent = { () -> String in
         let appContext = environment.appContextInfo()
-        let klaivyoSDKVersion = "klaviyo-ios/\(environment.sdkVersion())"
+        let klaivyoSDKVersion = "\(environment.sdkName())/\(environment.sdkVersion())"
         return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
     }()
 
