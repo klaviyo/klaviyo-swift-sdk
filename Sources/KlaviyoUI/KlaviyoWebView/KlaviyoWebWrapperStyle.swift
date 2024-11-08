@@ -15,6 +15,8 @@ public struct KlaviyoWebWrapperStyle {
     }
 
     var backgroundStyle: BackgroundStyle
+    // FIXME: should this not be optional?
+    // FIXME: should I rename this `constraints`? or `edgeConstraints`? or `padding`?
     var insets: [EdgeInset]?
     var cornerRadius: CGFloat
     var shadowStyle: ShadowStyle?
