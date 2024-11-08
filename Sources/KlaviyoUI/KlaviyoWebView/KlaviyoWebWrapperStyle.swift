@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 10/28/24.
 //
 
+import SwiftUI
 import UIKit
 
 public struct KlaviyoWebWrapperStyle {
@@ -14,7 +15,7 @@ public struct KlaviyoWebWrapperStyle {
     }
 
     var backgroundStyle: BackgroundStyle
-    var insets: NSDirectionalEdgeInsets
+    var insets: [EdgeInset]?
     var cornerRadius: CGFloat
     var shadowStyle: ShadowStyle?
 }
@@ -22,7 +23,7 @@ public struct KlaviyoWebWrapperStyle {
 extension KlaviyoWebWrapperStyle {
     static var `default` = Self(
         backgroundStyle: .blurred(effect: .systemUltraThinMaterialDark),
-        insets: NSDirectionalEdgeInsets(top: 24, leading: 36, bottom: 24, trailing: 36),
+        insets: [.horizontal(constant: 36), .vertical(constant: 24)],
         cornerRadius: 16.0,
         shadowStyle: .init(
             color: UIColor.black.cgColor,
