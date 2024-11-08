@@ -99,6 +99,8 @@ public class KlaviyoWebWrapperViewController: UIViewController {
             shadowContainerView.translatesAutoresizingMaskIntoConstraints = false
             webView.translatesAutoresizingMaskIntoConstraints = false
 
+            // FIXME: - make insets dynamic
+            // FIXME: - decouple the pinned edges from the edge insets
             shadowContainerView.pin(to: view.safeAreaLayoutGuide, edges: [.horizontal(constant: 36), .vertical(constant: 24)])
 
             webView.pin(to: shadowContainerView)
@@ -107,6 +109,7 @@ public class KlaviyoWebWrapperViewController: UIViewController {
 
             webView.translatesAutoresizingMaskIntoConstraints = false
 
+            // FIXME: - make insets dynamic
             webView.pin(to: view.safeAreaLayoutGuide, edges: [.horizontal(constant: 36), .vertical(constant: 24)])
         }
 
