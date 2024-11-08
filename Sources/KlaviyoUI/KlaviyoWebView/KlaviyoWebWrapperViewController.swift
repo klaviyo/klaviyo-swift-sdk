@@ -96,19 +96,22 @@ public class KlaviyoWebWrapperViewController: UIViewController {
             view.addSubview(shadowContainerView)
             shadowContainerView.addSubview(webView)
 
-            shadowContainerView.pin(to: view.safeAreaLayoutGuide, insets: webViewInsets)
-            webView.pin(to: shadowContainerView)
+            shadowContainerView.translatesAutoresizingMaskIntoConstraints = false
+            webView.translatesAutoresizingMaskIntoConstraints = false
 
-            addChild(webViewController)
-            webViewController.didMove(toParent: self)
+            shadowContainerView.pin(to: view.safeAreaLayoutGuide, edges: [.horizontal(constant: 36), .vertical(constant: 24)])
+
+            webView.pin(to: shadowContainerView)
         } else {
             view.addSubview(webView)
 
-            webView.pin(to: view.safeAreaLayoutGuide, insets: webViewInsets)
+            webView.translatesAutoresizingMaskIntoConstraints = false
 
-            addChild(webViewController)
-            webViewController.didMove(toParent: self)
+            webView.pin(to: view.safeAreaLayoutGuide, edges: [.horizontal(constant: 36), .vertical(constant: 24)])
         }
+
+        addChild(webViewController)
+        webViewController.didMove(toParent: self)
     }
 }
 
@@ -143,7 +146,7 @@ func createKlaviyoWebPreview(url: URL, style: KlaviyoWebWrapperStyle) -> UIViewC
     let url = URL(string: "https://www.google.com")!
     let style = KlaviyoWebWrapperStyle(
         backgroundStyle: .tinted(opacity: 0.6),
-        insets: NSDirectionalEdgeInsets(top: 24, leading: 36, bottom: 24, trailing: 36),
+        insets: [.horizontal(constant: 36), .vertical(constant: 24)],
         cornerRadius: 24,
         shadowStyle: .default)
 
