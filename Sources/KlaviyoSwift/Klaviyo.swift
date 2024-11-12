@@ -82,6 +82,11 @@ public struct KlaviyoSDK {
     public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
+    
+    public func resetBadgeCount(defaults: String) {
+        dispatchOnMainThread(action: .resetBadgeCount(defaults))
+        UIApplication.shared.applicationIconBadgeNumber = 0
+    }
 
     /// Set the current user's email.
     /// - Parameter email: a string contining the users email.

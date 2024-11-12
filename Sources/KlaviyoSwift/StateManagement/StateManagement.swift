@@ -49,6 +49,9 @@ enum KlaviyoAction: Equatable {
 
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
+    
+    /// call to reset the app badge count to 0 as well as update the stored value in the specified User Defaults suite
+    case resetBadgeCount(String)
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
@@ -100,7 +103,7 @@ enum KlaviyoAction: Equatable {
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
             return true
 
-        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed, .resetBadgeCount:
             return false
         }
     }
@@ -479,6 +482,12 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
+        case let .resetBadgeCount(defaults):
+            if let userDefaults = UserDefaults(suiteName: defaults) {
+                userDefaults.set(0, forKey: "badgeCount")
+            }
+            return .none
+            
         case .resetProfile:
             guard case .initialized = state.initalizationState
             else {
