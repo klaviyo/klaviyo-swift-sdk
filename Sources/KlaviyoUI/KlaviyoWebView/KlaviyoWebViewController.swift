@@ -60,6 +60,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         let webView = WKWebView(frame: .zero, configuration: config)
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
+        webView.isOpaque = false
         return webView
     }
 
