@@ -128,11 +128,24 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 
 // MARK: - Previews
 
+#if DEBUG
+func createKlaviyoWebPreview(url: URL) -> UIViewController {
+    let viewModel = KlaviyoWebViewModel(url: url)
+    let viewController = KlaviyoWebViewController(viewModel: viewModel)
+
+    // Add a dummy view as a parent to the KlaviyoWebViewController to preview what the
+    // KlaviyoWebViewController might look like when it's displayed on top of a view in an app.
+    let parentViewController = PreviewTabViewController()
+    parentViewController.view.addSubview(viewController.view)
+
+    return parentViewController
+}
+#endif
+
 #if swift(>=5.9)
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
     let url = URL(string: "https://picsum.photos/200/300")!
-    let viewModel = KlaviyoWebViewModel(url: url)
-    return KlaviyoWebViewController(viewModel: viewModel)
+    return createKlaviyoWebPreview(url: url)
 }
 #endif
