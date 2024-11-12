@@ -148,4 +148,10 @@ func createKlaviyoWebPreview(url: URL) -> UIViewController {
     let url = URL(string: "https://picsum.photos/200/300")!
     return createKlaviyoWebPreview(url: url)
 }
+
+@available(iOS 17.0, *)
+#Preview("Klaviyo Form") {
+    let indexHtmlFileUrl = Bundle.module.url(forResource: "klaviyo", withExtension: "html")!
+    return createKlaviyoWebPreview(url: indexHtmlFileUrl)
+}
 #endif
