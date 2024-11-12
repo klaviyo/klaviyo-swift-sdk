@@ -131,7 +131,7 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 #if swift(>=5.9)
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
-    let url = URL(string: "https://www.klaviyo.com")!
+    let url = URL(string: "https://picsum.photos/200/300")!
     let viewModel = KlaviyoWebViewModel(url: url)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
