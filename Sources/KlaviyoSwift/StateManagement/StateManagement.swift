@@ -14,6 +14,8 @@
 import AnyCodable
 import Foundation
 import KlaviyoCore
+import UserNotifications
+import UIKit
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -50,8 +52,8 @@ enum KlaviyoAction: Equatable {
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
     
-    /// call to reset the app badge count to 0 as well as update the stored value in the specified User Defaults suite
-    case resetBadgeCount(String)
+    /// call to reset the app badge count to 0 as well as update the stored value in the User Defaults suite
+    case resetBadgeCount
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
@@ -290,8 +292,12 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-
+            
+            let autoclearing = Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
+            let badgeClearing: EffectTask<KlaviyoAction> = autoclearing ? .task { .resetBadgeCount } : .none
+            
             return .merge([
+                badgeClearing,
                 .run { send in
                     let settings = await environment.getNotificationSettings()
                     await send(KlaviyoAction.setPushEnablement(settings))
@@ -482,8 +488,13 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
-        case let .resetBadgeCount(defaults):
-            if let userDefaults = UserDefaults(suiteName: defaults) {
+        case let .resetBadgeCount:
+            if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                if #available(iOS 16.0, *) {
+                    UNUserNotificationCenter.current().setBadgeCount(0)
+                } else {
+                    UIApplication.shared.applicationIconBadgeNumber = 0
+                }
                 userDefaults.set(0, forKey: "badgeCount")
             }
             return .none
