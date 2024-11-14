@@ -119,18 +119,18 @@ public struct KlaviyoEnvironment {
     public var sdkVersion: () -> String
 
     private static let rnSDKConfig: [String: AnyObject] = {
-        loadPlist(named: "klaviyo-react-native-sdk-configuration") ?? [:]
+        loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
     }()
 
     private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_name"] as? String {
+        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
             return sdkName
         }
         return __klaviyoSwiftName
     }
 
     private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_version"] as? String {
+        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
             return sdkVersion
         }
         return __klaviyoSwiftVersion
