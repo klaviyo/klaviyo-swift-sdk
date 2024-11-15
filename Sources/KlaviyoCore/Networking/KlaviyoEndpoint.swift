@@ -9,6 +9,13 @@
 import AnyCodable
 import Foundation
 
+protocol Endpoint: Equatable, Codable {
+    var httpMethod: RequestMethod { get }
+    var path: String { get }
+
+    func body() throws -> Data
+}
+
 public enum KlaviyoEndpoint: Equatable, Codable {
     case createProfile(CreateProfilePayload)
     case createEvent(CreateEventPayload)
