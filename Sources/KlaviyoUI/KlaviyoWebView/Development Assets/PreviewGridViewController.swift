@@ -62,4 +62,13 @@ class PreviewGridViewController: UIViewController, UICollectionViewDataSource {
         return cell
     }
 }
+
+// MARK: - Previews
+
+#if swift(>=5.9)
+@available(iOS 17.0, *)
+#Preview {
+    PreviewTabViewController()
+}
+#endif
 #endif
