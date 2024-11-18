@@ -161,7 +161,7 @@ func createKlaviyoWebPreview(url: URL) -> UIViewController {
 @available(iOS 17.0, *)
 #Preview("JS Test Page") {
     let indexHtmlFileUrl = Bundle.module.url(forResource: "jstest", withExtension: "html")!
-    let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
+    let viewModel = JSTestWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
 #endif
