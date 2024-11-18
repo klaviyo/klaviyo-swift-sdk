@@ -39,12 +39,16 @@ public struct KlaviyoRequest: Equatable, Codable {
     }
 
     var url: URL? {
-        switch endpoint {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !environment.apiURL().isEmpty {
-                return URL(string: "\(environment.apiURL())\(endpoint.path)?company_id=\(apiKey)")
-            }
-            return nil
-        }
+        guard !environment.apiURL().isEmpty else { return nil }
+
+        var components = URLComponents()
+        components.scheme = endpoint.httpScheme
+        components.host = environment.apiURL()
+        components.path = endpoint.path
+        components.queryItems = [
+            URLQueryItem(name: "company_id", value: apiKey)
+        ]
+
+        return components.url
     }
 }
