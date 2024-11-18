@@ -1,6 +1,6 @@
-▿ dead_beef/client/push-tokens/?company_id=foo
+▿ https://dead_beef/client/push-tokens/?company_id=foo
   ▿ url: Optional<URL>
-    - some: dead_beef/client/push-tokens/?company_id=foo
+    - some: https://dead_beef/client/push-tokens/?company_id=foo
   - cachePolicy: 0
   - timeoutInterval: 60.0
   - mainDocumentURL: Optional<URL>.none
