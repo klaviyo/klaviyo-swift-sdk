@@ -488,14 +488,14 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
-        case let .setBadgeCount:
+        case let .setBadgeCount(count):
             if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
                 if #available(iOS 16.0, *) {
-                    UNUserNotificationCenter.current().setBadgeCount(0)
+                    UNUserNotificationCenter.current().setBadgeCount(count)
                 } else {
-                    UIApplication.shared.applicationIconBadgeNumber = 0
+                    UIApplication.shared.applicationIconBadgeNumber = count
                 }
-                userDefaults.set(0, forKey: "badgeCount")
+                userDefaults.set(count, forKey: "badgeCount")
             }
             return .none
 
