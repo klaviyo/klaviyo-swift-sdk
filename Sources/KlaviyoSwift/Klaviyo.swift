@@ -82,11 +82,11 @@ public struct KlaviyoSDK {
     public func resetProfile() {
         dispatchOnMainThread(action: .resetProfile)
     }
-    
-    /// Resets the badge number on the application icon to 0. Syncs with the persisted count
+
+    /// Sets the badge number on the application icon. Syncs with the persisted count
     /// stored in the User Defaults suite set up with the App Group
-    public func resetBadgeCount() {
-        dispatchOnMainThread(action: .resetBadgeCount)
+    public func setBadgeCount(_ count: Int) {
+        dispatchOnMainThread(action: .setBadgeCount(count))
     }
 
     /// Set the current user's email.
