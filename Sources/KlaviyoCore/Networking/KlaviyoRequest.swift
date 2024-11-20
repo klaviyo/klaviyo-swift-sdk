@@ -28,11 +28,11 @@ public struct KlaviyoRequest: Equatable, Codable {
         }
         var request = URLRequest(url: url)
         // We only support post right now
-        guard let body = try? encodeBody() else {
+        guard let body = try? endpoint.body() else {
             throw KlaviyoAPIError.dataEncodingError(self)
         }
         request.httpBody = body
-        request.httpMethod = "POST"
+        request.httpMethod = endpoint.httpMethod.rawValue
         request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
@@ -42,41 +42,9 @@ public struct KlaviyoRequest: Equatable, Codable {
         switch endpoint {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
             if !environment.apiURL().isEmpty {
-                return URL(string: "\(environment.apiURL())/\(path)/?company_id=\(apiKey)")
+                return URL(string: "\(environment.apiURL())\(endpoint.path)?company_id=\(apiKey)")
             }
             return nil
-        }
-    }
-
-    var path: String {
-        switch endpoint {
-        case .createProfile:
-            return "client/profiles"
-
-        case .createEvent:
-            return "client/events"
-
-        case .registerPushToken:
-            return "client/push-tokens"
-
-        case .unregisterPushToken:
-            return "client/push-token-unregister"
-        }
-    }
-
-    func encodeBody() throws -> Data {
-        switch endpoint {
-        case let .createProfile(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .createEvent(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .registerPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .unregisterPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
         }
     }
 }
