@@ -5,7 +5,7 @@
 	<key>Klaviyo_badge_autoclearing</key>
 	<false/>
 	<key>Klaviyo_App_Group</key>
-	<string></string>
+	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
