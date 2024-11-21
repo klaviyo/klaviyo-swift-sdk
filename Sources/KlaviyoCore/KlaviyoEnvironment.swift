@@ -154,8 +154,7 @@ public struct KlaviyoEnvironment {
         getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus)
         },
         getBadgeAutoClearingSetting: {
-            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
-            return Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
+            Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
         },
         startReachability: {
             try reachabilityService?.startNotifier()

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Klaviyo_badge_autoclearing</key>
-	<false/>
+	<true/>
 	<key>Klaviyo_App_Group</key>
 	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleDevelopmentRegion</key>
