@@ -293,14 +293,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let autoclearing = Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
-            let badgeClearing: EffectTask<KlaviyoAction> = autoclearing ? .task { .setBadgeCount(0) } : .none
-
             return .merge([
-                badgeClearing,
                 .run { send in
                     let settings = await environment.getNotificationSettings()
                     await send(KlaviyoAction.setPushEnablement(settings))
+                    let autoclearing = await environment.getBadgeAutoClearingSetting()
+                    if autoclearing {
+                        await send(KlaviyoAction.setBadgeCount(0))
+                    }
                 },
                 environment.timer(state.flushInterval)
                     .map { _ in
@@ -489,15 +489,9 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setBadgeCount(count):
-            if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                if #available(iOS 16.0, *) {
-                    UNUserNotificationCenter.current().setBadgeCount(count)
-                } else {
-                    UIApplication.shared.applicationIconBadgeNumber = count
-                }
-                userDefaults.set(count, forKey: "badgeCount")
+            return .run { _ in
+                _ = klaviyoSwiftEnvironment.setBadgeCount(count)
             }
-            return .none
 
         case .resetProfile:
             guard case .initialized = state.initalizationState
