@@ -151,7 +151,8 @@ public struct KlaviyoEnvironment {
             let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
             return PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
-        getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus)
+        getBackgroundSetting: {
+            .create(from: UIApplication.shared.backgroundRefreshStatus)
         },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
