@@ -132,14 +132,24 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 // MARK: - Previews
 
 #if DEBUG
-func createKlaviyoWebPreview(url: URL) -> UIViewController {
-    let viewModel = KlaviyoWebViewModel(url: url)
+func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
     // Add a dummy view as a parent to the KlaviyoWebViewController to preview what the
     // KlaviyoWebViewController might look like when it's displayed on top of a view in an app.
     let parentViewController = PreviewTabViewController()
+
+    parentViewController.addChild(viewController)
     parentViewController.view.addSubview(viewController.view)
+    viewController.didMove(toParent: parentViewController)
+
+    viewController.view.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+        viewController.view.topAnchor.constraint(equalTo: parentViewController.view.topAnchor),
+        viewController.view.bottomAnchor.constraint(equalTo: parentViewController.view.bottomAnchor),
+        viewController.view.leadingAnchor.constraint(equalTo: parentViewController.view.leadingAnchor),
+        viewController.view.trailingAnchor.constraint(equalTo: parentViewController.view.trailingAnchor)
+    ])
 
     return parentViewController
 }
@@ -149,13 +159,15 @@ func createKlaviyoWebPreview(url: URL) -> UIViewController {
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
     let url = URL(string: "https://picsum.photos/200/300")!
-    return createKlaviyoWebPreview(url: url)
+    let viewModel = KlaviyoWebViewModel(url: url)
+    return createKlaviyoWebPreview(viewModel: viewModel)
 }
 
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let indexHtmlFileUrl = Bundle.module.url(forResource: "klaviyo", withExtension: "html")!
-    return createKlaviyoWebPreview(url: indexHtmlFileUrl)
+    let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
+    return createKlaviyoWebPreview(viewModel: viewModel)
 }
 
 @available(iOS 17.0, *)
