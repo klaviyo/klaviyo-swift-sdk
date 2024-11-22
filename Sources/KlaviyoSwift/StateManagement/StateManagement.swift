@@ -91,6 +91,9 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
+    // fetches any active in-app forms that should be shown to the user
+    case fetchForms
+
     /// resets the state for profile properties before dequeing the request
     /// this is done in the case where there is http request failure due to
     /// the data that was passed to the client endpoint
@@ -101,8 +104,7 @@ enum KlaviyoAction: Equatable {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
-
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -521,6 +523,18 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+
+        case .fetchForms:
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey
+            else {
+                return .none
+            }
+
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .fetchForms)
+            state.enqueueRequest(request: request)
+
+            return .none
         }
     }
 }
