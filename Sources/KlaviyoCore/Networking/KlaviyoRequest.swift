@@ -26,12 +26,17 @@ public struct KlaviyoRequest: Equatable, Codable {
         guard let url = url else {
             throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
         }
+
         var request = URLRequest(url: url)
-        // We only support post right now
-        guard let body = try? endpoint.body() else {
+
+        do {
+            if let body = try endpoint.body(), !body.isEmpty {
+                request.httpBody = body
+            }
+        } catch {
             throw KlaviyoAPIError.dataEncodingError(self)
         }
-        request.httpBody = body
+
         request.httpMethod = endpoint.httpMethod.rawValue
         request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
