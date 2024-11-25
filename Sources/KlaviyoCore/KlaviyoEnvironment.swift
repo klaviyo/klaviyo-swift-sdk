@@ -70,7 +70,7 @@ public struct KlaviyoEnvironment {
         sdkVersion = SDKVersion
     }
 
-    static let productionHost = "https://a.klaviyo.com"
+    static let productionHost = "a.klaviyo.com"
     public static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -83,7 +83,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: URL(string: productionHost)!.host!)
+    private static let reachabilityService = Reachability(hostname: productionHost)
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient

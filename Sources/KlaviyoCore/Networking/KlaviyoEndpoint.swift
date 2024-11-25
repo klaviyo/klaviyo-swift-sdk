@@ -15,6 +15,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case registerPushToken(PushTokenPayload)
     case unregisterPushToken(UnregisterPushTokenPayload)
 
+    var httpScheme: String { "https" }
+
     var httpMethod: RequestMethod {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
