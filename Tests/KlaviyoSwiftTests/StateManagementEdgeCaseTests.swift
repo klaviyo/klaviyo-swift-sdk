@@ -114,6 +114,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
     }
 
     // MARK: - Set Email
@@ -333,6 +334,72 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.start)
+    }
+
+    // MARK: - Default Badge Clearing
+
+    @MainActor
+    func testDefaultBadgeClearingOn() async throws {
+        let apiKey = "fake-key"
+        environment.getBadgeAutoClearingSetting = { true }
+        let expectation = XCTestExpectation(description: "Should set badge to 0")
+        klaviyoSwiftEnvironment.setBadgeCount = { _ in
+            expectation.fulfill()
+            return nil
+        }
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: "foo", queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initializing,
+                                                         flushing: true), reducer: KlaviyoReducer())
+        // Attempting to get more coverage
+        _ = await store.send(.completeInitialization(initialState)) {
+            $0.initalizationState = .initialized
+            $0.anonymousId = "foo"
+        }
+        await store.receive(.start)
+        await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
+    }
+
+    // MARK: - Default Badge Clearing Turned Off
+
+    @MainActor
+    func testDefaultBadgeClearingOff() async {
+        let apiKey = "fake-key"
+        environment.getBadgeAutoClearingSetting = { false }
+        let expectation = XCTestExpectation(description: "Should not set badge to 0")
+        expectation.isInverted = true
+        klaviyoSwiftEnvironment.setBadgeCount = { _ in
+            expectation.fulfill()
+            return nil
+        }
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: "foo", queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initializing,
+                                                         flushing: true), reducer: KlaviyoReducer())
+        // Attempting to get more coverage
+        _ = await store.send(.completeInitialization(initialState)) {
+            $0.initalizationState = .initialized
+            $0.anonymousId = "foo"
+        }
+        await store.receive(.start)
+        await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
     }
 
     // MARK: - Network Status Changed
