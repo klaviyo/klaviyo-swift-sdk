@@ -5,10 +5,10 @@
 //  Created by Noah Durell on 11/14/22.
 //
 
-import Foundation
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Combine
+import Foundation
 import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let TEST_API_KEY = "fake-key"
 
@@ -197,6 +197,8 @@ extension KlaviyoSwiftEnvironment {
             Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
         }, stateChangePublisher: {
             Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+        }, setBadgeCount: { _ in
+            nil
         })
     }
 }

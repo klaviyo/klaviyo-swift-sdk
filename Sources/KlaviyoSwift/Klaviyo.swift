@@ -83,6 +83,13 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .resetProfile)
     }
 
+    /// Sets the badge number on the application icon. Syncs with the persisted count
+    /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
+    /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
+    public func setBadgeCount(_ count: Int) {
+        dispatchOnMainThread(action: .setBadgeCount(count))
+    }
+
     /// Set the current user's email.
     /// - Parameter email: a string contining the users email.
     /// - Returns: a KlaviyoSDK instance

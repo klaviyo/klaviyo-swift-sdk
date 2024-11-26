@@ -14,6 +14,8 @@
 import AnyCodable
 import Foundation
 import KlaviyoCore
+import UIKit
+import UserNotifications
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -49,6 +51,9 @@ enum KlaviyoAction: Equatable {
 
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
+
+    /// call to set the app badge count as well as update the stored value in the User Defaults suite
+    case setBadgeCount(Int)
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
@@ -97,7 +102,7 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
 
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
@@ -292,6 +297,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 .run { send in
                     let settings = await environment.getNotificationSettings()
                     await send(KlaviyoAction.setPushEnablement(settings))
+                    let autoclearing = await environment.getBadgeAutoClearingSetting()
+                    if autoclearing {
+                        await send(KlaviyoAction.setBadgeCount(0))
+                    }
                 },
                 environment.timer(state.flushInterval)
                     .map { _ in
@@ -478,6 +487,11 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+
+        case let .setBadgeCount(count):
+            return .run { _ in
+                _ = klaviyoSwiftEnvironment.setBadgeCount(count)
+            }
 
         case .resetProfile:
             guard case .initialized = state.initalizationState
