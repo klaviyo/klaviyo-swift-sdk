@@ -6,10 +6,10 @@
 //
 import AnyCodable
 import Combine
-import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import CombineSchedulers
 import KlaviyoCore
+import XCTest
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let ARCHIVED_RETURNED_DATA = Data()
 
@@ -35,6 +35,7 @@ extension KlaviyoEnvironment {
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
+            getBadgeAutoClearingSetting: { true },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },

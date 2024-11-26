@@ -22,6 +22,7 @@ public struct KlaviyoEnvironment {
         notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
+        getBadgeAutoClearingSetting: @escaping () async -> Bool,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
@@ -48,6 +49,7 @@ public struct KlaviyoEnvironment {
         self.notificationCenterPublisher = notificationCenterPublisher
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
+        self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
         self.startReachability = startReachability
         self.stopReachability = stopReachability
         self.reachabilityStatus = reachabilityStatus
@@ -94,6 +96,7 @@ public struct KlaviyoEnvironment {
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
+    public var getBadgeAutoClearingSetting: () async -> Bool
 
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
@@ -118,9 +121,7 @@ public struct KlaviyoEnvironment {
     public var sdkName: () -> String
     public var sdkVersion: () -> String
 
-    private static let rnSDKConfig: [String: AnyObject] = {
-        loadPlist(named: "klaviyo-react-native-sdk-configuration") ?? [:]
-    }()
+    private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
 
     private static func getSDKName() -> String {
         if let sdkName = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_name"] as? String {
@@ -150,7 +151,12 @@ public struct KlaviyoEnvironment {
             let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
             return PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
-        getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
+        getBackgroundSetting: {
+            .create(from: UIApplication.shared.backgroundRefreshStatus)
+        },
+        getBadgeAutoClearingSetting: {
+            Bundle.main.object(forInfoDictionaryKey: "Klaviyo_badge_autoclearing") as? Bool ?? true
+        },
         startReachability: {
             try reachabilityService?.startNotifier()
         },

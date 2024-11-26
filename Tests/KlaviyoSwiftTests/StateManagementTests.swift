@@ -43,6 +43,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
     }
 
     @MainActor
@@ -615,5 +616,6 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
     }
 }
