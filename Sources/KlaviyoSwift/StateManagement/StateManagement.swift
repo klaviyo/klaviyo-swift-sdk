@@ -547,8 +547,20 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
-        case let .handleFormsResponse(forms):
-            <#code#>
+        case let .handleFormsResponse(fullForms):
+            guard let firstForm = fullForms.forms.first else { return .none }
+
+            // TODO: handle the form data
+            // for now, prettyprint to console
+            do {
+                let jsonObject = try JSONSerialization.jsonObject(with: firstForm, options: [])
+                let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted])
+                print("🔵 [AB DEBUG]", String(data: prettyData, encoding: .utf8) ?? "")
+            } catch {
+                print("Error pretty-printing JSON: \(error)")
+            }
+
+            return .none
 
         case let .decodeResponse(completedRequest, data):
             <#code#>
