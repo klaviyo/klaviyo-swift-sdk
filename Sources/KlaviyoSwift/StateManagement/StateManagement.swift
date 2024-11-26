@@ -97,6 +97,9 @@ enum KlaviyoAction: Equatable {
     // fetches any active in-app forms that should be shown to the user
     case fetchForms
 
+    // handles the full forms response from the server
+    case handleFormsResponse(FullForms)
+
     /// resets the state for profile properties before dequeing the request
     /// this is done in the case where there is http request failure due to
     /// the data that was passed to the client endpoint
@@ -107,7 +110,8 @@ enum KlaviyoAction: Equatable {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
-        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms:
+
+        case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms, .handleFormsResponse:
             return true
 
         case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed, .decodeResponse:
@@ -538,6 +542,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+
+        case let .handleFormsResponse(forms):
+            <#code#>
 
         case let .decodeResponse(completedRequest, data):
             <#code#>
