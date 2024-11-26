@@ -61,9 +61,6 @@ enum KlaviyoAction: Equatable {
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
 
-    /// decodes an API response into a specified type
-    case decodeResponse(KlaviyoRequest, Data)
-
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
 
@@ -114,7 +111,7 @@ enum KlaviyoAction: Equatable {
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms, .handleFormsResponse:
             return true
 
-        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed, .decodeResponse:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
             return false
         }
     }
@@ -363,10 +360,21 @@ struct KlaviyoReducer: ReducerProtocol {
                 switch result {
                 case let .success(data):
                     if request.endpoint.hasDecodableResponse {
-                        await send(.decodeResponse(request, data))
-                    } else {
-                        await send(.deQueueCompletedResults(request))
+                        do {
+                            switch request.endpoint {
+                            case .fetchForms:
+                                let formsResponse = try FullForms(data: data)
+                                await send(.handleFormsResponse(formsResponse))
+                            default:
+                                break
+                            }
+                        } catch {
+                            let error = KlaviyoAPIError.dataDecodingError(request)
+                            await send(handleRequestError(request: request, error: error, retryInfo: nil))
+                            return
+                        }
                     }
+                    await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
@@ -551,32 +559,19 @@ struct KlaviyoReducer: ReducerProtocol {
             guard let firstForm = fullForms.forms.first else { return .none }
 
             // TODO: handle the form data
-            // for now, prettyprint to console
+            // example: Update the state to display the form
+            // state.firstForm = firstForm
+            //
+            // for now, prettyprint to console (remove this code )
             do {
                 let jsonObject = try JSONSerialization.jsonObject(with: firstForm, options: [])
                 let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted])
-                print("🔵 [AB DEBUG]", String(data: prettyData, encoding: .utf8) ?? "")
+                print("First form:\n", String(data: prettyData, encoding: .utf8) ?? "")
             } catch {
                 print("Error pretty-printing JSON: \(error)")
             }
 
             return .none
-
-        case let .decodeResponse(completedRequest, data):
-            do {
-                switch completedRequest.endpoint {
-                case .fetchForms:
-                    let formsResponse = try FullForms(data: data)
-                    return .task { .handleFormsResponse(formsResponse) }
-                // FIXME: How do I combine this with `.deQueueCompletedResults`?
-                default:
-                    break
-                }
-            } catch {
-                let error = KlaviyoAPIError.dataDecodingError(completedRequest)
-                return .task { handleRequestError(request: completedRequest, error: error, retryInfo: nil) }
-            }
-            return .task { .deQueueCompletedResults(completedRequest) }
         }
     }
 }
