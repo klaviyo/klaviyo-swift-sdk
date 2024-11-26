@@ -114,14 +114,13 @@ func handleRequestError(
         case let .retryWithBackoff(requestCount, totalCount, _):
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
-            return .requestFailed(
-                request, .retryWithBackoff(
-                    requestCount: requestRetryCount,
-                    totalRetryCount: totalRetryCount,
-                    currentBackoff: retryAfter))
         }
 
-        return .deQueueCompletedResults(request)
+        return .requestFailed(
+            request, .retryWithBackoff(
+                requestCount: requestRetryCount,
+                totalRetryCount: totalRetryCount,
+                currentBackoff: retryAfter))
 
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
