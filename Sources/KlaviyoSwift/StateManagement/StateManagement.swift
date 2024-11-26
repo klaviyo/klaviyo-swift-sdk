@@ -61,6 +61,9 @@ enum KlaviyoAction: Equatable {
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
 
+    /// decodes an API response into a specified type
+    case decodeResponse(KlaviyoRequest, Data)
+
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
 
@@ -107,7 +110,7 @@ enum KlaviyoAction: Equatable {
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms:
             return true
 
-        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed, .decodeResponse:
             return false
         }
     }
@@ -535,6 +538,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+
+        case let .decodeResponse(completedRequest, data):
+            <#code#>
         }
     }
 }
