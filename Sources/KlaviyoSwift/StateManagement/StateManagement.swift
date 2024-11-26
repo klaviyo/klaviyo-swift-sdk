@@ -361,8 +361,12 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { [numAttempts] send in
                 let result = await environment.klaviyoAPI.send(request, numAttempts)
                 switch result {
-                case .success:
-                    await send(.deQueueCompletedResults(request))
+                case let .success(data):
+                    if request.endpoint.hasDecodableResponse {
+                        await send(.decodeResponse(request, data))
+                    } else {
+                        await send(.deQueueCompletedResults(request))
+                    }
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
                 }
