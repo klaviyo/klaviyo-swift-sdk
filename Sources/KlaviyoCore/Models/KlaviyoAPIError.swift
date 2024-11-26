@@ -16,5 +16,6 @@ public enum KlaviyoAPIError: Error {
     case internalRequestError(Error)
     case unknownError(Error)
     case dataEncodingError(KlaviyoRequest)
+    case dataDecodingError(KlaviyoRequest)
     case invalidData
 }
