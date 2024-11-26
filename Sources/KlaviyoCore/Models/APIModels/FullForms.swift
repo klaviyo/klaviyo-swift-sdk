@@ -19,6 +19,10 @@ public struct FullForms: Equatable {
     }
 
     public init(data: Data) throws {
+        guard JSONSerialization.isValidJSONObject(data) else {
+            throw KlaviyoDecodingError.cannotConvertToJson
+        }
+
         guard let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw KlaviyoDecodingError.invalidType
         }
