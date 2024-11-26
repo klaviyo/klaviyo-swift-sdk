@@ -563,7 +563,19 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .decodeResponse(completedRequest, data):
-            <#code#>
+            do {
+                switch completedRequest.endpoint {
+                case .fetchForms:
+                    let formsResponse = try FullForms(data: data)
+                    return .task { .handleFormsResponse(formsResponse) }
+                default:
+                    break
+                }
+            } catch {
+                let error = KlaviyoAPIError.dataDecodingError(completedRequest)
+                return .task { handleRequestError(request: completedRequest, error: error, retryInfo: nil) }
+            }
+            return .task { .deQueueCompletedResults(completedRequest) }
         }
     }
 }
