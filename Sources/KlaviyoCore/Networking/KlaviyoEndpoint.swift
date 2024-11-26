@@ -56,4 +56,13 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return nil
         }
     }
+
+    public var hasDecodableResponse: Bool {
+        switch self {
+        case .fetchForms:
+            true
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
+            false
+        }
+    }
 }
