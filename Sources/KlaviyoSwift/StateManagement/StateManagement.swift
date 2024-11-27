@@ -363,7 +363,7 @@ struct KlaviyoReducer: ReducerProtocol {
                         do {
                             switch request.endpoint {
                             case .fetchForms:
-                                let formsResponse = try FullFormsResponse(data: data)
+                                let formsResponse = try JSONDecoder().decode(FullFormsResponse.self, from: data)
                                 await send(.handleFormsResponse(formsResponse))
                             default:
                                 break
@@ -555,20 +555,24 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
-        case let .handleFormsResponse(fullForms):
-            guard let firstForm = fullForms.forms.first else { return .none }
+        case let .handleFormsResponse(fullFormsResponse):
+            guard let firstForm = fullFormsResponse.fullForms.first else { return .none }
 
             // TODO: handle the form data
             // example: Update the state to display the form
             // state.firstForm = firstForm
             //
-            // for now, prettyprint to console (remove this code )
+            // for now, prettyprint to console
+            // (TODO: remove this debug code after we've handled the response appropriately!)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
             do {
-                let jsonObject = try JSONSerialization.jsonObject(with: firstForm, options: [])
-                let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted])
-                print("First form:\n", String(data: prettyData, encoding: .utf8) ?? "")
+                let data = try encoder.encode(fullFormsResponse)
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print(jsonString)
+                }
             } catch {
-                print("Error pretty-printing JSON: \(error)")
+                print("Failed to encode and pretty-print JSON: \(error)")
             }
 
             return .none
