@@ -5,16 +5,16 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
-public struct CreateEventPayload: Equatable, Codable {
-    public struct Event: Equatable, Codable {
-        public struct Attributes: Equatable, Codable {
-            public struct Metric: Equatable, Codable {
+public struct CreateEventPayload: Equatable, Codable, Sendable {
+    public struct Event: Equatable, Codable, Sendable {
+        public struct Attributes: Equatable, Codable, Sendable {
+            public struct Metric: Equatable, Codable, Sendable {
                 public let data: MetricData
 
-                public struct MetricData: Equatable, Codable {
+                public struct MetricData: Equatable, Codable, Sendable {
                     var type: String = "metric"
 
                     public let attributes: MetricAttributes
@@ -23,7 +23,7 @@ public struct CreateEventPayload: Equatable, Codable {
                         attributes = .init(name: name)
                     }
 
-                    public struct MetricAttributes: Equatable, Codable {
+                    public struct MetricAttributes: Equatable, Codable, Sendable {
                         public let name: String
                     }
                 }
@@ -33,7 +33,7 @@ public struct CreateEventPayload: Equatable, Codable {
                 }
             }
 
-            public struct Profile: Equatable, Codable {
+            public struct Profile: Equatable, Codable, Sendable {
                 public let data: ProfilePayload
 
                 public init(data: ProfilePayload) {
@@ -47,6 +47,7 @@ public struct CreateEventPayload: Equatable, Codable {
             public let time: Date
             public let value: Double?
             public let uniqueId: String
+
             public init(name: String,
                         properties: [String: Any]? = nil,
                         email: String? = nil,
@@ -91,10 +92,11 @@ public struct CreateEventPayload: Equatable, Codable {
                     value: Double? = nil,
                     time: Date? = nil,
                     uniqueId: String? = nil,
-                    pushToken: String? = nil) {
+                    pushToken: String? = nil,
+                    appContextInfo: AppContextInfo) {
             attributes = Attributes(
                 name: name,
-                properties: properties?.appendMetadataToProperties(pushToken: pushToken),
+                properties: properties?.appendMetadataToProperties(context: appContextInfo, pushToken: pushToken),
                 email: email,
                 phoneNumber: phoneNumber,
                 externalId: externalId,
@@ -112,22 +114,24 @@ public struct CreateEventPayload: Equatable, Codable {
 }
 
 extension Dictionary where Key == String, Value == Any {
-    fileprivate func appendMetadataToProperties(pushToken: String?) -> [String: Any]? {
-        let context = environment.appContextInfo()
-        let metadata: [String: Any] = [
+    func appendMetadataToProperties(context: AppContextInfo, pushToken: String?) -> [String: Any]? {
+        var metadata: [String: Any] = [
             "Device ID": context.deviceId,
             "Device Manufacturer": context.manufacturer,
             "Device Model": context.deviceModel,
             "OS Name": context.osName,
             "OS Version": context.osVersion,
-            "SDK Name": environment.sdkName(),
-            "SDK Version": environment.sdkVersion(),
+            "SDK Name": context.klaviyoSdk,
+            "SDK Version": context.sdkVersion,
             "App Name": context.appName,
             "App ID": context.bundleId,
             "App Version": context.appVersion,
-            "App Build": context.appBuild,
-            "Push Token": pushToken ?? ""
+            "App Build": context.appBuild
         ]
+
+        if let pushToken {
+            metadata["Push Token"] = pushToken
+        }
 
         return merging(metadata) { _, new in new }
     }

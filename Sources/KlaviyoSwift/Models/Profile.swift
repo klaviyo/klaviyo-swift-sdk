@@ -5,12 +5,12 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 
-public struct Profile: Equatable {
-    public enum ProfileKey: Equatable, Hashable, Codable {
+public struct Profile: Equatable, Sendable {
+    public enum ProfileKey: Equatable, Hashable, Codable, Sendable {
         case firstName
         case lastName
         case address1
@@ -27,7 +27,7 @@ public struct Profile: Equatable {
         case custom(customKey: String)
     }
 
-    public struct Location: Equatable {
+    public struct Location: Equatable, Sendable {
         public var address1: String?
         public var address2: String?
         public var city: String?
@@ -65,7 +65,7 @@ public struct Profile: Equatable {
             self.longitude = longitude
             self.region = region
             self.zip = zip
-            self.timezone = timezone ?? environment.timeZone()
+            self.timezone = timezone
         }
     }
 

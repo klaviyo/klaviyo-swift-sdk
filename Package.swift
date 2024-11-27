@@ -1,11 +1,12 @@
-// swift-tools-version: 5.6
+// swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
+import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
     name: "klaviyo-swift-sdk",
-    platforms: [.iOS(.v13)],
+    platforms: [.iOS(.v15), .macOS(.v10_15)],
     products: [
         .library(
             name: "KlaviyoSwift",
@@ -19,29 +20,27 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
-        .package(
-            url: "https://github.com/Flight-School/AnyCodable",
-            from: "0.6.0"),
-        .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.1"),
-        .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
-        .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.9.1")
+        .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "1.0.2"),
+        .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.3.0")
     ],
     targets: [
         .target(
             name: "KlaviyoCore",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            dependencies: ["KlaviyoSDKDependencies"],
             path: "Sources/KlaviyoCore"),
         .testTarget(
             name: "KlaviyoCoreTests",
             dependencies: [
                 "KlaviyoCore",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-                .product(name: "CasePaths", package: "swift-case-paths")
+                "KlaviyoSDKDependencies"
             ]),
         .target(
             name: "KlaviyoSwift",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
+            dependencies: [
+                "KlaviyoCore",
+                "KlaviyoSDKDependencies"
+            ],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]),
         .testTarget(
@@ -49,10 +48,10 @@ let package = Package(
             dependencies: [
                 "KlaviyoSwift",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-                .product(name: "CasePaths", package: "swift-case-paths"),
+                "KlaviyoSDKDependencies",
                 .product(name: "CombineSchedulers", package: "combine-schedulers"),
-                "KlaviyoCore"
+                "KlaviyoCore",
+                .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay")
             ],
             exclude: [
                 "__Snapshots__"
@@ -70,10 +69,24 @@ let package = Package(
             name: "KlaviyoUITests",
             dependencies: [
                 "KlaviyoSwift",
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoSDKDependencies"
             ]),
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension")
+            path: "Sources/KlaviyoSwiftExtension"),
+
+        // Vendorized Things
+        .target(
+            name: "KlaviyoSDKDependencies",
+            dependencies: [],
+            path: "Sources/KlaviyoSDKDependencies")
     ])
+
+for target in package.targets {
+    target.swiftSettings = target.swiftSettings ?? []
+    target.swiftSettings?.append(contentsOf: [
+        .enableExperimentalFeature("StrictConcurrency")
+    ])
+}

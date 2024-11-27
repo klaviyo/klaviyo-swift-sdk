@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.author           = { "Mobile @ Klaviyo" => "mobile@klaviyo.com" }
   s.source           = { :git => "https://github.com/klaviyo/klaviyo-swift-sdk.git", :tag => s.version.to_s }
   s.swift_version    = '5.7'
-  s.platform         = :ios, '13.0'
+  s.platform         = :ios, '15.0'
   s.source_files     = 'Sources/KlaviyoUI/**/*.swift'
   # update once modularization changes are merged in.
   s.dependency     'KlaviyoSwift', '~> 4.0.0'

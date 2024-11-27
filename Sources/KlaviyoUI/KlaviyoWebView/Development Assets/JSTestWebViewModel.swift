@@ -10,13 +10,14 @@ import Combine
 import Foundation
 import WebKit
 
-class JSTestWebViewModel: KlaviyoWebViewModeling {
+@MainActor
+class JSTestWebViewModel: @preconcurrency KlaviyoWebViewModeling {
     let url: URL
     let loadScripts: [String: WKUserScript]?
 
     /// Publishes scripts for the `WKWebView` to execute.
-    private var continuation: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)>.Continuation?
-    lazy var scriptStream: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
+    private var continuation: AsyncStream<(script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)>.Continuation?
+    lazy var scriptStream: AsyncStream<(script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
         self?.continuation = continuation
     }
 

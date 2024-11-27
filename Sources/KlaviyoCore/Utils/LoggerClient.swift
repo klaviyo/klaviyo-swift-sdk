@@ -10,7 +10,7 @@ import Foundation
 import os
 #endif
 
-public struct LoggerClient {
+public struct LoggerClient: @unchecked Sendable {
     public init(error: @escaping (String) -> Void) {
         self.error = error
     }
@@ -23,7 +23,7 @@ public struct LoggerClient {
 @inline(__always)
 func runtimeWarn(
     _ message: @autoclosure () -> String,
-    category: String? = environment.sdkName(),
+    category: String? = nil,
     file: StaticString? = nil,
     line: UInt? = nil) {
     #if DEBUG

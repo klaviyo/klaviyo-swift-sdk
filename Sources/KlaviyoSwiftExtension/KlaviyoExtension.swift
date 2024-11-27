@@ -5,7 +5,7 @@
 //  Created by Ajay Subramanya on 6/23/23.
 //
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
@@ -22,7 +22,7 @@ public enum KlaviyoExtensionSDK {
     public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void,
+        contentHandler: @Sendable @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg") {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
@@ -73,7 +73,7 @@ public enum KlaviyoExtensionSDK {
     ///                 note that in the case of failure the closure will still be called but with `nil`.
     private static func downloadMedia(
         for urlString: String,
-        completion: @escaping (URL?) -> Void) {
+        completion: @Sendable @escaping (URL?) -> Void) {
         guard let imageURL = URL(string: urlString) else {
             completion(nil)
             return
@@ -106,7 +106,7 @@ public enum KlaviyoExtensionSDK {
         localFilePathWithTypeString: String,
         completion: @escaping (UNNotificationAttachment?) -> Void) {
         let localFileURLWithType: URL
-        if #available(iOS 16.0, *) {
+        if #available(iOS 16.0, macOS 13.0, *) {
             localFileURLWithType = URL(filePath: localFilePathWithTypeString)
         } else {
             localFileURLWithType = URL(fileURLWithPath: localFilePathWithTypeString)

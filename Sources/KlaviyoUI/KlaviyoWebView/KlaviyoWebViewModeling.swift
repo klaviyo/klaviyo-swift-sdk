@@ -16,7 +16,7 @@ protocol KlaviyoWebViewModeling {
     var loadScripts: [String: WKUserScript]? { get }
 
     /// Streams scripts for the ``WKWebView`` to execute.
-    var scriptStream: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)> { get }
+    var scriptStream: AsyncStream < (script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)> { get }
 
     func handleNavigationEvent(_ event: WKNavigationEvent)
     func handleScriptMessage(_ message: WKScriptMessage)

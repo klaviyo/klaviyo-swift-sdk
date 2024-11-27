@@ -10,7 +10,8 @@ import Foundation
 import UIKit
 
 @_spi(KlaviyoPrivate)
-public struct StateChangePublisher {
+@MainActor
+public struct StateChangePublisher: Sendable {
     static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
         publisher
             .debounce(for: .seconds(1), scheduler: DispatchQueue.global())
@@ -24,19 +25,18 @@ public struct StateChangePublisher {
             .eraseToAnyPublisher()
     }
 
-    // publisher to listen for state and persist them on an interval.
-    // does not emit action but mapped that way so it can be used in the store.
-    var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
-        debouncedPublisher(createStatePublisher())
-            .flatMap { state -> Empty<KlaviyoAction, Never> in
-                saveKlaviyoState(state: state)
-                return Empty<KlaviyoAction, Never>()
+    var publisher: @MainActor () -> AsyncStream<KlaviyoState> = {
+        AsyncStream { continuation in
+            Task {
+                for await state in debouncedPublisher(createStatePublisher()).values {
+                    continuation.yield(state)
+                }
             }
-            .eraseToAnyPublisher()
+        }
     }
 
     @_spi(KlaviyoPrivate)
-    public struct PrivateState {
+    public struct PrivateState: Sendable {
         public var email: String?
         public var anonymousId: String?
         public var phoneNumber: String?
@@ -45,16 +45,21 @@ public struct StateChangePublisher {
     }
 
     @_spi(KlaviyoPrivate)
-    public static func internalStatePublisher() -> AnyPublisher<PrivateState, Never> {
-        createStatePublisher()
-            .map { state in
-                PrivateState(
-                    email: state.email,
-                    anonymousId: state.anonymousId,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    pushToken: state.pushTokenData?.pushToken)
+    @MainActor
+    public static func internalStatePublisher() -> AsyncStream<PrivateState> {
+        let publisher = StateChangePublisher.createStatePublisher()
+        return AsyncStream { continuation in
+            Task {
+                for await state in publisher
+                    .subscribe(on: DispatchQueue.main).values {
+                    continuation.yield(PrivateState(
+                        email: state.email,
+                        anonymousId: state.anonymousId,
+                        phoneNumber: state.phoneNumber,
+                        externalId: state.externalId,
+                        pushToken: state.pushTokenData?.pushToken))
+                }
             }
-            .eraseToAnyPublisher()
+        }
     }
 }

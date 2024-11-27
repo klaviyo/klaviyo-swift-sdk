@@ -5,30 +5,30 @@
 //  Created by Noah Durell on 12/1/22.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
-struct KlaviyoState: Equatable, Codable {
-    enum InitializationState: Equatable, Codable {
+struct KlaviyoState: Equatable, Codable, Sendable {
+    enum InitializationState: Equatable, Codable, Sendable {
         case uninitialized
         case initializing
         case initialized
     }
 
-    enum PendingRequest: Equatable {
-        case event(Event)
-        case profile(Profile)
-        case pushToken(String, PushEnablement)
-        case setEmail(String)
-        case setExternalId(String)
-        case setPhoneNumber(String)
+    enum PendingRequest: Equatable, Sendable {
+        case event(Event, AppContextInfo)
+        case profile(Profile, AppContextInfo)
+        case pushToken(String, PushEnablement, PushBackground, AppContextInfo)
+        case setEmail(String, AppContextInfo)
+        case setExternalId(String, AppContextInfo)
+        case setPhoneNumber(String, AppContextInfo)
     }
 
-    struct PushTokenData: Equatable, Codable {
+    struct PushTokenData: Equatable, Codable, Sendable {
         var pushToken: String
         var pushEnablement: PushEnablement
         var pushBackground: PushBackground
@@ -60,7 +60,7 @@ struct KlaviyoState: Equatable, Codable {
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
-    enum CodingKeys: CodingKey {
+    enum CodingKeys: String, CodingKey {
         case apiKey
         case email
         case anonymousId
@@ -77,31 +77,32 @@ struct KlaviyoState: Equatable, Codable {
         queue.append(request)
     }
 
-    mutating func updateEmail(email: String) {
+    mutating func updateEmail(email: String, appContextInfo: AppContextInfo) {
         if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
             self.email = email
-            enqueueProfileOrTokenRequest()
+            enqueueProfileOrTokenRequest(appConextInfo: appContextInfo)
         }
     }
 
-    mutating func updateExternalId(externalId: String) {
+    mutating func updateExternalId(externalId: String, appContextInfo: AppContextInfo) {
         if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
             self.externalId = externalId
-            enqueueProfileOrTokenRequest()
+            enqueueProfileOrTokenRequest(appConextInfo: appContextInfo)
         }
     }
 
-    mutating func updatePhoneNumber(phoneNumber: String) {
+    mutating func updatePhoneNumber(phoneNumber: String, appContextInfo: AppContextInfo) {
         if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
             self.phoneNumber = phoneNumber
-            enqueueProfileOrTokenRequest()
+            enqueueProfileOrTokenRequest(appConextInfo: appContextInfo)
         }
     }
 
-    mutating func enqueueProfileOrTokenRequest() {
+    mutating func enqueueProfileOrTokenRequest(appConextInfo: AppContextInfo) {
         guard let apiKey = apiKey,
               let anonymousId = anonymousId else {
-            environment.emitDeveloperWarning("SDK internal error")
+            // ND: revist - just log here...
+            // environment.emitDeveloperWarning("SDK internal error")
             return
         }
         // if we have push data and we are switching emails
@@ -112,7 +113,7 @@ struct KlaviyoState: Equatable, Codable {
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: pushTokenData.pushToken,
-                enablement: pushTokenData.pushEnablement)
+                enablement: pushTokenData.pushEnablement, background: pushTokenData.pushBackground, appContextInfo: appConextInfo)
             enqueueRequest(request: request)
         } else {
             enqueueProfileRequest(
@@ -126,7 +127,7 @@ struct KlaviyoState: Equatable, Codable {
         switch request.endpoint {
         case let .createProfile(payload):
             let updatedPayload = updateRequestAndStateWithPendingProfile(profile: payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload))
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload), uuid: environment.uuid().uuidString)
             enqueueRequest(request: request)
         default:
             environment.raiseFatalError("Unexpected request type. \(request.endpoint)")
@@ -213,7 +214,7 @@ struct KlaviyoState: Equatable, Codable {
         email != nil || externalId != nil || phoneNumber != nil
     }
 
-    mutating func reset(preserveTokenData: Bool = true) {
+    mutating func reset(preserveTokenData: Bool = true, appContextInfo: AppContextInfo) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
             anonymousId = environment.uuid().uuidString
@@ -233,26 +234,27 @@ struct KlaviyoState: Equatable, Codable {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: Profile().toAPIModel(anonymousId: anonymousId))
+                    profile: Profile().toAPIModel(anonymousId: anonymousId), appContextInfo: appContextInfo)
 
                 let request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload))
+                    endpoint: KlaviyoEndpoint.registerPushToken(payload), uuid: environment.uuid().uuidString)
 
                 enqueueRequest(request: request)
             }
         }
     }
 
-    func shouldSendTokenUpdate(newToken: String, enablement: PushEnablement) -> Bool {
+    func shouldSendTokenUpdate(newToken: String, enablement: PushEnablement, appContextInfo: AppContextInfo, pushBackground: PushBackground) -> Bool {
         guard let pushTokenData = pushTokenData else {
             return true
         }
-        let currentDeviceMetadata = DeviceMetadata(context: environment.appContextInfo())
+        let currentDeviceMetadata = DeviceMetadata(
+            context: appContextInfo)
         let newPushTokenData = PushTokenData(
             pushToken: newToken,
             pushEnablement: enablement,
-            pushBackground: environment.getBackgroundSetting(),
+            pushBackground: pushBackground,
             deviceData: currentDeviceMetadata)
 
         return pushTokenData != newPushTokenData
@@ -268,10 +270,10 @@ struct KlaviyoState: Equatable, Codable {
 
         let endpoint = KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload))
 
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
     }
 
-    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement, background: PushBackground, appContextInfo: AppContextInfo) -> KlaviyoRequest {
         var profile: Profile
 
         if let pendingProfile = pendingProfile {
@@ -288,10 +290,11 @@ struct KlaviyoState: Equatable, Codable {
         let payload = PushTokenPayload(
             pushToken: pushToken,
             enablement: enablement.rawValue,
-            background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId))
+            background: background.rawValue,
+            profile: profile.toAPIModel(anonymousId: anonymousId),
+            appContextInfo: appContextInfo)
         let endpoint = KlaviyoEndpoint.registerPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
     }
 
     func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
@@ -302,7 +305,7 @@ struct KlaviyoState: Equatable, Codable {
             externalId: externalId,
             anonymousId: anonymousId)
         let endpoint = KlaviyoEndpoint.unregisterPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
     }
 }
 
@@ -314,7 +317,7 @@ func saveKlaviyoState(state: KlaviyoState) {
         return
     }
     let file = klaviyoStateFile(apiKey: apiKey)
-    storeKlaviyoState(state: state, file: file)
+    storeKlaviyoState(fileClient: environment.fileClient, state: state, file: file)
 }
 
 private func klaviyoStateFile(apiKey: String) -> URL {
@@ -323,10 +326,11 @@ private func klaviyoStateFile(apiKey: String) -> URL {
     return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 
-private func storeKlaviyoState(state: KlaviyoState, file: URL) {
+private func storeKlaviyoState(fileClient: FileClient, state: KlaviyoState, file: URL) {
     do {
-        try environment.fileClient.write(environment.encodeJSON(AnyEncodable(state)), file)
+        try fileClient.write(environment.encodeJSON(AnyEncodable(state)), file)
     } catch {
+        // ND: handle logger here..
         environment.logger.error("Unable to save klaviyo state.")
     }
 }
@@ -339,8 +343,8 @@ private func removeStateFile(at file: URL) {
     }
 }
 
-private func logDevWarning(for identifier: String) {
-    environment.emitDeveloperWarning("""
+private func logDevWarning(for identifier: String) async {
+    await environment.emitDeveloperWarning("""
     \(identifier) is either empty or same as what is already set earlier.
     The SDK will ignore this change, please use resetProfile for
     resetting profile identifiers
@@ -378,7 +382,7 @@ func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
 private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
     let anonymousId = environment.uuid().uuidString
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
-    storeKlaviyoState(state: state, file: file)
+    storeKlaviyoState(fileClient: environment.fileClient, state: state, file: file)
     return state
 }
 
@@ -466,7 +470,8 @@ extension String {
     fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
         let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
         if incoming.isEmpty || incoming == state {
-            logDevWarning(for: identifier)
+            // fix - logging
+            // await logDevWarning(for: identifier)
         }
 
         return !incoming.isEmpty && incoming != state

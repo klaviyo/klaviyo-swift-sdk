@@ -5,6 +5,7 @@
 //  Created by Noah Durell on 2/21/23.
 //
 
+@testable import KlaviyoSDKDependencies
 @testable import KlaviyoSwift
 import Foundation
 import KlaviyoCore
@@ -12,6 +13,7 @@ import XCTest
 
 // MARK: - KlaviyoSDKTests
 
+@MainActor
 class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
 
@@ -19,13 +21,11 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: Setup
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
-    }
-
-    override func tearDown() async throws {
-        environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        store = Store.test
     }
 
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
@@ -33,7 +33,7 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyoSwiftEnvironment.send = { action in
             XCTAssertEqual(action, expectedAction, file: file, line: line)
             expectation.fulfill()
-            return nil
+            return StoreTask(rawValue: .none)
         }
         return expectation
     }
@@ -47,7 +47,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test initialize
 
     func testInitializeSDk() throws {
-        let expectation = setupActionAssertion(expectedAction: .initialize(TEST_API_KEY))
+        let expectation = setupActionAssertion(expectedAction: .initialize(TEST_API_KEY, .test))
 
         klaviyo.initialize(with: TEST_API_KEY)
 
@@ -72,7 +72,7 @@ class KlaviyoSDKTests: XCTestCase {
             phoneNumber: "+15555551212",
             firstName: "John",
             lastName: "Smith")
-        let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile))
+        let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile, .test))
 
         klaviyo.set(profile: profile)
 
@@ -83,7 +83,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testCreateEvent() throws {
         let event = Event(name: .openedAppMetric)
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event, .test))
 
         klaviyo.create(event: event)
 
@@ -95,7 +95,7 @@ class KlaviyoSDKTests: XCTestCase {
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
         ], value: 10.99)
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event, .test))
 
         klaviyo.create(event: event)
 
@@ -107,7 +107,7 @@ class KlaviyoSDKTests: XCTestCase {
     func testSetPushToken() throws {
         let tokenData = "mytoken".data(using: .utf8)!
         let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
-        let expectation = setupActionAssertion(expectedAction: .setPushToken(strToken, .authorized))
+        let expectation = setupActionAssertion(expectedAction: .setPushToken(strToken, .authorized, .available, .test))
 
         klaviyo.set(pushToken: tokenData)
 
@@ -117,7 +117,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test set external id
 
     func testSetExternalId() throws {
-        let expectation = setupActionAssertion(expectedAction: .setExternalId("foo"))
+        let expectation = setupActionAssertion(expectedAction: .setExternalId("foo", .test))
 
         _ = klaviyo.set(externalId: "foo")
 
@@ -133,7 +133,7 @@ class KlaviyoSDKTests: XCTestCase {
                 "foo": "bar"
             ]
         ]]
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body)))
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body), .test))
         let response = try UNNotificationResponse.with(userInfo: push_body)
         let handled = klaviyo.handle(notificationResponse: response) {
             callback.fulfill()
@@ -167,8 +167,17 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test property getters
 
-    func testPropertyGetters() throws {
-        klaviyoSwiftEnvironment.state = { KlaviyoState(email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id", pushTokenData: .init(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo())), queue: []) }
+    func testPropertyGetters() async throws {
+        let state = await KlaviyoState(email: "foo@foo.com",
+                                       phoneNumber: "555BLOB",
+                                       externalId: "my_test_id",
+                                       pushTokenData: .init(pushToken: "blobtoken",
+                                                            pushEnablement: .authorized,
+                                                            pushBackground: .available,
+                                                            deviceData: .init(context: environment.appContextInfo())),
+                                       queue: [])
+        klaviyoSwiftEnvironment.state = { state }
+
         let klaviyo = KlaviyoSDK()
         XCTAssertEqual("foo@foo.com", klaviyo.email)
         XCTAssertEqual("555BLOB", klaviyo.phoneNumber)

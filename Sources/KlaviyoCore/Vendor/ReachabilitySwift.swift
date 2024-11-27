@@ -47,7 +47,7 @@ func callback(reachability: SCNetworkReachability, flags: SCNetworkReachabilityF
     }
 }
 
-public class Reachability {
+public class Reachability: @unchecked Sendable {
     public init(
         whenReachable: Reachability.NetworkReachable? = nil,
         whenUnreachable: Reachability.NetworkUnreachable? = nil,
@@ -76,7 +76,7 @@ public class Reachability {
     public typealias NetworkReachable = (Reachability) -> Void
     public typealias NetworkUnreachable = (Reachability) -> Void
 
-    public enum NetworkStatus: CustomStringConvertible {
+    public enum NetworkStatus: CustomStringConvertible, Sendable {
         case notReachable, reachableViaWiFi, reachableViaWWAN
 
         public var description: String {

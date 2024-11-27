@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct FullFormsResponse: Codable, Equatable {
+public struct FullFormsResponse: Codable, Equatable, Sendable {
     public let fullForms: [FullForm]
     public let formSettings: FormSettings
     public let dynamicInfoConfig: DynamicInfoConfig?
@@ -20,19 +20,19 @@ public struct FullFormsResponse: Codable, Equatable {
 }
 
 extension FullFormsResponse {
-    public struct FullForm: Codable, Equatable {
+    public struct FullForm: Codable, Equatable, Sendable {
         // TODO: determine which properties we need to decode
     }
 }
 
 extension FullFormsResponse {
-    public struct FormSettings: Codable, Equatable {
+    public struct FormSettings: Codable, Equatable, Sendable {
         // TODO: determine which properties we need to decode
     }
 }
 
 extension FullFormsResponse {
-    public struct DynamicInfoConfig: Codable, Equatable {
+    public struct DynamicInfoConfig: Codable, Equatable, Sendable {
         // TODO: determine which properties we need to decode
     }
 }
