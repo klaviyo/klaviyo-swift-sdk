@@ -7,8 +7,9 @@
 //
 
 import Foundation
+import KlaviyoSDKDependencies
 
-public enum KlaviyoEndpoint: Equatable, Codable {
+public enum KlaviyoEndpoint: Equatable, Codable, Sendable {
     case createProfile(CreateProfilePayload)
     case createEvent(CreateEventPayload)
     case registerPushToken(PushTokenPayload)

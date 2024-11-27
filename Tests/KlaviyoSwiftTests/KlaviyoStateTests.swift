@@ -8,9 +8,11 @@
 @testable import KlaviyoSwift
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 import SnapshotTesting
 import XCTest
 
+@MainActor
 final class KlaviyoStateTests: XCTestCase {
     let TEST_EVENT = [
         "event": "$opened_push",
@@ -74,7 +76,7 @@ final class KlaviyoStateTests: XCTestCase {
         environment.fileClient.fileExists = { _ in false }
         environment.archiverClient.unarchivedMutableArray = { _ in [] }
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(of: state, as: .dump)
     }
 
     func testStateFileExistsInvalidData() throws {
@@ -90,7 +92,7 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(of: state, as: .dump)
     }
 
     func testStateFileExistsInvalidJSON() throws {
@@ -105,7 +107,7 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(of: state, as: .dump)
     }
 
     func testValidStateFileExists() throws {
@@ -113,6 +115,7 @@ final class KlaviyoStateTests: XCTestCase {
             true
         }
         environment.dataFromUrl = { _ in
+            // ND: This doesn't actually get used anymore...
             try! JSONEncoder().encode(KlaviyoState(
                 apiKey: "foo",
                 anonymousId: environment.uuid().uuidString,
@@ -120,27 +123,25 @@ final class KlaviyoStateTests: XCTestCase {
                 requestsInFlight: []
             ))
         }
-
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(of: state, as: .dump)
     }
 
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
         let event = Event.test
-        let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: event.metric.name.value))
-        let eventRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
+        let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: event.metric.name.value, appContextInfo: .test))
+        let eventRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload), uuid: environment.uuid().uuidString)
 
         let profile = Profile.test
         let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
 
-        let profileRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
+        let profileRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload), uuid: environment.uuid().uuidString)
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
-        )
-        let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: .test)
+        let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: environment.uuid().uuidString)
 
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, eventRequest, profileRequest])
 

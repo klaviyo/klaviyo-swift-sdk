@@ -5,37 +5,39 @@
 //  Created by Noah Durell on 11/14/22.
 //
 
-import KlaviyoCore
+@testable import KlaviyoCore
 import SnapshotTesting
 import XCTest
 
+@MainActor
 final class EncodableTests: XCTestCase {
     let testEncoder = KlaviyoEnvironment.encoder
 
-    override func setUpWithError() throws {
+    @MainActor
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
     func testProfilePayload() throws {
         let payload = CreateProfilePayload(data: .test)
-        assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
+        assertSnapshot(of: payload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testEventPayload() throws {
-        let payloadData = CreateEventPayload.Event(name: "test", properties: SAMPLE_PROPERTIES, anonymousId: "anon-id")
+    @MainActor
+    func testEventPayload() async throws {
+        let payloadData = CreateEventPayload.Event(name: "test", properties: SAMPLE_PROPERTIES, anonymousId: "anon-id", pushToken: "", appContextInfo: AppContextInfo.test)
         let createEventPayload = CreateEventPayload(data: payloadData)
-        assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
+        assertSnapshot(of: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testTokenPayload() throws {
-        let tokenPayload = PushTokenPayload(
+    func testTokenPayload() async throws {
+        let tokenPayload = await PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
-        )
-        assertSnapshot(matching: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: environment.appContextInfo())
+        assertSnapshot(of: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
     func testUnregisterTokenPayload() throws {
@@ -43,19 +45,18 @@ final class EncodableTests: XCTestCase {
             pushToken: "foo",
             email: "foo",
             phoneNumber: "foo",
-            anonymousId: "foo"
-        )
-        assertSnapshot(matching: tokenPayload, as: .json)
+            anonymousId: "foo")
+        assertSnapshot(of: tokenPayload, as: .json)
     }
 
-    func testKlaviyoRequest() throws {
-        let tokenPayload = PushTokenPayload(
+    func testKlaviyoRequest() async throws {
+        let tokenPayload = await PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
-        )
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
-        assertSnapshot(matching: request, as: .json)
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"),
+            appContextInfo: environment.appContextInfo()) 
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: environment.uuid().uuidString)
+        assertSnapshot(of: request, as: .json)
     }
 }

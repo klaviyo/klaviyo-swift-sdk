@@ -12,39 +12,39 @@ import XCTest
 
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
 
+@MainActor
 class APIRequestErrorHandlingTests: XCTestCase {
-    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
 
     // MARK: - http error
 
-    @MainActor
     func testSendRequestHttpFailureDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore.testStore(initialState)
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
 
         _ = await store.send(.sendRequest)
-
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.requestsInFlight = []
         }
     }
 
-    @MainActor
     func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
+        let failureJson = TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.httpError(400, failureJson)) }
 
         _ = await store.send(.sendRequest)
 
@@ -60,14 +60,16 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSendRequestHttpFailureForEmailResetsStateAndDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
+        let failureJson = TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.httpError(400, failureJson)) }
 
         _ = await store.send(.sendRequest)
 
@@ -131,15 +133,16 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - network error
 
-    @MainActor
     func testSendRequestFailureIncrementsRetryCount() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized, background: .available, appContextInfo: .test)
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
@@ -151,16 +154,17 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSendRequestFailureWithBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
+        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized, background: .available, appContextInfo: .test)
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
@@ -172,22 +176,23 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSendRequestMaxRetries() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retry(ErrorHandlingConstants.maxRetries)
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
+        var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized, background: .available, appContextInfo: .test)
         request2.uuid = "foo"
         initialState.requestsInFlight = [request, request2]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(ErrorHandlingConstants.maxRetries + 1)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retry(ErrorHandlingConstants.maxRetries + 1))) {
             $0.flushing = false
             $0.queue = [request2]
             $0.requestsInFlight = []
@@ -197,20 +202,21 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - internal error
 
-    @MainActor
     func testSendRequestInternalError() async throws {
         // NOTE: should really happen but putting this in for possible future cases and test coverage
         var initialState = INITIALIZED_TEST_STATE()
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.internalError("internal error!")) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -220,19 +226,20 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - internal request error
 
-    @MainActor
     func testSendRequestInternalRequestError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.internalRequestError(KlaviyoAPIError.internalError("foo"))) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.internalRequestError(KlaviyoAPIError.internalError("foo"))) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -242,15 +249,16 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - unknown error
 
-    @MainActor
     func testSendRequestUnknownError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
 
         _ = await store.send(.sendRequest)
 
@@ -269,13 +277,15 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.dataEncodingError(request)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
@@ -285,14 +295,15 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - invalid data
 
-    @MainActor
     func testSendRequestInvalidData() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.invalidData) }
 
         _ = await store.send(.sendRequest)
 
@@ -306,17 +317,17 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - rate limit error
 
-    @MainActor
     func testRateLimitErrorWithExistingRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.rateLimitError(backOff: 30)) }
 
         _ = await store.send(.sendRequest)
-
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request]
@@ -325,15 +336,16 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testRateLimitErrorWithExistingBackoffRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.rateLimitError(backOff: 30)) }
 
         _ = await store.send(.sendRequest)
 
@@ -345,19 +357,20 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testRetryWithRetryAfter() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 20)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.rateLimitError(backOff: 20)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20))) {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
@@ -367,19 +380,20 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
     // MARK: - Missing or invalid response
 
-    @MainActor
     func testMissingOrInvalidResponse() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.missingOrInvalidResponse(nil)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.missingOrInvalidResponse(nil)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []

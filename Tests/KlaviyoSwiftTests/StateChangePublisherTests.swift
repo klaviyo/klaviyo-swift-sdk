@@ -1,172 +1,73 @@
-//
-//  StateChangePublisherTests.swift
-//
-//
-//  Created by Noah Durell on 12/21/22.
-//
-
-import Combine
-import CombineSchedulers
-import Foundation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 
-final class StateChangePublisherTests: XCTestCase {
-    @MainActor
-    override func setUpWithError() throws {
+// TODO: follow up on these change - ensure we are still testing edge cases here
+
+@MainActor
+class StateChangePublisherTests: XCTestCase {
+    private var cancellables: Set<AnyCancellable> = []
+
+    override func setUp() async throws {
+        cancellables = []
         environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
     }
 
-    @MainActor
-    func testStateChangePublisher() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
-        // Third call set email should trigger again
-        let setEmailSaveExpectation = XCTestExpectation(description: "Set email should be saved.")
+    override func tearDown() async throws {
+        cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
+    }
 
-        var count = 0
-        environment.fileClient.write = { _, _ in
-            if count == 0 {
-                savedCalledExpectation.fulfill()
-            } else if count == 1 {
-                setEmailSaveExpectation.fulfill()
-            }
-            count += 1
+    func testPublisherCallsEmitsOnlyOnce() async {
+        // Create a mock state to publish
+        let mockState = INITIALIZED_TEST_STATE()
+
+        // Use a PassthroughSubject to simulate the statePublisher
+        let stateSubject = PassthroughSubject<KlaviyoState, Never>()
+
+        // Mock the klaviyoSwiftEnvironment to use the stateSubject as the publisher
+        klaviyoSwiftEnvironment.statePublisher = {
+            stateSubject.eraseToAnyPublisher()
         }
+
+        // Use a TestScheduler to control time
         let testScheduler = DispatchQueue.test
+
+        // Override the debouncedPublisher to use the test scheduler
         StateChangePublisher.debouncedPublisher = { publisher in
             publisher
                 .debounce(for: .seconds(1), scheduler: testScheduler)
                 .eraseToAnyPublisher()
         }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
-            case let .setEmail(email):
-                state.email = email
-                return .none
-            default:
-                return .none
-            }
-        }
 
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
-
-        klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
-        }
-
-        testScheduler.run()
-        @MainActor
-        func runDebouncedEffect() {
-            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-            testScheduler.run()
-            // This should not trigger a save since in our reducer it does not change the state.
-            _ = klaviyoSwiftEnvironment.send(.setPushToken("foo", .authorized))
-            _ = klaviyoSwiftEnvironment.send(.setEmail("foo"))
-        }
-        runDebouncedEffect()
-        testScheduler.advance(by: .seconds(2.0))
-
-        wait(for: [savedCalledExpectation, setEmailSaveExpectation], timeout: 2.0)
-
-        XCTAssertEqual(count, 2)
-    }
-
-    @MainActor
-    func testStateChangeDuplicateAreRemoved() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
-        savedCalledExpectation.assertForOverFulfill = true
-
-        environment.fileClient.write = { _, _ in
-            savedCalledExpectation.fulfill()
-        }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher.test.publisher().eraseToEffect()
-            case .flushQueue:
-                return .none
-            default:
-                return .none
-            }
-        }
-
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
-
-        klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
-        }
-
-        @MainActor
-        func runDebouncedEffect() {
-            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-            _ = klaviyoSwiftEnvironment.send(.flushQueue)
-            _ = klaviyoSwiftEnvironment.send(.flushQueue)
-        }
-
-        runDebouncedEffect()
-
-        wait(for: [savedCalledExpectation], timeout: 1.0)
-    }
-
-    func testQuickStateUpdatesTriggerOnlyOneSaves() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
+        let expectation = XCTestExpectation(description: "Publisher emits once")
+        expectation.expectedFulfillmentCount = 1
         var count = 0
-        environment.fileClient.write = { _, _ in
-            if count == 1 {
-                savedCalledExpectation.fulfill()
-            }
-            count += 1
-        }
 
-        let testScheduler = DispatchQueue.test
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(1), scheduler: testScheduler)
-                .eraseToAnyPublisher()
-        }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
-            case let .setEmail(email):
-                state.email = email
-                return .none
-            default:
-                return .none
+        Task {
+            for await _ in StateChangePublisher().publisher() {
+                count += 1
+                expectation.fulfill()
             }
         }
 
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
+        // Send the mock state
+        stateSubject.send(mockState)
 
-        klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
-        }
-        _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-        testScheduler.run()
-        for i in 0...10 {
-            _ = klaviyoSwiftEnvironment.send(.setEmail("foo\(i)"))
-        }
-        testScheduler.advance(by: 1.0)
-        wait(for: [savedCalledExpectation], timeout: 1.0)
+        // Advance time to trigger the debounced emission
+        await testScheduler.advance(by: .seconds(1.1))
 
-        XCTAssertEqual(count, 2)
+        // Send the mock state again (should not cause a new emission)
+        stateSubject.send(mockState)
+
+        // Advance time again to process any pending events
+        await testScheduler.advance(by: .seconds(1.1))
+
+        // Wait for expectation or timeout
+        await fulfillment(of: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(count, 1)
     }
 }

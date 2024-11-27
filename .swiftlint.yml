@@ -17,6 +17,7 @@ excluded: # paths to ignore during linting. Takes precedence over `included`.
   - Sources/KlaviyoSwift/Vendor
   - Tests/KlaviyoSwiftTests/Vendor
   - Tests/KlaviyoSwiftTests/__Snapshots__
+  - Sources/KlaviyoSDKDependencies
 analyzer_rules: # Rules run by `swiftlint analyze` (experimental)
   - explicit_self
 

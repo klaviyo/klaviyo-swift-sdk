@@ -5,13 +5,13 @@
 //  Created by Noah Durell on 11/8/22.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
-public struct KlaviyoAPI {
-    public var send: (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError>
+public struct KlaviyoAPI: Sendable {
+    public var send: @Sendable (NetworkSession, KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError>
 
-    public init(send: @escaping (KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { request, attemptNumber in
+    public init(send: @Sendable @escaping (NetworkSession, KlaviyoRequest, Int) async -> Result<Data, KlaviyoAPIError> = { session, request, attemptNumber in
         let start = environment.date()
 
         var urlRequest: URLRequest
@@ -27,7 +27,7 @@ public struct KlaviyoAPI {
         var response: URLResponse
         var data: Data
         do {
-            (data, response) = try await environment.networkSession().data(urlRequest)
+            (data, response) = try await session.data(urlRequest)
         } catch {
             requestHandler(request, urlRequest, .error(.requestFailed(error)))
             return .failure(KlaviyoAPIError.networkError(error))
@@ -55,7 +55,7 @@ public struct KlaviyoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            requestHandler(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration)))
+            requestHandler(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration, data: data)))
             return .failure(KlaviyoAPIError.httpError(httpResponse.statusCode, data))
         }
 
@@ -67,5 +67,9 @@ public struct KlaviyoAPI {
     }
 
     // For internal testing use only
+    #if swift(>=5.10)
+    public nonisolated(unsafe) static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
+    #else
     public static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
+    #endif
 }

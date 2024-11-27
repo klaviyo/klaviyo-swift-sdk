@@ -52,8 +52,7 @@ private func parseError(_ data: Data) -> [InvalidField]? {
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,
-    retryInfo: RetryInfo
-) -> KlaviyoAction {
+    retryInfo: RetryInfo) async -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):
         let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
@@ -77,23 +76,23 @@ func handleRequestError(
         }
 
     case let .internalError(data):
-        environment.emitDeveloperWarning("An internal error occurred msg: \(data)")
+        await environment.emitDeveloperWarning("An internal error occurred msg: \(data)")
         return .deQueueCompletedResults(request)
 
     case let .internalRequestError(error):
-        environment.emitDeveloperWarning("An internal request error occurred msg: \(error)")
+        await environment.emitDeveloperWarning("An internal request error occurred msg: \(error)")
         return .deQueueCompletedResults(request)
 
     case let .unknownError(error):
-        environment.emitDeveloperWarning("An unknown request error occured \(error)")
+        await environment.emitDeveloperWarning("An unknown request error occured \(error)")
         return .deQueueCompletedResults(request)
 
     case .dataEncodingError:
-        environment.emitDeveloperWarning("A data encoding error occurred during transmission.")
+        await environment.emitDeveloperWarning("A data encoding error occurred during transmission.")
         return .deQueueCompletedResults(request)
 
     case .invalidData:
-        environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
+        await environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
 
     case let .rateLimitError(retryAfter):
@@ -118,7 +117,8 @@ func handleRequestError(
         )
 
     case .missingOrInvalidResponse:
-        runtimeWarn("Missing or invalid response from api.")
+
+        // runtimeWarn("Missing or invalid response from api.")
         return .deQueueCompletedResults(request)
     }
 }

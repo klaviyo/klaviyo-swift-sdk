@@ -8,13 +8,14 @@
 import Combine
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 
 enum FakeFileError: Error {
     case fake
 }
 
 let ARCHIVED_RETURNED_DATA = Data()
-let SAMPLE_DATA: NSMutableArray = [
+@MainActor let SAMPLE_DATA: NSMutableArray = [
     [
         "properties": [
             "foo": "bar"
@@ -60,7 +61,7 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 }
 """
 
-let SAMPLE_PROPERTIES = [
+@MainActor let SAMPLE_PROPERTIES = [
     "Blob": "blob",
     "Stuff": 2,
     "Hello": [
@@ -68,6 +69,7 @@ let SAMPLE_PROPERTIES = [
     ]
 ] as [String: Any]
 
+@MainActor
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
@@ -75,6 +77,7 @@ extension ArchiverClient {
     )
 }
 
+@MainActor
 extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
@@ -83,10 +86,8 @@ extension KlaviyoEnvironment {
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
-            appLifeCycle: AppLifeCycleEvents.test,
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
-            getBackgroundSetting: { .available },
             getBadgeAutoClearingSetting: { true },
             startReachability: {},
             stopReachability: {},
@@ -94,20 +95,34 @@ extension KlaviyoEnvironment {
             randomInt: { 0 },
             raiseFatalError: { _ in },
             emitDeveloperWarning: { _ in },
+<<<<<<< HEAD
             networkSession: { NetworkSession.test() },
             apiURL: { URLComponents(string: "https://dead_beef")! },
             cdnURL: { URLComponents(string: "https://dead_beef")! },
+=======
+            apiURL: { "dead_beef" },
+>>>>>>> ce36bc9 (Update SDK to support swift 6)
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
             date: { Date(timeIntervalSince1970: 1_234_567_890) },
             timeZone: { "EST" },
-            appContextInfo: { AppContextInfo.test },
+
             klaviyoAPI: KlaviyoAPI.test(),
+<<<<<<< HEAD
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion }
         )
+=======
+            timer: { _ in AsyncStream {
+                continuation in
+                continuation.yield(Date())
+                continuation.finish()
+            }
+            },
+            appContextInfo: { AppContextInfo.test })
+>>>>>>> d062e0a (Update SDK to support swift 6)
     }
 }
 
@@ -120,10 +135,12 @@ extension FileClient {
     )
 }
 
+@MainActor
 extension KlaviyoAPI {
-    static let test = { KlaviyoAPI(send: { _, _ in .success(TEST_RETURN_DATA) }) }
+    static let test = { KlaviyoAPI(send: { _, _, _ in .success(TEST_RETURN_DATA) }) }
 }
 
+@MainActor
 extension LoggerClient {
     static var lastLoggedMessage: String?
     static let test = LoggerClient { message in
@@ -131,24 +148,26 @@ extension LoggerClient {
     }
 }
 
+@MainActor
 extension AppLifeCycleEvents {
-    static let test = Self(lifeCycleEvents: { Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
+    static let test = Self(lifeCycleEvents: { _, _, _, _ in Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
 }
 
+@MainActor
 extension NetworkSession {
     static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
-    static let DEFAULT_CALLBACK: (URLRequest) async throws -> (Data, URLResponse) = { _ in
+    static let DEFAULT_CALLBACK: @Sendable (URLRequest) async throws -> (Data, URLResponse) = { _ in
         (Data(), successfulRepsonse)
     }
 
-    static func test(data: @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
+    static func test(data: @Sendable @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
         NetworkSession(data: data)
     }
 }
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        AppLifeCycleEvents.test as! T
+        AppContextInfo.test as! T
     }
 }
 
@@ -162,7 +181,10 @@ extension AppContextInfo {
                            osName: "iOS",
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
-                           deviceId: "fe-fi-fo-fum")
+                           deviceId: "fe-fi-fo-fum",
+                           environment: "debug",
+                           klaviyoSdk: "swift",
+                           sdkVersion: "4.0.0")
 }
 
 extension URLResponse {
@@ -175,8 +197,7 @@ extension PushTokenPayload {
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: ProfilePayload(properties: [:], anonymousId: "anon-id")
-    )
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"), appContextInfo: AppContextInfo.test)
 }
 
 extension ProfilePayload {

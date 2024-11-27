@@ -11,9 +11,9 @@
 //  Licensed under the MIT License. See LICENSE file in the project root for full license information.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 import UIKit
 import UserNotifications
 
@@ -29,28 +29,28 @@ enum RetryInfo: Equatable {
     case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
 }
 
-enum KlaviyoAction: Equatable {
+enum KlaviyoAction: Equatable, Sendable {
     /// Sets the API key to state. If the state is already initialized then the push token is moved over to the company with the API key provided in this action.
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
-    case initialize(String)
+    case initialize(String, AppContextInfo)
 
     /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
     case completeInitialization(KlaviyoState)
 
     /// if initialized, set the email else queue it up
-    case setEmail(String)
+    case setEmail(String, AppContextInfo)
 
     /// if initialized set the phone number else queue it up
-    case setPhoneNumber(String)
+    case setPhoneNumber(String, AppContextInfo)
 
     /// if initialized set the external id else queue it up
-    case setExternalId(String)
+    case setExternalId(String, AppContextInfo)
 
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
-    case setPushToken(String, PushEnablement)
+    case setPushToken(String, PushEnablement, PushBackground, AppContextInfo)
 
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
-    case setPushEnablement(PushEnablement)
+    case setPushEnablement(PushEnablement, PushBackground, AppContextInfo)
 
     /// call to set the app badge count as well as update the stored value in the User Defaults suite
     case setBadgeCount(Int)
@@ -59,7 +59,7 @@ enum KlaviyoAction: Equatable {
     case syncBadgeCount
 
     /// called when the user wants to reset the existing profile from state
-    case resetProfile
+    case resetProfile(AppContextInfo)
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
@@ -68,7 +68,7 @@ enum KlaviyoAction: Equatable {
     case networkConnectivityChanged(Reachability.NetworkStatus)
 
     /// flushes the queue say when the app is foregrounded or we come back to having network from not having
-    case flushQueue
+    case flushQueue(AppContextInfo)
 
     /// picks up in flight requests and sends them out. handles errors and if no errors emits a `dequeCompletedResults`
     case sendRequest
@@ -86,13 +86,13 @@ enum KlaviyoAction: Equatable {
     case requestFailed(KlaviyoRequest, RetryInfo)
 
     /// when there is an event to be sent to klaviyo it's added to the queue
-    case enqueueEvent(Event)
+    case enqueueEvent(Event, AppContextInfo)
 
     /// when there is an aggregate event to be sent to klaviyo it's added to the queue
     case enqueueAggregateEvent(Data)
 
     /// when there is an profile to be sent to klaviyo it's added to the queue
-    case enqueueProfile(Profile)
+    case enqueueProfile(Profile, AppContextInfo)
 
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
@@ -105,7 +105,7 @@ enum KlaviyoAction: Equatable {
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
+        case let .enqueueEvent(event, _) where event.metric.name == ._openedPush:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
@@ -117,22 +117,30 @@ enum KlaviyoAction: Equatable {
     }
 }
 
-struct RequestId {}
-struct FlushTimer {}
+enum CancelIds {
+    case request
+    case timer
+}
 
-struct KlaviyoReducer: ReducerProtocol {
+struct KlaviyoReducer: Reducer {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
 
-    func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+    var body: any Reducer {
+        Reduce { state, action in
+            reduce(into: &state, action: action)
+        }
+    }
+
+    func reduce(into state: inout State, action: Action) -> Effect<Action> {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
-            environment.emitDeveloperWarning("SDK must be initialized before usage.")
+            environment.logger.error("SDK must be initialized before usage.")
             return .none
         }
 
         switch action {
-        case let .initialize(apiKey):
+        case let .initialize(apiKey, appContextInfo):
             if case .initialized = state.initalizationState {
                 guard apiKey != state.apiKey else {
                     return .none
@@ -149,7 +157,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     state.enqueueRequest(request: request)
                 }
                 state.apiKey = apiKey
-                state.reset()
+                state.reset(preserveTokenData: true, appContextInfo: appContextInfo)
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
@@ -187,74 +195,83 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 for request in pendingRequests {
                     switch request {
-                    case let .event(event):
-                        await send(.enqueueEvent(event))
                     case let .aggregateEvent(payload):
                         await send(.enqueueAggregateEvent(payload))
-                    case let .profile(profile):
-                        await send(.enqueueProfile(profile))
-                    case let .pushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .setEmail(email):
-                        await send(.setEmail(email))
-                    case let .setExternalId(externalId):
-                        await send(.setExternalId(externalId))
-                    case let .setPhoneNumber(phoneNumber):
-                        await send(.setPhoneNumber(phoneNumber))
+                    case let .event(event, appContextInfo):
+                        await send(.enqueueEvent(event, appContextInfo))
+                    case let .profile(profile, appContextInfo):
+                        await send(.enqueueProfile(profile, appContextInfo))
+                    case let .pushToken(token, enablement, background, appContextInfo):
+                        await send(.setPushToken(token, enablement, background, appContextInfo))
+                    case let .setEmail(email, appContextInfo):
+                        await send(.setEmail(email, appContextInfo))
+                    case let .setExternalId(externalId, appContextInfo):
+                        await send(.setExternalId(externalId, appContextInfo))
+                    case let .setPhoneNumber(phoneNumber, appContextInfo):
+                        await send(.setPhoneNumber(phoneNumber, appContextInfo))
                     }
                 }
                 await send(.start)
             }
-            .merge(with: environment.appLifeCycle.lifeCycleEvents().map(\.transformToKlaviyoAction).eraseToEffect())
-            .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
+            .merge(with: .run { send in
+                let lifeCyclePublisher = await MainActor.run { klaviyoSwiftEnvironment.lifeCyclePublisher()
+                }
+                for await action in lifeCyclePublisher {
+                    await send(action)
+                }
+            })
+            .merge(with: .run { _ in
+                let publisher = await MainActor.run { klaviyoSwiftEnvironment.stateChangePublisher()
+                }
+                for await state in publisher {
+                    saveKlaviyoState(state: state)
+                }
+            })
 
-        case let .setEmail(email):
+        case let .setEmail(email, appContextInfo):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setEmail(email))
+                state.pendingRequests.append(.setEmail(email, appContextInfo))
                 return .none
             }
-            state.updateEmail(email: email)
+            state.updateEmail(email: email, appContextInfo: appContextInfo)
             return .none
 
-        case let .setPhoneNumber(phoneNumber):
+        case let .setPhoneNumber(phoneNumber, appContextInfo):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setPhoneNumber(phoneNumber))
+                state.pendingRequests.append(.setPhoneNumber(phoneNumber, appContextInfo))
                 return .none
             }
-            state.updatePhoneNumber(phoneNumber: phoneNumber)
+            state.updatePhoneNumber(phoneNumber: phoneNumber, appContextInfo: appContextInfo)
             return .none
 
-        case let .setExternalId(externalId):
+        case let .setExternalId(externalId, appContextInfo):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setExternalId(externalId))
+                state.pendingRequests.append(.setExternalId(externalId, appContextInfo))
                 return .none
             }
-            state.updateExternalId(externalId: externalId)
+            state.updateExternalId(externalId: externalId, appContextInfo: appContextInfo)
             return .none
 
-        case let .setPushToken(pushToken, enablement):
+        case let .setPushToken(pushToken, enablement, background, appContextInfo):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
-                state.pendingRequests.append(.pushToken(pushToken, enablement))
+                state.pendingRequests.append(.pushToken(pushToken, enablement, background, appContextInfo))
                 return .none
             }
-            if !state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) {
+            if !state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement, appContextInfo: appContextInfo, pushBackground: background) {
                 return .none
             }
-
-            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement, background: background, appContextInfo: appContextInfo)
             state.enqueueRequest(request: request)
             return .none
 
-        case let .setPushEnablement(enablement):
+        case let .setPushEnablement(enablement, background, appContextInfo):
             guard let pushToken = state.pushTokenData?.pushToken else {
                 return .none
             }
 
-            return .run { send in
-                await send(KlaviyoAction.setPushToken(pushToken, enablement))
-            }
+            return .send(KlaviyoAction.setPushToken(pushToken, enablement, background, appContextInfo))
 
-        case .flushQueue:
+        case let .flushQueue(appContextInfo):
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -275,7 +292,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             }
             if state.pendingProfile != nil {
-                state.enqueueProfileOrTokenRequest()
+                state.enqueueProfileOrTokenRequest(appConextInfo: appContextInfo)
             }
 
             if state.queue.isEmpty {
@@ -285,29 +302,28 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
             state.flushing = true
-            return .task {
-                .sendRequest
-            }
+            return .send(.sendRequest)
 
         case .stop:
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                .concatenate(with: .run(operation: { send in
-                    await send(.cancelInFlightRequests)
-                    await send(KlaviyoAction.syncBadgeCount)
-                }))
-
+            return Effect.cancel(id: CancelIds.request)
+                .concatenate(with: Effect.cancel(id: CancelIds.timer))
+                .concatenate(with: .send(.cancelInFlightRequests))
+                .concatenate(with: .send(.syncBadgeCount))
         case .start:
             guard case .initialized = state.initalizationState else {
                 return .none
             }
 
+            let flushInterval = state.flushInterval
             return .merge([
                 .run { send in
                     let settings = await environment.getNotificationSettings()
-                    await send(KlaviyoAction.setPushEnablement(settings))
+                    let background = await klaviyoSwiftEnvironment.getBackgroundSetting()
+                    let appContextInfo = await environment.appContextInfo()
+                    await send(KlaviyoAction.setPushEnablement(settings, background, appContextInfo))
                     let autoclearing = await environment.getBadgeAutoClearingSetting()
                     if autoclearing {
                         await send(KlaviyoAction.setBadgeCount(0))
@@ -315,12 +331,12 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(KlaviyoAction.syncBadgeCount)
                     }
                 },
-                environment.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
+                .run { send in
+                    for await _ in environment.timer(flushInterval) {
+                        await send(KlaviyoAction.flushQueue(environment.appContextInfo()))
                     }
-                    .eraseToEffect()
-                    .cancellable(id: FlushTimer.self, cancelInFlight: true)
+                }
+                .cancellable(id: CancelIds.timer, cancelInFlight: true)
             ])
 
         case let .deQueueCompletedResults(completedRequest):
@@ -343,7 +359,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
-            return .task { .sendRequest }.cancellable(id: RequestId.self)
+            return .send(.sendRequest).cancellable(id: CancelIds.request)
 
         case .sendRequest:
             guard case .initialized = state.initalizationState else {
@@ -362,9 +378,9 @@ struct KlaviyoReducer: ReducerProtocol {
             if case let .retry(attempts) = retryInfo {
                 numAttempts = attempts
             }
-
             return .run { [numAttempts] send in
-                let result = await environment.klaviyoAPI.send(request, numAttempts)
+                let networkSesion = await klaviyoSwiftEnvironment.networkSession()
+                let result = await environment.klaviyoAPI.send(networkSesion, request, numAttempts)
                 switch result {
                 case .success:
                     await send(.deQueueCompletedResults(request))
@@ -373,9 +389,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             } catch: { error, send in
                 // For now assuming this is cancellation since nothing else can throw AFAICT
-                environment.emitDeveloperWarning("Unknown error thrown during request processing \(error)")
+                environment.logger.error("Unknown error thrown during request processing \(error)")
                 await send(.cancelInFlightRequests)
-            }.cancellable(id: RequestId.self)
+            }.cancellable(id: CancelIds.request)
 
         case .cancelInFlightRequests:
             state.flushing = false
@@ -390,20 +406,21 @@ struct KlaviyoReducer: ReducerProtocol {
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = Double.infinity
-                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                    .concatenate(with: .run { send in
-                        await send(.cancelInFlightRequests)
-                    })
+                return Effect.cancel(id: CancelIds.request)
+                    .concatenate(with: Effect.cancel(id: CancelIds.timer))
+                    .concatenate(with: .send(.cancelInFlightRequests))
             case .reachableViaWiFi:
                 state.flushInterval = StateManagementConstants.wifiFlushInterval
             case .reachableViaWWAN:
                 state.flushInterval = StateManagementConstants.cellularFlushInterval
             }
-            return environment.timer(state.flushInterval)
-                .map { _ in
-                    KlaviyoAction.flushQueue
-                }.eraseToEffect()
-                .cancellable(id: FlushTimer.self, cancelInFlight: true)
+            let flushInterval = state.flushInterval
+            return .run { send in
+                for await _ in environment.timer(flushInterval) {
+                    await send(KlaviyoAction.flushQueue(environment.appContextInfo()))
+                }
+            }
+            .cancellable(id: CancelIds.timer, cancelInFlight: true)
 
         case let .requestFailed(request, retryInfo):
             var exceededRetries = false
@@ -425,12 +442,12 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
 
-        case var .enqueueEvent(event):
+        case .enqueueEvent(var event, let appContextInfo):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
-                state.pendingRequests.append(.event(event))
+                state.pendingRequests.append(.event(event, appContextInfo))
                 return .none
             }
 
@@ -447,12 +464,11 @@ struct KlaviyoReducer: ReducerProtocol {
                     value: event.value,
                     time: event.time,
                     uniqueId: event.uniqueId,
-                    pushToken: state.pushTokenData?.pushToken
-                ))
+                    pushToken: state.pushTokenData?.pushToken,
+                    appContextInfo: appContextInfo))
 
             let endpoint = KlaviyoEndpoint.createEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
-
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
             state.enqueueRequest(request: request)
 
             /*
@@ -460,7 +476,7 @@ struct KlaviyoReducer: ReducerProtocol {
              we don't miss any user engagement events. In all other cases we will flush the queue
              using the flush intervals defined above in `StateManagementConstants`
              */
-            return event.metric.name == ._openedPush ? .task { .flushQueue } : .none
+            return event.metric.name == ._openedPush ? .send(.flushQueue(appContextInfo)) : .none
 
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
@@ -471,21 +487,21 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let endpoint = KlaviyoEndpoint.aggregateEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
 
             state.enqueueRequest(request: request)
 
             return .none
 
-        case let .enqueueProfile(profile):
+        case let .enqueueProfile(profile, appContextInfo):
             guard case .initialized = state.initalizationState
             else {
-                state.pendingRequests.append(.profile(profile))
+                state.pendingRequests.append(.profile(profile, appContextInfo))
                 return .none
             }
 
             let pushTokenData = state.pushTokenData
-            state.reset(preserveTokenData: false)
+            state.reset(preserveTokenData: false, appContextInfo: appContextInfo)
             state.updateStateWithProfile(profile: profile)
             guard let anonymousId = state.anonymousId,
                   let apiKey = state.apiKey
@@ -506,26 +522,18 @@ struct KlaviyoReducer: ReducerProtocol {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: profilePayload
-                )
+                    profile: profilePayload, appContextInfo: appContextInfo)
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
-                )
+                    endpoint: .registerPushToken(payload), uuid: environment.uuid().uuidString)
             } else {
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload))
-                )
+                    endpoint: .createProfile(CreateProfilePayload(data: profilePayload)), uuid: environment.uuid().uuidString)
             }
             state.enqueueRequest(request: request)
 
             return .none
-
-        case let .setBadgeCount(count):
-            return .run { _ in
-                _ = klaviyoSwiftEnvironment.setBadgeCount(count)
-            }
 
         case .syncBadgeCount:
             Task {
@@ -537,12 +545,12 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             return .none
 
-        case .resetProfile:
+        case let .resetProfile(appContextInfo):
             guard case .initialized = state.initalizationState
             else {
                 return .none
             }
-            state.reset()
+            state.reset(appContextInfo: appContextInfo)
             return .none
 
         case let .setProfileProperty(key, value):
@@ -564,16 +572,19 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             }
 
-            return .task { .deQueueCompletedResults(request) }
+            return .send(.deQueueCompletedResults(request))
+        case .setBadgeCount(let count):
+            return .run { _ in
+                await KlaviyoSwiftEnvironment.production.setBadgeCount(count)
+            }
         }
     }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let production = Store(
-        initialState: KlaviyoState(queue: [], requestsInFlight: []),
-        reducer: KlaviyoReducer()
-    )
+    static let production = Store(initialState: KlaviyoState(queue: [])) {
+        KlaviyoReducer()
+    }
 }
 
 extension Event {

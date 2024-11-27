@@ -7,18 +7,25 @@
 import Foundation
 import UIKit
 
-public struct AppContextInfo {
-    private static let info = Bundle.main.infoDictionary
-    public static let defaultExecutable: String = (info?["CFBundleExecutable"] as? String) ??
+private let _defaultAppContextInfo: AppContextInfo? = nil
+
+@MainActor
+public func getDefaultAppContextInfo() -> AppContextInfo {
+    if let appContextInfo = _defaultAppContextInfo {
+        return appContextInfo
+    }
+    let info = Bundle.main.infoDictionary
+    let defaultExecutable: String = (info?["CFBundleExecutable"] as? String) ??
         (ProcessInfo.processInfo.arguments.first?.split(separator: "/").last.map(String.init)) ?? "Unknown"
-    public static let defaultBundleId: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
-    public static let defaultAppVersion: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    public static let defaultAppBuild: String = info?["CFBundleVersion"] as? String ?? "Unknown"
-    public static let defaultAppName: String = info?["CFBundleName"] as? String ?? "Unknown"
-    public static let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
-    public static let defaultManufacturer = "Apple"
-    public static let defaultOSName = "iOS"
-    public static let defaultDeviceModel: String = {
+    let defaultBundleId: String = info?["CFBundleIdentifier"] as? String ?? "Unknown"
+    let defaultAppVersion: String = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    let defaultAppBuild: String = info?["CFBundleVersion"] as? String ?? "Unknown"
+    let defaultAppName: String = info?["CFBundleName"] as? String ?? "Unknown"
+    let defaultOSVersion = ProcessInfo.processInfo.operatingSystemVersion
+    let defaultManufacturer = "Apple"
+    let defaultOSName = "iOS"
+    let defaultDeviceId = UIDevice.current.identifierForVendor?.uuidString ?? ""
+    let defaultDeviceModel: String = {
         var size = 0
         var deviceModel = ""
         sysctlbyname("hw.machine", nil, &size, nil, 0)
@@ -30,61 +37,82 @@ public struct AppContextInfo {
         return deviceModel
     }()
 
-    private static let deviceIdStoreKey = "_klaviyo_device_id"
+    let defaultKlaviyoSdk = {
+        let plist = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
+        if let sdkName = plist["klaviyo_sdk_name"] as? String {
+            return sdkName
+        }
+        return __klaviyoSwiftName
+    }()
 
+    let defaultSdkVersion = {
+        let plist = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
+        if let sdkVersion = plist["klaviyo_sdk_version"] as? String {
+            return sdkVersion
+        }
+        return __klaviyoSwiftVersion
+    }()
+
+    let defaultEnvironment = UIDevice.current.pushEnvironment.value
+
+    return AppContextInfo(executable: defaultExecutable, bundleId: defaultBundleId, appVersion: defaultAppVersion, appBuild: defaultAppBuild, appName: defaultAppName, version: defaultOSVersion, osName: defaultOSName, manufacturer: defaultManufacturer, deviceModel: defaultDeviceModel, deviceId: defaultDeviceId, environment: defaultEnvironment, klaviyoSdk: defaultKlaviyoSdk, sdkVersion: defaultSdkVersion)
+}
+
+public struct AppContextInfo: Sendable, Equatable {
     let executable: String
     let bundleId: String
     let appVersion: String
     let appBuild: String
     let appName: String
-    let version: OperatingSystemVersion
+    let version: OSVersion
     let osName: String
     let manufacturer: String
     let deviceModel: String
     let deviceId: String
     let environment: String
+    let klaviyoSdk: String
+    let sdkVersion: String
 
     var osVersion: String {
         "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+    }
+
+    struct OSVersion: Equatable {
+        let majorVersion: Int
+        let minorVersion: Int
+        let patchVersion: Int
     }
 
     var osVersionName: String {
         "\(osName) \(osVersion)"
     }
 
-    public init(executable: String = defaultExecutable,
-                bundleId: String = defaultBundleId,
-                appVersion: String = defaultAppVersion,
-                appBuild: String = defaultAppBuild,
-                appName: String = defaultAppName,
-                version: OperatingSystemVersion = defaultOSVersion,
-                osName: String = defaultOSName,
-                manufacturer: String = defaultManufacturer,
-                deviceModel: String = defaultDeviceModel,
-                deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
+    public init(executable: String,
+                bundleId: String,
+                appVersion: String,
+                appBuild: String,
+                appName: String,
+                version: OperatingSystemVersion,
+                osName: String,
+                manufacturer: String,
+                deviceModel: String,
+                deviceId: String,
+                environment: String,
+                klaviyoSdk: String,
+                sdkVersion: String) {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
         self.appBuild = appBuild
         self.appName = appName
-        self.version = version
+        self.version = OSVersion(majorVersion: version.majorVersion, minorVersion: version.minorVersion, patchVersion: version.patchVersion)
         self.osName = osName
         self.manufacturer = manufacturer
         self.deviceModel = deviceModel
         self.deviceId = deviceId
-
-        switch UIDevice.current.pushEnvironment {
-        case .development:
-            environment = "debug"
-        case .production:
-            environment = "release"
-        case .unknown:
-            #if DEBUG
-            environment = "debug"
-            #else
-            environment = "release"
-            #endif
-        }
+        self.environment = environment
+        self.sdkVersion = sdkVersion
+        self.klaviyoSdk = klaviyoSdk
     }
 }
 
@@ -93,6 +121,18 @@ extension UIDevice {
         case unknown
         case development
         case production
+
+        var value: String {
+            switch self {
+            case .development: return "debug"
+            case .production: return "production"
+            #if DEBUG
+            default: return "debug"
+            #else
+            default: return "production"
+            #endif
+            }
+        }
     }
 
     public var pushEnvironment: PushEnvironment {

@@ -7,26 +7,32 @@
 
 import Foundation
 
-public struct PushTokenPayload: Equatable, Codable {
+public struct PushTokenPayload: Equatable, Codable, Sendable {
     public let data: PushToken
 
-    public struct PushToken: Equatable, Codable {
+    public struct PushToken: Equatable, Codable, Sendable {
         var type = "push-token"
         public var attributes: Attributes
 
         public init(pushToken: String,
                     enablement: String,
                     background: String,
-                    profile: ProfilePayload) {
+                    profile: ProfilePayload,
+                    appContextInfo: AppContextInfo) {
             attributes = Attributes(
                 pushToken: pushToken,
                 enablement: enablement,
                 background: background,
+<<<<<<< HEAD
                 profile: profile
             )
+=======
+                profile: profile,
+                appContextInfo: appContextInfo)
+>>>>>>> d062e0a (Update SDK to support swift 6)
         }
 
-        public struct Attributes: Equatable, Codable {
+        public struct Attributes: Equatable, Codable, Sendable {
             public let profile: Profile
             public let token: String
             public let enablementStatus: String
@@ -48,16 +54,17 @@ public struct PushTokenPayload: Equatable, Codable {
             public init(pushToken: String,
                         enablement: String,
                         background: String,
-                        profile: ProfilePayload) {
+                        profile: ProfilePayload,
+                        appContextInfo: AppContextInfo) {
                 token = pushToken
 
                 enablementStatus = enablement
                 backgroundStatus = background
                 self.profile = Profile(data: profile)
-                deviceMetadata = MetaData(context: environment.appContextInfo())
+                deviceMetadata = MetaData(context: appContextInfo)
             }
 
-            public struct Profile: Equatable, Codable {
+            public struct Profile: Equatable, Codable, Sendable {
                 public let data: ProfilePayload
 
                 public init(data: ProfilePayload) {
@@ -65,7 +72,7 @@ public struct PushTokenPayload: Equatable, Codable {
                 }
             }
 
-            public struct MetaData: Equatable, Codable {
+            public struct MetaData: Equatable, Codable, Sendable {
                 public let deviceId: String
                 public let deviceModel: String
                 public let manufacturer: String
@@ -105,8 +112,8 @@ public struct PushTokenPayload: Equatable, Codable {
                     appVersion = context.appVersion
                     appBuild = context.appBuild
                     environment = context.environment
-                    klaviyoSdk = KlaviyoCore.environment.sdkName()
-                    sdkVersion = KlaviyoCore.environment.sdkVersion()
+                    klaviyoSdk = context.klaviyoSdk
+                    sdkVersion = context.sdkVersion
                 }
             }
         }
@@ -119,12 +126,14 @@ public struct PushTokenPayload: Equatable, Codable {
     public init(pushToken: String,
                 enablement: String,
                 background: String,
-                profile: ProfilePayload) {
+                profile: ProfilePayload,
+                appContextInfo: AppContextInfo) {
         data = PushToken(
             pushToken: pushToken,
             enablement: enablement,
             background: background,
-            profile: profile
+            profile: profile,
+            appContextInfo: appContextInfo)
         )
     }
 }

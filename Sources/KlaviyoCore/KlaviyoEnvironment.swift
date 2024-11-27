@@ -7,49 +7,49 @@
 
 import Combine
 import Foundation
+import KlaviyoSDKDependencies
 import UIKit
 
+// Though this is a var it should never be modified outside of tests.
+#if swift(>=5.10)
+public nonisolated(unsafe) var environment = KlaviyoEnvironment.production
+#else
 public var environment = KlaviyoEnvironment.production
+#endif
 
-public struct KlaviyoEnvironment {
+public struct KlaviyoEnvironment: Sendable {
     public init(
         archiverClient: ArchiverClient,
         fileClient: FileClient,
-        dataFromUrl: @escaping (URL) throws -> Data,
+        dataFromUrl: @Sendable @escaping (URL) throws -> Data,
         logger: LoggerClient,
-        appLifeCycle: AppLifeCycleEvents,
-        notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
-        getNotificationSettings: @escaping () async -> PushEnablement,
-        getBackgroundSetting: @escaping () -> PushBackground,
-        getBadgeAutoClearingSetting: @escaping () async -> Bool,
-        startReachability: @escaping () throws -> Void,
-        stopReachability: @escaping () -> Void,
-        reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
-        randomInt: @escaping () -> Int,
-        raiseFatalError: @escaping (String) -> Void,
-        emitDeveloperWarning: @escaping (String) -> Void,
-        networkSession: @escaping () -> NetworkSession,
-        apiURL: @escaping () -> URLComponents,
-        cdnURL: @escaping () -> URLComponents,
-        encodeJSON: @escaping (Encodable) throws -> Data,
+        notificationCenterPublisher: @Sendable @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
+        getNotificationSettings: @Sendable @escaping () async -> PushEnablement,
+        getBadgeAutoClearingSetting: @Sendable @escaping () async -> Bool,
+        startReachability: @Sendable @escaping () throws -> Void,
+        stopReachability: @Sendable @escaping () -> Void,
+        reachabilityStatus: @Sendable @escaping () -> Reachability
+            .NetworkStatus?,
+        randomInt: @Sendable @escaping () -> Int,
+        raiseFatalError: @Sendable @escaping (String) -> Void,
+        emitDeveloperWarning: @Sendable @escaping (String) -> Void,
+        apiURL: @Sendable @escaping () -> URLComponents,
+        cdnURL: @Sendable @escaping () -> URLComponents,
+        encodeJSON: @Sendable @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
-        uuid: @escaping () -> UUID,
-        date: @escaping () -> Date,
-        timeZone: @escaping () -> String,
-        appContextInfo: @escaping () -> AppContextInfo,
+        uuid: @Sendable @escaping () -> UUID,
+        date: @Sendable @escaping () -> Date,
+        timeZone: @Sendable @escaping () -> String,
         klaviyoAPI: KlaviyoAPI,
-        timer: @escaping (Double) -> AnyPublisher<Date, Never>,
-        SDKName: @escaping () -> String,
-        SDKVersion: @escaping () -> String
+        timer: @Sendable @escaping (Double) -> AsyncStream<Date>,
+        appContextInfo: @Sendable @escaping () async -> AppContextInfo
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
         self.logger = logger
-        self.appLifeCycle = appLifeCycle
         self.notificationCenterPublisher = notificationCenterPublisher
         self.getNotificationSettings = getNotificationSettings
-        self.getBackgroundSetting = getBackgroundSetting
         self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
         self.startReachability = startReachability
         self.stopReachability = stopReachability
@@ -57,7 +57,6 @@ public struct KlaviyoEnvironment {
         self.randomInt = randomInt
         self.raiseFatalError = raiseFatalError
         self.emitDeveloperWarning = emitDeveloperWarning
-        self.networkSession = networkSession
         self.apiURL = apiURL
         self.cdnURL = cdnURL
         self.encodeJSON = encodeJSON
@@ -65,11 +64,9 @@ public struct KlaviyoEnvironment {
         self.uuid = uuid
         self.date = date
         self.timeZone = timeZone
-        self.appContextInfo = appContextInfo
         self.klaviyoAPI = klaviyoAPI
         self.timer = timer
-        sdkName = SDKName
-        sdkVersion = SDKVersion
+        self.appContextInfo = appContextInfo
     }
 
     static let productionHost: URLComponents = {
@@ -102,73 +99,45 @@ public struct KlaviyoEnvironment {
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient
-    public var dataFromUrl: (URL) throws -> Data
+    public var dataFromUrl: @Sendable (URL) throws -> Data
 
     public var logger: LoggerClient
 
-    public var appLifeCycle: AppLifeCycleEvents
-
-    public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
-    public var getNotificationSettings: () async -> PushEnablement
-    public var getBackgroundSetting: () -> PushBackground
-    public var getBadgeAutoClearingSetting: () async -> Bool
-
-    public var startReachability: () throws -> Void
-    public var stopReachability: () -> Void
-    public var reachabilityStatus: () -> Reachability.NetworkStatus?
-
-    public var randomInt: () -> Int
-
-    public var raiseFatalError: (String) -> Void
-    public var emitDeveloperWarning: (String) -> Void
-
-    public var networkSession: () -> NetworkSession
-    public var apiURL: () -> URLComponents
-    public var cdnURL: () -> URLComponents
-    public var encodeJSON: (Encodable) throws -> Data
+    public var notificationCenterPublisher:
+        @Sendable (NSNotification.Name) -> AnyPublisher<Notification, Never>
+    public var getNotificationSettings: @Sendable () async -> PushEnablement
+    public var getBadgeAutoClearingSetting: @Sendable () async -> Bool
+    public var startReachability: @Sendable () throws -> Void
+    public var stopReachability: @Sendable () -> Void
+    public var reachabilityStatus: @Sendable () -> Reachability.NetworkStatus?
+    public var randomInt: @Sendable () -> Int
+    public var raiseFatalError: @Sendable (String) -> Void
+    public var emitDeveloperWarning: @Sendable (String) async -> Void
+    public var apiURL: @Sendable () -> URLComponents
+    public var cdnURL: @Sendable () -> URLComponents
+    public var encodeJSON: @Sendable (Encodable) throws -> Data
     public var decoder: DataDecoder
-    public var uuid: () -> UUID
-    public var date: () -> Date
-    public var timeZone: () -> String
-    public var appContextInfo: () -> AppContextInfo
+    public var uuid: @Sendable () -> UUID
+    public var date: @Sendable () -> Date
+    public var timeZone: @Sendable () -> String
     public var klaviyoAPI: KlaviyoAPI
-    public var timer: (Double) -> AnyPublisher<Date, Never>
+    public var timer: @Sendable (Double) -> AsyncStream<Date>
+    public var appContextInfo: @Sendable () async -> AppContextInfo
 
-    public var sdkName: () -> String
-    public var sdkVersion: () -> String
-
-    private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
-
-    private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
-            return sdkName
-        }
-        return __klaviyoSwiftName
-    }
-
-    private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
-            return sdkVersion
-        }
-        return __klaviyoSwiftVersion
-    }
-
-    public static var production = KlaviyoEnvironment(
+    public static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         dataFromUrl: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
-        appLifeCycle: AppLifeCycleEvents.production,
         notificationCenterPublisher: { name in
             NotificationCenter.default.publisher(for: name)
                 .eraseToAnyPublisher()
         },
         getNotificationSettings: {
-            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
-            return PushEnablement.create(from: notificationSettings.authorizationStatus)
-        },
-        getBackgroundSetting: {
-            .create(from: UIApplication.shared.backgroundRefreshStatus)
+            let notificationSettings = await UNUserNotificationCenter.current()
+                .notificationSettings()
+            return PushEnablement.create(
+                from: notificationSettings.authorizationStatus)
         },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
@@ -189,7 +158,6 @@ public struct KlaviyoEnvironment {
             #endif
         },
         emitDeveloperWarning: { runtimeWarn($0) },
-        networkSession: createNetworkSession,
         apiURL: { KlaviyoEnvironment.productionHost },
         cdnURL: { KlaviyoEnvironment.cdnHost },
         encodeJSON: { encodable in try encoder.encode(encodable) },
@@ -197,31 +165,54 @@ public struct KlaviyoEnvironment {
         uuid: { UUID() },
         date: { Date() },
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
-        appContextInfo: { AppContextInfo() },
         klaviyoAPI: KlaviyoAPI(),
         timer: { interval in
-            Timer.publish(every: interval, on: .main, in: .default)
-                .autoconnect()
-                .eraseToAnyPublisher()
-        },
-        SDKName: KlaviyoEnvironment.getSDKName,
-        SDKVersion: KlaviyoEnvironment.getSDKVersion
-    )
+            AsyncStream { continuation in
+                let timerActor = TimerActor()
+                Task {
+                    // Start the timer via the TimerActor
+                    #if swift(>=6)
+                    timerActor.startTimer(interval: interval, continuation: continuation)
+                    #else
+                    await timerActor.startTimer(interval: interval, continuation: continuation)
+                    #endif
+                }
+
+                continuation.onTermination = { _ in
+                    // Stop the timer when the stream terminates
+                    Task {
+                        #if swift(>=6)
+                        timerActor.stopTimer()
+                        #else
+                        await timerActor.stopTimer()
+                        #endif
+                    }
+                }
+            }
+        }, appContextInfo: {
+            #if swift(>=6)
+            getDefaultAppContextInfo()
+            #else
+            await getDefaultAppContextInfo()
+            #endif
+        })
 }
 
-public var networkSession: NetworkSession!
+@MainActor var networkSession: NetworkSession? = nil
+
+@MainActor
 public func createNetworkSession() -> NetworkSession {
     if networkSession == nil {
         networkSession = NetworkSession.production
     }
-    return networkSession
+    return networkSession!
 }
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
 }
 
-public struct DataDecoder {
+public struct DataDecoder: @unchecked Sendable {
     public init(jsonDecoder: JSONDecoder) {
         self.jsonDecoder = jsonDecoder
     }
@@ -231,5 +222,30 @@ public struct DataDecoder {
 
     public func decode<T: Decodable>(_ data: Data) throws -> T {
         try jsonDecoder.decode(T.self, from: data)
+    }
+}
+
+actor TimerActor {
+    private var timer: DispatchSourceTimer?
+
+    func startTimer(
+        interval: TimeInterval, continuation: AsyncStream<Date>.Continuation) {
+        // Ensure any previous timer is invalidated
+        stopTimer()
+
+        // Create a new DispatchSourceTimer and start it
+        let newTimer = DispatchSource.makeTimerSource(queue: .global())
+        newTimer.schedule(deadline: .now(), repeating: interval)
+        newTimer.setEventHandler {
+            continuation.yield(Date())
+        }
+        newTimer.resume()
+        timer = newTimer
+    }
+
+    func stopTimer() {
+        // Invalidate the existing timer if there is one
+        timer?.cancel()
+        timer = nil
     }
 }

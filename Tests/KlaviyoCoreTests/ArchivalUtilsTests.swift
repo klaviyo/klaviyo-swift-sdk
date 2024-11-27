@@ -9,12 +9,19 @@ import Combine
 import KlaviyoCore
 import XCTest
 
+@MainActor
 class ArchivalUtilsTests: XCTestCase {
+    #if swift(>=6)
+    nonisolated(unsafe) var dataToWrite: Data?
+    nonisolated(unsafe) var wroteToFile = false
+    nonisolated(unsafe) var removedFile = false
+    #else
     var dataToWrite: Data?
     var wroteToFile = false
     var removedFile = false
+    #endif
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         environment.fileClient.write = { [weak self] data, _ in
             self?.wroteToFile = true
@@ -33,7 +40,7 @@ class ArchivalUtilsTests: XCTestCase {
     }
 
     func testArchiveUnarchive() throws {
-        archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
+        archiveQueue(fileClient: environment.fileClient, queue: SAMPLE_DATA, to: TEST_URL)
 
         XCTAssert(wroteToFile)
         XCTAssertEqual(ARCHIVED_RETURNED_DATA, dataToWrite)
@@ -41,7 +48,7 @@ class ArchivalUtilsTests: XCTestCase {
 
     func testArchiveFails() throws {
         environment.archiverClient.archivedData = { _, _ in throw FakeFileError.fake }
-        archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
+        archiveQueue(fileClient: environment.fileClient, queue: SAMPLE_DATA, to: TEST_URL)
 
         XCTAssertFalse(wroteToFile)
         XCTAssertNil(dataToWrite)
@@ -49,14 +56,14 @@ class ArchivalUtilsTests: XCTestCase {
 
     func testArchiveWriteFails() throws {
         environment.fileClient.write = { _, _ in throw FakeFileError.fake }
-        archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
+        archiveQueue(fileClient: environment.fileClient, queue: SAMPLE_DATA, to: TEST_URL)
 
         XCTAssertFalse(wroteToFile)
         XCTAssertNil(dataToWrite)
     }
 
     func testUnarchive() throws {
-        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
         XCTAssertTrue(removedFile)
@@ -65,7 +72,7 @@ class ArchivalUtilsTests: XCTestCase {
     func testUnarchiveInvalidData() throws {
         environment.dataFromUrl = { _ in throw FakeFileError.fake }
 
-        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertNil(archiveResult)
     }
@@ -73,7 +80,7 @@ class ArchivalUtilsTests: XCTestCase {
     func testUnarchiveUnarchiveFails() throws {
         environment.archiverClient.unarchivedMutableArray = { _ in throw FakeFileError.fake }
 
-        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertNil(archiveResult)
     }
@@ -87,7 +94,7 @@ class ArchivalUtilsTests: XCTestCase {
             }
             return false
         }
-        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
         XCTAssertFalse(removedFile)
@@ -95,13 +102,14 @@ class ArchivalUtilsTests: XCTestCase {
 
     func testUnarchiveWhereFileDoesNotExist() throws {
         environment.fileClient.fileExists = { _ in false }
-        let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
+        let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertNil(archiveResult)
         XCTAssertFalse(removedFile)
     }
 }
 
+@MainActor
 class ArchivalSystemTest: XCTestCase {
     let TEST_URL = filePathForData(apiKey: "foo", data: "people")
 
@@ -112,8 +120,8 @@ class ArchivalSystemTest: XCTestCase {
 
     /* This will attempt to actually archive and unarchive a queue. */
     func testArchiveUnarchive() {
-        archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
-        let result = unarchiveFromFile(fileURL: filePathForData(apiKey: "foo", data: "people"))
+        archiveQueue(fileClient: environment.fileClient, queue: SAMPLE_DATA, to: TEST_URL)
+        let result = unarchiveFromFile(fileClient: environment.fileClient, fileURL: filePathForData(apiKey: "foo", data: "people"))
 
         XCTAssertEqual(SAMPLE_DATA, result)
     }

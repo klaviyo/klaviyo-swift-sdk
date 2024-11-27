@@ -5,7 +5,7 @@
 //  Created by Ajay Subramanya on 6/23/23.
 //
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 private enum KlaviyoBadgeConfig {
     case incrementOne
@@ -38,7 +38,7 @@ public enum KlaviyoExtensionSDK {
     public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void,
+        contentHandler: @Sendable @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg"
     ) {
         // handle badge setting from the push notification payload
@@ -82,7 +82,7 @@ public enum KlaviyoExtensionSDK {
     ///   - contentHandler: the closure that needs to be called before the time iOS provides for us to mutate the content
     private static func handleRichMedia(
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void,
+        contentHandler: @Sendable @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg"
     ) {
         // 1a. get the rich media url from the push notification payload
@@ -136,7 +136,7 @@ public enum KlaviyoExtensionSDK {
     ///                 note that in the case of failure the closure will still be called but with `nil`.
     private static func downloadMedia(
         for urlString: String,
-        completion: @escaping (URL?) -> Void
+        completion: @Sendable @escaping (URL?) -> Void
     ) {
         guard let imageURL = URL(string: urlString) else {
             completion(nil)
@@ -171,7 +171,7 @@ public enum KlaviyoExtensionSDK {
         completion: @escaping (UNNotificationAttachment?) -> Void
     ) {
         let localFileURLWithType: URL
-        if #available(iOS 16.0, *) {
+        if #available(iOS 16.0, macOS 13.0, *) {
             localFileURLWithType = URL(filePath: localFilePathWithTypeString)
         } else {
             localFileURLWithType = URL(fileURLWithPath: localFilePathWithTypeString)

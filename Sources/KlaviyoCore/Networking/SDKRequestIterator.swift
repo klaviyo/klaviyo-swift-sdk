@@ -5,14 +5,14 @@
 //  Created by Noah Durell on 2/13/23.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
 @_spi(KlaviyoPrivate)
-public struct SDKRequest: Identifiable, Equatable {
+public struct SDKRequest: Sendable, Identifiable, Equatable {
     @_spi(KlaviyoPrivate)
-    public enum RequestType: Equatable {
-        public struct EventInfo: Equatable {
+    public enum RequestType: Sendable, Equatable {
+        public struct EventInfo: Sendable, Equatable {
             public let eventName: String
 
             @_spi(KlaviyoPrivate)
@@ -22,7 +22,7 @@ public struct SDKRequest: Identifiable, Equatable {
         }
 
         @_spi(KlaviyoPrivate)
-        public struct ProfileInfo: Equatable {
+        public struct ProfileInfo: Sendable, Equatable {
             public var email: String?
             public var phoneNumber: String?
             public var externalId: String?
@@ -83,10 +83,10 @@ public struct SDKRequest: Identifiable, Equatable {
     }
 
     @_spi(KlaviyoPrivate)
-    public enum Response: Equatable {
+    public enum Response: Sendable, Equatable {
         case inProgress
         case success(String, Double)
-        case httpError(Int, Double)
+        case httpError(Int, Double, Data)
         case requestError(String, Double)
     }
 
@@ -139,7 +139,7 @@ public enum RequestStatus {
         /// - Parameter retryAfter: The amount of time, in seconds, that the client should wait before making another request.
         case rateLimited(retryAfter: Int)
         /// - Parameter duration: The elapsed time, in seconds, between the API call and the server’s response.
-        case httpError(statusCode: Int, duration: TimeInterval)
+        case httpError(statusCode: Int, duration: TimeInterval, data: Data)
     }
 
     case started
@@ -167,8 +167,8 @@ public func requestIterator() -> AsyncStream<SDKRequest> {
                 case let .requestFailed(requestError):
                     let duration = 0.0
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError(requestError.localizedDescription, duration)))
-                case let .httpError(statusCode, duration: duration):
-                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration)))
+                case let .httpError(statusCode, duration: duration, data: data):
+                    continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .httpError(statusCode, duration, data)))
                 case let .rateLimited(retryAfter):
                     continuation.yield(SDKRequest.fromAPIRequest(request: request, urlRequest: urlRequest, response: .requestError("Rate Limited", Double(retryAfter))))
                 }

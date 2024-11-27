@@ -5,15 +5,15 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
 /**
  Internal structure which has details not needed by the API.
  */
-public struct ProfilePayload: Equatable, Codable {
+public struct ProfilePayload: Equatable, Codable, Sendable {
     var type = "profile"
-    public struct Attributes: Equatable, Codable {
+    public struct Attributes: Equatable, Codable, Sendable {
         public let anonymousId: String
         public let email: String?
         public let phoneNumber: String?
@@ -63,7 +63,7 @@ public struct ProfilePayload: Equatable, Codable {
             self.anonymousId = anonymousId
         }
 
-        public struct Location: Equatable, Codable {
+        public struct Location: Equatable, Codable, Sendable {
             public var address1: String?
             public var address2: String?
             public var city: String?
@@ -73,6 +73,7 @@ public struct ProfilePayload: Equatable, Codable {
             public var region: String?
             public var zip: String?
             public var timezone: String?
+
             public init(address1: String? = nil,
                         address2: String? = nil,
                         city: String? = nil,

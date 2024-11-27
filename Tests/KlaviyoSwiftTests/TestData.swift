@@ -9,17 +9,18 @@ import Combine
 import Foundation
 import KlaviyoCore
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+@_spi(Internals) import KlaviyoSDKDependencies
 
 let TEST_API_KEY = "fake-key"
 
-let INITIALIZED_TEST_STATE = {
+@MainActor let INITIALIZED_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
+                             deviceData: .init(context: .test)),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -27,7 +28,7 @@ let INITIALIZED_TEST_STATE = {
     )
 }
 
-let INITILIZING_TEST_STATE = {
+@MainActor let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
@@ -38,7 +39,7 @@ let INITILIZING_TEST_STATE = {
     )
 }
 
-let INITIALIZED_TEST_STATE_INVALID_PHONE = {
+@MainActor let INITIALIZED_TEST_STATE_INVALID_PHONE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
@@ -46,7 +47,7 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
+                             deviceData: .init(context: .test)),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -54,7 +55,7 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
     )
 }
 
-let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
+@MainActor let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         email: "invalid_email",
@@ -62,7 +63,7 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
         pushTokenData: .init(pushToken: "blob_token",
                              pushEnablement: .authorized,
                              pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
+                             deviceData: .init(context: .test)),
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
@@ -70,6 +71,7 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
     )
 }
 
+@MainActor
 extension Profile {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
@@ -105,6 +107,7 @@ extension Profile.Location {
     )
 }
 
+@MainActor
 extension Event {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
@@ -121,7 +124,7 @@ extension Event {
         "Device Manufacturer": "Orange",
         "Device Model": "jPhone 1,1"
     ] as [String: Any]
-    static let test = Self(name: .customEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date())
+    static let test = Self(name: .customEvent("blob"), properties: nil, time: KlaviyoEnvironment.test().date(), uniqueId: KlaviyoEnvironment.test().uuid().uuidString)
 }
 
 extension Event.Metric {
@@ -138,15 +141,14 @@ extension KlaviyoState {
                                        pushToken: "blob_token",
                                        pushEnablement: .authorized,
                                        pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
-                                   ),
+                                       deviceData: DeviceMetadata(context: AppContextInfo.test)),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)
 }
 
-let SAMPLE_DATA: NSMutableArray = [
+@MainActor let SAMPLE_DATA: NSMutableArray = [
     [
         "properties": [
             "foo": "bar"
@@ -211,19 +213,23 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 extension KlaviyoSwiftEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    static let testStore = Store.production
 
     static let test = {
         KlaviyoSwiftEnvironment(send: { action in
             testStore.send(action)
         }, state: {
-            KlaviyoSwiftEnvironment.testStore.state.value
+            testStore.currentState
         }, statePublisher: {
             Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
         }, stateChangePublisher: {
-            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
-        }, setBadgeCount: { _ in
-            nil
+            AsyncStream.finished
+        }, lifeCyclePublisher: {
+            AsyncStream.finished
+        },
+        getBackgroundSetting: {
+            .available
+        }, networkSession: { NetworkSession.test() }, setBadgeCount: { _ in
         })
     }
 }

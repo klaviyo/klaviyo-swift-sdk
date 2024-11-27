@@ -12,22 +12,24 @@ import Foundation
 import SnapshotTesting
 import XCTest
 
+@MainActor
 final class EncodableTests: XCTestCase {
     let testEncoder = KlaviyoEnvironment.encoder
 
-    override func setUpWithError() throws {
+    @MainActor
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
-    func testKlaviyoState() throws {
+    func testKlaviyoState() async throws {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
-        )
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: KlaviyoEnvironment.test().uuid().uuidString)
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"),
+            appContextInfo: .test)
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: environment.uuid().uuidString)
         let klaviyoState = KlaviyoState(
             email: "foo",
             anonymousId: "foo",
@@ -36,11 +38,9 @@ final class EncodableTests: XCTestCase {
                 pushToken: "foo",
                 pushEnablement: .authorized,
                 pushBackground: .available,
-                deviceData: .init(context: KlaviyoEnvironment.test().appContextInfo())
-            ),
+                deviceData: .init(context: AppContextInfo.test)),
             queue: [request],
-            requestsInFlight: [request]
-        )
-        assertSnapshot(matching: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
+            requestsInFlight: [request])
+        assertSnapshot(of: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
     }
 }
