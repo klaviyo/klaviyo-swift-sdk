@@ -5,10 +5,10 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
-public struct CreateProfilePayload: Equatable, Codable {
+public struct CreateProfilePayload: Equatable, Codable, Sendable {
     public init(data: ProfilePayload) {
         self.data = data
     }

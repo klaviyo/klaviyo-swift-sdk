@@ -80,7 +80,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         Task { [weak self] in
             guard let self else { return }
 
-            for await (script, callback) in self.viewModel.scriptStream {
+            let scriptStream = self.viewModel.scriptStream
+            for await (script, callback) in scriptStream {
                 do {
                     let result = try await self.webView.evaluateJavaScript(script)
                     callback?(.success(result))
