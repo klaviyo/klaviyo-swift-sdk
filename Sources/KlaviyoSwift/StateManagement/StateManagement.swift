@@ -367,11 +367,16 @@ struct KlaviyoReducer: ReducerProtocol {
                         default:
                             break
                         }
-                    } catch {
+                    } catch is DecodingError {
                         let error = KlaviyoAPIError.dataDecodingError(request)
                         await send(handleRequestError(request: request, error: error, retryInfo: nil))
                         return
+                    } catch {
+                        let error = KlaviyoAPIError.unknownError(error)
+                        await send(handleRequestError(request: request, error: error, retryInfo: nil))
+                        return
                     }
+
                     await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
