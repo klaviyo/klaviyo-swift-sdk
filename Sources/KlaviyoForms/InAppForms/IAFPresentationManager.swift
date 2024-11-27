@@ -45,7 +45,7 @@ class IAFPresentationManager {
                     continuation.resume(returning: apiKey)
                 }
             }) else {
-                environment.emitDeveloperWarning("SDK must be initialized before usage.")
+                await environment.emitDeveloperWarning("SDK must be initialized before usage.")
                 return
             }
 

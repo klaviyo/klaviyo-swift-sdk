@@ -11,8 +11,10 @@ import XCTest
 
 @MainActor
 final class KlaviyoAPITests: XCTestCase {
-    override func setUpWithError() throws {
+    var networkSession: NetworkSession!
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        networkSession = NetworkSession.test()
     }
 
     func testInvalidURL() async throws {
@@ -20,11 +22,11 @@ final class KlaviyoAPITests: XCTestCase {
 
         await sendAndAssert(with: KlaviyoRequest(
             apiKey: "foo",
-            endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        ) { result in
+            endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString),
+        networkSession: networkSession) { result in
             switch result {
             case let .failure(error):
-                assertSnapshot(matching: error, as: .description)
+                assertSnapshot(of: error, as: .description)
             default:
                 XCTFail("Expected url failure")
             }
@@ -34,12 +36,12 @@ final class KlaviyoAPITests: XCTestCase {
     func testEncodingError() async throws {
         environment.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
 
             switch result {
             case let .failure(error):
-                assertSnapshot(matching: error, as: .dump)
+                assertSnapshot(of: error, as: .dump)
             default:
                 XCTFail("Expected encoding error.")
             }
@@ -47,15 +49,15 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testNetworkError() async throws {
-        environment.networkSession = { NetworkSession.test(data: { _ in
+        networkSession = NetworkSession.test(data: { _ in
             throw NSError(domain: "network error", code: 0)
-        }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        })
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
 
             switch result {
             case let .failure(error):
-                assertSnapshot(matching: error, as: .dump)
+                assertSnapshot(of: error, as: .dump)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -63,15 +65,15 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidStatusCode() async throws {
-        environment.networkSession = { NetworkSession.test(data: { _ in
+        networkSession = NetworkSession.test(data: { _ in
             (Data(), .non200Response)
-        }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        })
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
 
             switch result {
             case let .failure(error):
-                assertSnapshot(matching: error, as: .dump)
+                assertSnapshot(of: error, as: .dump)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -79,16 +81,16 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithProfile() async throws {
-        environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+        networkSession = NetworkSession.test(data: { request in
+            assertSnapshot(of: request, as: .dump)
             return (Data(), .validResponse)
-        }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        })
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
 
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                assertSnapshot(of: data, as: .dump)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -96,15 +98,15 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithEvent() async throws {
-        environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+        networkSession = NetworkSession.test(data: { request in
+            assertSnapshot(of: request, as: .dump)
             return (Data(), .validResponse)
-        }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(CreateEventPayload(data: CreateEventPayload.Event(name: "test"))))
-        await sendAndAssert(with: request) { result in
+        })
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(CreateEventPayload(data: CreateEventPayload.Event(name: "test", appContextInfo: .test))), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                assertSnapshot(of: data, as: .dump)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -112,16 +114,16 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testSuccessfulResponseWithStoreToken() async throws {
-        environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+        let networkSession = NetworkSession.test(data: { request in
+            assertSnapshot(of: request, as: .dump)
             return (Data(), .validResponse)
-        }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
-        await sendAndAssert(with: request) { result in
+        })
+        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test), uuid: environment.uuid().uuidString)
+        await sendAndAssert(with: request, networkSession: networkSession) { result in
 
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                assertSnapshot(of: data, as: .dump)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -129,8 +131,9 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func sendAndAssert(with request: KlaviyoRequest,
+                       networkSession: NetworkSession,
                        assertion: (Result<Data, KlaviyoAPIError>) -> Void) async {
-        let result = await KlaviyoAPI().send(request, 0)
+        let result = await KlaviyoAPI().send(networkSession, request, 0)
         assertion(result)
     }
 }
