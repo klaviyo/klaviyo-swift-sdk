@@ -359,20 +359,18 @@ struct KlaviyoReducer: ReducerProtocol {
                 let result = await environment.klaviyoAPI.send(request, numAttempts)
                 switch result {
                 case let .success(data):
-                    if request.endpoint.hasDecodableResponse {
-                        do {
-                            switch request.endpoint {
-                            case .fetchForms:
-                                let formsResponse = try JSONDecoder().decode(FullFormsResponse.self, from: data)
-                                await send(.handleFormsResponse(formsResponse))
-                            default:
-                                break
-                            }
-                        } catch {
-                            let error = KlaviyoAPIError.dataDecodingError(request)
-                            await send(handleRequestError(request: request, error: error, retryInfo: nil))
-                            return
+                    do {
+                        switch request.endpoint {
+                        case .fetchForms:
+                            let formsResponse = try JSONDecoder().decode(FullFormsResponse.self, from: data)
+                            await send(.handleFormsResponse(formsResponse))
+                        default:
+                            break
                         }
+                    } catch {
+                        let error = KlaviyoAPIError.dataDecodingError(request)
+                        await send(handleRequestError(request: request, error: error, retryInfo: nil))
+                        return
                     }
                     await send(.deQueueCompletedResults(request))
                 case let .failure(error):
