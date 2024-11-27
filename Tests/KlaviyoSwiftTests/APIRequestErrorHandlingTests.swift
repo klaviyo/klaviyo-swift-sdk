@@ -219,7 +219,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     // MARK: - data decoding error
 
     @MainActor
-    func testSendRequestDataDecodingError() async throws {
+    func testSendRequestDataEncodingError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
