@@ -8,12 +8,19 @@
 import KlaviyoCore
 import XCTest
 
+@MainActor
 class FileUtilsTests: XCTestCase {
+    #if swift(>=6)
+    nonisolated(unsafe) var dataToWrite: Data?
+    nonisolated(unsafe) var wroteToFile = false
+    nonisolated(unsafe) var removedFile = false
+    #else
     var dataToWrite: Data?
     var wroteToFile = false
     var removedFile = false
+    #endif
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         environment.fileClient.write = { [weak self] data, _ in
             self?.wroteToFile = true
@@ -43,6 +50,6 @@ class FileUtilsTests: XCTestCase {
         environment.fileClient.removeItem = { _ in
             throw FakeFileError.fake
         }
-        XCTAssertFalse(removeFile(at: TEST_URL))
+        XCTAssertFalse(removeFile(fileClient: environment.fileClient, at: TEST_URL))
     }
 }

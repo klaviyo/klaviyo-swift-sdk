@@ -5,17 +5,14 @@
 //  Copyright (c) 2022 Klaviyo. All rights reserved.
 //
 
-import AnyCodable
+import Combine
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 import UIKit
 
-func dispatchOnMainThread(action: KlaviyoAction) {
-    Task {
-        await MainActor.run {
-            klaviyoSwiftEnvironment.send(action)
-        }
-    }
+func dispatchStoreAction(action: KlaviyoAction) async {
+    _ = await klaviyoSwiftEnvironment.send(action)
 }
 
 /// The main interface for the Klaviyo SDK.
@@ -27,10 +24,13 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 /// ```
 ///
 /// From there you can you can call the additional methods below to track events and profile.
+#if swift(<5.10)
+@MainActor(unsafe)
+#else
+@preconcurrency@MainActor
+#endif
 public struct KlaviyoSDK {
-    /// Default initializer for the Klaviyo SDK.
     public init() {}
-
     private var state: KlaviyoState {
         klaviyoSwiftEnvironment.state()
     }
@@ -62,7 +62,10 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .initialize(apiKey))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .initialize(apiKey, appContextInfo))
+        }
         return self
     }
 
@@ -72,7 +75,10 @@ public struct KlaviyoSDK {
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
-        dispatchOnMainThread(action: .enqueueProfile(profile))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .enqueueProfile(profile, appContextInfo))
+        }
     }
 
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
@@ -80,14 +86,19 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .resetProfile(appContextInfo))
+        }
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
     /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
     /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
     public func setBadgeCount(_ count: Int) {
-        dispatchOnMainThread(action: .setBadgeCount(count))
+        Task {
+            await dispatchStoreAction(action: .setBadgeCount(count))
+        }
     }
 
     /// Set the current user's email.
@@ -95,7 +106,10 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setEmail(email))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .setEmail(email, appContextInfo))
+        }
         return self
     }
 
@@ -107,7 +121,10 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .setPhoneNumber(phoneNumber, appContextInfo))
+        }
         return self
     }
 
@@ -119,7 +136,10 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setExternalId(externalId))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .setExternalId(externalId, appContextInfo))
+        }
         return self
     }
 
@@ -130,14 +150,19 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
-        dispatchOnMainThread(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        Task {
+            await dispatchStoreAction(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        }
         return self
     }
 
     /// Create and send an event for the current user.
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
-        dispatchOnMainThread(action: .enqueueEvent(event))
+        Task {
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .enqueueEvent(event, appContextInfo))
+        }
     }
 
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
@@ -152,7 +177,9 @@ public struct KlaviyoSDK {
     public func set(pushToken: String) {
         Task {
             let enablement = await environment.getNotificationSettings()
-            dispatchOnMainThread(action: .setPushToken(pushToken, enablement))
+            let background = klaviyoSwiftEnvironment.getBackgroundSetting()
+            let appContextInfo = await environment.appContextInfo()
+            await dispatchStoreAction(action: .setPushToken(pushToken, enablement, background, appContextInfo))
         }
     }
 
@@ -166,19 +193,18 @@ public struct KlaviyoSDK {
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(name: ._openedPush, properties: properties))
-            Task {
-                await MainActor.run {
-                    if let url = properties["url"] as? String, let url = URL(string: url) {
-                        if let deepLinkHandler = deepLinkHandler {
-                            deepLinkHandler(url)
-                        } else {
+            if let url = properties["url"] as? String, let url = URL(string: url) {
+                if let deepLinkHandler = deepLinkHandler {
+                    deepLinkHandler(url)
+                } else {
+                    Task {
+                        await MainActor.run {
                             UIApplication.shared.open(url)
                         }
                     }
-                    completionHandler()
                 }
             }
-
+            completionHandler()
             return true
         }
         return false
