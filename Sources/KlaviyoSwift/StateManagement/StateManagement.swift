@@ -95,7 +95,7 @@ enum KlaviyoAction: Equatable {
     case fetchForms
 
     // handles the full forms response from the server
-    case handleFormsResponse(FullForms)
+    case handleFormsResponse(FullFormsResponse)
 
     /// resets the state for profile properties before dequeing the request
     /// this is done in the case where there is http request failure due to
@@ -363,7 +363,7 @@ struct KlaviyoReducer: ReducerProtocol {
                         do {
                             switch request.endpoint {
                             case .fetchForms:
-                                let formsResponse = try FullForms(data: data)
+                                let formsResponse = try FullFormsResponse(data: data)
                                 await send(.handleFormsResponse(formsResponse))
                             default:
                                 break

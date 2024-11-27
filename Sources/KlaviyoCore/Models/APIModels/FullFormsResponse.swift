@@ -1,5 +1,5 @@
 //
-//  FullForms.swift
+//  FullFormsResponse.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 11/25/24.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct FullForms: Equatable {
+public struct FullFormsResponse: Equatable {
     public let forms: [Data]
     public let formSettings: Data
     public let dynamicInfoConfig: Data?
