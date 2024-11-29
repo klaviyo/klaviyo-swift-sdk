@@ -5,10 +5,10 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
-public struct KlaviyoRequest: Equatable, Codable {
+public struct KlaviyoRequest: Equatable, Codable, Sendable {
     public let apiKey: String
     public let endpoint: KlaviyoEndpoint
     public var uuid: String
@@ -16,7 +16,7 @@ public struct KlaviyoRequest: Equatable, Codable {
     public init(
         apiKey: String,
         endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString) {
+        uuid: String) {
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.uuid = uuid
