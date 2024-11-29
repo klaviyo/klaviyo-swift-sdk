@@ -91,10 +91,6 @@ func handleRequestError(
         environment.emitDeveloperWarning("A data encoding error occurred during transmission.")
         return .deQueueCompletedResults(request)
 
-    case .dataDecodingError:
-        environment.emitDeveloperWarning("A data encoding error occurred during transmission.")
-        return .deQueueCompletedResults(request)
-
     case .invalidData:
         environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
