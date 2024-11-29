@@ -66,7 +66,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         return webView
     }
 
-    // MARK: - Scripts
+    // MARK: - Javascript handling
 
     /// Configures the scripts to be injected into the website when the website loads.
     func configureLoadScripts() {
@@ -92,6 +92,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
                 }
             }
         }
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        viewModel.dismiss()
     }
 
     // MARK: - Layout

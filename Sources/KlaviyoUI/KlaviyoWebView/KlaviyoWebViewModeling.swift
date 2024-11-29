@@ -20,4 +20,5 @@ protocol KlaviyoWebViewModeling {
 
     func handleNavigationEvent(_ event: WKNavigationEvent)
     func handleScriptMessage(_ message: WKScriptMessage)
+    func dismiss()
 }

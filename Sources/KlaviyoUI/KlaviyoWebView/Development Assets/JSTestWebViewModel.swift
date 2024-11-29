@@ -70,5 +70,9 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
             }))
         }
     }
+
+    func dismiss() {
+        // TODO: handle `dismiss` event
+    }
 }
 #endif
