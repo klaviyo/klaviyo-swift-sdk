@@ -367,14 +367,10 @@ struct KlaviyoReducer: ReducerProtocol {
                         default:
                             break
                         }
-                    } catch is DecodingError {
-                        let error = KlaviyoAPIError.dataDecodingError(request)
-                        await send(handleRequestError(request: request, error: error, retryInfo: nil))
-                        return
+                    } catch let error as DecodingError {
+                        environment.emitDeveloperWarning("Error decoding JSON response: \(error.localizedDescription)")
                     } catch {
-                        let error = KlaviyoAPIError.unknownError(error)
-                        await send(handleRequestError(request: request, error: error, retryInfo: nil))
-                        return
+                        environment.emitDeveloperWarning("An unexpected error occurred: \(error.localizedDescription)")
                     }
 
                     await send(.deQueueCompletedResults(request))
