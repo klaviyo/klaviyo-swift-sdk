@@ -52,7 +52,7 @@ private func parseError(_ data: Data) -> [InvalidField]? {
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,
-    retryInfo: RetryInfo?) -> KlaviyoAction {
+    retryInfo: RetryInfo) -> KlaviyoAction {
     switch error {
     case let .httpError(statuscode, data):
         let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
@@ -67,7 +67,6 @@ func handleRequestError(
 
     case let .networkError(error):
         environment.logger.error("A network error occurred: \(error)")
-        guard let retryInfo else { return .deQueueCompletedResults(request) }
         switch retryInfo {
         case let .retry(count):
             let requestRetryCount = count + 1
@@ -101,11 +100,8 @@ func handleRequestError(
         return .deQueueCompletedResults(request)
 
     case let .rateLimitError(retryAfter):
-        guard let retryInfo else { return .deQueueCompletedResults(request) }
-
         var requestRetryCount = 0
         var totalRetryCount = 0
-
         switch retryInfo {
         case let .retry(count):
             requestRetryCount = count + 1
