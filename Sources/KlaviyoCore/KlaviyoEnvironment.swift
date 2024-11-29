@@ -201,7 +201,7 @@ public func createNetworkSession() -> NetworkSession {
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
-    case cannotConvertToJson
+    case invalidJson
 }
 
 public struct DataDecoder {
