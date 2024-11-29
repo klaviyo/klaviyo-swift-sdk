@@ -60,6 +60,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         let webView = WKWebView(frame: .zero, configuration: config)
         // customize any WKWebView behaviors here
         // ex: webView.allowsBackForwardNavigationGestures = true
+        webView.isOpaque = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+
         return webView
     }
 
@@ -128,11 +131,49 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 
 // MARK: - Previews
 
+#if DEBUG
+func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
+    let viewController = KlaviyoWebViewController(viewModel: viewModel)
+
+    // Add a dummy view as a parent to the KlaviyoWebViewController to preview what the
+    // KlaviyoWebViewController might look like when it's displayed on top of a view in an app.
+    let parentViewController = PreviewTabViewController()
+
+    parentViewController.addChild(viewController)
+    parentViewController.view.addSubview(viewController.view)
+    viewController.didMove(toParent: parentViewController)
+
+    viewController.view.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+        viewController.view.topAnchor.constraint(equalTo: parentViewController.view.topAnchor),
+        viewController.view.bottomAnchor.constraint(equalTo: parentViewController.view.bottomAnchor),
+        viewController.view.leadingAnchor.constraint(equalTo: parentViewController.view.leadingAnchor),
+        viewController.view.trailingAnchor.constraint(equalTo: parentViewController.view.trailingAnchor)
+    ])
+
+    return parentViewController
+}
+#endif
+
 #if swift(>=5.9)
 @available(iOS 17.0, *)
 #Preview("Klaviyo.com") {
-    let url = URL(string: "https://www.klaviyo.com")!
+    let url = URL(string: "https://picsum.photos/200/300")!
     let viewModel = KlaviyoWebViewModel(url: url)
+    return createKlaviyoWebPreview(viewModel: viewModel)
+}
+
+@available(iOS 17.0, *)
+#Preview("Klaviyo Form") {
+    let indexHtmlFileUrl = Bundle.module.url(forResource: "klaviyo", withExtension: "html")!
+    let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
+    return createKlaviyoWebPreview(viewModel: viewModel)
+}
+
+@available(iOS 17.0, *)
+#Preview("JS Test Page") {
+    let indexHtmlFileUrl = Bundle.module.url(forResource: "jstest", withExtension: "html")!
+    let viewModel = JSTestWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
 #endif
