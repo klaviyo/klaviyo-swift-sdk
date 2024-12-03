@@ -107,6 +107,7 @@ func handleRequestError(
             requestRetryCount = requestCount + 1
             totalRetryCount = totalCount + 1
         }
+
         return .requestFailed(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
