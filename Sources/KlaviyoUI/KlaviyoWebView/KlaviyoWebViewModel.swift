@@ -41,4 +41,10 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     func handleScriptMessage(_ message: WKScriptMessage) {
         // TODO: handle script message
     }
+
+    // MARK: handle user events
+
+    func dismiss() {
+        // TODO: handle dismiss
+    }
 }
