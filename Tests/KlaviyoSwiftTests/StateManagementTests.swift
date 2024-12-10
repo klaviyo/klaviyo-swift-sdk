@@ -5,11 +5,11 @@
 //  Created by Noah Durell on 12/6/22.
 //
 
+@testable import KlaviyoCore
+@testable import KlaviyoSDKDependencies
 @testable import KlaviyoSwift
 import Combine
 import Foundation
-@testable import KlaviyoCore
-@testable import KlaviyoSDKDependencies
 import XCTest
 
 #if swift(>=6)
