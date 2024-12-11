@@ -6,6 +6,7 @@
 //
 
 #if DEBUG
+#if swift(>=6)
 import Combine
 import Foundation
 import WebKit
@@ -72,4 +73,5 @@ class JSTestWebViewModel: @preconcurrency KlaviyoWebViewModeling {
         }
     }
 }
+#endif
 #endif
