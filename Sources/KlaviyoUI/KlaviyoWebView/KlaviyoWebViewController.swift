@@ -83,7 +83,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         Task { [weak self] in
             guard let self else { return }
 
-            for await (script, callback) in self.viewModel.scriptStream {
+            let scriptStream = self.viewModel.scriptStream
+            for await (script, callback) in scriptStream {
                 do {
                     let result = try await self.webView.evaluateJavaScript(script)
                     callback?(.success(result))
@@ -132,6 +133,7 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 // MARK: - Previews
 
 #if DEBUG
+@MainActor
 func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
@@ -170,10 +172,13 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
     return createKlaviyoWebPreview(viewModel: viewModel)
 }
 
+#if swift(>=6.0)
 @available(iOS 17.0, *)
 #Preview("JS Test Page") {
     let indexHtmlFileUrl = Bundle.module.url(forResource: "jstest", withExtension: "html")!
     let viewModel = JSTestWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
+#endif
+
 #endif

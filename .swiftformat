@@ -10,7 +10,7 @@
 
 # format options
 
---exclude Sources/KlaviyoSwift/Vendor,Tests/KlaviyoSwiftTests/Vendor,Tests/KlaviyoSwiftTests/__Snapshots__
+--exclude Sources/KlaviyoSDKDependencies,Sources/KlaviyoSwift/Vendor,Tests/KlaviyoSwiftTests/Vendor,Tests/KlaviyoSwiftTests/__Snapshots__
 --closingparen same-line
 --commas inline
 --comments indent

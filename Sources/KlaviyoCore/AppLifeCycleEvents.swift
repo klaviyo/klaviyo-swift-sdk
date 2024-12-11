@@ -20,37 +20,43 @@ public enum LifeCycleEvents {
     case reachabilityChanged(status: Reachability.NetworkStatus)
 }
 
+@MainActor
 public struct AppLifeCycleEvents {
-    public var lifeCycleEvents: () -> AnyPublisher<LifeCycleEvents, Never>
+    public var lifeCycleEvents: @MainActor (
+        (NSNotification.Name) -> AnyPublisher<Notification, Never>,
+        @escaping () throws -> Void,
+        @escaping () -> Void,
+        @escaping () -> Reachability.NetworkStatus?) -> AnyPublisher<LifeCycleEvents, Never>
 
-    public init(lifeCycleEvents: @escaping () -> AnyPublisher<LifeCycleEvents, Never> = {
-        let terminated = environment
-            .notificationCenterPublisher(UIApplication.willTerminateNotification)
+    public init(lifeCycleEvents: @MainActor @escaping (
+        (NSNotification.Name) -> AnyPublisher<Notification, Never>,
+        @escaping () throws -> Void,
+        @escaping () -> Void,
+        @escaping () -> Reachability.NetworkStatus?) -> AnyPublisher<LifeCycleEvents, Never> = { notificationPublisher, startReachability, stopReachability, reachabilityStatus in
+        let terminated = notificationPublisher(UIApplication.willTerminateNotification)
             .handleEvents(receiveOutput: { _ in
-                environment.stopReachability()
+                stopReachability()
             })
             .map { _ in LifeCycleEvents.terminated }
-        let foregrounded = environment
-            .notificationCenterPublisher(UIApplication.didBecomeActiveNotification)
+        let foregrounded = notificationPublisher(UIApplication.didBecomeActiveNotification)
             .handleEvents(receiveOutput: { _ in
                 do {
-                    try environment.startReachability()
+                    try startReachability()
                 } catch {
-                    environment.emitDeveloperWarning("failure to start reachability notifier")
+                    // ND: no-op for now...
                 }
             })
             .map { _ in LifeCycleEvents.foregrounded }
-        let backgrounded = environment
-            .notificationCenterPublisher(UIApplication.didEnterBackgroundNotification)
+        let backgrounded = notificationPublisher(UIApplication.didEnterBackgroundNotification)
             .handleEvents(receiveOutput: { _ in
-                environment.stopReachability()
+                stopReachability()
             })
             .map { _ in LifeCycleEvents.backgrounded }
         // The below is a bit convoluted since network status can be nil.
-        let reachability = environment
-            .notificationCenterPublisher(ReachabilityChangedNotification)
+        let reachability = notificationPublisher(ReachabilityChangedNotification)
+            .receive(on: DispatchQueue.main)
             .compactMap { _ in
-                let status = environment.reachabilityStatus() ?? .reachableViaWWAN
+                let status = reachabilityStatus() ?? .reachableViaWWAN
                 return LifeCycleEvents.reachabilityChanged(status: status)
             }
 
@@ -59,16 +65,16 @@ public struct AppLifeCycleEvents {
             .merge(with: foregrounded, backgrounded)
             .handleEvents(receiveSubscription: { _ in
                 do {
-                    try environment.startReachability()
+                    try startReachability()
                 } catch {
-                    environment.emitDeveloperWarning("failure to start reachability notifier")
+                    environment.logger.error("failure to start reachability notifier")
                 }
             })
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .eraseToAnyPublisher()
     }) {
         self.lifeCycleEvents = lifeCycleEvents
     }
 
-    static let production = Self()
+    public static let production = Self()
 }
