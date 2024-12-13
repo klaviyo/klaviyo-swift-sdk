@@ -289,6 +289,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
+            KlaviyoBadgeCountUtil.syncBadgeCount()
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
@@ -306,6 +307,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     let autoclearing = await environment.getBadgeAutoClearingSetting()
                     if autoclearing {
                         await send(KlaviyoAction.setBadgeCount(0))
+                    } else {
+                        KlaviyoBadgeCountUtil.syncBadgeCount()
                     }
                 },
                 environment.timer(state.flushInterval)
@@ -583,6 +586,16 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
         initialState: KlaviyoState(queue: [], requestsInFlight: []),
         reducer: KlaviyoReducer())
+}
+
+enum KlaviyoBadgeCountUtil {
+    static func syncBadgeCount() {
+        DispatchQueue.main.async {
+            if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
+            }
+        }
+    }
 }
 
 extension Event {

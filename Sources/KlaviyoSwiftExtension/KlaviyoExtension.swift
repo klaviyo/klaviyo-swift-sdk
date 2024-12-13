@@ -7,6 +7,12 @@
 import Foundation
 import UserNotifications
 
+private enum KlaviyoBadgeConfig: String {
+    case incrementOne = "increment_one"
+    case setCount = "set_count"
+    case setProperty = "set_property"
+}
+
 public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
@@ -24,6 +30,25 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg") {
+        // handle badge setting from the push notification payload
+        if let badgeConfig = bestAttemptContent.userInfo["badge_config"] as? String {
+            switch badgeConfig {
+            case KlaviyoBadgeConfig.incrementOne.rawValue:
+                if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                    let currentBadgeCount = userDefaults.integer(forKey: "badgeCount")
+                    userDefaults.set(currentBadgeCount + 1, forKey: "badgeCount")
+                    bestAttemptContent.badge = (currentBadgeCount + 1 as NSNumber)
+                }
+            case KlaviyoBadgeConfig.setCount.rawValue, KlaviyoBadgeConfig.setProperty.rawValue:
+                if let badgeValue = bestAttemptContent.userInfo["badge_value"] as? Int {
+                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                        userDefaults.set(badgeValue, forKey: "badgeCount")
+                    }
+                }
+            default: break
+            }
+        }
+
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
@@ -122,7 +147,8 @@ public enum KlaviyoExtensionSDK {
         guard let attachment = try? UNNotificationAttachment(
             identifier: "",
             url: localFileURLWithType,
-            options: nil) else {
+            options: nil)
+        else {
             completion(nil)
             return
         }

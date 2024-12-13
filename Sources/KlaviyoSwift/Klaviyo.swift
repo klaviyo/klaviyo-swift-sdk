@@ -163,6 +163,7 @@ public struct KlaviyoSDK {
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
+        KlaviyoBadgeCountUtil.syncBadgeCount()
         if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
            let body = properties["body"] as? [String: Any], let _ = body["_k"] {
             create(event: Event(name: ._openedPush, properties: properties))
