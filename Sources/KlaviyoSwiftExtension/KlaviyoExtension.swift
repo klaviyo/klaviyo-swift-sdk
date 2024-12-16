@@ -44,6 +44,7 @@ public enum KlaviyoExtensionSDK {
                     if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
                         userDefaults.set(badgeValue, forKey: "badgeCount")
                     }
+                    bestAttemptContent.badge = (badgeValue as NSNumber)
                 }
             default: break
             }

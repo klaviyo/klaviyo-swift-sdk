@@ -19,6 +19,10 @@
   - [Prerequisites](#prerequisites)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
+  - [Badge Count](#badge-count)
+    - [Set Up](#set-up)
+    - [Autoclearing Badge Count](#autoclearing-badge-count)
+    - [Handling Other Badging Sources](#handling-other-badging-sources)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
     - [Deep Linking](#deep-linking)
@@ -43,7 +47,7 @@ Once integrated, your marketing team will be able to better understand your app 
 ## Installation
 
 1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) add a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) or [custom badge counts](#custom-badge-count) add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
    - Select File > New > Target in Xcode.
    - Select the Notification Service Extension target from the iOS > Application extension section.
    - Click Next.
@@ -91,7 +95,7 @@ Once integrated, your marketing team will be able to better understand your app 
       </details>
 
 4. Finally, in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file.
-  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification as well as handle custom badge counts.
 
 ## Initialization
 The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
@@ -274,6 +278,25 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
     return true
 }
 ```
+### Badge Count
+
+#### Set Up
+Klaviyo supports custom badge counts when configuring your push notification in the editor dashboard. To set up your app, so the Klaviyo SDK properly handles them:
+
+(Pre-requisite: Set up the Push Notification Service Extension)
+1. In XCode, select your main app target, then go to Signing & Capabilities
+2. Add an App Groups capability and click the plus in the new section to add a new App Group
+3. Pick a name based on the scheme `group.[MainTargetBundleId].[descriptor]`
+4. Select your Service Extension target, and add the same App Group with the same name
+5. In your app's `Info.plist`, add a new entry for `Klaviyo_App_Group` as a String with the App Group name
+
+#### Autoclearing Badge Count
+
+If you want to automatically clear the badge count of your app to 0 when the app is opened, in your app's `Info.plist`, add a new entry for `Klaviyo_badge_autoclearing` as a Boolean set to `YES`.
+
+#### Handling Other Badging Sources
+
+Klaviyo SDK handles Klaviyo pushes, but if you have other sources that change the badge count, use the `KlaviyoSDK().setBadgeCount(:)` method wherever you change the badge count to keep in sync with SDK count.
 
 ### Receiving Push Notifications
 
@@ -310,44 +333,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         } else {
             completionHandler([.alert])
         }
-    }
-}
-```
-When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
-
-```swift
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void) {
-        // decrement the badge count on the app icon
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(UIApplication.shared.applicationIconBadgeNumber - 1)
-        } else {
-            UIApplication.shared.applicationIconBadgeNumber -= 1
-        }
-
-        // If this notification is Klaviyo's notification we'll handle it
-        // else pass it on to the next push notification service to which it may belong
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
-        if !handled {
-            completionHandler()
-        }
-    }
-```
-
-Additionally, if you just want to reset the badge count to zero when the app is opened(note that this could be from
-the user just opening the app independent of the push message), you can add the following code to
-the `applicationDidBecomeActive` method in the app delegate:
-
-```swift
-
-func applicationDidBecomeActive(_ application: UIApplication) {
-    // reset the badge count on the app icon
-    if #available(iOS 16.0, *) {
-        UNUserNotificationCenter.current().setBadgeCount(0)
-    } else {
-        UIApplication.shared.applicationIconBadgeNumber = 0
     }
 }
 ```
