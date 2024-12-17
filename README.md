@@ -283,12 +283,13 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 #### Set Up
 Klaviyo supports custom badge counts when configuring your push notification in the editor dashboard. To set up your app, so the Klaviyo SDK properly handles them:
 
-(Pre-requisite: Set up the Push Notification Service Extension)
+(Pre-requisite: Set up the Notification Service Extension)
 1. In XCode, select your main app target, then go to Signing & Capabilities
 2. Add an App Groups capability and click the plus in the new section to add a new App Group
-3. Pick a name based on the scheme `group.[MainTargetBundleId].[descriptor]`
+3. Pick a name based on the scheme `group.com.[MainTargetBundleId].[descriptor]`
 4. Select your Service Extension target, and add the same App Group with the same name
 5. In your app's `Info.plist`, add a new entry for `Klaviyo_App_Group` as a String with the App Group name
+6. In your Notification Service Extension's `Info.plist`, add a new entry for `Klaviyo_App_Group` as a String with the App Group name
 
 #### Autoclearing Badge Count
 
