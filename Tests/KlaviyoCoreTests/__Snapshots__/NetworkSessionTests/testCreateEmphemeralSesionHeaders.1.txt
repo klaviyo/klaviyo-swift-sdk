@@ -20,4 +20,4 @@
       - value: "application/json"
     ▿ (2 elements)
       - key: "revision"
-      - value: "2023-07-15"
+      - value: "2024-10-15"
