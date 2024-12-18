@@ -28,7 +28,7 @@ public struct NetworkSession {
         self.data = data
     }
 
-    fileprivate static let currentApiRevision = "2023-07-15"
+    fileprivate static let currentApiRevision = "2024-10-15"
     fileprivate static let applicationJson = "application/json"
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
     fileprivate static let mobileHeader = "1"
