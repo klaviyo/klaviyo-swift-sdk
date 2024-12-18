@@ -42,6 +42,9 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     }
 
     func handleScriptMessage(_ message: WKScriptMessage) {
-        // TODO: handle script message
+        if message.name == "closeHandler" {
+            // TODO: handle close button tap
+            print("user tapped close button")
+        }
     }
 }
