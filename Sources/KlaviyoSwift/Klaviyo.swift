@@ -222,6 +222,6 @@ extension KlaviyoSDK {
     /// - warning: For internal use only. The host app should not manually call this method, as
     /// the logic for fetching and displaying forms will be handled internally within the SDK.
     public func fetchForms() {
-        dispatchOnMainThread(action: .fetchForms)
+        dispatchStoreAction(action: .fetchForms)
     }
 }
