@@ -1,3 +1,6 @@
+/// Copied verbatim from swift-custom-dump v1.3.2 on 11/15/2024
+/// https://github.com/pointfreeco/swift-custom-dump/tree/1.3.2
+
 import Foundation
 @testable import KlaviyoSDKDependencies
 
