@@ -1,3 +1,6 @@
+/// https://github.com/pointfreeco/swift-composable-architecture/tree/1.16.1
+/// Changes from TCA: added Klaviyo imports
+
 import Dispatch
 @testable import KlaviyoSwift
 @testable import KlaviyoSDKDependencies

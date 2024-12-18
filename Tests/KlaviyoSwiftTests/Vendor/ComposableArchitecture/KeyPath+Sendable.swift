@@ -1,3 +1,6 @@
+/// https://github.com/pointfreeco/swift-composable-architecture/tree/1.16.1
+/// Changes from TCA: added KlaviyoSDKDependencies import
+
 import KlaviyoSDKDependencies
 
 #if compiler(>=6)
