@@ -55,6 +55,9 @@ enum KlaviyoAction: Equatable {
     /// call to set the app badge count as well as update the stored value in the User Defaults suite
     case setBadgeCount(Int)
 
+    /// call to sync the stored value in the User Defaults suite with the currently displayed badge count provided by `UIApplication.shared.applicationIconBadgeNumber`
+    case syncBadgeCount
+
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
@@ -111,7 +114,7 @@ enum KlaviyoAction: Equatable {
         case .setEmail, .setPhoneNumber, .setExternalId, .setPushToken, .setPushEnablement, .enqueueProfile, .setProfileProperty, .setBadgeCount, .resetProfile, .resetStateAndDequeue, .enqueueEvent, .fetchForms, .handleFormsResponse:
             return true
 
-        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .cancelInFlightRequests, .requestFailed:
+        case .initialize, .completeInitialization, .deQueueCompletedResults, .networkConnectivityChanged, .flushQueue, .sendRequest, .stop, .start, .syncBadgeCount, .cancelInFlightRequests, .requestFailed:
             return false
         }
     }
@@ -289,10 +292,10 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            KlaviyoBadgeCountUtil.syncBadgeCount()
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
+                    await send(KlaviyoAction.syncBadgeCount)
                 }))
 
         case .start:
@@ -308,7 +311,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     if autoclearing {
                         await send(KlaviyoAction.setBadgeCount(0))
                     } else {
-                        KlaviyoBadgeCountUtil.syncBadgeCount()
+                        await send(KlaviyoAction.syncBadgeCount)
                     }
                 },
                 environment.timer(state.flushInterval)
@@ -516,6 +519,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 _ = klaviyoSwiftEnvironment.setBadgeCount(count)
             }
 
+        case .syncBadgeCount:
+            DispatchQueue.main.async {
+                if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                    userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
+                }
+            }
+            return .none
+
         case .resetProfile:
             guard case .initialized = state.initalizationState
             else {
@@ -586,16 +597,6 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
         initialState: KlaviyoState(queue: [], requestsInFlight: []),
         reducer: KlaviyoReducer())
-}
-
-enum KlaviyoBadgeCountUtil {
-    static func syncBadgeCount() {
-        DispatchQueue.main.async {
-            if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
-            }
-        }
-    }
 }
 
 extension Event {
