@@ -8,8 +8,6 @@
 
 window.addEventListener("klaviyoForms", function(e) {
   if (e.detail.type == 'close') {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.closeHandler) {
-      window.webkit.messageHandlers.closeHandler.postMessage('close');
-    }
+    window.webkit?.messageHandlers?.closeHandler?.postMessage('close');
   }
 });
