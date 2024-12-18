@@ -35,7 +35,7 @@ extension KlaviyoEnvironment {
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
-            getBadgeAutoClearingSetting: { true },
+            getBadgeAutoClearingIsDisabled: { false },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },

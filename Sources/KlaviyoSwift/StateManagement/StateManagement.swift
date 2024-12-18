@@ -304,11 +304,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 .run { send in
                     let settings = await environment.getNotificationSettings()
                     await send(KlaviyoAction.setPushEnablement(settings))
-                    let autoclearing = await environment.getBadgeAutoClearingSetting()
-                    if autoclearing {
-                        await send(KlaviyoAction.setBadgeCount(0))
-                    } else {
+                    let disabled = await environment.getBadgeAutoClearingIsDisabled()
+                    if disabled {
                         KlaviyoBadgeCountUtil.syncBadgeCount()
+                    } else {
+                        await send(KlaviyoAction.setBadgeCount(0))
                     }
                 },
                 environment.timer(state.flushInterval)

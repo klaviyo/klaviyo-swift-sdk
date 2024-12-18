@@ -293,7 +293,7 @@ Klaviyo supports custom badge counts when configuring your push notification in 
 
 #### Autoclearing Badge Count
 
-If you want to automatically clear the badge count of your app to 0 when the app is opened, in your app's `Info.plist`, add a new entry for `Klaviyo_badge_autoclearing` as a Boolean set to `YES`.
+By default, Klaviyo SDK automatically clears all badges on app open. If you want to disable this behavior, in your app's `Info.plist`, add a new entry for `disable_Klaviyo_badge_autoclearing` as a Boolean set to `YES`.
 
 #### Handling Other Badging Sources
 
