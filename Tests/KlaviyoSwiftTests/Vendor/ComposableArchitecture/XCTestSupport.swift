@@ -1,3 +1,6 @@
+/// Copied verbatim from TCA v1.16.1 on 11/14/2024
+/// https://github.com/pointfreeco/swift-composable-architecture/tree/1.16.1
+
 import Foundation
 @_spi(CurrentTestCase) import XCTestDynamicOverlay
 @testable import KlaviyoSDKDependencies

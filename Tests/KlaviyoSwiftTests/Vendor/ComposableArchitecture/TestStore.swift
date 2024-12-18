@@ -1,3 +1,7 @@
+/// Copied with changes from TCA v1.16.1 on 11/14/2024
+/// https://github.com/pointfreeco/swift-composable-architecture/tree/1.16.1
+/// Changes from TCA: added KlaviyoSDKDependencies import, also likely made similar changes as we done to main store and root store.
+
 import Combine
 import Foundation
 @_spi(Internals) @testable import KlaviyoSwift
