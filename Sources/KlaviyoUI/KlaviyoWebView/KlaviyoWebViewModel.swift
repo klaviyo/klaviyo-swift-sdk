@@ -27,7 +27,10 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     private static func initializeLoadScripts() -> [String: WKUserScript] {
         var scripts: [String: WKUserScript] = [:]
 
-        // TODO: initialize scripts
+        if let closeHandlerScript = try? FileIO.getFileContents(path: "closeHandler", type: "js") {
+            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts["closeHandler"] = script
+        }
 
         return scripts
     }
