@@ -5,12 +5,12 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
+import KlaviyoSDKDependencies
 
-public struct Event: Equatable {
-    public enum EventName: Equatable {
+public struct Event: Equatable, Sendable {
+    public enum EventName: Equatable, Sendable {
         case openedAppMetric
         case viewedProductMetric
         case addedToCartMetric
@@ -22,7 +22,7 @@ public struct Event: Equatable {
         }
     }
 
-    public struct Metric: Equatable {
+    public struct Metric: Equatable, Sendable {
         public let name: EventName
 
         public init(name: EventName) {
@@ -49,17 +49,17 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-    public let time: Date
+    public let time: Date?
     public let value: Double?
-    public let uniqueId: String
+    public let uniqueId: String?
     let identifiers: Identifiers?
 
     init(name: EventName,
          properties: [String: Any]? = nil,
          identifiers: Identifiers? = nil,
          value: Double? = nil,
-         time: Date = environment.date(),
-         uniqueId: String = environment.uuid().uuidString) {
+         time: Date? = nil,
+         uniqueId: String?) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.time = time
@@ -82,8 +82,8 @@ public struct Event: Equatable {
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
+        self.uniqueId = uniqueId
         time = environment.date()
-        self.uniqueId = uniqueId ?? environment.uuid().uuidString
     }
 }
 

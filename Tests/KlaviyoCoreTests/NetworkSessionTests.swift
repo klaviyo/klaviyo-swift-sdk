@@ -5,31 +5,37 @@
 //  Created by Noah Durell on 11/18/22.
 //
 
-import KlaviyoCore
+@testable import KlaviyoCore
 import SnapshotTesting
 import XCTest
 
 @MainActor
 class NetworkSessionTests: XCTestCase {
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
     }
 
-    func testDefaultUserAgent() {
-        assertSnapshot(matching: NetworkSession.defaultUserAgent, as: .dump)
+    override func tearDown() async throws {
+        urlSession = nil
     }
 
-    func testCreateEmphemeralSesionHeaders() {
-        assertSnapshot(matching: createEmphemeralSession().configuration.httpAdditionalHeaders, as: .dump)
+    func testDefaultUserAgent() async {
+        let userAgent = await defaultUserAgent()
+        assertSnapshot(of: userAgent, as: .dump)
+    }
+
+    func testCreateEmphemeralSesionHeaders() async {
+        let userAgent = await defaultUserAgent()
+        assertSnapshot(of: createEmphemeralSession(userAgent: userAgent).configuration.httpAdditionalHeaders, as: .dump)
     }
 
     func testSessionDataTask() async throws {
         URLProtocolOverrides.protocolClasses = [SimpleMockURLProtocol.self]
         let session = NetworkSession.production
-        let sampleRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
+        let sampleRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test), uuid: environment.uuid().uuidString)
         let (data, response) = try await session.data(sampleRequest.urlRequest())
 
-        assertSnapshot(matching: data, as: .dump)
-        assertSnapshot(matching: response, as: .dump)
+        assertSnapshot(of: data, as: .dump)
+        assertSnapshot(of: response, as: .dump)
     }
 }
