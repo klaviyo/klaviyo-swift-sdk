@@ -28,10 +28,16 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
         var scripts: [String: WKUserScript] = [:]
 
         if let closeHandlerScript = try? FileIO.getFileContents(path: "closeHandler", type: "js") {
+            #if swift(<6.0)
+            let script = try WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts["closeHandler"] = script
+
+            #else
             Task {
                 let script = await WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
                 scripts["closeHandler"] = script
             }
+            #endif
         }
 
         return scripts
