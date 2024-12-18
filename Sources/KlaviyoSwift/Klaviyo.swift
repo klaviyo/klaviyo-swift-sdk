@@ -185,3 +185,18 @@ public struct KlaviyoSDK {
         return false
     }
 }
+
+// MARK: - SPI Private methods
+
+// for internal use only
+
+@_spi(KlaviyoPrivate)
+extension KlaviyoSDK {
+    /// Fetch the active forms for the current user.
+    ///
+    /// - warning: For internal use only. The host app should not manually call this method, as
+    /// the logic for fetching and displaying forms will be handled internally within the SDK.
+    public func fetchForms() {
+        dispatchOnMainThread(action: .fetchForms)
+    }
+}
