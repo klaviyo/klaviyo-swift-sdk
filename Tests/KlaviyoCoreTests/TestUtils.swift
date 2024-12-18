@@ -87,7 +87,7 @@ extension KlaviyoEnvironment {
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
-            getBadgeAutoClearingIsDisabled: { false },
+            getBadgeAutoClearingSetting: { true },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },

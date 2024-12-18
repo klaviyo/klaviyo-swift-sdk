@@ -22,7 +22,7 @@ public struct KlaviyoEnvironment {
         notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
-        getBadgeAutoClearingIsDisabled: @escaping () async -> Bool,
+        getBadgeAutoClearingSetting: @escaping () async -> Bool,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
@@ -49,7 +49,7 @@ public struct KlaviyoEnvironment {
         self.notificationCenterPublisher = notificationCenterPublisher
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
-        self.getBadgeAutoClearingIsDisabled = getBadgeAutoClearingIsDisabled
+        self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
         self.startReachability = startReachability
         self.stopReachability = stopReachability
         self.reachabilityStatus = reachabilityStatus
@@ -96,7 +96,7 @@ public struct KlaviyoEnvironment {
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
-    public var getBadgeAutoClearingIsDisabled: () async -> Bool
+    public var getBadgeAutoClearingSetting: () async -> Bool
 
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
@@ -154,8 +154,8 @@ public struct KlaviyoEnvironment {
         getBackgroundSetting: {
             .create(from: UIApplication.shared.backgroundRefreshStatus)
         },
-        getBadgeAutoClearingIsDisabled: {
-            Bundle.main.object(forInfoDictionaryKey: "disable_Klaviyo_badge_autoclearing") as? Bool ?? false
+        getBadgeAutoClearingSetting: {
+            Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },
         startReachability: {
             try reachabilityService?.startNotifier()

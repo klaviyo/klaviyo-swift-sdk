@@ -347,7 +347,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     func testDefaultBadgeClearingOn() async throws {
         let apiKey = "fake-key"
-        environment.getBadgeAutoClearingIsDisabled = { false }
+        environment.getBadgeAutoClearingSetting = { true }
         let expectation = XCTestExpectation(description: "Should set badge to 0")
         klaviyoSwiftEnvironment.setBadgeCount = { _ in
             expectation.fulfill()
@@ -380,7 +380,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     func testDefaultBadgeClearingOff() async {
         let apiKey = "fake-key"
-        environment.getBadgeAutoClearingIsDisabled = { true }
+        environment.getBadgeAutoClearingSetting = { false }
         let expectation = XCTestExpectation(description: "Should not set badge to 0")
         expectation.isInverted = true
         klaviyoSwiftEnvironment.setBadgeCount = { _ in
