@@ -1,7 +1,7 @@
+@testable import KlaviyoCore
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Combine
-import KlaviyoCore
 
 @MainActor
 class StateChangePublisherTests: XCTestCase {
