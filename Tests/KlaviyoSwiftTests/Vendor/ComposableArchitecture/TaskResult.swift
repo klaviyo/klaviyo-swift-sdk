@@ -1,3 +1,7 @@
+/// Copied with changes from TCA v1.16.1 on 11/14/2024
+/// https://github.com/pointfreeco/swift-composable-architecture/tree/1.16.1
+/// Changes from TCA: added KlaviyoSDKDependencies import
+
 @testable import KlaviyoSDKDependencies
 
 /// A value that represents either a success or a failure. This type differs from Swift's `Result`

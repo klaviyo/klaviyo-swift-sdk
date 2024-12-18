@@ -25,8 +25,6 @@ extension IssueReporter where Self == _RuntimeWarningReporter {
 /// fault-level messages to the console.
 ///
 /// Use ``IssueReporter/runtimeWarning`` to create one of these values.
-/// Copied verbatim from xctest dynamic overlay v1.3.0 on 11/15/2024
-/// https://github.com/pointfreeco/xctest-dynamic-overlay/tree/1.3.0
 
 public struct _RuntimeWarningReporter: IssueReporter {
   #if canImport(os)

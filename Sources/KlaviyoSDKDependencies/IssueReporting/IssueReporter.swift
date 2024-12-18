@@ -1,3 +1,6 @@
+/// Copied verbatim from Swift Issue Reporting v1.3.0 on 11/15/2024
+/// https://github.com/pointfreeco/swift-issue-reporting/tree/1.3.0
+
 /// A type that can report issues.
 public protocol IssueReporter: Sendable {
   /// Called when an issue is reported.
