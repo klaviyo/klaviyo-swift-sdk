@@ -5,10 +5,10 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSwift
 @preconcurrency import Combine // Will figure out a better way for this...
 import Foundation
-import KlaviyoCore
 import XCTest
 
 @MainActor

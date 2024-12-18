@@ -5,10 +5,10 @@
 //  Created by Noah Durell on 2/21/23.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSDKDependencies
 @testable import KlaviyoSwift
 import Foundation
-import KlaviyoCore
 import XCTest
 
 // MARK: - KlaviyoSDKTests

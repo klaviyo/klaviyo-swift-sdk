@@ -5,8 +5,8 @@
 //  Created by Noah Durell on 9/26/22.
 //
 
+@testable import KlaviyoCore
 import Combine
-import KlaviyoCore
 import XCTest
 
 @MainActor

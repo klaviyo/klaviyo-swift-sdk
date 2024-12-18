@@ -1,7 +1,7 @@
+@testable import KlaviyoCore
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Combine
-import KlaviyoCore
 
 // TODO: follow up on these change - ensure we are still testing edge cases here
 
