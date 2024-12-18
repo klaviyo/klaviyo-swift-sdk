@@ -12,9 +12,9 @@ import UIKit
 
 // Though this is a var it should never be modified outside of tests.
 #if swift(>=5.10)
-public nonisolated(unsafe) var environment = KlaviyoEnvironment.production
+public internal(set) nonisolated(unsafe) var environment = KlaviyoEnvironment.production
 #else
-public var environment = KlaviyoEnvironment.production
+public internal(set) var environment = KlaviyoEnvironment.production
 #endif
 
 public struct KlaviyoEnvironment: Sendable {

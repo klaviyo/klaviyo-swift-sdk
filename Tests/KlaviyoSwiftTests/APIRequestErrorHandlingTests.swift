@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSwift
 import Foundation
-import KlaviyoCore
 import XCTest
 
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
