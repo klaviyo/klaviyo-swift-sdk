@@ -178,9 +178,9 @@ public struct KlaviyoSDK {
                     completionHandler()
                 }
             }
-
             return true
         }
+        dispatchOnMainThread(action: .syncBadgeCount)
         return false
     }
 }
