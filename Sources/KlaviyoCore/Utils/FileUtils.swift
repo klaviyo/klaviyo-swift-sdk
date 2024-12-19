@@ -11,28 +11,34 @@ func write(data: Data, url: URL) throws {
     try data.write(to: url, options: .atomic)
 }
 
-public struct FileClient {
+public struct FileClient: Sendable {
     public init(
-        write: @escaping (Data, URL) throws -> Void,
-        fileExists: @escaping (String) -> Bool,
-        removeItem: @escaping (String) throws -> Void,
-        libraryDirectory: @escaping () -> URL) {
+        write: @Sendable @escaping (Data, URL) throws -> Void,
+        fileExists: @Sendable @escaping (String) -> Bool,
+        removeItem: @Sendable @escaping (String) throws -> Void,
+        libraryDirectory: @Sendable @escaping () -> URL) {
         self.write = write
         self.fileExists = fileExists
         self.removeItem = removeItem
         self.libraryDirectory = libraryDirectory
     }
 
-    public var write: (Data, URL) throws -> Void
-    public var fileExists: (String) -> Bool
-    public var removeItem: (String) throws -> Void
-    public var libraryDirectory: () -> URL
+    public var write: @Sendable (Data, URL) throws -> Void
+    public var fileExists: @Sendable (String) -> Bool
+    public var removeItem: @Sendable (String) throws -> Void
+    public var libraryDirectory: @Sendable () -> URL
 
     public static let production = FileClient(
         write: write(data:url:),
-        fileExists: FileManager.default.fileExists(atPath:),
-        removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! })
+        fileExists: { path in
+            FileManager.default.fileExists(atPath: path)
+        },
+        removeItem: { path in
+            try FileManager.default.removeItem(atPath: path)
+        },
+        libraryDirectory: {
+            FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+        })
 }
 
 /**
@@ -55,10 +61,10 @@ public func filePathForData(apiKey: String, data: String) -> URL {
  - Parameter at: path of file to be removed
  - Returns: whether or not the file was removed
  */
-public func removeFile(at url: URL) -> Bool {
-    if environment.fileClient.fileExists(url.path) {
+public func removeFile(fileClient: FileClient, at url: URL) -> Bool {
+    if fileClient.fileExists(url.path) {
         do {
-            try environment.fileClient.removeItem(url.path)
+            try fileClient.removeItem(url.path)
             return true
         } catch {
             return false
