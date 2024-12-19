@@ -10,7 +10,7 @@ import Combine
 import XCTest
 
 @MainActor
-class ArchivalUtilsTests: XCTestCase {
+class ArchivalUtilsTests: XCTestCase, Sendable {
     #if swift(>=6)
     nonisolated(unsafe) var dataToWrite: Data?
     nonisolated(unsafe) var wroteToFile = false
@@ -86,14 +86,8 @@ class ArchivalUtilsTests: XCTestCase {
     }
 
     func testUnarchiveUnableToRemoveFile() throws {
-        var firstCall = true
-        environment.fileClient.fileExists = { _ in
-            if firstCall {
-                firstCall = false
-                return true
-            }
-            return false
-        }
+        environment.fileClient.fileExists = { _ in true }
+        environment.fileClient.removeItem = { _ in }
         let archiveResult = unarchiveFromFile(fileClient: environment.fileClient, fileURL: TEST_URL)
 
         XCTAssertEqual(SAMPLE_DATA, archiveResult)

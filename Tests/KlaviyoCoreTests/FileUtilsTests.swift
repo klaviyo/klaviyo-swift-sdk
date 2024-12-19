@@ -9,7 +9,7 @@
 import XCTest
 
 @MainActor
-class FileUtilsTests: XCTestCase {
+class FileUtilsTests: XCTestCase, Sendable {
     #if swift(>=6)
     nonisolated(unsafe) var dataToWrite: Data?
     nonisolated(unsafe) var wroteToFile = false
