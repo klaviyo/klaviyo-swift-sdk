@@ -520,9 +520,11 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case .syncBadgeCount:
-            DispatchQueue.main.async {
-                if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                    userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
+            Task {
+                await MainActor.run {
+                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                        userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
+                    }
                 }
             }
             return .none
