@@ -25,6 +25,9 @@
       - [Option 1: URL Schemes](#option-1-URL-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
+    - [Badge Count](#badge-count)
+         - [Autoclearing](#autoclearing)
+      - [Handling Other Badging Sources](#handling-other-badging-sources)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -43,7 +46,7 @@ Once integrated, your marketing team will be able to better understand your app 
 ## Installation
 
 1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) add a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+2. If you intend to use [rich push notifications](#rich-push) or [custom badge counts](#custom-badge-count) add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A Notification Service Extension ships as a separate bundle inside your iOS app. To add this extension to your app:
    - Select File > New > Target in Xcode.
    - Select the Notification Service Extension target from the iOS > Application extension section.
    - Click Next.
@@ -53,6 +56,15 @@ Once integrated, your marketing team will be able to better understand your app 
     > ⚠️ The deployment target of your notification service extension defaults to the latest iOS version.
              If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
              To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
+
+    Set up an App Group between your main app target and your Notification Service Extension.
+    - Select your main app target > Signing & Capabilities
+    - Select + Capability (make sure it is set to All not Debug or Release) > App Groups
+    - Create a new App Group based on the recommended naming scheme `group.com.[MainTargetBundleId].[descriptor]`
+    - In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
+    - Select your Notification Service Extension target > Signing & Capabilities
+    - Add an App Group with the same name as the main target's App Group
+    - In your Notification Service Extension's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
 
 3. Based on which dependency manager you use, follow the instructions below to install the Klaviyo's dependencies.
 
@@ -91,7 +103,7 @@ Once integrated, your marketing team will be able to better understand your app 
       </details>
 
 4. Finally, in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file.
-  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification as well as handle custom badge counts.
 
 ## Initialization
 The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
@@ -249,24 +261,24 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
     UIApplication.shared.registerForRemoteNotifications()
 
     let center = UNUserNotificationCenter.current()
-	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
-	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-	// use the below options if you are interested in using provisional push notifications. Note that using this will not
-	// show the push notifications prompt to the user.
-	// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-	center.requestAuthorization(options: options) { granted, error in
-	    if let error = error {
-	        // Handle the error here.
-	        print("error = ", error)
-	    }
+    center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+    let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+    // use the below options if you are interested in using provisional push notifications. Note that using this will not
+    // show the push notifications prompt to the user.
+    // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+    center.requestAuthorization(options: options) { granted, error in
+        if let error = error {
+            // Handle the error here.
+            print("error = ", error)
+        }
 
-	    // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
-	    // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
-	    // will make sure that Klaviyo always has the latest push authorization status.
+        // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+        // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+        // will make sure that Klaviyo always has the latest push authorization status.
             DispatchQueue.main.async {
                 UIApplication.shared.registerForRemoteNotifications()
             }
-	}
+    }
 
     return true
 }
@@ -310,44 +322,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 ```
-When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
-
-```swift
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void) {
-        // decrement the badge count on the app icon
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(UIApplication.shared.applicationIconBadgeNumber - 1)
-        } else {
-            UIApplication.shared.applicationIconBadgeNumber -= 1
-        }
-
-        // If this notification is Klaviyo's notification we'll handle it
-        // else pass it on to the next push notification service to which it may belong
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
-        if !handled {
-            completionHandler()
-        }
-    }
-```
-
-Additionally, if you just want to reset the badge count to zero when the app is opened(note that this could be from
-the user just opening the app independent of the push message), you can add the following code to
-the `applicationDidBecomeActive` method in the app delegate:
-
-```swift
-
-func applicationDidBecomeActive(_ application: UIApplication) {
-    // reset the badge count on the app icon
-    if #available(iOS 16.0, *) {
-        UNUserNotificationCenter.current().setBadgeCount(0)
-    } else {
-        UIApplication.shared.applicationIconBadgeNumber = 0
-    }
-}
-```
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
@@ -384,16 +358,16 @@ In order to edit the Info.plist directly, just fill in your app specific details
 ```xml
 <key>CFBundleURLTypes</key>
 <array>
-	<dict>
-		<key>CFBundleTypeRole</key>
-		<string>Editor</string>
-		<key>CFBundleURLName</key>
-		<string>{your_unique_identifier}</string>
-		<key>CFBundleURLSchemes</key>
-		<array>
-			<string>{your_URL_scheme}</string>
-		</array>
-	</dict>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>{your_unique_identifier}</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>{your_URL_scheme}</string>
+        </array>
+    </dict>
 </array>
 ```
 
@@ -406,7 +380,7 @@ This needs to be done in the Info.plist directly:
 ```xml
 <key>LSApplicationQueriesSchemes</key>
 <array>
-	<string>{your custom URL scheme}</string>
+    <string>{your custom URL scheme}</string>
 </array>
 ```
 
@@ -516,6 +490,19 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
+#### Badge Count
+>  ℹ️ Incrementing are supported in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
+
+Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
+
+##### Autoclearing
+
+By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
+
+##### Handling Other Badging Sources
+
+Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
 ## Additional Details
 
 ### Sandbox Support
@@ -543,6 +530,19 @@ The interval is based on the network link currently in use by the app. The table
 | Cellular  | 30 seconds |
 
 Connection determination is based on notifications from our reachability service.
+When there is no network available, the SDK will cache data until the network becomes available again.
+All data sent by the SDK should be available shortly after it is flushed by the SDK.
+
+### Retries
+The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval.
+In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
+
+## Contributing
+See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Swift SDK.
+We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-swift-sdk/issues) section of our public GitHub repository.
+
+### License
+KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
 When there is no network available, the SDK will cache data until the network becomes available again.
 All data sent by the SDK should be available shortly after it is flushed by the SDK.
 
