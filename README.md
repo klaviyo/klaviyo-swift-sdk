@@ -297,7 +297,7 @@ By default, Klaviyo SDK automatically clears all badges on app open. If you want
 
 #### Handling Other Badging Sources
 
-Klaviyo SDK handles Klaviyo pushes, but if you have other sources that change the badge count, use the `KlaviyoSDK().setBadgeCount(:)` method wherever you change the badge count to keep in sync with SDK count.
+Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
 
 ### Receiving Push Notifications
 

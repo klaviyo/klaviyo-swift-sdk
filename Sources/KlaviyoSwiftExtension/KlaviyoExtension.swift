@@ -7,10 +7,20 @@
 import Foundation
 import UserNotifications
 
-private enum KlaviyoBadgeConfig: String {
-    case incrementOne = "increment_one"
-    case setCount = "set_count"
-    case setProperty = "set_property"
+private enum KlaviyoBadgeConfig {
+    case incrementOne
+    case setCount
+    case setProperty
+    case unknown(value: String)
+
+    init(rawValue: String) {
+        switch rawValue {
+        case "increment_one": self = .incrementOne
+        case "set_count": self = .setCount
+        case "set_property": self = .setProperty
+        default: self = .unknown(value: rawValue)
+        }
+    }
 }
 
 public enum KlaviyoExtensionSDK {
@@ -31,21 +41,24 @@ public enum KlaviyoExtensionSDK {
         contentHandler: @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg") {
         // handle badge setting from the push notification payload
-        if let badgeConfig = bestAttemptContent.userInfo["badge_config"] as? String {
+        if let badgeConfigValue = bestAttemptContent.userInfo["badge_config"] as? String {
             guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
                   let userDefaults = UserDefaults(suiteName: appGroup) else {
                 return
             }
 
             var newBadgeValue: Int?
+            let badgeConfig = KlaviyoBadgeConfig(rawValue: badgeConfigValue)
             switch badgeConfig {
-            case KlaviyoBadgeConfig.incrementOne.rawValue:
+            case .incrementOne:
                 let currentBadgeCount = userDefaults.integer(forKey: "badgeCount")
                 newBadgeValue = currentBadgeCount + 1
-            default:
+            case .setCount, .setProperty:
                 if let badgeValue = bestAttemptContent.userInfo["badge_value"] as? Int {
                     newBadgeValue = badgeValue
                 }
+            case .unknown:
+                return
             }
 
             userDefaults.set(newBadgeValue, forKey: "badgeCount")
