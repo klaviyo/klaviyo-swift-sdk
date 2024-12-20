@@ -20,7 +20,6 @@
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Badge Count](#badge-count)
-    - [Set Up](#set-up)
     - [Autoclearing Badge Count](#autoclearing-badge-count)
     - [Handling Other Badging Sources](#handling-other-badging-sources)
   - [Receiving Push Notifications](#receiving-push-notifications)
@@ -47,7 +46,7 @@ Once integrated, your marketing team will be able to better understand your app 
 ## Installation
 
 1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) or [custom badge counts](#custom-badge-count) add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+2. If you intend to use [rich push notifications](#rich-push) or [custom badge counts](#custom-badge-count) add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A Notification Service Extension ships as a separate bundle inside your iOS app. To add this extension to your app:
    - Select File > New > Target in Xcode.
    - Select the Notification Service Extension target from the iOS > Application extension section.
    - Click Next.
@@ -57,6 +56,15 @@ Once integrated, your marketing team will be able to better understand your app 
     > ⚠️ The deployment target of your notification service extension defaults to the latest iOS version.
              If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
              To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
+
+    Set up an App Group between your main app target and your Notification Service Extension.
+    - Select your main app target > Signing & Capabilities
+    - Select + Capability (make sure it is set to All not Debug or Release) > App Groups
+    - Create a new App Group based on the recommended naming scheme `group.com.[MainTargetBundleId].[descriptor]`
+    - In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
+    - Select your Notification Service Extension target > Signing & Capabilities
+    - Add an App Group with the same name as the main target's App Group
+    - In your Notification Service Extension's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
 
 3. Based on which dependency manager you use, follow the instructions below to install the Klaviyo's dependencies.
 
