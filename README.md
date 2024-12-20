@@ -19,15 +19,15 @@
   - [Prerequisites](#prerequisites)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
-  - [Badge Count](#badge-count)
-    - [Autoclearing Badge Count](#autoclearing-badge-count)
-    - [Handling Other Badging Sources](#handling-other-badging-sources)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
     - [Deep Linking](#deep-linking)
       - [Option 1: URL Schemes](#option-1-URL-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
+    - [Badge Count](#badge-count)
+         - [Autoclearing](#autoclearing)
+      - [Handling Other Badging Sources](#handling-other-badging-sources)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -286,26 +286,6 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
     return true
 }
 ```
-### Badge Count
-
-#### Set Up
-Klaviyo supports custom badge counts when configuring your push notification in the editor dashboard. To set up your app, so the Klaviyo SDK properly handles them:
-
-(Pre-requisite: Set up the Notification Service Extension)
-1. In XCode, select your main app target, then go to Signing & Capabilities
-2. Add an App Groups capability and click the plus in the new section to add a new App Group
-3. Pick a name based on the scheme `group.com.[MainTargetBundleId].[descriptor]`
-4. Select your Service Extension target, and add the same App Group with the same name
-5. In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
-6. In your Notification Service Extension's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
-
-#### Autoclearing Badge Count
-
-By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
-
-#### Handling Other Badging Sources
-
-Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
 
 ### Receiving Push Notifications
 
@@ -512,6 +492,18 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
 
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+#### Badge Count
+
+Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
+
+##### Autoclearing
+
+By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
+
+##### Handling Other Badging Sources
+
+Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
 
 ## Additional Details
 
