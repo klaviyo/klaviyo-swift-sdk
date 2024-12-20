@@ -31,7 +31,7 @@ struct KlaviyoSwiftEnvironment {
             stateChangePublisher: StateChangePublisher().publisher,
             setBadgeCount: { count in
                 Task {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
+                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String) {
                         if #available(iOS 16.0, *) {
                             try? await UNUserNotificationCenter.current().setBadgeCount(count)
                         } else {

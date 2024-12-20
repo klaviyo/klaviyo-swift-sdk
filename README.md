@@ -288,8 +288,8 @@ Klaviyo supports custom badge counts when configuring your push notification in 
 2. Add an App Groups capability and click the plus in the new section to add a new App Group
 3. Pick a name based on the scheme `group.com.[MainTargetBundleId].[descriptor]`
 4. Select your Service Extension target, and add the same App Group with the same name
-5. In your app's `Info.plist`, add a new entry for `Klaviyo_App_Group` as a String with the App Group name
-6. In your Notification Service Extension's `Info.plist`, add a new entry for `Klaviyo_App_Group` as a String with the App Group name
+5. In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
+6. In your Notification Service Extension's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
 
 #### Autoclearing Badge Count
 

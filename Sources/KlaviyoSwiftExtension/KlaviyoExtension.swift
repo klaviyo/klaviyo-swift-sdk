@@ -32,28 +32,24 @@ public enum KlaviyoExtensionSDK {
         fallbackMediaType: String = "jpeg") {
         // handle badge setting from the push notification payload
         if let badgeConfig = bestAttemptContent.userInfo["badge_config"] as? String {
+            guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
+                  let userDefaults = UserDefaults(suiteName: appGroup) else {
+                return
+            }
+
+            var newBadgeValue: Int?
             switch badgeConfig {
             case KlaviyoBadgeConfig.incrementOne.rawValue:
-                if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                    let currentBadgeCount = userDefaults.integer(forKey: "badgeCount")
-                    userDefaults.set(currentBadgeCount + 1, forKey: "badgeCount")
-                    bestAttemptContent.badge = (currentBadgeCount + 1 as NSNumber)
-                }
-            case KlaviyoBadgeConfig.setCount.rawValue, KlaviyoBadgeConfig.setProperty.rawValue:
-                if let badgeValue = bestAttemptContent.userInfo["badge_value"] as? Int {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                        userDefaults.set(badgeValue, forKey: "badgeCount")
-                    }
-                    bestAttemptContent.badge = (badgeValue as NSNumber)
-                }
+                let currentBadgeCount = userDefaults.integer(forKey: "badgeCount")
+                newBadgeValue = currentBadgeCount + 1
             default:
                 if let badgeValue = bestAttemptContent.userInfo["badge_value"] as? Int {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                        userDefaults.set(badgeValue, forKey: "badgeCount")
-                    }
-                    bestAttemptContent.badge = (badgeValue as NSNumber)
+                    newBadgeValue = badgeValue
                 }
             }
+
+            userDefaults.set(newBadgeValue, forKey: "badgeCount")
+            bestAttemptContent.badge = newBadgeValue as? NSNumber
         }
 
         // 1a. get the rich media url from the push notification payload
