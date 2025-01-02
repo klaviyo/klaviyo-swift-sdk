@@ -543,16 +543,3 @@ We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-swif
 
 ### License
 KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
-When there is no network available, the SDK will cache data until the network becomes available again.
-All data sent by the SDK should be available shortly after it is flushed by the SDK.
-
-### Retries
-The SDK will retry API requests that fail under certain conditions. For example, if a network timeout occurs, the request will be retried on the next flush interval.
-In addition, if the SDK receives a rate limiting error `429` from the Klaviyo API, it will use exponential backoff with jitter to retry the next request.
-
-## Contributing
-See the [contributing guide](.github/CONTRIBUTING.md) to learn how to contribute to the Klaviyo Swift SDK.
-We welcome your feedback in the [issues](https://github.com/klaviyo/klaviyo-swift-sdk/issues) section of our public GitHub repository.
-
-### License
-KlaviyoSwift is available under the MIT license. See the LICENSE file for more info.
