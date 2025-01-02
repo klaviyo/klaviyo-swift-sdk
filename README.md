@@ -22,7 +22,7 @@
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
     - [Deep Linking](#deep-linking)
-      - [Option 1: URL Schemes](#option-1-URL-schemes)
+      - [Option 1: URL Schemes](#option-1-url-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
     - [Badge Count](#badge-count)
