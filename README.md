@@ -491,7 +491,7 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
 #### Badge Count
->  ℹ️ Incrementing are supported in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
+>  ℹ️ Incrementing badge count support is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
 
 Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
 
@@ -507,7 +507,7 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 
 ### Sandbox Support
 
-> ℹ️ Sandbox support is available in SDK version 2.2.0 and higher
+> ℹ️ Sandbox support is available in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
 Apple has two environments with push notification support - Production and Sandbox.
 The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight.
