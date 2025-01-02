@@ -252,24 +252,24 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
     UIApplication.shared.registerForRemoteNotifications()
 
     let center = UNUserNotificationCenter.current()
-    center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
-    let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-    // use the below options if you are interested in using provisional push notifications. Note that using this will not
-    // show the push notifications prompt to the user.
-    // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-    center.requestAuthorization(options: options) { granted, error in
-        if let error = error {
-            // Handle the error here.
-            print("error = ", error)
-        }
+	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+	// use the below options if you are interested in using provisional push notifications. Note that using this will not
+	// show the push notifications prompt to the user.
+	// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+	center.requestAuthorization(options: options) { granted, error in
+	    if let error = error {
+	        // Handle the error here.
+	        print("error = ", error)
+	    }
 
-        // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
-        // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
-        // will make sure that Klaviyo always has the latest push authorization status.
+	    // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+	    // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+	    // will make sure that Klaviyo always has the latest push authorization status.
             DispatchQueue.main.async {
                 UIApplication.shared.registerForRemoteNotifications()
             }
-    }
+	}
 
     return true
 }
@@ -387,16 +387,16 @@ In order to edit the Info.plist directly, just fill in your app specific details
 ```xml
 <key>CFBundleURLTypes</key>
 <array>
-    <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>{your_unique_identifier}</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>{your_URL_scheme}</string>
-        </array>
-    </dict>
+	<dict>
+		<key>CFBundleTypeRole</key>
+		<string>Editor</string>
+		<key>CFBundleURLName</key>
+		<string>{your_unique_identifier}</string>
+		<key>CFBundleURLSchemes</key>
+		<array>
+			<string>{your_URL_scheme}</string>
+		</array>
+	</dict>
 </array>
 ```
 
@@ -409,7 +409,7 @@ This needs to be done in the Info.plist directly:
 ```xml
 <key>LSApplicationQueriesSchemes</key>
 <array>
-    <string>{your custom URL scheme}</string>
+	<string>{your custom URL scheme}</string>
 </array>
 ```
 
