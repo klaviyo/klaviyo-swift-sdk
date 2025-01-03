@@ -31,16 +31,18 @@ struct KlaviyoSwiftEnvironment {
             stateChangePublisher: StateChangePublisher().publisher,
             setBadgeCount: { count in
                 Task {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "Klaviyo_App_Group") as? String) {
-                        if #available(iOS 16.0, *) {
-                            try? await UNUserNotificationCenter.current().setBadgeCount(count)
-                        } else {
-                            await MainActor.run {
-                                UIApplication.shared.applicationIconBadgeNumber = count
-                            }
-                        }
-                        userDefaults.set(count, forKey: "badgeCount")
+                    guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
+                          let userDefaults = UserDefaults(suiteName: appGroup) else {
+                        return
                     }
+                    if #available(iOS 16.0, *) {
+                        try? await UNUserNotificationCenter.current().setBadgeCount(count)
+                    } else {
+                        await MainActor.run {
+                            UIApplication.shared.applicationIconBadgeNumber = count
+                        }
+                    }
+                    userDefaults.set(count, forKey: "badgeCount")
                 }
             })
     }()
