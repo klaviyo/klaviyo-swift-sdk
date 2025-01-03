@@ -41,12 +41,9 @@ public enum KlaviyoExtensionSDK {
         contentHandler: @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg") {
         // handle badge setting from the push notification payload
-        if let badgeConfigValue = bestAttemptContent.userInfo["badge_config"] as? String {
-            guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
-                  let userDefaults = UserDefaults(suiteName: appGroup) else {
-                return
-            }
-
+        if let badgeConfigValue = bestAttemptContent.userInfo["badge_config"] as? String,
+           let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
+           let userDefaults = UserDefaults(suiteName: appGroup) {
             var newBadgeValue: Int?
             let badgeConfig = KlaviyoBadgeConfig(rawValue: badgeConfigValue)
             switch badgeConfig {
@@ -58,7 +55,7 @@ public enum KlaviyoExtensionSDK {
                     newBadgeValue = badgeValue
                 }
             case .unknown:
-                return
+                break
             }
 
             userDefaults.set(newBadgeValue, forKey: "badgeCount")
