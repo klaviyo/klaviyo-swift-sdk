@@ -25,7 +25,6 @@ extension IssueReporter where Self == _RuntimeWarningReporter {
 /// fault-level messages to the console.
 ///
 /// Use ``IssueReporter/runtimeWarning`` to create one of these values.
-
 public struct _RuntimeWarningReporter: IssueReporter {
   #if canImport(os)
     @IssueReportingUncheckedSendable
