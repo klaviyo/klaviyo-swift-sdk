@@ -14,8 +14,8 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let loadScripts: [String: WKUserScript]?
 
     /// Publishes scripts for the `WKWebView` to execute.
-    private var continuation: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)>.Continuation?
-    lazy var scriptStream: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
+    private var continuation: AsyncStream < (script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)>.Continuation?
+    lazy var scriptStream: AsyncStream < (script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
         self?.continuation = continuation
     }
 
@@ -28,8 +28,16 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
         var scripts: [String: WKUserScript] = [:]
 
         if let closeHandlerScript = try? FileIO.getFileContents(path: "closeHandler", type: "js") {
-            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            #if swift(<6.0)
+            let script = try WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             scripts["closeHandler"] = script
+
+            #else
+            Task {
+                let script = await WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+                scripts["closeHandler"] = script
+            }
+            #endif
         }
 
         return scripts
@@ -41,6 +49,7 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
         // TODO: handle navigation events
     }
 
+    @MainActor
     func handleScriptMessage(_ message: WKScriptMessage) {
         if message.name == "closeHandler" {
             // TODO: handle close button tap

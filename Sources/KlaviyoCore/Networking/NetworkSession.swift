@@ -7,24 +7,46 @@
 
 import Foundation
 
-public func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
+@MainActor var userAgent: String?
+
+@MainActor let defaultUserAgent = { () async -> String in
+    if let userAgent = await userAgent {
+        return userAgent
+    }
+    let appContext = await environment.appContextInfo()
+    let sdkVersion = appContext.sdkVersion
+    let sdkName = appContext.klaviyoSdk
+    let klaivyoSDKVersion = "klaviyo-\(sdkName)/\(sdkVersion)"
+    let userAgent = "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
+    return userAgent
+}
+
+@MainActor var urlSession: URLSession?
+
+@MainActor
+public func createEmphemeralSession(userAgent: String, protocolClasses: [AnyClass] = URLProtocolOverrides.protocolClasses) -> URLSession {
+    if let urlSession = urlSession {
+        return urlSession
+    }
     let configuration = URLSessionConfiguration.ephemeral
     configuration.httpAdditionalHeaders = [
         "Accept-Encoding": NetworkSession.acceptedEncodings,
-        "User-Agent": NetworkSession.defaultUserAgent,
+        "User-Agent": userAgent,
         "revision": NetworkSession.currentApiRevision,
         "content-type": NetworkSession.applicationJson,
         "accept": NetworkSession.applicationJson,
         "X-Klaviyo-Mobile": NetworkSession.mobileHeader
     ]
     configuration.protocolClasses = protocolClasses
-    return URLSession(configuration: configuration)
+    let session = URLSession(configuration: configuration)
+    urlSession = session
+    return session
 }
 
-public struct NetworkSession {
-    public var data: (URLRequest) async throws -> (Data, URLResponse)
+public struct NetworkSession: Sendable {
+    public var data: @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
-    public init(data: @escaping (URLRequest) async throws -> (Data, URLResponse)) {
+    public init(data: @Sendable @escaping (URLRequest) async throws -> (Data, URLResponse)) {
         self.data = data
     }
 
@@ -33,17 +55,16 @@ public struct NetworkSession {
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
     fileprivate static let mobileHeader = "1"
 
-    public static let defaultUserAgent = { () -> String in
-        let appContext = environment.appContextInfo()
-        let klaivyoSDKVersion = "klaviyo-\(environment.sdkName())/\(environment.sdkVersion())"
-        return "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
-    }()
-
     public static let production = { () -> NetworkSession in
-        let session = createEmphemeralSession()
 
-        return NetworkSession(data: { request async throws -> (Data, URLResponse) in
-
+        NetworkSession(data: { request async throws -> (Data, URLResponse) in
+            let userAgent = await defaultUserAgent()
+            #if swift(>=6)
+            let session = createEmphemeralSession(userAgent: userAgent)
+            #else
+            let session = await createEmphemeralSession(userAgent: userAgent)
+            #endif
+            // ND: why assign protocols again??
             session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
             if #available(iOS 15, *) {
                 return try await session.data(for: request)
@@ -64,5 +85,9 @@ public struct NetworkSession {
 }
 
 public enum URLProtocolOverrides {
+    #if swift(>=6)
+    public nonisolated(unsafe) static var protocolClasses = [AnyClass]()
+    #else
     public static var protocolClasses = [AnyClass]()
+    #endif
 }
