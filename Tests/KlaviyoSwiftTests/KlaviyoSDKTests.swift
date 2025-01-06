@@ -146,6 +146,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test unhandle push notification
 
     func testUnhandlePushNotification() throws {
+        let expectation = setupActionAssertion(expectedAction: .syncBadgeCount)
         let callback = XCTestExpectation(description: "callback is not made")
         callback.isInverted = true
         let data: [AnyHashable: Any] = [
@@ -161,7 +162,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, expectation], timeout: 1.0)
         XCTAssertFalse(handled)
     }
 
