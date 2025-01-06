@@ -30,7 +30,7 @@ jobs:
 
       - uses: slidoapp/xcresulttool@v3.1.0
         with:
-          path: TestResults-${{ matrix.code }}-${{ matrix.config }}.xcresult
+          path: TestResults-${{ matrix.xcode }}-${{ matrix.config }}.xcresult
         if: success() || failure()
 
   library-macos-15:
