@@ -433,6 +433,7 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
         }
+        await store.receive(.syncBadgeCount)
     }
 
     // MARK: - Test pending profile

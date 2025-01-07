@@ -405,6 +405,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.syncBadgeCount)
         await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
     }
 
