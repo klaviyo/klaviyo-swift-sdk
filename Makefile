@@ -1,4 +1,5 @@
 CONFIG = debug
+XCODE = 15.2
 PLATFORM_IOS = iOS Simulator,id=$(call udid_for,iOS,iPhone \d\+ Pro [^M])
 
 
@@ -10,7 +11,7 @@ test-all: $(MAKE) CONFIG=debug test-library
 test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
 		xcodebuild test \
-			-resultBundlePath TestResults \
+			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \
 			-enableCodeCoverage YES \
 			-configuration=$(CONFIG) \
 			-scheme klaviyo-swift-sdk-Package \
