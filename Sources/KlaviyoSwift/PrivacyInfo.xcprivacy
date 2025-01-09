@@ -52,7 +52,7 @@
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
-				<string>CA92.1</string>
+				<string>C56D.1</string>
 			</array>
 		</dict>
 	</array>
