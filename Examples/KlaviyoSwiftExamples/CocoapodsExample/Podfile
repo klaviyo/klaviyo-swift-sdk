@@ -4,6 +4,7 @@ use_frameworks!
 target 'CocoapodsExample' do
   # update this to a actual version once KlaviyoCore is published
   pod 'KlaviyoSwift', :path => '../../..'
+  pod 'KlaviyoCore', :path => '../../..'
 end
 
 target 'NotificationServiceExtension' do
