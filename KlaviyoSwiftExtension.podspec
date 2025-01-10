@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoSwiftExtension"
-  s.version          = "4.1.0"
+  s.version          = "4.1.0-alpha.1"
   s.summary          = "Incorporate Klaviyo's rich push notifications functionality into your iOS applications"
 
   s.description      = <<-DESC

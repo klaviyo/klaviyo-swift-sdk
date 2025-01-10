@@ -8,7 +8,7 @@
         - "deflate"
     ▿ (2 elements)
       - key: "User-Agent"
-      - value: "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/4.1.0"
+      - value: "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/4.1.0-alpha.1"
     ▿ (2 elements)
       - key: "X-Klaviyo-Mobile"
       - value: "1"
