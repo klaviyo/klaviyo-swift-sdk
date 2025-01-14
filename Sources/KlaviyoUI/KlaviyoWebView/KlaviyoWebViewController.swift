@@ -43,6 +43,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     }
 
     override func viewDidLoad() {
+        super.viewDidLoad()
         let request = URLRequest(url: viewModel.url)
         webView.load(request)
     }
