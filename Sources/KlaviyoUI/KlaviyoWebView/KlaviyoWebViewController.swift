@@ -28,13 +28,12 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     // MARK: - View loading
 
     override func loadView() {
-        super.loadView()
-
         let config = createWebViewConfiguration()
         webView = createWebView(with: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
+        view = UIView()
         view.addSubview(webView)
 
         configureLoadScripts()
