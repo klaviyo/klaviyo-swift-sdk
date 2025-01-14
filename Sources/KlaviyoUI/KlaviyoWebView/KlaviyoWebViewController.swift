@@ -47,6 +47,15 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         webView.load(request)
     }
 
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+
+        let scriptNames = viewModel.loadScripts?.keys.compactMap { $0 } ?? []
+        for scriptName in scriptNames {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: scriptName)
+        }
+    }
+
     // MARK: - WKWebView configuration
 
     func createWebViewConfiguration() -> WKWebViewConfiguration {
