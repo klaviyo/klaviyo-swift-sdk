@@ -14,6 +14,7 @@ protocol KlaviyoWebViewDelegate: AnyObject {}
 class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let url: URL
     let loadScripts: [String: WKUserScript]?
+    weak var delegate: KlaviyoWebViewDelegate?
 
     /// Publishes scripts for the `WKWebView` to execute.
     private var continuation: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)>.Continuation?

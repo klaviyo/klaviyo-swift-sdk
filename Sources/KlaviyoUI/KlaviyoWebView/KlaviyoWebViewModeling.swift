@@ -11,6 +11,7 @@ import WebKit
 
 protocol KlaviyoWebViewModeling {
     var url: URL { get }
+    var delegate: KlaviyoWebViewDelegate? { get set }
 
     /// Scripts to be injected into the ``WKWebView`` when the website loads.
     var loadScripts: [String: WKUserScript]? { get }
