@@ -47,6 +47,7 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
         for await event in navEventStream {
             if event == .didFinishNavigation {
+                // break out of the `await` loop when we receive a `didFinishNavigation` event
                 break
             }
         }
