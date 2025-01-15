@@ -38,7 +38,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         view.addSubview(webView)
 
         configureLoadScripts()
-        configureScriptEvaluator()
         configureSubviewConstraints()
     }
 
@@ -85,22 +84,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         for (name, script) in scriptsDict {
             webView.configuration.userContentController.addUserScript(script)
             webView.configuration.userContentController.add(self, name: name)
-        }
-    }
-
-    @MainActor
-    func configureScriptEvaluator() {
-        Task { [weak self] in
-            guard let self else { return }
-
-            for await (script, callback) in self.viewModel.scriptStream {
-                do {
-                    let result = try await self.webView.evaluateJavaScript(script)
-                    callback?(.success(result))
-                } catch {
-                    callback?(.failure(error))
-                }
-            }
         }
     }
 
