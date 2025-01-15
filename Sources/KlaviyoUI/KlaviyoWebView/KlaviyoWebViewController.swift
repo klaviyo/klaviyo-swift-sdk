@@ -87,6 +87,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
+    @MainActor
+    func evaluateJavaScript(_ script: String) async throws -> Any {
+        try await webView.evaluateJavaScript(script)
+    }
+
     // MARK: - Layout
 
     func configureSubviewConstraints() {
