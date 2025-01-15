@@ -22,6 +22,8 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let loadScripts: [String: WKUserScript]?
     weak var delegate: KlaviyoWebViewDelegate?
 
+    private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
+
     init(url: URL) {
         self.url = url
         loadScripts = KlaviyoWebViewModel.initializeLoadScripts()
@@ -39,13 +41,21 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     }
 
     func preloadWebsite() async {
-        // TODO: implement this
+        guard let delegate else { return }
+
+        await delegate.preloadUrl()
+
+        for await event in navEventStream {
+            if event == .didFinishNavigation {
+                break
+            }
+        }
     }
 
     // MARK: handle WKWebView events
 
     func handleNavigationEvent(_ event: WKNavigationEvent) {
-        // TODO: handle navigation events
+        navEventContinuation.yield(event)
     }
 
     func handleScriptMessage(_ message: WKScriptMessage) {
