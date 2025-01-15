@@ -54,8 +54,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let request = URLRequest(url: viewModel.url)
-        webView.load(request)
+
+        guard !webView.isLoading,
+              webView.estimatedProgress != 1.0 else { return }
+
+        loadUrl()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
