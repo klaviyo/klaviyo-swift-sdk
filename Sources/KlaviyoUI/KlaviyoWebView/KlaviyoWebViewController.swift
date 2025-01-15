@@ -67,6 +67,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
+    func preloadUrl() {
+        webView.load(URLRequest(url: viewModel.url))
+    }
+
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
