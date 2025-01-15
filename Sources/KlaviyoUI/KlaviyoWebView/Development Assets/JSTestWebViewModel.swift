@@ -59,16 +59,7 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
 
             let script = "document.getElementById('toggle-status').innerText = \"\(newStatus)\""
 
-            continuation?.yield((script, { result in
-                switch result {
-                case let .success(content):
-                    if let successMessage = content as? String {
-                        print("Successfully evaluated Javascript; message: \(successMessage)")
-                    }
-                case let .failure(failure):
-                    print("Javascript evaluation failed; message: \(failure.localizedDescription)")
-                }
-            }))
+            // TODO: evaluate script in WebView
         }
     }
 }
