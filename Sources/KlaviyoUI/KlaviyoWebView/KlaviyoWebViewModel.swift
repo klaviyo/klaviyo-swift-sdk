@@ -9,6 +9,8 @@ import Combine
 import Foundation
 import WebKit
 
+protocol KlaviyoWebViewDelegate: AnyObject {}
+
 class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let url: URL
     let loadScripts: [String: WKUserScript]?
