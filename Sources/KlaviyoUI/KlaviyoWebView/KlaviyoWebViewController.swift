@@ -70,11 +70,13 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
+    @MainActor
     private func loadUrl() {
         let request = URLRequest(url: viewModel.url)
         webView.load(request)
     }
 
+    @MainActor
     func preloadUrl() {
         loadUrl()
     }
