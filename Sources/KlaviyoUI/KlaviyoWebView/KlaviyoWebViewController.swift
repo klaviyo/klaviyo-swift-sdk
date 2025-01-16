@@ -70,7 +70,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
-    func configureLoadScripts() {
+    private func configureLoadScripts() {
         guard let scriptsDict = viewModel.loadScripts else { return }
 
         for (name, script) in scriptsDict {
@@ -86,7 +86,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Layout
 
-    func configureSubviewConstraints() {
+    private func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
         webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
