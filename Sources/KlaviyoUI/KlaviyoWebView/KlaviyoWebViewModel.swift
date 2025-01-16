@@ -9,7 +9,10 @@ import Combine
 import Foundation
 import WebKit
 
-protocol KlaviyoWebViewDelegate: AnyObject {}
+protocol KlaviyoWebViewDelegate: AnyObject {
+    @MainActor
+    func evaluateJavaScript(_ script: String) async throws -> Any
+}
 
 class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     let url: URL
