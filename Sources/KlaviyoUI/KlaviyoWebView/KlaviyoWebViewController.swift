@@ -9,15 +9,16 @@ import Combine
 import UIKit
 import WebKit
 
-class KlaviyoWebViewController: UIViewController, WKUIDelegate {
+class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     var webView: WKWebView!
-    private let viewModel: KlaviyoWebViewModeling
+    private var viewModel: KlaviyoWebViewModeling
 
     // MARK: - Initializers
 
     init(viewModel: KlaviyoWebViewModeling) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
+        self.viewModel.delegate = self
     }
 
     @available(*, unavailable)
