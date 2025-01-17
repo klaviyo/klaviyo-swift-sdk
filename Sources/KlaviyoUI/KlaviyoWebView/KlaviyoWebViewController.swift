@@ -9,14 +9,30 @@ import Combine
 import UIKit
 import WebKit
 
+private func createDefaultWebView() -> WKWebView {
+    let config = WKWebViewConfiguration()
+    let webView = WKWebView(frame: .zero, configuration: config)
+    webView.isOpaque = false
+    webView.scrollView.contentInsetAdjustmentBehavior = .never
+    return webView
+}
+
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
-    var webView: WKWebView!
+    private lazy var webView: WKWebView = {
+        let webView = createWebView()
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        return webView
+    }()
+
     private var viewModel: KlaviyoWebViewModeling
+    private let createWebView: () -> WKWebView
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
+        createWebView = webViewFactory
         super.init(nibName: nil, bundle: nil)
         self.viewModel.delegate = self
     }
@@ -29,11 +45,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     // MARK: - View loading
 
     override func loadView() {
-        let config = createWebViewConfiguration()
-        webView = createWebView(with: config)
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-
         view = UIView()
         view.addSubview(webView)
 
@@ -56,29 +67,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
-    // MARK: - WKWebView configuration
-
-    func createWebViewConfiguration() -> WKWebViewConfiguration {
-        let config = WKWebViewConfiguration()
-        // customize any WKWebViewConfiguration properties here
-        // ex: config.allowsInlineMediaPlayback = true
-        return config
-    }
-
-    func createWebView(with config: WKWebViewConfiguration) -> WKWebView {
-        let webView = WKWebView(frame: .zero, configuration: config)
-        // customize any WKWebView behaviors here
-        // ex: webView.allowsBackForwardNavigationGestures = true
-        webView.isOpaque = false
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-
-        return webView
-    }
-
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
-    func configureLoadScripts() {
+    private func configureLoadScripts() {
         guard let scriptsDict = viewModel.loadScripts else { return }
 
         for (name, script) in scriptsDict {
@@ -94,7 +86,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Layout
 
-    func configureSubviewConstraints() {
+    private func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
         webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
