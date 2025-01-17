@@ -26,7 +26,7 @@
       - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
     - [Badge Count](#badge-count)
-         - [Autoclearing](#autoclearing)
+      - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
