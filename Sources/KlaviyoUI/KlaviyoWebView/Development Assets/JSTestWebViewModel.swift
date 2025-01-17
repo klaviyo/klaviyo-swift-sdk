@@ -13,12 +13,7 @@ import WebKit
 class JSTestWebViewModel: KlaviyoWebViewModeling {
     let url: URL
     let loadScripts: [String: WKUserScript]?
-
-    /// Publishes scripts for the `WKWebView` to execute.
-    private var continuation: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)>.Continuation?
-    lazy var scriptStream: AsyncStream<(script: String, callback: ((Result<Any?, Error>) -> Void)?)> = AsyncStream { [weak self] continuation in
-        self?.continuation = continuation
-    }
+    weak var delegate: KlaviyoWebViewDelegate?
 
     init(url: URL) {
         self.url = url
@@ -58,16 +53,16 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
 
             let script = "document.getElementById('toggle-status').innerText = \"\(newStatus)\""
 
-            continuation?.yield((script, { result in
-                switch result {
-                case let .success(content):
-                    if let successMessage = content as? String {
+            Task {
+                do {
+                    let result = try await delegate?.evaluateJavaScript(script)
+                    if let successMessage = result as? String {
                         print("Successfully evaluated Javascript; message: \(successMessage)")
                     }
-                case let .failure(failure):
-                    print("Javascript evaluation failed; message: \(failure.localizedDescription)")
+                } catch {
+                    print("Javascript evaluation failed; message: \(error.localizedDescription)")
                 }
-            }))
+            }
         }
     }
 }

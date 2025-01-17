@@ -9,15 +9,32 @@ import Combine
 import UIKit
 import WebKit
 
-class KlaviyoWebViewController: UIViewController, WKUIDelegate {
-    var webView: WKWebView!
-    private let viewModel: KlaviyoWebViewModeling
+private func createDefaultWebView() -> WKWebView {
+    let config = WKWebViewConfiguration()
+    let webView = WKWebView(frame: .zero, configuration: config)
+    webView.isOpaque = false
+    webView.scrollView.contentInsetAdjustmentBehavior = .never
+    return webView
+}
+
+class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
+    private lazy var webView: WKWebView = {
+        let webView = createWebView()
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        return webView
+    }()
+
+    private var viewModel: KlaviyoWebViewModeling
+    private let createWebView: () -> WKWebView
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
+        createWebView = webViewFactory
         super.init(nibName: nil, bundle: nil)
+        self.viewModel.delegate = self
     }
 
     @available(*, unavailable)
@@ -28,48 +45,32 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     // MARK: - View loading
 
     override func loadView() {
-        super.loadView()
-
-        let config = createWebViewConfiguration()
-        webView = createWebView(with: config)
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-
+        view = UIView()
         view.addSubview(webView)
 
         configureLoadScripts()
-        configureScriptEvaluator()
         configureSubviewConstraints()
     }
 
     override func viewDidLoad() {
+        super.viewDidLoad()
         let request = URLRequest(url: viewModel.url)
         webView.load(request)
     }
 
-    // MARK: - WKWebView configuration
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
 
-    func createWebViewConfiguration() -> WKWebViewConfiguration {
-        let config = WKWebViewConfiguration()
-        // customize any WKWebViewConfiguration properties here
-        // ex: config.allowsInlineMediaPlayback = true
-        return config
-    }
-
-    func createWebView(with config: WKWebViewConfiguration) -> WKWebView {
-        let webView = WKWebView(frame: .zero, configuration: config)
-        // customize any WKWebView behaviors here
-        // ex: webView.allowsBackForwardNavigationGestures = true
-        webView.isOpaque = false
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-
-        return webView
+        let scriptNames = viewModel.loadScripts?.keys.compactMap { $0 } ?? []
+        for scriptName in scriptNames {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: scriptName)
+        }
     }
 
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
-    func configureLoadScripts() {
+    private func configureLoadScripts() {
         guard let scriptsDict = viewModel.loadScripts else { return }
 
         for (name, script) in scriptsDict {
@@ -79,24 +80,13 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
     }
 
     @MainActor
-    func configureScriptEvaluator() {
-        Task { [weak self] in
-            guard let self else { return }
-
-            for await (script, callback) in self.viewModel.scriptStream {
-                do {
-                    let result = try await self.webView.evaluateJavaScript(script)
-                    callback?(.success(result))
-                } catch {
-                    callback?(.failure(error))
-                }
-            }
-        }
+    func evaluateJavaScript(_ script: String) async throws -> Any {
+        try await webView.evaluateJavaScript(script)
     }
 
     // MARK: - Layout
 
-    func configureSubviewConstraints() {
+    private func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
         webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
