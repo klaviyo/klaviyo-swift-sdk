@@ -185,6 +185,51 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 }
 """
 
+let TEST_FULL_FORMS_SUCCESS = """
+{
+    "full_forms": [
+        {
+            "form_id": "KqQUEM",
+            "live_form_versions": [
+                {
+                  "form_id": "KqQUEM",
+                  "name": "phone-number-testing"
+                }
+            ],
+            "name": "phone-number-testing",
+            "show_klaviyo_branding": false,
+            "dismissed_alerts": []
+        }
+    ],
+    "form_settings": {
+        "shopify_visitor_api": {
+            "sync_SMS_consent": false,
+            "sync_email_consent": false
+        },
+        "attribution_settings": {
+            "attribution_metric_name": "Form submitted by profile",
+            "attribution_window_seconds": 7200
+        },
+        "enabled": true,
+        "per_session": false,
+        "time_delay_milliseconds": 300000
+    },
+    "dynamic_info_config": {}
+}
+"""
+
+let TEST_FULL_FORMS_INVALID_KEY = """
+{
+    "full_forms_bad_key": [
+        {
+            "form_id": "KqQUEM"
+        }
+    ],
+    "form_setting": {},
+    "dynamic_info_config": {}
+}
+"""
+
 extension KlaviyoSwiftEnvironment {
     static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
 

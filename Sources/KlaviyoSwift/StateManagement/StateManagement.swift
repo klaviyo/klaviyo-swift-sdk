@@ -94,6 +94,12 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
+    // fetches any active in-app forms that should be shown to the user
+    case fetchForms
+
+    // handles the full forms response from the server
+    case handleFormsResponse(FullFormsResponse)
+
     /// resets the state for profile properties before dequeing the request
     /// this is done in the case where there is http request failure due to
     /// the data that was passed to the client endpoint
@@ -105,7 +111,7 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
 
-        case .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueEvent, .enqueueProfile, .fetchForms, .handleFormsResponse, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
         case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
@@ -335,7 +341,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
-            return .task { .sendRequest }
+            return .task { .sendRequest }.cancellable(id: RequestId.self)
 
         case .sendRequest:
             guard case .initialized = state.initalizationState else {
@@ -358,7 +364,21 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { [numAttempts] send in
                 let result = await environment.klaviyoAPI.send(request, numAttempts)
                 switch result {
-                case .success:
+                case let .success(data):
+                    do {
+                        switch request.endpoint {
+                        case .fetchForms:
+                            let formsResponse = try JSONDecoder().decode(FullFormsResponse.self, from: data)
+                            await send(.handleFormsResponse(formsResponse))
+                        default:
+                            break
+                        }
+                    } catch let error as DecodingError {
+                        environment.emitDeveloperWarning("Error decoding JSON response: \(error.localizedDescription)")
+                    } catch {
+                        environment.emitDeveloperWarning("An unexpected error occurred: \(error.localizedDescription)")
+                    }
+
                     await send(.deQueueCompletedResults(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
@@ -537,6 +557,40 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+
+        case .fetchForms:
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey
+            else {
+                return .none
+            }
+
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .fetchForms)
+            state.enqueueRequest(request: request)
+
+            return .none
+
+        case let .handleFormsResponse(fullFormsResponse):
+            guard let firstForm = fullFormsResponse.fullForms.first else { return .none }
+
+            // TODO: handle the form data
+            // example: Update the state to display the form
+            // state.firstForm = firstForm
+            //
+            // for now, prettyprint to console
+            // (TODO: remove this debug code after we've handled the response appropriately!)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            do {
+                let data = try encoder.encode(fullFormsResponse)
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print(jsonString)
+                }
+            } catch {
+                print("Failed to encode and pretty-print JSON: \(error)")
+            }
+
+            return .none
         }
     }
 }

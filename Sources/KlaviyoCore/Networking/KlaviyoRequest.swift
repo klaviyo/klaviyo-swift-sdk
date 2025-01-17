@@ -26,57 +26,34 @@ public struct KlaviyoRequest: Equatable, Codable {
         guard let url = url else {
             throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
         }
+
         var request = URLRequest(url: url)
-        // We only support post right now
-        guard let body = try? encodeBody() else {
+
+        do {
+            if let body = try endpoint.body(), !body.isEmpty {
+                request.httpBody = body
+            }
+        } catch {
             throw KlaviyoAPIError.dataEncodingError(self)
         }
-        request.httpBody = body
-        request.httpMethod = "POST"
+
+        request.httpMethod = endpoint.httpMethod.rawValue
         request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
     }
 
     var url: URL? {
-        switch endpoint {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !environment.apiURL().isEmpty {
-                return URL(string: "\(environment.apiURL())/\(path)/?company_id=\(apiKey)")
-            }
-            return nil
-        }
-    }
+        guard !environment.apiURL().isEmpty else { return nil }
 
-    var path: String {
-        switch endpoint {
-        case .createProfile:
-            return "client/profiles"
+        var components = URLComponents()
+        components.scheme = endpoint.httpScheme
+        components.host = environment.apiURL()
+        components.path = endpoint.path
+        components.queryItems = [
+            URLQueryItem(name: "company_id", value: apiKey)
+        ]
 
-        case .createEvent:
-            return "client/events"
-
-        case .registerPushToken:
-            return "client/push-tokens"
-
-        case .unregisterPushToken:
-            return "client/push-token-unregister"
-        }
-    }
-
-    func encodeBody() throws -> Data {
-        switch endpoint {
-        case let .createProfile(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .createEvent(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .registerPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .unregisterPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-        }
+        return components.url
     }
 }

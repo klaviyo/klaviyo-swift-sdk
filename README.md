@@ -251,6 +251,9 @@ on the best practices for when and how to ask for this permission. The following
 within the [`application:didFinishLaunchingWithOptions:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1622921-application)
 method in the application delegate file. However, it's worth noting that this may not be the ideal location as it could interrupt the app's startup experience.
 
+After setting a push token, the Klaviyo SDK will automatically track changes to
+the user's notification permission whenever the application is opened or resumed from the background.
+
 Below is example code to request push notification permission:
 ```swift
 import UserNotifications

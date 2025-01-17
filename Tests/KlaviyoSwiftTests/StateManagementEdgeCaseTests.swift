@@ -155,6 +155,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -162,6 +163,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setEmail(""))
     }
 
+    @MainActor
     func testSetEmailWithWhiteSpace() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -200,6 +202,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -207,6 +210,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setExternalId(""))
     }
 
+    @MainActor
     func testSetExternalIdWithWhiteSpaces() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -244,6 +248,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -251,6 +256,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber(""))
     }
 
+    @MainActor
     func testSetPhoneNumberWithWhiteSpaces() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -482,6 +488,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await fulfillment(of: [expection])
     }
 
+    @MainActor
     func testSetProfileWithEmptyStringIdentifiers() async throws {
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,

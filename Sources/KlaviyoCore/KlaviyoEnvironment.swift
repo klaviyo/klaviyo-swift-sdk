@@ -70,7 +70,7 @@ public struct KlaviyoEnvironment {
         sdkVersion = SDKVersion
     }
 
-    static let productionHost = "https://a.klaviyo.com"
+    static let productionHost = "a.klaviyo.com"
     public static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -83,7 +83,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: URL(string: productionHost)!.host!)
+    private static let reachabilityService = Reachability(hostname: productionHost)
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient
@@ -124,14 +124,14 @@ public struct KlaviyoEnvironment {
     private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
 
     private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_name"] as? String {
+        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
             return sdkName
         }
         return __klaviyoSwiftName
     }
 
     private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_version"] as? String {
+        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
             return sdkVersion
         }
         return __klaviyoSwiftVersion
@@ -201,6 +201,7 @@ public func createNetworkSession() -> NetworkSession {
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
+    case invalidJson
 }
 
 public struct DataDecoder {

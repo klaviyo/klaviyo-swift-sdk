@@ -45,11 +45,11 @@ public struct SDKRequest: Identifiable, Equatable {
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
+        case fetchForms
 
         static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
             case let .createProfile(payload):
-
                 return .createProfile(ProfileInfo(
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
@@ -74,6 +74,8 @@ public struct SDKRequest: Identifiable, Equatable {
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case .fetchForms:
+                return .fetchForms
             }
         }
     }

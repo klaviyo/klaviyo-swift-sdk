@@ -57,13 +57,13 @@ extension KlaviyoEnvironment {
     }
 }
 
-class TestJSONDecoder: JSONDecoder {
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         KlaviyoState.test as! T
     }
 }
 
-class InvalidJSONDecoder: JSONDecoder {
+class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         throw KlaviyoDecodingError.invalidType
     }

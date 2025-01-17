@@ -103,7 +103,7 @@ public struct KlaviyoSDK {
     /// NOTE: The phone number should be in a format that Klaviyo accepts.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
-    /// - Parameter phonNumber: a string contining the users phone number.
+    /// - Parameter phoneNumber: a string contining the users phone number.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
@@ -182,5 +182,20 @@ public struct KlaviyoSDK {
         }
         dispatchOnMainThread(action: .syncBadgeCount)
         return false
+    }
+}
+
+// MARK: - SPI Private methods
+
+// for internal use only
+
+@_spi(KlaviyoPrivate)
+extension KlaviyoSDK {
+    /// Fetch the active forms for the current user.
+    ///
+    /// - warning: For internal use only. The host app should not manually call this method, as
+    /// the logic for fetching and displaying forms will be handled internally within the SDK.
+    public func fetchForms() {
+        dispatchOnMainThread(action: .fetchForms)
     }
 }
