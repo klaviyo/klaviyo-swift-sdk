@@ -31,6 +31,10 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
         return scripts
     }
 
+    func preloadWebsite(timeout: UInt64) async {
+        // TODO: implement this
+    }
+
     // MARK: handle WKWebView events
 
     func handleNavigationEvent(_ event: WKNavigationEvent) {

@@ -70,7 +70,8 @@ let package = Package(
             name: "KlaviyoUITests",
             dependencies: [
                 "KlaviyoSwift",
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoUI"
             ]),
         .target(
             name: "KlaviyoSwiftExtension",

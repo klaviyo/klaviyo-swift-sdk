@@ -54,8 +54,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let request = URLRequest(url: viewModel.url)
-        webView.load(request)
+
+        guard !webView.isLoading,
+              webView.estimatedProgress != 1.0 else { return }
+
+        loadUrl()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -65,6 +68,17 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         for scriptName in scriptNames {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: scriptName)
         }
+    }
+
+    @MainActor
+    private func loadUrl() {
+        let request = URLRequest(url: viewModel.url)
+        webView.load(request)
+    }
+
+    @MainActor
+    func preloadUrl() {
+        loadUrl()
     }
 
     // MARK: - Scripts
