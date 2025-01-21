@@ -16,6 +16,8 @@ public protocol KlaviyoWebViewModeling: AnyObject {
 
     /// Scripts to be injected into the ``WKWebView`` when the website loads.
     var loadScripts: [String: WKUserScript]? { get }
+    var navEventStream: AsyncStream<WKNavigationEvent> { get }
+    var navEventContinuation: AsyncStream<WKNavigationEvent>.Continuation { get }
 
     func preloadWebsite(timeout: UInt64) async throws
     func handleNavigationEvent(_ event: WKNavigationEvent)
