@@ -10,7 +10,7 @@ import Foundation
 import WebKit
 
 @_spi(KlaviyoPrivate)
-public protocol KlaviyoWebViewModeling {
+public protocol KlaviyoWebViewModeling: AnyObject {
     var url: URL { get }
     var delegate: KlaviyoWebViewDelegate? { get set }
 
