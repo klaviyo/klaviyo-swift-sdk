@@ -9,7 +9,8 @@ import Combine
 import Foundation
 import WebKit
 
-protocol KlaviyoWebViewDelegate: AnyObject {
+@_spi(KlaviyoPrivate)
+public protocol KlaviyoWebViewDelegate: AnyObject {
     @MainActor
     func preloadUrl()
 
@@ -17,19 +18,20 @@ protocol KlaviyoWebViewDelegate: AnyObject {
     func evaluateJavaScript(_ script: String) async throws -> Any
 }
 
-class KlaviyoWebViewModel: KlaviyoWebViewModeling {
+@_spi(KlaviyoPrivate)
+public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     enum PreloadError: Error {
         case timeout
         case navigationFailed
     }
 
-    let url: URL
-    let loadScripts: [String: WKUserScript]?
-    weak var delegate: KlaviyoWebViewDelegate?
+    public let url: URL
+    public let loadScripts: [String: WKUserScript]?
+    public weak var delegate: KlaviyoWebViewDelegate?
 
     private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
-    init(url: URL) {
+    public init(url: URL) {
         self.url = url
         loadScripts = KlaviyoWebViewModel.initializeLoadScripts()
     }
@@ -54,7 +56,7 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     ///
     /// The caller of this method should `await` completion of this method, then present the ViewController.
     /// - Parameter timeout: the amount of time, in milliseconds, to wait before throwing a `timeout` error.
-    func preloadWebsite(timeout: UInt64) async throws {
+    public func preloadWebsite(timeout: UInt64) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
@@ -107,11 +109,11 @@ class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: handle WKWebView events
 
-    func handleNavigationEvent(_ event: WKNavigationEvent) {
+    public func handleNavigationEvent(_ event: WKNavigationEvent) {
         navEventContinuation.yield(event)
     }
 
-    func handleScriptMessage(_ message: WKScriptMessage) {
+    public func handleScriptMessage(_ message: WKScriptMessage) {
         if message.name == "closeHandler" {
             // TODO: handle close button tap
             print("user tapped close button")

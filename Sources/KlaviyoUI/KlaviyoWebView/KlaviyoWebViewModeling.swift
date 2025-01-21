@@ -9,7 +9,8 @@ import Combine
 import Foundation
 import WebKit
 
-protocol KlaviyoWebViewModeling {
+@_spi(KlaviyoPrivate)
+public protocol KlaviyoWebViewModeling {
     var url: URL { get }
     var delegate: KlaviyoWebViewDelegate? { get set }
 
