@@ -15,6 +15,8 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
     let loadScripts: [String: WKUserScript]?
     weak var delegate: KlaviyoWebViewDelegate?
 
+    public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
+
     init(url: URL) {
         self.url = url
         loadScripts = JSTestWebViewModel.initializeLoadScripts()

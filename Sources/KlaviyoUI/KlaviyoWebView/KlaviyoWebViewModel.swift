@@ -24,7 +24,7 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     public let loadScripts: [String: WKUserScript]?
     public weak var delegate: KlaviyoWebViewDelegate?
 
-    private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
+    public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     public init(url: URL) {
         self.url = url
