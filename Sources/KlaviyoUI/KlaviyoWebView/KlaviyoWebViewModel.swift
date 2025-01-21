@@ -20,11 +20,6 @@ public protocol KlaviyoWebViewDelegate: AnyObject {
 
 @_spi(KlaviyoPrivate)
 public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
-    enum PreloadError: Error {
-        case timeout
-        case navigationFailed
-    }
-
     public let url: URL
     public let loadScripts: [String: WKUserScript]?
     public weak var delegate: KlaviyoWebViewDelegate?
