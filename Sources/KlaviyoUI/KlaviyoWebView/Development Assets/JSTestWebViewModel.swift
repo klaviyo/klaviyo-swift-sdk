@@ -31,7 +31,7 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
         return scripts
     }
 
-    func preloadWebsite() async {
+    func preloadWebsite(timeout: UInt64) async {
         // TODO: implement this
     }
 
