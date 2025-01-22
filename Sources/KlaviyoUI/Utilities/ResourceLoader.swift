@@ -13,7 +13,9 @@ enum ResourceLoaderError: Error {
 
 enum ResourceLoader {
     static func getResourceUrl(path: String, type: String) throws -> URL {
-        guard let resourceUrl = Bundle.module.url(forResource: path, withExtension: type) else {
+        let bundle = resourceBundle()
+
+        guard let resourceUrl = bundle?.url(forResource: path, withExtension: type) else {
             throw ResourceLoaderError.resourceNotFound
         }
 
@@ -21,15 +23,40 @@ enum ResourceLoader {
     }
 
     static func getResourceContents(path: String, type: String) throws -> String {
-        guard let path = Bundle.module.path(forResource: path, ofType: type) else {
+        let bundle = resourceBundle()
+
+        guard let resourcePath = bundle?.path(forResource: path, ofType: type) else {
             throw ResourceLoaderError.resourceNotFound
         }
 
         do {
-            let contents = try String(contentsOfFile: path, encoding: String.Encoding.utf8)
+            let contents = try String(contentsOfFile: resourcePath, encoding: .utf8)
             return contents
         } catch {
             throw error
         }
+    }
+
+    // Determines the appropriate bundle based on the build system
+    private static func resourceBundle() -> Bundle? {
+        #if SWIFT_PACKAGE
+        return Bundle.module
+        #else
+        return Bundle(for: BundleLocator.self).resourceBundle(named: "KlaviyoUIResources")
+        #endif
+    }
+}
+
+// Helper class for locating the resource bundle (CocoaPods)
+private class BundleLocator {}
+
+extension Bundle {
+    fileprivate func resourceBundle(named name: String) -> Bundle? {
+        guard let bundleUrl = url(forResource: name, withExtension: "bundle"),
+              let bundle = Bundle(url: bundleUrl) else {
+            return nil
+        }
+
+        return bundle
     }
 }
