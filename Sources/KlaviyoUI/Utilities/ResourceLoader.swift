@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 9/27/24.
 //
 
+#if DEBUG
 import Foundation
 
 enum ResourceLoaderError: Error {
@@ -60,3 +61,4 @@ extension Bundle {
         return bundle
     }
 }
+#endif
