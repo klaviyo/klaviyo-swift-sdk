@@ -169,14 +169,14 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
-    let indexHtmlFileUrl = try! ResourceLoader.getFileUrl(path: "klaviyo", type: "html")
+    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "klaviyo", type: "html")
     let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
-    return createKlaviyoWebPreview(viewModel: viewModel)
+    createKlaviyoWebPreview(viewModel: viewModel)
 }
 
 @available(iOS 17.0, *)
 #Preview("JS Test Page") {
-    let indexHtmlFileUrl = try! ResourceLoader.getFileUrl(path: "jstest", type: "html")
+    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "jstest", type: "html")
     let viewModel = JSTestWebViewModel(url: indexHtmlFileUrl)
     KlaviyoWebViewController(viewModel: viewModel)
 }

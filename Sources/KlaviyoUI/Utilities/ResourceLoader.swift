@@ -12,7 +12,7 @@ enum ResourceLoaderError: Error {
 }
 
 enum ResourceLoader {
-    static func getFileUrl(path: String, type: String) throws -> URL {
+    static func getResourceUrl(path: String, type: String) throws -> URL {
         guard let fileUrl = Bundle.module.url(forResource: path, withExtension: type) else {
             throw ResourceLoaderError.notFound
         }
@@ -20,7 +20,7 @@ enum ResourceLoader {
         return fileUrl
     }
 
-    static func getFileContents(path: String, type: String) throws -> String {
+    static func getResourceContents(path: String, type: String) throws -> String {
         guard let path = Bundle.module.path(forResource: path, ofType: type) else {
             throw ResourceLoaderError.notFound
         }
