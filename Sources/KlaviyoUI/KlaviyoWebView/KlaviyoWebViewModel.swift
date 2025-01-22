@@ -16,6 +16,9 @@ public protocol KlaviyoWebViewDelegate: AnyObject {
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any
+
+    @MainActor
+    func dismiss()
 }
 
 @_spi(KlaviyoPrivate)
@@ -48,6 +51,10 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
         if message.name == "closeHandler" {
             // TODO: handle close button tap
             print("user tapped close button")
+
+            Task {
+                await delegate?.dismiss()
+            }
         }
     }
 }

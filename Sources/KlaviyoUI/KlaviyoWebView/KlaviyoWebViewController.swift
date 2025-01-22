@@ -81,6 +81,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         loadUrl()
     }
 
+    @MainActor
+    func dismiss() {
+        dismiss(animated: true)
+    }
+
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
