@@ -48,7 +48,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         view = UIView()
         view.addSubview(webView)
 
-        configureLoadScripts()
         configureSubviewConstraints()
     }
 
@@ -72,6 +71,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     private func loadUrl() {
+        configureLoadScripts()
         let request = URLRequest(url: viewModel.url)
         webView.load(request)
     }
@@ -79,6 +79,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     func preloadUrl() {
         loadUrl()
+    }
+
+    @MainActor
+    func dismiss() {
+        dismiss(animated: true)
     }
 
     // MARK: - Scripts
