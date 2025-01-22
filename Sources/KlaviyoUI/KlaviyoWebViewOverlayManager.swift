@@ -28,10 +28,6 @@ public class KlaviyoWebViewOverlayManager {
             return
         }
 
-        guard let topController = UIApplication.shared.topMostViewController else {
-            return
-        }
-
         isLoading = true
 
         let viewController = KlaviyoWebViewController(viewModel: viewModel)
@@ -41,6 +37,10 @@ public class KlaviyoWebViewOverlayManager {
             defer { isLoading = false }
 
             try await viewModel.preloadWebsite(timeout: 8_000_000_000)
+
+            guard let topController = UIApplication.shared.topMostViewController else {
+                return
+            }
             topController.present(viewController, animated: true, completion: nil)
         }
     }
