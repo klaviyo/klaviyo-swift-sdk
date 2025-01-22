@@ -23,7 +23,7 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
     private static func initializeLoadScripts() -> [String: WKUserScript] {
         var scripts: [String: WKUserScript] = [:]
 
-        if let toggleHandlerScript = try? FileIO.getFileContents(path: "toggleHandler", type: "js") {
+        if let toggleHandlerScript = try? ResourceLoader.getFileContents(path: "toggleHandler", type: "js") {
             let script = WKUserScript(source: toggleHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             scripts["toggleMessageHandler"] = script
         }

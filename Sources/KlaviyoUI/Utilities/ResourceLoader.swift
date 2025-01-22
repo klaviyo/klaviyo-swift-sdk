@@ -1,5 +1,5 @@
 //
-//  FileIO.swift
+//  ResourceLoader.swift
 //  KlaviyoSwiftUIWebView
 //
 //  Created by Andrew Balmer on 9/27/24.
@@ -7,22 +7,22 @@
 
 import Foundation
 
-enum FileIOError: Error {
+public enum ResourceLoaderError: Error {
     case notFound
 }
 
-enum FileIO {
-    static func getFileUrl(path: String, type: String) throws -> URL {
+public enum ResourceLoader {
+    public static func getFileUrl(path: String, type: String) throws -> URL {
         guard let fileUrl = Bundle.module.url(forResource: path, withExtension: type) else {
-            throw FileIOError.notFound
+            throw ResourceLoaderError.notFound
         }
 
         return fileUrl
     }
 
-    static func getFileContents(path: String, type: String) throws -> String {
+    public static func getFileContents(path: String, type: String) throws -> String {
         guard let path = Bundle.module.path(forResource: path, ofType: type) else {
-            throw FileIOError.notFound
+            throw ResourceLoaderError.notFound
         }
 
         do {
