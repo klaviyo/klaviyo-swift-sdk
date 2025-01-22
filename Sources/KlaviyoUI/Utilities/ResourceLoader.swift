@@ -8,13 +8,13 @@
 import Foundation
 
 enum ResourceLoaderError: Error {
-    case notFound
+    case resourceNotFound
 }
 
 enum ResourceLoader {
     static func getResourceUrl(path: String, type: String) throws -> URL {
         guard let fileUrl = Bundle.module.url(forResource: path, withExtension: type) else {
-            throw ResourceLoaderError.notFound
+            throw ResourceLoaderError.resourceNotFound
         }
 
         return fileUrl
@@ -22,7 +22,7 @@ enum ResourceLoader {
 
     static func getResourceContents(path: String, type: String) throws -> String {
         guard let path = Bundle.module.path(forResource: path, ofType: type) else {
-            throw ResourceLoaderError.notFound
+            throw ResourceLoaderError.resourceNotFound
         }
 
         do {
