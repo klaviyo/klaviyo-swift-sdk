@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 1/21/25.
 //
 
-@testable import KlaviyoUI
+@testable @_spi(KlaviyoPrivate) import KlaviyoUI
 import WebKit
 import XCTest
 
@@ -47,6 +47,8 @@ class MockKlaviyoWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
         evaluateJavaScriptCalled = true
         return true
     }
+
+    func dismiss() {}
 }
 
 final class KlaviyoWebViewModelTests: XCTestCase {
@@ -99,7 +101,7 @@ final class KlaviyoWebViewModelTests: XCTestCase {
         do {
             try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
             XCTFail("Expected timeout error, but succeeded")
-        } catch KlaviyoWebViewModel.PreloadError.timeout {
+        } catch PreloadError.timeout {
             expectation.fulfill()
         } catch {
             XCTFail("Expected timeout error, but got: \(error)")
@@ -119,7 +121,7 @@ final class KlaviyoWebViewModelTests: XCTestCase {
         do {
             try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
             XCTFail("Expected navigation failed error, but succeeded")
-        } catch KlaviyoWebViewModel.PreloadError.navigationFailed {
+        } catch PreloadError.navigationFailed {
             expectation.fulfill()
         } catch {
             XCTFail("Expected navigation failed error, but got: \(error)")
