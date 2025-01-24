@@ -7,10 +7,6 @@
 
 import Foundation
 
-struct KlaviyoUIState {
-    var companyId: String?
-}
-
 public struct KlaviyoUI {
     func helloWorld() {
         print("Hello world!")
