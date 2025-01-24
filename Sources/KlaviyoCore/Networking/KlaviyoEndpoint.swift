@@ -14,7 +14,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case createEvent(CreateEventPayload)
     case registerPushToken(PushTokenPayload)
     case unregisterPushToken(UnregisterPushTokenPayload)
-    case fetchForms
 
     var httpScheme: String { "https" }
 
@@ -22,8 +21,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
             return .post
-        case .fetchForms:
-            return .get
         }
     }
 
@@ -37,8 +34,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-tokens/"
         case .unregisterPushToken:
             return "/client/push-token-unregister/"
-        case .fetchForms:
-            return "/forms/api/v7/full-forms"
         }
     }
 
@@ -52,8 +47,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(AnyEncodable(payload))
         case let .unregisterPushToken(payload):
             return try environment.encodeJSON(AnyEncodable(payload))
-        case .fetchForms:
-            return nil
         }
     }
 }
