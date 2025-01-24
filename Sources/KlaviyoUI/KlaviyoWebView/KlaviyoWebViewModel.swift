@@ -23,23 +23,29 @@ public protocol KlaviyoWebViewDelegate: AnyObject {
 
 @_spi(KlaviyoPrivate)
 public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
-    public let url: URL
-    public let loadScripts: [String: WKUserScript]?
+    private enum MessageHandler: String, CaseIterable {
+        case closeHandler
+    }
+
     public weak var delegate: KlaviyoWebViewDelegate?
+
+    public let url: URL
+    public let loadScripts: Set<WKUserScript>? = KlaviyoWebViewModel.initializeLoadScripts()
+    public var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     public init(url: URL) {
         self.url = url
-        loadScripts = KlaviyoWebViewModel.initializeLoadScripts()
+//        loadScripts = KlaviyoWebViewModel.initializeLoadScripts()
     }
 
-    private static func initializeLoadScripts() -> [String: WKUserScript] {
-        var scripts: [String: WKUserScript] = [:]
+    private static func initializeLoadScripts() -> Set<WKUserScript> {
+        var scripts = Set<WKUserScript>()
 
         if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
             let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-            scripts["closeHandler"] = script
+            scripts.insert(script)
         }
 
         return scripts
@@ -48,10 +54,13 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
     // MARK: handle WKWebView events
 
     public func handleScriptMessage(_ message: WKScriptMessage) {
-        if message.name == "closeHandler" {
-            // TODO: handle close button tap
-            print("user tapped close button")
+        guard let handler = MessageHandler(rawValue: message.name) else {
+            // script message has no handler
+            return
+        }
 
+        switch handler {
+        case .closeHandler:
             Task {
                 await delegate?.dismiss()
             }
