@@ -63,9 +63,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
 
-        let scriptNames = viewModel.loadScripts?.keys.compactMap { $0 } ?? []
-        for scriptName in scriptNames {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: scriptName)
+        viewModel.messageHandlers?.forEach {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
         }
     }
 
@@ -90,11 +89,12 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     /// Configures the scripts to be injected into the website when the website loads.
     private func configureLoadScripts() {
-        guard let scriptsDict = viewModel.loadScripts else { return }
+        viewModel.loadScripts?.forEach {
+            webView.configuration.userContentController.addUserScript($0)
+        }
 
-        for (name, script) in scriptsDict {
-            webView.configuration.userContentController.addUserScript(script)
-            webView.configuration.userContentController.add(self, name: name)
+        viewModel.messageHandlers?.forEach {
+            webView.configuration.userContentController.add(self, name: $0)
         }
     }
 

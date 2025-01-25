@@ -11,23 +11,34 @@ import Foundation
 import WebKit
 
 class JSTestWebViewModel: KlaviyoWebViewModeling {
-    let url: URL
-    let loadScripts: [String: WKUserScript]?
+    private enum MessageHandler: String, CaseIterable {
+        case toggleMessageHandler
+        case closeMessageHandler
+    }
+
     weak var delegate: KlaviyoWebViewDelegate?
+
+    let url: URL
+    var loadScripts: Set<WKUserScript>? = JSTestWebViewModel.initializeLoadScripts()
+    var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     init(url: URL) {
         self.url = url
-        loadScripts = JSTestWebViewModel.initializeLoadScripts()
     }
 
-    private static func initializeLoadScripts() -> [String: WKUserScript] {
-        var scripts: [String: WKUserScript] = [:]
+    private static func initializeLoadScripts() -> Set<WKUserScript> {
+        var scripts = Set<WKUserScript>()
 
         if let toggleHandlerScript = try? ResourceLoader.getResourceContents(path: "toggleHandler", type: "js") {
             let script = WKUserScript(source: toggleHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-            scripts["toggleMessageHandler"] = script
+            scripts.insert(script)
+        }
+
+        if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
+            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts.insert(script)
         }
 
         return scripts
@@ -36,7 +47,13 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
     // MARK: handle WKWebView events
 
     func handleScriptMessage(_ message: WKScriptMessage) {
-        if message.name == "toggleMessageHandler" {
+        guard let handler = MessageHandler(rawValue: message.name) else {
+            // script message has no handler
+            return
+        }
+
+        switch handler {
+        case .toggleMessageHandler:
             guard let dict = message.body as? [String: AnyObject] else {
                 return
             }
@@ -60,6 +77,10 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
                 } catch {
                     print("Javascript evaluation failed; message: \(error.localizedDescription)")
                 }
+            }
+        case .closeMessageHandler:
+            Task {
+                await delegate?.dismiss()
             }
         }
     }
