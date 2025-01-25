@@ -11,9 +11,9 @@ import Foundation
 import WebKit
 
 class JSTestWebViewModel: KlaviyoWebViewModeling {
-    public enum MessageHandler: String, CaseIterable {
+    private enum MessageHandler: String, CaseIterable {
         case toggleMessageHandler
-        case closeHandler
+        case closeMessageHandler
     }
 
     weak var delegate: KlaviyoWebViewDelegate?
@@ -78,7 +78,7 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
                     print("Javascript evaluation failed; message: \(error.localizedDescription)")
                 }
             }
-        case .closeHandler:
+        case .closeMessageHandler:
             Task {
                 await delegate?.dismiss()
             }
