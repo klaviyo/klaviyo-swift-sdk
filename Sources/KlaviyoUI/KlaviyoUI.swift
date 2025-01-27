@@ -12,5 +12,3 @@ public struct KlaviyoUI {
         print("Hello world!")
     }
 }
-
-

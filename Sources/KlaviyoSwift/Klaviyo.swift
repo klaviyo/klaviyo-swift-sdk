@@ -184,4 +184,3 @@ public struct KlaviyoSDK {
         return false
     }
 }
-
