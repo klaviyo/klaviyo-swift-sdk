@@ -14,8 +14,10 @@ public protocol KlaviyoWebViewModeling: AnyObject {
     var url: URL { get }
     var delegate: KlaviyoWebViewDelegate? { get set }
 
-    /// Scripts to be injected into the ``WKWebView`` when the website loads.
-    var loadScripts: [String: WKUserScript]? { get }
+    /// Scripts & message handlers to be injected into the ``WKWebView`` when the website loads.
+    var loadScripts: Set<WKUserScript>? { get }
+    var messageHandlers: Set<String>? { get }
+
     var navEventStream: AsyncStream<WKNavigationEvent> { get }
     var navEventContinuation: AsyncStream<WKNavigationEvent>.Continuation { get }
 
