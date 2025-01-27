@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct KlaviyoUI {
+public struct KlaviyoUI {
     func helloWorld() {
         print("Hello world!")
     }
