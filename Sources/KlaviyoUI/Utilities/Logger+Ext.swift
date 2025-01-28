@@ -15,3 +15,11 @@ extension Logger {
         self.init(subsystem: Self.subsystem, category: category)
     }
 }
+
+// MARK: - Loggers
+
+@available(iOS 14.0, *)
+extension Logger {
+    /// Logger for Javascript console log messages from a WKWebView relayed to the native layer
+    static let webViewLogger = Logger(category: "WKWebView Console Log Relay")
+}
