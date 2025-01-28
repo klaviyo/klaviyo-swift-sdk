@@ -17,18 +17,6 @@
   //Initialize web wrapper object
   window.WebViewBridge = new Bridge(JSON.parse(strJsonConfig));
 
-  if (/complete|interactive|loaded/.test(document.readyState)) {
-    // In case the document has finished parsing, document's readyState will
-    // be one of "complete", "interactive" or (non-standard) "loaded".
-    WebViewBridge.initialize();
-  } else {
-    // The document is not ready yet, so wait for the DOMContentLoaded event
-    // https://developer.mozilla.org/en-US/docs/Web/API/Document/DOMContentLoaded_event
-    document.addEventListener('DOMContentLoaded', function () {
-      WebViewBridge.initialize();
-    }, false);
-  }
-
   /**
    * Bridge object to handle communication between JavaScript and Native
    */
@@ -37,40 +25,6 @@
 
     return {
       opts: opts,
-
-      initialize: function () {
-        WebViewBridge.postMessageToNative("documentReady", {});
-
-        var images = document.querySelectorAll("img");
-        var loadedCount = 0;
-        var onImgLoad = function() {
-          loadedCount++;
-
-          if (loadedCount === images.length) {
-            WebViewBridge.postMessageToNative("imagesLoaded", {});
-          }
-        };
-
-        images.forEach(function (img) {
-          if (img.complete) {
-            onImgLoad();
-          } else {
-            img.onload = onImgLoad;
-          }
-        });
-      },
-
-      /**
-       * Default keyword for JS -> Native messaging
-       */
-      defaultAction: opts.defaultAction || "message",
-
-      /**
-       * Bool test if this is Android WebView with registered JavaScript interface
-       */
-      isAndroid: function () {
-        return !!window[opts.bridgeName];
-      },
 
       /**
        * Bool test if this is an Apple WKWebView
@@ -88,19 +42,12 @@
        * @param type {String}
        * @param data {Object}
        */
-      postMessageToNative: function (type, data) {
-        const payload = {
-          type: type || this.defaultAction,
-          data: data || {}
-        };
-
+      postMessageToNative: function (payload) {
         try {
           const serializedPayload = JSON.stringify(payload);
 
           if (this.isApple()) {
             window.webkit.messageHandlers[opts.bridgeName].postMessage(serializedPayload);
-          } else if (this.isAndroid()) {
-            window[opts.bridgeName].postMessage(serializedPayload);
           }
         } catch (e) {
           console.error("Failed to post message to native layer:", e.message);
@@ -125,7 +72,7 @@
           message = "Couldn't parse arguments.";
         }
 
-        WebViewBridge.postMessageToNative("console", {
+        WebViewBridge.postMessageToNative({
           level: method,
           message: message
         });
