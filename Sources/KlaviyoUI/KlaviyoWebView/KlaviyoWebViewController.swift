@@ -96,7 +96,31 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         viewModel.messageHandlers?.forEach {
             webView.configuration.userContentController.add(self, name: $0)
         }
+
+        #if DEBUG
+        injectConsoleLoggingScript()
+        #endif
     }
+
+    #if DEBUG
+    private func injectConsoleLoggingScript() {
+        guard let consoleHandlerScript = try? ResourceLoader.getResourceContents(path: "consoleHandler", type: "js") else {
+            return
+        }
+
+        // Injects script at start of document, before any other scripts would load
+        let strHandoff = "{\"bridgeName\":\"consoleMessageHandler\", \"linkConsole\":true}" // arguments to invoke with the JS bridge
+
+        let script = WKUserScript(
+            // Format as an immediately invoked function expression
+            source: ";(\(consoleHandlerScript))('\(strHandoff)');",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false)
+
+        webView.configuration.userContentController.addUserScript(script)
+        webView.configuration.userContentController.add(self, name: "consoleMessageHandler")
+    }
+    #endif
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any {
@@ -132,10 +156,37 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 }
 
+// MARK: - Message Handling
+
 extension KlaviyoWebViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        #if DEBUG
+        if message.name == "consoleMessageHandler" {
+            if #available(iOS 14.0, *) {
+                guard let jsonString = message.body as? String else { return }
+
+                do {
+                    let jsonData = Data(jsonString.utf8) // Convert string to Data
+                    let consoleMessage = try JSONDecoder().decode(WebViewConsoleRelayMessage.self, from: jsonData)
+                    handleJsConsoleMessage(consoleMessage)
+                } catch {
+                    // TODO: log message
+                }
+            }
+        } else {
+            viewModel.handleScriptMessage(message)
+        }
+        #else
         viewModel.handleScriptMessage(message)
+        #endif
     }
+
+    #if DEBUG
+    @available(iOS 14.0, *)
+    private func handleJsConsoleMessage(_ consoleMessage: WebViewConsoleRelayMessage) {
+        // TODO: handle console message
+    }
+    #endif
 }
 
 // MARK: - Previews
