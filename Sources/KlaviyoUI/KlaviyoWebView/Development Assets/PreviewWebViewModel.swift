@@ -10,6 +10,7 @@ import Combine
 import Foundation
 import WebKit
 
+// ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.
 class PreviewWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case toggleMessageHandler
