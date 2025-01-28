@@ -56,13 +56,15 @@
       },
     }
   }
-function unlinkConsole() {
+
+  function unlinkConsole() {
     ["log", "warn", "error"].forEach(function (method) {
       var bckKey = "_" + method
       console[method] = console[bckKey];
       delete console[bckKey]
     });
-}
+  }
+
   /**
    * Send all console output to native layer
    */
