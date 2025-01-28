@@ -50,18 +50,27 @@
             window.webkit.messageHandlers[opts.bridgeName].postMessage(serializedPayload);
           }
         } catch (e) {
+          unlinkConsole()
           console.error("Failed to post message to native layer:", e.message);
         }
       },
     }
   }
-
+function unlinkConsole() {
+    ["log", "warn", "error"].forEach(function (method) {
+      var bckKey = "_" + method
+      console[method] = console[bckKey];
+      delete console[bckKey]
+    });
+}
   /**
    * Send all console output to native layer
    */
   if (!!window.WebViewBridge.opts.linkConsole) {
     ["log", "warn", "error"].forEach(function (method) {
       var _method = console[method];
+      var bckKey = "_" + method
+      console[bckKey] = _method
       console[method] = function () {
         var args = Array.prototype.slice.call(arguments, 0),
         message;
