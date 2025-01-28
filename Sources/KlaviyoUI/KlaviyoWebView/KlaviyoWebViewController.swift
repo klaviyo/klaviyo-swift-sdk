@@ -6,6 +6,7 @@
 //
 
 import Combine
+import OSLog
 import UIKit
 import WebKit
 
@@ -170,7 +171,7 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
                     let consoleMessage = try JSONDecoder().decode(WebViewConsoleRelayMessage.self, from: jsonData)
                     handleJsConsoleMessage(consoleMessage)
                 } catch {
-                    // TODO: log message
+                    Logger.webViewLogger.warning("Unable to decode WKWebView console relay message: \(error)")
                 }
             }
         } else {
@@ -184,7 +185,14 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
     #if DEBUG
     @available(iOS 14.0, *)
     private func handleJsConsoleMessage(_ consoleMessage: WebViewConsoleRelayMessage) {
-        // TODO: handle console message
+        switch consoleMessage.level {
+        case .log:
+            Logger.webViewLogger.log("\(consoleMessage.message)")
+        case .warn:
+            Logger.webViewLogger.warning("\(consoleMessage.message)")
+        case .error:
+            Logger.webViewLogger.error("\(consoleMessage.message)")
+        }
     }
     #endif
 }
