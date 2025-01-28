@@ -1,5 +1,5 @@
 //
-//  JSTestWebViewModel.swift
+//  PreviewWebViewModel.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 11/18/24.
@@ -10,7 +10,7 @@ import Combine
 import Foundation
 import WebKit
 
-class JSTestWebViewModel: KlaviyoWebViewModeling {
+class PreviewWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case toggleMessageHandler
         case closeMessageHandler
@@ -19,7 +19,7 @@ class JSTestWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>? = JSTestWebViewModel.initializeLoadScripts()
+    var loadScripts: Set<WKUserScript>? = PreviewWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
