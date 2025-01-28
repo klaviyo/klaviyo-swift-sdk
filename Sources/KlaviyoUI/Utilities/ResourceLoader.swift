@@ -7,16 +7,21 @@
 
 #if DEBUG
 import Foundation
+import OSLog
 
 enum ResourceLoaderError: Error {
     case resourceNotFound
+    case bundleError
 }
 
 enum ResourceLoader {
     static func getResourceUrl(path: String, type: String) throws -> URL {
-        let bundle = resourceBundle()
+        let bundle = try resourceBundle()
 
-        guard let resourceUrl = bundle?.url(forResource: path, withExtension: type) else {
+        guard let resourceUrl = bundle.url(forResource: path, withExtension: type) else {
+            if #available(iOS 14.0, *) {
+                Logger.filesystem.warning("Unable to locate URL for resource '\(path).\(type)'. Check that the resource exists within the bundle.")
+            }
             throw ResourceLoaderError.resourceNotFound
         }
 
@@ -24,9 +29,12 @@ enum ResourceLoader {
     }
 
     static func getResourceContents(path: String, type: String) throws -> String {
-        let bundle = resourceBundle()
+        let bundle = try resourceBundle()
 
-        guard let resourcePath = bundle?.path(forResource: path, ofType: type) else {
+        guard let resourcePath = bundle.path(forResource: path, ofType: type) else {
+            if #available(iOS 14.0, *) {
+                Logger.filesystem.warning("Unable to locate path for resource '\(path).\(type)'. Check that the resource exists within the bundle.")
+            }
             throw ResourceLoaderError.resourceNotFound
         }
 
@@ -34,16 +42,23 @@ enum ResourceLoader {
             let contents = try String(contentsOfFile: resourcePath, encoding: .utf8)
             return contents
         } catch {
+            if #available(iOS 14.0, *) {
+                Logger.filesystem.warning("Unable to cast file contents for resource '\(path).\(type)' to type String")
+            }
             throw error
         }
     }
 
     // Determines the appropriate bundle based on the build system
-    private static func resourceBundle() -> Bundle? {
+    private static func resourceBundle() throws -> Bundle {
         #if SWIFT_PACKAGE
         return Bundle.module
         #else
-        return Bundle(for: BundleLocator.self).resourceBundle(named: "KlaviyoUIResources")
+        do {
+            return try Bundle(for: BundleLocator.self).resourceBundle(named: "KlaviyoUIResources")
+        } catch {
+            throw ResourceLoaderError.bundleError
+        }
         #endif
     }
 }
@@ -52,10 +67,13 @@ enum ResourceLoader {
 private class BundleLocator {}
 
 extension Bundle {
-    fileprivate func resourceBundle(named name: String) -> Bundle? {
+    fileprivate func resourceBundle(named name: String) throws -> Bundle {
         guard let bundleUrl = url(forResource: name, withExtension: "bundle"),
               let bundle = Bundle(url: bundleUrl) else {
-            return nil
+            if #available(iOS 14.0, *) {
+                Logger.filesystem.warning("Unable to locate bundle named '\(name)'")
+            }
+            throw ResourceLoaderError.bundleError
         }
 
         return bundle
