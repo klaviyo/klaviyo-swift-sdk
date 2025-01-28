@@ -22,4 +22,7 @@ extension Logger {
 extension Logger {
     /// Logger for Javascript console log messages from a WKWebView relayed to the native layer
     static let webViewLogger = Logger(category: "WKWebView Console Log Relay")
+
+    /// Logger for filesystem operations
+    static let filesystem = Logger(category: "Filesystem")
 }
