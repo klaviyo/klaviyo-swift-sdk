@@ -1,6 +1,4 @@
 /**
- * WARNING This JS file should be ES5 compatible to support older versions of Android WebView
- *
  * Inject this script file from native code into the head of the HTML document
  * Format string like this, where strWrapperScript is the contents of this file
  * and strJsonConfig is the json-encoded handoff parameters detailed below
@@ -10,7 +8,6 @@
  *
  * @param strJsonConfig - JSON encoded handoff dictionary containing:
  *    bridgeName: String - name of the native message handler
- *    defaultAction: String - default action keyword for data posted from JS -> Native
  */
 (function bridgeWrapper(strJsonConfig) {
 
