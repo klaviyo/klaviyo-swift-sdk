@@ -12,6 +12,15 @@ import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
+public class KlaviyoEventQueue: NSObject {
+    public static let shared = KlaviyoEventQueue()
+
+    @_spi(KlaviyoPrivateQueue)
+    public func enqueue(event: Event) {
+        dispatchOnMainThread(action: .enqueueEvent(event))
+    }
+}
+
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
         case uninitialized

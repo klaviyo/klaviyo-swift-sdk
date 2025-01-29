@@ -8,6 +8,7 @@
 import Combine
 import UIKit
 import WebKit
+@_spi(KlaviyoPrivateQueue) import KlaviyoSwift
 
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
@@ -82,7 +83,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func dismiss() {
-        dismiss(animated: true)
+        dismiss(animated: true) {
+            KlaviyoEventQueue.shared.enqueue(event: Event(name: .customEvent("From JS")))
+        }
     }
 
     // MARK: - Scripts
