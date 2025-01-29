@@ -12,19 +12,19 @@ import WebKit
 
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
-    //Required to allow localStorage data to be retained between webview instances
+    // Required to allow localStorage data to be retained between webview instances
     config.websiteDataStore = WKWebsiteDataStore.default()
-    
+
     let webView = WKWebView(frame: .zero, configuration: config)
     webView.isOpaque = false
     webView.scrollView.contentInsetAdjustmentBehavior = .never
-    
-#if DEBUG
+
+    #if DEBUG
     if #available(iOS 16.4, *) {
-        //Earlier versions do not require setting any kind of flag
+        // Earlier versions do not require setting any kind of flag
         webView.isInspectable = true
     }
-#endif
+    #endif
     return webView
 }
 
