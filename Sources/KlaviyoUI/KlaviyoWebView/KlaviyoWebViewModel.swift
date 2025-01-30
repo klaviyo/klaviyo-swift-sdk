@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoSwift
 import WebKit
 
 @_spi(KlaviyoPrivate)
@@ -53,10 +54,20 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: handle WKWebView events
 
+    // get formDidClose to call this and send the json payload
     public func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             return
+        }
+
+        // read the message.body into dict and get switch case
+        let properties = ["form_id": "7uSP7t", "form_version_id": 8] as [String: Any]
+        let event: Event.IAFProfileEvent = .profileEventTracked
+
+        switch event {
+        case .profileEventTracked:
+            KlaviyoSDK().create(event: Event(name: .customEvent("Form completed by profile"), formProperties: properties))
         }
 
         switch handler {

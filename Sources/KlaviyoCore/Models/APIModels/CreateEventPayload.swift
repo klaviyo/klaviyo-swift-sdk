@@ -84,6 +84,7 @@ public struct CreateEventPayload: Equatable, Codable {
         public var attributes: Attributes
         public init(name: String,
                     properties: [String: Any]? = nil,
+                    formProperties: [String: Any]? = nil,
                     email: String? = nil,
                     phoneNumber: String? = nil,
                     externalId: String? = nil,
@@ -94,7 +95,7 @@ public struct CreateEventPayload: Equatable, Codable {
                     pushToken: String? = nil) {
             attributes = Attributes(
                 name: name,
-                properties: properties?.appendMetadataToProperties(pushToken: pushToken),
+                properties: properties?.appendMetadataToProperties(pushToken: pushToken, formProperties: formProperties),
                 email: email,
                 phoneNumber: phoneNumber,
                 externalId: externalId,
@@ -112,7 +113,7 @@ public struct CreateEventPayload: Equatable, Codable {
 }
 
 extension Dictionary where Key == String, Value == Any {
-    fileprivate func appendMetadataToProperties(pushToken: String?) -> [String: Any]? {
+    fileprivate func appendMetadataToProperties(pushToken: String?, formProperties: [String: Any]?) -> [String: Any]? {
         let context = environment.appContextInfo()
         let metadata: [String: Any] = [
             "Device ID": context.deviceId,
@@ -128,7 +129,11 @@ extension Dictionary where Key == String, Value == Any {
             "App Build": context.appBuild,
             "Push Token": pushToken ?? ""
         ]
+        var result = metadata
+        if let formProperties = formProperties {
+            result = result.merging(formProperties) { _, new in new }
+        }
 
-        return merging(metadata) { _, new in new }
+        return result
     }
 }

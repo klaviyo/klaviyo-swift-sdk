@@ -84,7 +84,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     func dismiss() {
         dismiss(animated: true) {
-            KlaviyoEventQueue.shared.enqueue(event: Event(name: .customEvent("From JS")))
+            let properties = ["form_id": "7uSP7t", "form_version_id": 8] as [String: Any]
+            KlaviyoSDK().create(event: Event(name: .customEvent("Form completed by profile"), formProperties: properties))
         }
     }
 
