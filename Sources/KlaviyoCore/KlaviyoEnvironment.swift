@@ -5,7 +5,6 @@
 //  Created by Noah Durell on 9/28/22.
 //
 
-import AnyCodable
 import Combine
 import Foundation
 import UIKit
@@ -31,7 +30,7 @@ public struct KlaviyoEnvironment {
         emitDeveloperWarning: @escaping (String) -> Void,
         networkSession: @escaping () -> NetworkSession,
         apiURL: @escaping () -> String,
-        encodeJSON: @escaping (AnyEncodable) throws -> Data,
+        encodeJSON: @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @escaping () -> UUID,
         date: @escaping () -> Date,
@@ -109,7 +108,7 @@ public struct KlaviyoEnvironment {
 
     public var networkSession: () -> NetworkSession
     public var apiURL: () -> String
-    public var encodeJSON: (AnyEncodable) throws -> Data
+    public var encodeJSON: (Encodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: () -> UUID
     public var date: () -> Date
