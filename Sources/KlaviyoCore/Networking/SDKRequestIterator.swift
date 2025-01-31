@@ -46,7 +46,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
 
-        static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
+        fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
             case let .createProfile(payload):
                 return .createProfile(ProfileInfo(
@@ -85,7 +85,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case requestError(String, Double)
     }
 
-    static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
+    fileprivate static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
         let type = RequestType.fromEndpoint(request: request)
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
