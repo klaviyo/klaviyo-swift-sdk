@@ -7,14 +7,25 @@
 
 import Combine
 import KlaviyoSwift
+import OSLog
 import UIKit
 import WebKit
 
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
+    // Required to allow localStorage data to be retained between webview instances
+    config.websiteDataStore = WKWebsiteDataStore.default()
+
     let webView = WKWebView(frame: .zero, configuration: config)
     webView.isOpaque = false
     webView.scrollView.contentInsetAdjustmentBehavior = .never
+
+    #if DEBUG
+    if #available(iOS 16.4, *) {
+        // Earlier versions do not require setting any kind of flag
+        webView.isInspectable = true
+    }
+    #endif
     return webView
 }
 
@@ -100,7 +111,31 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         viewModel.messageHandlers?.forEach {
             webView.configuration.userContentController.add(self, name: $0)
         }
+
+        #if DEBUG
+        injectConsoleLoggingScript()
+        #endif
     }
+
+    #if DEBUG
+    private func injectConsoleLoggingScript() {
+        guard let consoleHandlerScript = try? ResourceLoader.getResourceContents(path: "consoleHandler", type: "js") else {
+            return
+        }
+
+        // Injects script at start of document, before any other scripts would load
+        let strHandoff = "{\"bridgeName\":\"consoleMessageHandler\", \"linkConsole\":true}" // arguments to invoke with the JS bridge
+
+        let script = WKUserScript(
+            // Format as an immediately invoked function expression
+            source: ";(\(consoleHandlerScript))('\(strHandoff)');",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false)
+
+        webView.configuration.userContentController.addUserScript(script)
+        webView.configuration.userContentController.add(self, name: "consoleMessageHandler")
+    }
+    #endif
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any {
@@ -136,10 +171,44 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 }
 
+// MARK: - Message Handling
+
 extension KlaviyoWebViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        #if DEBUG
+        if message.name == "consoleMessageHandler" {
+            if #available(iOS 14.0, *) {
+                guard let jsonString = message.body as? String else { return }
+
+                do {
+                    let jsonData = Data(jsonString.utf8) // Convert string to Data
+                    let consoleMessage = try JSONDecoder().decode(WebViewConsoleRelayMessage.self, from: jsonData)
+                    handleJsConsoleMessage(consoleMessage)
+                } catch {
+                    Logger.webViewConsoleLogger.warning("Unable to decode WKWebView console relay message: \(error)")
+                }
+            }
+        } else {
+            viewModel.handleScriptMessage(message)
+        }
+        #else
         viewModel.handleScriptMessage(message)
+        #endif
     }
+
+    #if DEBUG
+    @available(iOS 14.0, *)
+    private func handleJsConsoleMessage(_ consoleMessage: WebViewConsoleRelayMessage) {
+        switch consoleMessage.level {
+        case .log:
+            Logger.webViewConsoleLogger.log("\(consoleMessage.message)")
+        case .warn:
+            Logger.webViewConsoleLogger.warning("\(consoleMessage.message)")
+        case .error:
+            Logger.webViewConsoleLogger.error("\(consoleMessage.message)")
+        }
+    }
+    #endif
 }
 
 // MARK: - Previews
@@ -186,7 +255,7 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 @available(iOS 17.0, *)
 #Preview("JS Test Page") {
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "jstest", type: "html")
-    let viewModel = JSTestWebViewModel(url: indexHtmlFileUrl)
+    let viewModel = PreviewWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
 #endif
