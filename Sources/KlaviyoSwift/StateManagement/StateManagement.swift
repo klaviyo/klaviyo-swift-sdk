@@ -188,6 +188,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     switch request {
                     case let .event(event):
                         await send(.enqueueEvent(event))
+                    case let .aggregateEvent(payload):
+                        await send(.enqueueAggregateEvent(payload))
                     case let .profile(profile):
                         await send(.enqueueProfile(profile))
                     case let .pushToken(token, enablement):
