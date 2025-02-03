@@ -94,10 +94,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func dismiss() {
-        dismiss(animated: true) {
-            let properties = ["form_id": "7uSP7t", "form_version_id": 8] as [String: Any]
-            KlaviyoSDK().create(event: Event(name: .customEvent("Form completed by profile"), properties: properties))
-        }
+        dismiss(animated: true)
     }
 
     // MARK: - Scripts

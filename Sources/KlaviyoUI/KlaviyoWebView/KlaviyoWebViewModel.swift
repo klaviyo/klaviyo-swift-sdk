@@ -58,14 +58,13 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: handle WKWebView events
 
-    // get formDidClose to call this and send the json payload
     public func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             return
         }
 
-        // read the message.body into dict and get switch case
+        // placeholder for when we actually receive it and parse relevant data from the json payload
         let properties = ["form_id": "7uSP7t", "form_version_id": 8] as [String: Any]
         let event: IAFProfileEvent = .profileEventTracked
 
