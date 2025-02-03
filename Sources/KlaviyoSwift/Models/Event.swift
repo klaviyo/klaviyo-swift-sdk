@@ -10,10 +10,6 @@ import Foundation
 import KlaviyoCore
 
 public struct Event: Equatable {
-    public enum IAFProfileEvent: Equatable {
-        case profileEventTracked
-    }
-
     public enum EventName: Equatable {
         case openedAppMetric
         case viewedProductMetric
@@ -53,19 +49,12 @@ public struct Event: Equatable {
     }
 
     private let _properties: AnyCodable
-
-    public var formProperties: [String: Any] {
-        _formProperties.value as! [String: Any]
-    }
-
-    private let _formProperties: AnyCodable
     public let time: Date
     public let value: Double?
     public let uniqueId: String
     let identifiers: Identifiers?
 
     init(name: EventName,
-         formProperties: [String: Any]? = nil,
          properties: [String: Any]? = nil,
          identifiers: Identifiers? = nil,
          value: Double? = nil,
@@ -73,7 +62,6 @@ public struct Event: Equatable {
          uniqueId: String = environment.uuid().uuidString) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        _formProperties = AnyCodable(formProperties ?? [:])
         self.time = time
         self.value = value
         self.uniqueId = uniqueId
@@ -88,12 +76,10 @@ public struct Event: Equatable {
     ///   - uniqueId: A unique identifier for an event
     public init(name: EventName,
                 properties: [String: Any]? = nil,
-                formProperties: [String: Any]? = nil,
                 value: Double? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
-        _formProperties = AnyCodable(formProperties ?? [:])
         identifiers = nil
         self.value = value
         time = environment.date()

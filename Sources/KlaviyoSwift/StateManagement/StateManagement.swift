@@ -432,7 +432,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 data: CreateEventPayload.Event(
                     name: event.metric.name.value,
                     properties: event.properties,
-                    formProperties: event.formProperties,
                     email: event.identifiers?.email,
                     phoneNumber: event.identifiers?.phoneNumber,
                     externalId: event.identifiers?.externalId,
@@ -555,13 +554,11 @@ extension Event {
             phoneNumber: state.phoneNumber,
             externalId: state.externalId)
         var properties = properties
-        var formProperties = formProperties
         if metric.name == EventName._openedPush,
            let pushToken = state.pushTokenData?.pushToken {
             properties["push_token"] = pushToken
         }
         return Event(name: metric.name,
-                     formProperties: formProperties,
                      properties: properties,
                      identifiers: identifiers,
                      value: value,

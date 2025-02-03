@@ -10,6 +10,10 @@ import Foundation
 import KlaviyoSwift
 import WebKit
 
+enum IAFProfileEvent: Equatable {
+    case profileEventTracked
+}
+
 @_spi(KlaviyoPrivate)
 public protocol KlaviyoWebViewDelegate: AnyObject {
     @MainActor
@@ -63,11 +67,11 @@ public class KlaviyoWebViewModel: KlaviyoWebViewModeling {
 
         // read the message.body into dict and get switch case
         let properties = ["form_id": "7uSP7t", "form_version_id": 8] as [String: Any]
-        let event: Event.IAFProfileEvent = .profileEventTracked
+        let event: IAFProfileEvent = .profileEventTracked
 
         switch event {
         case .profileEventTracked:
-            KlaviyoSDK().create(event: Event(name: .customEvent("Form completed by profile"), formProperties: properties))
+            KlaviyoSDK().create(event: Event(name: .customEvent("Form completed by profile"), properties: properties))
         }
 
         switch handler {
