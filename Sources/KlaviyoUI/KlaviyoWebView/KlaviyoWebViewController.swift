@@ -6,7 +6,6 @@
 //
 
 import Combine
-import KlaviyoSwift
 import OSLog
 import UIKit
 import WebKit
