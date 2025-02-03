@@ -8,7 +8,6 @@
 import Combine
 import UIKit
 import WebKit
-@_spi(KlaviyoPrivateQueue) import KlaviyoSwift
 
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
