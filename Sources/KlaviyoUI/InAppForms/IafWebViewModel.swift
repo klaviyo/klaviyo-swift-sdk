@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoSwift
 import WebKit
 
 class IafWebViewModel: KlaviyoWebViewModeling {
@@ -36,10 +37,34 @@ class IafWebViewModel: KlaviyoWebViewModeling {
 
         switch handler {
         case .klaviyoNativeBridge:
-            guard let jsonString = message.body as? String else {
-                return
+            guard let jsonString = message.body as? String else { return }
+
+            do {
+                let jsonData = Data(jsonString.utf8) // Convert string to Data
+                let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
+                handleMessageBusEvent(messageBusEvent)
+            } catch {
+                print("Failed to decode JSON: \(error)")
             }
-            // TODO: handle bridge messages
+        }
+    }
+
+    private func handleMessageBusEvent(_ event: IAFMessageBusEvent) {
+        switch event {
+        case .formsDataLoaded:
+            // TODO: handle formsDataLoaded
+            ()
+        case .formAppeared:
+            // TODO: handle formAppeared
+            ()
+        case let .trackAggregateEvent(data):
+            KlaviyoSDK().create(aggregateEvent: data)
+        case .trackProfileEvent:
+            // TODO: handle tracktProfileEvent
+            ()
+        case .openDeepLink:
+            // TODO: handle openDeepLink
+            ()
         }
     }
 }
