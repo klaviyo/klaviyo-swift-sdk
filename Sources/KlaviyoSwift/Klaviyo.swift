@@ -140,6 +140,12 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
+    /// Create and send an aggregate event.
+    /// - Parameter event: the event to be tracked in Klaviyo
+    package func create(aggregateEvent: AggregateEventPayload) {
+        dispatchOnMainThread(action: .enqueueAggregateEvent(aggregateEvent))
+    }
+
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
