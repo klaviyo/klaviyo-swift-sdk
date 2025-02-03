@@ -9,8 +9,10 @@ import Foundation
 import OSLog
 import UIKit
 
-class IafPresentationManager {
-    static let shared = IafPresentationManager()
+@_spi(KlaviyoPrivate)
+public class IafPresentationManager {
+    @_spi(KlaviyoPrivate)
+    public static let shared = IafPresentationManager()
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -22,7 +24,8 @@ class IafPresentationManager {
 
     private var isLoading: Bool = false
 
-    @MainActor func presentIaf() {
+    @_spi(KlaviyoPrivate)
+    @MainActor public func presentIaf() {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
