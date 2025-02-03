@@ -88,6 +88,9 @@ enum KlaviyoAction: Equatable {
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
 
+    /// when there is an aggregate event to be sent to klaviyo it's added to the queue
+    case enqueueAggregateEvent(Data)
+
     /// when there is an profile to be sent to klaviyo it's added to the queue
     case enqueueProfile(Profile)
 
@@ -105,7 +108,7 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
 
-        case .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
         case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
@@ -452,6 +455,21 @@ struct KlaviyoReducer: ReducerProtocol {
              using the flush intervals defined above in `StateManagementConstants`
              */
             return event.metric.name == ._openedPush ? .task { .flushQueue } : .none
+
+        case let .enqueueAggregateEvent(payload):
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey
+            else {
+                state.pendingRequests.append(.aggregateEvent(payload))
+                return .none
+            }
+
+            let endpoint = KlaviyoEndpoint.aggregateEvent(payload)
+            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+
+            state.enqueueRequest(request: request)
+
+            return .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
