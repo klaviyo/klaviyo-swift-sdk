@@ -42,6 +42,7 @@ public struct SDKRequest: Identifiable, Equatable {
         }
 
         case createEvent(EventInfo, ProfileInfo)
+        case createAggregateEvent(Data)
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
@@ -61,6 +62,8 @@ public struct SDKRequest: Identifiable, Equatable {
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case let .aggregateEvent(payload):
+                return .createAggregateEvent(payload)
             case let .registerPushToken(payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
