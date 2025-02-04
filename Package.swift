@@ -62,6 +62,7 @@ let package = Package(
             dependencies: ["KlaviyoSwift"],
             path: "Sources/KlaviyoUI",
             resources: [
+                .process("InAppForms/Assets"),
                 .process("KlaviyoWebView/Resources"),
                 .process("KlaviyoWebView/Development Assets/Scripts"),
                 .process("KlaviyoWebView/Development Assets/HTML")

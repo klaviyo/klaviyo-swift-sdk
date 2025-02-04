@@ -15,6 +15,9 @@ enum ResourceLoaderError: Error {
 }
 
 enum ResourceLoader {
+    /// The name of the resource bundle specified in the podspec.
+    private static let resourceBundleName = "KlaviyoUIResources"
+
     static func getResourceUrl(path: String, type: String) throws -> URL {
         let bundle = try resourceBundle()
 
@@ -55,7 +58,7 @@ enum ResourceLoader {
         return Bundle.module
         #else
         do {
-            return try Bundle(for: BundleLocator.self).resourceBundle(named: "KlaviyoUIResources")
+            return try Bundle(for: BundleLocator.self).resourceBundle(named: resourceBundleName)
         } catch {
             throw ResourceLoaderError.bundleError
         }
