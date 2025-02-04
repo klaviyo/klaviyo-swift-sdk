@@ -42,11 +42,12 @@ public struct SDKRequest: Identifiable, Equatable {
         }
 
         case createEvent(EventInfo, ProfileInfo)
+        case createAggregateEvent(Data)
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
 
-        static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
+        fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
             case let .createProfile(payload):
                 return .createProfile(ProfileInfo(
@@ -61,6 +62,8 @@ public struct SDKRequest: Identifiable, Equatable {
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case let .aggregateEvent(payload):
+                return .createAggregateEvent(payload)
             case let .registerPushToken(payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
@@ -85,7 +88,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case requestError(String, Double)
     }
 
-    static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
+    fileprivate static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
         let type = RequestType.fromEndpoint(request: request)
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"

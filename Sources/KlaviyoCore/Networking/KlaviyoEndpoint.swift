@@ -13,12 +13,13 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case createEvent(CreateEventPayload)
     case registerPushToken(PushTokenPayload)
     case unregisterPushToken(UnregisterPushTokenPayload)
+    case aggregateEvent(AggregateEventPayload)
 
     var httpScheme: String { "https" }
 
     var httpMethod: RequestMethod {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
         }
     }
@@ -33,6 +34,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-tokens/"
         case .unregisterPushToken:
             return "/client/push-token-unregister/"
+        case .aggregateEvent:
+            return "/onsite/track-analytics"
         }
     }
 
@@ -46,6 +49,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .unregisterPushToken(payload):
             return try environment.encodeJSON(payload)
+        case let .aggregateEvent(payload):
+            return payload
         }
     }
 }
