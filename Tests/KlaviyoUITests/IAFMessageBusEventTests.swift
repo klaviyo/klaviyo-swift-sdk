@@ -25,7 +25,7 @@ struct IAFMessageBusEventTests {
         """
 
         let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: data)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         #expect(event == .openDeepLink)
 
         // TODO: test that associated values are correct
@@ -42,7 +42,7 @@ struct IAFMessageBusEventTests {
         """
 
         let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: data)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         #expect(event == .formAppeared)
 
         // TODO: test that associated values are correct
@@ -63,7 +63,7 @@ struct IAFMessageBusEventTests {
         """
 
         let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: data)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         #expect(event == .trackProfileEvent)
 
         // TODO: test that associated values are correct
@@ -161,7 +161,7 @@ struct IAFMessageBusEventTests {
         let aggregateEventData = try #require(aggregateEvent.data(using: .utf8))
         let aggregateEventDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: aggregateEventData)
 
-        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
 
         guard case let .trackAggregateEvent(associatedValueData) = event else {
             Issue.record("event type should be .trackAggregateEvent but was '.\(event)'")
