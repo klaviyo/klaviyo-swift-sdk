@@ -1,5 +1,5 @@
 //
-//  IafPresentationManager.swift
+//  IAFPresentationManager.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 2/3/25.
@@ -10,9 +10,9 @@ import OSLog
 import UIKit
 
 @_spi(KlaviyoPrivate)
-public class IafPresentationManager {
+public class IAFPresentationManager {
     @_spi(KlaviyoPrivate)
-    public static let shared = IafPresentationManager()
+    public static let shared = IAFPresentationManager()
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
