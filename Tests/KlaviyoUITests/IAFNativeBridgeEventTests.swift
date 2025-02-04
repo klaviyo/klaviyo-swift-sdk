@@ -1,5 +1,5 @@
 //
-//  IAFMessageBusEventTests.swift
+//  IAFNativeBridgeEventTests.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 2/3/25.
@@ -12,7 +12,7 @@ import Foundation
 #if canImport(Testing)
 import Testing
 
-struct IAFMessageBusEventTests {
+struct IAFNativeBridgeEventTests {
     @Test func testDecodeOpenDeepLink() async throws {
         let json = """
         {
