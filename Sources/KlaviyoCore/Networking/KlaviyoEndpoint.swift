@@ -6,7 +6,6 @@
 //  Created by Noah Durell on 11/25/22.
 //
 
-import AnyCodable
 import Foundation
 
 public enum KlaviyoEndpoint: Equatable, Codable {
@@ -40,13 +39,13 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     func body() throws -> Data? {
         switch self {
         case let .createProfile(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(payload)
         case let .createEvent(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(payload)
         case let .registerPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(payload)
         case let .unregisterPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
+            return try environment.encodeJSON(payload)
         }
     }
 }
