@@ -25,7 +25,7 @@ public class IAFPresentationManager {
     private var isLoading: Bool = false
 
     @_spi(KlaviyoPrivate)
-    @MainActor public func presentIaf() {
+    @MainActor public func presentIAF() {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
