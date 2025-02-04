@@ -53,7 +53,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
-                print(jsonString)
                 let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
                 handleMessageBusEvent(messageBusEvent)
             } catch {
