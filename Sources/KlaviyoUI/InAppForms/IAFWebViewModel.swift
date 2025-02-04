@@ -58,7 +58,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             // TODO: handle formAppeared
             ()
         case let .trackAggregateEvent(data):
-            KlaviyoSDK().create(aggregateEvent: data)
+            KlaviyoInternal.create(aggregateEvent: data)
         case .trackProfileEvent:
             // TODO: handle tracktProfileEvent
             ()
