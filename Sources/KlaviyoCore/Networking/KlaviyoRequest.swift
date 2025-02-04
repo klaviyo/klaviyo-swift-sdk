@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
 
 public struct KlaviyoRequest: Equatable, Codable {
