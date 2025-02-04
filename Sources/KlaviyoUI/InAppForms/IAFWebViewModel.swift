@@ -42,14 +42,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
                 let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
-                handleMessageBusEvent(messageBusEvent)
+                handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 print("Failed to decode JSON: \(error)")
             }
         }
     }
 
-    private func handleMessageBusEvent(_ event: IAFMessageBusEvent) {
+    private func handleNativeBridgeEvent(_ event: IAFMessageBusEvent) {
         switch event {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
