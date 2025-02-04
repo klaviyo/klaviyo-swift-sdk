@@ -13,18 +13,30 @@ import WebKit
 class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
+        case closeHandler
     }
 
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: Set<WKUserScript>? = IAFWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     init(url: URL) {
         self.url = url
+    }
+
+    private static func initializeLoadScripts() -> Set<WKUserScript> {
+        var scripts = Set<WKUserScript>()
+
+        if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
+            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts.insert(script)
+        }
+
+        return scripts
     }
 
     // MARK: handle WKWebView events
@@ -37,6 +49,17 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         switch handler {
         case .klaviyoNativeBridge:
+            guard let jsonString = message.body as? String else { return }
+
+            do {
+                let jsonData = Data(jsonString.utf8) // Convert string to Data
+                print(jsonString)
+                let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
+                handleMessageBusEvent(messageBusEvent)
+            } catch {
+                print("Failed to decode JSON: \(error)")
+            }
+        case .closeHandler:
             guard let jsonString = message.body as? String else { return }
 
             do {
@@ -59,9 +82,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case let .trackAggregateEvent(data):
             KlaviyoSDK().create(aggregateEvent: data)
-        case .trackProfileEvent:
-            // TODO: handle tracktProfileEvent
-            ()
+        case let .trackProfileEvent(data):
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                KlaviyoSDK().create(event: Event(name: .customEvent(json["metric"] as! String), properties: json))
+            }
         case .openDeepLink:
             // TODO: handle openDeepLink
             ()
