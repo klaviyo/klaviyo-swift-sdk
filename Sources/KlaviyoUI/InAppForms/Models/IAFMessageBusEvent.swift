@@ -5,9 +5,11 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import AnyCodable
 import Foundation
 
-enum IAFMessageBusEvent: Decodable {
+enum IAFMessageBusEvent: Decodable, Equatable {
+    // TODO: add associated values with the appropriate data types
     case formsDataLoaded
     case formAppeared
     case trackAggregateEvent(Data)
@@ -37,8 +39,8 @@ enum IAFMessageBusEvent: Decodable {
         case .formAppeared:
             self = .formAppeared
         case .trackAggregateEvent:
-            let dataContainer = try container.decode([String: AnyCodable].self, forKey: .data)
-            let data = try JSONSerialization.data(withJSONObject: dataContainer)
+            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
+            let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .trackProfileEvent:
             self = .trackProfileEvent
@@ -47,7 +49,3 @@ enum IAFMessageBusEvent: Decodable {
         }
     }
 }
-
-// Since Swift’s Codable system doesn’t allow direct decoding into [String: Any],
-// we need an intermediate AnyCodable type:
-private struct AnyCodable: Codable {}
