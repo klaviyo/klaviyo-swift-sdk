@@ -42,7 +42,7 @@ public class IAFPresentationManager {
 
         isLoading = true
 
-        let viewModel = IafWebViewModel(url: fileUrl)
+        let viewModel = IAFWebViewModel(url: fileUrl)
         let viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .overCurrentContext
 

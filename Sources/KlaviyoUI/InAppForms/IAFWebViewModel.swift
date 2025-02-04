@@ -1,5 +1,5 @@
 //
-//  IafWebViewModel.swift
+//  IAFWebViewModel.swift
 //  TestApp
 //
 //  Created by Andrew Balmer on 1/27/25.
@@ -10,7 +10,7 @@ import Foundation
 import KlaviyoSwift
 import WebKit
 
-class IafWebViewModel: KlaviyoWebViewModeling {
+class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
     }
