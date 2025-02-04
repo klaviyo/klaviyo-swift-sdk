@@ -11,6 +11,7 @@ import Foundation
 import Testing
 
 struct IAFMessageBusEventTests {
+    @available(iOS 18.0, *)
     @Test func testDecodeOpenDeepLink() async throws {
         let json = """
         {
@@ -29,6 +30,7 @@ struct IAFMessageBusEventTests {
         // TODO: test that associated values are correct
     }
 
+    @available(iOS 18.0, *)
     @Test func testDecodeFormAppeared() async throws {
         let json = """
         {
@@ -46,6 +48,7 @@ struct IAFMessageBusEventTests {
         // TODO: test that associated values are correct
     }
 
+    @available(iOS 18.0, *)
     @Test func testDecodeTrackProfileEvent() async throws {
         let json = """
         {
@@ -67,6 +70,7 @@ struct IAFMessageBusEventTests {
         // TODO: test that associated values are correct
     }
 
+    @available(iOS 18.0, *)
     @Test func testDecodeAggregateEvent() async throws {
         let json = """
         {
