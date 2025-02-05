@@ -82,8 +82,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackAggregateEvent(data):
             KlaviyoSDK().create(aggregateEvent: data)
         case let .trackProfileEvent(data):
-            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-                KlaviyoSDK().create(event: Event(name: .customEvent(json["metric"] as! String), properties: json))
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let metricName = json["metric"] as? String {
+                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: json))
             }
         case .openDeepLink:
             // TODO: handle openDeepLink
