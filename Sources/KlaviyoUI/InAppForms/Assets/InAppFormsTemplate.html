@@ -6,54 +6,9 @@
       data-sdk-version="SDK_VERSION"
 >
     <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Klaviyo In-App Form Test - 1</title>
-            <script type="text/javascript" src="http://localhost:8080/onsite/js/klaviyo.js?company_id=9BX3wh&env=in-app"></script>
-            <script type="text/javascript">
-                            document.addEventListener('DOMContentLoaded', function () {
-                                onElementAvailable("button.klaviyo-close-form", function () {
-                                    onElementRemoved("button.klaviyo-close-form", function () {
-                                        var name = document.head.dataset.klaviyoMessageHandlerName
-                                        window.webkit.messageHandlers.closeHandler.postMessage(JSON.stringify({
-                                            "type": "openDeepLink",
-                                            "version": 1,
-                                            "data": {
-                                                "ios": "klaviyotest://accountInfo",
-                                                "android": "klaviyotest://settings"
-                                            }
-                                        }));
-                                    });
-                                });
-                            }, false);
-
-                            function onElementAvailable(selector, callback) {
-                                var observer = new MutationObserver(function () {
-                                    if (document.querySelector(selector)) {
-                                        observer.disconnect();
-                                        callback();
-                                    }
-                                });
-
-                                observer.observe(document.body, {
-                                    childList: true,
-                                    subtree: true
-                                });
-                            }
-
-                            function onElementRemoved(selector, callback) {
-                                var observer = new MutationObserver(function () {
-                                    if (!document.querySelector(selector)) {
-                                        observer.disconnect();
-                                        callback();
-                                    }
-                                });
-
-                                observer.observe(document.body, {
-                                    childList: true,
-                                    subtree: true
-                                });
-                            }
-                        </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Klaviyo In-App Form Test - 1</title>
+        <script type="text/javascript" src="http://localhost:8080/onsite/js/klaviyo.js?company_id=9BX3wh&env=in-app"></script>
 </head>
 <body></body>
 </html>
