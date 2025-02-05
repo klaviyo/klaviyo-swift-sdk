@@ -1,5 +1,5 @@
 //
-//  IAFMessageBusEvent.swift
+//  IAFNativeBridgeEvent.swift
 //  TestApp
 //
 //  Created by Andrew Balmer on 2/3/25.
@@ -8,7 +8,7 @@
 import AnyCodable
 import Foundation
 
-enum IAFMessageBusEvent: Decodable, Equatable {
+enum IAFNativeBridgeEvent: Decodable, Equatable {
     // TODO: add associated values with the appropriate data types
     case formsDataLoaded
     case formAppeared

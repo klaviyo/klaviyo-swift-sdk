@@ -53,8 +53,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
-                let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
-                handleMessageBusEvent(messageBusEvent)
+                let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 print("Failed to decode JSON: \(error)")
             }
@@ -62,16 +62,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             guard let jsonString = message.body as? String else { return }
 
             do {
-                let jsonData = Data(jsonString.utf8) // Convert string to Data
-                let messageBusEvent = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
-                handleMessageBusEvent(messageBusEvent)
+                let jsonData = Data(jsonString.utf8)
+                let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 print("Failed to decode JSON: \(error)")
             }
         }
     }
 
-    private func handleMessageBusEvent(_ event: IAFMessageBusEvent) {
+    private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
@@ -80,7 +80,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             // TODO: handle formAppeared
             ()
         case let .trackAggregateEvent(data):
-            KlaviyoSDK().create(aggregateEvent: data)
+            KlaviyoInternal.create(aggregateEvent: data)
         case let .trackProfileEvent(data):
             if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = json["metric"] as? String {
