@@ -60,11 +60,27 @@ struct IAFMessageBusEventTests {
         }
         """
 
-        let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: data)
-        #expect(event == .trackProfileEvent)
+        let profileEvent = """
+        {
+          "metric": "Form completed by profile",
+          "properties": {
+            "form_id": "7uSP7t",
+            "form_version_id": 8
+          }
+        }
+        """
+        let jsonData = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFMessageBusEvent.self, from: jsonData)
+        guard case let .trackProfileEvent(associatedValueData) = event else {
+            Issue.record("event type should be .trackProfileEvent but was '.\(event)'")
+            return
+        }
+        let associatedValueDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: associatedValueData)
 
-        // TODO: test that associated values are correct
+        let profileEventData = try #require(profileEvent.data(using: .utf8))
+        let profileEventDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: profileEventData)
+
+        #expect(profileEventDataDecoded == associatedValueDataDecoded)
     }
 
     @Test func testDecodeAggregateEvent() async throws {
