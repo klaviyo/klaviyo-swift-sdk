@@ -13,18 +13,30 @@ import WebKit
 class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
+        case closeHandler
     }
 
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: Set<WKUserScript>? = IAFWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     init(url: URL) {
         self.url = url
+    }
+
+    private static func initializeLoadScripts() -> Set<WKUserScript> {
+        var scripts = Set<WKUserScript>()
+
+        if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
+            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts.insert(script)
+        }
+
+        return scripts
     }
 
     // MARK: handle WKWebView events
@@ -41,6 +53,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
+                let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                handleNativeBridgeEvent(messageBusEvent)
+            } catch {
+                print("Failed to decode JSON: \(error)")
+            }
+        case .closeHandler:
+            guard let jsonString = message.body as? String else { return }
+
+            do {
+                let jsonData = Data(jsonString.utf8)
                 let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
@@ -64,9 +86,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                let metricName = jsonEventData["metric"] as? String {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
-        case .openDeepLink:
-            // TODO: handle openDeepLink
-            ()
+        case let .openDeepLink(url):
+            UIApplication.shared.open(url)
         }
     }
 }
