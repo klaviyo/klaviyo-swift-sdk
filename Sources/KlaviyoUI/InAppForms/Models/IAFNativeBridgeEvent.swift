@@ -14,7 +14,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formAppeared
     case trackAggregateEvent(Data)
     case trackProfileEvent(Data)
-    case openDeepLink(URL)
+    case openDeepLink(String)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -55,6 +55,6 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
 extension IAFNativeBridgeEvent {
     struct DeepLinkEventPayload: Codable {
-        let ios: URL
+        let ios: String
     }
 }
