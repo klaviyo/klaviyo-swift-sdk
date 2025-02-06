@@ -64,9 +64,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                let metricName = jsonEventData["metric"] as? String {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
-        case .openDeepLink:
-            // TODO: handle openDeepLink
-            ()
+        case let .openDeepLink(url):
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            }
         }
     }
 }
