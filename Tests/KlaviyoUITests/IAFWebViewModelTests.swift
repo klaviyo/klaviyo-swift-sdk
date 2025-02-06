@@ -50,4 +50,18 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(resultString, "swift")
     }
+
+    func testInjectSdkVersionAttribute() async throws {
+        // Given
+        try await viewModel.preloadWebsite(timeout: 1_000_000_000)
+
+        // When
+        let script = "document.head.getAttribute('data-sdk-version');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        XCTAssertEqual(resultString, "0.0.1")
+    }
 }
