@@ -10,7 +10,7 @@ import Foundation
 import KlaviyoSwift
 import WebKit
 
-class IAFWebViewModel: @preconcurrency KlaviyoWebViewModeling {
+class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
         case closeHandler
@@ -41,7 +41,7 @@ class IAFWebViewModel: @preconcurrency KlaviyoWebViewModeling {
 
     // MARK: handle WKWebView events
 
-    @MainActor func handleScriptMessage(_ message: WKScriptMessage) {
+    func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             return
@@ -70,13 +70,15 @@ class IAFWebViewModel: @preconcurrency KlaviyoWebViewModeling {
         }
     }
 
-    @MainActor private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
+    private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
             ()
         case .formAppeared:
-            IAFPresentationManager.shared.presentIAF()
+            Task { @MainActor in
+                IAFPresentationManager.shared.presentIAF()
+            }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
         case let .trackProfileEvent(data):
@@ -89,7 +91,9 @@ class IAFWebViewModel: @preconcurrency KlaviyoWebViewModeling {
                 UIApplication.shared.open(url)
             }
         case .formDisappeared:
-            IAFPresentationManager.shared.dismissIAF()
+            Task { @MainActor in
+                IAFPresentationManager.shared.dismissIAF()
+            }
         }
     }
 }
