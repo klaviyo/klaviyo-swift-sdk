@@ -24,23 +24,15 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let deepLinkEvent = """
-        {
-            "ios": "klaviyotest://settings",
-            "android": "klaviyotest://settings"
-        }
-        """
-
-        let data = json.data(using: .utf8)!
+        let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .openDeepLink(url) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
-        let deepLinkEventData = try #require(deepLinkEvent.data(using: .utf8))
-        let deepLinkEventDataDecoded = try JSONDecoder().decode(IAFNativeBridgeEvent.DeepLinkEventPayload.self, from: deepLinkEventData)
 
-        #expect(deepLinkEventDataDecoded.ios == url)
+        let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
+        #expect(url == expectedUrl)
     }
 
     @Test func testDecodeFormAppeared() async throws {
