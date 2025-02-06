@@ -57,4 +57,14 @@ public class IAFPresentationManager {
             topController.present(viewController, animated: true, completion: nil)
         }
     }
+
+    @_spi(KlaviyoPrivate)
+    @MainActor public func dismissIAF() {
+        Task {
+            guard let topController = UIApplication.shared.topMostViewController else {
+                return
+            }
+            topController.dismiss(animated: true)
+        }
+    }
 }

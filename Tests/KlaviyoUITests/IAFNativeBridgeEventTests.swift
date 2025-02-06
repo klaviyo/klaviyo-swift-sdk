@@ -48,8 +48,21 @@ struct IAFNativeBridgeEventTests {
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         #expect(event == .formAppeared)
+    }
 
-        // TODO: test that associated values are correct
+    @Test func testDecodeFormDisappeared() async throws {
+        let json = """
+        {
+          "type": "formDisappeared",
+          "data": {
+            "formId": "abc123"
+          }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event == .formDisappeared)
     }
 
     @Test func testDecodeTrackProfileEvent() async throws {

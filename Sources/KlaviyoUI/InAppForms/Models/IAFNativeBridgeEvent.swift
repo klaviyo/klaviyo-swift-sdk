@@ -15,6 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case trackAggregateEvent(Data)
     case trackProfileEvent(Data)
     case openDeepLink(URL)
+    case formDisappeared
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -27,6 +28,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case trackAggregateEvent
         case trackProfileEvent
         case openDeepLink
+        case formDisappeared
     }
 
     init(from decoder: Decoder) throws {
@@ -49,6 +51,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .openDeepLink:
             let url = try container.decode(DeepLinkEventPayload.self, forKey: .data)
             self = .openDeepLink(url.ios)
+        case .formDisappeared:
+            self = .formDisappeared
         }
     }
 }

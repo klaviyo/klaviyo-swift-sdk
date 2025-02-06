@@ -10,15 +10,16 @@ import Foundation
 import KlaviyoSwift
 import WebKit
 
-class IAFWebViewModel: KlaviyoWebViewModeling {
+class IAFWebViewModel: @preconcurrency KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
+        case closeHandler
     }
 
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: Set<WKUserScript>? = IAFWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
@@ -27,9 +28,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
     }
 
+    private static func initializeLoadScripts() -> Set<WKUserScript> {
+        var scripts = Set<WKUserScript>()
+
+        if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
+            let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            scripts.insert(script)
+        }
+
+        return scripts
+    }
+
     // MARK: handle WKWebView events
 
-    func handleScriptMessage(_ message: WKScriptMessage) {
+    @MainActor func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             return
@@ -46,17 +58,25 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } catch {
                 print("Failed to decode JSON: \(error)")
             }
+        case .closeHandler:
+            guard let jsonString = message.body as? String else { return }
+            do {
+                let jsonData = Data(jsonString.utf8)
+                let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                handleNativeBridgeEvent(messageBusEvent)
+            } catch {
+                print("Failed to decode JSON: \(error)")
+            }
         }
     }
 
-    private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
+    @MainActor private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
             ()
         case .formAppeared:
-            // TODO: handle formAppeared
-            ()
+            IAFPresentationManager.shared.presentIAF()
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
         case let .trackProfileEvent(data):
@@ -68,6 +88,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
             }
+        case .formDisappeared:
+            IAFPresentationManager.shared.dismissIAF()
         }
     }
 }
