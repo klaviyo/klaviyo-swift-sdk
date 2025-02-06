@@ -34,4 +34,20 @@ final class IAFWebViewModelTests: XCTestCase {
 
         super.tearDown()
     }
+
+    // MARK: - tests
+
+    func testInjectSdkNameAttribute() async throws {
+        // Given
+        try await viewModel.preloadWebsite(timeout: 1_000_000_000)
+
+        // When
+        let script = "document.head.getAttribute('data-sdk-name');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        XCTAssertEqual(resultString, "swift")
+    }
 }
