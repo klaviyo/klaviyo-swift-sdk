@@ -35,10 +35,10 @@ struct IAFNativeBridgeEventTests {
         #expect(url == expectedUrl)
     }
 
-    @Test func testDecodeFormAppeared() async throws {
+    @Test func testDecodeFormWillAppear() async throws {
         let json = """
         {
-          "type": "formAppeared",
+          "type": "formWillAppear",
           "data": {
             "formId": "abc123"
           }
@@ -47,7 +47,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        #expect(event == .formAppeared)
+        #expect(event == .formWillAppear)
     }
 
     @Test func testDecodeFormDisappeared() async throws {

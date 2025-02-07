@@ -11,7 +11,7 @@ import Foundation
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     // TODO: add associated values with the appropriate data types
     case formsDataLoaded
-    case formAppeared
+    case formWillAppear
     case trackAggregateEvent(Data)
     case trackProfileEvent(Data)
     case openDeepLink(URL)
@@ -24,7 +24,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
     private enum TypeIdentifier: String, Decodable {
         case formsDataLoaded
-        case formAppeared
+        case formWillAppear
         case trackAggregateEvent
         case trackProfileEvent
         case openDeepLink
@@ -38,8 +38,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         switch typeIdentifier {
         case .formsDataLoaded:
             self = .formsDataLoaded
-        case .formAppeared:
-            self = .formAppeared
+        case .formWillAppear:
+            self = .formWillAppear
         case .trackAggregateEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)

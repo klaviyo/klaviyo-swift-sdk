@@ -75,7 +75,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
             ()
-        case .formAppeared:
+        case .formWillAppear:
             Task { @MainActor in
                 IAFPresentationManager.shared.presentIAF()
             }
