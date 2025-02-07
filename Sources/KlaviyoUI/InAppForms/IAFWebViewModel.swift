@@ -55,8 +55,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             // TODO: handle formsDataLoaded
             ()
         case .formWillAppear:
-            Task { @MainActor in
-                IAFPresentationManager.shared.presentIAF()
+            Task {
+                await IAFPresentationManager.shared.presentIAF()
             }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
@@ -70,8 +70,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 UIApplication.shared.open(url)
             }
         case .formDisappeared:
-            Task { @MainActor in
-                IAFPresentationManager.shared.dismissIAF()
+            Task {
+                await delegate?.dismiss()
             }
         }
     }
