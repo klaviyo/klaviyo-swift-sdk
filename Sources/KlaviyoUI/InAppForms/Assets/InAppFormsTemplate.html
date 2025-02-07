@@ -10,45 +10,6 @@
             <title>Klaviyo In-App Form Test - 1</title>
             <script type="text/javascript"
                 // calls klaviyoapi fullforms (pulls both web forms and iaf) src="http://localhost:8080/onsite/js/klaviyo.js?company_id=9BX3wh&env=in-app"></script>
-            <script type="text/javascript">
-                document.addEventListener('DOMContentLoaded', function () {
-                    onElementAvailable("button.klaviyo-close-form", function () {
-                        onElementRemoved("button.klaviyo-close-form", function () {
-                            window.webkit.messageHandlers.closeHandler.postMessage(JSON.stringify({
-                                "type": "formDisappeared",
-                                "version": 1,
-                                "data": {
-                                    "formId": "1234"
-                                }
-                            }));
-                        });
-                    });
-                }, false);
-                function onElementAvailable(selector, callback) {
-                    var observer = new MutationObserver(function () {
-                        if (document.querySelector(selector)) {
-                            observer.disconnect();
-                            callback();
-                        }
-                    });
-                    observer.observe(document.body, {
-                        childList: true,
-                        subtree: true
-                    });
-                }
-                function onElementRemoved(selector, callback) {
-                    var observer = new MutationObserver(function () {
-                        if (!document.querySelector(selector)) {
-                            observer.disconnect();
-                            callback();
-                        }
-                    });
-                    observer.observe(document.body, {
-                        childList: true,
-                        subtree: true
-                    });
-                }
-            </script>
 </head>
 <body></body>
 </html>
