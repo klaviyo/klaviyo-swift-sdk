@@ -25,7 +25,12 @@ final class IAFWebViewModelTests: XCTestCase {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
         viewModel = IAFWebViewModel(url: fileUrl)
-        viewController = KlaviyoWebViewController(viewModel: viewModel)
+        viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+            let configuration = WKWebViewConfiguration()
+            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+            let webView = WKWebView(frame: .zero, configuration: configuration)
+            return webView
+        })
     }
 
     override func tearDown() {
