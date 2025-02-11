@@ -22,7 +22,7 @@ final class IAFWebViewModelTests: XCTestCase {
         environment.sdkName = { "swift" }
         environment.sdkVersion = { "0.0.1" }
 
-        let fileUrl = try ResourceLoader.getResourceUrl(path: "IAFUnitTest", type: "html")
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
         viewModel = IAFWebViewModel(url: fileUrl)
         viewController = KlaviyoWebViewController(viewModel: viewModel)
