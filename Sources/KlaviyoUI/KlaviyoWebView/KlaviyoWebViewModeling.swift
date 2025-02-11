@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import OSLog
 import WebKit
 
 @_spi(KlaviyoPrivate)
@@ -77,14 +78,20 @@ extension KlaviyoWebViewModeling {
         } catch let error as PreloadError {
             switch error {
             case .timeout:
-                print("Operation timed out: \(error)")
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Operation timed out: \(error)")
+                }
                 throw error
             case .navigationFailed:
-                print("Navigation failed: \(error)")
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Navigation failed: \(error)")
+                }
                 throw error
             }
         } catch {
-            print("Operation encountered an error: \(error)")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Operation encountered an error: \(error)")
+            }
             throw error
         }
     }

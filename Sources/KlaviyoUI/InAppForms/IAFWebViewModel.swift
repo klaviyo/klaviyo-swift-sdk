@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import KlaviyoSwift
+import OSLog
 import WebKit
 
 class IAFWebViewModel: KlaviyoWebViewModeling {
@@ -22,9 +23,47 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
+    private var formWillAppearContinuation: CheckedContinuation<Void, Never>?
 
     init(url: URL) {
         self.url = url
+    }
+
+    func preloadWebsite(timeout: UInt64) async throws {
+        guard let delegate else { return }
+
+        await delegate.preloadUrl()
+
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    try await Task.sleep(nanoseconds: timeout)
+                    throw PreloadError.timeout
+                }
+
+                group.addTask { [weak self] in
+                    await withCheckedContinuation { continuation in
+                        self?.formWillAppearContinuation = continuation
+                    }
+                }
+
+                if let _ = try await group.next() {
+                    // when the navigation task returns, we want to
+                    // cancel both the timeout task and the navigation task
+                    group.cancelAll()
+                }
+            }
+        } catch PreloadError.timeout {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
+            }
+            throw PreloadError.timeout
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error preloading URL: \(error)")
+            }
+            throw error
+        }
     }
 
     // MARK: handle WKWebView events
@@ -44,7 +83,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
-                print("Failed to decode JSON: \(error)")
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
+                }
             }
         }
     }
@@ -54,9 +95,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .formsDataLoaded:
             // TODO: handle formsDataLoaded
             ()
-        case .formAppeared:
-            // TODO: handle formAppeared
-            ()
+        case .formWillAppear:
+            formWillAppearContinuation?.resume()
+            formWillAppearContinuation = nil
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
         case let .trackProfileEvent(data):
@@ -67,6 +108,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .openDeepLink(url):
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
+            }
+        case .formDisappeared:
+            Task {
+                await delegate?.dismiss()
             }
         }
     }
