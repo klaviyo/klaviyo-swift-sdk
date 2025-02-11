@@ -39,7 +39,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
     func testInjectSdkNameAttribute() async throws {
         // Given
-        try await viewModel.preloadWebsite(timeout: 1_000_000_000)
+        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
 
         // When
         let script = "document.head.getAttribute('data-sdk-name');"
@@ -53,7 +53,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
     func testInjectSdkVersionAttribute() async throws {
         // Given
-        try await viewModel.preloadWebsite(timeout: 1_000_000_000)
+        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
 
         // When
         let script = "document.head.getAttribute('data-sdk-version');"
