@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 import WebKit
@@ -19,7 +20,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
@@ -27,6 +28,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     init(url: URL) {
         self.url = url
+        initializeLoadScripts()
+    }
+
+    func initializeLoadScripts() {
+        let sdkName = environment.sdkName()
+        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        let sdkNameWKScript = WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        loadScripts?.insert(sdkNameWKScript)
+
+        let sdkVersion = environment.sdkVersion()
+        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        let sdkVersionWKScript = WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        loadScripts?.insert(sdkVersionWKScript)
     }
 
     func preloadWebsite(timeout: UInt64) async throws {
