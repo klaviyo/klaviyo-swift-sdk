@@ -73,6 +73,9 @@ let package = Package(
                 "KlaviyoSwift",
                 "KlaviyoCore",
                 "KlaviyoUI"
+            ],
+            resources: [
+                .process("Assets")
             ]),
         .target(
             name: "KlaviyoSwiftExtension",
