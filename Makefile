@@ -10,6 +10,7 @@ test-all: $(MAKE) CONFIG=debug test-library
 
 test-library:
 	for platform in "$(PLATFORM_IOS)"; do \
+		env TEST_RUNNER_GITHUB_CI=$(GITHUB_CI) \
 		xcodebuild test \
 			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \
 			-enableCodeCoverage YES \
