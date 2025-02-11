@@ -113,6 +113,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Task {
                 await delegate?.dismiss()
             }
+        case let .abort(reason):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Aborting webview: \(reason)")
+            }
+            Task {
+                await delegate?.dismiss()
+            }
         }
     }
 }
