@@ -1,0 +1,195 @@
+//
+//  IAFWebViewModelTests.swift
+//  klaviyo-swift-sdk
+//
+//  Created by Andrew Balmer on 2/6/25.
+//
+
+@testable @_spi(KlaviyoPrivate) import KlaviyoUI
+import KlaviyoCore
+import WebKit
+import XCTest
+
+class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
+    enum PreloadResult {
+        case formWillAppear(delay: UInt64)
+        case didFailNavigation(delay: UInt64)
+        case none
+    }
+
+    let viewModel: IAFWebViewModel
+
+    var preloadResult: PreloadResult?
+    var preloadUrlCalled = false
+    var evaluateJavaScriptCalled = false
+
+    init(viewModel: IAFWebViewModel) {
+        self.viewModel = viewModel
+    }
+
+    func preloadUrl() {
+        viewModel.handleNavigationEvent(.didCommitNavigation)
+        preloadUrlCalled = true
+
+        Task {
+            if let result = preloadResult {
+                switch result {
+                case let .formWillAppear(delay):
+                    try? await Task.sleep(nanoseconds: delay)
+
+                    let scriptMessage = MockWKScriptMessage(
+                        name: "KlaviyoNativeBridge",
+                        body: """
+                        {
+                          "type": "formWillAppear",
+                          "data": {
+                            "formId": "abc123"
+                          }
+                        }
+                        """)
+
+                    viewModel.handleScriptMessage(scriptMessage)
+
+                case let .didFailNavigation(delay):
+                    try? await Task.sleep(nanoseconds: delay)
+                    viewModel.handleNavigationEvent(.didFailNavigation)
+
+                case .none:
+                    // don't do anything
+                    return
+                }
+            }
+        }
+    }
+
+    func evaluateJavaScript(_ script: String) async throws -> Any {
+        evaluateJavaScriptCalled = true
+        return true
+    }
+
+    func dismiss() {}
+}
+
+class MockWKScriptMessage: WKScriptMessage {
+    private let mockName: String
+    private let mockBody: Any
+
+    init(name: String, body: Any) {
+        mockName = name
+        mockBody = body
+        super.init() // Calling the superclass initializer
+    }
+
+    override var name: String {
+        mockName
+    }
+
+    override var body: Any {
+        mockBody
+    }
+}
+
+final class IAFWebViewModelPreloadingTests: XCTestCase {
+    // MARK: - setup
+
+    var viewModel: IAFWebViewModel!
+    var delegate: MockIAFWebViewDelegate!
+
+    override func setUp() {
+        super.setUp()
+
+        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!)
+        delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+    }
+
+    override func tearDown() {
+        viewModel = nil
+        delegate = nil
+
+        super.tearDown()
+    }
+
+    // MARK: - tests
+
+    /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
+    func testPreloadWebsiteSuccess() async throws {
+        // Given
+        delegate.preloadResult = .formWillAppear(delay: 100_000_000) // 0.1 second in nanoseconds
+        let expectation = XCTestExpectation(description: "Preloading website succeeds")
+
+        // When
+        do {
+            try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
+            expectation.fulfill()
+        } catch {
+            XCTFail("Expected success, but got error: \(error)")
+        }
+
+        // Then
+        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
+    func testPreloadWebsiteTimeout() async {
+        // Given
+        delegate.preloadResult = .formWillAppear(delay: 1_000_000_000) // 1 second in nanoseconds
+        let expectation = XCTestExpectation(description: "Preloading website times out")
+
+        // When
+        do {
+            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            XCTFail("Expected timeout error, but succeeded")
+        } catch PreloadError.timeout {
+            expectation.fulfill()
+        } catch {
+            XCTFail("Expected timeout error, but got: \(error)")
+        }
+
+        // Then
+        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    /// Tests scenario in which the delegate does nothing and emits no events after `preloadUrl()` is called.
+    func testPreloadWebsiteNoActionTimeout() async {
+        // Given
+        delegate.preloadResult = MockIAFWebViewDelegate.PreloadResult.none
+        let expectation = XCTestExpectation(description: "Preloading website times out")
+
+        // When
+        do {
+            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            XCTFail("Expected timeout error, but succeeded")
+        } catch PreloadError.timeout {
+            expectation.fulfill()
+        } catch {
+            XCTFail("Expected timeout error, but got: \(error)")
+        }
+
+        // Then
+        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    func testPreloadWebsiteNavigationFailed() async {
+        // Given
+        delegate.preloadResult = .didFailNavigation(delay: 100_000_000) // 0.1 second in nanoseconds
+        let expectation = XCTestExpectation(description: "Preloading website fails")
+
+        // When
+        do {
+            try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
+            XCTFail("Expected navigation failed error, but succeeded")
+        } catch PreloadError.navigationFailed {
+            expectation.fulfill()
+        } catch {
+            XCTFail("Expected navigation failed error, but got: \(error)")
+        }
+
+        // Then
+        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+}
