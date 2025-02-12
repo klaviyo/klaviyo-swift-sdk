@@ -40,7 +40,7 @@ final class IAFWebViewModelTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - tests
+    // MARK: - html injection tests
 
     func testInjectSdkNameAttribute() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
