@@ -52,7 +52,6 @@ public class IAFPresentationManager {
             do {
                 try await viewModel.preloadWebsite(timeout: 8_000_000_000)
             } catch {
-                isLoading = false
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
                 }
