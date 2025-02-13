@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 import WebKit
@@ -19,14 +20,27 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
-    private var formWillAppearContinuation: CheckedContinuation<Void, Never>?
+    private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
     init(url: URL) {
         self.url = url
+        initializeLoadScripts()
+    }
+
+    func initializeLoadScripts() {
+        let sdkName = environment.sdkName()
+        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        let sdkNameWKScript = WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        loadScripts?.insert(sdkNameWKScript)
+
+        let sdkVersion = environment.sdkVersion()
+        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        let sdkVersionWKScript = WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        loadScripts?.insert(sdkVersionWKScript)
     }
 
     func preloadWebsite(timeout: UInt64) async throws {
@@ -36,28 +50,47 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
+                defer {
+                    formWillAppearContinuation.finish()
+                    group.cancelAll()
+                }
+
                 group.addTask {
                     try await Task.sleep(nanoseconds: timeout)
                     throw PreloadError.timeout
                 }
 
                 group.addTask { [weak self] in
-                    await withCheckedContinuation { continuation in
-                        self?.formWillAppearContinuation = continuation
+                    guard let self else { return }
+
+                    var iterator = self.formWillAppearStream.makeAsyncIterator()
+                    await iterator.next()
+                }
+
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    for await event in self.navEventStream {
+                        if case .didFailNavigation = event {
+                            throw PreloadError.navigationFailed
+                        }
                     }
                 }
 
-                if let _ = try await group.next() {
-                    // when the navigation task returns, we want to
-                    // cancel both the timeout task and the navigation task
-                    group.cancelAll()
+                try await group.next()
+            }
+        } catch let error as PreloadError {
+            switch error {
+            case .timeout:
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
                 }
+                throw error
+            case .navigationFailed:
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Navigation failed: \(error)")
+                }
+                throw error
             }
-        } catch PreloadError.timeout {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
-            }
-            throw PreloadError.timeout
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error preloading URL: \(error)")
@@ -96,8 +129,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             // TODO: handle formsDataLoaded
             ()
         case .formWillAppear:
-            formWillAppearContinuation?.resume()
-            formWillAppearContinuation = nil
+            formWillAppearContinuation.yield()
+            formWillAppearContinuation.finish()
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
         case let .trackProfileEvent(data):
