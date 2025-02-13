@@ -33,6 +33,8 @@ public struct NetworkSession {
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
     fileprivate static let mobileHeader = "1"
 
+    public static let networkTimeout: UInt64 = 10_000_000_000 // in nanoseconds (10 seconds)
+
     public static let defaultUserAgent = { () -> String in
         let appContext = environment.appContextInfo()
         let klaivyoSDKVersion = "klaviyo-\(environment.sdkName())/\(environment.sdkVersion())"

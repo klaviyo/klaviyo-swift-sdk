@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UIKit
 
@@ -50,7 +51,7 @@ public class IAFPresentationManager {
             defer { isLoading = false }
 
             do {
-                try await viewModel.preloadWebsite(timeout: 8_000_000_000)
+                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
