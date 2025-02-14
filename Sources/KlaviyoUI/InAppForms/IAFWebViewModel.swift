@@ -41,6 +41,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
         let sdkVersionWKScript = WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         loadScripts?.insert(sdkVersionWKScript)
+
+        let handshakeStringified = IAFNativeBridgeEvent.handshake
+        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        let handshakeWKScript = WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        loadScripts?.insert(handshakeWKScript)
     }
 
     func preloadWebsite(timeout: UInt64) async throws {
@@ -131,20 +136,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .formWillAppear:
             formWillAppearContinuation.yield()
             formWillAppearContinuation.finish()
-        case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
+        case .formDisappeared:
+            Task {
+                await delegate?.dismiss()
+            }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
+        case let .trackAggregateEvent(data):
+            KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url):
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
-            }
-        case .formDisappeared:
-            Task {
-                await delegate?.dismiss()
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
@@ -152,6 +157,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             Task {
                 await delegate?.dismiss()
+            }
+        case .handShook:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successful handshake with JS")
             }
         }
     }
