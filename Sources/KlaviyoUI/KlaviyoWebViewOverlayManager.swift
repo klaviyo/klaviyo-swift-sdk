@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 1/15/25.
 //
 
+import KlaviyoCore
 import SwiftUI
 import UIKit
 
@@ -36,7 +37,7 @@ public class KlaviyoWebViewOverlayManager {
         Task {
             defer { isLoading = false }
 
-            try await viewModel.preloadWebsite(timeout: 8_000_000_000)
+            try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
 
             guard let topController = UIApplication.shared.topMostViewController else {
                 return

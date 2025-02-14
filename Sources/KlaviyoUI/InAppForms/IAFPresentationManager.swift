@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UIKit
 
@@ -49,7 +50,14 @@ public class IAFPresentationManager {
         Task {
             defer { isLoading = false }
 
-            try await viewModel.preloadWebsite(timeout: 8_000_000_000)
+            do {
+                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
+                }
+                return
+            }
 
             guard let topController = UIApplication.shared.topMostViewController else {
                 return

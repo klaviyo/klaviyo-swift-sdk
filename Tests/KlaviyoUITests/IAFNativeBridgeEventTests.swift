@@ -13,6 +13,26 @@ import Foundation
 import Testing
 
 struct IAFNativeBridgeEventTests {
+    @Test func testAbort() async throws {
+        let json = """
+        {
+          "type": "abort",
+          "data": {
+            "reason": "because"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .abort(reason) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            return
+        }
+
+        #expect(reason == "because")
+    }
+
     @Test func testDecodeOpenDeepLink() async throws {
         let json = """
         {
