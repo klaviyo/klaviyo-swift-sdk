@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 1/21/25.
 //
 
-@testable @_spi(KlaviyoPrivate) import KlaviyoUI
+@testable @_spi(KlaviyoPrivate) import KlaviyoForms
 import WebKit
 import XCTest
 

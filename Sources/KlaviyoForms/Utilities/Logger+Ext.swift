@@ -9,7 +9,7 @@ import OSLog
 
 @available(iOS 14.0, *)
 extension Logger {
-    private static var subsystem = "com.klaviyo.klaviyo-swift-sdk.klaviyoUI"
+    private static var subsystem = "com.klaviyo.klaviyo-swift-sdk.klaviyoForms"
 
     init(category: String = #file) {
         self.init(subsystem: Self.subsystem, category: category)
