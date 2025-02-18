@@ -112,4 +112,23 @@ final class IAFWebViewModelTests: XCTestCase {
         let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
+
+    func testInjectKlaviyoJsScript() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
+        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+
+        // Given
+        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+
+        // When
+        let script = "document.getElementById('klaviyoJS').getAttribute('src');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        XCTAssertEqual(resultString, "https://a.klaviyo.com/onsite/js/klaviyo.js?company_id=abc123&env=in-app")
+    }
 }
