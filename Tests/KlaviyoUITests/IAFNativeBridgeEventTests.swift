@@ -13,6 +13,13 @@ import Foundation
 import Testing
 
 struct IAFNativeBridgeEventTests {
+    @Test func testHandshakeCreated() async throws {
+        let expectedHandshake = """
+        [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1}]
+        """
+        #expect(IAFNativeBridgeEvent.handshake == expectedHandshake)
+    }
+
     @Test func testHandShook() async throws {
         let json = """
         {

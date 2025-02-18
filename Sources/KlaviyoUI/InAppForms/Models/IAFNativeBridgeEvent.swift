@@ -7,6 +7,7 @@
 
 import AnyCodable
 import Foundation
+import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
@@ -75,14 +76,14 @@ extension IAFNativeBridgeEvent {
     }
 }
 
-extension IAFNativeBridgeEvent: CaseIterable {
+extension IAFNativeBridgeEvent {
     public static var handshake: String {
         struct HandshakeData: Codable {
             var type: String
             var version: Int
         }
 
-        let handshakeArray = allCases.map { event -> HandshakeData in
+        let handshakeArray = handshakeEvents.map { event -> HandshakeData in
             HandshakeData(type: event.name, version: event.version)
         }
 
@@ -93,12 +94,14 @@ extension IAFNativeBridgeEvent: CaseIterable {
                 return jsonString
             }
         } catch {
-            print("Error encoding handshake data: \(error)")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error encoding handshake data: \(error)")
+            }
         }
         return ""
     }
 
-    public static var allCases: [IAFNativeBridgeEvent] {
+    private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // events that JS is permitted to sending
         [
             .formWillAppear,
