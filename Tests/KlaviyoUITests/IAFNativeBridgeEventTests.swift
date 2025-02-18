@@ -14,10 +14,20 @@ import Testing
 
 struct IAFNativeBridgeEventTests {
     @Test func testHandshakeCreated() async throws {
+        struct TestableHandshakeData: Codable, Equatable {
+            var type: String
+            var version: Int
+        }
         let expectedHandshake = """
         [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1}]
         """
-        #expect(IAFNativeBridgeEvent.handshake == expectedHandshake)
+        let expectedData = try #require(expectedHandshake.data(using: .utf8))
+        let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
+
+        let actualHandshake = IAFNativeBridgeEvent.handshake
+        let actualData = try #require(actualHandshake.data(using: .utf8))
+        let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
+        #expect(actualHandshakeData == expectedHandshakeData)
     }
 
     @Test func testHandShook() async throws {
