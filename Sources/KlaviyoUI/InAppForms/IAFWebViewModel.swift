@@ -26,25 +26,32 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
+    private var sdkNameWKScript: WKUserScript {
+        let sdkName = environment.sdkName()
+        let sdkNameScript = "document.head.setAttribute('data-klaviyo-sdk-name', '\(sdkName)');"
+        return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private var sdkVersionWKScript: WKUserScript {
+        let sdkVersion = environment.sdkVersion()
+        let sdkVersionScript = "document.head.setAttribute('data-klaviyo-sdk-version', '\(sdkVersion)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private var handshakeWKScript: WKUserScript {
+        let handshakeStringified = IAFNativeBridgeEvent.handshake
+        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     init(url: URL) {
         self.url = url
         initializeLoadScripts()
     }
 
     func initializeLoadScripts() {
-        let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
-        let sdkNameWKScript = WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         loadScripts?.insert(sdkNameWKScript)
-
-        let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
-        let sdkVersionWKScript = WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         loadScripts?.insert(sdkVersionWKScript)
-
-        let handshakeStringified = IAFNativeBridgeEvent.handshake
-        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
-        let handshakeWKScript = WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         loadScripts?.insert(handshakeWKScript)
     }
 
