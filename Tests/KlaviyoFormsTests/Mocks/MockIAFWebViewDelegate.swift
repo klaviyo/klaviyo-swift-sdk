@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 2/12/25.
 //
 
-@testable @_spi(KlaviyoPrivate) import KlaviyoUI
+@testable @_spi(KlaviyoPrivate) import KlaviyoForms
 import Foundation
 
 class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {

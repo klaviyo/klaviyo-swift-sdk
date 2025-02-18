@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
-@testable import KlaviyoUI
+@testable import KlaviyoForms
 import AnyCodable
 import Foundation
 
