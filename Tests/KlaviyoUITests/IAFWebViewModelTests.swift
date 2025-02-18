@@ -7,6 +7,7 @@
 
 @testable @_spi(KlaviyoPrivate) import KlaviyoUI
 import KlaviyoCore
+import KlaviyoSwift
 import WebKit
 import XCTest
 
@@ -17,6 +18,11 @@ final class IAFWebViewModelTests: XCTestCase {
     var viewController: KlaviyoWebViewController!
 
     override func setUpWithError() throws {
+        // FIXME: refactor the KlaviyoUI test suite so we can use the TCA tools to initialize a test Klaviyo environment and set the Company ID, similar to how we do it here: https://github.com/klaviyo/klaviyo-swift-sdk/blob/c9bdf25e65a9c575d1e30216dcfcaa156c2ac60b/Tests/KlaviyoSwiftTests/StateManagementTests.swift#L29. Until we're able to do this, the apiKey in the test suite will be nil, and IAFWebViewModel.initializeLoadScripts() will return without injecting the required scripts. Once this is fixed, we should remove the `XCTSkipIf` line.
+        try XCTSkipIf(
+            KlaviyoInternal.apiKey == nil,
+            "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID")
+
         super.setUp()
 
         environment.sdkName = { "swift" }
