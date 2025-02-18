@@ -27,7 +27,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
     private var klaviyoJsWKScript: WKUserScript? {
-        guard let companyId = KlaviyoInternal.apiKey else { 
+        guard let companyId = KlaviyoInternal.apiKey else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
             }
