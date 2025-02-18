@@ -79,4 +79,27 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(resultString, "0.0.1")
     }
+
+    func testInjectHandshakeAttribute() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
+        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+
+        // Given
+        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+
+        // When
+        let script = "document.head.getAttribute('data-native-bridge-handshake');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        let handshakeString =
+            """
+            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1}]
+            """
+        XCTAssertEqual(resultString, handshakeString)
+    }
 }
