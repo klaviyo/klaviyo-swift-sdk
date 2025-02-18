@@ -93,13 +93,23 @@ final class IAFWebViewModelTests: XCTestCase {
         let script = "document.head.getAttribute('data-native-bridge-handshake');"
         let delegate = try XCTUnwrap(viewModel.delegate)
         let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        let actualHandshakeString = try XCTUnwrap(result as? String)
 
         // Then
-        let handshakeString =
+        struct TestableHandshakeData: Codable, Equatable {
+            var type: String
+            var version: Int
+        }
+
+        let expectedHandshakeString =
             """
             [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1}]
             """
-        XCTAssertEqual(resultString, handshakeString)
+        let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
+        let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
+
+        let actualData = try XCTUnwrap(actualHandshakeString.data(using: .utf8))
+        let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
+        XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 }
