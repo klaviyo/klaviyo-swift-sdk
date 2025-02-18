@@ -28,13 +28,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     private var sdkNameWKScript: WKUserScript {
         let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-klaviyo-sdk-name', '\(sdkName)');"
+        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
         return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     private var sdkVersionWKScript: WKUserScript {
         let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-klaviyo-sdk-version', '\(sdkVersion)');"
+        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
