@@ -28,6 +28,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     private var klaviyoJsWKScript: WKUserScript? {
         guard let companyId = KlaviyoInternal.apiKey else {
+            environment.emitDeveloperWarning("SDK must be initialized before usage.")
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
             }
