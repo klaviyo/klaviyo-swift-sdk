@@ -29,7 +29,7 @@ public struct KlaviyoEnvironment {
         raiseFatalError: @escaping (String) -> Void,
         emitDeveloperWarning: @escaping (String) -> Void,
         networkSession: @escaping () -> NetworkSession,
-        apiURL: @escaping () -> String,
+        apiURL: @escaping () -> URLComponents,
         encodeJSON: @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @escaping () -> UUID,
@@ -69,7 +69,13 @@ public struct KlaviyoEnvironment {
         sdkVersion = SDKVersion
     }
 
-    static let productionHost = "a.klaviyo.com"
+    static let productionHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "a.klaviyo.com"
+        return components
+    }()
+
     public static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -82,7 +88,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: productionHost)
+    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient
@@ -107,7 +113,7 @@ public struct KlaviyoEnvironment {
     public var emitDeveloperWarning: (String) -> Void
 
     public var networkSession: () -> NetworkSession
-    public var apiURL: () -> String
+    public var apiURL: () -> URLComponents
     public var encodeJSON: (Encodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: () -> UUID

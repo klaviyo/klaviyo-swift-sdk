@@ -26,21 +26,62 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
+    private var klaviyoJsWKScript: WKUserScript? {
+        guard let companyId = KlaviyoInternal.apiKey else {
+            environment.emitDeveloperWarning("SDK must be initialized before usage.")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
+            }
+            return nil
+        }
+
+        var apiURL = environment.apiURL()
+        apiURL.path = "/onsite/js/klaviyo.js"
+        apiURL.queryItems = [
+            URLQueryItem(name: "company_id", value: companyId),
+            URLQueryItem(name: "env", value: "in-app")
+        ]
+
+        let klaviyoJsScript = """
+            var script = document.createElement('script');
+            script.id = 'klaviyoJS';
+            script.type = 'text/javascript';
+            script.src = '\(apiURL)';
+            document.head.appendChild(script)
+        """
+
+        return WKUserScript(source: klaviyoJsScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private var sdkNameWKScript: WKUserScript {
+        let sdkName = environment.sdkName()
+        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private var sdkVersionWKScript: WKUserScript {
+        let sdkVersion = environment.sdkVersion()
+        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private var handshakeWKScript: WKUserScript {
+        let handshakeStringified = IAFNativeBridgeEvent.handshake
+        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     init(url: URL) {
         self.url = url
         initializeLoadScripts()
     }
 
     func initializeLoadScripts() {
-        let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
-        let sdkNameWKScript = WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        guard let klaviyoJsWKScript else { return }
+        loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
-
-        let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
-        let sdkVersionWKScript = WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         loadScripts?.insert(sdkVersionWKScript)
+        loadScripts?.insert(handshakeWKScript)
     }
 
     func preloadWebsite(timeout: UInt64) async throws {
@@ -131,20 +172,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .formWillAppear:
             formWillAppearContinuation.yield()
             formWillAppearContinuation.finish()
-        case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
+        case .formDisappeared:
+            Task {
+                await delegate?.dismiss()
+            }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
+        case let .trackAggregateEvent(data):
+            KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url):
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
-            }
-        case .formDisappeared:
-            Task {
-                await delegate?.dismiss()
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
@@ -152,6 +193,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             Task {
                 await delegate?.dismiss()
+            }
+        case .handShook:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successful handshake with JS")
             }
         }
     }
