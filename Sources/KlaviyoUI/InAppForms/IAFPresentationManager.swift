@@ -60,6 +60,13 @@ class IAFPresentationManager {
             guard let topController = UIApplication.shared.topMostViewController else {
                 return
             }
+
+            guard !(topController is KlaviyoWebViewController) else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("In-App Form is already presenting.")
+                }
+                return
+            }
             topController.present(viewController, animated: true, completion: nil)
         }
     }
