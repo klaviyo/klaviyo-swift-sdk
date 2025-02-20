@@ -63,14 +63,19 @@ class IAFPresentationManager {
 
             let controllersInStack = topController.navigationController?.viewControllers ?? []
 
-            if topController is KlaviyoWebViewController || controllersInStack.contains(where: { $0 is KlaviyoWebViewController }) {
+            if topController.isKlaviyoVC || controllersInStack.contains(where: \.isKlaviyoVC) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("In-App Form is already presenting; ignoring request")
                 }
-                return
             } else {
                 topController.present(viewController, animated: true, completion: nil)
             }
         }
+    }
+}
+
+extension UIViewController {
+    fileprivate var isKlaviyoVC: Bool {
+        self is KlaviyoWebViewController
     }
 }
