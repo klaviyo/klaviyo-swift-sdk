@@ -93,6 +93,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func dismiss() {
+        #if DEBUG
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+        #endif
         dismiss(animated: true)
     }
 
