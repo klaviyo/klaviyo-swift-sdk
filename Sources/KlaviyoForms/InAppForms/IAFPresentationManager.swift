@@ -10,10 +10,8 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
-@_spi(KlaviyoPrivate)
-public class IAFPresentationManager {
-    @_spi(KlaviyoPrivate)
-    public static let shared = IAFPresentationManager()
+class IAFPresentationManager {
+    static let shared = IAFPresentationManager()
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -25,8 +23,8 @@ public class IAFPresentationManager {
 
     private var isLoading: Bool = false
 
-    @_spi(KlaviyoPrivate)
-    @MainActor public func presentIAF() {
+    @MainActor
+    func presentIAF() {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
