@@ -234,7 +234,6 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 
     return parentViewController
 }
-#endif
 
 #if swift(>=5.9)
 @available(iOS 17.0, *)
@@ -257,4 +256,5 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
     let viewModel = PreviewWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
+#endif
 #endif
