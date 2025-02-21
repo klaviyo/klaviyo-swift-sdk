@@ -135,6 +135,6 @@ final class IAFWebViewModelTests: XCTestCase {
         let resultString = try XCTUnwrap(result as? String)
 
         // Then
-        XCTAssertEqual(resultString, "https://a.klaviyo.com/onsite/js/klaviyo.js?company_id=abc123&env=in-app")
+        XCTAssertEqual(resultString, "https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=abc123&env=in-app")
     }
 }

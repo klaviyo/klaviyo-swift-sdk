@@ -72,7 +72,7 @@ public struct KlaviyoEnvironment {
     static let productionHost: URLComponents = {
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "a.klaviyo.com"
+        components.host = "static.klaviyo.com"
         return components
     }()
 
