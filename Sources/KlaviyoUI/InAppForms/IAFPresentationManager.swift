@@ -61,11 +61,9 @@ class IAFPresentationManager {
                 return
             }
 
-            let controllersInStack = topController.navigationController?.viewControllers ?? []
-
-            if topController.isKlaviyoVC || controllersInStack.contains(where: \.isKlaviyoVC) {
+            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already presenting; ignoring request")
+                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
                 topController.present(viewController, animated: true, completion: nil)
@@ -77,5 +75,12 @@ class IAFPresentationManager {
 extension UIViewController {
     fileprivate var isKlaviyoVC: Bool {
         self is KlaviyoWebViewController
+    }
+
+    fileprivate var hasKlaviyoVCInStack: Bool {
+        guard let navigationController = navigationController else {
+            return false
+        }
+        return navigationController.viewControllers.contains(where: \.isKlaviyoVC)
     }
 }
