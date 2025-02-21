@@ -17,6 +17,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
     }
 
+    // MARK: - Properties
+
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
@@ -25,6 +27,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+
+    // MARK: - Scripts
 
     private var klaviyoJsWKScript: WKUserScript? {
         guard let companyId = KlaviyoInternal.apiKey else {
@@ -71,6 +75,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    // MARK: - Initializer
+
     init(url: URL) {
         self.url = url
         initializeLoadScripts()
@@ -83,6 +89,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
     }
+
+    // MARK: - Loading
 
     func preloadWebsite(timeout: UInt64) async throws {
         guard let delegate else { return }
@@ -140,7 +148,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
-    // MARK: handle WKWebView events
+    // MARK: - handle WKWebView events
 
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
