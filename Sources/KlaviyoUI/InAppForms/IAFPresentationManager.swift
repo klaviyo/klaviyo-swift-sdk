@@ -24,7 +24,7 @@ class IAFPresentationManager {
     private var isLoading: Bool = false
 
     @MainActor
-    func presentIAF() {
+    func presentIAF(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -41,7 +41,7 @@ class IAFPresentationManager {
 
         isLoading = true
 
-        let viewModel = IAFWebViewModel(url: fileUrl)
+        let viewModel = IAFWebViewModel(url: fileUrl, assetSource: assetSource)
         let viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .overCurrentContext
 
