@@ -15,7 +15,7 @@ enum ResourceLoaderError: Error {
 
 enum ResourceLoader {
     /// The name of the resource bundle specified in the podspec.
-    private static let resourceBundleName = "KlaviyoUIResources"
+    private static let resourceBundleName = "KlaviyoFormsResources"
 
     static func getResourceUrl(path: String, type: String) throws -> URL {
         let bundle = try resourceBundle()
