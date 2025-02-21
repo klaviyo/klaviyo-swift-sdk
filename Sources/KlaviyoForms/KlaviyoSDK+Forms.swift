@@ -13,4 +13,11 @@ extension KlaviyoSDK {
     public func registerForInAppForms() {
         IAFPresentationManager.shared.presentIAF()
     }
+
+    @MainActor
+    @_spi(KlaviyoPrivate)
+    @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
+    public func registerForInAppForms(assetSource: String) {
+        IAFPresentationManager.shared.presentIAF(assetSource: assetSource)
+    }
 }

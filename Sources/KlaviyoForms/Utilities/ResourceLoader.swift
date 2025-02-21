@@ -5,7 +5,6 @@
 //  Created by Andrew Balmer on 9/27/24.
 //
 
-#if DEBUG
 import Foundation
 import OSLog
 
@@ -82,4 +81,3 @@ extension Bundle {
         return bundle
     }
 }
-#endif

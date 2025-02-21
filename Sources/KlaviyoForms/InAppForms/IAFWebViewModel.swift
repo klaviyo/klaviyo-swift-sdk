@@ -17,14 +17,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
     }
 
+    // MARK: - Properties
+
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
+    let assetSource: String?
+
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+
+    // MARK: - Scripts
 
     private var klaviyoJsWKScript: WKUserScript? {
         guard let companyId = KlaviyoInternal.apiKey else {
@@ -41,6 +47,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             URLQueryItem(name: "company_id", value: companyId),
             URLQueryItem(name: "env", value: "in-app")
         ]
+
+        if let assetSource {
+            let assetSourceQueryItem = URLQueryItem(name: "assetSource", value: assetSource)
+            apiURL.queryItems?.append(assetSourceQueryItem)
+        }
 
         let klaviyoJsScript = """
             var script = document.createElement('script');
@@ -71,8 +82,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
-    init(url: URL) {
+    // MARK: - Initializer
+
+    init(url: URL, assetSource: String? = nil) {
         self.url = url
+        self.assetSource = assetSource
         initializeLoadScripts()
     }
 
@@ -83,6 +97,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
     }
+
+    // MARK: - Loading
 
     func preloadWebsite(timeout: UInt64) async throws {
         guard let delegate else { return }
@@ -140,7 +156,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
-    // MARK: handle WKWebView events
+    // MARK: - handle WKWebView events
 
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {

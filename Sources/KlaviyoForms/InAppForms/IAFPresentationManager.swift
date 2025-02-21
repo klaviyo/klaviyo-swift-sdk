@@ -24,7 +24,7 @@ class IAFPresentationManager {
     private var isLoading: Bool = false
 
     @MainActor
-    func presentIAF() {
+    func presentIAF(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -41,7 +41,7 @@ class IAFPresentationManager {
 
         isLoading = true
 
-        let viewModel = IAFWebViewModel(url: fileUrl)
+        let viewModel = IAFWebViewModel(url: fileUrl, assetSource: assetSource)
         let viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .overCurrentContext
 
@@ -60,7 +60,27 @@ class IAFPresentationManager {
             guard let topController = UIApplication.shared.topMostViewController else {
                 return
             }
-            topController.present(viewController, animated: true, completion: nil)
+
+            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+                }
+            } else {
+                topController.present(viewController, animated: true, completion: nil)
+            }
         }
+    }
+}
+
+extension UIViewController {
+    fileprivate var isKlaviyoVC: Bool {
+        self is KlaviyoWebViewController
+    }
+
+    fileprivate var hasKlaviyoVCInStack: Bool {
+        guard let navigationController = navigationController else {
+            return false
+        }
+        return navigationController.viewControllers.contains(where: \.isKlaviyoVC)
     }
 }

@@ -168,6 +168,15 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
         viewModel.handleNavigationEvent(.didFailNavigation)
     }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        if let url = navigationAction.request.url,
+           await UIApplication.shared.open(url) {
+            return .cancel
+        } else {
+            return .allow
+        }
+    }
 }
 
 // MARK: - Message Handling
@@ -234,7 +243,6 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 
     return parentViewController
 }
-#endif
 
 #if swift(>=5.9)
 @available(iOS 17.0, *)
@@ -257,4 +265,5 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
     let viewModel = PreviewWebViewModel(url: indexHtmlFileUrl)
     return KlaviyoWebViewController(viewModel: viewModel)
 }
+#endif
 #endif
