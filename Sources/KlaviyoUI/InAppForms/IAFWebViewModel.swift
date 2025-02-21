@@ -25,6 +25,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
+    let assetSource: String?
+
     public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
@@ -45,6 +47,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             URLQueryItem(name: "company_id", value: companyId),
             URLQueryItem(name: "env", value: "in-app")
         ]
+
+        if let assetSource {
+            let assetSourceQueryItem = URLQueryItem(name: "assetSource", value: assetSource)
+            apiURL.queryItems?.append(assetSourceQueryItem)
+        }
 
         let klaviyoJsScript = """
             var script = document.createElement('script');
@@ -77,8 +84,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Initializer
 
-    init(url: URL) {
+    init(url: URL, assetSource: String? = nil) {
         self.url = url
+        self.assetSource = assetSource
         initializeLoadScripts()
     }
 
