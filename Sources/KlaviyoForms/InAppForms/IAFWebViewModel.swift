@@ -27,7 +27,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let assetSource: String?
 
-    public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
@@ -140,6 +139,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     // MARK: - handle WKWebView events
+
+    func handleNavigationEvent(_ event: WKNavigationEvent) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
+        }
+    }
 
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
