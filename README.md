@@ -28,6 +28,8 @@
     - [Badge Count](#badge-count)
        - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
+- [In-App Forms](#in-app-forms)
+  - [Setup](#setup)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -505,6 +507,14 @@ By default, the Klaviyo SDK automatically clears the badge count on app open. If
 ##### Handling Other Badging Sources
 
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+## In-App Forms
+
+### Setup
+
+> ℹ️ Displaying in-app forms is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+
+Klaviyo supports the display of in-app forms after initialization. At any point in your app after initializing, call `KlaviyoSDK().registerForInAppForms()`, and Klaviyo SDK will begin handling any form events. If the SDK receives an `abort` message or a timeout occurs (10s), you must call `registerForInAppForms()` again to start re-listening to events.
 
 ## Additional Details
 
