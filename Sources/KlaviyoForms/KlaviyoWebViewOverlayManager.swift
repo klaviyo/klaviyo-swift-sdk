@@ -9,8 +9,7 @@ import KlaviyoCore
 import SwiftUI
 import UIKit
 
-@_spi(KlaviyoPrivate)
-public class KlaviyoWebViewOverlayManager {
+class KlaviyoWebViewOverlayManager {
     public static let shared = KlaviyoWebViewOverlayManager()
     private var isLoading: Bool = false
 
@@ -21,8 +20,7 @@ public class KlaviyoWebViewOverlayManager {
     ///
     /// - warning: For internal use only. The host app should not manually call this method, as
     /// the logic for fetching and displaying forms will be handled internally within the SDK.
-    @_spi(KlaviyoPrivate)
-    @MainActor public func preloadAndShow(
+    @MainActor func preloadAndShow(
         viewModel: KlaviyoWebViewModeling,
         modalPresentationStyle: UIModalPresentationStyle = .overCurrentContext) {
         guard !isLoading else {
