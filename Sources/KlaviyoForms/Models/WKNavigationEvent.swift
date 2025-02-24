@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 9/30/24.
 //
 
-enum WKNavigationEvent {
+enum WKNavigationEvent: String {
     /// Invoked when a main frame navigation starts.
     case didStartProvisionalNavigation
 
