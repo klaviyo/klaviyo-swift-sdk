@@ -10,8 +10,7 @@ import Foundation
 import OSLog
 import WebKit
 
-@_spi(KlaviyoPrivate)
-public protocol KlaviyoWebViewModeling: AnyObject {
+protocol KlaviyoWebViewModeling: AnyObject {
     var url: URL { get }
     var delegate: KlaviyoWebViewDelegate? { get set }
 

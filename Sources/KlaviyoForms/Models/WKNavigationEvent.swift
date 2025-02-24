@@ -5,8 +5,7 @@
 //  Created by Andrew Balmer on 9/30/24.
 //
 
-@_spi(KlaviyoPrivate)
-public enum WKNavigationEvent {
+enum WKNavigationEvent {
     /// Invoked when a main frame navigation starts.
     case didStartProvisionalNavigation
 
