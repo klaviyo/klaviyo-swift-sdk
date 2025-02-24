@@ -44,6 +44,7 @@ extension KlaviyoEnvironment {
             emitDeveloperWarning: { _ in },
             networkSession: { NetworkSession.test() },
             apiURL: { URLComponents(string: "https://dead_beef")! },
+            cdnURL: { URLComponents(string: "https://dead_beef")! },
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },

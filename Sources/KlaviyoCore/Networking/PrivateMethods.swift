@@ -14,5 +14,12 @@ import Foundation
 public func overrideSDKDefaults(urlComponents: URLComponents? = nil) {
     if let urlComponents {
         environment.apiURL = { urlComponents }
+
+        var cdnURLComponents = urlComponents
+        if cdnURLComponents.host == "a.klaviyo.com" {
+            cdnURLComponents.host = "static.klaviyo.com"
+        }
+
+        environment.cdnURL = { cdnURLComponents }
     }
 }

@@ -30,6 +30,7 @@ public struct KlaviyoEnvironment {
         emitDeveloperWarning: @escaping (String) -> Void,
         networkSession: @escaping () -> NetworkSession,
         apiURL: @escaping () -> URLComponents,
+        cdnURL: @escaping () -> URLComponents,
         encodeJSON: @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @escaping () -> UUID,
@@ -57,6 +58,7 @@ public struct KlaviyoEnvironment {
         self.emitDeveloperWarning = emitDeveloperWarning
         self.networkSession = networkSession
         self.apiURL = apiURL
+        self.cdnURL = cdnURL
         self.encodeJSON = encodeJSON
         self.decoder = decoder
         self.uuid = uuid
@@ -73,6 +75,13 @@ public struct KlaviyoEnvironment {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "a.klaviyo.com"
+        return components
+    }()
+
+    static let cdnHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "static.klaviyo.com"
         return components
     }()
 
@@ -114,6 +123,7 @@ public struct KlaviyoEnvironment {
 
     public var networkSession: () -> NetworkSession
     public var apiURL: () -> URLComponents
+    public var cdnURL: () -> URLComponents
     public var encodeJSON: (Encodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: () -> UUID
@@ -180,6 +190,7 @@ public struct KlaviyoEnvironment {
         emitDeveloperWarning: { runtimeWarn($0) },
         networkSession: createNetworkSession,
         apiURL: { KlaviyoEnvironment.productionHost },
+        cdnURL: { KlaviyoEnvironment.cdnHost },
         encodeJSON: { encodable in try encoder.encode(encodable) },
         decoder: DataDecoder.production,
         uuid: { UUID() },

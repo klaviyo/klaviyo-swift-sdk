@@ -41,7 +41,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             return nil
         }
 
-        var apiURL = environment.apiURL()
+        var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
         apiURL.queryItems = [
             URLQueryItem(name: "company_id", value: companyId),
