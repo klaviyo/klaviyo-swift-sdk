@@ -124,15 +124,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     await iterator.next()
                 }
 
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await event in self.navEventStream {
-                        if case .didFailNavigation = event {
-                            throw PreloadError.navigationFailed
-                        }
-                    }
-                }
-
                 try await group.next()
             }
         } catch let error as PreloadError {
