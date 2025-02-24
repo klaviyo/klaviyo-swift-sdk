@@ -27,7 +27,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let assetSource: String?
 
-    public let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
