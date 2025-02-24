@@ -93,24 +93,4 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
         await fulfillment(of: [expectation], timeout: 2.0)
     }
-
-    func testPreloadWebsiteNavigationFailed() async {
-        // Given
-        delegate.preloadResult = .didFailNavigation(delay: 100_000_000) // 0.1 second in nanoseconds
-        let expectation = XCTestExpectation(description: "Preloading website fails")
-
-        // When
-        do {
-            try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
-            XCTFail("Expected navigation failed error, but succeeded")
-        } catch PreloadError.navigationFailed {
-            expectation.fulfill()
-        } catch {
-            XCTFail("Expected navigation failed error, but got: \(error)")
-        }
-
-        // Then
-        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
-        await fulfillment(of: [expectation], timeout: 2.0)
-    }
 }

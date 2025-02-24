@@ -124,30 +124,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     await iterator.next()
                 }
 
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await event in self.navEventStream {
-                        if case .didFailNavigation = event {
-                            throw PreloadError.navigationFailed
-                        }
-                    }
-                }
-
                 try await group.next()
             }
         } catch let error as PreloadError {
-            switch error {
-            case .timeout:
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
-                }
-                throw error
-            case .navigationFailed:
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Navigation failed: \(error)")
-                }
-                throw error
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
             }
+            throw error
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error preloading URL: \(error)")
