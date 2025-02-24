@@ -9,8 +9,7 @@ import Combine
 import Foundation
 import WebKit
 
-@_spi(KlaviyoPrivate)
-public protocol KlaviyoWebViewDelegate: AnyObject {
+protocol KlaviyoWebViewDelegate: AnyObject {
     @MainActor
     func preloadUrl()
 
