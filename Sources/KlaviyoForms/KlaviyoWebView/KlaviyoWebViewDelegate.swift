@@ -1,5 +1,5 @@
 //
-//  KlaviyoWebViewModel.swift
+//  KlaviyoWebViewDelegate.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 9/30/24.
