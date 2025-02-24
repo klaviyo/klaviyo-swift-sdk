@@ -249,13 +249,6 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 
 #if swift(>=5.9)
 @available(iOS 17.0, *)
-#Preview("Klaviyo.com") {
-    let url = URL(string: "https://picsum.photos/200/300")!
-    let viewModel = KlaviyoWebViewModel(url: url)
-    return createKlaviyoWebPreview(viewModel: viewModel)
-}
-
-@available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
     _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
