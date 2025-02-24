@@ -222,6 +222,9 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 // MARK: - Previews
 
 #if DEBUG
+
+@testable import KlaviyoSwift
+
 func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
@@ -254,8 +257,10 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
-    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "klaviyo", type: "html")
-    let viewModel = KlaviyoWebViewModel(url: indexHtmlFileUrl)
+    let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
+    _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
+    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
+    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl)
     return createKlaviyoWebPreview(viewModel: viewModel)
 }
 
