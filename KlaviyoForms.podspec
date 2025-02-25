@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoForms"
-  s.version          = "0.1.0"
+  s.version          = "4.2.0"
   s.summary          = "UI components for the Klaviyo"
   s.description      = <<-DESC
                         UI components and utilities for the Klaviyo SDK.
@@ -19,5 +19,5 @@ Pod::Spec.new do |s|
     ]
   }
   # update once modularization changes are merged in.
-  s.dependency     'KlaviyoSwift', '~> 4.0.0'
+  s.dependency     'KlaviyoSwift', '~> 4.2.0'
 end
