@@ -34,9 +34,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private var klaviyoJsWKScript: WKUserScript? {
         guard let companyId = KlaviyoInternal.apiKey else {
             environment.emitDeveloperWarning("SDK must be initialized before usage.")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
-            }
+            if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.") }
             return nil
         }
 
@@ -48,8 +46,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         ]
 
         if let assetSource {
-            let assetSourceQueryItem = URLQueryItem(name: "assetSource", value: assetSource)
-            apiURL.queryItems?.append(assetSourceQueryItem)
+            apiURL.queryItems?.append(URLQueryItem(name: "assetSource", value: assetSource))
         }
 
         let klaviyoJsScript = """
@@ -64,21 +61,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     private var sdkNameWKScript: WKUserScript {
-        let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
-        return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        WKUserScript(
+            source: "document.head.setAttribute('data-sdk-name', '\(environment.sdkName())');",
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true)
     }
 
     private var sdkVersionWKScript: WKUserScript {
-        let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
-        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        WKUserScript(
+            source: "document.head.setAttribute('data-sdk-version', '\(environment.sdkVersion())');",
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true)
     }
 
     private var handshakeWKScript: WKUserScript {
-        let handshakeStringified = IAFNativeBridgeEvent.handshake
-        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
-        return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        WKUserScript(
+            source: "document.head.setAttribute('data-native-bridge-handshake', '\(IAFNativeBridgeEvent.handshake)');",
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true)
     }
 
     // MARK: - Initializer
@@ -89,7 +89,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         initializeLoadScripts()
     }
 
-    func initializeLoadScripts() {
+    private func initializeLoadScripts() {
         guard let klaviyoJsWKScript else { return }
         loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
@@ -140,12 +140,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - handle WKWebView events
 
-    func handleNavigationEvent(_ event: WKNavigationEvent) {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
-        }
-    }
-
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
@@ -156,8 +150,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .klaviyoNativeBridge:
             guard let jsonString = message.body as? String else { return }
 
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.debug("Received JSON message: \(jsonString)")
+            }
+
             do {
-                let jsonData = Data(jsonString.utf8) // Convert string to Data
+                let jsonData = Data(jsonString.utf8)
                 let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
@@ -170,9 +168,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
-        case .formsDataLoaded:
-            // TODO: handle formsDataLoaded
-            ()
         case .formWillAppear:
             formWillAppearContinuation.yield()
             formWillAppearContinuation.finish()
@@ -192,16 +187,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 UIApplication.shared.open(url)
             }
         case let .abort(reason):
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Aborting webview: \(reason)")
-            }
+            if #available(iOS 14.0, *) { Logger.webViewLogger.info("Aborting webview: \(reason)") }
             Task {
                 await delegate?.dismiss()
             }
         case .handShook:
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successful handshake with JS")
-            }
+            if #available(iOS 14.0, *) { Logger.webViewLogger.info("Successful handshake with JS") }
         }
     }
 }

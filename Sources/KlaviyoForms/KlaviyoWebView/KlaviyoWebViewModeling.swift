@@ -19,6 +19,5 @@ protocol KlaviyoWebViewModeling: AnyObject {
     var messageHandlers: Set<String>? { get }
 
     func preloadWebsite(timeout: UInt64) async throws
-    func handleNavigationEvent(_ event: WKNavigationEvent)
     func handleScriptMessage(_ message: WKScriptMessage)
 }
