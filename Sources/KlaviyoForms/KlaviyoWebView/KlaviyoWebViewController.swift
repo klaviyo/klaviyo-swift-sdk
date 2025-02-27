@@ -158,30 +158,16 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     private func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
-        webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
-        webView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-        webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        [
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ].map { $0.isActive = true }
     }
 }
 
 extension KlaviyoWebViewController: WKNavigationDelegate {
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        viewModel.handleNavigationEvent(.didStartProvisionalNavigation)
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        viewModel.handleNavigationEvent(.didFinishNavigation)
-    }
-
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        viewModel.handleNavigationEvent(.didFailNavigation)
-    }
-
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
            await UIApplication.shared.open(url) {

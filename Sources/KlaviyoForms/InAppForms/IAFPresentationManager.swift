@@ -26,16 +26,12 @@ class IAFPresentationManager {
     @MainActor
     func presentIAF(assetSource: String? = nil) {
         guard !isLoading else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
-            }
+            if #available(iOS 14.0, *) { Logger.webViewLogger.log("In-App Form is already loading; ignoring request.") }
             return
         }
 
         guard let fileUrl = indexHtmlFileUrl else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("URL for local HTML file is nil; unable to present In-App Form.")
-            }
+            if #available(iOS 14.0, *) { Logger.webViewLogger.warning("URL for local HTML file is nil; unable to present In-App Form.") }
             return
         }
 
@@ -51,33 +47,30 @@ class IAFPresentationManager {
             do {
                 try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
-                }
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Error preloading In-App Form: \(error).") }
                 return
             }
 
-            guard let topController = UIApplication.shared.topMostViewController else {
-                return
-            }
-
-            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
-                }
-            } else {
+            if let topController = UIApplication.shared.topMostViewController,
+               !topController.containsKlaviyoForm {
                 topController.present(viewController, animated: true, completion: nil)
+            } else {
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request") }
             }
         }
     }
 }
 
 extension UIViewController {
-    fileprivate var isKlaviyoVC: Bool {
+    fileprivate var containsKlaviyoForm: Bool {
+        isKlaviyoVC || hasKlaviyoVCInStack
+    }
+
+    private var isKlaviyoVC: Bool {
         self is KlaviyoWebViewController
     }
 
-    fileprivate var hasKlaviyoVCInStack: Bool {
+    private var hasKlaviyoVCInStack: Bool {
         guard let navigationController = navigationController else {
             return false
         }

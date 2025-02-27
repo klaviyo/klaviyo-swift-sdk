@@ -10,7 +10,6 @@ import Foundation
 import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
-    case formsDataLoaded
     case formWillAppear
     case formDisappeared
     case trackProfileEvent(Data)
@@ -25,7 +24,6 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     }
 
     private enum TypeIdentifier: String, Decodable {
-        case formsDataLoaded
         case formWillAppear
         case formDisappeared
         case trackProfileEvent
@@ -40,8 +38,6 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         let typeIdentifier = try container.decode(TypeIdentifier.self, forKey: .type)
 
         switch typeIdentifier {
-        case .formsDataLoaded:
-            self = .formsDataLoaded
         case .formWillAppear:
             self = .formWillAppear
         case .formDisappeared:
@@ -102,7 +98,7 @@ extension IAFNativeBridgeEvent {
     }
 
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
-        // events that JS is permitted to sending
+        // events that JS is permitted to send
         [
             .formWillAppear,
             .formDisappeared,
@@ -115,7 +111,6 @@ extension IAFNativeBridgeEvent {
 
     private var version: Int {
         switch self {
-        case .formsDataLoaded: return 1
         case .formWillAppear: return 1
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
@@ -128,7 +123,6 @@ extension IAFNativeBridgeEvent {
 
     private var name: String {
         switch self {
-        case .formsDataLoaded: return "formsDataLoaded"
         case .formWillAppear: return "formWillAppear"
         case .formDisappeared: return "formDisappeared"
         case .trackProfileEvent: return "trackProfileEvent"
