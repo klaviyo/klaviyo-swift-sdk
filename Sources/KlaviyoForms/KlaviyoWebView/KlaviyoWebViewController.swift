@@ -10,6 +10,10 @@ import OSLog
 import UIKit
 import WebKit
 
+private var webConsoleLoggingEnabled: Bool {
+    ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
+}
+
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
     // Required to allow localStorage data to be retained between webview instances
@@ -79,6 +83,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        dismiss()
+    }
+
     @MainActor
     private func loadUrl() {
         configureLoadScripts()
@@ -94,7 +103,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     func dismiss() {
         #if DEBUG
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+        if webConsoleLoggingEnabled {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+        }
         #endif
         dismiss(animated: true)
     }
@@ -112,7 +123,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         #if DEBUG
-        injectConsoleLoggingScript()
+        if webConsoleLoggingEnabled {
+            injectConsoleLoggingScript()
+        }
         #endif
     }
 
