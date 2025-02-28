@@ -9,9 +9,17 @@ import Foundation
 import KlaviyoSwift
 
 extension KlaviyoSDK {
-    @MainActor
+    func dispatchPresentIAFOnMainThread() {
+        Task {
+            await MainActor.run {
+                IAFPresentationManager.shared.presentIAF()
+            }
+        }
+    }
+
+    @discardableResult
     public func registerForInAppForms() {
-        IAFPresentationManager.shared.presentIAF()
+        dispatchPresentIAFOnMainThread()
     }
 
     @MainActor

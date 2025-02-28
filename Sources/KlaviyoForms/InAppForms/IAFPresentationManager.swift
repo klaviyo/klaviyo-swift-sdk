@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoCore
+import KlaviyoSwift
 import OSLog
 import UIKit
 
@@ -25,6 +26,19 @@ class IAFPresentationManager {
 
     @MainActor
     func presentIAF(assetSource: String? = nil) {
+        // createstatepublisher and subscribe
+        let companyId = KlaviyoInternal.apiKey { companyId in
+            guard let companyId else { return }
+            self.wipstuff(companyId: companyId, assetSource: assetSource)
+        }
+        //            environment.emitDeveloperWarning("SDK must be initialized before usage.")
+        //            if #available(iOS 14.0, *) {
+        //                Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
+        //            }
+        //            return
+    }
+
+    func wipstuff(companyId: String, assetSource: String?) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -41,7 +55,7 @@ class IAFPresentationManager {
 
         isLoading = true
 
-        let viewModel = IAFWebViewModel(url: fileUrl, assetSource: assetSource)
+        let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
         let viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .overCurrentContext
 

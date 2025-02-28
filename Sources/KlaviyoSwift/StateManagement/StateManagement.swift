@@ -89,6 +89,9 @@ enum KlaviyoAction: Equatable {
     case enqueueEvent(Event)
 
     /// when there is an aggregate event to be sent to klaviyo it's added to the queue
+//    case getCompanyId(() -> Void)
+
+    /// when there is an aggregate event to be sent to klaviyo it's added to the queue
     case enqueueAggregateEvent(Data)
 
     /// when there is an profile to be sent to klaviyo it's added to the queue
@@ -182,6 +185,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.initalizationState = .initialized
 
             state.pendingRequests = []
+            // call getcompanyId closure
 
             return .run { send in
                 for request in pendingRequests {
@@ -557,6 +561,10 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+//        case .getCompanyId(_):
+//            guard case .initialized = state.initalizationState else {
+//                // save closure & call when initialized -- save in state?
+//            }
         }
     }
 }

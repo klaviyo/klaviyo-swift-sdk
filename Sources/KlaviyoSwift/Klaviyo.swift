@@ -61,7 +61,7 @@ public struct KlaviyoSDK {
     /// - Parameter apiKey: your public api key from the Klaviyo console
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
-    public func initialize(with apiKey: String) -> KlaviyoSDK {
+    public func initialize(with apiKey: String, completion: (() -> Void)? = nil) -> KlaviyoSDK {
         dispatchOnMainThread(action: .initialize(apiKey))
         return self
     }

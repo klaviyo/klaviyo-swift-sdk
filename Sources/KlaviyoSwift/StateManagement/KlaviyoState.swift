@@ -15,7 +15,7 @@ typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
         case uninitialized
-        case initializing
+        case initializing // wait 10 seconds
         case initialized
     }
 
