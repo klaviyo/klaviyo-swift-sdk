@@ -510,7 +510,7 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 
 ## In-App Forms
 
-In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drop-and-drop editor in the Sign-Up Forms tab in Klaviyo.
+In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
 
 ### Setup
 
