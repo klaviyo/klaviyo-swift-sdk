@@ -22,6 +22,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
+    let companyId: String
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
@@ -32,14 +33,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Scripts
 
     private var klaviyoJsWKScript: WKUserScript? {
-        guard let companyId = KlaviyoInternal.apiKey else {
-            environment.emitDeveloperWarning("SDK must be initialized before usage.")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Unable to initialize KlaviyoJS script on In-App Form HTML due to missing API key.")
-            }
-            return nil
-        }
-
         var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
         apiURL.queryItems = [
@@ -83,8 +76,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Initializer
 
-    init(url: URL, assetSource: String? = nil) {
+    init(url: URL, companyId: String, assetSource: String? = nil) {
         self.url = url
+        self.companyId = companyId
         self.assetSource = assetSource
         initializeLoadScripts()
     }

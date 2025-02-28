@@ -6,6 +6,7 @@
 //  Copyright (c) 2015 Katy Keuper. All rights reserved.
 //
 
+import KlaviyoForms
 // STEP1: Importing klaviyo SDK into your app code
 import KlaviyoSwift
 import UIKit
@@ -34,7 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window?.makeKeyAndVisible()
 
         // STEP2: Setup Klaviyo SDK with api key
-        KlaviyoSDK().initialize(with: "magpcN")
+        KlaviyoSDK().initialize(with: "XNhKEQ").registerForInAppForms()
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))

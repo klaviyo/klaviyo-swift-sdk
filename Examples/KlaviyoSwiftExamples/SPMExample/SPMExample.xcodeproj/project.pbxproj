@@ -3,16 +3,17 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1E64A5AE2D723296008A80C2 /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = 1E64A5AD2D723296008A80C2 /* KlaviyoForms */; };
+		1E64A5B02D723298008A80C2 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1E64A5AF2D723298008A80C2 /* KlaviyoSwift */; };
+		1E64A5B22D72329C008A80C2 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 1E64A5B12D72329C008A80C2 /* KlaviyoSwiftExtension */; };
 		340590E429CCCD520015991E /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E229CCCD520015991E /* DeepLinking.swift */; };
 		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		3425CA0D2A3A635D0019E33A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
 		3425CA112A3A635D0019E33A /* NotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */; };
-		34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 34F2BEBA29AD203E006B8037 /* KlaviyoSwift */; };
 		7CC1C83828D74DB60073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
 		7CC1C83928D74DB60073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82D28D74DB60073197F /* Main.storyboard */; };
 		7CC1C83A28D74DB60073197F /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C82E28D74DB60073197F /* MenuItem.swift */; };
@@ -94,7 +95,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */,
+				1E64A5B22D72329C008A80C2 /* KlaviyoSwiftExtension in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,7 +103,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */,
+				1E64A5B02D723298008A80C2 /* KlaviyoSwift in Frameworks */,
+				1E64A5AE2D723296008A80C2 /* KlaviyoForms in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -200,7 +202,7 @@
 			);
 			name = NotificationServiceExtension;
 			packageProductDependencies = (
-				34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */,
+				1E64A5B12D72329C008A80C2 /* KlaviyoSwiftExtension */,
 			);
 			productName = NotificationServiceExtension;
 			productReference = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */;
@@ -222,7 +224,8 @@
 			);
 			name = SPMExample;
 			packageProductDependencies = (
-				34F2BEBA29AD203E006B8037 /* KlaviyoSwift */,
+				1E64A5AD2D723296008A80C2 /* KlaviyoForms */,
+				1E64A5AF2D723298008A80C2 /* KlaviyoSwift */,
 			);
 			productName = SPMExample;
 			productReference = 7CC1C7F828D74D810073197F /* SPMExample.app */;
@@ -301,7 +304,7 @@
 			);
 			mainGroup = 7CC1C7EF28D74D810073197F;
 			packageReferences = (
-				34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */,
+				1E64A5AC2D72328E008A80C2 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */,
 			);
 			productRefGroup = 7CC1C7F928D74D810073197F /* Products */;
 			projectDirPath = "";
@@ -777,27 +780,28 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		1E64A5AC2D72328E008A80C2 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../../../klaviyo-swift-sdk";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */ = {
+		1E64A5AD2D723296008A80C2 /* KlaviyoForms */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
-			productName = KlaviyoSwiftExtension;
+			package = 1E64A5AC2D72328E008A80C2 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */;
+			productName = KlaviyoForms;
 		};
-		34F2BEBA29AD203E006B8037 /* KlaviyoSwift */ = {
+		1E64A5AF2D723298008A80C2 /* KlaviyoSwift */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
+			package = 1E64A5AC2D72328E008A80C2 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */;
 			productName = KlaviyoSwift;
+		};
+		1E64A5B12D72329C008A80C2 /* KlaviyoSwiftExtension */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1E64A5AC2D72328E008A80C2 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */;
+			productName = KlaviyoSwiftExtension;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
