@@ -28,6 +28,8 @@
     - [Badge Count](#badge-count)
        - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
+- [In-App Forms](#in-app-forms)
+  - [Setup](#setup)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -505,6 +507,18 @@ By default, the Klaviyo SDK automatically clears the badge count on app open. If
 ##### Handling Other Badging Sources
 
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+## In-App Forms
+
+In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
+
+### Setup
+
+> ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+
+Klaviyo supports displaying in-app forms after [initializing](#initialization). At any point after initializing, call `KlaviyoSDK().registerForInAppForms()`, and a web view will persist in the background until a form is ready to be shown or a timeout occurs (10 seconds). If there is no form available to show, the web view will be removed, and you will need to call `registerForInAppForms()` again to fetch available forms. With this in mind, consider how often and where you want to call `registerForInAppForms()` to check for forms, such as on foreground events, `onAppear` of a specific view, etc.
+
+Once fetched, forms will show automatically, and users may dismiss them by tapping the close button or tapping outside the form content. Currently, Klaviyo will show only one form per `registerForInAppForms()` call.
 
 ## Additional Details
 
