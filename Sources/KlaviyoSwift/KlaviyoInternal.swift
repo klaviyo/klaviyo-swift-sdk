@@ -21,10 +21,9 @@ package struct KlaviyoInternal {
         if cancellable == nil {
             cancellable = KlaviyoSwiftEnvironment.production.statePublisher()
                 .receive(on: DispatchQueue.main)
-                .eraseToAnyPublisher()
-                .filter { $0.initalizationState == .initialized }
-                .filter { $0.apiKey != nil }
-                .map(\.apiKey!)
+                .filter { $0.initalizationState == .initialized && $0.apiKey != nil }
+                .compactMap(\.apiKey)
+                .removeDuplicates()
                 .sink(receiveCompletion: { _ in
                     print("nilled")
                     completion?(nil)
@@ -35,7 +34,6 @@ package struct KlaviyoInternal {
                     completion?($0)
                 })
         }
-//        return KlaviyoInternal._apiKey
     }
 
     /// Create and send an aggregate event.
