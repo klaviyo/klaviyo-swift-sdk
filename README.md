@@ -512,13 +512,47 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 
 In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
 
+### Prerequisites
+
+* Using Klaviyo SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+* Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+
 ### Setup
 
-> ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+Once you've created an in-app form in your Klaviyo account, to display it add the following code to your application.
 
-Klaviyo supports displaying in-app forms after [initializing](#initialization). At any point after initializing, call `KlaviyoSDK().registerForInAppForms()`, and a web view will persist in the background until a form is ready to be shown or a timeout occurs (10 seconds). If there is no form available to show, the web view will be removed, and you will need to call `registerForInAppForms()` again to fetch available forms. With this in mind, consider how often and where you want to call `registerForInAppForms()` to check for forms, such as on foreground events, `onAppear` of a specific view, etc.
+```swift
+    import KlaviyoSwift
+    import KlaviyoForms
+    ...
 
-Once fetched, forms will show automatically, and users may dismiss them by tapping the close button or tapping outside the form content. Currently, Klaviyo will show only one form per `registerForInAppForms()` call.
+    // Look at the behaviour section below on where to add this code to.
+    KlaviyoSDK()
+        .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+        .registerForInAppForms()
+
+    // if registering else where after `KlaviyoSDK` is initlized
+    KlaviyoSDK().registerForInAppForms()
+```
+
+### Behaviour
+
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on the form frequency and trigger settings configured in your Klaviyo account.
+
+You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
+
+Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
+
+
+| **App State**                | **Lifecycle Method**                              |
+|------------------------------|--------------------------------------------------|
+| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` |
+| **App Became Active**         | `applicationDidBecomeActive(_:)`                 |
+| **Any App View Controller**         | `viewDidLoad()` |
+
+
+For example, registering from a view controller is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK. Future versions of this product will provide more control in this regard.
+
 
 ## Additional Details
 
