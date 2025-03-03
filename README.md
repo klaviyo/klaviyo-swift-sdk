@@ -544,11 +544,11 @@ You can call `registerForInAppForms()` any time after initializing with your com
 Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
 
 
-| **App State**                | **Lifecycle Method**                              |
-|------------------------------|--------------------------------------------------|
-| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` |
-| **App Became Active**         | `applicationDidBecomeActive(_:)`                 |
-| **Any App View Controller**         | `viewDidLoad()` |
+| **App State**                | **Lifecycle Method**                              | **Example Implementation** |
+|------------------------------|--------------------------------------------------|------------------------------|
+| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L41) |
+| **App Became Active**         | `applicationDidBecomeActive(_:)`                 | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L59) |
+| **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
 
 
 For example, registering from a view controller is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK. Future versions of this product will provide more control in this regard.
