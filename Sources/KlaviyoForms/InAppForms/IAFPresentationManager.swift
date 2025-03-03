@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import Combine
 import Foundation
 import KlaviyoCore
 import KlaviyoSwift
@@ -13,6 +14,8 @@ import UIKit
 
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
+
+    var cancellables: Set<AnyCancellable> = []
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -40,14 +43,7 @@ class IAFPresentationManager {
         Task {
             defer { isLoading = false }
 
-            guard let companyId = await withCheckedContinuation({ continuation in
-                KlaviyoInternal.apiKey { apiKey in
-                    continuation.resume(returning: apiKey)
-                }
-            }) else {
-                environment.emitDeveloperWarning("124 SDK must be initialized before usage.")
-                return
-            }
+            let companyId = try await self.loadAPIKey()
 
             let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
             let viewController = KlaviyoWebViewController(viewModel: viewModel)
@@ -74,6 +70,34 @@ class IAFPresentationManager {
                 topController.present(viewController, animated: true, completion: nil)
             }
         }
+    }
+
+    func loadAPIKey() async throws -> String {
+        try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation { continuation in
+                    let cancellable = KlaviyoInternal.apiKey().sink(
+                        receiveCompletion: { completion in
+                            switch completion {
+                            case .finished:
+                                break
+                            case let .failure(error):
+                                continuation.resume(throwing: error)
+                            }
+                        },
+                        receiveValue: { value in
+                            continuation.resume(returning: value)
+                        })
+                    cancellables.insert(cancellable)
+                }
+            },
+            onCancel: {
+                // Handle cancellation here
+                for cancellable in cancellables {
+                    cancellable.cancel()
+                }
+                cancellables.removeAll()
+            })
     }
 }
 
