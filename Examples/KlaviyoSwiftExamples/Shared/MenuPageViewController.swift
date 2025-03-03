@@ -31,6 +31,9 @@ class MenuPageViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // example of registering for forms to display on navigating to a specific view
+        KlaviyoSDK().registerForInAppForms()
+
         retrieveSavedData()
         setKLAppOpenEvent()
         if menuItems == nil || menuItems.isEmpty {
