@@ -535,7 +535,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
     KlaviyoSDK().registerForInAppForms()
 ```
 
-### Behaviour
+### Behavior
 
 Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on based on form targeting and behavior settings.```
 
