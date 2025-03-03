@@ -23,10 +23,9 @@ package struct KlaviyoInternal {
             .compactMap(\.apiKey)
             .removeDuplicates()
             .prefix(1)
-            .sink(
-                receiveValue: {
-                    completion($0)
-                })
+            .sink(receiveValue: {
+                completion($0)
+            })
     }
 
     /// Create and send an aggregate event.
