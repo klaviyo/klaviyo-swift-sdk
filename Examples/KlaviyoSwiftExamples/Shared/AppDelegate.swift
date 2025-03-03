@@ -6,7 +6,9 @@
 //  Copyright (c) 2015 Katy Keuper. All rights reserved.
 //
 
-// STEP1: Importing klaviyo SDK into your app code
+import KlaviyoForms
+// STEP1: Importing klaviyo SDK modules into your app code
+// `KlaviyoSwift` is for analytics and push notifications and `KlaviyoForms` is for presenting marketing in app forms/messages
 import KlaviyoSwift
 import UIKit
 
@@ -34,7 +36,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window?.makeKeyAndVisible()
 
         // STEP2: Setup Klaviyo SDK with api key
-        KlaviyoSDK().initialize(with: "magpcN")
+        KlaviyoSDK()
+            .initialize(with: "ABC123")
+            .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
@@ -48,6 +52,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         howToSetupPushNotifications()
 
         return true
+    }
+
+    // example of registering for forms to display on the applicationDidBecomeActive lifecycle event (every foreground event)
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        KlaviyoSDK().registerForInAppForms()
     }
 
     // MARK: Push Notification implementation
