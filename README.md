@@ -537,7 +537,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
 
 ### Behaviour
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on the form frequency and trigger settings configured in your Klaviyo account.
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on based on form targeting and behavior settings.```
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
 
