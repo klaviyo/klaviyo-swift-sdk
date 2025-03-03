@@ -54,10 +54,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        KlaviyoSDK().registerForInAppForms()
-    }
-
     // MARK: Push Notification implementation
 
     private func howToSetupPushNotifications() {
