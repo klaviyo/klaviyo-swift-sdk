@@ -40,7 +40,8 @@ class IAFPresentationManager {
 
         isLoading = true
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             defer { isLoading = false }
 
             let companyId = try await self.loadAPIKey()
