@@ -25,6 +25,7 @@ package struct KlaviyoInternal {
                 .removeDuplicates()
                 .sink(receiveValue: {
                     completion($0)
+                    cancellable = nil
                 })
         }
     }
