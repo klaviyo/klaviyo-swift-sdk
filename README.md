@@ -531,7 +531,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
         .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
         .registerForInAppForms()
 
-    // if registering else where after `KlaviyoSDK` is initlized
+    // if registering else where after `KlaviyoSDK` is initialized
     KlaviyoSDK().registerForInAppForms()
 ```
 
