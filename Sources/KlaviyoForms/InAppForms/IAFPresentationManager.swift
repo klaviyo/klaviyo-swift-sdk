@@ -15,7 +15,7 @@ import UIKit
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
 
-    var cancellables: Set<AnyCancellable> = []
+    let cancellableActor = CancellableActor()
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -76,7 +76,7 @@ class IAFPresentationManager {
         try await withTaskCancellationHandler(
             operation: {
                 try await withCheckedThrowingContinuation { continuation in
-                    let cancellable = KlaviyoInternal.apiKey().sink(
+                    let sub = KlaviyoInternal.apiKey().sink(
                         receiveCompletion: { completion in
                             switch completion {
                             case .finished:
@@ -88,15 +88,15 @@ class IAFPresentationManager {
                         receiveValue: { value in
                             continuation.resume(returning: value)
                         })
-                    cancellables.insert(cancellable)
+                    Task {
+                        await cancellableActor.add(sub)
+                    }
                 }
             },
             onCancel: {
-                // Handle cancellation here
-                for cancellable in cancellables {
-                    cancellable.cancel()
+                Task {
+                    await cancellableActor.cancelAll()
                 }
-                cancellables.removeAll()
             })
     }
 }
@@ -111,5 +111,20 @@ extension UIViewController {
             return false
         }
         return navigationController.viewControllers.contains(where: \.isKlaviyoVC)
+    }
+}
+
+actor CancellableActor {
+    private var cancellables: Set<AnyCancellable> = []
+
+    func add(_ cancellable: AnyCancellable) {
+        cancellables.insert(cancellable)
+    }
+
+    func cancelAll() {
+        for cancellable in cancellables {
+            cancellable.cancel()
+        }
+        cancellables.removeAll()
     }
 }
