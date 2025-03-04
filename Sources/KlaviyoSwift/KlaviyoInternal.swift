@@ -23,8 +23,10 @@ package struct KlaviyoInternal {
                 .filter { $0.initalizationState == .initialized }
                 .compactMap(\.apiKey)
                 .removeDuplicates()
+                .prefix(1)
                 .sink(receiveValue: {
                     completion($0)
+                    cancellable = nil
                 })
         }
     }
