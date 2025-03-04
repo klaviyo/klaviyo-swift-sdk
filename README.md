@@ -553,7 +553,7 @@ Consider how often you want to register for forms. Below are some ideas on when 
 
 For example, registering from a view controller is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK. Future versions of this product will provide more control in this regard.
 
-
+**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
 ## Additional Details
 
 ### Sandbox Support
