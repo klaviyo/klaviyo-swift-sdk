@@ -75,14 +75,14 @@ Once integrated, your marketing team will be able to better understand your app 
       <details>
       <summary>Swift Package Manager [Recommended]</summary>
 
-      KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+      KlaviyoSwift and KlaviyoForms are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
       1. Open your project and navigate to your project’s settings.
       2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
       3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
       4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
       5. Click **Add Package**.
-      6. On the next prompt, assign the package product `KlaviyoSwift`  to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift` and `KlaviyoForms` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
       </details>
 
@@ -96,6 +96,10 @@ Once integrated, your marketing team will be able to better understand your app 
       ```ruby
       target 'YourAppTarget' do
         pod 'KlaviyoSwift'
+      end
+
+      target 'YourAppTarget' do
+        pod 'KlaviyoForms'
       end
 
       target 'YourAppNotificationServiceExtenionTarget' do
