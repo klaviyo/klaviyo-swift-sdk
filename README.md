@@ -509,7 +509,7 @@ By default, the Klaviyo SDK automatically clears the badge count on app open. If
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
 
 ## In-App Forms
-
+> ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
 
 ### Prerequisites
@@ -531,24 +531,24 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
         .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
         .registerForInAppForms()
 
-    // if registering else where after `KlaviyoSDK` is initlized
+    // if registering else where after `KlaviyoSDK` is initialized
     KlaviyoSDK().registerForInAppForms()
 ```
 
-### Behaviour
+### Behavior
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on the form frequency and trigger settings configured in your Klaviyo account.
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on based on form targeting and behavior settings.```
 
 You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
 
 Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
 
 
-| **App State**                | **Lifecycle Method**                              |
-|------------------------------|--------------------------------------------------|
-| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` |
-| **App Became Active**         | `applicationDidBecomeActive(_:)`                 |
-| **Any App View Controller**         | `viewDidLoad()` |
+| **App State**                | **Lifecycle Method**                              | **Example Implementation** |
+|------------------------------|--------------------------------------------------|------------------------------|
+| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L41) |
+| **App Became Active**         | `applicationDidBecomeActive(_:)`                 | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L59) |
+| **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
 
 
 For example, registering from a view controller is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK. Future versions of this product will provide more control in this regard.
