@@ -83,6 +83,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
     }
 
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        dismiss()
+    }
+
     @MainActor
     private func loadUrl() {
         configureLoadScripts()
@@ -261,7 +266,7 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
     let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
     _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
-    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl)
+    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, companyId: companyId)
     return createKlaviyoWebPreview(viewModel: viewModel)
 }
 

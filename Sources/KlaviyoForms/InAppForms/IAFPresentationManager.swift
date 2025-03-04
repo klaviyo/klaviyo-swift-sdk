@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoCore
+import KlaviyoSwift
 import OSLog
 import UIKit
 
@@ -32,21 +33,23 @@ class IAFPresentationManager {
             return
         }
 
-        guard let fileUrl = indexHtmlFileUrl else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("URL for local HTML file is nil; unable to present In-App Form.")
-            }
-            return
-        }
+        guard let fileUrl = indexHtmlFileUrl else { return }
 
         isLoading = true
 
-        let viewModel = IAFWebViewModel(url: fileUrl, assetSource: assetSource)
-        let viewController = KlaviyoWebViewController(viewModel: viewModel)
-        viewController.modalPresentationStyle = .overCurrentContext
-
         Task {
             defer { isLoading = false }
+
+            guard let companyId = await withCheckedContinuation({ continuation in
+                KlaviyoInternal.apiKey { apiKey in
+                    continuation.resume(returning: apiKey)
+                }
+            }) else {
+                environment.emitDeveloperWarning("SDK must be initialized before usage.")
+                return
+            }
+
+            let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
 
             do {
                 try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
@@ -66,6 +69,8 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
+                let viewController = KlaviyoWebViewController(viewModel: viewModel)
+                viewController.modalPresentationStyle = .overCurrentContext
                 topController.present(viewController, animated: true, completion: nil)
             }
         }
