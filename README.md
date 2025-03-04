@@ -30,6 +30,8 @@
       - [Handling Other Badging Sources](#handling-other-badging-sources)
 - [In-App Forms](#in-app-forms)
   - [Setup](#setup)
+  - [Behavior](#behavior)
+  - [Deep linking](#deep-linking)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -510,11 +512,13 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 
 ## In-App Forms
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
-In-app forms are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.
+
+[In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
+display forms according to targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 ### Prerequisites
 
-* Using Klaviyo SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+* Using Klaviyo SDK version 4.2.0 and higher
 * Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
 
 ### Setup
@@ -526,7 +530,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
     import KlaviyoForms
     ...
 
-    // Look at the behaviour section below on where to add this code to.
+    // Refer the behavior section for where to place this code.
     KlaviyoSDK()
         .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
         .registerForInAppForms()
@@ -537,7 +541,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
 
 ### Behavior
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on based on form targeting and behavior settings.```
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds,  based on form targeting and behavior settings.
 
 You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
 
@@ -555,6 +559,10 @@ Registering from `applicationDidBecomeActive(_:)` is advisable as it increases t
 
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+
+### Deep linking
+
+Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. Currently, if a web URL is included as the deep link, the SDK will open the URL in the default browser.
 
 ## Additional Details
 
