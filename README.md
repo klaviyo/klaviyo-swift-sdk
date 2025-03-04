@@ -539,7 +539,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
 
 Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds, based on based on form targeting and behavior settings.```
 
-You can call `registerForInAppForms()` any time after initializing with your company ID to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
+You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
 
 Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
 
@@ -551,9 +551,11 @@ Consider how often you want to register for forms. Below are some ideas on when 
 | **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
 
 
-For example, registering from a view controller is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK. Future versions of this product will provide more control in this regard.
+Registering from `applicationDidBecomeActive(_:)` is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition this based on the user's context within your application. Future versions of this product will provide more control in this regard.
+
 
 **Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+
 ## Additional Details
 
 ### Sandbox Support
