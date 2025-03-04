@@ -518,7 +518,7 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 
 [In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
-display forms according to targeting and behavior settings and collect delivery and engagement analytics automatically.
+display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 ### Prerequisites
 
@@ -527,7 +527,7 @@ display forms according to targeting and behavior settings and collect delivery 
 
 ### Setup
 
-Once you've created an in-app form in your Klaviyo account, to display it add the following code to your application.
+To display in-app forms, add the following code to your application.
 
 ```swift
     import KlaviyoSwift
@@ -545,7 +545,7 @@ Once you've created an in-app form in your Klaviyo account, to display it add th
 
 ### Behavior
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 10 seconds,  based on form targeting and behavior settings.
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 15 seconds,  based on form targeting and behavior settings.
 
 You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
 
@@ -566,7 +566,7 @@ Registering from `applicationDidBecomeActive(_:)` is advisable as it increases t
 
 ### Deep linking
 
-Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
+Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
 
 ## Additional Details
 
