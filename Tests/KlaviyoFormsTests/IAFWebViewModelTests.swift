@@ -30,7 +30,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
-        viewModel = IAFWebViewModel(url: fileUrl)
+        viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
         viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
