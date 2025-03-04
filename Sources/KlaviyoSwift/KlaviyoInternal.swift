@@ -17,15 +17,18 @@ package struct KlaviyoInternal {
     /// the apiKey (a.k.a. CompanyID) for the current SDK instance.
     /// - Parameter completion: completion hanlder that will be called when apiKey is avaialble after SDK is initilized
     package static func apiKey(completion: @escaping ((String?) -> Void)) {
-        cancellable = KlaviyoSwiftEnvironment.production.statePublisher()
-            .receive(on: DispatchQueue.main)
-            .filter { $0.initalizationState == .initialized }
-            .compactMap(\.apiKey)
-            .removeDuplicates()
-            .prefix(1)
-            .sink(receiveValue: {
-                completion($0)
-            })
+        if cancellable == nil {
+            cancellable = KlaviyoSwiftEnvironment.production.statePublisher()
+                .receive(on: DispatchQueue.main)
+                .filter { $0.initalizationState == .initialized }
+                .compactMap(\.apiKey)
+                .removeDuplicates()
+                .prefix(1)
+                .sink(receiveValue: {
+                    completion($0)
+                    cancellable = nil
+                })
+        }
     }
 
     /// Create and send an aggregate event.
