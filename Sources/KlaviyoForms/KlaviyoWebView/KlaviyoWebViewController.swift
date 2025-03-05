@@ -14,42 +14,22 @@ private var webConsoleLoggingEnabled: Bool {
     ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
 }
 
-private func createDefaultWebView() -> WKWebView {
-    let config = WKWebViewConfiguration()
-    // Required to allow localStorage data to be retained between webview instances
-    config.websiteDataStore = WKWebsiteDataStore.default()
-
-    let webView = WKWebView(frame: .zero, configuration: config)
-    webView.isOpaque = false
-    webView.scrollView.contentInsetAdjustmentBehavior = .never
-
-    #if DEBUG
-    if #available(iOS 16.4, *) {
-        // Earlier versions do not require setting any kind of flag
-        webView.isInspectable = true
-    }
-    #endif
-    return webView
-}
-
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
-    private lazy var webView: WKWebView = {
-        let webView = createWebView()
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-        return webView
-    }()
+    private weak var webView: WKWebView?
 
-    private var viewModel: KlaviyoWebViewModeling
-    private let createWebView: () -> WKWebView
+    deinit {
+        print("... deinitilizing ...")
+    }
+
+    weak var viewModel: KlaviyoWebViewModeling?
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling) {
         self.viewModel = viewModel
-        createWebView = webViewFactory
+
         super.init(nibName: nil, bundle: nil)
-        self.viewModel.delegate = self
+        self.viewModel?.delegate = self
     }
 
     @available(*, unavailable)
@@ -61,7 +41,26 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     override func loadView() {
         view = UIView()
-        view.addSubview(webView)
+
+        let config = WKWebViewConfiguration()
+        // Required to allow localStorage data to be retained between webview instances
+        config.websiteDataStore = WKWebsiteDataStore.default()
+
+        webView = WKWebView(frame: .zero, configuration: config)
+        webView?.isOpaque = false
+        webView?.scrollView.contentInsetAdjustmentBehavior = .never
+
+        webView?.navigationDelegate = self
+        webView?.uiDelegate = self
+
+        #if DEBUG
+        if #available(iOS 16.4, *) {
+            // Earlier versions do not require setting any kind of flag
+            webView?.isInspectable = true
+        }
+        #endif
+
+        view.addSubview(webView!)
 
         configureSubviewConstraints()
     }
@@ -69,8 +68,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        guard !webView.isLoading,
-              webView.estimatedProgress != 1.0 else { return }
+        guard !webView!.isLoading,
+              webView?.estimatedProgress != 1.0 else { return }
 
         loadUrl()
     }
@@ -78,8 +77,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
 
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+        viewModel?.messageHandlers?.forEach {
+            webView?.configuration.userContentController.removeScriptMessageHandler(forName: $0)
         }
     }
 
@@ -91,8 +90,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     private func loadUrl() {
         configureLoadScripts()
-        let request = URLRequest(url: viewModel.url)
-        webView.load(request)
+        let request = URLRequest(url: viewModel!.url)
+        webView?.load(request)
     }
 
     @MainActor
@@ -104,7 +103,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     func dismiss() {
         #if DEBUG
         if webConsoleLoggingEnabled {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+            webView?.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
         }
         #endif
         dismiss(animated: true)
@@ -114,12 +113,12 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     /// Configures the scripts to be injected into the website when the website loads.
     private func configureLoadScripts() {
-        viewModel.loadScripts?.forEach {
-            webView.configuration.userContentController.addUserScript($0)
+        viewModel?.loadScripts?.forEach {
+            webView?.configuration.userContentController.addUserScript($0)
         }
 
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(self, name: $0)
+        viewModel?.messageHandlers?.forEach {
+            webView?.configuration.userContentController.add(self, name: $0)
         }
 
         #if DEBUG
@@ -144,42 +143,42 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false)
 
-        webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(self, name: "consoleMessageHandler")
+        webView?.configuration.userContentController.addUserScript(script)
+        webView?.configuration.userContentController.add(self, name: "consoleMessageHandler")
     }
     #endif
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any {
-        try await webView.evaluateJavaScript(script)
+        try await webView?.evaluateJavaScript(script)
     }
 
     // MARK: - Layout
 
     private func configureSubviewConstraints() {
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
-        webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
-        webView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-        webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        webView?.translatesAutoresizingMaskIntoConstraints = false
+        webView?.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
+        webView?.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
+        webView?.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+        webView?.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
     }
 }
 
 extension KlaviyoWebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        viewModel.handleNavigationEvent(.didStartProvisionalNavigation)
+        viewModel?.handleNavigationEvent(.didStartProvisionalNavigation)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
+        viewModel?.handleNavigationEvent(.didFailProvisionalNavigation)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        viewModel.handleNavigationEvent(.didFinishNavigation)
+        viewModel?.handleNavigationEvent(.didFinishNavigation)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        viewModel.handleNavigationEvent(.didFailNavigation)
+        viewModel?.handleNavigationEvent(.didFailNavigation)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
@@ -210,10 +209,10 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
                 }
             }
         } else {
-            viewModel.handleScriptMessage(message)
+            viewModel?.handleScriptMessage(message)
         }
         #else
-        viewModel.handleScriptMessage(message)
+        viewModel?.handleScriptMessage(message)
         #endif
     }
 

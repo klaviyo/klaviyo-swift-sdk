@@ -37,7 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
-            .initialize(with: "ABC123")
+            .initialize(with: "Xr5bFG")
             .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
 
         // EXAMPLE: of how to track an event
