@@ -19,6 +19,8 @@ class IAFWebViewModel {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
+    let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+
     private let companyId: String?
     private let assetSource: String?
 

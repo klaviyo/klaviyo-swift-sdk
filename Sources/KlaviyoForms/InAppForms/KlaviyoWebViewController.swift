@@ -19,8 +19,8 @@ private var webConsoleLoggingEnabled: Bool {
     ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
 }
 
-class KlaviyoWebViewController: UIViewController, WKUIDelegate {
-    private weak var webView: WKWebView? = {
+class KlaviyoWebViewController: UIViewController {
+    private var webView: WKWebView? = {
         let config = WKWebViewConfiguration()
         // Required to allow localStorage data to be retained between webview instances
         config.websiteDataStore = WKWebsiteDataStore.default()
@@ -41,8 +41,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
 
     private weak var viewModel: IAFWebViewModel?
 
-    private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
-
     // MARK: - Initializers
 
     init(viewModel: IAFWebViewModel) {
@@ -50,7 +48,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         super.init(nibName: nil, bundle: nil)
 
         webView?.navigationDelegate = self
-        webView?.uiDelegate = self
     }
 
     @available(*, unavailable)
@@ -111,7 +108,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 defer {
-                    formWillAppearContinuation.finish()
+                    viewModel?.formWillAppearContinuation.finish()
                     group.cancelAll()
                 }
 
@@ -123,8 +120,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate {
                 group.addTask { [weak self] in
                     guard let self else { return }
 
-                    var iterator = formWillAppearStream.makeAsyncIterator()
-                    await iterator.next()
+                    var iterator = viewModel?.formWillAppearStream.makeAsyncIterator()
+                    await iterator?.next()
                 }
 
                 try await group.next()
@@ -286,8 +283,8 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formWillAppear:
-            formWillAppearContinuation.yield()
-            formWillAppearContinuation.finish()
+            viewModel?.formWillAppearContinuation.yield()
+            viewModel?.formWillAppearContinuation.finish()
         case .formDisappeared:
             Task {
                 await dismiss()
