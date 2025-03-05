@@ -50,13 +50,16 @@ class IAFPresentationManager {
             }
 
             let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
+            let viewController = KlaviyoWebViewController(viewModel: viewModel)
+            viewController.modalPresentationStyle = .overCurrentContext
 
             do {
-                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
+                try await viewController.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
                 }
+
                 return
             }
 
@@ -69,8 +72,6 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
-                let viewController = KlaviyoWebViewController(viewModel: viewModel)
-                viewController.modalPresentationStyle = .overCurrentContext
                 topController.present(viewController, animated: true, completion: nil)
             }
         }
