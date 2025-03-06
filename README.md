@@ -28,6 +28,10 @@
     - [Badge Count](#badge-count)
        - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
+- [In-App Forms](#in-app-forms)
+  - [Setup](#setup)
+  - [Behavior](#behavior)
+  - [Deep linking](#deep-linking)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -71,14 +75,14 @@ Once integrated, your marketing team will be able to better understand your app 
       <details>
       <summary>Swift Package Manager [Recommended]</summary>
 
-      KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+      KlaviyoSwift and KlaviyoForms are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
       1. Open your project and navigate to your project’s settings.
       2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
       3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
       4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
       5. Click **Add Package**.
-      6. On the next prompt, assign the package product `KlaviyoSwift`  to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift` and `KlaviyoForms` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
       </details>
 
@@ -92,6 +96,10 @@ Once integrated, your marketing team will be able to better understand your app 
       ```ruby
       target 'YourAppTarget' do
         pod 'KlaviyoSwift'
+      end
+
+      target 'YourAppTarget' do
+        pod 'KlaviyoForms'
       end
 
       target 'YourAppNotificationServiceExtenionTarget' do
@@ -505,6 +513,60 @@ By default, the Klaviyo SDK automatically clears the badge count on app open. If
 ##### Handling Other Badging Sources
 
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+## In-App Forms
+> ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+
+[In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
+display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
+
+### Prerequisites
+
+* Using Klaviyo SDK version 4.2.0 and higher
+* Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+
+### Setup
+
+To display in-app forms, add the following code to your application.
+
+```swift
+    import KlaviyoSwift
+    import KlaviyoForms
+    ...
+
+    // Refer the behavior section for where to place this code.
+    KlaviyoSDK()
+        .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+        .registerForInAppForms()
+
+    // if registering else where after `KlaviyoSDK` is initialized
+    KlaviyoSDK().registerForInAppForms()
+```
+
+### Behavior
+
+Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 15 seconds,  based on form targeting and behavior settings.
+
+You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
+
+Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
+
+
+| **App State**                | **Lifecycle Method**                              | **Example Implementation** |
+|------------------------------|--------------------------------------------------|------------------------------|
+| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L41) |
+| **App Became Active**         | `applicationDidBecomeActive(_:)`                 | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L59) |
+| **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
+
+
+Registering from `applicationDidBecomeActive(_:)` is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition this based on the user's context within your application. Future versions of this product will provide more control in this regard.
+
+
+**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+
+### Deep linking
+
+Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
 
 ## Additional Details
 
