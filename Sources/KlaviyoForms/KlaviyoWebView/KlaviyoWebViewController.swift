@@ -112,7 +112,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
         }
         #endif
-        dismiss(animated: true)
+        dismiss(animated: false)
     }
 
     // MARK: - Scripts
