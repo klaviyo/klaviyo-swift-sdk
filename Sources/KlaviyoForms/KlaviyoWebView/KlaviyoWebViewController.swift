@@ -6,6 +6,7 @@
 //
 
 import Combine
+import KlaviyoCore
 import OSLog
 import UIKit
 import WebKit
@@ -35,6 +36,7 @@ private func createDefaultWebView() -> WKWebView {
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private lazy var webView: WKWebView = {
         let webView = createWebView()
+        webView.customUserAgent = NetworkSession.defaultUserAgent
         webView.navigationDelegate = self
         webView.uiDelegate = self
         return webView
@@ -110,7 +112,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
         }
         #endif
-        dismiss(animated: true)
+        dismiss(animated: false)
     }
 
     // MARK: - Scripts
