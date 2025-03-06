@@ -1,9 +1,9 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoForms"
   s.version          = "4.2.0"
-  s.summary          = "UI components for the Klaviyo"
+  s.summary          = "Klaviyo forms is a new way to engage with your app users"
   s.description      = <<-DESC
-                        UI components and utilities for the Klaviyo SDK.
+                        Use Klaviyo forms to include in app forms in your app and engage user with marketing content
                        DESC
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   s.license          = { :type => "MIT", :file => "LICENSE" }
@@ -18,6 +18,6 @@ Pod::Spec.new do |s|
       'Tests/KlaviyoFormsTests/Assets/*.{html}'
     ]
   }
-  # update once modularization changes are merged in.
+  s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift' }
   s.dependency     'KlaviyoSwift', '~> 4.2.0'
 end
