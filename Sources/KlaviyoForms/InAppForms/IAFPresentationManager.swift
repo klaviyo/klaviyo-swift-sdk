@@ -74,7 +74,7 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
-                topController.present(viewController, animated: true, completion: nil)
+                topController.present(viewController, animated: false, completion: nil)
             }
         }
     }
