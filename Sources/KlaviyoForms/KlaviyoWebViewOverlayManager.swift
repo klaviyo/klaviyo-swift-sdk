@@ -40,7 +40,7 @@ class KlaviyoWebViewOverlayManager {
             guard let topController = UIApplication.shared.topMostViewController else {
                 return
             }
-            topController.present(viewController, animated: true, completion: nil)
+            topController.present(viewController, animated: false, completion: nil)
         }
     }
 }
