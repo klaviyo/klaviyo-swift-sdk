@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1EE639C72D7B3C1C00B6D0A2 /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = 1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */; };
 		340590E429CCCD520015991E /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E229CCCD520015991E /* DeepLinking.swift */; };
 		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		3425CA0D2A3A635D0019E33A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
@@ -102,6 +103,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1EE639C72D7B3C1C00B6D0A2 /* KlaviyoForms in Frameworks */,
 				34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -223,6 +225,7 @@
 			name = SPMExample;
 			packageProductDependencies = (
 				34F2BEBA29AD203E006B8037 /* KlaviyoSwift */,
+				1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */,
 			);
 			productName = SPMExample;
 			productReference = 7CC1C7F828D74D810073197F /* SPMExample.app */;
@@ -782,13 +785,18 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
 			requirement = {
-				branch = master;
-				kind = branch;
+				kind = upToNextMinorVersion;
+				minimumVersion = 4.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
+			productName = KlaviyoForms;
+		};
 		34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
