@@ -167,6 +167,24 @@ let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER = """
 }
 """
 
+let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER_DIFFERENT_SOURCE_POINTER = """
+{
+    "errors": [
+      {
+        "id": "9997bd4f-7d5f-4f01-bbd1-df0065ef4faa",
+        "status": 400,
+        "code": "invalid",
+        "title": "Invalid input.",
+        "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+        "source": {
+          "pointer": "/data/attributes/profile/data/attributes/phone_number"
+        },
+        "meta": {}
+      }
+    ]
+}
+"""
+
 let TEST_FAILURE_JSON_INVALID_EMAIL = """
 {
   "errors": [
