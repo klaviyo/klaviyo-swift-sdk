@@ -28,7 +28,7 @@
         - manufacturer: "Orange"
         - osName: "iOS"
         - osVersion: "1.1.1"
-        - sdkVersion: "4.2.0"
+        - sdkVersion: "4.3.0-alpha.1"
       - pushBackground: PushBackground.available
       - pushEnablement: PushEnablement.authorized
       - pushToken: "blob_token"
