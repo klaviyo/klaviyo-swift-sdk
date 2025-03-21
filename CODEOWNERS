@@ -1,2 +1,6 @@
 # Default owner
-*   @klaviyo/mobile-push-team
+*                                  @klaviyo/mobile-app-growth
+Sources/KlaviyoCore/**             @klaviyo/mobile-app-growth
+Sources/KlaviyoForms/**            @klaviyo/mobile-app-growth
+Sources/KlaviyoExtension/**        @klaviyo/mobile-app-growth
+Sources/KlaviyoSwift/**            @klaviyo/mobile-app-growth @klaviyo/mobile-push-team
