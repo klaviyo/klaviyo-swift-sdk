@@ -216,20 +216,27 @@ extension KlaviyoSwiftEnvironment {
     static let testStore = Store.production
 
     static let test = {
-        KlaviyoSwiftEnvironment(send: { action in
-            testStore.send(action)
-        }, state: {
-            testStore.currentState
-        }, statePublisher: {
-            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
-        }, stateChangePublisher: {
-            AsyncStream.finished
-        }, lifeCyclePublisher: {
-            AsyncStream.finished
-        },
-        getBackgroundSetting: {
-            .available
-        }, networkSession: { NetworkSession.test() }, setBadgeCount: { _ in
-        })
+        KlaviyoSwiftEnvironment(
+            send: { action in
+                testStore.send(action)
+            },
+            state: {
+                testStore.state.value
+            },
+            statePublisher: {
+                Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
+
+            },
+            stateChangePublisher: {
+                AsyncStream<KlaviyoAction>.finished
+            },
+            lifeCyclePublisher: {
+                AsyncStream<KlaviyoAction>.finished
+            },
+            getBackgroundSetting: {
+                PushBackground.available
+            },
+            networkSession: { NetworkSession.test() },
+            setBadgeCount: { _ in })
     }
 }

@@ -11,8 +11,8 @@ let package = Package(
             name: "KlaviyoSwift",
             targets: ["KlaviyoSwift"]),
         .library(
-            name: "KlaviyoUI",
-            targets: ["KlaviyoUI"]),
+            name: "KlaviyoForms",
+            targets: ["KlaviyoForms"]),
         .library(
             name: "KlaviyoSwiftExtension",
             targets: ["KlaviyoSwiftExtension"])
@@ -56,16 +56,25 @@ let package = Package(
                 "__Snapshots__"
             ]),
         .target(
-            name: "KlaviyoUI",
+            name: "KlaviyoForms",
             dependencies: ["KlaviyoSwift"],
-            path: "Sources/KlaviyoUI",
-            resources: [.process("KlaviyoWebView/Resources")]),
+            path: "Sources/KlaviyoForms",
+            resources: [
+                .process("InAppForms/Assets"),
+                .process("KlaviyoWebView/Resources"),
+                .process("KlaviyoWebView/Development Assets/Scripts"),
+                .process("KlaviyoWebView/Development Assets/HTML")
+            ]),
         .testTarget(
-            name: "KlaviyoUITests",
+            name: "KlaviyoFormsTests",
             dependencies: [
                 "KlaviyoSwift",
                 "KlaviyoCore",
+                "KlaviyoForms",
                 "KlaviyoSDKDependencies"
+            ],
+            resources: [
+                .process("Assets")
             ]),
         .target(
             name: "KlaviyoSwiftExtension",
