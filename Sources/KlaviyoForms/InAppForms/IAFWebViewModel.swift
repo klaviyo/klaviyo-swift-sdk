@@ -61,14 +61,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private var sdkNameWKScript: WKUserScript {
-        let sdkName = environment.sdkName()
+        let sdkName = environment.appContextInfo().klaviyoSdk
         let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
         return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var sdkVersionWKScript: WKUserScript {
-        let sdkVersion = environment.sdkVersion()
+        let sdkVersion = environment.appContextInfo().sdkVersion
         let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
@@ -106,10 +106,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
+    @MainActor
     func establishHandshake(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
-        await delegate.preloadUrl()
+        delegate.preloadUrl()
+
+        // Create a local, non-isolated copy of the stream
+        let localStream = formWillAppearStream
 
         do {
             try await withTimeout(seconds: timeout) { [weak self] in
@@ -137,6 +141,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
@@ -159,6 +164,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
@@ -185,7 +191,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Aborting webview: \(reason)")
             }
-            formLifecycleContinuation.yield(.abort)
+            Task {
+                delegate?.dismiss()
+            }
         case .handShook:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")

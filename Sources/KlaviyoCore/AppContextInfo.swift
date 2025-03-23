@@ -70,8 +70,8 @@ public struct AppContextInfo: Sendable, Equatable {
     let deviceModel: String
     let deviceId: String
     let environment: String
-    let klaviyoSdk: String
-    let sdkVersion: String
+    public let klaviyoSdk: String
+    public let sdkVersion: String
 
     var osVersion: String {
         "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"

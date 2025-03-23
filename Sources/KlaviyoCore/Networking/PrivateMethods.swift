@@ -19,7 +19,8 @@ public func overrideSDKDefaults(urlComponents: URLComponents? = nil) {
         if cdnURLComponents.host == "a.klaviyo.com" {
             cdnURLComponents.host = "static.klaviyo.com"
         }
+        let finalCDN = cdnURLComponents
 
-        environment.cdnURL = { cdnURLComponents }
+        environment.cdnURL = { finalCDN }
     }
 }

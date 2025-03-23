@@ -5,8 +5,8 @@
 //  Created by Andrew Balmer on 2/6/25.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoForms
-import KlaviyoCore
 import KlaviyoSwift
 import WebKit
 import XCTest
@@ -25,13 +25,15 @@ final class IAFWebViewModelTests: XCTestCase {
             "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID"
         )
 
-        try await super.setUp()
 
-        environment.sdkName = { "swift" }
-        environment.sdkVersion = { "0.0.1" }
+        environment.appContextInfo = {
+            AppContextInfo(executable: "", bundleId: "", appVersion: "", appBuild: "", appName: "", version: OperatingSystemVersion(majorVersion: 1, minorVersion: 2, patchVersion: 3), osName: "", manufacturer: "", deviceModel: "", deviceId: "", environment: "", klaviyoSdk: "swift", sdkVersion: "0.0.1")
+        }
+    }
 
+    @MainActor
+    func setupViewController() throws {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-
         viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
         viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
@@ -48,13 +50,37 @@ final class IAFWebViewModelTests: XCTestCase {
         super.tearDown()
     }
 
+    // Helper method to check if we should skip the test
+    @MainActor
+    private func checkShouldSkipTest() async throws -> Bool {
+        // Get the API key on the main actor
+        var apiKey: String?
+        await withCheckedContinuation { continuation in
+            KlaviyoInternal.apiKey { key in
+                apiKey = key
+                continuation.resume()
+            }
+        }
+
+        return apiKey == nil
+    }
+
     // MARK: - html injection tests
 
+    @MainActor
     func testInjectSdkNameAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        try setupViewController()
+
+        // Check if we should skip this test
+        if try await checkShouldSkipTest() {
+            throw XCTSkip("Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID")
+        }
+
+        // Check for CI environment
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+        if isRunningOnCI {
+            throw XCTSkip("Skipping test in Github CI environment")
+        }
 
         // Given
         try await viewModel.establishHandshake(timeout: 3.0)
@@ -69,11 +95,19 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(resultString, "swift")
     }
 
+    @MainActor
     func testInjectSdkVersionAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        try setupViewController()
+        // Check if we should skip this test
+        if try await checkShouldSkipTest() {
+            throw XCTSkip("Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID")
+        }
+
+        // Check for CI environment
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+        if isRunningOnCI {
+            throw XCTSkip("Skipping test in Github CI environment")
+        }
 
         // Given
         try await viewModel.establishHandshake(timeout: 3.0)
@@ -88,11 +122,20 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(resultString, "0.0.1")
     }
 
+    @MainActor
     func testInjectHandshakeAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        try setupViewController()
+
+        // Check if we should skip this test
+        if try await checkShouldSkipTest() {
+            throw XCTSkip("Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID")
+        }
+
+        // Check for CI environment
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+        if isRunningOnCI {
+            throw XCTSkip("Skipping test in Github CI environment")
+        }
 
         // Given
         try await viewModel.establishHandshake(timeout: 3.0)
@@ -121,11 +164,20 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 
+    @MainActor
     func testInjectKlaviyoJsScript() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        try setupViewController()
+
+        // Check if we should skip this test
+        if try await checkShouldSkipTest() {
+            throw XCTSkip("Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID")
+        }
+
+        // Check for CI environment
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+        if isRunningOnCI {
+            throw XCTSkip("Skipping test in Github CI environment")
+        }
 
         // Given
         try await viewModel.establishHandshake(timeout: 3.0)

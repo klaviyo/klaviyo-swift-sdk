@@ -42,8 +42,7 @@ public struct KlaviyoEnvironment: Sendable {
         timeZone: @Sendable @escaping () -> String,
         klaviyoAPI: KlaviyoAPI,
         timer: @Sendable @escaping (Double) -> AsyncStream<Date>,
-        appContextInfo: @Sendable @escaping () async -> AppContextInfo
-    ) {
+        appContextInfo: @MainActor @escaping () -> AppContextInfo) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -122,7 +121,7 @@ public struct KlaviyoEnvironment: Sendable {
     public var timeZone: @Sendable () -> String
     public var klaviyoAPI: KlaviyoAPI
     public var timer: @Sendable (Double) -> AsyncStream<Date>
-    public var appContextInfo: @Sendable () async -> AppContextInfo
+    public var appContextInfo: @MainActor @Sendable () -> AppContextInfo
 
     public static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
@@ -193,7 +192,7 @@ public struct KlaviyoEnvironment: Sendable {
             #if swift(>=6)
             getDefaultAppContextInfo()
             #else
-            await getDefaultAppContextInfo()
+            getDefaultAppContextInfo()
             #endif
         })
 }

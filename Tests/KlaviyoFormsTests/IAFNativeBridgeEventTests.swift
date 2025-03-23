@@ -6,8 +6,8 @@
 //
 
 @testable import KlaviyoForms
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 
 #if canImport(Testing)
 import Testing

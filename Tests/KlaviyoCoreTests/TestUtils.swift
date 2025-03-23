@@ -95,13 +95,8 @@ extension KlaviyoEnvironment {
             randomInt: { 0 },
             raiseFatalError: { _ in },
             emitDeveloperWarning: { _ in },
-<<<<<<< HEAD
-            networkSession: { NetworkSession.test() },
             apiURL: { URLComponents(string: "https://dead_beef")! },
             cdnURL: { URLComponents(string: "https://dead_beef")! },
-=======
-            apiURL: { "dead_beef" },
->>>>>>> ce36bc9 (Update SDK to support swift 6)
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },

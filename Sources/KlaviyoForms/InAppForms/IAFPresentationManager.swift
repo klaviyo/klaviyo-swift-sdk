@@ -12,7 +12,7 @@ import OSLog
 import UIKit
 
 class IAFPresentationManager {
-    static let shared = IAFPresentationManager()
+    @MainActor static let shared = IAFPresentationManager()
 
     private var viewController: KlaviyoWebViewController?
     private var isLoading: Bool = false

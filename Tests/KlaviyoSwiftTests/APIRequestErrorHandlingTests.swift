@@ -90,9 +90,11 @@ class APIRequestErrorHandlingTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER_DIFFERENT_SOURCE_POINTER.data(using: .utf8)!)) }
+        environment.klaviyoAPI.send = { _, _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER_DIFFERENT_SOURCE_POINTER.data(using: .utf8)!)) }
 
         _ = await store.send(.sendRequest)
 
@@ -115,11 +117,13 @@ class APIRequestErrorHandlingTests: XCTestCase {
         // in the case of state loaded from old sdk where email was stored with whitespaces
         initialState.email = "foo@blob.com      "
 
-        let request = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: initialState.pushTokenData?.pushToken ?? "", enablement: .authorized)
+        let request = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: initialState.pushTokenData?.pushToken ?? "", enablement: .authorized, background: .available, appContextInfo: .test)
         initialState.requestsInFlight = [request]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
-        environment.klaviyoAPI.send = { _, _ in .success(Data()) }
+        environment.klaviyoAPI.send = { _, _, _ in .success(Data()) }
         _ = await store.send(.sendRequest)
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.requestsInFlight = []
