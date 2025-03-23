@@ -13,7 +13,7 @@ import KlaviyoCore
 ///
 /// - Note: Can only be accessed from other modules within the Klaviyo-Swift-SDK package; cannot be accessed from the host app.
 package struct KlaviyoInternal {
-    static var cancellable: Cancellable?
+    @MainActor static var cancellable: Cancellable?
     /// the apiKey (a.k.a. CompanyID) for the current SDK instance.
     /// - Parameter completion: completion hanlder that will be called when apiKey is avaialble after SDK is initilized
     @MainActor

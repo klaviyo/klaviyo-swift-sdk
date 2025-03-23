@@ -610,14 +610,16 @@ class StateManagementTests: XCTestCase {
     @MainActor
     func testEnqueueAggregateEvent() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
 
         let data = Data()
         await store.send(.enqueueAggregateEvent(data)) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)))
+                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString)
             )
         }
     }
@@ -625,30 +627,31 @@ class StateManagementTests: XCTestCase {
     @MainActor
     func testEnqueueAggregateEventWhenInitilizingSendsEvent() async throws {
         let initialState = INITILIZING_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        
+        let store = TestStore(initialState: initialState) {
+            KlaviyoReducer()
+        }
+
         let data = Data()
         await store.send(.enqueueAggregateEvent(data)) {
             $0.pendingRequests = [KlaviyoState.PendingRequest.aggregateEvent(data)]
         }
-        
+
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-            
         }
 
         await store.receive(.enqueueAggregateEvent(data), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)))
+                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString)
             )
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue(.test), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized, PushBackground.available, AppContextInfo.test), timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setBadgeCount(0))
     }
 }

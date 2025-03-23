@@ -215,14 +215,14 @@ extension KlaviyoSwiftEnvironment {
                 testStore.send(action)
             },
             state: {
-                testStore.state.value
+                testStore.currentState
             },
             statePublisher: {
                 Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
 
             },
             stateChangePublisher: {
-                AsyncStream<KlaviyoAction>.finished
+                AsyncStream<KlaviyoState>.finished
             },
             lifeCyclePublisher: {
                 AsyncStream<KlaviyoAction>.finished

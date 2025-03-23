@@ -9,11 +9,11 @@ import Foundation
 
 @MainActor var userAgent: String?
 
-@MainActor let defaultUserAgent = { () async -> String in
-    if let userAgent = await userAgent {
+@MainActor public let defaultUserAgent = { () -> String in
+    if let userAgent = userAgent {
         return userAgent
     }
-    let appContext = await environment.appContextInfo()
+    let appContext = environment.appContextInfo()
     let sdkVersion = appContext.sdkVersion
     let sdkName = appContext.klaviyoSdk
     let klaivyoSDKVersion = "klaviyo-\(sdkName)/\(sdkVersion)"

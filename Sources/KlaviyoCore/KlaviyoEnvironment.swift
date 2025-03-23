@@ -35,14 +35,14 @@ public struct KlaviyoEnvironment: Sendable {
         emitDeveloperWarning: @Sendable @escaping (String) -> Void,
         apiURL: @Sendable @escaping () -> URLComponents,
         cdnURL: @Sendable @escaping () -> URLComponents,
-        encodeJSON: @Sendable @escaping (AnyEncodable) throws -> Data,
+        encodeJSON: @Sendable @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @Sendable @escaping () -> UUID,
         date: @Sendable @escaping () -> Date,
         timeZone: @Sendable @escaping () -> String,
         klaviyoAPI: KlaviyoAPI,
         timer: @Sendable @escaping (Double) -> AsyncStream<Date>,
-        appContextInfo: @Sendable @escaping () async -> AppContextInfo) {
+        appContextInfo: @MainActor @escaping () -> AppContextInfo) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -114,14 +114,14 @@ public struct KlaviyoEnvironment: Sendable {
     public var emitDeveloperWarning: @Sendable (String) async -> Void
     public var apiURL: @Sendable () -> URLComponents
     public var cdnURL: @Sendable () -> URLComponents
-    public var encodeJSON: @Sendable (AnyEncodable) throws -> Data
+    public var encodeJSON: @Sendable (Encodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: @Sendable () -> UUID
     public var date: @Sendable () -> Date
     public var timeZone: @Sendable () -> String
     public var klaviyoAPI: KlaviyoAPI
     public var timer: @Sendable (Double) -> AsyncStream<Date>
-    public var appContextInfo: @Sendable () async -> AppContextInfo
+    public var appContextInfo: @MainActor @Sendable () -> AppContextInfo
 
     public static let production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
@@ -192,7 +192,7 @@ public struct KlaviyoEnvironment: Sendable {
             #if swift(>=6)
             getDefaultAppContextInfo()
             #else
-            await getDefaultAppContextInfo()
+            getDefaultAppContextInfo()
             #endif
         })
 }

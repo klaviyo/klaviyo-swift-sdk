@@ -384,14 +384,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.anonymousId = "foo"
         }
         await store.receive(.start)
-<<<<<<< HEAD
-        await store.receive(.flushQueue)
-        await store.receive(.setPushEnablement(PushEnablement.authorized))
-        await store.receive(.syncBadgeCount)
-=======
-        await store.receive(.setPushEnablement(PushEnablement.authorized, PushBackground.available, .test))
         await store.receive(.flushQueue(.test))
->>>>>>> ce36bc9 (Update SDK to support swift 6)
+        await store.receive(.setPushEnablement(PushEnablement.authorized, PushBackground.available, .test))
+        await store.receive(.syncBadgeCount)
         await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
     }
 

@@ -10,7 +10,7 @@ import SwiftUI
 import UIKit
 
 class KlaviyoWebViewOverlayManager {
-    public static let shared = KlaviyoWebViewOverlayManager()
+    @MainActor public static let shared = KlaviyoWebViewOverlayManager()
     private var isLoading: Bool = false
 
     /// Presents a view controller on the top-most view controller
