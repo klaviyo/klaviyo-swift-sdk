@@ -148,9 +148,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
                 }
             }
         case .closeMessageHandler:
-            Task {
-                delegate?.dismiss()
-            }
+            delegate?.dismiss()
         }
     }
 }
