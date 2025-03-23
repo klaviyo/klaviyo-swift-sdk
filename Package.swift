@@ -71,7 +71,7 @@ let package = Package(
             dependencies: [
                 "KlaviyoSwift",
                 "KlaviyoCore",
-                "KlaviyoForms"
+                "KlaviyoForms",
                 "KlaviyoSDKDependencies"
             ],
             resources: [

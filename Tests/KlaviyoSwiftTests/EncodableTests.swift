@@ -41,6 +41,6 @@ final class EncodableTests: XCTestCase {
                 deviceData: .init(context: AppContextInfo.test)),
             queue: [request],
             requestsInFlight: [request])
-        assertSnapshot(of: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
+        assertSnapshot(matching: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
     }
 }
