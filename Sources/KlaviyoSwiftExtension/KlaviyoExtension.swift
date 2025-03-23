@@ -81,7 +81,7 @@ public enum KlaviyoExtensionSDK {
     ///   - contentHandler: the closure that needs to be called before the time iOS provides for us to mutate the content
     private static func handleRichMedia(
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void,
+        contentHandler: @Sendable @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg") {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
