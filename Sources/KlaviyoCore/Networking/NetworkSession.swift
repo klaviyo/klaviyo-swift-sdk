@@ -60,7 +60,7 @@ public struct NetworkSession: Sendable {
     public static let production = { () -> NetworkSession in
 
         NetworkSession(data: { request async throws -> (Data, URLResponse) in
-            let userAgent = await defaultUserAgent()
+            let userAgent = defaultUserAgent()
             #if swift(>=6)
             let session = createEmphemeralSession(userAgent: userAgent)
             #else
