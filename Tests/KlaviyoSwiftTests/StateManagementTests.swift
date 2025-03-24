@@ -662,8 +662,9 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.flushQueue(.test), timeout: TIMEOUT_NANOSECONDS)
+
         await store.receive(.setPushEnablement(PushEnablement.authorized, PushBackground.available, AppContextInfo.test), timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setBadgeCount(0))
+        await store.receive(.flushQueue(.test), timeout: TIMEOUT_NANOSECONDS)
     }
 }

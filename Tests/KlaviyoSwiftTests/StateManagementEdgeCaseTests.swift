@@ -432,9 +432,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.anonymousId = "foo"
         }
         await store.receive(.start)
-        await store.receive(.flushQueue(.test))
         await store.receive(.setPushEnablement(PushEnablement.authorized, PushBackground.available, .test))
         await store.receive(.syncBadgeCount)
+        await store.receive(.flushQueue(.test))
         await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
     }
 
