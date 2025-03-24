@@ -12,5 +12,5 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.7'
   s.platform         = :ios, '15.0'
   s.source_files     = 'Sources/KlaviyoCore/**/*.swift'
-  s.dependency     'KlaviyoSDKDependencies', '~>4.2.0'
+  s.dependency     'KlaviyoSDKDependencies', '~>4.3.0'
 end

@@ -135,7 +135,7 @@ extension AppContextInfo {
                            deviceId: "fe-fi-fo-fum",
                            environment: "debug",
                            klaviyoSdk: "swift",
-                           sdkVersion: "4.2.0")
+                           sdkVersion: "4.3.0")
 }
 
 extension StateChangePublisher {
