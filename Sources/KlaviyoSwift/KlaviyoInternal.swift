@@ -19,7 +19,7 @@ package struct KlaviyoInternal {
     @MainActor
     package static func apiKey(completion: @escaping ((String?) -> Void)) {
         if cancellable == nil {
-            cancellable = KlaviyoSwiftEnvironment.production.statePublisher()
+            cancellable = klaviyoSwiftEnvironment.statePublisher()
                 .receive(on: DispatchQueue.main)
                 .filter { $0.initalizationState == .initialized }
                 .compactMap(\.apiKey)

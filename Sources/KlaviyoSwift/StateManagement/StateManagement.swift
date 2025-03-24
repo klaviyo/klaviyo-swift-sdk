@@ -569,9 +569,9 @@ struct KlaviyoReducer: Reducer {
             }
 
             return .send(.deQueueCompletedResults(request))
-        case .setBadgeCount(let count):
+        case let .setBadgeCount(count):
             return .run { _ in
-                await KlaviyoSwiftEnvironment.production.setBadgeCount(count)
+                await klaviyoSwiftEnvironment.setBadgeCount(count)
             }
         }
     }
