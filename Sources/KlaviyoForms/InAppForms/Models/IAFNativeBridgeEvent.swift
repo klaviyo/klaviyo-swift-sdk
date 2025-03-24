@@ -5,8 +5,8 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoSDKDependencies
 import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {

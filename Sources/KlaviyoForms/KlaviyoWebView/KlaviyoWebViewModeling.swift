@@ -20,5 +20,6 @@ protocol KlaviyoWebViewModeling: AnyObject {
 
     func preloadWebsite(timeout: UInt64) async throws
     func handleNavigationEvent(_ event: WKNavigationEvent)
+    @MainActor
     func handleScriptMessage(_ message: WKScriptMessage)
 }

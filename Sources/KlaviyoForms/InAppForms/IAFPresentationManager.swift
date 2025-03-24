@@ -12,7 +12,7 @@ import OSLog
 import UIKit
 
 class IAFPresentationManager {
-    static let shared = IAFPresentationManager()
+    @MainActor static let shared = IAFPresentationManager()
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -45,7 +45,7 @@ class IAFPresentationManager {
                     continuation.resume(returning: apiKey)
                 }
             }) else {
-                environment.emitDeveloperWarning("SDK must be initialized before usage.")
+                await environment.emitDeveloperWarning("SDK must be initialized before usage.")
                 return
             }
 

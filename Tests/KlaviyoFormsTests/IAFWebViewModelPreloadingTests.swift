@@ -1,10 +1,3 @@
-//
-//  IAFWebViewModelTests.swift
-//  klaviyo-swift-sdk
-//
-//  Created by Andrew Balmer on 2/6/25.
-//
-
 @testable import KlaviyoForms
 import KlaviyoCore
 import WebKit
@@ -19,9 +12,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!, companyId: "abc123")
-        delegate = MockIAFWebViewDelegate(viewModel: viewModel)
-        viewModel.delegate = delegate
+        // Initialize these later in the test methods
+        viewModel = nil
+        delegate = nil
     }
 
     override func tearDown() {
@@ -31,11 +24,21 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         super.tearDown()
     }
 
+    // Helper method to set up the viewModel on the main actor
+    @MainActor
+    private func setUpViewModel() {
+        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!, companyId: "abc123")
+        delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+    }
+
     // MARK: - tests
 
     /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
+    @MainActor
     func testPreloadWebsiteSuccess() async throws {
         // Given
+        setUpViewModel()
         delegate.preloadResult = .formWillAppear(delay: 100_000_000) // 0.1 second in nanoseconds
         let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
@@ -53,8 +56,10 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     }
 
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
+    @MainActor
     func testPreloadWebsiteTimeout() async {
         // Given
+        setUpViewModel()
         delegate.preloadResult = .formWillAppear(delay: 1_000_000_000) // 1 second in nanoseconds
         let expectation = XCTestExpectation(description: "Preloading website times out")
 
@@ -74,8 +79,10 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     }
 
     /// Tests scenario in which the delegate does nothing and emits no events after `preloadUrl()` is called.
+    @MainActor
     func testPreloadWebsiteNoActionTimeout() async {
         // Given
+        setUpViewModel()
         delegate.preloadResult = MockIAFWebViewDelegate.PreloadResult.none
         let expectation = XCTestExpectation(description: "Preloading website times out")
 

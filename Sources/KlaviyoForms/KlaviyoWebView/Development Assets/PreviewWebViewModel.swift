@@ -11,6 +11,7 @@ import Foundation
 import WebKit
 
 // ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.
+
 class PreviewWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case toggleMessageHandler
@@ -20,7 +21,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>? = PreviewWebViewModel.initializeLoadScripts()
+    var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
@@ -29,6 +30,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
         self.url = url
     }
 
+    @MainActor
     private static func initializeLoadScripts() -> Set<WKUserScript> {
         var scripts = Set<WKUserScript>()
 
@@ -54,10 +56,13 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     ///
     /// The caller of this method should `await` completion of this method, then present the ViewController.
     /// - Parameter timeout: the amount of time, in milliseconds, to wait before throwing a `timeout` error.
+    @MainActor
     public func preloadWebsite(timeout: UInt64) async throws {
         guard let delegate else { return }
 
-        await delegate.preloadUrl()
+        delegate.preloadUrl()
+
+        let navEventStream = navEventStream
 
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -67,9 +72,8 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
                 }
 
                 // Add the navigation event task to the group
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await event in self.navEventStream {
+                group.addTask {
+                    for await event in navEventStream {
                         switch event {
                         case .didFinishNavigation:
                             return
@@ -144,9 +148,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
                 }
             }
         case .closeMessageHandler:
-            Task {
-                await delegate?.dismiss()
-            }
+            delegate?.dismiss()
         }
     }
 }

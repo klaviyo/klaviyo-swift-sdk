@@ -15,6 +15,7 @@ private var webConsoleLoggingEnabled: Bool {
     ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
 }
 
+@MainActor
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
     // Required to allow localStorage data to be retained between webview instances
@@ -34,9 +35,9 @@ private func createDefaultWebView() -> WKWebView {
 }
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
-    private lazy var webView: WKWebView = {
+    @MainActor private lazy var webView: WKWebView = {
         let webView = createWebView()
-        webView.customUserAgent = NetworkSession.defaultUserAgent
+        webView.customUserAgent = defaultUserAgent()
         webView.navigationDelegate = self
         webView.uiDelegate = self
         return webView
@@ -47,7 +48,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @MainActor @escaping () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
         createWebView = webViewFactory
         super.init(nibName: nil, bundle: nil)
@@ -243,6 +244,7 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
 
 @testable import KlaviyoSwift
 
+@MainActor
 func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
@@ -269,7 +271,7 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
-    _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
+    _ = klaviyoSwiftEnvironment.send(.initialize(companyId, getDefaultAppContextInfo()))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
     let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, companyId: companyId)
     return createKlaviyoWebPreview(viewModel: viewModel)
