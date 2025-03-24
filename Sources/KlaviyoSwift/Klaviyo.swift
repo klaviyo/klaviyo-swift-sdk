@@ -63,7 +63,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .initialize(apiKey, appContextInfo))
         }
         return self
@@ -76,7 +76,7 @@ public struct KlaviyoSDK {
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .enqueueProfile(profile, appContextInfo))
         }
     }
@@ -87,7 +87,7 @@ public struct KlaviyoSDK {
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .resetProfile(appContextInfo))
         }
     }
@@ -107,7 +107,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .setEmail(email, appContextInfo))
         }
         return self
@@ -122,7 +122,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .setPhoneNumber(phoneNumber, appContextInfo))
         }
         return self
@@ -137,7 +137,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .setExternalId(externalId, appContextInfo))
         }
         return self
@@ -160,7 +160,7 @@ public struct KlaviyoSDK {
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
         Task {
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .enqueueEvent(event, appContextInfo))
         }
     }
@@ -178,7 +178,7 @@ public struct KlaviyoSDK {
         Task {
             let enablement = await environment.getNotificationSettings()
             let background = klaviyoSwiftEnvironment.getBackgroundSetting()
-            let appContextInfo = await environment.appContextInfo()
+            let appContextInfo = environment.appContextInfo()
             await dispatchStoreAction(action: .setPushToken(pushToken, enablement, background, appContextInfo))
         }
     }
