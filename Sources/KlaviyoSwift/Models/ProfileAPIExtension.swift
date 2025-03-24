@@ -22,9 +22,9 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: self.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            phoneNumber: self.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            externalId: self.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            externalId: externalId?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
             firstName: firstName,
             lastName: lastName,
             organization: organization,
