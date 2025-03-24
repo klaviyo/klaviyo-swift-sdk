@@ -44,7 +44,7 @@ struct KlaviyoSwiftEnvironment: Sendable {
             state: {
                 store.currentState
             },
-
+            
             statePublisher: {
                 store.publisher.eraseToAnyPublisher()
             },
@@ -57,7 +57,7 @@ struct KlaviyoSwiftEnvironment: Sendable {
                     environment.startReachability, environment.stopReachability,
                     environment.reachabilityStatus).map(\.transformToKlaviyoAction).eraseToAnyPublisher()
                 return AsyncStream<KlaviyoAction> { continuation in
-
+                    
                     Task {
                         let cancellableStore = CancellableStore()
                         let cancellable = publisher.sink { value in
@@ -75,30 +75,29 @@ struct KlaviyoSwiftEnvironment: Sendable {
                             }
                         }
                     }
-        
                 }
             },
             getBackgroundSetting: {
                 .create(from: UIApplication.shared.backgroundRefreshStatus)
             },
             networkSession: { createNetworkSession() },
-                setBadgeCount: { count in
-                       if let userDefaults = UserDefaults(
-                           suiteName: Bundle.main.object(
-                               forInfoDictionaryKey: "Klaviyo_App_Group")
-                               as? String) {
-                           if #available(iOS 16.0, *) {
-                               UNUserNotificationCenter.current()
-                                   .setBadgeCount(count)
-                           } else {
-                               UIApplication.shared
-                                   .applicationIconBadgeNumber = count
-                           }
-                           userDefaults.set(count, forKey: "badgeCount")
-                       }
+            setBadgeCount: { count in
+                if let userDefaults = UserDefaults(
+                    suiteName: Bundle.main.object(
+                        forInfoDictionaryKey: "Klaviyo_App_Group")
+                    as? String) {
+                    if #available(iOS 16.0, *) {
+                        UNUserNotificationCenter.current()
+                            .setBadgeCount(count)
+                    } else {
+                        UIApplication.shared
+                            .applicationIconBadgeNumber = count
+                    }
+                    userDefaults.set(count, forKey: "badgeCount")
                 }
+            }
         )
-    }()
+    }
 }
 
 actor CancellableStore {
@@ -112,5 +111,4 @@ actor CancellableStore {
         cancellable?.cancel()
         cancellable = nil
     }
->>>>>>> d062e0a (Update SDK to support swift 6)
 }
