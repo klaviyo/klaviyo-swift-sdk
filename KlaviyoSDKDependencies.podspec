@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoSDKDependencies"
-  s.version          = "4.2.0"
+  s.version          = "4.3.0"
   s.summary          = "Dependency for the Klaviyo SDK"
   s.description      = <<-DESC
                         Klaviyo external dependencies all rolled in one package
