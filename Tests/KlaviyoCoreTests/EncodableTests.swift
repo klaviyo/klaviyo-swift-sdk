@@ -32,7 +32,7 @@ final class EncodableTests: XCTestCase {
     }
 
     func testTokenPayload() async throws {
-        let tokenPayload = await PushTokenPayload(
+        let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
@@ -50,7 +50,7 @@ final class EncodableTests: XCTestCase {
     }
 
     func testKlaviyoRequest() async throws {
-        let tokenPayload = await PushTokenPayload(
+        let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",

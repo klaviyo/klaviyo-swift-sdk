@@ -19,16 +19,19 @@ class NetworkSessionTests: XCTestCase {
         urlSession = nil
     }
 
+    @MainActor
     func testDefaultUserAgent() async {
-        let userAgent = await defaultUserAgent()
+        let userAgent = defaultUserAgent()
         assertSnapshot(of: userAgent, as: .dump)
     }
 
+    @MainActor
     func testCreateEmphemeralSesionHeaders() async {
-        let userAgent = await defaultUserAgent()
+        let userAgent = defaultUserAgent()
         assertSnapshot(of: createEmphemeralSession(userAgent: userAgent).configuration.httpAdditionalHeaders, as: .dump)
     }
 
+    @MainActor
     func testSessionDataTask() async throws {
         URLProtocolOverrides.protocolClasses = [SimpleMockURLProtocol.self]
         let session = NetworkSession.production
