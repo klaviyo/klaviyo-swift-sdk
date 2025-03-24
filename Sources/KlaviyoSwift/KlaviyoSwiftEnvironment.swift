@@ -63,11 +63,11 @@ struct KlaviyoSwiftEnvironment: Sendable {
                         let cancellable = publisher.sink { value in
                             continuation.yield(value)
                         }
-                        
+
                         Task {
                             await cancellableStore.store(cancellable)
                         }
-                        
+
                         // Handle cancellation
                         continuation.onTermination = { @Sendable _ in
                             Task {
@@ -75,7 +75,6 @@ struct KlaviyoSwiftEnvironment: Sendable {
                             }
                         }
                     }
-        
                 }
 
             },
@@ -83,22 +82,21 @@ struct KlaviyoSwiftEnvironment: Sendable {
                 .create(from: UIApplication.shared.backgroundRefreshStatus)
             },
             networkSession: { createNetworkSession() },
-                setBadgeCount: { count in
-                       if let userDefaults = UserDefaults(
-                           suiteName: Bundle.main.object(
-                               forInfoDictionaryKey: "Klaviyo_App_Group")
-                               as? String) {
-                           if #available(iOS 16.0, *) {
-                               UNUserNotificationCenter.current()
-                                   .setBadgeCount(count)
-                           } else {
-                               UIApplication.shared
-                                   .applicationIconBadgeNumber = count
-                           }
-                           userDefaults.set(count, forKey: "badgeCount")
-                       }
+            setBadgeCount: { count in
+                if let userDefaults = UserDefaults(
+                    suiteName: Bundle.main.object(
+                        forInfoDictionaryKey: "Klaviyo_App_Group")
+                        as? String) {
+                    if #available(iOS 16.0, *) {
+                        UNUserNotificationCenter.current()
+                            .setBadgeCount(count)
+                    } else {
+                        UIApplication.shared
+                            .applicationIconBadgeNumber = count
+                    }
+                    userDefaults.set(count, forKey: "badgeCount")
                 }
-        )
+            })
     }
 }
 
