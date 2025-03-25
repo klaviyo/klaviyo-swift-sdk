@@ -80,21 +80,21 @@ struct KlaviyoState: Equatable, Codable {
 
     mutating func updateEmail(email: String) {
         if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            self.email = email
+            self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updateExternalId(externalId: String) {
         if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
-            self.externalId = externalId
+            self.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
         if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            self.phoneNumber = phoneNumber
+            self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
@@ -137,17 +137,17 @@ struct KlaviyoState: Equatable, Codable {
     mutating func updateStateWithProfile(profile: Profile) {
         if let profileEmail = profile.email,
            profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            email = profileEmail
+            email = profileEmail.trimWhiteSpaceOrReturnNilIfEmpty()
         }
 
         if let profilePhoneNumber = profile.phoneNumber,
            profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            phoneNumber = profilePhoneNumber
+            phoneNumber = profilePhoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
         }
 
         if let profileExternalId = profile.externalId,
            profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
-            externalId = profileExternalId
+            externalId = profileExternalId.trimWhiteSpaceOrReturnNilIfEmpty()
         }
     }
 

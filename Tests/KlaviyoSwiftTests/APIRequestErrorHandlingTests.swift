@@ -110,6 +110,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     func testEmailWhitespaceIsTrimmedBeforeSendingRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
 
+        // in the case of state loaded from old sdk where email was stored with whitespaces
         initialState.email = "foo@blob.com      "
 
         let request = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: initialState.pushTokenData?.pushToken ?? "", enablement: .authorized)
