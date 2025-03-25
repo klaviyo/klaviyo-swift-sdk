@@ -106,6 +106,29 @@ class APIRequestErrorHandlingTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testEmailWhitespaceIsTrimmedBeforeSendingRequest() async throws {
+        var initialState = INITIALIZED_TEST_STATE_INVALID_EMAIL()
+
+        // in the case of state loaded from old sdk where email was stored with whitespaces
+        initialState.email = "foo@blob.com      "
+
+        let request = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: initialState.pushTokenData?.pushToken ?? "", enablement: .authorized)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .success(Data()) }
+        _ = await store.send(.sendRequest)
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.requestsInFlight = []
+            $0.flushing = false
+            $0.email = "foo@blob.com      "
+            if case let .registerPushToken(payload) = request.endpoint {
+                XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "foo@blob.com", "Email should be trimmed of whitespace before being sent.")
+            }
+        }
+    }
+
     // MARK: - network error
 
     @MainActor

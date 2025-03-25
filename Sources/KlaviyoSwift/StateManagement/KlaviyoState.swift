@@ -472,9 +472,4 @@ extension String {
 
         return !incoming.isEmpty && incoming != state
     }
-
-    fileprivate func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
-        let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedString.isEmpty ? nil : trimmedString
-    }
 }
