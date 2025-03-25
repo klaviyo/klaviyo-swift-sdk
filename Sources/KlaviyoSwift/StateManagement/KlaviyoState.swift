@@ -134,7 +134,7 @@ struct KlaviyoState: Equatable, Codable {
         }
     }
 
-    mutating func updateStateWithProfile(profile: Profile) { // Create Profile
+    mutating func updateStateWithProfile(profile: Profile) {
         if let profileEmail = profile.email,
            profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
             email = profileEmail.trimWhiteSpaceOrReturnNilIfEmpty() // needed here to actually update state
