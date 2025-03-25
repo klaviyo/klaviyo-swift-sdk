@@ -78,7 +78,6 @@ struct KlaviyoState: Equatable, Codable {
         queue.append(request)
     }
 
-    // used when setEmail is called (separate from Create Profile)
     mutating func updateEmail(email: String) {
         if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
             self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
