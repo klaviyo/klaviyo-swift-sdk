@@ -90,26 +90,4 @@ class KlaviyoModelsTest: XCTestCase {
         XCTAssertEqual(apiProfile.attributes.lastName, profile.lastName)
         XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
     }
-
-    func testWhitespaceIsTrimmedForProfileParameters() {
-        let profile = Profile(
-            email: "",
-            phoneNumber: "",
-            externalId: "",
-            firstName: "Walter",
-            lastName: "White")
-        let anonymousId = "C10H15N"
-        let apiProfile = profile.toAPIModel(
-            email: "test@blob.com    ",
-            phoneNumber: "+12345678901    ",
-            externalId: "a       ",
-            anonymousId: anonymousId)
-
-        XCTAssertEqual(apiProfile.attributes.email, "test@blob.com")
-        XCTAssertEqual(apiProfile.attributes.phoneNumber, "+12345678901")
-        XCTAssertEqual(apiProfile.attributes.externalId, "a")
-        XCTAssertEqual(apiProfile.attributes.firstName, profile.firstName)
-        XCTAssertEqual(apiProfile.attributes.lastName, profile.lastName)
-        XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
-    }
 }

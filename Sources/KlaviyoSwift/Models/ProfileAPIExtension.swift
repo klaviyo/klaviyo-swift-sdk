@@ -9,9 +9,8 @@ import Foundation
 import KlaviyoCore
 
 extension String {
-    fileprivate func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
-        let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedString.isEmpty ? nil : trimmedString
+    fileprivate func returnNilIfEmpty() -> String? {
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
     }
 }
 
@@ -22,9 +21,9 @@ extension Profile {
         externalId: String? = nil,
         anonymousId: String) -> ProfilePayload {
         ProfilePayload(
-            email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            externalId: externalId?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            email: email ?? self.email?.returnNilIfEmpty(),
+            phoneNumber: phoneNumber ?? self.phoneNumber?.returnNilIfEmpty(),
+            externalId: externalId ?? self.externalId?.returnNilIfEmpty(),
             firstName: firstName,
             lastName: lastName,
             organization: organization,

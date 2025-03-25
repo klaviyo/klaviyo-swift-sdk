@@ -78,23 +78,24 @@ struct KlaviyoState: Equatable, Codable {
         queue.append(request)
     }
 
+    // used when setEmail is called (separate from Create Profile)
     mutating func updateEmail(email: String) {
         if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            self.email = email
+            self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updateExternalId(externalId: String) {
         if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
-            self.externalId = externalId
+            self.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
         if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            self.phoneNumber = phoneNumber
+            self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
@@ -134,20 +135,20 @@ struct KlaviyoState: Equatable, Codable {
         }
     }
 
-    mutating func updateStateWithProfile(profile: Profile) {
+    mutating func updateStateWithProfile(profile: Profile) { // Create Profile
         if let profileEmail = profile.email,
            profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            email = profileEmail
+            email = profileEmail.trimWhiteSpaceOrReturnNilIfEmpty() // needed here to actually update state
         }
 
         if let profilePhoneNumber = profile.phoneNumber,
            profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            phoneNumber = profilePhoneNumber
+            phoneNumber = profilePhoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
         }
 
         if let profileExternalId = profile.externalId,
            profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
-            externalId = profileExternalId
+            externalId = profileExternalId.trimWhiteSpaceOrReturnNilIfEmpty()
         }
     }
 
@@ -471,5 +472,10 @@ extension String {
         }
 
         return !incoming.isEmpty && incoming != state
+    }
+
+    fileprivate func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
+        let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedString.isEmpty ? nil : trimmedString
     }
 }

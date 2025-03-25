@@ -552,6 +552,19 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testCreateProfileWithTrailingWhitespaceProperties() async throws {
+        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "foo@blob.com ", phoneNumber: "+19999999999     ", externalId: "abcdefg    "))) {
+            $0.phoneNumber = "+19999999999"
+            $0.email = "foo@blob.com"
+            $0.externalId = "abcdefg"
+            $0.enqueueProfileOrTokenRequest()
+            $0.pushTokenData = nil
+        }
+    }
+
     // MARK: - Test enqueue event
 
     @MainActor
