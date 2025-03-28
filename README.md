@@ -28,6 +28,7 @@
     - [Badge Count](#badge-count)
        - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
+    - [Silent Push Notifications](#silent-push-notifications)
 - [In-App Forms](#in-app-forms)
   - [Setup](#setup)
   - [Behavior](#behavior)
@@ -513,6 +514,29 @@ By default, the Klaviyo SDK automatically clears the badge count on app open. If
 ##### Handling Other Badging Sources
 
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+#### Silent Push Notifications
+
+Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
+>  ℹ️ Silent push support is available by default. No special SDK methods are required to receive them. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
+
+To handle silent push notifications, implement the following delegate method in your `AppDelegate`:
+
+```
+func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+
+    // Convert payload to Data
+    do {
+        let serializedPayload = try JSONSerialization.data(withJSONObject: userInfo, options: [])
+        
+        // Further processing
+    } catch {
+        print("Error converting dictionary to data: \(error.localizedDescription)")
+    }
+}
+```
+
+>  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, use a real device.
 
 ## In-App Forms
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
