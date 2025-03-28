@@ -536,6 +536,8 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 }
 ```
 
+>  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, use a real device.
+
 ## In-App Forms
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 
