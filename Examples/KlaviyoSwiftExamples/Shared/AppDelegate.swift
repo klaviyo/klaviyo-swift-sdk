@@ -96,6 +96,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("application:didFailToRegisterForRemoteNotificationsWithError: \(error)")
         }
     }
+    
+    // MARK: Silent Push Notification implementation
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable : Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // Convert payload to Data
+        do {
+            let serializedPayload = try JSONSerialization.data(withJSONObject: userInfo, options: [])
+
+            // Process or forward the data
+        } catch {
+            print("Error converting dictionary to data: \(error.localizedDescription)")
+        }
+    }
 
     // MARK: Deep linking implementation
 

@@ -520,6 +520,22 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
 >  ℹ️ Silent push support is available by default. No special SDK methods are required to receive them, but your app must enable `Remote Notifications` under `Background Modes`.
 
+To handle silent push notifications, implement the following delegate method in your `AppDelegate`:
+
+```
+func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+
+    // Convert payload to Data
+    do {
+        let serializedPayload = try JSONSerialization.data(withJSONObject: userInfo, options: [])
+        
+        // Further processing
+    } catch {
+        print("Error converting dictionary to data: \(error.localizedDescription)")
+    }
+}
+```
+
 ## In-App Forms
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 
