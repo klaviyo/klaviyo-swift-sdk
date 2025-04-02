@@ -105,45 +105,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         // FIXME: add timeout(?)
     }
 
-    func preloadWebsite(timeout: UInt64) async throws {
-        guard let delegate else { return }
-
-        await delegate.preloadUrl()
-
-        do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                defer {
-                    formWillAppearContinuation.finish()
-                    group.cancelAll()
-                }
-
-                group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
-                    throw PreloadError.timeout
-                }
-
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    var iterator = self.formWillAppearStream.makeAsyncIterator()
-                    await iterator.next()
-                }
-
-                try await group.next()
-            }
-        } catch let error as PreloadError {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
-            }
-            throw error
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error preloading URL: \(error)")
-            }
-            throw error
-        }
-    }
-
     // MARK: - handle WKWebView events
 
     func handleNavigationEvent(_ event: WKNavigationEvent) {
