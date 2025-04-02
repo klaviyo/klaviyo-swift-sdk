@@ -54,6 +54,17 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         self.viewModel.delegate = self
     }
 
+    deinit {
+        viewModel.messageHandlers?.forEach {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+        }
+        #if DEBUG
+        if webConsoleLoggingEnabled {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+        }
+        #endif
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -77,14 +88,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         loadUrl()
     }
 
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
-        }
-    }
-
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         dismiss()
@@ -104,14 +107,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func dismiss() {
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
-        }
-        #if DEBUG
-        if webConsoleLoggingEnabled {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
-        }
-        #endif
         dismiss(animated: false)
     }
 
