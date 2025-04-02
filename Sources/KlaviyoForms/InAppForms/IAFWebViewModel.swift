@@ -102,6 +102,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     func loadIAFTemplate() async {
         guard let delegate else { return }
         await delegate.preloadUrl()
+        // FIXME: add timeout(?)
     }
 
     func preloadWebsite(timeout: UInt64) async throws {
