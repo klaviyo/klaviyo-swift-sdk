@@ -24,6 +24,7 @@ class IAFPresentationManager {
     }()
 
     private var isLoading: Bool = false
+    private var formWillAppearTask: Task<Void, Never>?
 
     @MainActor
     func presentIAF(assetSource: String? = nil) {
@@ -54,31 +55,32 @@ class IAFPresentationManager {
             viewController = KlaviyoWebViewController(viewModel: viewModel)
             viewController?.modalPresentationStyle = .overCurrentContext
 
-            do {
-                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
-            } catch {
-                viewController?.dismiss()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
-                }
-                return
-            }
+            await viewModel.loadIAFTemplate()
 
-            guard let topController = UIApplication.shared.topMostViewController else {
-                viewController?.dismiss()
-                return
+            // listen for formwillappear
+            formWillAppearTask = Task {
+                for await _ in viewModel.formWillAppearStream {
+                    handleFormWillAppear()
+                }
             }
+        }
+    }
 
-            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                viewController?.dismiss()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
-                }
-            } else {
-                if let viewController {
-                    topController.present(viewController, animated: false, completion: nil)
-                }
+    @MainActor
+    private func handleFormWillAppear() {
+        guard let viewController else { return }
+
+        guard let topController = UIApplication.shared.topMostViewController else {
+            viewController.dismiss(animated: false)
+            return
+        }
+
+        if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack { // FIXME: use viewController.isBeingPresented here?
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.log("In-App Form is already being presented; ignoring formWillAppear message")
             }
+        } else {
+            topController.present(viewController, animated: false, completion: nil)
         }
     }
 }
