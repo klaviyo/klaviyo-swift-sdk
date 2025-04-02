@@ -142,7 +142,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .formWillAppear:
             formWillAppearContinuation.yield()
-            formWillAppearContinuation.finish()
         case .formDisappeared:
             Task {
                 await delegate?.dismiss()
