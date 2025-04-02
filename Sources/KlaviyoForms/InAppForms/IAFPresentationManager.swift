@@ -13,6 +13,7 @@ import UIKit
 
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
+    private var viewController: KlaviyoWebViewController?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -50,13 +51,13 @@ class IAFPresentationManager {
             }
 
             let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
-            let viewController = KlaviyoWebViewController(viewModel: viewModel)
-            viewController.modalPresentationStyle = .overCurrentContext
+            viewController = KlaviyoWebViewController(viewModel: viewModel)
+            viewController?.modalPresentationStyle = .overCurrentContext
 
             do {
                 try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
-                viewController.dismiss()
+                viewController?.dismiss()
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
                 }
@@ -64,17 +65,19 @@ class IAFPresentationManager {
             }
 
             guard let topController = UIApplication.shared.topMostViewController else {
-                viewController.dismiss()
+                viewController?.dismiss()
                 return
             }
 
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                viewController.dismiss()
+                viewController?.dismiss()
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
-                topController.present(viewController, animated: false, completion: nil)
+                if let viewController {
+                    topController.present(viewController, animated: false, completion: nil)
+                }
             }
         }
     }
