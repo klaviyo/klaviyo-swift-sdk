@@ -28,7 +28,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let companyId: String?
     private let assetSource: String?
 
-    private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+    public let formWillAppearStream: AsyncStream<Void>
+    private let formWillAppearContinuation: AsyncStream<Void>.Continuation
 
     // MARK: - Scripts
 
@@ -80,6 +81,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
         self.companyId = companyId
         self.assetSource = assetSource
+
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
+        formWillAppearStream = stream
+        formWillAppearContinuation = continuation
+
         initializeLoadScripts()
     }
 
