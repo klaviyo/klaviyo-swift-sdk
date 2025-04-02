@@ -99,6 +99,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
+    func loadIAFTemplate() async {
+        guard let delegate else { return }
+        await delegate.preloadUrl()
+    }
+
     func preloadWebsite(timeout: UInt64) async throws {
         guard let delegate else { return }
 
