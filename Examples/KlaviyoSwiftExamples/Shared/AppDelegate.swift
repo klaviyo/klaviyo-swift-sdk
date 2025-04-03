@@ -100,7 +100,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: Silent Push Notification implementation
     func application(
         _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable : Any],
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         // Access custom key-value pairs from the top level
         if let customData = userInfo["key_value_pairs"] as? [String: String] {
