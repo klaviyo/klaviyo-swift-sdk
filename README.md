@@ -488,12 +488,12 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 {
   "aps": {
     "alert": {
-      "title": "Free apple vision pro",
-      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
+      "title": "Sample title for a Klaviyo push notification,
+      "body": "Sample body for a Klaviyo push notification"
     },
     "mutable-content": 1
   },
-  "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+  "rich-media": "https://picsum.photos/200/300.jpg",
   "rich-media-type": "jpg"
 }
 ```
