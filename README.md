@@ -518,9 +518,9 @@ Klaviyo SDK will automatically handle the badge count associated with Klaviyo pu
 #### Silent Push Notifications
 
 Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
->  ℹ️ Silent push support is available by default. No special SDK methods are required to receive them. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
+>  ℹ️ Silent push support is available by default. The Klaviyo SDK does not provide specific handling for silent push notifications. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
 
-To handle silent push notifications, implement the following delegate method in your `AppDelegate`:
+To handle silent push notifications in your app, you'll need to implement the appropriate delegate methods yourself. Here's an example of how to handle silent push notifications:
 
 ```
 func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
@@ -536,7 +536,10 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 }
 ```
 
->  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, use a real device.
+>  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
+
+#### Custom Data
+Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. For silent push notifications, you can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (see the example above). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
 ## In-App Forms
 > ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
