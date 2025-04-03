@@ -64,7 +64,7 @@ Once integrated, your marketing team will be able to better understand your app 
     Set up an App Group between your main app target and your Notification Service Extension.
     - Select your main app target > Signing & Capabilities
     - Select + Capability (make sure it is set to All not Debug or Release) > App Groups
-    - Create a new App Group based on the recommended naming scheme `group.com.[MainTargetBundleId].[descriptor]`
+    - Create a new App Group based on the recommended naming scheme `group.[MainTargetBundleId].[descriptor]`
     - In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
     - Select your Notification Service Extension target > Signing & Capabilities
     - Add an App Group with the same name as the main target's App Group
