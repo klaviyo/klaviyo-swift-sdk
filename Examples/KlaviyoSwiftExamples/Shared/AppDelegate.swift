@@ -96,8 +96,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("application:didFailToRegisterForRemoteNotificationsWithError: \(error)")
         }
     }
-    
+
     // MARK: Silent Push Notification implementation
+
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
