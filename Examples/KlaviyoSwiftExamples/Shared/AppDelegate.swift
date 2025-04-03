@@ -103,13 +103,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable : Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        // Convert payload to Data
-        do {
-            let serializedPayload = try JSONSerialization.data(withJSONObject: userInfo, options: [])
-
-            // Process or forward the data
-        } catch {
-            print("Error converting dictionary to data: \(error.localizedDescription)")
+        // Access custom key-value pairs from the top level
+        if let customData = userInfo["key_value_pairs"] as? [String: String] {
+            // Process your custom key-value pairs here
+            for (key, value) in kvPairs {
+                print("Key: \(key), Value: \(value)")
+            }
+        } else {
+            print("No key_value_pairs found in notification")
         }
     }
 
