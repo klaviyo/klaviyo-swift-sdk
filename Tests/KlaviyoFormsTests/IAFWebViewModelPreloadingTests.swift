@@ -16,6 +16,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     var viewModel: IAFWebViewModel!
     var delegate: MockIAFWebViewDelegate!
 
+    @MainActor
     override func setUp() {
         super.setUp()
 

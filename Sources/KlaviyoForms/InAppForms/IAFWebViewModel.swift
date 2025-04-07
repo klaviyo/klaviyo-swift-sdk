@@ -32,6 +32,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Scripts
 
+    @MainActor
     private var klaviyoJsWKScript: WKUserScript? {
         var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
@@ -56,18 +57,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: klaviyoJsScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
     private var sdkNameWKScript: WKUserScript {
         let sdkName = environment.sdkName()
         let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
         return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
     private var sdkVersionWKScript: WKUserScript {
         let sdkVersion = environment.sdkVersion()
         let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
     private var handshakeWKScript: WKUserScript {
         let handshakeStringified = IAFNativeBridgeEvent.handshake
         let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
@@ -76,6 +80,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Initializer
 
+    @MainActor
     init(url: URL, companyId: String, assetSource: String? = nil) {
         self.url = url
         self.companyId = companyId
@@ -83,6 +88,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         initializeLoadScripts()
     }
 
+    @MainActor
     func initializeLoadScripts() {
         guard let klaviyoJsWKScript else { return }
         loadScripts?.insert(klaviyoJsWKScript)
