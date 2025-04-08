@@ -34,24 +34,22 @@ private func createDefaultWebView() -> WKWebView {
 }
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
-    private lazy var webView: WKWebView = {
-        let webView = createWebView()
-        webView.customUserAgent = NetworkSession.defaultUserAgent
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-        return webView
-    }()
+    private let webView: WKWebView
 
     private var viewModel: KlaviyoWebViewModeling
-    private let createWebView: () -> WKWebView
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
-        createWebView = webViewFactory
+        webView = webViewFactory()
         super.init(nibName: nil, bundle: nil)
         self.viewModel.delegate = self
+
+        // Set up the web view
+        webView.customUserAgent = NetworkSession.defaultUserAgent
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
     }
 
     deinit {
