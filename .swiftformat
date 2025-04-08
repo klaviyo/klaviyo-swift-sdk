@@ -11,7 +11,7 @@
 # format options
 
 --exclude Sources/KlaviyoSwift/Vendor,Tests/KlaviyoSwiftTests/Vendor,Tests/KlaviyoSwiftTests/__Snapshots__
---closingparen same-line
+--closingparen balanced
 --commas inline
 --comments indent
 --decimalgrouping 3,5
