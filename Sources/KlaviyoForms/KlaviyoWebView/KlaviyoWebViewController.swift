@@ -232,6 +232,46 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
     #endif
 }
 
+// MARK: - Script Delegate Wrapper
+
+/// A wrapper class that prevents retain cycles when using WKScriptMessageHandler with WKWebView.
+///
+/// This class solves a common memory management issue with WKWebView's message handling system.
+/// Without this wrapper, a retain cycle would form:
+/// - WKWebView strongly retains its userContentController
+/// - userContentController strongly retains its message handlers
+/// - The message handler (typically a view controller) strongly retains the WKWebView
+///
+/// By using a weak reference to the delegate, this wrapper breaks the retain cycle while still
+/// allowing JavaScript messages to be properly forwarded to the delegate.
+///
+/// ## Usage
+/// ```swift
+/// // Instead of directly adding the view controller as a message handler:
+/// // webView.configuration.userContentController.add(self, name: "handlerName")
+///
+/// // Use the wrapper to avoid retain cycles:
+/// webView.configuration.userContentController.add(
+///     ScriptDelegateWrapper(delegate: self),
+///     name: "handlerName"
+/// )
+/// ```
+///
+/// - Note: code adapted from https://stackoverflow.com/a/26383032/11870387
+private class ScriptDelegateWrapper: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+
+    init(delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+        super.init()
+    }
+
+    @MainActor
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
+    }
+}
+
 // MARK: - Previews
 
 #if DEBUG
