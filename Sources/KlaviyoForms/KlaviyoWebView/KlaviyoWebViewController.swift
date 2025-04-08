@@ -119,7 +119,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(self, name: $0)
+            webView.configuration.userContentController.add(ScriptDelegateWrapper(delegate: self), name: $0)
         }
 
         #if DEBUG
@@ -146,7 +146,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         )
 
         webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(self, name: "consoleMessageHandler")
+        webView.configuration.userContentController.add(ScriptDelegateWrapper(delegate: self), name: "consoleMessageHandler")
     }
     #endif
 
