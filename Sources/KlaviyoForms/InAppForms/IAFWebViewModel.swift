@@ -23,7 +23,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let url: URL
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
-    var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
+    let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     private let companyId: String?
     private let assetSource: String?
