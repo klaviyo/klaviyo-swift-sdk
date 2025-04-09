@@ -20,7 +20,8 @@ class ViewController: UIViewController {
     @IBOutlet var zipcodeTextField: UITextField!
     @IBOutlet var rememberMeSwitch: UISwitch!
 
-    @IBAction func login(_ sender: UIButton) {
+    @IBAction
+    func login(_ sender: UIButton) {
         if checkForZipAndEmail {
             performSegue(withIdentifier: "loginSegue", sender: sender)
         } else {

@@ -28,3 +28,5 @@
 --wraparguments preserve
 --wrapcollections preserve
 --wrapparameters preserve
+--funcattributes prev-line
+--typeattributes prev-line
