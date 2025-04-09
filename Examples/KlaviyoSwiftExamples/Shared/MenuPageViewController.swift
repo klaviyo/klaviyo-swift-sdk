@@ -101,7 +101,8 @@ class MenuPageViewController: UIViewController {
 
     // MARK: IB Action
 
-    @IBAction func addEmail(_ sender: AnyObject) {
+    @IBAction
+    func addEmail(_ sender: AnyObject) {
         // present user with text box to add email & save
         let alertController = UIAlertController(
             title: "Add Email",
@@ -138,7 +139,8 @@ class MenuPageViewController: UIViewController {
         present(alertController, animated: true, completion: nil)
     }
 
-    @IBAction func removeItem(_ sender: AnyObject) {
+    @IBAction
+    func removeItem(_ sender: AnyObject) {
         if cart.cartItems.isEmpty {
             cartIcon.setImage(UIImage(named: "emptyCart"), for: UIControl.State())
             return
@@ -148,7 +150,8 @@ class MenuPageViewController: UIViewController {
         tableView.reloadData()
     }
 
-    @IBAction func logOut(_ sender: AnyObject) {
+    @IBAction
+    func logOut(_ sender: AnyObject) {
         // Present an action sheet to ask if they are sure
         let alertController = UIAlertController(
             title: "Log Out?",
@@ -178,7 +181,8 @@ class MenuPageViewController: UIViewController {
     }
 
     // Add a modal popup that lets users add their zip code: Can't add text to action sheet so this currently uses the alert controlelr
-    @IBAction func addZipcode(_ sender: UIButton) {
+    @IBAction
+    func addZipcode(_ sender: UIButton) {
         let alertController = UIAlertController(
             title: "Add Zipcode",
             message: "Please add your zipcode",
@@ -211,7 +215,8 @@ class MenuPageViewController: UIViewController {
         present(alertController, animated: true, completion: nil)
     }
 
-    @IBAction func viewCart(_ sender: UIButton) {
+    @IBAction
+    func viewCart(_ sender: UIButton) {
         let message = cart.cartItems.isEmpty ?
             "Your cart is empty! Please add some items before you check out." :
             "You have \(cart.cartItems.count) item(s) in your cart. Are you ready to check out?"
@@ -243,7 +248,8 @@ class MenuPageViewController: UIViewController {
         present(alertController, animated: true, completion: nil)
     }
 
-    @IBAction func addToCart(_ sender: UIButton) {
+    @IBAction
+    func addToCart(_ sender: UIButton) {
         if !cart.cartItems.isEmpty {
             cartIcon.setImage(UIImage(named: "FullCart"), for: UIControl.State())
         }
@@ -262,7 +268,8 @@ class MenuPageViewController: UIViewController {
         tableView.reloadData()
     }
 
-    @IBAction func unwindToMenuPageViewController(_ segue: UIStoryboardSegue) {
+    @IBAction
+    func unwindToMenuPageViewController(_ segue: UIStoryboardSegue) {
         print("Successfully unwound. Items in cart: \(cart.cartItems.count)")
     }
 

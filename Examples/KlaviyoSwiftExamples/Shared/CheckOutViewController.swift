@@ -47,7 +47,8 @@ class CheckOutViewController: UIViewController {
      Check out button action
      Triggers checkout completed event & empties the cart
      */
-    @IBAction func checkOutButton(_ sender: UIButton) {
+    @IBAction
+    func checkOutButton(_ sender: UIButton) {
         if cart.cartItems.isEmpty {
             return
         }
@@ -83,7 +84,8 @@ class CheckOutViewController: UIViewController {
         present(alertController, animated: true, completion: nil)
     }
 
-    @IBAction func removeItemButton(_ sender: AnyObject) {
+    @IBAction
+    func removeItemButton(_ sender: AnyObject) {
         if cart.cartItems.isEmpty {
             return
         }
