@@ -44,7 +44,8 @@ class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
                             "formId": "abc123"
                           }
                         }
-                        """)
+                        """
+                    )
 
                     viewModel.handleScriptMessage(scriptMessage)
 

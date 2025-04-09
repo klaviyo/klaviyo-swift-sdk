@@ -40,7 +40,8 @@ public struct KlaviyoEnvironment {
         klaviyoAPI: KlaviyoAPI,
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
-        SDKVersion: @escaping () -> String) {
+        SDKVersion: @escaping () -> String
+    ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -204,7 +205,8 @@ public struct KlaviyoEnvironment {
                 .eraseToAnyPublisher()
         },
         SDKName: KlaviyoEnvironment.getSDKName,
-        SDKVersion: KlaviyoEnvironment.getSDKVersion)
+        SDKVersion: KlaviyoEnvironment.getSDKVersion
+    )
 }
 
 public var networkSession: NetworkSession!

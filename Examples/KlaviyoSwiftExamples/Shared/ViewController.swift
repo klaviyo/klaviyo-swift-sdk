@@ -59,10 +59,12 @@ class ViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Oh No!",
             message: "Please enter a zipcode or email",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
         let okAction = UIAlertAction(
             title: "OK",
-            style: .default)
+            style: .default
+        )
 
         alertController.addAction(okAction)
         present(alertController, animated: true, completion: nil)

@@ -20,7 +20,8 @@ final class KlaviyoAPITests: XCTestCase {
 
         await sendAndAssert(with: KlaviyoRequest(
             apiKey: "foo",
-            endpoint: .createProfile(CreateProfilePayload(data: .test)))
+            endpoint: .createProfile(CreateProfilePayload(data: .test))
+        )
         ) { result in
             switch result {
             case let .failure(error):

@@ -15,7 +15,8 @@ public struct KlaviyoRequest: Equatable, Codable {
     public init(
         apiKey: String,
         endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString) {
+        uuid: String = environment.uuid().uuidString
+    ) {
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.uuid = uuid

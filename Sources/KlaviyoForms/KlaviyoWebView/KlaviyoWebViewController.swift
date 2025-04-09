@@ -147,7 +147,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             // Format as an immediately invoked function expression
             source: ";(\(consoleHandlerScript))('\(strHandoff)');",
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false)
+            forMainFrameOnly: false
+        )
 
         webView.configuration.userContentController.addUserScript(script)
         webView.configuration.userContentController.add(self, name: "consoleMessageHandler")

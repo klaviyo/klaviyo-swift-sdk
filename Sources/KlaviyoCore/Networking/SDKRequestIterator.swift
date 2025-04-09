@@ -54,14 +54,16 @@ public struct SDKRequest: Identifiable, Equatable {
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
                     externalId: payload.data.attributes.externalId,
-                    anonymousId: payload.data.attributes.anonymousId))
+                    anonymousId: payload.data.attributes.anonymousId
+                ))
             case let .createEvent(payload):
                 return .createEvent(
                     EventInfo(eventName: payload.data.attributes.metric.data.attributes.name),
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
-                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
+                )
             case let .aggregateEvent(payload):
                 return .createAggregateEvent(payload)
             case let .registerPushToken(payload):

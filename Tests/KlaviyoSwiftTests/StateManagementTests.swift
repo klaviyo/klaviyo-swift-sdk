@@ -162,7 +162,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized)
+            enablement: .authorized
+        )
 
         _ = await store.send(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
             $0.queue = [pushTokenRequest]
@@ -183,7 +184,8 @@ class StateManagementTests: XCTestCase {
                 pushToken: initialState.pushTokenData!.pushToken,
                 pushEnablement: .authorized,
                 pushBackground: initialState.pushTokenData!.pushBackground,
-                deviceData: initialState.pushTokenData!.deviceData)
+                deviceData: initialState.pushTokenData!.deviceData
+            )
         }
     }
 
@@ -237,7 +239,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized)
+            enablement: .authorized
+        )
 
         _ = await store.send(.setPushEnablement(.authorized))
 
@@ -546,8 +549,10 @@ class StateManagementTests: XCTestCase {
                     pushToken: initialState.pushTokenData!.pushToken,
                     enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                     background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!))
-                ))
+                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!)
+                )
+                )
+            )
             $0.queue = [request]
         }
     }
@@ -586,8 +591,10 @@ class StateManagementTests: XCTestCase {
                                 phoneNumber: $0.phoneNumber,
                                 anonymousId: initialState.anonymousId!,
                                 time: event.time,
-                                pushToken: initialState.pushTokenData!.pushToken)
-                        ))))
+                                pushToken: initialState.pushTokenData!.pushToken
+                            )
+                        ))
+                    ))
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -622,8 +629,10 @@ class StateManagementTests: XCTestCase {
                             properties: event.properties,
                             phoneNumber: $0.phoneNumber,
                             anonymousId: initialState.anonymousId!,
-                            time: event.time)
-                    )))
+                            time: event.time
+                        )
+                    ))
+                )
             )
         }
 
@@ -645,7 +654,8 @@ class StateManagementTests: XCTestCase {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)))
+                    endpoint: .aggregateEvent(AggregateEventPayload(data))
+                )
             )
         }
     }
@@ -669,7 +679,8 @@ class StateManagementTests: XCTestCase {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)))
+                    endpoint: .aggregateEvent(AggregateEventPayload(data))
+                )
             )
         }
 

@@ -144,7 +144,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     let request = state.buildUnregisterRequest(
                         apiKey: apiKey,
                         anonymousId: anonymousId,
-                        pushToken: tokenData.pushToken)
+                        pushToken: tokenData.pushToken
+                    )
                     state.enqueueRequest(request: request)
                 }
                 state.apiKey = apiKey
@@ -266,7 +267,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     state.retryInfo = .retryWithBackoff(
                         requestCount: requestCount,
                         totalRetryCount: totalCount,
-                        currentBackoff: newBackOff)
+                        currentBackoff: newBackOff
+                    )
                     return .none
                 } else {
                     state.retryInfo = .retry(requestCount)
@@ -330,7 +332,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     pushToken: requestData.token,
                     pushEnablement: enablement,
                     pushBackground: backgroundStatus,
-                    deviceData: requestData.deviceMetadata)
+                    deviceData: requestData.deviceMetadata
+                )
             }
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
@@ -444,7 +447,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     value: event.value,
                     time: event.time,
                     uniqueId: event.uniqueId,
-                    pushToken: state.pushTokenData?.pushToken))
+                    pushToken: state.pushTokenData?.pushToken
+                ))
 
             let endpoint = KlaviyoEndpoint.createEvent(payload)
             let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
@@ -494,21 +498,25 @@ struct KlaviyoReducer: ReducerProtocol {
                 email: state.email,
                 phoneNumber: state.phoneNumber,
                 externalId: state.externalId,
-                anonymousId: anonymousId)
+                anonymousId: anonymousId
+            )
 
             if let tokenData = pushTokenData {
                 let payload = PushTokenPayload(
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: profilePayload)
+                    profile: profilePayload
+                )
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload))
+                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                )
             } else {
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload)))
+                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload))
+                )
             }
             state.enqueueRequest(request: request)
 
@@ -564,7 +572,8 @@ struct KlaviyoReducer: ReducerProtocol {
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
         initialState: KlaviyoState(queue: [], requestsInFlight: []),
-        reducer: KlaviyoReducer())
+        reducer: KlaviyoReducer()
+    )
 }
 
 extension Event {
@@ -572,7 +581,8 @@ extension Event {
         let identifiers = Identifiers(
             email: state.email,
             phoneNumber: state.phoneNumber,
-            externalId: state.externalId)
+            externalId: state.externalId
+        )
         var properties = properties
         if metric.name == EventName._openedPush,
            let pushToken = state.pushTokenData?.pushToken {

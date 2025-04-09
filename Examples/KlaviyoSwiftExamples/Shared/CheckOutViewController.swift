@@ -69,14 +69,16 @@ class CheckOutViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Thank You!",
             message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
         let okAction = UIAlertAction(
             title: "OK",
             style: .default,
             handler: { _ in
                 // segue back to menu
                 self.performSegue(withIdentifier: "checkoutMenuSegue", sender: self)
-            })
+            }
+        )
         alertController.addAction(okAction)
         present(alertController, animated: true, completion: nil)
     }

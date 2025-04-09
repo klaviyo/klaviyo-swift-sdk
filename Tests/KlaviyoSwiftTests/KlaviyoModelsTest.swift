@@ -25,8 +25,10 @@ class KlaviyoModelsTest: XCTestCase {
                 city: "Albuquerque",
                 country: "USA",
                 zip: "42000",
-                timezone: "MDT"),
-            properties: ["order amount": "a lot of money"])
+                timezone: "MDT"
+            ),
+            properties: ["order amount": "a lot of money"]
+        )
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(anonymousId: anonymousId)
 
@@ -54,13 +56,15 @@ class KlaviyoModelsTest: XCTestCase {
     func testProfileWithNoIdsModelConvertsToAPIModel() {
         let profile = Profile(
             firstName: "Walter",
-            lastName: "White")
+            lastName: "White"
+        )
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(
             email: "walter.white@breakingbad.com",
             phoneNumber: "1800-better-call-saul",
             externalId: "999",
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
         XCTAssertNil(profile.email)
         XCTAssertNil(profile.phoneNumber)
         XCTAssertNil(profile.externalId)
@@ -78,7 +82,8 @@ class KlaviyoModelsTest: XCTestCase {
             phoneNumber: "",
             externalId: "",
             firstName: "Walter",
-            lastName: "White")
+            lastName: "White"
+        )
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(
             anonymousId: anonymousId)
@@ -97,13 +102,15 @@ class KlaviyoModelsTest: XCTestCase {
             phoneNumber: "",
             externalId: "",
             firstName: "Walter",
-            lastName: "White")
+            lastName: "White"
+        )
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(
             email: "test@blob.com    ",
             phoneNumber: "+12345678901    ",
             externalId: "a       ",
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
 
         XCTAssertEqual(apiProfile.attributes.email, "test@blob.com")
         XCTAssertEqual(apiProfile.attributes.phoneNumber, "+12345678901")

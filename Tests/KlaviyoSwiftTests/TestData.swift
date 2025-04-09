@@ -23,7 +23,8 @@ let INITIALIZED_TEST_STATE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITILIZING_TEST_STATE = {
@@ -33,7 +34,8 @@ let INITILIZING_TEST_STATE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITIALIZED_TEST_STATE_INVALID_PHONE = {
@@ -48,7 +50,8 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
@@ -63,7 +66,8 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 extension Profile {
@@ -84,7 +88,8 @@ extension Profile {
         title: "Jelly",
         image: "foo",
         location: .test,
-        properties: [:])
+        properties: [:]
+    )
 }
 
 extension Profile.Location {
@@ -96,7 +101,8 @@ extension Profile.Location {
         latitude: 1,
         longitude: 1,
         region: "BL",
-        zip: "0BLOB")
+        zip: "0BLOB"
+    )
 }
 
 extension Event {
@@ -132,7 +138,8 @@ extension KlaviyoState {
                                        pushToken: "blob_token",
                                        pushEnablement: .authorized,
                                        pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())),
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
+                                   ),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
