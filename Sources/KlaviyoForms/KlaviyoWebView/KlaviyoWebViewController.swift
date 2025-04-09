@@ -35,6 +35,7 @@ private func createDefaultWebView() -> WKWebView {
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
+    private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
 
     private var viewModel: KlaviyoWebViewModeling
 
@@ -117,7 +118,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(ScriptDelegateWrapper(delegate: self), name: $0)
+            webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
         }
 
         #if DEBUG
@@ -143,7 +144,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             forMainFrameOnly: false)
 
         webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(ScriptDelegateWrapper(delegate: self), name: "consoleMessageHandler")
+        webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
     }
     #endif
 
