@@ -10,7 +10,8 @@ import Foundation
 public struct ArchiverClient {
     public init(
         archivedData: @escaping (Any, Bool) throws -> Data,
-        unarchivedMutableArray: @escaping (Data) throws -> NSMutableArray?) {
+        unarchivedMutableArray: @escaping (Data) throws -> NSMutableArray?
+    ) {
         self.archivedData = archivedData
         self.unarchivedMutableArray = unarchivedMutableArray
     }
@@ -28,7 +29,8 @@ public struct ArchiverClient {
                                                                                              NSNumber.self,
                                                                                              NSURL.self],
                                                                                  from: data) as? NSMutableArray
-        })
+        }
+    )
 }
 
 public func archiveQueue(queue: NSArray, to fileURL: URL) {

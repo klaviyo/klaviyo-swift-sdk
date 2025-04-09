@@ -16,7 +16,8 @@ let ARCHIVED_RETURNED_DATA = Data()
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA })
+        unarchivedMutableArray: { _ in SAMPLE_DATA }
+    )
 }
 
 extension AppLifeCycleEvents {
@@ -54,7 +55,8 @@ extension KlaviyoEnvironment {
             klaviyoAPI: KlaviyoAPI.test(),
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
-            SDKVersion: { __klaviyoSwiftVersion })
+            SDKVersion: { __klaviyoSwiftVersion }
+        )
     }
 }
 
@@ -91,7 +93,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL })
+        libraryDirectory: { TEST_URL }
+    )
 }
 
 extension KlaviyoAPI {
@@ -148,13 +151,15 @@ private final class KeyedArchiver: NSKeyedArchiver {
 extension UNNotificationResponse {
     static func with(
         userInfo: [AnyHashable: Any],
-        actionIdentifier: String = UNNotificationDefaultActionIdentifier) throws -> UNNotificationResponse {
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier
+    ) throws -> UNNotificationResponse {
         let content = UNMutableNotificationContent()
         content.userInfo = userInfo
         let request = UNNotificationRequest(
             identifier: "",
             content: content,
-            trigger: nil)
+            trigger: nil
+        )
 
         let notification = try XCTUnwrap(UNNotification(coder: KeyedArchiver(requiringSecureCoding: false)))
         notification.setValue(request, forKey: "request")

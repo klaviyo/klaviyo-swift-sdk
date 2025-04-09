@@ -58,13 +58,15 @@ class MenuPageViewController: UIViewController {
             UIImage(
                 named: cart.cartItems.isEmpty ? "emptyCart" : "FullCart"
             ),
-            for: UIControl.State())
+            for: UIControl.State()
+        )
 
         // Add observer for when the app enters background
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(saveCartItems),
-            name: UIApplication.didEnterBackgroundNotification, object: nil)
+            name: UIApplication.didEnterBackgroundNotification, object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -104,23 +106,26 @@ class MenuPageViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Add Email",
             message: "Please add your email",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
 
         let addEmailAction = UIAlertAction(
             title: "Submit",
-            style: .default) { _ in
-                let emailTextField = alertController.textFields![0] as UITextField
-                self.email = emailTextField.text
-                if let email = self.email {
-                    // EXAMPLE: of when the users changes or an existing user changes their email we update the SDK with the new email.
-                    KlaviyoSDK().set(email: email)
-                    self.emailLabel.text = "Email: \(email)"
-                }
+            style: .default
+        ) { _ in
+            let emailTextField = alertController.textFields![0] as UITextField
+            self.email = emailTextField.text
+            if let email = self.email {
+                // EXAMPLE: of when the users changes or an existing user changes their email we update the SDK with the new email.
+                KlaviyoSDK().set(email: email)
+                self.emailLabel.text = "Email: \(email)"
             }
+        }
 
         let cancelAction = UIAlertAction(
             title: "Cancel",
-            style: .cancel)
+            style: .cancel
+        )
 
         alertController.addTextField { textfield in
             textfield.placeholder = "email"
@@ -148,10 +153,12 @@ class MenuPageViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Log Out?",
             message: "Are you sure you want to log out? You will lose any items in your cart.",
-            preferredStyle: .actionSheet)
+            preferredStyle: .actionSheet
+        )
         let cancelAction = UIAlertAction(
             title: "Nevermind",
-            style: .cancel)
+            style: .cancel
+        )
 
         let logoutAction = UIAlertAction(
             title: "Log Out",
@@ -162,7 +169,8 @@ class MenuPageViewController: UIViewController {
                 defaults.removeObject(forKey: "zip")
                 defaults.removeObject(forKey: "cartItems")
                 self.performSegue(withIdentifier: "logoutSegue", sender: self)
-            })
+            }
+        )
 
         alertController.addAction(cancelAction)
         alertController.addAction(logoutAction)
@@ -174,7 +182,8 @@ class MenuPageViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Add Zipcode",
             message: "Please add your zipcode",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
 
         let addZipAction = UIAlertAction(
             title: "Update",
@@ -183,11 +192,13 @@ class MenuPageViewController: UIViewController {
                 let zipTextField = alertController.textFields![0] as UITextField
                 self.zip = zipTextField.text
                 self.zipcode.text = zipTextField.text
-            })
+            }
+        )
 
         let cancelAction = UIAlertAction(
             title: "Cancel",
-            style: .cancel)
+            style: .cancel
+        )
 
         alertController.addTextField { textfield in
             textfield.placeholder = "zip"
@@ -208,11 +219,13 @@ class MenuPageViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Your Cart",
             message: message,
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
 
         let cancelAction = UIAlertAction(
             title: "Cancel",
-            style: .cancel)
+            style: .cancel
+        )
         alertController.addAction(cancelAction)
 
         let checkoutAction = UIAlertAction(
@@ -224,7 +237,8 @@ class MenuPageViewController: UIViewController {
                 } else {
                     alertController.message = "Please add items to your cart first"
                 }
-            })
+            }
+        )
         alertController.addAction(checkoutAction)
         present(alertController, animated: true, completion: nil)
     }
@@ -280,28 +294,32 @@ class MenuPageViewController: UIViewController {
                     name: "Fish & Chips",
                     id: 1, description: "Lightly battered & fried fresh cod and freshly cooked fries",
                     image: "battered_fish.jpg",
-                    price: 10.99)
+                    price: 10.99
+                )
             )
             menuItems.append(
                 MenuItem(
                     name: "Nicoise Salad",
                     id: 2, description: "Delicious salad of mixed greens, tuna nicoise and balasamic vinagrette",
                     image: "nicoise_salad.jpg",
-                    price: 12.99)
+                    price: 12.99
+                )
             )
             menuItems.append(
                 MenuItem(
                     name: "Red Pork",
                     id: 3, description: "Our take on the popular Chinese dish",
                     image: "red_pork.jpg",
-                    price: 11.99)
+                    price: 11.99
+                )
             )
             menuItems.append(
                 MenuItem(
                     name: "Beef Bolognese",
                     id: 4, description: "Traditional Italian Bolognese",
                     image: "bolognese_meal.jpg",
-                    price: 10.99)
+                    price: 10.99
+                )
             )
         }
     }

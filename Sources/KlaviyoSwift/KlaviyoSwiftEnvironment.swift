@@ -44,6 +44,7 @@ struct KlaviyoSwiftEnvironment {
                     }
                     userDefaults.set(count, forKey: "badgeCount")
                 }
-            })
+            }
+        )
     }()
 }

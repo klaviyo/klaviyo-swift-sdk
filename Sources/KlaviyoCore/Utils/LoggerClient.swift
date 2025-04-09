@@ -25,7 +25,8 @@ func runtimeWarn(
     _ message: @autoclosure () -> String,
     category: String? = environment.sdkName(),
     file: StaticString? = nil,
-    line: UInt? = nil) {
+    line: UInt? = nil
+) {
     #if DEBUG
     let message = message()
     let category = category ?? "Runtime Warning"
@@ -34,7 +35,8 @@ func runtimeWarn(
         .fault,
         log: OSLog(subsystem: "com.apple.runtime-issues", category: category),
         "%@",
-        message)
+        message
+    )
     #endif
     #endif
 }

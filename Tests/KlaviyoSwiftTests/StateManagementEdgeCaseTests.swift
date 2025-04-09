@@ -476,7 +476,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
-            flushing: false)
+            flushing: false
+        )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Impossible case really but we want coverage on it.
@@ -545,7 +546,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
-            flushing: true)
+            flushing: true
+        )
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 

@@ -71,7 +71,8 @@ class KlaviyoSDKTests: XCTestCase {
             email: "john.smith@example.com",
             phoneNumber: "+15555551212",
             firstName: "John",
-            lastName: "Smith")
+            lastName: "Smith"
+        )
         let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile))
 
         klaviyo.set(profile: profile)
