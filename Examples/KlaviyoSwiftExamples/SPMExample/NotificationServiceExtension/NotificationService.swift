@@ -37,6 +37,14 @@ class NotificationService: UNNotificationServiceExtension {
                 bestAttemptContent: bestAttemptContent,
                 contentHandler: contentHandler)
         }
+
+        // Access key-value pairs
+        let userInfo = request.content.userInfo
+        if let kvPairs = userInfo["key_value_pairs"] as? [String: String] {
+            for (key, value) in kvPairs {
+                print("Key: \(key), Value: \(value)")
+            }
+        }
     }
 
     override func serviceExtensionTimeWillExpire() {
