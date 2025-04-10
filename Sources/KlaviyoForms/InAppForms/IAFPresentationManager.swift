@@ -56,7 +56,7 @@ class IAFPresentationManager {
             do {
                 try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
-                viewController.dismiss()
+                viewController.dismiss(animated: false)
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
                 }
@@ -64,12 +64,12 @@ class IAFPresentationManager {
             }
 
             guard let topController = UIApplication.shared.topMostViewController else {
-                viewController.dismiss()
+                viewController.dismiss(animated: false)
                 return
             }
 
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                viewController.dismiss()
+                viewController.dismiss(animated: false)
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }

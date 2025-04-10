@@ -89,7 +89,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        dismiss()
+        dismiss(animated: false)
     }
 
     @MainActor
@@ -102,11 +102,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     func preloadUrl() {
         loadUrl()
-    }
-
-    @MainActor
-    func dismiss() {
-        dismiss(animated: false)
     }
 
     // MARK: - Scripts

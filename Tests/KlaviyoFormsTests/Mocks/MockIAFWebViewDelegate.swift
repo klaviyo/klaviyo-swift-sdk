@@ -7,8 +7,9 @@
 
 @testable import KlaviyoForms
 import Foundation
+import UIKit
 
-class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
+class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     enum PreloadResult {
         case formWillAppear(delay: UInt64)
         case didFailNavigation(delay: UInt64)
@@ -23,6 +24,12 @@ class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
 
     init(viewModel: IAFWebViewModel) {
         self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     func preloadUrl() {
