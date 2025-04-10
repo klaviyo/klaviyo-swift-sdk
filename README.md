@@ -52,7 +52,7 @@ Once integrated, your marketing team will be able to better understand your app 
 ## Installation
 
 1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-2. If you intend to use [rich push notifications](#rich-push), [custom badge counts](#custom-badge-count), or [custom data](#custom-data) add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A Notification Service Extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+2. If you intend to use [rich push notifications](#rich-push), [custom badge counts](#custom-badge-count), or [custom data](#custom-data), add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A Notification Service Extension ships as a separate bundle inside your iOS app. To add this extension to your app:
    - Select File > New > Target in Xcode.
    - Select the Notification Service Extension target from the iOS > Application extension section.
    - Click Next.
