@@ -43,7 +43,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 1.0)
             expectation.fulfill()
         } catch {
             XCTFail("Expected success, but got error: \(error)")
@@ -63,7 +63,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch PreloadError.timeout {
             expectation.fulfill()
@@ -85,7 +85,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch PreloadError.timeout {
             expectation.fulfill()
