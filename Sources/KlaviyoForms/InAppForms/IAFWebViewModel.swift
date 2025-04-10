@@ -105,27 +105,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         await delegate.preloadUrl()
 
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                defer {
-                    formWillAppearContinuation.finish()
-                    group.cancelAll()
-                }
+            try await withTimeout(timeout: timeout) { [weak self] in
+                guard let self else { return }
 
-                group.addTask {
-                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    throw PreloadError.timeout
-                }
-
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    var iterator = self.formWillAppearStream.makeAsyncIterator()
-                    await iterator.next()
-                }
-
-                try await group.next()
+                var iterator = self.formWillAppearStream.makeAsyncIterator()
+                await iterator.next()
             }
-        } catch let error as PreloadError {
+        } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
