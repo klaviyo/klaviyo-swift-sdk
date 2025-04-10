@@ -56,7 +56,7 @@ class IAFPresentationManager {
             viewController.modalPresentationStyle = .overCurrentContext
 
             do {
-                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
+                try await viewModel.preloadWebsite(timeout: Double(NetworkSession.networkTimeout) / 1_000_000_000)
             } catch {
                 viewController.dismiss(animated: animateDismissal)
                 if #available(iOS 14.0, *) {

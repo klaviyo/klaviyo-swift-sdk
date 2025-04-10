@@ -54,7 +54,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     ///
     /// The caller of this method should `await` completion of this method, then present the ViewController.
     /// - Parameter timeout: the amount of time, in milliseconds, to wait before throwing a `timeout` error.
-    public func preloadWebsite(timeout: UInt64) async throws {
+    public func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
@@ -62,7 +62,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
+                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                     throw PreloadError.timeout
                 }
 
