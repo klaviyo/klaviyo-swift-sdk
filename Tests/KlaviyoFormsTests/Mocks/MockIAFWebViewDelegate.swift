@@ -7,11 +7,12 @@
 
 @testable import KlaviyoForms
 import Foundation
+import UIKit
 
-class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
+@MainActor
+class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     enum PreloadResult {
-        case formWillAppear(delay: UInt64)
-        case didFailNavigation(delay: UInt64)
+        case formWillAppear(delay: TimeInterval)
         case none
     }
 
@@ -23,6 +24,12 @@ class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
 
     init(viewModel: IAFWebViewModel) {
         self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     func preloadUrl() {
@@ -33,7 +40,7 @@ class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
             if let result = preloadResult {
                 switch result {
                 case let .formWillAppear(delay):
-                    try? await Task.sleep(nanoseconds: delay)
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
 
                     let scriptMessage = MockWKScriptMessage(
                         name: "KlaviyoNativeBridge",
@@ -48,10 +55,6 @@ class MockIAFWebViewDelegate: NSObject, KlaviyoWebViewDelegate {
                     )
 
                     viewModel.handleScriptMessage(scriptMessage)
-
-                case let .didFailNavigation(delay):
-                    try? await Task.sleep(nanoseconds: delay)
-                    viewModel.handleNavigationEvent(.didFailNavigation)
 
                 case .none:
                     // don't do anything

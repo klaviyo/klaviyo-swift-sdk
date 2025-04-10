@@ -39,7 +39,7 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
     }
 
-    func preloadWebsite(timeout: UInt64) async throws {}
+    func preloadWebsite(timeout: TimeInterval) async throws {}
     func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {}
     func handleScriptMessage(_ message: WKScriptMessage) {}
 }
