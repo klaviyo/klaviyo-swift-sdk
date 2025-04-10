@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 
+@MainActor
 class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     enum PreloadResult {
         case formWillAppear(delay: UInt64)
