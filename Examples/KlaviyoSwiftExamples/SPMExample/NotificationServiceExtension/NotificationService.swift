@@ -44,6 +44,8 @@ class NotificationService: UNNotificationServiceExtension {
             for (key, value) in kvPairs {
                 print("Key: \(key), Value: \(value)")
             }
+        } else {
+            print("No key_value_pairs found in notification")
         }
     }
 
