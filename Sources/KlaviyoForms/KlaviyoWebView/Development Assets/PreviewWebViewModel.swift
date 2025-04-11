@@ -61,7 +61,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
         await delegate.preloadUrl()
 
         do {
-            try await withTimeout(timeout: timeout) { [weak self] in
+            try await withTimeout(seconds: timeout) { [weak self] in
                 guard let self else { return }
                 for await event in self.navEventStream {
                     switch event {

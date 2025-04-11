@@ -105,7 +105,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         await delegate.preloadUrl()
 
         do {
-            try await withTimeout(timeout: timeout) { [weak self] in
+            try await withTimeout(seconds: timeout) { [weak self] in
                 guard let self else { throw ObjectStateError.objectDeallocated }
                 await self.formWillAppearStream.first { _ in true }
             }
