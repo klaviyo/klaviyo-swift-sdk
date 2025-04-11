@@ -16,6 +16,7 @@ class IAFPresentationManager {
 
     private var viewController: KlaviyoWebViewController?
     private var isLoading: Bool = false
+    private var formEventTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -54,29 +55,34 @@ class IAFPresentationManager {
             viewController = KlaviyoWebViewController(viewModel: viewModel)
             viewController?.modalPresentationStyle = .overCurrentContext
 
+            // establish the handshake with KlaviyoJS
             do {
-                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout.seconds)
+                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
             } catch {
-                dismissForm()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
-                }
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
+                viewController = nil
                 return
             }
 
-            guard let topController = UIApplication.shared.topMostViewController else {
-                dismissForm()
-                return
-            }
-
-            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                dismissForm()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+            // now that we've established the handshake, we can start a task that listens for Form events.
+            formEventTask = Task {
+                for await event in viewModel.formLifecycleStream {
+                    handleFormEvent(event)
                 }
-            } else {
-                presentForm()
             }
+        }
+    }
+
+    @MainActor
+    private func handleFormEvent(_ event: IAFLifecycleEvent) {
+        switch event {
+        case .present:
+            presentForm()
+        case .dismiss:
+            dismissForm()
+            formEventTask?.cancel()
+        case .abort:
+            formEventTask?.cancel()
         }
     }
 
