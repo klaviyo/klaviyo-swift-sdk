@@ -11,7 +11,7 @@ final class WithTimeoutTests: XCTestCase {
         }
 
         // When
-        let result = try await withTimeout(timeout: 1.0, operation: operation)
+        let result = try await withTimeout(seconds: 1.0, operation: operation)
 
         // Then
         XCTAssertEqual(result, expectedResult)
@@ -26,7 +26,7 @@ final class WithTimeoutTests: XCTestCase {
         }
 
         // When
-        try await withTimeout(timeout: 1.0, operation: operation)
+        try await withTimeout(seconds: 1.0, operation: operation)
 
         // Then
         XCTAssertTrue(operationCompleted)
@@ -41,7 +41,7 @@ final class WithTimeoutTests: XCTestCase {
 
         // When/Then
         do {
-            _ = try await withTimeout(timeout: 0.5, operation: operation)
+            _ = try await withTimeout(seconds: 0.5, operation: operation)
             XCTFail("Expected timeout error to be thrown")
         } catch let error as TimeoutError {
             XCTAssertEqual(error, .timeout)
@@ -60,7 +60,7 @@ final class WithTimeoutTests: XCTestCase {
 
         // When/Then
         do {
-            _ = try await withTimeout(timeout: 1.0, operation: operation)
+            _ = try await withTimeout(seconds: 1.0, operation: operation)
             XCTFail("Expected TestError to be thrown")
         } catch is TestError {
             // Success
@@ -78,7 +78,7 @@ final class WithTimeoutTests: XCTestCase {
 
         // When/Then
         do {
-            _ = try await withTimeout(timeout: 0, operation: operation)
+            _ = try await withTimeout(seconds: 0, operation: operation)
             XCTFail("Expected timeout error to be thrown")
         } catch let error as TimeoutError {
             XCTAssertEqual(error, .timeout)
