@@ -11,6 +11,29 @@ package enum TimeoutError: Error {
     case timeout
 }
 
+/// Executes an asynchronous operation with a specified timeout duration.
+///
+/// This function runs the provided asynchronous operation and ensures it completes within the specified timeout period.
+/// If the operation takes longer than the timeout duration, a `TimeoutError.timeout` is thrown.
+///
+/// - Parameters:
+///   - timeout: The maximum duration, in seconds, to wait for the operation to complete.
+///   - operation: The asynchronous operation to execute.
+///
+/// - Returns: The result of the operation if it completes within the timeout period.
+///
+/// - Throws:
+///   - `TimeoutError.timeout` if the operation exceeds the specified timeout duration.
+///   - Any error thrown by the operation itself.
+///
+/// - Note: The operation is automatically cancelled if it exceeds the timeout duration.
+///
+/// Example:
+/// ```swift
+/// let result = try await withTimeout(seconds: 5.0) {
+///     try await someLongRunningOperation()
+/// }
+/// ```
 package func withTimeout<T>(
     seconds timeout: TimeInterval,
     operation: @escaping () async throws -> T
