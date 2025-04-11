@@ -102,7 +102,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
         // Access custom key-value pairs from the top level
         if let customData = userInfo["key_value_pairs"] as? [String: String] {
             // Process your custom key-value pairs here
