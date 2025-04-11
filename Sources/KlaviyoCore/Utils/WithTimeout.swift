@@ -12,7 +12,7 @@ package enum TimeoutError: Error {
 }
 
 package func withTimeout<T>(
-    timeout: TimeInterval,
+    seconds timeout: TimeInterval,
     operation: @escaping () async throws -> T
 ) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
