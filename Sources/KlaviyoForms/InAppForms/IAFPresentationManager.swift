@@ -14,6 +14,8 @@ import UIKit
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
 
+    private let animateDismissal = false
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -56,7 +58,7 @@ class IAFPresentationManager {
             do {
                 try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
             } catch {
-                viewController.dismiss()
+                viewController.dismiss(animated: animateDismissal)
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
                 }
@@ -64,12 +66,12 @@ class IAFPresentationManager {
             }
 
             guard let topController = UIApplication.shared.topMostViewController else {
-                viewController.dismiss()
+                viewController.dismiss(animated: animateDismissal)
                 return
             }
 
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                viewController.dismiss()
+                viewController.dismiss(animated: animateDismissal)
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
