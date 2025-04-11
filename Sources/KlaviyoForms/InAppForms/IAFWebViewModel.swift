@@ -29,6 +29,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let assetSource: String?
 
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+    private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
 
@@ -98,6 +99,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     // MARK: - Loading
+
+    func establishHandshake(timeout: TimeInterval) async throws {
+        guard let delegate else { return }
+
+        await delegate.preloadUrl()
+
+        do {
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.handshakeStream.first { _ in true }
+            }
+        } catch let error as TimeoutError {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+            }
+            throw error
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error preloading URL: \(error)")
+            }
+            throw error
+        }
+    }
 
     func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
@@ -186,6 +210,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
+            handshakeContinuation.yield()
+            handshakeContinuation.finish()
         }
     }
 }
