@@ -14,7 +14,7 @@ import UIKit
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
 
-    let animateDismissal = false
+    private let animateDismissal = false
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
