@@ -29,6 +29,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let assetSource: String?
 
     private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+    let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
+    private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
@@ -86,6 +88,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
         self.companyId = companyId
         self.assetSource = assetSource
+
+        let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
+        formLifecycleStream = stream
+        formLifecycleContinuation = continuation
+
         initializeLoadScripts()
     }
 
@@ -179,15 +186,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
-            // TODO: handle formsDataLoaded
             ()
         case .formWillAppear:
-            formWillAppearContinuation.yield()
-            formWillAppearContinuation.finish()
-        case .formDisappeared:
-            Task {
-                await delegate?.dismiss(animated: false)
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received `formWillAppear` event from KlaviyoJS")
             }
+            formLifecycleContinuation.yield(.present)
+        case .formDisappeared:
+            formLifecycleContinuation.yield(.dismiss)
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -203,9 +209,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Aborting webview: \(reason)")
             }
-            Task {
-                await delegate?.dismiss(animated: false)
-            }
+            formLifecycleContinuation.yield(.abort)
         case .handShook:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
