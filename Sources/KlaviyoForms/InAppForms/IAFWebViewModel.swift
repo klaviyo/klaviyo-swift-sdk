@@ -99,35 +99,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
-    func preloadWebsite(timeout: UInt64) async throws {
+    func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
 
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                defer {
-                    formWillAppearContinuation.finish()
-                    group.cancelAll()
-                }
-
-                group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
-                    throw PreloadError.timeout
-                }
-
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    var iterator = self.formWillAppearStream.makeAsyncIterator()
-                    await iterator.next()
-                }
-
-                try await group.next()
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.formWillAppearStream.first { _ in true }
             }
-        } catch let error as PreloadError {
+        } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
             throw error
         } catch {
@@ -178,7 +162,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             formWillAppearContinuation.finish()
         case .formDisappeared:
             Task {
-                await delegate?.dismiss()
+                await delegate?.dismiss(animated: false)
             }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -196,7 +180,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Aborting webview: \(reason)")
             }
             Task {
-                await delegate?.dismiss()
+                await delegate?.dismiss(animated: false)
             }
         case .handShook:
             if #available(iOS 14.0, *) {

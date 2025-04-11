@@ -35,14 +35,15 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     // MARK: - tests
 
     /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
+    @MainActor
     func testPreloadWebsiteSuccess() async throws {
         // Given
-        delegate.preloadResult = .formWillAppear(delay: 100_000_000) // 0.1 second in nanoseconds
+        delegate.preloadResult = .formWillAppear(delay: 0.1)
         let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 1_000_000_000) // 1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 1.0)
             expectation.fulfill()
         } catch {
             XCTFail("Expected success, but got error: \(error)")
@@ -54,16 +55,17 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     }
 
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
+    @MainActor
     func testPreloadWebsiteTimeout() async {
         // Given
-        delegate.preloadResult = .formWillAppear(delay: 1_000_000_000) // 1 second in nanoseconds
+        delegate.preloadResult = .formWillAppear(delay: 1.0)
         let expectation = XCTestExpectation(description: "Preloading website times out")
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
-        } catch PreloadError.timeout {
+        } catch TimeoutError.timeout {
             expectation.fulfill()
         } catch {
             XCTFail("Expected timeout error, but got: \(error)")
@@ -75,6 +77,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     }
 
     /// Tests scenario in which the delegate does nothing and emits no events after `preloadUrl()` is called.
+    @MainActor
     func testPreloadWebsiteNoActionTimeout() async {
         // Given
         delegate.preloadResult = MockIAFWebViewDelegate.PreloadResult.none
@@ -82,9 +85,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 100_000_000) // 0.1 second in nanoseconds
+            try await viewModel.preloadWebsite(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
-        } catch PreloadError.timeout {
+        } catch TimeoutError.timeout {
             expectation.fulfill()
         } catch {
             XCTFail("Expected timeout error, but got: \(error)")
