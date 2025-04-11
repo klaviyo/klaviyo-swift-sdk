@@ -106,10 +106,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         do {
             try await withTimeout(timeout: timeout) { [weak self] in
-                guard let self else { return }
-
-                var iterator = self.formWillAppearStream.makeAsyncIterator()
-                await iterator.next()
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.formWillAppearStream.first { _ in true }
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
