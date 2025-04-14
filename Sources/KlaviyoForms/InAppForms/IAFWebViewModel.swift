@@ -129,29 +129,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
-    func preloadWebsite(timeout: TimeInterval) async throws {
-        guard let delegate else { return }
-
-        await delegate.preloadUrl()
-
-        do {
-            try await withTimeout(seconds: timeout) { [weak self] in
-                guard let self else { throw ObjectStateError.objectDeallocated }
-                await self.formWillAppearStream.first { _ in true }
-            }
-        } catch let error as TimeoutError {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
-            }
-            throw error
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error preloading URL: \(error)")
-            }
-            throw error
-        }
-    }
-
     // MARK: - handle WKWebView events
 
     func handleNavigationEvent(_ event: WKNavigationEvent) {
