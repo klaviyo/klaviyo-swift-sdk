@@ -57,7 +57,7 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+        try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
         let script = "document.head.getAttribute('data-sdk-name');"
@@ -76,7 +76,7 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+        try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
         let script = "document.head.getAttribute('data-sdk-version');"
@@ -95,7 +95,7 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+        try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
         let script = "document.head.getAttribute('data-native-bridge-handshake');"
@@ -128,7 +128,7 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        try await viewModel.preloadWebsite(timeout: 3_000_000_000)
+        try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
         let script = "document.getElementById('klaviyoJS').getAttribute('src');"

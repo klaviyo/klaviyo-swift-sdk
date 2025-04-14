@@ -38,12 +38,12 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     @MainActor
     func testPreloadWebsiteSuccess() async throws {
         // Given
-        delegate.preloadResult = .formWillAppear(delay: 0.1)
+        delegate.handshakeResult = .handshakeEstablished(delay: 0.1)
         let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 1.0)
+            try await viewModel.establishHandshake(timeout: 1.0)
             expectation.fulfill()
         } catch {
             XCTFail("Expected success, but got error: \(error)")
@@ -57,12 +57,12 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     @MainActor
     func testPreloadWebsiteTimeout() async {
         // Given
-        delegate.preloadResult = .formWillAppear(delay: 1.0)
+        delegate.handshakeResult = .handshakeEstablished(delay: 1.0)
         let expectation = XCTestExpectation(description: "Preloading website times out")
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 0.1)
+            try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch TimeoutError.timeout {
             expectation.fulfill()
@@ -78,12 +78,12 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     @MainActor
     func testPreloadWebsiteNoActionTimeout() async {
         // Given
-        delegate.preloadResult = MockIAFWebViewDelegate.PreloadResult.none
+        delegate.handshakeResult = MockIAFWebViewDelegate.HandshakeResult.none
         let expectation = XCTestExpectation(description: "Preloading website times out")
 
         // When
         do {
-            try await viewModel.preloadWebsite(timeout: 0.1)
+            try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch TimeoutError.timeout {
             expectation.fulfill()

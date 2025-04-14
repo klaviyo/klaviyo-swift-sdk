@@ -11,14 +11,14 @@ import UIKit
 
 @MainActor
 class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
-    enum PreloadResult {
-        case formWillAppear(delay: TimeInterval)
+    enum HandshakeResult {
+        case handshakeEstablished(delay: TimeInterval)
         case none
     }
 
     let viewModel: IAFWebViewModel
 
-    var preloadResult: PreloadResult?
+    var handshakeResult: HandshakeResult?
     var evaluateJavaScriptCalled = false
 
     init(viewModel: IAFWebViewModel) {
@@ -35,9 +35,9 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
         viewModel.handleNavigationEvent(.didCommitNavigation)
 
         Task {
-            if let result = preloadResult {
+            if let result = handshakeResult {
                 switch result {
-                case let .formWillAppear(delay):
+                case let .handshakeEstablished(delay):
                     try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
 
                     let scriptMessage = MockWKScriptMessage(
