@@ -33,7 +33,7 @@ let package = Package(
             name: "KlaviyoCore",
             path: "Sources/KlaviyoCore"
             dependencies: ["KlaviyoSDKDependencies"],
-            path: "Sources/KlaviyoCore"),
+            path: "Sources/KlaviyoCore"
         ),
         .testTarget(
             name: "KlaviyoCoreTests",
@@ -41,7 +41,8 @@ let package = Package(
                 "KlaviyoCore",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 "KlaviyoSDKDependencies"
-            ]),
+            ]
+        ),
         .target(
             name: "KlaviyoSwift",
             dependencies: [
@@ -91,15 +92,17 @@ let package = Package(
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension"),
-        )
+            path: "Sources/KlaviyoSwiftExtension"
+        ),
 
         // Vendorized Things
         .target(
             name: "KlaviyoSDKDependencies",
             dependencies: [],
-            path: "Sources/KlaviyoSDKDependencies")
-    ])
+            path: "Sources/KlaviyoSDKDependencies"
+        )
+    ]
+)
 
 for target in package.targets {
     target.swiftSettings = target.swiftSettings ?? []
