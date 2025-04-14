@@ -13,7 +13,8 @@ import Foundation
 import Testing
 
 struct IAFNativeBridgeEventTests {
-    @Test func testHandshakeCreated() async throws {
+    @Test
+    func testHandshakeCreated() async throws {
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
             var version: Int
@@ -30,7 +31,8 @@ struct IAFNativeBridgeEventTests {
         #expect(actualHandshakeData == expectedHandshakeData)
     }
 
-    @Test func testHandShook() async throws {
+    @Test
+    func testHandShook() async throws {
         let json = """
         {
           "type": "handShook",
@@ -43,7 +45,8 @@ struct IAFNativeBridgeEventTests {
         #expect(event == .handShook)
     }
 
-    @Test func testAbort() async throws {
+    @Test
+    func testAbort() async throws {
         let json = """
         {
           "type": "abort",
@@ -63,7 +66,8 @@ struct IAFNativeBridgeEventTests {
         #expect(reason == "because")
     }
 
-    @Test func testDecodeOpenDeepLink() async throws {
+    @Test
+    func testDecodeOpenDeepLink() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -85,7 +89,8 @@ struct IAFNativeBridgeEventTests {
         #expect(url == expectedUrl)
     }
 
-    @Test func testDecodeFormWillAppear() async throws {
+    @Test
+    func testDecodeFormWillAppear() async throws {
         let json = """
         {
           "type": "formWillAppear",
@@ -100,7 +105,8 @@ struct IAFNativeBridgeEventTests {
         #expect(event == .formWillAppear)
     }
 
-    @Test func testDecodeFormDisappeared() async throws {
+    @Test
+    func testDecodeFormDisappeared() async throws {
         let json = """
         {
           "type": "formDisappeared",
@@ -115,7 +121,8 @@ struct IAFNativeBridgeEventTests {
         #expect(event == .formDisappeared)
     }
 
-    @Test func testDecodeTrackProfileEvent() async throws {
+    @Test
+    func testDecodeTrackProfileEvent() async throws {
         let json = """
         {
           "type": "trackProfileEvent",
@@ -152,7 +159,8 @@ struct IAFNativeBridgeEventTests {
         #expect(profileEventDataDecoded == associatedValueDataDecoded)
     }
 
-    @Test func testDecodeAggregateEvent() async throws {
+    @Test
+    func testDecodeAggregateEvent() async throws {
         let json = """
         {
           "type": "trackAggregateEvent",

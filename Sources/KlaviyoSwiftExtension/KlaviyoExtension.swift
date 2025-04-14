@@ -39,7 +39,8 @@ public enum KlaviyoExtensionSDK {
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg") {
+        fallbackMediaType: String = "jpeg"
+    ) {
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
         // handle rich media setup
@@ -82,7 +83,8 @@ public enum KlaviyoExtensionSDK {
     private static func handleRichMedia(
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg") {
+        fallbackMediaType: String = "jpeg"
+    ) {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
@@ -104,24 +106,26 @@ public enum KlaviyoExtensionSDK {
             // 3. once we have the local file URL we will create an attachment
             createAttachment(
                 localFileURL: localFileURL,
-                localFilePathWithTypeString: localFilePathWithTypeString) { attachment in
-                    guard let attachment = attachment else {
-                        contentHandler(bestAttemptContent)
-                        return
-                    }
-
-                    // 4. assign the create attachement to the best attempt content attachment and call the content handler so that the notification with the
-                    //    media can be delivered to the user.
-                    bestAttemptContent.attachments = [attachment]
+                localFilePathWithTypeString: localFilePathWithTypeString
+            ) { attachment in
+                guard let attachment = attachment else {
                     contentHandler(bestAttemptContent)
+                    return
                 }
+
+                // 4. assign the create attachement to the best attempt content attachment and call the content handler so that the notification with the
+                //    media can be delivered to the user.
+                bestAttemptContent.attachments = [attachment]
+                contentHandler(bestAttemptContent)
+            }
         }
     }
 
     public static func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void) {
+        contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
         contentHandler(bestAttemptContent)
     }
 
@@ -132,7 +136,8 @@ public enum KlaviyoExtensionSDK {
     ///                 note that in the case of failure the closure will still be called but with `nil`.
     private static func downloadMedia(
         for urlString: String,
-        completion: @escaping (URL?) -> Void) {
+        completion: @escaping (URL?) -> Void
+    ) {
         guard let imageURL = URL(string: urlString) else {
             completion(nil)
             return
@@ -163,7 +168,8 @@ public enum KlaviyoExtensionSDK {
     private static func createAttachment(
         localFileURL: URL,
         localFilePathWithTypeString: String,
-        completion: @escaping (UNNotificationAttachment?) -> Void) {
+        completion: @escaping (UNNotificationAttachment?) -> Void
+    ) {
         let localFileURLWithType: URL
         if #available(iOS 16.0, *) {
             localFileURLWithType = URL(filePath: localFilePathWithTypeString)
@@ -181,7 +187,8 @@ public enum KlaviyoExtensionSDK {
         guard let attachment = try? UNNotificationAttachment(
             identifier: "",
             url: localFileURLWithType,
-            options: nil)
+            options: nil
+        )
         else {
             completion(nil)
             return

@@ -47,7 +47,8 @@ class CheckOutViewController: UIViewController {
      Check out button action
      Triggers checkout completed event & empties the cart
      */
-    @IBAction func checkOutButton(_ sender: UIButton) {
+    @IBAction
+    func checkOutButton(_ sender: UIButton) {
         if cart.cartItems.isEmpty {
             return
         }
@@ -69,19 +70,22 @@ class CheckOutViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Thank You!",
             message: "Thank you for your purchase! Your order is currently being processed and will be on its way shortly.",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
         let okAction = UIAlertAction(
             title: "OK",
             style: .default,
             handler: { _ in
                 // segue back to menu
                 self.performSegue(withIdentifier: "checkoutMenuSegue", sender: self)
-            })
+            }
+        )
         alertController.addAction(okAction)
         present(alertController, animated: true, completion: nil)
     }
 
-    @IBAction func removeItemButton(_ sender: AnyObject) {
+    @IBAction
+    func removeItemButton(_ sender: AnyObject) {
         if cart.cartItems.isEmpty {
             return
         }

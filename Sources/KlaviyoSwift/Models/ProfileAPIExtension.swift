@@ -20,7 +20,8 @@ extension Profile {
         email: String? = nil,
         phoneNumber: String? = nil,
         externalId: String? = nil,
-        anonymousId: String) -> ProfilePayload {
+        anonymousId: String
+    ) -> ProfilePayload {
         ProfilePayload(
             email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
             phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
@@ -32,7 +33,8 @@ extension Profile {
             image: image,
             location: location?.toAPILocation,
             properties: properties,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
     }
 }
 
@@ -47,6 +49,7 @@ extension Profile.Location {
             longitude: longitude,
             region: region,
             zip: zip,
-            timezone: timezone)
+            timezone: timezone
+        )
     }
 }

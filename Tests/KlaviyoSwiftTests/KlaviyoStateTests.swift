@@ -117,7 +117,8 @@ final class KlaviyoStateTests: XCTestCase {
                 apiKey: "foo",
                 anonymousId: environment.uuid().uuidString,
                 queue: [],
-                requestsInFlight: []))
+                requestsInFlight: []
+            ))
         }
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
@@ -137,7 +138,8 @@ final class KlaviyoStateTests: XCTestCase {
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"))
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
+        )
         let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
 
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, eventRequest, profileRequest])

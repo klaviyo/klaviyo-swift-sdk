@@ -66,7 +66,8 @@ public struct CreateEventPayload: Equatable, Codable {
                         email: email,
                         phoneNumber: phoneNumber,
                         externalId: externalId,
-                        anonymousId: anonymousId ?? "")
+                        anonymousId: anonymousId ?? ""
+                    )
                 )
             }
 
@@ -101,7 +102,8 @@ public struct CreateEventPayload: Equatable, Codable {
                 anonymousId: anonymousId,
                 value: value,
                 time: time,
-                uniqueId: uniqueId)
+                uniqueId: uniqueId
+            )
         }
     }
 

@@ -41,7 +41,8 @@ class Cart {
                         name: name,
                         id: 1, description: "Lightly battered & fried fresh cod and freshly cooked fries",
                         image: "battered_fish.jpg",
-                        price: 10.99)
+                        price: 10.99
+                    )
                 )
             case "Nicoise Salad":
                 cartItems.append(
@@ -49,7 +50,8 @@ class Cart {
                         name: name,
                         id: 2, description: "Delicious salad of mixed greens, tuna nicoise and balasamic vinagrette",
                         image: "nicoise_salad.jpg",
-                        price: 12.99)
+                        price: 12.99
+                    )
                 )
             case "Red Pork":
                 cartItems.append(
@@ -57,7 +59,8 @@ class Cart {
                         name: name,
                         id: 4, description: "Our take on the popular Chinese dish",
                         image: "red_pork.jpg",
-                        price: 11.99)
+                        price: 11.99
+                    )
                 )
             case "Beef Bolognese":
                 cartItems.append(
@@ -65,7 +68,8 @@ class Cart {
                         name: name,
                         id: 5, description: "Traditional Italian Bolognese",
                         image: "bolognese_meal.jpg",
-                        price: 10.99)
+                        price: 10.99
+                    )
                 )
             default:
                 break

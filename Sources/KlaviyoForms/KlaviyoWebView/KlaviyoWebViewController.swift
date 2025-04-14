@@ -34,24 +34,34 @@ private func createDefaultWebView() -> WKWebView {
 }
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
-    private lazy var webView: WKWebView = {
-        let webView = createWebView()
-        webView.customUserAgent = NetworkSession.defaultUserAgent
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-        return webView
-    }()
+    private let webView: WKWebView
+    private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
 
     private var viewModel: KlaviyoWebViewModeling
-    private let createWebView: () -> WKWebView
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @escaping () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
-        createWebView = webViewFactory
+        webView = webViewFactory()
         super.init(nibName: nil, bundle: nil)
         self.viewModel.delegate = self
+
+        // Set up the web view
+        webView.customUserAgent = NetworkSession.defaultUserAgent
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+    }
+
+    deinit {
+        viewModel.messageHandlers?.forEach {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+        }
+        #if DEBUG
+        if webConsoleLoggingEnabled {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+        }
+        #endif
     }
 
     @available(*, unavailable)
@@ -77,14 +87,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         loadUrl()
     }
 
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
-        }
-    }
-
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         dismiss()
@@ -104,14 +106,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func dismiss() {
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
-        }
-        #if DEBUG
-        if webConsoleLoggingEnabled {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
-        }
-        #endif
         dismiss(animated: false)
     }
 
@@ -124,7 +118,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(self, name: $0)
+            webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
         }
 
         #if DEBUG
@@ -147,10 +141,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             // Format as an immediately invoked function expression
             source: ";(\(consoleHandlerScript))('\(strHandoff)');",
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false)
+            forMainFrameOnly: false
+        )
 
         webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(self, name: "consoleMessageHandler")
+        webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
     }
     #endif
 
@@ -235,6 +230,46 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
         }
     }
     #endif
+}
+
+// MARK: - Script Delegate Wrapper
+
+/// A wrapper class that prevents retain cycles when using WKScriptMessageHandler with WKWebView.
+///
+/// This class solves a common memory management issue with WKWebView's message handling system.
+/// Without this wrapper, a retain cycle would form:
+/// - WKWebView strongly retains its userContentController
+/// - userContentController strongly retains its message handlers
+/// - The message handler (typically a view controller) strongly retains the WKWebView
+///
+/// By using a weak reference to the delegate, this wrapper breaks the retain cycle while still
+/// allowing JavaScript messages to be properly forwarded to the delegate.
+///
+/// ## Usage
+/// ```swift
+/// // Instead of directly adding the view controller as a message handler:
+/// // webView.configuration.userContentController.add(self, name: "handlerName")
+///
+/// // Use the wrapper to avoid retain cycles:
+/// webView.configuration.userContentController.add(
+///     ScriptDelegateWrapper(delegate: self),
+///     name: "handlerName"
+/// )
+/// ```
+///
+/// - Note: code adapted from https://stackoverflow.com/a/26383032/11870387
+private class ScriptDelegateWrapper: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+
+    init(delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+        super.init()
+    }
+
+    @MainActor
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
+    }
 }
 
 // MARK: - Previews

@@ -30,7 +30,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = getFirstViewController
         window?.makeKeyAndVisible()
@@ -82,14 +83,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
-        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
         // STEP5: add the push device token to your Klaviyo user profile.
         KlaviyoSDK().set(pushToken: deviceToken)
     }
 
     func application(
         _ application: UIApplication,
-        didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
         if error._code == 3010 {
             print("push notifications are not supported in the iOS simulator")
         } else {
@@ -125,7 +128,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(
         _ app: UIApplication,
         open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
         guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true),
               let host = components.host
         else {
@@ -202,7 +206,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void) {
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         // If this notifiation is Klaviyo's notification we'll handle it
         // else pass it on to the next push notification service to which it may belong
         let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
@@ -215,7 +220,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
         if #available(iOS 14.0, *) {
             completionHandler([.list, .banner])
         } else {

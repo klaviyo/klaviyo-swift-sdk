@@ -9,19 +9,23 @@ let package = Package(
     products: [
         .library(
             name: "KlaviyoSwift",
-            targets: ["KlaviyoSwift"]),
+            targets: ["KlaviyoSwift"]
+        ),
         .library(
             name: "KlaviyoForms",
-            targets: ["KlaviyoForms"]),
+            targets: ["KlaviyoForms"]
+        ),
         .library(
             name: "KlaviyoSwiftExtension",
-            targets: ["KlaviyoSwiftExtension"])
+            targets: ["KlaviyoSwiftExtension"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
         .package(
             url: "https://github.com/Flight-School/AnyCodable",
-            from: "0.6.0"),
+            from: "0.6.0"
+        ),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.1"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
         .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.9.1")
@@ -30,7 +34,8 @@ let package = Package(
         .target(
             name: "KlaviyoCore",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
-            path: "Sources/KlaviyoCore"),
+            path: "Sources/KlaviyoCore"
+        ),
         .testTarget(
             name: "KlaviyoCoreTests",
             dependencies: [
@@ -38,12 +43,14 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths")
-            ]),
+            ]
+        ),
         .target(
             name: "KlaviyoSwift",
             dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
             path: "Sources/KlaviyoSwift",
-            resources: [.copy("PrivacyInfo.xcprivacy")]),
+            resources: [.copy("PrivacyInfo.xcprivacy")]
+        ),
         .testTarget(
             name: "KlaviyoSwiftTests",
             dependencies: [
@@ -56,7 +63,8 @@ let package = Package(
             ],
             exclude: [
                 "__Snapshots__"
-            ]),
+            ]
+        ),
         .target(
             name: "KlaviyoForms",
             dependencies: ["KlaviyoSwift"],
@@ -66,7 +74,8 @@ let package = Package(
                 .process("KlaviyoWebView/Resources"),
                 .process("KlaviyoWebView/Development Assets/Scripts"),
                 .process("KlaviyoWebView/Development Assets/HTML")
-            ]),
+            ]
+        ),
         .testTarget(
             name: "KlaviyoFormsTests",
             dependencies: [
@@ -76,9 +85,12 @@ let package = Package(
             ],
             resources: [
                 .process("Assets")
-            ]),
+            ]
+        ),
         .target(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
-            path: "Sources/KlaviyoSwiftExtension")
-    ])
+            path: "Sources/KlaviyoSwiftExtension"
+        )
+    ]
+)
