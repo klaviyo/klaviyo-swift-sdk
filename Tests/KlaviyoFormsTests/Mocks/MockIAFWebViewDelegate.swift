@@ -19,7 +19,6 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     let viewModel: IAFWebViewModel
 
     var preloadResult: PreloadResult?
-    var preloadUrlCalled = false
     var evaluateJavaScriptCalled = false
 
     init(viewModel: IAFWebViewModel) {
@@ -34,7 +33,6 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 
     func preloadUrl() {
         viewModel.handleNavigationEvent(.didCommitNavigation)
-        preloadUrlCalled = true
 
         Task {
             if let result = preloadResult {

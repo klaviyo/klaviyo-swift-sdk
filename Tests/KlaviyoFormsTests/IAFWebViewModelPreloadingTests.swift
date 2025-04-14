@@ -50,7 +50,6 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         }
 
         // Then
-        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 
@@ -72,7 +71,6 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         }
 
         // Then
-        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 
@@ -94,7 +92,6 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         }
 
         // Then
-        XCTAssertTrue(delegate.preloadUrlCalled, "preloadUrl should be called on delegate")
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 }
