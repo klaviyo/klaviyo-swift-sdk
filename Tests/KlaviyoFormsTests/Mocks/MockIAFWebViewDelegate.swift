@@ -43,12 +43,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
                     let scriptMessage = MockWKScriptMessage(
                         name: "KlaviyoNativeBridge",
                         body: """
-                        {
-                          "type": "formWillAppear",
-                          "data": {
-                            "formId": "abc123"
-                          }
-                        }
+                        {"type":"handShook","data":{}}
                         """
                     )
 
