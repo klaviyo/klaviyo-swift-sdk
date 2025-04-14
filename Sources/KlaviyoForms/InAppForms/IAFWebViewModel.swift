@@ -28,7 +28,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let companyId: String?
     private let assetSource: String?
 
-    private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
