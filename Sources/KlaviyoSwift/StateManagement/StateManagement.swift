@@ -465,7 +465,8 @@ struct KlaviyoReducer: Reducer {
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken,
-                    appContextInfo: appContextInfo))
+                    appContextInfo: appContextInfo
+                ))
 
             let endpoint = KlaviyoEndpoint.createEvent(payload)
             let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
@@ -522,14 +523,17 @@ struct KlaviyoReducer: Reducer {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: profilePayload, appContextInfo: appContextInfo)
+                    profile: profilePayload, appContextInfo: appContextInfo
+                )
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: .registerPushToken(payload), uuid: environment.uuid().uuidString)
+                    endpoint: .registerPushToken(payload), uuid: environment.uuid().uuidString
+                )
             } else {
                 request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: .createProfile(CreateProfilePayload(data: profilePayload)), uuid: environment.uuid().uuidString)
+                    endpoint: .createProfile(CreateProfilePayload(data: profilePayload)), uuid: environment.uuid().uuidString
+                )
             }
             state.enqueueRequest(request: request)
 

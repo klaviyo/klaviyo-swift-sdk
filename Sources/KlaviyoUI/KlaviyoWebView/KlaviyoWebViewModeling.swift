@@ -19,5 +19,6 @@ protocol KlaviyoWebViewModeling {
     var scriptStream: AsyncStream < (script: String, callback: (@Sendable (Result<Any?, Error>) -> Void)?)> { get }
 
     func handleNavigationEvent(_ event: WKNavigationEvent)
-    @MainActor func handleScriptMessage(_ message: WKScriptMessage)
+    @MainActor
+    func handleScriptMessage(_ message: WKScriptMessage)
 }

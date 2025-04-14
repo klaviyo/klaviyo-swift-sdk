@@ -26,13 +26,15 @@ public struct AppLifeCycleEvents {
         (NSNotification.Name) -> AnyPublisher<Notification, Never>,
         @escaping () throws -> Void,
         @escaping () -> Void,
-        @escaping () -> Reachability.NetworkStatus?) -> AnyPublisher<LifeCycleEvents, Never>
+        @escaping () -> Reachability.NetworkStatus?
+    ) -> AnyPublisher<LifeCycleEvents, Never>
 
     public init(lifeCycleEvents: @MainActor @escaping (
         (NSNotification.Name) -> AnyPublisher<Notification, Never>,
         @escaping () throws -> Void,
         @escaping () -> Void,
-        @escaping () -> Reachability.NetworkStatus?) -> AnyPublisher<LifeCycleEvents, Never> = { notificationPublisher, startReachability, stopReachability, reachabilityStatus in
+        @escaping () -> Reachability.NetworkStatus?
+    ) -> AnyPublisher<LifeCycleEvents, Never> = { notificationPublisher, startReachability, stopReachability, reachabilityStatus in
         let terminated = notificationPublisher(UIApplication.willTerminateNotification)
             .handleEvents(receiveOutput: { _ in
                 stopReachability()

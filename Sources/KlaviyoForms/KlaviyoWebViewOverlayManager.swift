@@ -20,9 +20,11 @@ class KlaviyoWebViewOverlayManager {
     ///
     /// - warning: For internal use only. The host app should not manually call this method, as
     /// the logic for fetching and displaying forms will be handled internally within the SDK.
-    @MainActor func preloadAndShow(
+    @MainActor
+    func preloadAndShow(
         viewModel: KlaviyoWebViewModeling,
-        modalPresentationStyle: UIModalPresentationStyle = .overCurrentContext) {
+        modalPresentationStyle: UIModalPresentationStyle = .overCurrentContext
+    ) {
         guard !isLoading else {
             return
         }

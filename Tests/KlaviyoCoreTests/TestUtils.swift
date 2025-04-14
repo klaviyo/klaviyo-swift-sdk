@@ -104,20 +104,14 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
 
             klaviyoAPI: KlaviyoAPI.test(),
-<<<<<<< HEAD
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
-            SDKName: { __klaviyoSwiftName },
-            SDKVersion: { __klaviyoSwiftVersion }
-        )
-=======
             timer: { _ in AsyncStream {
                 continuation in
                 continuation.yield(Date())
                 continuation.finish()
             }
             },
-            appContextInfo: { AppContextInfo.test })
->>>>>>> d062e0a (Update SDK to support swift 6)
+            appContextInfo: { AppContextInfo.test }
+        )
     }
 }
 
@@ -152,7 +146,7 @@ extension AppLifeCycleEvents {
 extension NetworkSession {
     static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
     static let DEFAULT_CALLBACK: @Sendable (URLRequest) async throws -> (Data, URLResponse) = { _ in
-        (Data(), successfulRepsonse)
+        await (Data(), successfulRepsonse)
     }
 
     static func test(data: @Sendable @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
@@ -192,7 +186,8 @@ extension PushTokenPayload {
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"), appContextInfo: AppContextInfo.test)
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"), appContextInfo: AppContextInfo.test
+    )
 }
 
 extension ProfilePayload {

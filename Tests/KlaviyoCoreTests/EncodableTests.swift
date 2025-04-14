@@ -36,7 +36,8 @@ final class EncodableTests: XCTestCase {
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: environment.appContextInfo())
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: environment.appContextInfo()
+        )
         assertSnapshot(of: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
@@ -45,7 +46,8 @@ final class EncodableTests: XCTestCase {
             pushToken: "foo",
             email: "foo",
             phoneNumber: "foo",
-            anonymousId: "foo")
+            anonymousId: "foo"
+        )
         assertSnapshot(of: tokenPayload, as: .json)
     }
 
@@ -55,7 +57,8 @@ final class EncodableTests: XCTestCase {
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"),
-            appContextInfo: environment.appContextInfo()) 
+            appContextInfo: environment.appContextInfo()
+        )
         let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: environment.uuid().uuidString)
         assertSnapshot(of: request, as: .json)
     }

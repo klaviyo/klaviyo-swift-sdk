@@ -165,7 +165,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized, background: .available, appContextInfo: .test)
+            enablement: .authorized, background: .available, appContextInfo: .test
+        )
         _ = await store.send(.setPushToken(initialState.pushTokenData!.pushToken, .authorized, .available, .test)) {
             $0.queue = [pushTokenRequest]
         }
@@ -237,7 +238,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized, background: .available, appContextInfo: .test)
+            enablement: .authorized, background: .available, appContextInfo: .test
+        )
 
         _ = await store.send(.setPushEnablement(.authorized, .available, .test))
 
@@ -532,8 +534,10 @@ class StateManagementTests: XCTestCase {
                     pushToken: initialState.pushTokenData!.pushToken,
                     enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                     background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!), appContextInfo: .test)
-                ), uuid: environment.uuid().uuidString)
+                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!), appContextInfo: .test
+                )
+                ), uuid: environment.uuid().uuidString
+            )
             $0.queue = [request]
         }
     }
@@ -573,8 +577,10 @@ class StateManagementTests: XCTestCase {
                                 phoneNumber: $0.phoneNumber,
                                 anonymousId: initialState.anonymousId!,
                                 time: event.time,
-                                pushToken: initialState.pushTokenData!.pushToken, appContextInfo: .test)
-                        )), uuid: environment.uuid().uuidString))
+                                pushToken: initialState.pushTokenData!.pushToken, appContextInfo: .test
+                            )
+                        )), uuid: environment.uuid().uuidString
+                    ))
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -609,8 +615,10 @@ class StateManagementTests: XCTestCase {
                             phoneNumber: $0.phoneNumber,
                             anonymousId: initialState.anonymousId!,
                             time: event.time,
-                            appContextInfo: .test)
-                    )), uuid: environment.uuid().uuidString)
+                            appContextInfo: .test
+                        )
+                    )), uuid: environment.uuid().uuidString
+                )
             )
         }
 
@@ -634,7 +642,8 @@ class StateManagementTests: XCTestCase {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString)
+                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString
+                ))
         }
     }
 
@@ -658,7 +667,8 @@ class StateManagementTests: XCTestCase {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString)
+                    endpoint: .aggregateEvent(AggregateEventPayload(data)), uuid: KlaviyoEnvironment.test().uuid().uuidString
+                ))
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)

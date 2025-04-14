@@ -56,7 +56,8 @@ extension KlaviyoEnvironment {
                 continuation.yield(Date())
                 continuation.finish()
             } },
-            appContextInfo: { AppContextInfo.test })
+            appContextInfo: { AppContextInfo.test }
+        )
     }
 }
 
@@ -114,7 +115,7 @@ extension LoggerClient {
 extension NetworkSession {
     static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
     static let DEFAULT_CALLBACK: @Sendable (URLRequest) async throws -> (Data, URLResponse) = { _ in
-        (Data(), successfulRepsonse)
+        await (Data(), successfulRepsonse)
     }
 
     static func test(data: @Sendable @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {

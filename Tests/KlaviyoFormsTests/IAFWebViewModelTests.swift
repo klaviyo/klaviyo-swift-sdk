@@ -25,7 +25,6 @@ final class IAFWebViewModelTests: XCTestCase {
             "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID"
         )
 
-
         environment.appContextInfo = {
             AppContextInfo(executable: "", bundleId: "", appVersion: "", appBuild: "", appName: "", version: OperatingSystemVersion(majorVersion: 1, minorVersion: 2, patchVersion: 3), osName: "", manufacturer: "", deviceModel: "", deviceId: "", environment: "", klaviyoSdk: "swift", sdkVersion: "0.0.1")
         }

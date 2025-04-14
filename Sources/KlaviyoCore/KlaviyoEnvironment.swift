@@ -42,7 +42,8 @@ public struct KlaviyoEnvironment: Sendable {
         timeZone: @Sendable @escaping () -> String,
         klaviyoAPI: KlaviyoAPI,
         timer: @Sendable @escaping (Double) -> AsyncStream<Date>,
-        appContextInfo: @MainActor @escaping () -> AppContextInfo) {
+        appContextInfo: @MainActor @escaping () -> AppContextInfo
+    ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -171,7 +172,7 @@ public struct KlaviyoEnvironment: Sendable {
                 Task {
                     // Start the timer via the TimerActor
                     #if swift(>=6)
-                    timerActor.startTimer(interval: interval, continuation: continuation)
+                    await timerActor.startTimer(interval: interval, continuation: continuation)
                     #else
                     await timerActor.startTimer(interval: interval, continuation: continuation)
                     #endif
@@ -181,7 +182,7 @@ public struct KlaviyoEnvironment: Sendable {
                     // Stop the timer when the stream terminates
                     Task {
                         #if swift(>=6)
-                        timerActor.stopTimer()
+                        await timerActor.stopTimer()
                         #else
                         await timerActor.stopTimer()
                         #endif
@@ -194,7 +195,8 @@ public struct KlaviyoEnvironment: Sendable {
             #else
             getDefaultAppContextInfo()
             #endif
-        })
+        }
+    )
 }
 
 @MainActor var networkSession: NetworkSession? = nil
@@ -228,7 +230,8 @@ actor TimerActor {
     private var timer: DispatchSourceTimer?
 
     func startTimer(
-        interval: TimeInterval, continuation: AsyncStream<Date>.Continuation) {
+        interval: TimeInterval, continuation: AsyncStream<Date>.Continuation
+    ) {
         // Ensure any previous timer is invalidated
         stopTimer()
 

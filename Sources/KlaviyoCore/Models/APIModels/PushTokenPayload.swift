@@ -23,13 +23,9 @@ public struct PushTokenPayload: Equatable, Codable, Sendable {
                 pushToken: pushToken,
                 enablement: enablement,
                 background: background,
-<<<<<<< HEAD
-                profile: profile
-            )
-=======
                 profile: profile,
-                appContextInfo: appContextInfo)
->>>>>>> d062e0a (Update SDK to support swift 6)
+                appContextInfo: appContextInfo
+            )
         }
 
         public struct Attributes: Equatable, Codable, Sendable {
@@ -133,7 +129,7 @@ public struct PushTokenPayload: Equatable, Codable, Sendable {
             enablement: enablement,
             background: background,
             profile: profile,
-            appContextInfo: appContextInfo)
+            appContextInfo: appContextInfo
         )
     }
 }

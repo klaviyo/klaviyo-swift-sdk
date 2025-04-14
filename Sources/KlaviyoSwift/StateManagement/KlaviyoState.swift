@@ -95,7 +95,6 @@ struct KlaviyoState: Equatable, Codable, Sendable {
     mutating func updatePhoneNumber(phoneNumber: String, appContextInfo: AppContextInfo) {
         if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
             self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
-            self.phoneNumber = phoneNumber
             enqueueProfileOrTokenRequest(appConextInfo: appContextInfo)
         }
     }
@@ -117,7 +116,8 @@ struct KlaviyoState: Equatable, Codable, Sendable {
                 pushToken: pushTokenData.pushToken,
                 enablement: pushTokenData.pushEnablement,
                 background: pushTokenData.pushBackground,
-                appContextInfo: appConextInfo)
+                appContextInfo: appConextInfo
+            )
             enqueueRequest(request: request)
         } else {
             enqueueProfileRequest(
@@ -239,11 +239,13 @@ struct KlaviyoState: Equatable, Codable, Sendable {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: Profile().toAPIModel(anonymousId: anonymousId), appContextInfo: appContextInfo)
+                    profile: Profile().toAPIModel(anonymousId: anonymousId), appContextInfo: appContextInfo
+                )
 
                 let request = KlaviyoRequest(
                     apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload), uuid: environment.uuid().uuidString)
+                    endpoint: KlaviyoEndpoint.registerPushToken(payload), uuid: environment.uuid().uuidString
+                )
 
                 enqueueRequest(request: request)
             }
@@ -260,7 +262,8 @@ struct KlaviyoState: Equatable, Codable, Sendable {
             pushToken: newToken,
             pushEnablement: enablement,
             pushBackground: pushBackground,
-            deviceData: currentDeviceMetadata)
+            deviceData: currentDeviceMetadata
+        )
 
         return pushTokenData != newPushTokenData
     }
@@ -299,7 +302,8 @@ struct KlaviyoState: Equatable, Codable, Sendable {
             enablement: enablement.rawValue,
             background: background.rawValue,
             profile: profile.toAPIModel(anonymousId: anonymousId),
-            appContextInfo: appContextInfo)
+            appContextInfo: appContextInfo
+        )
         let endpoint = KlaviyoEndpoint.registerPushToken(payload)
         return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint, uuid: environment.uuid().uuidString)
     }

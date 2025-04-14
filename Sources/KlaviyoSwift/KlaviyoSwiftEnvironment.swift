@@ -44,7 +44,7 @@ struct KlaviyoSwiftEnvironment: Sendable {
             state: {
                 store.currentState
             },
-            
+
             statePublisher: {
                 store.publisher.eraseToAnyPublisher()
             },
@@ -55,19 +55,20 @@ struct KlaviyoSwiftEnvironment: Sendable {
                 let publisher = AppLifeCycleEvents.production.lifeCycleEvents(
                     environment.notificationCenterPublisher,
                     environment.startReachability, environment.stopReachability,
-                    environment.reachabilityStatus).map(\.transformToKlaviyoAction).eraseToAnyPublisher()
+                    environment.reachabilityStatus
+                ).map(\.transformToKlaviyoAction).eraseToAnyPublisher()
                 return AsyncStream<KlaviyoAction> { continuation in
-                    
+
                     Task {
                         let cancellableStore = CancellableStore()
                         let cancellable = publisher.sink { value in
                             continuation.yield(value)
                         }
-                        
+
                         Task {
                             await cancellableStore.store(cancellable)
                         }
-                        
+
                         // Handle cancellation
                         continuation.onTermination = { @Sendable _ in
                             Task {
@@ -85,7 +86,7 @@ struct KlaviyoSwiftEnvironment: Sendable {
                 if let userDefaults = UserDefaults(
                     suiteName: Bundle.main.object(
                         forInfoDictionaryKey: "Klaviyo_App_Group")
-                    as? String) {
+                        as? String) {
                     if #available(iOS 16.0, *) {
                         UNUserNotificationCenter.current()
                             .setBadgeCount(count)

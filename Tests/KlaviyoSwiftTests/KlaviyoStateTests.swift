@@ -140,7 +140,8 @@ final class KlaviyoStateTests: XCTestCase {
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: .test)
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"), appContextInfo: .test
+        )
         let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: environment.uuid().uuidString)
 
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, eventRequest, profileRequest])

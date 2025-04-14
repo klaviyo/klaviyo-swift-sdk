@@ -22,8 +22,9 @@ final class KlaviyoAPITests: XCTestCase {
 
         await sendAndAssert(with: KlaviyoRequest(
             apiKey: "foo",
-            endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString),
-            networkSession: networkSession) { result in
+            endpoint: .createProfile(CreateProfilePayload(data: .test)), uuid: environment.uuid().uuidString
+        ),
+        networkSession: networkSession) { result in
             switch result {
             case let .failure(error):
                 assertSnapshot(of: error, as: .description)

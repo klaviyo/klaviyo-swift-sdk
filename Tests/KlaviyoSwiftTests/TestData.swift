@@ -141,7 +141,8 @@ extension KlaviyoState {
                                        pushToken: "blob_token",
                                        pushEnablement: .authorized,
                                        pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: AppContextInfo.test)),
+                                       deviceData: DeviceMetadata(context: AppContextInfo.test)
+                                   ),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
@@ -237,6 +238,7 @@ extension KlaviyoSwiftEnvironment {
                 PushBackground.available
             },
             networkSession: { NetworkSession.test() },
-            setBadgeCount: { _ in })
+            setBadgeCount: { _ in }
+        )
     }
 }

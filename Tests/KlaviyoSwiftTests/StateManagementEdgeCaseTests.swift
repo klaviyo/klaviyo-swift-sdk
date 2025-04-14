@@ -461,7 +461,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
-            flushing: false)
+            flushing: false
+        )
         let store = TestStore.testStore(initialState)
 
         // Impossible case really but we want coverage on it.

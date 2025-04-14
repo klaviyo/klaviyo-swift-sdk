@@ -57,7 +57,8 @@ public struct StateChangePublisher: Sendable {
                         anonymousId: state.anonymousId,
                         phoneNumber: state.phoneNumber,
                         externalId: state.externalId,
-                        pushToken: state.pushTokenData?.pushToken))
+                        pushToken: state.pushTokenData?.pushToken
+                    ))
                 }
             }
         }
