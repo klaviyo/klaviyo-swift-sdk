@@ -99,7 +99,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
-    func preloadWebsite(timeout: UInt64) async throws {
+    func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
@@ -112,7 +112,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
 
                 group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
+                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                     throw PreloadError.timeout
                 }
 
@@ -127,7 +127,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         } catch let error as PreloadError {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
             throw error
         } catch {

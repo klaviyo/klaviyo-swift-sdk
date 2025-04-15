@@ -12,8 +12,7 @@ import UIKit
 @MainActor
 class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     enum PreloadResult {
-        case formWillAppear(delay: UInt64)
-        case didFailNavigation(delay: UInt64)
+        case formWillAppear(delay: TimeInterval)
         case none
     }
 
@@ -41,7 +40,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
             if let result = preloadResult {
                 switch result {
                 case let .formWillAppear(delay):
-                    try? await Task.sleep(nanoseconds: delay)
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
 
                     let scriptMessage = MockWKScriptMessage(
                         name: "KlaviyoNativeBridge",
@@ -56,10 +55,6 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
                     )
 
                     viewModel.handleScriptMessage(scriptMessage)
-
-                case let .didFailNavigation(delay):
-                    try? await Task.sleep(nanoseconds: delay)
-                    viewModel.handleNavigationEvent(.didFailNavigation)
 
                 case .none:
                     // don't do anything
