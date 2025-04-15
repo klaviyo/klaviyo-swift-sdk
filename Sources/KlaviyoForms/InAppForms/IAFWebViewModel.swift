@@ -178,7 +178,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             formWillAppearContinuation.finish()
         case .formDisappeared:
             Task {
-                await delegate?.dismiss()
+                await delegate?.dismiss(animated: false)
             }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -196,7 +196,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Aborting webview: \(reason)")
             }
             Task {
-                await delegate?.dismiss()
+                await delegate?.dismiss(animated: false)
             }
         case .handShook:
             if #available(iOS 14.0, *) {

@@ -9,13 +9,10 @@ import Combine
 import Foundation
 import WebKit
 
-protocol KlaviyoWebViewDelegate: AnyObject {
+protocol KlaviyoWebViewDelegate: UIViewController {
     @MainActor
     func preloadUrl()
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any
-
-    @MainActor
-    func dismiss()
 }
