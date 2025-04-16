@@ -11,7 +11,7 @@ func write(data: Data, url: URL) throws {
     try data.write(to: url, options: .atomic)
 }
 
-public struct FileClient {
+public struct FileClient: @unchecked Sendable {
     public init(
         write: @escaping (Data, URL) throws -> Void,
         fileExists: @escaping (String) -> Bool,
@@ -57,10 +57,10 @@ public func filePathForData(apiKey: String, data: String) -> URL {
  - Parameter at: path of file to be removed
  - Returns: whether or not the file was removed
  */
-public func removeFile(at url: URL) -> Bool {
-    if environment.fileClient.fileExists(url.path) {
+public func removeFile(fileClient: FileClient, at url: URL) -> Bool {
+    if fileClient.fileExists(url.path) {
         do {
-            try environment.fileClient.removeItem(url.path)
+            try fileClient.removeItem(url.path)
             return true
         } catch {
             return false

@@ -15,6 +15,7 @@ private var webConsoleLoggingEnabled: Bool {
     ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
 }
 
+@MainActor
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
     // Required to allow localStorage data to be retained between webview instances
@@ -33,6 +34,7 @@ private func createDefaultWebView() -> WKWebView {
     return webView
 }
 
+@MainActor
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
@@ -41,27 +43,30 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @MainActor @escaping () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
         webView = webViewFactory()
         super.init(nibName: nil, bundle: nil)
         self.viewModel.delegate = self
 
         // Set up the web view
-        webView.customUserAgent = NetworkSession.defaultUserAgent
+        webView.customUserAgent = defaultUserAgent()
         webView.navigationDelegate = self
         webView.uiDelegate = self
     }
 
     deinit {
-        viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+        // We can assume for UIKit this should be on the main thread.
+        MainActor.assumeIsolated {
+            viewModel.messageHandlers?.forEach {
+                webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+            }
+            #if DEBUG
+            if webConsoleLoggingEnabled {
+                webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+            }
+            #endif
         }
-        #if DEBUG
-        if webConsoleLoggingEnabled {
-            webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
-        }
-        #endif
     }
 
     @available(*, unavailable)
@@ -273,6 +278,7 @@ private class ScriptDelegateWrapper: NSObject, WKScriptMessageHandler {
 
 @testable import KlaviyoSwift
 
+@MainActor
 func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
@@ -299,7 +305,7 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
-    _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
+    _ = klaviyoSwiftEnvironment.send(.initialize(companyId, getDefaultAppContextInfo()))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
     let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, companyId: companyId)
     return createKlaviyoWebPreview(viewModel: viewModel)

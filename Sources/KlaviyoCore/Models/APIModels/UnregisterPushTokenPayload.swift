@@ -7,10 +7,10 @@
 
 import Foundation
 
-public struct UnregisterPushTokenPayload: Equatable, Codable {
+public struct UnregisterPushTokenPayload: Equatable, Codable, Sendable {
     public let data: PushToken
 
-    public struct PushToken: Equatable, Codable {
+    public struct PushToken: Equatable, Codable, Sendable {
         var type = "push-token-unregister"
         public let attributes: Attributes
 
@@ -28,7 +28,7 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
             )
         }
 
-        public struct Attributes: Equatable, Codable {
+        public struct Attributes: Equatable, Codable, Sendable {
             public let profile: Profile
             public let token: String
             public let platform: String = "ios"
@@ -69,7 +69,7 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
                 )
             }
 
-            public struct Profile: Equatable, Codable {
+            public struct Profile: Equatable, Codable, Sendable {
                 public let data: ProfilePayload
 
                 public init(email: String? = nil,

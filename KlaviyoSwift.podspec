@@ -13,10 +13,10 @@ Pod::Spec.new do |s|
   s.source           = { :git => "https://github.com/klaviyo/klaviyo-swift-sdk.git", :tag => s.version.to_s }
   s.swift_version = '5.7'
   s.platform = :ios
-  s.ios.deployment_target = '13.0'
+  s.ios.deployment_target = '15.0'
   s.source_files = 'Sources/KlaviyoSwift/**/*.swift'
   s.resource_bundles = {"KlaviyoSwift" => ["Sources/KlaviyoSwift/PrivacyInfo.xcprivacy"]}
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift' }
-  s.dependency     'KlaviyoCore', '~> 4.2.1'
-  s.dependency     'AnyCodable-FlightSchool'
+  s.dependency     'KlaviyoCore', '~> 4.3.0'
+  s.dependency     'KlaviyoSDKDependencies', '~>4.3.0'
 end

@@ -7,7 +7,7 @@
 
 import UIKit
 
-public enum PushBackground: String, Codable {
+public enum PushBackground: String, Codable, Sendable {
     case available = "AVAILABLE"
     case restricted = "RESTRICTED"
     case denied = "DENIED"

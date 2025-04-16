@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ArchiverClient {
+public struct ArchiverClient: @unchecked Sendable {
     public init(
         archivedData: @escaping (Any, Bool) throws -> Data,
         unarchivedMutableArray: @escaping (Data) throws -> NSMutableArray?
@@ -33,21 +33,21 @@ public struct ArchiverClient {
     )
 }
 
-public func archiveQueue(queue: NSArray, to fileURL: URL) {
+public func archiveQueue(fileClient: FileClient, queue: NSArray, to fileURL: URL) {
     guard let archiveData = try? environment.archiverClient.archivedData(queue, true) else {
         print("unable to archive the data to \(fileURL)")
         return
     }
 
     do {
-        try environment.fileClient.write(archiveData, fileURL)
+        try fileClient.write(archiveData, fileURL)
     } catch {
         print("Unable to write archive data to file at URL: \(fileURL) error: \(error.localizedDescription)")
     }
 }
 
-public func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
-    guard environment.fileClient.fileExists(fileURL.path) else {
+public func unarchiveFromFile(fileClient: FileClient, fileURL: URL) -> NSMutableArray? {
+    guard fileClient.fileExists(fileURL.path) else {
         print("Archive file not found.")
         return nil
     }
@@ -61,7 +61,7 @@ public func unarchiveFromFile(fileURL: URL) -> NSMutableArray? {
         return nil
     }
 
-    if !removeFile(at: fileURL) {
+    if !removeFile(fileClient: environment.fileClient, at: fileURL) {
         print("Unable to remove archived data!")
     }
     return unarchivedData

@@ -34,9 +34,9 @@ package enum TimeoutError: Error {
 ///     try await someLongRunningOperation()
 /// }
 /// ```
-package func withTimeout<T>(
+package func withTimeout<T: Sendable>(
     seconds timeout: TimeInterval,
-    operation: @escaping () async throws -> T
+    operation: @Sendable @escaping () async throws -> T
 ) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         // Add the actual operation
