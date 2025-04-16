@@ -23,8 +23,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.10.0"),
-        .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.1"),
-        .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
         .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "1.0.2"),
         .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.3.0")
     ],
@@ -58,8 +56,7 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 "KlaviyoSDKDependencies",
                 .product(name: "CombineSchedulers", package: "combine-schedulers"),
-                "KlaviyoCore",
-                .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay")
+                "KlaviyoCore"
             ],
             exclude: [
                 "__Snapshots__"
