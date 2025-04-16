@@ -31,7 +31,6 @@ let package = Package(
     targets: [
         .target(
             name: "KlaviyoCore",
-            path: "Sources/KlaviyoCore"
             dependencies: ["KlaviyoSDKDependencies"],
             path: "Sources/KlaviyoCore"
         ),
