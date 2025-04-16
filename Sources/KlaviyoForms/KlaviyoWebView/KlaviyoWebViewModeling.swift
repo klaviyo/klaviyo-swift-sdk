@@ -18,7 +18,7 @@ protocol KlaviyoWebViewModeling: AnyObject {
     var loadScripts: Set<WKUserScript>? { get }
     var messageHandlers: Set<String>? { get }
 
-    func preloadWebsite(timeout: TimeInterval) async throws
     func handleNavigationEvent(_ event: WKNavigationEvent)
     func handleScriptMessage(_ message: WKScriptMessage)
+    func handleViewTransition()
 }

@@ -132,5 +132,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
             }
         }
     }
+
+    func handleViewTransition() {}
 }
 #endif

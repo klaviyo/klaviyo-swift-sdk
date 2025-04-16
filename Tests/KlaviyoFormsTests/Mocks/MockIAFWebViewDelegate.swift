@@ -11,15 +11,14 @@ import UIKit
 
 @MainActor
 class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
-    enum PreloadResult {
-        case formWillAppear(delay: TimeInterval)
+    enum HandshakeResult {
+        case handshakeEstablished(delay: TimeInterval)
         case none
     }
 
     let viewModel: IAFWebViewModel
 
-    var preloadResult: PreloadResult?
-    var preloadUrlCalled = false
+    var handshakeResult: HandshakeResult?
     var evaluateJavaScriptCalled = false
 
     init(viewModel: IAFWebViewModel) {
@@ -34,23 +33,17 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 
     func preloadUrl() {
         viewModel.handleNavigationEvent(.didCommitNavigation)
-        preloadUrlCalled = true
 
         Task {
-            if let result = preloadResult {
+            if let result = handshakeResult {
                 switch result {
-                case let .formWillAppear(delay):
+                case let .handshakeEstablished(delay):
                     try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
 
                     let scriptMessage = MockWKScriptMessage(
                         name: "KlaviyoNativeBridge",
                         body: """
-                        {
-                          "type": "formWillAppear",
-                          "data": {
-                            "formId": "abc123"
-                          }
-                        }
+                        {"type":"handShook","data":{}}
                         """
                     )
 
