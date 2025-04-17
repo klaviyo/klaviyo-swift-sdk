@@ -18,6 +18,6 @@ Pod::Spec.new do |s|
       'Tests/KlaviyoFormsTests/Assets/*.{html}'
     ]
   }
-  s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift' }
+  s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift -package-name KlaviyoCore' }
   s.dependency     'KlaviyoSwift', '~> 4.2.1'
 end
