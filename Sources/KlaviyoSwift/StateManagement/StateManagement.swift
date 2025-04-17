@@ -182,6 +182,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.initalizationState = .initialized
 
             state.pendingRequests = []
+            
+            // Start push notification swizzling on the main thread
+            PushNotificationSwizzler.shared.start()
 
             return .run { send in
                 for request in pendingRequests {

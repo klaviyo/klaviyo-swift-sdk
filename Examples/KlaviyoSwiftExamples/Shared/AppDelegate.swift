@@ -37,7 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
-            .initialize(with: "ABC123")
+            .initialize(with: "Xr5bFG")
             .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
 
         // EXAMPLE: of how to track an event
@@ -83,8 +83,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // STEP5: add the push device token to your Klaviyo user profile.
-        KlaviyoSDK().set(pushToken: deviceToken)
+        // Note: Push token registration is now handled automatically by the Klaviyo SDK.
+        // No need to manually set the token anymore.
+        print("Received push token: \(deviceToken)")
+        
     }
 
     func application(
