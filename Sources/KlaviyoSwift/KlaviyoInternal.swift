@@ -31,6 +31,21 @@ package struct KlaviyoInternal {
         }
     }
 
+    package static func profileChangePublisher() -> AnyPublisher<ProfileData, Never> {
+        klaviyoSwiftEnvironment.statePublisher()
+            .removeDuplicates()
+            .map {
+                ProfileData(
+                    email: $0.email,
+                    anonymousId: $0.anonymousId,
+                    phoneNumber: $0.phoneNumber,
+                    externalId: $0.externalId
+                )
+            }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+
     /// Create and send an aggregate event.
     /// - Parameter event: the event to be tracked in Klaviyo
     package static func create(aggregateEvent: AggregateEventPayload) {
