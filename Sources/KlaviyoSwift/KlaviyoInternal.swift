@@ -12,7 +12,7 @@ import KlaviyoCore
 /// The internal interface for the Klaviyo SDK.
 ///
 /// - Note: Can only be accessed from other modules within the Klaviyo-Swift-SDK package; cannot be accessed from the host app.
-package struct KlaviyoInternal {
+package enum KlaviyoInternal {
     static var cancellable: Cancellable?
     /// the apiKey (a.k.a. CompanyID) for the current SDK instance.
     /// - Parameter completion: completion hanlder that will be called when apiKey is avaialble after SDK is initilized
