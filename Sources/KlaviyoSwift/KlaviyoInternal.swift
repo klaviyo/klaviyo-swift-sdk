@@ -36,6 +36,7 @@ package struct KlaviyoInternal {
             .removeDuplicates()
             .map {
                 ProfileData(
+                    apiKey: $0.apiKey,
                     email: $0.email,
                     anonymousId: $0.anonymousId,
                     phoneNumber: $0.phoneNumber,
