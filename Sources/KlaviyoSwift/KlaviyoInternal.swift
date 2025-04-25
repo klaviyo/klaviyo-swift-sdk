@@ -66,7 +66,7 @@ package enum KlaviyoInternal {
                     // If we get a valid key, emit it immediately and cancel any pending timer
                     return Just(apiKey).eraseToAnyPublisher()
                 } else {
-                    // If we get nil or empty string, start a timer that will emit nil after 10 seconds
+                    // If we get nil or empty string, start a timer that will emit a warning after 10 seconds
                     return Just(nil)
                         .delay(for: .seconds(10), scheduler: DispatchQueue.main)
                         .handleEvents(receiveOutput: { _ in
