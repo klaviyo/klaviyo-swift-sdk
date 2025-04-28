@@ -13,6 +13,7 @@ extension KlaviyoSDK {
     public func registerForInAppForms() {
         Task {
             await MainActor.run {
+                IAFPresentationManager.shared.setupLifecycleEvents()
                 IAFPresentationManager.shared.presentIAF()
             }
         }

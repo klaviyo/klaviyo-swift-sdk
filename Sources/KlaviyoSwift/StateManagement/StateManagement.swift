@@ -12,6 +12,7 @@
 //
 
 import AnyCodable
+import Combine
 import Foundation
 import KlaviyoCore
 import UIKit
@@ -205,7 +206,23 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 await send(.start)
             }
-            .merge(with: environment.appLifeCycle.lifeCycleEvents().map(\.transformToKlaviyoAction).eraseToEffect())
+            .merge(with: environment.appLifeCycle.lifeCycleEvents()
+                .handleEvents(receiveOutput: { event in
+                    switch event {
+                    case .terminated, .backgrounded:
+                        environment.stopReachability()
+                    case .foregrounded:
+                        do {
+                            try environment.startReachability()
+                        } catch {
+                            environment.emitDeveloperWarning("failure to start reachability notifier")
+                        }
+                    case .reachabilityChanged:
+                        break
+                    }
+                })
+                .map(\.transformToKlaviyoAction)
+                .eraseToEffect())
             .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):

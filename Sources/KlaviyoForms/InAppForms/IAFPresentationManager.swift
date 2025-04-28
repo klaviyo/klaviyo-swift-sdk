@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import Combine
 import Foundation
 import KlaviyoCore
 import KlaviyoSwift
@@ -13,6 +14,7 @@ import UIKit
 
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
+    private var lifecycleCancellable: AnyCancellable?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -23,6 +25,22 @@ class IAFPresentationManager {
     }()
 
     private var isLoading: Bool = false
+
+    func setupLifecycleEvents() {
+        lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
+            .sink { [weak self] event in
+                switch event {
+                case .terminated:
+                    print("[KlaviyoForms] terminated")
+                case .foregrounded:
+                    print("[KlaviyoForms] foregrounded")
+                case .backgrounded:
+                    print("[KlaviyoForms] backgrounded")
+                case let .reachabilityChanged(status: status):
+                    print("[KlaviyoForms] reachabilityChanged: \(status)")
+                }
+            }
+    }
 
     @MainActor
     func presentIAF(assetSource: String? = nil) {
