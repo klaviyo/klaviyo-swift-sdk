@@ -30,6 +30,7 @@ class IAFPresentationManager {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
                 switch event {
+                // TODO: Implement app session here based on these lifecycle events
                 case .terminated:
                     print("[KlaviyoForms] terminated")
                 case .foregrounded:
