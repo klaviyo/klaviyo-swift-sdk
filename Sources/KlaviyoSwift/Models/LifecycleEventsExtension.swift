@@ -14,13 +14,10 @@ extension LifeCycleEvents {
         case .terminated:
             return .stop
         case .foregrounded:
-            print("[KlaviyoSwift] foregrounded")
             return .start
         case .backgrounded:
-            print("[KlaviyoSwift] backgrounded")
             return .stop
         case let .reachabilityChanged(status):
-            print("[KlaviyoSwift] reachabilityChanged: \(status)")
             return .networkConnectivityChanged(status)
         }
     }

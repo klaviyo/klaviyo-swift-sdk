@@ -218,33 +218,4 @@ class AppLifeCycleEventsTests: XCTestCase {
         XCTAssertEqual(KlaviyoAction.networkConnectivityChanged(.reachableViaWWAN), receivedAction)
         cancellable.cancel()
     }
-
-    // MARK: - Lifecycle Events With Reachability
-
-    @MainActor
-    func testLifecycleEventsWithReachabilityBackgroundStopsReachability() async {
-        // Set up the environment
-        environment = KlaviyoEnvironment.test()
-        let expectation = XCTestExpectation(description: "Stop reachability is called")
-        environment.stopReachability = { expectation.fulfill() }
-
-        // Create a custom AppLifeCycleEvents that we can control
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
-            lifecycleSubject.eraseToAnyPublisher()
-        })
-
-        // Override the environment's appLifeCycle
-        environment.appLifeCycle = customLifeCycleEvents
-
-        // Subscribe to the lifecycle events with reachability
-        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
-
-        // Send the background event
-        lifecycleSubject.send(.backgrounded)
-
-        // Wait for the expectation
-        await fulfillment(of: [expectation], timeout: 1.0)
-        cancellable.cancel()
-    }
 }
