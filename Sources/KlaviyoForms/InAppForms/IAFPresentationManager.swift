@@ -32,13 +32,13 @@ class IAFPresentationManager {
                 switch event {
                 // TODO: Implement app session here based on these lifecycle events
                 case .terminated:
-                    print("[KlaviyoForms] terminated")
+                    break
                 case .foregrounded:
-                    print("[KlaviyoForms] foregrounded")
+                    break
                 case .backgrounded:
-                    print("[KlaviyoForms] backgrounded")
+                    break
                 case let .reachabilityChanged(status: status):
-                    print("[KlaviyoForms] reachabilityChanged: \(status)")
+                    break
                 }
             }
     }
