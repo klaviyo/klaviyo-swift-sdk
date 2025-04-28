@@ -100,6 +100,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    // MARK: Silent Push Notification implementation
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // Access custom key-value pairs from the top level
+        if let customData = userInfo["key_value_pairs"] as? [String: String] {
+            // Process your custom key-value pairs here
+            for (key, value) in kvPairs {
+                print("Key: \(key), Value: \(value)")
+            }
+        } else {
+            print("No key_value_pairs found in notification")
+        }
+    }
+
     // MARK: Deep linking implementation
 
     // If you would like to support deep links the following delegate needs to be implemented

@@ -28,7 +28,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let companyId: String?
     private let assetSource: String?
 
-    private let (formWillAppearStream, formWillAppearContinuation) = AsyncStream.makeStream(of: Void.self)
+    let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
+    private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
+    private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
 
@@ -85,6 +87,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
         self.companyId = companyId
         self.assetSource = assetSource
+
+        let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
+        formLifecycleStream = stream
+        formLifecycleContinuation = continuation
+
         initializeLoadScripts()
     }
 
@@ -99,35 +106,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
-    func preloadWebsite(timeout: UInt64) async throws {
+    func establishHandshake(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
 
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                defer {
-                    formWillAppearContinuation.finish()
-                    group.cancelAll()
-                }
-
-                group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
-                    throw PreloadError.timeout
-                }
-
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    var iterator = self.formWillAppearStream.makeAsyncIterator()
-                    await iterator.next()
-                }
-
-                try await group.next()
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.handshakeStream.first { _ in true }
             }
-        } catch let error as PreloadError {
+        } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(Float(timeout / 1_000_000_000), format: .fixed(precision: 1)) seconds.")
+                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
             throw error
         } catch {
@@ -171,15 +162,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
-            // TODO: handle formsDataLoaded
             ()
         case .formWillAppear:
-            formWillAppearContinuation.yield()
-            formWillAppearContinuation.finish()
-        case .formDisappeared:
-            Task {
-                await delegate?.dismiss()
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received `formWillAppear` event from KlaviyoJS")
             }
+            formLifecycleContinuation.yield(.present)
+        case .formDisappeared:
+            formLifecycleContinuation.yield(.dismiss)
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -195,13 +185,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Aborting webview: \(reason)")
             }
-            Task {
-                await delegate?.dismiss()
-            }
+            formLifecycleContinuation.yield(.abort)
         case .handShook:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
+            handshakeContinuation.yield()
+            handshakeContinuation.finish()
         }
+    }
+
+    // MARK: - handle view events
+
+    func handleViewTransition() {
+        formLifecycleContinuation.yield(.dismiss)
     }
 }

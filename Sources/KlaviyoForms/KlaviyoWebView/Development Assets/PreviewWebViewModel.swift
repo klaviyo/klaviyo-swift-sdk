@@ -8,6 +8,7 @@
 #if DEBUG
 import Combine
 import Foundation
+import KlaviyoCore
 import WebKit
 
 // ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.
@@ -54,49 +55,31 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     ///
     /// The caller of this method should `await` completion of this method, then present the ViewController.
     /// - Parameter timeout: the amount of time, in milliseconds, to wait before throwing a `timeout` error.
-    public func preloadWebsite(timeout: UInt64) async throws {
+    public func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
 
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    try await Task.sleep(nanoseconds: timeout)
-                    throw PreloadError.timeout
-                }
-
-                // Add the navigation event task to the group
-                group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await event in self.navEventStream {
-                        switch event {
-                        case .didFinishNavigation:
-                            return
-                        case .didFailNavigation:
-                            throw PreloadError.navigationFailed
-                        case .didCommitNavigation,
-                             .didStartProvisionalNavigation,
-                             .didFailProvisionalNavigation,
-                             .didReceiveServerRedirectForProvisionalNavigation:
-                            continue
-                        }
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { return }
+                for await event in self.navEventStream {
+                    switch event {
+                    case .didFinishNavigation:
+                        return
+                    case .didFailNavigation,
+                         .didCommitNavigation,
+                         .didStartProvisionalNavigation,
+                         .didFailProvisionalNavigation,
+                         .didReceiveServerRedirectForProvisionalNavigation:
+                        continue
                     }
                 }
-
-                if let _ = try await group.next() {
-                    // when the navigation task returns, we want to
-                    // cancel both the timeout task and the navigation task
-                    group.cancelAll()
-                }
             }
-        } catch let error as PreloadError {
+        } catch let error as TimeoutError {
             switch error {
             case .timeout:
                 print("Operation timed out: \(error)")
-                throw error
-            case .navigationFailed:
-                print("Navigation failed: \(error)")
                 throw error
             }
         } catch {
@@ -145,9 +128,11 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
             }
         case .closeMessageHandler:
             Task {
-                await delegate?.dismiss()
+                await delegate?.dismiss(animated: false)
             }
         }
     }
+
+    func handleViewTransition() {}
 }
 #endif

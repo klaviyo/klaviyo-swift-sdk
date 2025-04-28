@@ -16,6 +16,10 @@ class IAFPresentationManager {
     static let shared = IAFPresentationManager()
     private var lifecycleCancellable: AnyCancellable?
 
+    private var viewController: KlaviyoWebViewController?
+    private var isLoading: Bool = false
+    private var formEventTask: Task<Void, Never>?
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -23,9 +27,7 @@ class IAFPresentationManager {
             return nil
         }
     }()
-
-    private var isLoading: Bool = false
-
+  
     func setupLifecycleEvents() {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
@@ -69,32 +71,71 @@ class IAFPresentationManager {
             }
 
             let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
-            let viewController = KlaviyoWebViewController(viewModel: viewModel)
-            viewController.modalPresentationStyle = .overCurrentContext
+            viewController = KlaviyoWebViewController(viewModel: viewModel)
+            viewController?.modalPresentationStyle = .overCurrentContext
 
+            // establish the handshake with KlaviyoJS
             do {
-                try await viewModel.preloadWebsite(timeout: NetworkSession.networkTimeout)
+                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
             } catch {
-                viewController.dismiss()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error preloading In-App Form: \(error).")
-                }
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
+                viewController = nil
                 return
             }
 
-            guard let topController = UIApplication.shared.topMostViewController else {
-                viewController.dismiss()
-                return
-            }
-
-            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                viewController.dismiss()
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+            // now that we've established the handshake, we can start a task that listens for Form events.
+            formEventTask = Task {
+                for await event in viewModel.formLifecycleStream {
+                    handleFormEvent(event)
                 }
-            } else {
-                topController.present(viewController, animated: false, completion: nil)
             }
+        }
+    }
+
+    @MainActor
+    private func handleFormEvent(_ event: IAFLifecycleEvent) {
+        switch event {
+        case .present:
+            presentForm()
+        case .dismiss:
+            dismissForm()
+            formEventTask?.cancel()
+        case .abort:
+            formEventTask?.cancel()
+        }
+    }
+
+    @MainActor
+    private func presentForm() {
+        guard let viewController else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
+            }
+            return
+        }
+
+        guard let topController = UIApplication.shared.topMostViewController else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Unable to access topMostViewController; ignoring `presentForm()` request.")
+            }
+            self.viewController = nil
+            return
+        }
+
+        if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+            }
+            dismissForm()
+        } else {
+            topController.present(viewController, animated: false, completion: nil)
+        }
+    }
+
+    @MainActor
+    private func dismissForm() {
+        viewController?.dismiss(animated: false) { [weak self] in
+            self?.viewController = nil
         }
     }
 }

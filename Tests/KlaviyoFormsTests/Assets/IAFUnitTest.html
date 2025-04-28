@@ -9,10 +9,8 @@
                 <script>
                     document.addEventListener("DOMContentLoaded", function () {
                         const message = JSON.stringify({
-                            type: "formWillAppear",
-                            data: {
-                                formId: "abc123"
-                            }
+                            type: "handShook",
+                            data: {}
                         });
 
                         window.webkit.messageHandlers.KlaviyoNativeBridge.postMessage(message);
