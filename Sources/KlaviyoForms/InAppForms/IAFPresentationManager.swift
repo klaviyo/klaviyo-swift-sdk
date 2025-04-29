@@ -27,7 +27,7 @@ class IAFPresentationManager {
             return nil
         }
     }()
-  
+
     func setupLifecycleEvents() {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
