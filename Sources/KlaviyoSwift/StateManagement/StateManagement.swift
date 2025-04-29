@@ -12,6 +12,7 @@
 //
 
 import AnyCodable
+import Combine
 import Foundation
 import KlaviyoCore
 import UIKit
@@ -205,7 +206,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 await send(.start)
             }
-            .merge(with: environment.appLifeCycle.lifeCycleEvents().map(\.transformToKlaviyoAction).eraseToEffect())
+            .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
             .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):

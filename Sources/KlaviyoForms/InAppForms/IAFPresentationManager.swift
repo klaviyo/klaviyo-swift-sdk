@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import Combine
 import Foundation
 import KlaviyoCore
 import KlaviyoSwift
@@ -13,6 +14,7 @@ import UIKit
 
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
+    private var lifecycleCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
     private var isLoading: Bool = false
@@ -25,6 +27,23 @@ class IAFPresentationManager {
             return nil
         }
     }()
+
+    func setupLifecycleEvents() {
+        lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
+            .sink { [weak self] event in
+                switch event {
+                // TODO: Implement app session here based on these lifecycle events
+                case .terminated:
+                    break
+                case .foregrounded:
+                    break
+                case .backgrounded:
+                    break
+                case let .reachabilityChanged(status: status):
+                    break
+                }
+            }
+    }
 
     @MainActor
     func presentIAF(assetSource: String? = nil) {

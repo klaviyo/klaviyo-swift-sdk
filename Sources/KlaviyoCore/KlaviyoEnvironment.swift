@@ -137,6 +137,25 @@ public struct KlaviyoEnvironment {
     public var sdkName: () -> String
     public var sdkVersion: () -> String
 
+    public func lifecycleEventsWithReachability() -> AnyPublisher<LifeCycleEvents, Never> {
+        appLifeCycle.lifeCycleEvents()
+            .handleEvents(receiveOutput: { event in
+                switch event {
+                case .terminated, .backgrounded:
+                    stopReachability()
+                case .foregrounded:
+                    do {
+                        try startReachability()
+                    } catch {
+                        emitDeveloperWarning("failure to start reachability notifier")
+                    }
+                case .reachabilityChanged:
+                    break
+                }
+            })
+            .eraseToAnyPublisher()
+    }
+
     private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
 
     private static func getSDKName() -> String {
