@@ -160,6 +160,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         lifecycleSubject.send(.foregrounded)
         await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
+        XCTAssertEqual(1, expectation.expectedFulfillmentCount)
     }
 
     // MARK: Reachability notifications
