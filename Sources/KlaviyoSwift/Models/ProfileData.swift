@@ -6,6 +6,7 @@
 //
 
 package struct ProfileData: Equatable, CustomDebugStringConvertible {
+    package var apiKey: String?
     package var email: String?
     package var anonymousId: String?
     package var phoneNumber: String?
@@ -13,6 +14,7 @@ package struct ProfileData: Equatable, CustomDebugStringConvertible {
 
     package var debugDescription: String {
         """
+        apiKey: \t\t\t\(apiKey ?? "<no API key>")
         email: \t\t\t\(email ?? "<no email>")
         phoneNumber: \t\(phoneNumber ?? "<no phoneNumber>")
         anonymousId: \t\(anonymousId ?? "<no anonymousId>")
