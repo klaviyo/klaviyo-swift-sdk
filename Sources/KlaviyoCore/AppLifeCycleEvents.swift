@@ -50,5 +50,5 @@ public struct AppLifeCycleEvents {
         self.lifeCycleEvents = lifeCycleEvents
     }
 
-    public static let production = Self()
+    package static let production = Self()
 }
