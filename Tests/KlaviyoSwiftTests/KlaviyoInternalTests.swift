@@ -88,4 +88,93 @@ final class KlaviyoInternalTests: XCTestCase {
         // Wait for the expectation
         wait(for: [expectation], timeout: 1.0)
     }
+
+    // MARK: - apiKeyPublisher tests
+
+    func testApiKeyPublisher_emitsValidKeyImmediately() {
+        let expectation = XCTestExpectation(description: "Should receive valid key immediately")
+        var receivedValues: [String] = []
+
+        // Set up the test environment with a valid key
+        let initialState = KlaviyoState(apiKey: "ABC123", queue: [])
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { apiKey in
+                receivedValues.append(apiKey)
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedValues, ["ABC123"])
+    }
+
+    func testApiKeyPublisher_emitsMultipleValues() {
+        let expectation = XCTestExpectation(description: "Publisher should emit two API keys")
+        var receivedValues = Set<String>()
+
+        // Set up the test environment with a valid key
+        let initialState = KlaviyoState(queue: [])
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { apiKey in
+                receivedValues.insert(apiKey)
+                if receivedValues.count == 2 {
+                    expectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            _ = testStore.send(.initialize("ABC123"))
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            _ = testStore.send(.initialize("DEF456"))
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedValues, Set<String>(["ABC123", "DEF456"]))
+    }
+
+    func testApiKeyPublisher_willNotEmitNilAPIKey() async {
+        // Set up the test environment with a nil key
+        let initialState = KlaviyoState(queue: [])
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        let expectation = XCTestExpectation(description: "Publisher should not emit any values")
+        expectation.isInverted = true // fails the test if the expectation is fulfilled
+
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { _ in
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        // Wait for a short time to ensure no values are emitted
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+
+    func testApiKeyPublisher_willNotEmitEmptyAPIKey() {
+        // Set up the test environment with an empty key
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        _ = testStore.send(.initialize(""))
+
+        let expectation = XCTestExpectation(description: "Publisher should not emit any values")
+        expectation.isInverted = true // fails the test if the expectation is fulfilled
+
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { _ in
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
 }
