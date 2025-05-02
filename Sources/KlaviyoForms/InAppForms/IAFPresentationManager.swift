@@ -15,6 +15,7 @@ import UIKit
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
     private var lifecycleCancellable: AnyCancellable?
+    private var apiKeyCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
     private var isLoading: Bool = false
@@ -78,6 +79,16 @@ class IAFPresentationManager {
                     }
                 case .reachabilityChanged:
                     break
+                }
+            }
+
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
+                        await self?.destroyWebView()
+                        await self?.constructWebview()
+                    })
                 }
             }
     }
