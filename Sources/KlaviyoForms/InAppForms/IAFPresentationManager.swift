@@ -15,6 +15,7 @@ import UIKit
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
     private var lifecycleCancellable: AnyCancellable?
+    private var apiKeyCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
     private var isLoading: Bool = false
@@ -28,25 +29,72 @@ class IAFPresentationManager {
         }
     }()
 
+    @MainActor
+    private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async {
+        do {
+            try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
+            if let additionalAction = additionalAction {
+                await additionalAction()
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Failed to dispatch lifecycle event: \(error)")
+            }
+        }
+    }
+
     func setupLifecycleEvents() {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
                 switch event {
-                // TODO: Implement app session here based on these lifecycle events
                 case .terminated:
                     break
                 case .foregrounded:
-                    break
+                    if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
+                        let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+                        if timeElapsed > 2.0 {
+                            Task { @MainActor in
+                                await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
+                                    await self?.destroyWebView()
+                                    await self?.constructWebview()
+                                })
+                            }
+                        } else {
+                            Task {
+                                await self?.handleLifecycleEvent("resumed", "restore")
+                            }
+                        }
+                    } else {
+                        Task { @MainActor in
+                            await self?.handleLifecycleEvent("resumed", "restore", additionalAction: {
+                                await self?.destroyWebView()
+                                await self?.constructWebview()
+                            })
+                        }
+                    }
                 case .backgrounded:
+                    UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
+                    Task {
+                        await self?.handleLifecycleEvent("backgrounded", "persist")
+                    }
+                case .reachabilityChanged:
                     break
-                case let .reachabilityChanged(status: status):
-                    break
+                }
+            }
+
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
+                        await self?.destroyWebView()
+                        await self?.constructWebview()
+                    })
                 }
             }
     }
 
     @MainActor
-    func presentIAF(assetSource: String? = nil) {
+    func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -128,14 +176,31 @@ class IAFPresentationManager {
             }
             dismissForm()
         } else {
-            topController.present(viewController, animated: false, completion: nil)
+            if topController.view.isHidden {
+                viewController.view.isHidden = false
+                viewController.view.isUserInteractionEnabled = true
+            } else {
+                topController.present(viewController, animated: false, completion: nil)
+            }
         }
     }
 
     @MainActor
     private func dismissForm() {
-        viewController?.dismiss(animated: false) { [weak self] in
-            self?.viewController = nil
+        guard let viewController else { return }
+        viewController.view.isHidden = true
+        viewController.view.isUserInteractionEnabled = false
+        if let presentingVC = viewController.presentingViewController {
+            viewController.dismiss(animated: false)
+        }
+    }
+
+    @MainActor
+    private func destroyWebView() {
+        if let presentingVC = viewController?.presentingViewController {
+            viewController?.dismiss(animated: false) { [weak self] in
+                self?.viewController = nil
+            }
         }
     }
 }
