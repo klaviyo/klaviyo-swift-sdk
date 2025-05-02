@@ -12,6 +12,7 @@ import KlaviyoSwift
 import OSLog
 import UIKit
 
+@MainActor
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
     private var lifecycleCancellable: AnyCancellable?
@@ -29,7 +30,6 @@ class IAFPresentationManager {
         }
     }()
 
-    @MainActor
     private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async {
         viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
         if let additionalAction = additionalAction {
@@ -40,39 +40,33 @@ class IAFPresentationManager {
     func setupLifecycleEvents() {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
-                switch event {
-                case .terminated:
-                    break
-                case .foregrounded:
-                    if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
-                        let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                        if timeElapsed > 2.0 {
-                            Task { @MainActor in
+                Task { @MainActor in
+                    switch event {
+                    case .terminated:
+                        break
+                    case .foregrounded:
+                        if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
+                            let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+                            if timeElapsed > 2.0 {
                                 await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
                                     self?.destroyWebView()
                                     self?.constructWebview()
                                 })
-                            }
-                        } else {
-                            Task {
+                            } else {
                                 await self?.handleLifecycleEvent("resumed", "restore")
                             }
-                        }
-                    } else {
-                        // fresh launch
-                        Task { @MainActor in
+                        } else {
+                            // fresh launch
                             await self?.handleLifecycleEvent("resumed", "restore", additionalAction: {
                                 self?.constructWebview()
                             })
                         }
-                    }
-                case .backgrounded:
-                    UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
-                    Task {
+                    case .backgrounded:
+                        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
                         await self?.handleLifecycleEvent("backgrounded", "persist")
+                    case .reachabilityChanged:
+                        break
                     }
-                case .reachabilityChanged:
-                    break
                 }
             }
 
@@ -87,7 +81,6 @@ class IAFPresentationManager {
             }
     }
 
-    @MainActor
     func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
@@ -134,7 +127,6 @@ class IAFPresentationManager {
         }
     }
 
-    @MainActor
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         switch event {
         case .present:
@@ -147,7 +139,6 @@ class IAFPresentationManager {
         }
     }
 
-    @MainActor
     private func presentForm() {
         guard let viewController else {
             if #available(iOS 14.0, *) {
@@ -174,7 +165,6 @@ class IAFPresentationManager {
         }
     }
 
-    @MainActor
     private func dismissForm() {
         guard let viewController else { return }
         viewController.view.isHidden = true
@@ -182,7 +172,6 @@ class IAFPresentationManager {
         viewController.dismiss(animated: false)
     }
 
-    @MainActor
     private func destroyWebView() {
         viewController?.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
