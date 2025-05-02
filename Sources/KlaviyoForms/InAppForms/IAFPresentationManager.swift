@@ -48,22 +48,17 @@ class IAFPresentationManager {
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             if timeElapsed > 2.0 {
-                                await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
+                                await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
                                     self?.destroyWebView()
                                     self?.constructWebview()
                                 })
                             } else {
-                                await self?.handleLifecycleEvent("resumed", "restore")
+                                await self?.handleLifecycleEvent("foreground", "restore")
                             }
-                        } else {
-                            // fresh launch
-                            await self?.handleLifecycleEvent("resumed", "restore", additionalAction: {
-                                self?.constructWebview()
-                            })
                         }
                     case .backgrounded:
                         UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
-                        await self?.handleLifecycleEvent("backgrounded", "persist")
+                        await self?.handleLifecycleEvent("background", "persist")
                     case .reachabilityChanged:
                         break
                     }
@@ -71,12 +66,23 @@ class IAFPresentationManager {
             }
 
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
-            .sink { [weak self] _ in
+            .scan((nil, false)) { previous, current in
+                (current, previous.0 != nil)
+            }
+            .sink { [weak self] _, isSubsequent in
                 Task { @MainActor in
-                    await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
-                        self?.destroyWebView()
-                        self?.constructWebview()
-                    })
+                    if isSubsequent {
+                        // subsequent API key changes
+                        await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                            self?.destroyWebView()
+                            self?.constructWebview()
+                        })
+                    } else {
+                        // initial launch
+                        await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                            self?.constructWebview()
+                        })
+                    }
                 }
             }
     }

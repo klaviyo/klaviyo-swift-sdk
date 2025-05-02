@@ -14,7 +14,6 @@ extension KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents()
-                IAFPresentationManager.shared.constructWebview()
             }
         }
     }
