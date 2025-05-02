@@ -46,7 +46,7 @@ class IAFPresentationManager {
     }
 
     @MainActor
-    func presentIAF(assetSource: String? = nil) {
+    func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -126,7 +126,7 @@ class IAFPresentationManager {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
             }
-            dismissForm()
+            destroyWebView()
         } else {
             topController.present(viewController, animated: false, completion: nil)
         }
@@ -134,6 +134,14 @@ class IAFPresentationManager {
 
     @MainActor
     private func dismissForm() {
+        guard let viewController else { return }
+        viewController.view.isHidden = true
+        viewController.view.isUserInteractionEnabled = false
+        viewController.dismiss(animated: false)
+    }
+
+    @MainActor
+    private func destroyWebView() {
         viewController?.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
         }
