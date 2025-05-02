@@ -117,14 +117,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
             let script = "document.getElementById('toggle-status').innerText = \"\(newStatus)\""
 
             Task {
-                do {
-                    let result = try await delegate?.evaluateJavaScript(script)
-                    if let successMessage = result as? String {
-                        print("Successfully evaluated Javascript; message: \(successMessage)")
-                    }
-                } catch {
-                    print("Javascript evaluation failed; message: \(error.localizedDescription)")
-                }
+                await delegate?.evaluateJavaScript(script)
             }
         case .closeMessageHandler:
             Task {

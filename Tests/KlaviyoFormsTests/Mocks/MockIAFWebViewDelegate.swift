@@ -57,9 +57,8 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
         }
     }
 
-    func evaluateJavaScript(_ script: String) async throws -> Any {
+    func evaluateJavaScript(_ script: String) {
         evaluateJavaScriptCalled = true
-        return true
     }
 
     func dismiss() {}

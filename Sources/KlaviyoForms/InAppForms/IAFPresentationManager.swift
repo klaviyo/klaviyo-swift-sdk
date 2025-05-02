@@ -31,15 +31,9 @@ class IAFPresentationManager {
 
     @MainActor
     private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async {
-        do {
-            try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
-            if let additionalAction = additionalAction {
-                await additionalAction()
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Failed to dispatch lifecycle event: \(error)")
-            }
+        viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
+        if let additionalAction = additionalAction {
+            await additionalAction()
         }
     }
 
@@ -55,8 +49,8 @@ class IAFPresentationManager {
                         if timeElapsed > 2.0 {
                             Task { @MainActor in
                                 await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
-                                    await self?.destroyWebView()
-                                    await self?.constructWebview()
+                                    self?.destroyWebView()
+                                    self?.constructWebview()
                                 })
                             }
                         } else {
@@ -68,7 +62,7 @@ class IAFPresentationManager {
                         // fresh launch
                         Task { @MainActor in
                             await self?.handleLifecycleEvent("resumed", "restore", additionalAction: {
-                                await self?.constructWebview()
+                                self?.constructWebview()
                             })
                         }
                     }
@@ -86,8 +80,8 @@ class IAFPresentationManager {
             .sink { [weak self] _ in
                 Task { @MainActor in
                     await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
-                        await self?.destroyWebView()
-                        await self?.constructWebview()
+                        self?.destroyWebView()
+                        self?.constructWebview()
                     })
                 }
             }

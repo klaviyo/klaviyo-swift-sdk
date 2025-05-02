@@ -117,7 +117,9 @@ extension IAFNativeBridgeEvent {
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
             .openDeepLink(URL(string: "https://example.com")!),
-            .abort("")
+            .abort(""),
+            .analyticsEvent,
+            .lifecycleEvent
         ]
     }
 
