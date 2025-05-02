@@ -28,18 +28,55 @@ class IAFPresentationManager {
         }
     }()
 
+    @MainActor
+    private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async {
+        do {
+            try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
+            if let additionalAction = additionalAction {
+                await additionalAction()
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Failed to dispatch lifecycle event: \(error)")
+            }
+        }
+    }
+
     func setupLifecycleEvents() {
         lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
             .sink { [weak self] event in
                 switch event {
-                // TODO: Implement app session here based on these lifecycle events
                 case .terminated:
                     break
                 case .foregrounded:
-                    break
+                    if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
+                        let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+                        if timeElapsed > 2.0 {
+                            Task { @MainActor in
+                                await self?.handleLifecycleEvent("resumed", "purge", additionalAction: {
+                                    await self?.destroyWebView()
+                                    await self?.constructWebview()
+                                })
+                            }
+                        } else {
+                            Task {
+                                await self?.handleLifecycleEvent("resumed", "restore")
+                            }
+                        }
+                    } else {
+                        // fresh launch
+                        Task { @MainActor in
+                            await self?.handleLifecycleEvent("resumed", "restore", additionalAction: {
+                                await self?.constructWebview()
+                            })
+                        }
+                    }
                 case .backgrounded:
-                    break
-                case let .reachabilityChanged(status: status):
+                    UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
+                    Task {
+                        await self?.handleLifecycleEvent("backgrounded", "persist")
+                    }
+                case .reachabilityChanged:
                     break
                 }
             }
