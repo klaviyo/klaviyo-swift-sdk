@@ -30,10 +30,17 @@ class IAFPresentationManager {
         }
     }()
 
-    private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async {
-        viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
-        if let additionalAction = additionalAction {
-            await additionalAction()
+    private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
+            if let successMessage = result as? String {
+                print("Successfully evaluated Javascript; message: \(successMessage)")
+            }
+            if let additionalAction = additionalAction {
+                await additionalAction()
+            }
+        } catch {
+            print("Javascript evaluation failed; message: \(error.localizedDescription)")
         }
     }
 
@@ -48,17 +55,17 @@ class IAFPresentationManager {
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             if timeElapsed > 2.0 {
-                                await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                                try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
                                     self?.destroyWebView()
                                     self?.constructWebview()
                                 })
                             } else {
-                                await self?.handleLifecycleEvent("foreground", "restore")
+                                try await self?.handleLifecycleEvent("foreground", "restore")
                             }
                         }
                     case .backgrounded:
                         UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
-                        await self?.handleLifecycleEvent("background", "persist")
+                        try await self?.handleLifecycleEvent("background", "persist")
                     case .reachabilityChanged:
                         break
                     }
@@ -73,13 +80,13 @@ class IAFPresentationManager {
                 Task { @MainActor in
                     if isSubsequent {
                         // subsequent API key changes
-                        await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                        try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
                             self?.destroyWebView()
                             self?.constructWebview()
                         })
                     } else {
                         // initial launch
-                        await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                        try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
                             self?.constructWebview()
                         })
                     }
