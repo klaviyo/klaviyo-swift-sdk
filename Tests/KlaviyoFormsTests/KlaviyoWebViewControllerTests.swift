@@ -45,6 +45,22 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    private var mockPresentationManager: IAFPresentationManager!
+    private var mockWebViewController: KlaviyoWebViewController!
+
+    @MainActor
+    override func setUp() async throws {
+        let url = URL(string: "https://www.google.com")!
+        let viewModel = MockIAFWebViewModel(url: url)
+        mockWebViewController = KlaviyoWebViewController(viewModel: viewModel)
+        mockPresentationManager = IAFPresentationManager(viewController: mockWebViewController)
+    }
+
+    override func tearDown() async throws {
+        mockPresentationManager = nil
+        mockWebViewController = nil
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
@@ -68,5 +84,28 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
 
         // Then
         XCTAssertEqual(mockController.removedMessageHandlers, messageHandlers, "All message handlers should be removed when the KlaviyoWebViewController is deallocated")
+    }
+
+    @MainActor
+    func testDismissFormOnlyHidesWebView() {
+        // Given
+        guard let webView = mockWebViewController.view else { return }
+
+        // When
+        mockPresentationManager.dismissForm()
+
+        // Then
+        XCTAssertTrue(webView.isHidden, "Web view should be hidden after dismissForm")
+        XCTAssertFalse(webView.isUserInteractionEnabled, "Web view should not be user interaction enabled after dismissForm")
+        XCTAssertNotNil(mockPresentationManager.viewController, "Web view controller should still exist after dismissForm")
+    }
+
+    @MainActor
+    func testDestroyWebViewActuallyDestroysWebView() {
+        // When
+        mockPresentationManager.destroyWebView()
+
+        // Then
+        XCTAssertNil(mockPresentationManager.viewController, "Web view controller should be nil after destroyWebView")
     }
 }

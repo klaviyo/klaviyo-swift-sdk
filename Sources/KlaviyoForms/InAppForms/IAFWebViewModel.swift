@@ -89,8 +89,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     document.head.dispatchEvent(new CustomEvent('lifecycleEvent', {
                         detail: {
                             type: type,
-                            session: session,
-                            timestamp: new Date().toISOString()
+                            session: session
                         }
                     }));
                 };

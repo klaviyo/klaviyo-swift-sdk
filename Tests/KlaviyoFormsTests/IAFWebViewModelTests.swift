@@ -140,4 +140,33 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(resultString, "https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=abc123&env=in-app")
     }
+
+    func testInjectLifecycleEventsScript() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
+        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+
+        // Given
+        try await viewModel.establishHandshake(timeout: 3.0)
+
+        // When
+        let script = """
+            (function() {
+                let eventDetails = null;
+                document.head.addEventListener('lifecycleEvent', function(e) {
+                    eventDetails = e.detail;
+                });
+                window.dispatchLifecycleEvent('foreground', 'purge');
+                return eventDetails;
+            })();
+        """
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultDict = try XCTUnwrap(result as? [String: Any])
+
+        // Then
+        XCTAssertEqual(resultDict["type"] as? String, "foreground", "Event type should be 'foreground'")
+        XCTAssertEqual(resultDict["session"] as? String, "purge", "Session should be 'purge'")
+    }
 }

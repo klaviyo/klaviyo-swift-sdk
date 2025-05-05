@@ -18,9 +18,18 @@ class IAFPresentationManager {
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
 
-    private var viewController: KlaviyoWebViewController?
+    package private(set) var viewController: KlaviyoWebViewController?
+
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
+
+    private init() {}
+
+    #if DEBUG
+    package init(viewController: KlaviyoWebViewController?) {
+        self.viewController = viewController
+    }
+    #endif
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -94,7 +103,7 @@ class IAFPresentationManager {
             }
     }
 
-    func constructWebview(assetSource: String? = nil) {
+    package func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -152,7 +161,7 @@ class IAFPresentationManager {
         }
     }
 
-    private func presentForm() {
+    package func presentForm() {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
@@ -178,14 +187,14 @@ class IAFPresentationManager {
         }
     }
 
-    private func dismissForm() {
+    package func dismissForm() {
         guard let viewController else { return }
         viewController.view.isHidden = true
         viewController.view.isUserInteractionEnabled = false
         viewController.dismiss(animated: false)
     }
 
-    private func destroyWebView() {
+    package func destroyWebView() {
         viewController?.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
         }
