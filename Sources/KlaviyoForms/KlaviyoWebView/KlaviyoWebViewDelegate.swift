@@ -14,5 +14,5 @@ protocol KlaviyoWebViewDelegate: UIViewController {
     func preloadUrl()
 
     @MainActor
-    func evaluateJavaScript(_ script: String) async throws -> Any
+    func evaluateJavaScript(_ script: String) async throws -> Any?
 }

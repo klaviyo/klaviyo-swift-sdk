@@ -13,7 +13,7 @@ public enum LifeCycleErrors: Error {
     case invalidReachaibilityStatus
 }
 
-public enum LifeCycleEvents {
+public enum LifeCycleEvents: Equatable {
     case terminated
     case foregrounded
     case backgrounded

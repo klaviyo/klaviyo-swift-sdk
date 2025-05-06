@@ -39,7 +39,7 @@ class IAFPresentationManager {
         }
     }()
 
-    private func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
+    package func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
         do {
             let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
             if let successMessage = result as? String {
@@ -53,8 +53,8 @@ class IAFPresentationManager {
         }
     }
 
-    func setupLifecycleEvents() {
-        lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
+    package func setupLifecycleEvents() {
+        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
                     switch event {
@@ -71,6 +71,10 @@ class IAFPresentationManager {
                             } else {
                                 try await self?.handleLifecycleEvent("foreground", "restore")
                             }
+                        } else {
+                            try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                                self?.constructWebview()
+                            })
                         }
                     case .backgrounded:
                         UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
@@ -81,6 +85,10 @@ class IAFPresentationManager {
                 }
             }
 
+        setupApiKeyPublisher()
+    }
+
+    private func setupApiKeyPublisher() {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .scan((nil, false)) { previous, current in
                 (current, previous.0 != nil)
