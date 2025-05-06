@@ -72,6 +72,7 @@ class IAFPresentationManager {
                                 try await self?.handleLifecycleEvent("foreground", "restore")
                             }
                         } else {
+                            // launching
                             try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
                                 self?.constructWebview()
                             })
