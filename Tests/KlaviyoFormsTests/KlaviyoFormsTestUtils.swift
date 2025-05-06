@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 enum FakeFileError: Error {
     case fake
@@ -148,7 +149,7 @@ extension NetworkSession {
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        AppLifeCycleEvents.test as! T
+        KlaviyoState.test as! T
     }
 }
 
@@ -163,4 +164,22 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
+}
+
+extension KlaviyoState {
+    static let test = KlaviyoState(apiKey: "foo",
+                                   email: "test@test.com",
+                                   anonymousId: environment.uuid().uuidString,
+                                   phoneNumber: "phoneNumber",
+                                   externalId: "externalId",
+                                   pushTokenData: PushTokenData(
+                                       pushToken: "blob_token",
+                                       pushEnablement: .authorized,
+                                       pushBackground: .available,
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
+                                   ),
+                                   queue: [],
+                                   requestsInFlight: [],
+                                   initalizationState: .initialized,
+                                   flushing: true)
 }

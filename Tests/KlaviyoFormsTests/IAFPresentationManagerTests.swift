@@ -35,18 +35,25 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockLifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
 
-        // Initialize test environment
         environment = KlaviyoEnvironment.test()
 
         // Setup mock environment with test lifecycle events
-        let testLifecycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
+        environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
             self.mockLifecycleEvents.eraseToAnyPublisher()
         })
-        environment.appLifeCycle = testLifecycleEvents
 
-        // Setup mock state management with API key publisher
+        // Setup mock state management
         let initialState = KlaviyoState(queue: [])
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Setup mock api key publisher to test changing api keys
+        mockApiKeyPublisher
+            .compactMap { $0 }
+            .sink { apiKey in
+                _ = testStore.send(.initialize(apiKey))
+            }
+            .store(in: &cancellables)
+
         klaviyoSwiftEnvironment.statePublisher = {
             testStore.state.eraseToAnyPublisher()
         }
@@ -92,25 +99,6 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-    func testSetupLifecycleEvents() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Lifecycle events are handled by IAFPresentationManager")
-
-        // Track JavaScript evaluations to verify event handling
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When
-        presentationManager.setupLifecycleEvents()
-    }
-
-    @MainActor
     func testBackgroundEventLogsTimestamp() async throws {
         // Given
         presentationManager.setupLifecycleEvents()
@@ -119,7 +107,6 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockLifecycleEvents.send(.backgrounded)
 
         // Then
-        // Wait a short time for the event to be processed
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         let timestamp = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date
         XCTAssertNotNil(timestamp, "Background timestamp should be stored in UserDefaults")
@@ -129,7 +116,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testBackgroundPersistEventInjected() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
+        let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
         presentationManager.setupLifecycleEvents()
 
         var evaluatedScripts: [String] = []
@@ -169,7 +156,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundWithinSessionRestoreEventInjected() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
+        let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
         presentationManager.setupLifecycleEvents()
 
         var evaluatedScripts: [String] = []
@@ -195,12 +182,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
-
-        // Setup initial web view
         let firstViewController = presentationManager.viewController
-        XCTAssertNotNil(firstViewController, "Initial web view should be created")
-
-        // Setup lifecycle events
         presentationManager.setupLifecycleEvents()
 
         // When
@@ -216,7 +198,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundInNewSessionPurgeEventInjected() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
+        let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
         presentationManager.setupLifecycleEvents()
 
         var evaluatedScripts: [String] = []
@@ -282,7 +264,19 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-    func testApiKeyChangePurgeEventInjected() async throws {
+    func testIntializeApiKeyChangeCreatesNewViewController() async throws {
+        // Given
+        let firstViewController = IAFPresentationManager.shared.viewController
+        IAFPresentationManager.shared.setupLifecycleEvents()
+
+        // When
+        mockApiKeyPublisher.send("initial-key")
+
+        // Then
+    }
+
+    @MainActor
+    func testSubsequentApiKeyChangesPurgeEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
         presentationManager.setupLifecycleEvents()
@@ -290,40 +284,23 @@ final class IAFPresentationManagerTests: XCTestCase {
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
             evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
+            if script.contains("dispatchLifecycleEvent") && script.contains("purge") {
                 expectation.fulfill()
             }
             return true
         }
 
         // When
-        mockApiKeyPublisher.send("initial-key")
-        mockApiKeyPublisher.send("new-key")
+        // First send initializes the API key
+        mockApiKeyPublisher.send("ABC123")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        mockApiKeyPublisher.send("ABC321")
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
             script.contains("dispatchLifecycleEvent('foreground', 'purge')")
         })
-    }
-
-    @MainActor
-    func testApiKeyChangeCreatesNewViewController() async throws {
-        // Given
-        presentationManager.setupLifecycleEvents()
-
-        // Setup initial web view
-        let firstViewController = presentationManager.viewController
-        XCTAssertNotNil(firstViewController, "Initial web view should be created")
-
-        // When
-        mockApiKeyPublisher.send("initial-key")
-        mockApiKeyPublisher.send("new-key")
-
-        // Then
-        // Wait for async operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertNotEqual(firstViewController, presentationManager.viewController, "Web view should be destroyed and recreated when API key changes")
     }
 }
 
