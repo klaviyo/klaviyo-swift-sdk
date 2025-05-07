@@ -38,7 +38,7 @@ class IAFPresentationManager {
         }
     }()
 
-    package func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
+    func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
         do {
             let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
             if let successMessage = result as? String {
@@ -52,7 +52,7 @@ class IAFPresentationManager {
         }
     }
 
-    package func setupLifecycleEvents() {
+    func setupLifecycleEvents() {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
@@ -111,7 +111,7 @@ class IAFPresentationManager {
             }
     }
 
-    package func constructWebview(assetSource: String? = nil) {
+    func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -195,12 +195,12 @@ class IAFPresentationManager {
         }
     }
 
-    package func dismissForm() {
+    func dismissForm() {
         guard let viewController else { return }
         viewController.dismiss(animated: false)
     }
 
-    package func destroyWebView() {
+    func destroyWebView() {
         guard let viewController else { return }
         viewController.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
