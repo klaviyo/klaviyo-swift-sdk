@@ -54,7 +54,7 @@ class IAFPresentationManager {
     }
 
     func setupLifecycleEvents(configuration: IAFConfiguration? = nil) {
-        if let configuration = configuration {
+        if let configuration {
             self.configuration = configuration
         }
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
