@@ -197,13 +197,12 @@ class IAFPresentationManager {
 
     package func dismissForm() {
         guard let viewController else { return }
-        viewController.view.isHidden = true
-        viewController.view.isUserInteractionEnabled = false
         viewController.dismiss(animated: false)
     }
 
     package func destroyWebView() {
-        viewController?.dismiss(animated: false) { [weak self] in
+        guard let viewController else { return }
+        viewController.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
         }
     }
