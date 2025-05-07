@@ -80,24 +80,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
-    @MainActor
-    private var lifecycleEventsWKScript: WKUserScript {
-        let lifecycleScript = """
-            (function() {
-                window.dispatchLifecycleEvent = function(type, session) {
-                    console.log('Dispatching lifecycle event:', { type, session });
-                    document.head.dispatchEvent(new CustomEvent('lifecycleEvent', {
-                        detail: {
-                            type: type,
-                            session: session
-                        }
-                    }));
-                };
-            })();
-        """
-        return WKUserScript(source: lifecycleScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-    }
-
     // MARK: - Initializer
 
     @MainActor
@@ -120,7 +102,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
-        loadScripts?.insert(lifecycleEventsWKScript)
     }
 
     // MARK: - Loading
