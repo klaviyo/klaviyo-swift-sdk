@@ -18,10 +18,12 @@ class IAFPresentationManager {
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
     private var viewController: KlaviyoWebViewController?
-    private var configuration = IAFConfiguration()
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
+    private static let defaultSessionTimeout: TimeInterval = 3600
+
+    var configuration = IAFConfiguration(sessionTimeoutDuration: defaultSessionTimeout)
 
     private init() {}
 

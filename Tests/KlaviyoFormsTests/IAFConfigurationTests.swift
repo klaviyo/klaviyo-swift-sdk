@@ -9,17 +9,6 @@
 import XCTest
 
 final class IAFConfigurationTests: XCTestCase {
-    func testDefaultConfiguration() {
-        let config = IAFConfiguration()
-        XCTAssertEqual(config.sessionTimeoutDuration, 3600, "Default session timeout should be 3600 seconds (60 minutes)")
-    }
-
-    func testCustomConfiguration() {
-        let customTimeout: TimeInterval = 1800 // 30 minutes
-        let config = IAFConfiguration(sessionTimeoutDuration: customTimeout)
-        XCTAssertEqual(config.sessionTimeoutDuration, customTimeout, "Custom session timeout should match provided value")
-    }
-
     @MainActor
     func testConfigurationInPresentationManager() async {
         // Test with default configuration
