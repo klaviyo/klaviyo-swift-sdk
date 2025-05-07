@@ -2,7 +2,7 @@
 //  IAFConfigurationTests.swift
 //  klaviyo-swift-sdk
 //
-//  Created by Belle Lim on 5/7/25.
+//  Created by Isobelle Lim on 5/7/25.
 //
 
 @testable import KlaviyoForms
