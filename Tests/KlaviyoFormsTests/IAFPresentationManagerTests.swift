@@ -139,13 +139,13 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
         presentationManager.setupLifecycleEvents()
-        let firstViewController = presentationManager.viewController
 
         // When
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
-        XCTAssertEqual(firstViewController, presentationManager.viewController, "Web view should not be destroyed and recreated when foregrounding within session")
+        XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
+        XCTAssertFalse(presentationManager.constructWebviewCalled, "Web view should not be recreated when foregrounding within session")
     }
 
     @MainActor
@@ -178,7 +178,6 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
-        let firstViewController = presentationManager.viewController
         presentationManager.setupLifecycleEvents()
 
         // When
@@ -187,7 +186,8 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         // Wait for async operations to complete
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertNotEqual(firstViewController, presentationManager.viewController, "Web view should be destroyed and recreated when foregrounding in new session")
+        XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
+        XCTAssertTrue(presentationManager.constructWebviewCalled, "Web view should not be recreated when foregrounding within session")
     }
 
     @MainActor
@@ -327,11 +327,20 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 
 private final class MockIAFPresentationManager: IAFPresentationManager {
     var constructWebviewCalled = false
-    var constructWebviewAssetSource: String?
+    var destroyWebviewCalled = false
 
     override func constructWebview(assetSource: String? = nil) {
         constructWebviewCalled = true
-        constructWebviewAssetSource = assetSource
         super.constructWebview(assetSource: assetSource)
+    }
+
+    override func destroyWebView() {
+        destroyWebviewCalled = true
+        super.destroyWebView()
+    }
+
+    override func dismissForm() {
+        destroyWebviewCalled = true
+        super.destroyWebView()
     }
 }

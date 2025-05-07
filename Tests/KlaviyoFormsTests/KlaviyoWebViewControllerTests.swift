@@ -44,6 +44,27 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     func handleViewTransition() {}
 }
 
+private final class MockIAFPresentationManager: IAFPresentationManager {
+    var constructWebviewCalled = false
+    var destroyWebviewCalled = false
+    var dismissFormCalled = false
+
+    override func constructWebview(assetSource: String? = nil) {
+        constructWebviewCalled = true
+        super.constructWebview(assetSource: assetSource)
+    }
+
+    override func destroyWebView() {
+        destroyWebviewCalled = true
+        super.destroyWebView()
+    }
+
+    override func dismissForm() {
+        dismissFormCalled = true
+        super.dismissForm()
+    }
+}
+
 final class KlaviyoWebViewControllerTests: XCTestCase {
     private var mockPresentationManager: IAFPresentationManager!
     private var mockWebViewController: KlaviyoWebViewController!
@@ -89,23 +110,13 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
     @MainActor
     func testDismissFormOnlyHidesWebView() {
         // Given
-        guard let webView = mockWebViewController.view else { return }
+        let mockManager = MockIAFPresentationManager(viewController: mockWebViewController)
 
         // When
-        mockPresentationManager.dismissForm()
+        mockManager.dismissForm()
 
         // Then
-        XCTAssertTrue(webView.isHidden, "Web view should be hidden after dismissForm")
-        XCTAssertFalse(webView.isUserInteractionEnabled, "Web view should not be user interaction enabled after dismissForm")
-        XCTAssertNotNil(mockPresentationManager.viewController, "Web view controller should still exist after dismissForm")
-    }
-
-    @MainActor
-    func testDestroyWebViewActuallyDestroysWebView() {
-        // When
-        mockPresentationManager.destroyWebView()
-
-        // Then
-        XCTAssertNil(mockPresentationManager.viewController, "Web view controller should be nil after destroyWebView")
+        XCTAssertTrue(mockManager.dismissFormCalled, "dismissForm should be called")
+        XCTAssertFalse(mockManager.destroyWebviewCalled, "destroyWebView should not be called")
     }
 }

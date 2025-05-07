@@ -17,8 +17,7 @@ class IAFPresentationManager {
     static let shared = IAFPresentationManager()
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
-
-    package private(set) var viewController: KlaviyoWebViewController?
+    private var viewController: KlaviyoWebViewController?
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
@@ -178,7 +177,7 @@ class IAFPresentationManager {
         }
     }
 
-    package func presentForm() {
+    private func presentForm() {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
