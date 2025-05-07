@@ -19,7 +19,7 @@ import XCTest
 final class IAFPresentationManagerTests: XCTestCase {
     // MARK: - setup
 
-    var presentationManager: IAFPresentationManager!
+    fileprivate var presentationManager: MockIAFPresentationManager!
     fileprivate var mockViewController: MockKlaviyoWebViewController!
     fileprivate var mockViewModel: MockIAFWebViewModel!
     var mockLifecycleEvents: PassthroughSubject<LifeCycleEvents, Never>!
@@ -36,17 +36,13 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
 
         environment = KlaviyoEnvironment.test()
-
-        // Setup mock environment with test lifecycle events
         environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
             self.mockLifecycleEvents.eraseToAnyPublisher()
         })
 
-        // Setup mock state management
         let initialState = KlaviyoState(queue: [])
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Setup mock api key publisher to test changing api keys
         mockApiKeyPublisher
             .compactMap { $0 }
             .sink { apiKey in
@@ -58,7 +54,7 @@ final class IAFPresentationManagerTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        presentationManager = IAFPresentationManager(viewController: mockViewController)
+        presentationManager = MockIAFPresentationManager(viewController: mockViewController)
     }
 
     override func tearDown() {
@@ -223,19 +219,16 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundNewLaunchCreatesNewViewController() async throws {
         // Given
-        let firstViewController = presentationManager.viewController
-        XCTAssertNotNil(firstViewController, "Initial web view should be created")
-
-        // Setup lifecycle events
-        presentationManager.setupLifecycleEvents()
+        let mockManager = MockIAFPresentationManager(viewController: mockViewController)
+        mockManager.setupLifecycleEvents()
+        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
 
         // When
         mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        // Wait for async operations to complete
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 0.1 seconds
-        XCTAssertNotEqual(mockViewController, presentationManager.viewController, "Web view should be destroyed and recreated when foregrounding in new session")
+        XCTAssertTrue(mockManager.constructWebviewCalled, "constructWebview should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -266,13 +259,15 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testIntializeApiKeyChangeCreatesNewViewController() async throws {
         // Given
-        let firstViewController = IAFPresentationManager.shared.viewController
-        IAFPresentationManager.shared.setupLifecycleEvents()
+        let mockManager = MockIAFPresentationManager(viewController: mockViewController)
+        mockManager.setupLifecycleEvents()
 
         // When
         mockApiKeyPublisher.send("initial-key")
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
+        XCTAssertTrue(mockManager.constructWebviewCalled, "constructWebview should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -328,4 +323,15 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {}
     func handleScriptMessage(_ message: WKScriptMessage) {}
     func handleViewTransition() {}
+}
+
+private final class MockIAFPresentationManager: IAFPresentationManager {
+    var constructWebviewCalled = false
+    var constructWebviewAssetSource: String?
+
+    override func constructWebview(assetSource: String? = nil) {
+        constructWebviewCalled = true
+        constructWebviewAssetSource = assetSource
+        super.constructWebview(assetSource: assetSource)
+    }
 }
