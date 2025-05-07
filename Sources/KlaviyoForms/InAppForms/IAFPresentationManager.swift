@@ -126,19 +126,11 @@ class IAFPresentationManager {
         Task {
             defer { isLoading = false }
 
-            let companyId: String? = await withCheckedContinuation { continuation in
-                let timeoutTask = Task {
-                    try? await Task.sleep(nanoseconds: 10_000_000_000)
-                    continuation.resume(returning: nil)
-                }
-
+            guard let companyId = await withCheckedContinuation({ continuation in
                 KlaviyoInternal.apiKey { apiKey in
-                    timeoutTask.cancel()
                     continuation.resume(returning: apiKey)
                 }
-            }
-
-            guard let companyId else {
+            }) else {
                 environment.emitDeveloperWarning("SDK must be initialized before usage.")
                 return
             }

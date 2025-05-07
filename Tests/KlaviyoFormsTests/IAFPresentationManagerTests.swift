@@ -2,11 +2,10 @@
 //  IAFPresentationManagerTests.swift
 //  klaviyo-swift-sdk
 //
-//  Created by Andrew Balmer on 2/3/25.
+//  Created by Belle Lim on 5/7/25.
 //
 
 @testable import KlaviyoForms
-@testable import KlaviyoSwift
 import Combine
 import Foundation
 import KlaviyoCore
