@@ -18,7 +18,7 @@ class IAFPresentationManager {
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
     private var viewController: KlaviyoWebViewController?
-    private var configuration: IAFConfiguration = .init()
+    private var configuration = IAFConfiguration()
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
@@ -64,21 +64,22 @@ class IAFPresentationManager {
                     case .terminated:
                         break
                     case .foregrounded:
+                        guard let self else { return }
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            let timeoutDuration = self?.configuration.sessionTimeoutDuration ?? 3600
+                            let timeoutDuration = self.configuration.sessionTimeoutDuration
                             if timeElapsed > timeoutDuration {
-                                try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
-                                    self?.destroyWebView()
-                                    self?.constructWebview()
+                                try await self.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                                    self.destroyWebView()
+                                    self.constructWebview()
                                 })
                             } else {
-                                try await self?.handleLifecycleEvent("foreground", "restore")
+                                try await self.handleLifecycleEvent("foreground", "restore")
                             }
                         } else {
                             // launching
-                            try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
-                                self?.constructWebview()
+                            try await self.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                                self.constructWebview()
                             })
                         }
                     case .backgrounded:
