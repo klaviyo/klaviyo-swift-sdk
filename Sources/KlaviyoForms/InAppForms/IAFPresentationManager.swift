@@ -18,6 +18,7 @@ class IAFPresentationManager {
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
     private var viewController: KlaviyoWebViewController?
+    private var configuration: IAFConfiguration = .init()
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
@@ -52,7 +53,10 @@ class IAFPresentationManager {
         }
     }
 
-    func setupLifecycleEvents() {
+    func setupLifecycleEvents(configuration: IAFConfiguration? = nil) {
+        if let configuration = configuration {
+            self.configuration = configuration
+        }
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
@@ -62,7 +66,8 @@ class IAFPresentationManager {
                     case .foregrounded:
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            if timeElapsed > 2.0 {
+                            let timeoutDuration = self?.configuration.sessionTimeoutDuration ?? 3600
+                            if timeElapsed > timeoutDuration {
                                 try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
                                     self?.destroyWebView()
                                     self?.constructWebview()
