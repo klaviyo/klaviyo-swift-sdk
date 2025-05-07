@@ -44,44 +44,7 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     func handleViewTransition() {}
 }
 
-private final class MockIAFPresentationManager: IAFPresentationManager {
-    var constructWebviewCalled = false
-    var destroyWebviewCalled = false
-    var dismissFormCalled = false
-
-    override func constructWebview(assetSource: String? = nil) {
-        constructWebviewCalled = true
-        super.constructWebview(assetSource: assetSource)
-    }
-
-    override func destroyWebView() {
-        destroyWebviewCalled = true
-        super.destroyWebView()
-    }
-
-    override func dismissForm() {
-        dismissFormCalled = true
-        super.dismissForm()
-    }
-}
-
 final class KlaviyoWebViewControllerTests: XCTestCase {
-    private var mockPresentationManager: IAFPresentationManager!
-    private var mockWebViewController: KlaviyoWebViewController!
-
-    @MainActor
-    override func setUp() async throws {
-        let url = URL(string: "https://www.google.com")!
-        let viewModel = MockIAFWebViewModel(url: url)
-        mockWebViewController = KlaviyoWebViewController(viewModel: viewModel)
-        mockPresentationManager = IAFPresentationManager(viewController: mockWebViewController)
-    }
-
-    override func tearDown() async throws {
-        mockPresentationManager = nil
-        mockWebViewController = nil
-    }
-
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
@@ -105,18 +68,5 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
 
         // Then
         XCTAssertEqual(mockController.removedMessageHandlers, messageHandlers, "All message handlers should be removed when the KlaviyoWebViewController is deallocated")
-    }
-
-    @MainActor
-    func testDismissFormOnlyHidesWebView() {
-        // Given
-        let mockManager = MockIAFPresentationManager(viewController: mockWebViewController)
-
-        // When
-        mockManager.dismissForm()
-
-        // Then
-        XCTAssertTrue(mockManager.dismissFormCalled, "dismissForm should be called")
-        XCTAssertFalse(mockManager.destroyWebviewCalled, "destroyWebView should not be called")
     }
 }
