@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
             <title>Klaviyo In-App Form Template</title>
+            <script type="text/javascript">
+                window.dispatchLifecycleEvent = function(type, session) {
+                    console.log('Dispatching lifecycle event:', { type, session });
+                    document.head.dispatchEvent(new CustomEvent('lifecycleEvent', {
+                        detail: {
+                            type: type,
+                            session: session
+                        }
+                    }));
+                };
+            </script>
             <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css"/>
 </head>
 <body></body>

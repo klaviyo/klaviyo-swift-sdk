@@ -192,6 +192,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             handshakeContinuation.yield()
             handshakeContinuation.finish()
+        case .analyticsEvent:
+            ()
+        case .lifecycleEvent:
+            ()
         }
     }
 

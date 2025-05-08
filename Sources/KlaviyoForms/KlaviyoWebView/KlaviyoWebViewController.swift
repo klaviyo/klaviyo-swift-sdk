@@ -145,7 +145,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     #endif
 
     @MainActor
-    func evaluateJavaScript(_ script: String) async throws -> Any {
+    func evaluateJavaScript(_ script: String) async throws -> Any? {
         try await webView.evaluateJavaScript(script)
     }
 

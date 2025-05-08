@@ -14,7 +14,6 @@ extension KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents()
-                IAFPresentationManager.shared.presentIAF()
             }
         }
     }
@@ -25,7 +24,7 @@ extension KlaviyoSDK {
     public func registerForInAppForms(assetSource: String) {
         Task {
             await MainActor.run {
-                IAFPresentationManager.shared.presentIAF(assetSource: assetSource)
+                IAFPresentationManager.shared.constructWebview(assetSource: assetSource)
             }
         }
     }
