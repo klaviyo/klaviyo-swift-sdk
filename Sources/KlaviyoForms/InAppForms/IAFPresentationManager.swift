@@ -21,6 +21,9 @@ class IAFPresentationManager {
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
+    private static let defaultSessionTimeout: TimeInterval = 3600
+
+    var configuration = IAFConfiguration(sessionTimeoutDuration: defaultSessionTimeout)
 
     private init() {}
 
@@ -52,7 +55,10 @@ class IAFPresentationManager {
         }
     }
 
-    func setupLifecycleEvents() {
+    func setupLifecycleEvents(configuration: IAFConfiguration? = nil) {
+        if let configuration {
+            self.configuration = configuration
+        }
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
@@ -60,20 +66,22 @@ class IAFPresentationManager {
                     case .terminated:
                         break
                     case .foregrounded:
+                        guard let self else { return }
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            if timeElapsed > 2.0 {
-                                try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
-                                    self?.destroyWebView()
-                                    self?.constructWebview()
+                            let timeoutDuration = self.configuration.sessionTimeoutDuration
+                            if timeElapsed > timeoutDuration {
+                                try await self.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                                    self.destroyWebView()
+                                    self.constructWebview()
                                 })
                             } else {
-                                try await self?.handleLifecycleEvent("foreground", "restore")
+                                try await self.handleLifecycleEvent("foreground", "restore")
                             }
                         } else {
                             // launching
-                            try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
-                                self?.constructWebview()
+                            try await self.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                                self.constructWebview()
                             })
                         }
                     case .backgrounded:
