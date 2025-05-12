@@ -6,14 +6,12 @@
 //
 import Foundation
 
-/// Configuration options for in-app forms
+/// Configuration for in-app forms
 public struct IAFConfiguration {
-    /// The duration in seconds for which a form session should be extended.
     public let sessionTimeoutDuration: TimeInterval
 
-    /// Creates a new configuration for in-app forms
-    /// - Parameter sessionTimeoutDuration: The duration in seconds for which a form session should be extended
-    public init(sessionTimeoutDuration: TimeInterval) {
+    /// - Parameter sessionTimeoutDuration: Duration (in seconds) of the period of user inactivity after which the user's app session is terminated and the forms session is ended. Defaults to 1 Hour.
+    public init(sessionTimeoutDuration: TimeInterval = 3600) {
         self.sessionTimeoutDuration = sessionTimeoutDuration
     }
 }

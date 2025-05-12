@@ -177,7 +177,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -194,7 +194,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
