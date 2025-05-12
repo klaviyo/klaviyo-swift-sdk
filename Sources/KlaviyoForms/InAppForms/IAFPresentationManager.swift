@@ -21,9 +21,7 @@ class IAFPresentationManager {
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
-    private static let defaultSessionTimeout: TimeInterval = 3600
-
-    var configuration = IAFConfiguration(sessionTimeoutDuration: defaultSessionTimeout)
+    var configuration = IAFConfiguration()
 
     private init() {}
 
