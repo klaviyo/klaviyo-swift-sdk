@@ -72,7 +72,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDispatchLifecycleEventInjection() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -96,7 +96,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testBackgroundEventLogsTimestamp() async throws {
         // Given
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         // When
         mockLifecycleEvents.send(.backgrounded)
@@ -112,7 +112,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testBackgroundPersistEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -137,7 +137,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundWithinSessionKeepsViewControllerAlive() async throws {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -152,7 +152,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -219,7 +219,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundNewLaunchCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEvents()
+        mockManager.setupLifecycleEvents(configuration: IAFConfiguration())
         UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
 
         // When
@@ -234,7 +234,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundNewLaunchRestoreEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -259,7 +259,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testIntializeApiKeyChangeCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEvents()
+        mockManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         // When
         mockApiKeyPublisher.send("initial-key")
@@ -273,7 +273,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testSubsequentApiKeyChangesPurgeEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents()
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
