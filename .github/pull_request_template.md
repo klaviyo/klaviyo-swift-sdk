@@ -12,6 +12,7 @@
 
 ## Release/Versioning Considerations
 <!-- Help determine how this should be categorized for release, add additional notes below. -->
+<!-- Please add the planned version as a `milestone` label on this PR -->
 - [ ] `Patch` Contains internal changes or backwards-compatible bug fixes.
 - [ ] `Minor` Contains changes to the public API.
 - [ ] `Major` Contains **breaking** changes.
@@ -19,7 +20,6 @@
   - If so, please merge to a feature branch so documentation updates only go live upon official release.
 - [ ] This is planned work for an upcoming release.
   - If no, author or reviewer should account for this in a release plan, or describe why not below.
-<!-- Please add the planned version as a `milestone` label on this PR -->
 
 
 ## Changelog / Code Overview
