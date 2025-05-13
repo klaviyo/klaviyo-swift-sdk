@@ -29,6 +29,5 @@
 ## Test Plan
 <!-- Provide reproducible testing steps. Link any artifacts, recordings, spreadsheets, etc. -->
 
-
 ## Related Issues/Tickets
 <!-- Link to relevant Jira issues, Slack discussions, Google Docs -->
