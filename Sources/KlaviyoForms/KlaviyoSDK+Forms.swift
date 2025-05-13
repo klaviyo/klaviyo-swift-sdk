@@ -10,7 +10,7 @@ import KlaviyoSwift
 
 extension KlaviyoSDK {
     @MainActor
-    public func registerForInAppForms(configuration: IAFConfiguration?) {
+    public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration()) {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents(configuration: configuration)
@@ -22,7 +22,7 @@ extension KlaviyoSDK {
     @MainActor
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
-    public func registerForInAppForms(configuration: IAFConfiguration?, assetSource: String) {
+    public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration(), assetSource: String) {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents(configuration: configuration)

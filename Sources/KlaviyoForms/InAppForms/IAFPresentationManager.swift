@@ -21,9 +21,6 @@ class IAFPresentationManager {
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
-    private static let defaultSessionTimeout: TimeInterval = 3600
-
-    var configuration = IAFConfiguration(sessionTimeoutDuration: defaultSessionTimeout)
 
     private init() {}
 
@@ -55,10 +52,7 @@ class IAFPresentationManager {
         }
     }
 
-    func setupLifecycleEvents(configuration: IAFConfiguration? = nil) {
-        if let configuration {
-            self.configuration = configuration
-        }
+    func setupLifecycleEvents(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
@@ -69,7 +63,7 @@ class IAFPresentationManager {
                         guard let self else { return }
                         if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            let timeoutDuration = self.configuration.sessionTimeoutDuration
+                            let timeoutDuration = configuration.sessionTimeoutDuration
                             if timeElapsed > timeoutDuration {
                                 try await self.handleLifecycleEvent("foreground", "purge", additionalAction: {
                                     self.destroyWebView()
