@@ -1,28 +1,34 @@
 # Description
-
-<!--
-Please describe the changes you are making and why you are making them.
--->
-
-# Check List
-
-- [ ] Are you changing anything with the public API?
-- [ ] Have you tested this change on real device?
-- [ ] Are your changes backwards compatible with previous SDK Versions?
-- [ ] Have you added unit test coverage for your changes?
-- [ ] Have you verified that your changes are compatible with all the operating system version this SDK currently supports?
-
-# Manual Test Plan
-
-<!--
-Describe how you tested this change.
--->
-
-1.
+<!-- Briefly describe the feature or bug that your pull request addresses, 1-2 sentences. -->
 
 
-# Supporting Materials
+## Due Diligence
+<!-- Best practices before submitting, add additional notes below -->
+- [ ] I have tested this on a simulator or a physical device.
+- [ ] I have added sufficient unit/integration tests of my changes.
+- [ ] I have adjusted or added new test cases to team test docs, if applicable.
+- [ ] I am confident these changes are compatible with all iOS and XCode versions the SDK currently supports.
 
-<!--
-Please include any support materials like screenshots or other evidence that shows your changes works as intended.
--->
+
+## Release/Versioning Considerations
+<!-- Help determine how this should be categorized for release, add additional notes below. -->
+<!-- Please add the planned version as a `milestone` label on this PR -->
+- [ ] `Patch` Contains internal changes or backwards-compatible bug fixes.
+- [ ] `Minor` Contains changes to the public API.
+- [ ] `Major` Contains **breaking** changes.
+- [ ] Contains readme or migration guide changes.
+  - If so, please merge to a feature branch so documentation updates only go live upon official release.
+- [ ] This is planned work for an upcoming release.
+  - If no, author or reviewer should account for this in a release plan, or describe why not below.
+
+
+## Changelog / Code Overview
+<!-- What was changed / added / removed and why. Attach screenshots or other supporting materials -->
+
+
+## Test Plan
+<!-- Provide reproducible testing steps. Link any artifacts, recordings, spreadsheets, etc. -->
+
+
+## Related Issues/Tickets
+<!-- Link to relevant Jira issues, Slack discussions, Google Docs -->
