@@ -35,8 +35,8 @@ public struct NetworkSession {
 
     public static let networkTimeout: UInt64 = 10_000_000_000 // in nanoseconds (10 seconds)
 
-    private static func getPluginConfiguration() -> (name: String, version: String)? {
-        guard let plistURL = Bundle.main.url(forResource: "klaviyo-plugin-configuration", withExtension: "plist") else {
+    static func getPluginConfiguration(bundle: Bundle = .main) -> (name: String, version: String)? {
+        guard let plistURL = bundle.url(forResource: "klaviyo-plugin-configuration", withExtension: "plist") else {
             return nil
         }
 
