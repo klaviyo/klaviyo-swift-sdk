@@ -52,18 +52,6 @@ class IAFPresentationManager {
         }
     }
 
-    func destroyWebviewAndListeners() {
-        destroyWebView()
-        isLoading = false
-        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
-        lifecycleCancellable?.cancel()
-        lifecycleCancellable = nil
-        apiKeyCancellable?.cancel()
-        apiKeyCancellable = nil
-        formEventTask?.cancel()
-        formEventTask = nil
-    }
-
     func setupLifecycleEvents(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
@@ -219,6 +207,21 @@ class IAFPresentationManager {
         viewController.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
         }
+    }
+
+    func destroyWebviewAndListeners() {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
+        }
+        isLoading = false
+        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
+        lifecycleCancellable?.cancel()
+        apiKeyCancellable?.cancel()
+        formEventTask?.cancel()
+        lifecycleCancellable = nil
+        apiKeyCancellable = nil
+        formEventTask = nil
+        destroyWebView()
     }
 }
 
