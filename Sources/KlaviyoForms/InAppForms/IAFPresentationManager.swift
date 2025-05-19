@@ -52,6 +52,18 @@ class IAFPresentationManager {
         }
     }
 
+    func destroyWebviewAndListeners() {
+        destroyWebView()
+        isLoading = false
+        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
+        lifecycleCancellable?.cancel()
+        lifecycleCancellable = nil
+        apiKeyCancellable?.cancel()
+        apiKeyCancellable = nil
+        formEventTask?.cancel()
+        formEventTask = nil
+    }
+
     func setupLifecycleEvents(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in

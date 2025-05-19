@@ -296,6 +296,77 @@ final class IAFPresentationManagerTests: XCTestCase {
             script.contains("dispatchLifecycleEvent('foreground', 'purge')")
         })
     }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
+        // Given
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        let expectation = XCTestExpectation(description: "Lifecycle event should not be received")
+        expectation.isInverted = true
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
+        // Given
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        let expectation = XCTestExpectation(description: "API key change should not trigger webview recreation")
+        expectation.isInverted = true
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        mockApiKeyPublisher.send("NEW_KEY")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpFormEventTask() async throws {
+        // Given
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        let expectation = XCTestExpectation(description: "Form event task should be canceled")
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        XCTAssertNil(presentationManager.formEventTask, "Form event task should be nil")
+    }
+
+    @MainActor
+    func testDestroyWebviewAndListenersResetsLoadingState() async throws {
+        // Given
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        XCTAssertFalse(presentationManager.isLoading, "Loading state should be false")
+    }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpUserDefaults() async throws {
+        // Given
+        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        XCTAssertNil(UserDefaults.standard.object(forKey: "lastBackgrounded"), "lastBackgrounded should be removed from UserDefaults")
+    }
 }
 
 // MARK: - Mock Classes
@@ -327,6 +398,8 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 private final class MockIAFPresentationManager: IAFPresentationManager {
     var constructWebviewCalled = false
     var destroyWebviewCalled = false
+    var isLoading = false
+    var formEventTask: Task<Void, Never>?
 
     override func constructWebview(assetSource: String? = nil) {
         constructWebviewCalled = true
