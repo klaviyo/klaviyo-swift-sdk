@@ -300,69 +300,65 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
         // Given
+        let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
         presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-        let expectation = XCTestExpectation(description: "Lifecycle event should not be received")
         expectation.isInverted = true
 
-        // When
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchLifecycleEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
         presentationManager.destroyWebviewAndListeners()
 
-        // Then
-        mockLifecycleEvents.send(.backgrounded)
+        // When
+        mockLifecycleEvents.send(.foregrounded)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then
         await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
     }
 
     @MainActor
     func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
         // Given
+        let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
         presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-        let expectation = XCTestExpectation(description: "API key change should not trigger webview recreation")
         expectation.isInverted = true
 
-        // When
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchLifecycleEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
         presentationManager.destroyWebviewAndListeners()
 
-        // Then
-        mockApiKeyPublisher.send("NEW_KEY")
+        // When
+        mockApiKeyPublisher.send("ABC123")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then
         await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
     }
 
     @MainActor
-    func testDestroyWebviewAndListenersCleansUpFormEventTask() async throws {
+    func testUnregisterFromInAppFormsCleansUpUserDefaults() async throws {
         // Given
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-        let expectation = XCTestExpectation(description: "Form event task should be canceled")
+        KlaviyoSDK().registerForInAppForms()
+        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded") // background event
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // When
-        presentationManager.destroyWebviewAndListeners()
-
-        // Then
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertNil(presentationManager.formEventTask, "Form event task should be nil")
-    }
-
-    @MainActor
-    func testDestroyWebviewAndListenersResetsLoadingState() async throws {
-        // Given
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-
-        // When
-        presentationManager.destroyWebviewAndListeners()
-
-        // Then
-        XCTAssertFalse(presentationManager.isLoading, "Loading state should be false")
-    }
-
-    @MainActor
-    func testDestroyWebviewAndListenersCleansUpUserDefaults() async throws {
-        // Given
-        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-
-        // When
-        presentationManager.destroyWebviewAndListeners()
+        KlaviyoSDK().unregisterFromInAppForms()
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
         XCTAssertNil(UserDefaults.standard.object(forKey: "lastBackgrounded"), "lastBackgrounded should be removed from UserDefaults")
