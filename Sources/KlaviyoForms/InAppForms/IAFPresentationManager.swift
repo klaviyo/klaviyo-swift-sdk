@@ -208,6 +208,21 @@ class IAFPresentationManager {
             self?.viewController = nil
         }
     }
+
+    func destroyWebviewAndListeners() {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
+        }
+        isLoading = false
+        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
+        lifecycleCancellable?.cancel()
+        apiKeyCancellable?.cancel()
+        formEventTask?.cancel()
+        lifecycleCancellable = nil
+        apiKeyCancellable = nil
+        formEventTask = nil
+        destroyWebView()
+    }
 }
 
 extension UIViewController {

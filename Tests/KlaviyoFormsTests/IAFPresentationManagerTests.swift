@@ -296,6 +296,73 @@ final class IAFPresentationManagerTests: XCTestCase {
             script.contains("dispatchLifecycleEvent('foreground', 'purge')")
         })
     }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        expectation.isInverted = true
+
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchLifecycleEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+        presentationManager.destroyWebviewAndListeners()
+
+        // When
+        mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
+    }
+
+    @MainActor
+    func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        expectation.isInverted = true
+
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchLifecycleEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+        presentationManager.destroyWebviewAndListeners()
+
+        // When
+        mockApiKeyPublisher.send("ABC123")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
+    }
+
+    @MainActor
+    func testUnregisterFromInAppFormsCleansUpUserDefaults() async throws {
+        // Given
+        KlaviyoSDK().registerForInAppForms()
+        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded") // background event
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
+        // When
+        KlaviyoSDK().unregisterFromInAppForms()
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
+        // Then
+        XCTAssertNil(UserDefaults.standard.object(forKey: "lastBackgrounded"), "lastBackgrounded should be removed from UserDefaults")
+    }
 }
 
 // MARK: - Mock Classes
@@ -327,6 +394,8 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 private final class MockIAFPresentationManager: IAFPresentationManager {
     var constructWebviewCalled = false
     var destroyWebviewCalled = false
+    var isLoading = false
+    var formEventTask: Task<Void, Never>?
 
     override func constructWebview(assetSource: String? = nil) {
         constructWebviewCalled = true
