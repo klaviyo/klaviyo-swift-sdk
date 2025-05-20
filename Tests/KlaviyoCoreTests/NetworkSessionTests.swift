@@ -52,7 +52,6 @@ class NetworkSessionTests: XCTestCase {
                 options: 0
             )
             try plistData.write(to: plistURL)
-            print(plistURL)
             // Create a mock bundle that returns our temporary plist
             let mockBundle = MockBundle(plistURL: plistURL)
 
