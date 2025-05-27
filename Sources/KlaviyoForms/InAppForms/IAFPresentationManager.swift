@@ -15,6 +15,8 @@ import UIKit
 @MainActor
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
+    private var lastBackgrounded: Date?
+
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
     private var viewController: KlaviyoWebViewController?
@@ -56,12 +58,12 @@ class IAFPresentationManager {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
+                    guard let self else { return }
                     switch event {
                     case .terminated:
                         break
                     case .foregrounded:
-                        guard let self else { return }
-                        if let lastBackgrounded = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date {
+                        if let lastBackgrounded = self.lastBackgrounded {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             let timeoutDuration = configuration.sessionTimeoutDuration
                             if timeElapsed > timeoutDuration {
@@ -79,8 +81,8 @@ class IAFPresentationManager {
                             })
                         }
                     case .backgrounded:
-                        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded")
-                        try await self?.handleLifecycleEvent("background", "persist")
+                        self.lastBackgrounded = Date()
+                        try await self.handleLifecycleEvent("background", "persist")
                     case .reachabilityChanged:
                         break
                     }
@@ -214,7 +216,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isLoading = false
-        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
+        lastBackgrounded = nil
         lifecycleCancellable?.cancel()
         apiKeyCancellable?.cancel()
         formEventTask?.cancel()

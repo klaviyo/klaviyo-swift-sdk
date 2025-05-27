@@ -28,7 +28,6 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         try await super.setUp()
-        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
         mockViewModel = MockIAFWebViewModel(url: URL(string: "https://example.com")!)
         mockViewController = MockKlaviyoWebViewController(viewModel: mockViewModel)
         mockLifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
@@ -94,21 +93,6 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-    func testBackgroundEventLogsTimestamp() async throws {
-        // Given
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-
-        // When
-        mockLifecycleEvents.send(.backgrounded)
-
-        // Then
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        let timestamp = UserDefaults.standard.object(forKey: "lastBackgrounded") as? Date
-        XCTAssertNotNil(timestamp, "Background timestamp should be stored in UserDefaults")
-        XCTAssertLessThanOrEqual(timestamp?.timeIntervalSinceNow ?? 0, 0, "Timestamp should be in the past")
-    }
-
-    @MainActor
     func testBackgroundPersistEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
@@ -136,8 +120,9 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundWithinSessionKeepsViewControllerAlive() async throws {
         // Given
-        UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -150,9 +135,10 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundWithinSessionRestoreEventInjected() async throws {
         // Given
-        UserDefaults.standard.set(Date().addingTimeInterval(-1.0), forKey: "lastBackgrounded")
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -176,25 +162,26 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
-        UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
         presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
 
         // When
         mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
         // Then
-        // Wait for async operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
-        XCTAssertTrue(presentationManager.constructWebviewCalled, "Web view should not be recreated when foregrounding within session")
+        XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
+        XCTAssertTrue(presentationManager.constructWebviewCalled, "Web view should be recreated when foregrounding in new session")
     }
 
     @MainActor
     func testForegroundInNewSessionPurgeEventInjected() async throws {
         // Given
-        UserDefaults.standard.set(Date().addingTimeInterval(-10.0), forKey: "lastBackgrounded")
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
         presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 3_000_000_000) // 3 second
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -220,7 +207,6 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
         mockManager.setupLifecycleEvents(configuration: IAFConfiguration())
-        UserDefaults.standard.removeObject(forKey: "lastBackgrounded")
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -348,21 +334,6 @@ final class IAFPresentationManagerTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
     }
-
-    @MainActor
-    func testUnregisterFromInAppFormsCleansUpUserDefaults() async throws {
-        // Given
-        KlaviyoSDK().registerForInAppForms()
-        UserDefaults.standard.set(Date(), forKey: "lastBackgrounded") // background event
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-
-        // When
-        KlaviyoSDK().unregisterFromInAppForms()
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-
-        // Then
-        XCTAssertNil(UserDefaults.standard.object(forKey: "lastBackgrounded"), "lastBackgrounded should be removed from UserDefaults")
-    }
 }
 
 // MARK: - Mock Classes
@@ -394,7 +365,6 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 private final class MockIAFPresentationManager: IAFPresentationManager {
     var constructWebviewCalled = false
     var destroyWebviewCalled = false
-    var isLoading = false
     var formEventTask: Task<Void, Never>?
 
     override func constructWebview(assetSource: String? = nil) {
