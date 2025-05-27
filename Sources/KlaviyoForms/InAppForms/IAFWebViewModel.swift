@@ -25,7 +25,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
-    private let companyId: String?
+    private let companyId: String
     private let assetSource: String?
 
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
