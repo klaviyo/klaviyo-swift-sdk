@@ -206,6 +206,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .lifecycleEvent:
             ()
+        case .profileMutation:
+            ()
         }
     }
 }
