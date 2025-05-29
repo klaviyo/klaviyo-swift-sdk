@@ -74,6 +74,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
+    private var dataEnvironmentWKScript: WKUserScript {
+        var environment = environment.formsDataEnvironment()
+        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(environment)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
     private var handshakeWKScript: WKUserScript {
         let handshakeStringified = IAFNativeBridgeEvent.handshake
         let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
@@ -100,6 +107,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         guard let klaviyoJsWKScript else { return }
         loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
+        loadScripts?.insert(dataEnvironmentWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
     }
