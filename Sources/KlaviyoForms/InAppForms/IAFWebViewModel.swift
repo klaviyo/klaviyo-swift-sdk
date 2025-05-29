@@ -75,8 +75,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private var dataEnvironmentWKScript: WKUserScript {
-        var environment = environment.formsDataEnvironment()
-        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(environment)');"
+        guard let formsEnv = environment.formsDataEnvironment() else {
+            return WKUserScript(source: "", injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        }
+        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 

@@ -41,7 +41,7 @@ public struct KlaviyoEnvironment {
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
-        formsDataEnvironment: @escaping () -> String
+        formsDataEnvironment: @escaping () -> String?
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -135,7 +135,7 @@ public struct KlaviyoEnvironment {
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
-    public var formsDataEnvironment: () -> String
+    public var formsDataEnvironment: () -> String?
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -228,7 +228,7 @@ public struct KlaviyoEnvironment {
         },
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
-        formsDataEnvironment: { "in-app" }
+        formsDataEnvironment: { nil }
     )
 }
 
