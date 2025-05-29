@@ -167,7 +167,6 @@ class IAFPresentationManager {
             presentForm()
         case .dismiss:
             dismissForm()
-            formEventTask?.cancel()
         case .abort:
             formEventTask?.cancel()
         }
