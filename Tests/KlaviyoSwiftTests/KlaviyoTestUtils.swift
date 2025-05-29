@@ -55,7 +55,8 @@ extension KlaviyoEnvironment {
             klaviyoAPI: KlaviyoAPI.test(),
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
-            SDKVersion: { __klaviyoSwiftVersion }
+            SDKVersion: { __klaviyoSwiftVersion },
+            formsDataEnvironment: { nil }
         )
     }
 }
