@@ -109,8 +109,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
-        guard let dataEnvironmentWKScript else { return }
-        loadScripts?.insert(dataEnvironmentWKScript)
+        if let dataEnvironmentWKScript { 
+            loadScripts?.insert(dataEnvironmentWKScript)
+        }
     }
 
     // MARK: - Loading
