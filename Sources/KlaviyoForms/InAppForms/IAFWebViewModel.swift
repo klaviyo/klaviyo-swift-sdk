@@ -74,10 +74,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
-    private var dataEnvironmentWKScript: WKUserScript {
-        guard let formsEnv = environment.formsDataEnvironment() else {
-            return WKUserScript(source: "", injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        }
+    private var dataEnvironmentWKScript: WKUserScript? {
+        guard let formsEnv = environment.formsDataEnvironment() else { return nil }
         let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
@@ -109,9 +107,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         guard let klaviyoJsWKScript else { return }
         loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
-        loadScripts?.insert(dataEnvironmentWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        guard let dataEnvironmentWKScript else { return }
+        loadScripts?.insert(dataEnvironmentWKScript)
     }
 
     // MARK: - Loading
