@@ -41,7 +41,7 @@ public struct KlaviyoEnvironment {
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
-        formsDataEnvironment: @escaping () -> String?
+        formsDataEnvironment: @escaping () -> FormEnvironment?
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -135,7 +135,7 @@ public struct KlaviyoEnvironment {
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
-    public var formsDataEnvironment: () -> String?
+    public var formsDataEnvironment: () -> FormEnvironment?
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -242,6 +242,11 @@ public func createNetworkSession() -> NetworkSession {
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
+}
+
+public enum FormEnvironment: String, Equatable, Codable, CaseIterable {
+    case inApp = "in-app"
+    case web
 }
 
 public struct DataDecoder {
