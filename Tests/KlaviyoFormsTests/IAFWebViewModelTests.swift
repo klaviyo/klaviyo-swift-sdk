@@ -89,6 +89,45 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(resultString, "0.0.1")
     }
 
+    func testInjectFormsDataEnvironmentAttribute() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
+        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+
+        // Given
+        try await viewModel.establishHandshake(timeout: 3.0)
+
+        // When
+        let script = "document.head.getAttribute('data-forms-data-environment');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        XCTAssertNil(resultString)
+    }
+
+    func testInjectFormsDataEnvironmentSetToWeb() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
+        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+
+        // Given
+        environment.formsDataEnvironment = { "web" }
+        try await viewModel.establishHandshake(timeout: 3.0)
+
+        // When
+        let script = "document.head.getAttribute('data-forms-data-environment');"
+        let delegate = try XCTUnwrap(viewModel.delegate)
+        let result = try await delegate.evaluateJavaScript(script)
+        let resultString = try XCTUnwrap(result as? String)
+
+        // Then
+        XCTAssertEqual(resultString, "web")
+    }
+
     func testInjectHandshakeAttribute() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
         // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.

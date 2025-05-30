@@ -40,7 +40,8 @@ public struct KlaviyoEnvironment {
         klaviyoAPI: KlaviyoAPI,
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
-        SDKVersion: @escaping () -> String
+        SDKVersion: @escaping () -> String,
+        formsDataEnvironment: @escaping () -> FormEnvironment?
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -70,6 +71,7 @@ public struct KlaviyoEnvironment {
         self.timer = timer
         sdkName = SDKName
         sdkVersion = SDKVersion
+        self.formsDataEnvironment = formsDataEnvironment
     }
 
     static let productionHost: URLComponents = {
@@ -133,6 +135,7 @@ public struct KlaviyoEnvironment {
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
+    public var formsDataEnvironment: () -> FormEnvironment?
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -224,7 +227,8 @@ public struct KlaviyoEnvironment {
                 .eraseToAnyPublisher()
         },
         SDKName: KlaviyoEnvironment.getSDKName,
-        SDKVersion: KlaviyoEnvironment.getSDKVersion
+        SDKVersion: KlaviyoEnvironment.getSDKVersion,
+        formsDataEnvironment: { nil }
     )
 }
 
@@ -238,6 +242,11 @@ public func createNetworkSession() -> NetworkSession {
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
+}
+
+public enum FormEnvironment: String, Equatable, Codable, CaseIterable {
+    case inApp = "in-app"
+    case web
 }
 
 public struct DataDecoder {
