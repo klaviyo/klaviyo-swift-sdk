@@ -95,7 +95,8 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "formWillAppear",
           "data": {
-            "formId": "abc123"
+            "formId": "abc123",
+            "formVersionId": 123
           }
         }
         """
@@ -111,7 +112,8 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "formDisappeared",
           "data": {
-            "formId": "abc123"
+            "formId": "abc123",
+            "formVersionId": 123
           }
         }
         """
