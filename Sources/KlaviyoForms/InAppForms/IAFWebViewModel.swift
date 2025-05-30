@@ -208,10 +208,4 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         }
     }
-
-    // MARK: - handle view events
-
-    func handleViewTransition() {
-        formLifecycleContinuation.yield(.dismiss)
-    }
 }

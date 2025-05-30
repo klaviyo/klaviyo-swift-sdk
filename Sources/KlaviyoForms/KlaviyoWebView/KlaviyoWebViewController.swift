@@ -73,6 +73,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     override func loadView() {
         view = UIView()
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(webView)
 
         configureSubviewConstraints()
@@ -85,11 +86,6 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
               webView.estimatedProgress != 1.0 else { return }
 
         loadUrl()
-    }
-
-    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        super.viewWillTransition(to: size, with: coordinator)
-        viewModel.handleViewTransition()
     }
 
     @MainActor
