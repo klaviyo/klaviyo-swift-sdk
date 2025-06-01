@@ -14,6 +14,7 @@ import KlaviyoCore
 /// - Note: Can only be accessed from other modules within the Klaviyo-Swift-SDK package; cannot be accessed from the host app.
 package enum KlaviyoInternal {
     static var apiKeyCancellable: Cancellable?
+
     /// the apiKey (a.k.a. CompanyID) for the current SDK instance.
     /// - Parameter completion: completion hanlder that will be called when apiKey is avaialble after SDK is initilized
     package static func apiKey(completion: @escaping ((String?) -> Void)) {
@@ -31,17 +32,29 @@ package enum KlaviyoInternal {
         }
     }
 
-    package static func profileChangePublisher() -> AnyPublisher<ProfileData, Never> {
+    package enum ProfileDataResult: Equatable {
+        case success(ProfileData)
+        case failure(SDKError)
+    }
+
+    package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
         klaviyoSwiftEnvironment.statePublisher()
-            .removeDuplicates()
-            .map {
-                ProfileData(
-                    apiKey: $0.apiKey,
-                    email: $0.email,
-                    anonymousId: $0.anonymousId,
-                    phoneNumber: $0.phoneNumber,
-                    externalId: $0.externalId
-                )
+            .map { state -> ProfileDataResult in
+                if state.initalizationState != .initialized {
+                    return .failure(.notInitialized)
+                }
+
+                guard let apiKey = state.apiKey,!apiKey.isEmpty else {
+                    return .failure(.apiKeyNilOrEmpty)
+                }
+
+                return .success(ProfileData(
+                    apiKey: state.apiKey,
+                    email: state.email,
+                    anonymousId: state.anonymousId,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId
+                ))
             }
             .removeDuplicates()
             .eraseToAnyPublisher()
