@@ -25,7 +25,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
-    private let companyId: String
+    let profileData: ProfileData
     private let assetSource: String?
 
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
@@ -39,7 +39,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
         apiURL.queryItems = [
-            URLQueryItem(name: "company_id", value: companyId),
+            URLQueryItem(name: "company_id", value: profileData.apiKey ?? ""),
             URLQueryItem(name: "env", value: "in-app")
         ]
 
@@ -90,9 +90,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, companyId: String, assetSource: String? = nil) {
+    init(url: URL, profileData: ProfileData, assetSource: String? = nil) {
         self.url = url
-        self.companyId = companyId
+        self.profileData = profileData
         self.assetSource = assetSource
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
