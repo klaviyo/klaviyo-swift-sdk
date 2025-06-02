@@ -54,6 +54,13 @@ class IAFPresentationManager {
             return
         }
 
+        guard viewController == nil else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.log("Webview is already set up; ignoring request.")
+            }
+            return
+        }
+
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         isLoading = true
