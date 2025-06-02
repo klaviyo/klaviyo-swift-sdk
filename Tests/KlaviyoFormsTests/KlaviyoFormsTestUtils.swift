@@ -1,27 +1,79 @@
 //
-//  KlaviyoTestUtils.swift
-//  KlaviyoSwiftTests
+//  KlaviyoFormsTestUtils.swift
+//  klaviyo-swift-sdk
 //
-//  Created by Noah Durell on 9/30/22.
+//  Created by Isobelle Lim on 5/6/25.
 //
 
 import Combine
-import CombineSchedulers
+import Foundation
 import KlaviyoCore
-import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
+enum FakeFileError: Error {
+    case fake
+}
+
 let ARCHIVED_RETURNED_DATA = Data()
+let SAMPLE_DATA: NSMutableArray = [
+    [
+        "properties": [
+            "foo": "bar"
+        ]
+    ]
+]
+let TEST_URL = URL(string: "fake_url")!
+let TEST_RETURN_DATA = Data()
+
+let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER = """
+{
+    "errors": [
+      {
+        "id": "9997bd4f-7d5f-4f01-bbd1-df0065ef4faa",
+        "status": 400,
+        "code": "invalid",
+        "title": "Invalid input.",
+        "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+        "source": {
+          "pointer": "/data/attributes/phone_number"
+        },
+        "meta": {}
+      }
+    ]
+}
+"""
+
+let TEST_FAILURE_JSON_INVALID_EMAIL = """
+{
+  "errors": [
+    {
+      "id": "dce2d180-0f36-4312-aa6d-92d025c17147",
+      "status": 400,
+      "code": "invalid",
+      "title": "Invalid input.",
+      "detail": "Invalid email address",
+      "source": {
+        "pointer": "/data/attributes/email"
+      },
+      "meta": {}
+    }
+  ]
+}
+"""
+
+let SAMPLE_PROPERTIES = [
+    "Blob": "blob",
+    "Stuff": 2,
+    "Hello": [
+        "Sub": "dict"
+    ]
+] as [String: Any]
 
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
         unarchivedMutableArray: { _ in SAMPLE_DATA }
     )
-}
-
-extension AppLifeCycleEvents {
-    static let test = Self(lifeCycleEvents: { Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
 }
 
 extension KlaviyoEnvironment {
@@ -61,34 +113,6 @@ extension KlaviyoEnvironment {
     }
 }
 
-class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
-    }
-}
-
-class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        throw KlaviyoDecodingError.invalidType
-    }
-}
-
-struct KlaviyoTestReducer: ReducerProtocol {
-    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
-
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
-        reducer(&state, action)
-    }
-
-    typealias State = KlaviyoState
-
-    typealias Action = KlaviyoAction
-}
-
-extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
-}
-
 extension FileClient {
     static let test = FileClient(
         write: { _, _ in },
@@ -109,6 +133,10 @@ extension LoggerClient {
     }
 }
 
+extension AppLifeCycleEvents {
+    static let test = Self(lifeCycleEvents: { Empty<LifeCycleEvents, Never>().eraseToAnyPublisher() })
+}
+
 extension NetworkSession {
     static let successfulRepsonse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
     static let DEFAULT_CALLBACK: (URLRequest) async throws -> (Data, URLResponse) = { _ in
@@ -117,6 +145,12 @@ extension NetworkSession {
 
     static func test(data: @escaping (URLRequest) async throws -> (Data, URLResponse) = DEFAULT_CALLBACK) -> NetworkSession {
         NetworkSession(data: data)
+    }
+}
+
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
+    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
+        KlaviyoState.test as! T
     }
 }
 
@@ -133,41 +167,20 @@ extension AppContextInfo {
                            deviceId: "fe-fi-fo-fum")
 }
 
-extension StateChangePublisher {
-    static let test = { () -> StateChangePublisher in
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(0), scheduler: DispatchQueue.immediate)
-                .eraseToAnyPublisher()
-        }
-        return Self()
-    }()
-}
-
-private final class KeyedArchiver: NSKeyedArchiver {
-    override func decodeObject(forKey _: String) -> Any { "" }
-    override func decodeInt64(forKey _: String) -> Int64 { 0 }
-}
-
-extension UNNotificationResponse {
-    static func with(
-        userInfo: [AnyHashable: Any],
-        actionIdentifier: String = UNNotificationDefaultActionIdentifier
-    ) throws -> UNNotificationResponse {
-        let content = UNMutableNotificationContent()
-        content.userInfo = userInfo
-        let request = UNNotificationRequest(
-            identifier: "",
-            content: content,
-            trigger: nil
-        )
-
-        let notification = try XCTUnwrap(UNNotification(coder: KeyedArchiver(requiringSecureCoding: false)))
-        notification.setValue(request, forKey: "request")
-
-        let response = try XCTUnwrap(UNNotificationResponse(coder: KeyedArchiver(requiringSecureCoding: false)))
-        response.setValue(notification, forKey: "notification")
-        response.setValue(actionIdentifier, forKey: "actionIdentifier")
-        return response
-    }
+extension KlaviyoState {
+    static let test = KlaviyoState(apiKey: "foo",
+                                   email: "test@test.com",
+                                   anonymousId: environment.uuid().uuidString,
+                                   phoneNumber: "phoneNumber",
+                                   externalId: "externalId",
+                                   pushTokenData: PushTokenData(
+                                       pushToken: "blob_token",
+                                       pushEnablement: .authorized,
+                                       pushBackground: .available,
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
+                                   ),
+                                   queue: [],
+                                   requestsInFlight: [],
+                                   initalizationState: .initialized,
+                                   flushing: true)
 }

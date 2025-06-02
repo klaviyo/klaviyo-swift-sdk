@@ -20,5 +20,4 @@ protocol KlaviyoWebViewModeling: AnyObject {
 
     func handleNavigationEvent(_ event: WKNavigationEvent)
     func handleScriptMessage(_ message: WKScriptMessage)
-    func handleViewTransition()
 }

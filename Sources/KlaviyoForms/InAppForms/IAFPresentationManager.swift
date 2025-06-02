@@ -12,13 +12,25 @@ import KlaviyoSwift
 import OSLog
 import UIKit
 
+@MainActor
 class IAFPresentationManager {
     static let shared = IAFPresentationManager()
-    private var lifecycleCancellable: AnyCancellable?
+    private var lastBackgrounded: Date?
 
+    private var lifecycleCancellable: AnyCancellable?
+    private var apiKeyCancellable: AnyCancellable?
     private var viewController: KlaviyoWebViewController?
+
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
+
+    private init() {}
+
+    #if DEBUG
+    package init(viewController: KlaviyoWebViewController?) {
+        self.viewController = viewController
+    }
+    #endif
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -28,25 +40,82 @@ class IAFPresentationManager {
         }
     }()
 
-    func setupLifecycleEvents() {
-        lifecycleCancellable = AppLifeCycleEvents.production.lifeCycleEvents()
+    func handleLifecycleEvent(_ event: String, _ session: String, additionalAction: (() async -> Void)? = nil) async throws {
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)', '\(session)')")
+            if let successMessage = result as? String {
+                print("Successfully evaluated Javascript; message: \(successMessage)")
+            }
+            if let additionalAction = additionalAction {
+                await additionalAction()
+            }
+        } catch {
+            print("Javascript evaluation failed; message: \(error.localizedDescription)")
+        }
+    }
+
+    func setupLifecycleEvents(configuration: IAFConfiguration) {
+        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
-                switch event {
-                // TODO: Implement app session here based on these lifecycle events
-                case .terminated:
-                    break
-                case .foregrounded:
-                    break
-                case .backgrounded:
-                    break
-                case let .reachabilityChanged(status: status):
-                    break
+                Task { @MainActor in
+                    guard let self else { return }
+                    switch event {
+                    case .terminated:
+                        break
+                    case .foregrounded:
+                        if let lastBackgrounded = self.lastBackgrounded {
+                            let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+                            let timeoutDuration = configuration.sessionTimeoutDuration
+                            if timeElapsed > timeoutDuration {
+                                try await self.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                                    self.destroyWebView()
+                                    self.constructWebview()
+                                })
+                            } else {
+                                try await self.handleLifecycleEvent("foreground", "restore")
+                            }
+                        } else {
+                            // launching
+                            try await self.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                                self.constructWebview()
+                            })
+                        }
+                    case .backgrounded:
+                        self.lastBackgrounded = Date()
+                        try await self.handleLifecycleEvent("background", "persist")
+                    case .reachabilityChanged:
+                        break
+                    }
+                }
+            }
+
+        setupApiKeyPublisher()
+    }
+
+    private func setupApiKeyPublisher() {
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .scan((nil, false)) { previous, current in
+                (current, previous.0 != nil)
+            }
+            .sink { [weak self] _, isSubsequent in
+                Task { @MainActor in
+                    if isSubsequent {
+                        // subsequent API key changes
+                        try await self?.handleLifecycleEvent("foreground", "purge", additionalAction: {
+                            self?.destroyWebView()
+                            self?.constructWebview()
+                        })
+                    } else {
+                        // initial launch
+                        try await self?.handleLifecycleEvent("foreground", "restore", additionalAction: {
+                            self?.constructWebview()
+                        })
+                    }
                 }
             }
     }
 
-    @MainActor
-    func presentIAF(assetSource: String? = nil) {
+    func constructWebview(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
@@ -92,7 +161,6 @@ class IAFPresentationManager {
         }
     }
 
-    @MainActor
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         switch event {
         case .present:
@@ -104,7 +172,6 @@ class IAFPresentationManager {
         }
     }
 
-    @MainActor
     private func presentForm() {
         guard let viewController else {
             if #available(iOS 14.0, *) {
@@ -125,17 +192,37 @@ class IAFPresentationManager {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
             }
-            dismissForm()
+            destroyWebView()
         } else {
             topController.present(viewController, animated: false, completion: nil)
         }
     }
 
-    @MainActor
-    private func dismissForm() {
-        viewController?.dismiss(animated: false) { [weak self] in
+    func dismissForm() {
+        guard let viewController else { return }
+        viewController.dismiss(animated: false)
+    }
+
+    func destroyWebView() {
+        guard let viewController else { return }
+        viewController.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
         }
+    }
+
+    func destroyWebviewAndListeners() {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
+        }
+        isLoading = false
+        lastBackgrounded = nil
+        lifecycleCancellable?.cancel()
+        apiKeyCancellable?.cancel()
+        formEventTask?.cancel()
+        lifecycleCancellable = nil
+        apiKeyCancellable = nil
+        formEventTask = nil
+        destroyWebView()
     }
 }
 

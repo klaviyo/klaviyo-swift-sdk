@@ -74,6 +74,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
+    private var dataEnvironmentWKScript: WKUserScript? {
+        guard let formsEnv = environment.formsDataEnvironment()?.rawValue else { return nil }
+        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
     private var handshakeWKScript: WKUserScript {
         let handshakeStringified = IAFNativeBridgeEvent.handshake
         let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
@@ -102,6 +109,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        if let dataEnvironmentWKScript {
+            loadScripts?.insert(dataEnvironmentWKScript)
+        }
     }
 
     // MARK: - Loading
@@ -192,12 +202,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             handshakeContinuation.yield()
             handshakeContinuation.finish()
+        case .analyticsEvent:
+            ()
+        case .lifecycleEvent:
+            ()
         }
-    }
-
-    // MARK: - handle view events
-
-    func handleViewTransition() {
-        formLifecycleContinuation.yield(.dismiss)
     }
 }
