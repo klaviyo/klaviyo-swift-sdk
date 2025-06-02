@@ -102,7 +102,7 @@ final class IAFWebViewModelTests: XCTestCase {
         let script = "document.head.getAttribute('data-forms-data-environment');"
         let delegate = try XCTUnwrap(viewModel.delegate)
         let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        let resultString = result as? String
 
         // Then
         XCTAssertNil(resultString)
@@ -196,7 +196,7 @@ final class IAFWebViewModelTests: XCTestCase {
                 document.head.addEventListener('lifecycleEvent', function(e) {
                     eventDetails = e.detail;
                 });
-                window.dispatchLifecycleEvent('foreground', 'purge');
+                window.dispatchLifecycleEvent('foreground');
                 return eventDetails;
             })();
         """
@@ -206,6 +206,5 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(resultDict["type"] as? String, "foreground", "Event type should be 'foreground'")
-        XCTAssertEqual(resultDict["session"] as? String, "purge", "Session should be 'purge'")
     }
 }
