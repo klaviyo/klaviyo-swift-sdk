@@ -115,7 +115,7 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        environment.formsDataEnvironment = { "web" }
+        environment.formsDataEnvironment = { .web }
         try await viewModel.establishHandshake(timeout: 3.0)
 
         // When

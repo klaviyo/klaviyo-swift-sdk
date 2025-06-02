@@ -41,7 +41,6 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 
     func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {}
     func handleScriptMessage(_ message: WKScriptMessage) {}
-    func handleViewTransition() {}
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
