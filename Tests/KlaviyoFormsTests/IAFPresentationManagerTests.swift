@@ -83,12 +83,12 @@ final class IAFPresentationManagerTests: XCTestCase {
         }
 
         // When
-        try await presentationManager.handleLifecycleEvent("test", "test")
+        try await presentationManager.handleLifecycleEvent("test")
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('test', 'test')")
+            script.contains("dispatchLifecycleEvent('test')")
         })
     }
 
@@ -113,7 +113,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('background', 'persist')")
+            script.contains("dispatchLifecycleEvent('background')")
         })
     }
 
@@ -155,7 +155,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground', 'restore')")
+            script.contains("dispatchLifecycleEvent('foreground')")
         })
     }
 
@@ -198,7 +198,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground', 'purge')")
+            script.contains("dispatchLifecycleEvent('foreground')")
         })
     }
 
@@ -237,7 +237,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 3.0)
         XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground', 'restore')")
+            script.contains("dispatchLifecycleEvent('foreground')")
         })
     }
 
@@ -253,34 +253,6 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockManager.constructWebviewCalled, "constructWebview should be called when foregrounding in new session")
-    }
-
-    @MainActor
-    func testSubsequentApiKeyChangesPurgeEventInjected() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
-
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") && script.contains("purge") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When
-        // First send initializes the API key
-        mockApiKeyPublisher.send("ABC123")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        mockApiKeyPublisher.send("ABC321")
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground', 'purge')")
-        })
     }
 
     @MainActor
