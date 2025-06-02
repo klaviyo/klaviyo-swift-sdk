@@ -128,7 +128,10 @@ class IAFPresentationManager {
                 return
             }
 
-            let viewModel = IAFWebViewModel(url: fileUrl, companyId: companyId, assetSource: assetSource)
+            // FIXME: replace this with full profile data, this is just to get the code to compile for now
+            let profileData = ProfileData(apiKey: companyId)
+
+            let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
             viewController = KlaviyoWebViewController(viewModel: viewModel)
             viewController?.modalPresentationStyle = .overCurrentContext
 
