@@ -22,7 +22,7 @@ extension KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents(configuration: configuration)
-                IAFPresentationManager.shared.constructWebview()
+                IAFPresentationManager.shared.initializeIAF()
             }
         }
     }
@@ -54,7 +54,7 @@ extension KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.setupLifecycleEvents(configuration: configuration)
-                IAFPresentationManager.shared.constructWebview(assetSource: assetSource)
+                IAFPresentationManager.shared.initializeIAF(assetSource: assetSource)
             }
         }
     }
