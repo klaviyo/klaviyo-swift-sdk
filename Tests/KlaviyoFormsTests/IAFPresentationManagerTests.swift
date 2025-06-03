@@ -134,7 +134,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
-        XCTAssertFalse(presentationManager.constructWebviewCalled, "Web view should not be recreated when foregrounding within session")
+        XCTAssertFalse(presentationManager.initializeIAF, "Web view should not be recreated when foregrounding within session")
     }
 
     @MainActor
@@ -177,7 +177,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
-        XCTAssertTrue(presentationManager.constructWebviewCalled, "Web view should be recreated when foregrounding in new session")
+        XCTAssertTrue(presentationManager.initializeIAF, "Web view should be recreated when foregrounding in new session")
     }
 
     @MainActor
@@ -218,7 +218,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.constructWebviewCalled, "constructWebview should be called when foregrounding in new session")
+        XCTAssertTrue(mockManager.initializeIAF, "initializeIAF should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -257,7 +257,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.constructWebviewCalled, "constructWebview should be called when foregrounding in new session")
+        XCTAssertTrue(mockManager.initializeIAF, "initializeIAF should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -339,13 +339,13 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 private final class MockIAFPresentationManager: IAFPresentationManager {
-    var constructWebviewCalled = false
+    var initializeIAFCalled = false
     var destroyWebviewCalled = false
     var formEventTask: Task<Void, Never>?
 
-    override func constructWebview(assetSource: String? = nil) {
-        constructWebviewCalled = true
-        super.constructWebview(assetSource: assetSource)
+    override func initializeIAF(assetSource: String? = nil) {
+        initializeIAFCalled = true
+        super.initializeIAF(assetSource: assetSource)
     }
 
     override func destroyWebView() {

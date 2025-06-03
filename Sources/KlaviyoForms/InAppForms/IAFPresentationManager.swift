@@ -83,13 +83,13 @@ class IAFPresentationManager {
                                 // new session
                                 if timeElapsed > timeoutDuration {
                                     self.destroyWebView()
-                                    self.constructWebview()
+                                    self.initializeIAF()
                                 }
                             })
                         } else {
                             // launching
                             try await self.handleLifecycleEvent("foreground", additionalAction: {
-                                self.constructWebview()
+                                self.initializeIAF()
                             })
                         }
                     case .backgrounded:
@@ -104,7 +104,7 @@ class IAFPresentationManager {
         setupApiKeySubscription()
     }
 
-    func constructWebview(assetSource: String? = nil) {
+    func initializeIAF(assetSource: String? = nil) {
         guard !isLoading else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
