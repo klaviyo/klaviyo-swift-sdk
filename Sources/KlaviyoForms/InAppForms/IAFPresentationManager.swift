@@ -23,6 +23,7 @@ class IAFPresentationManager {
     private var apiKeyCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
+    private var viewModel: IAFWebViewModel?
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
@@ -131,23 +132,41 @@ class IAFPresentationManager {
             // FIXME: replace this with full profile data, this is just to get the code to compile for now
             let profileData = ProfileData(apiKey: companyId)
 
-            let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
-            viewController = KlaviyoWebViewController(viewModel: viewModel)
-            viewController?.modalPresentationStyle = .overCurrentContext
+            createIAF(profileData: profileData, assetSource: assetSource)
+            listenForFormEvents()
+        }
+    }
 
-            // establish the handshake with KlaviyoJS
+    /// - Parameter newProfileData: the profile information with which to load the IAF
+    @MainActor
+    private func createIAF(profileData: ProfileData, assetSource: String?) {
+        guard let fileUrl = indexHtmlFileUrl else { return }
+
+        let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
+        self.viewModel = viewModel
+        viewController = KlaviyoWebViewController(viewModel: viewModel)
+        viewController?.modalPresentationStyle = .overCurrentContext
+    }
+
+    @MainActor
+    private func listenForFormEvents() {
+        guard let viewModel else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
             } catch {
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
                 viewController = nil
+                self.viewModel = nil
                 return
             }
 
             // now that we've established the handshake, we can start a task that listens for Form events.
-            formEventTask = Task {
+            self.formEventTask = Task {
                 for await event in viewModel.formLifecycleStream {
-                    handleFormEvent(event)
+                    self.handleFormEvent(event)
                 }
             }
         }
