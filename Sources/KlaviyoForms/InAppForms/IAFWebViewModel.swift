@@ -28,6 +28,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let profileData: ProfileData
     private let assetSource: String?
 
+    private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
@@ -87,6 +88,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
+    private var profileAttributesWKScript: WKUserScript? {
+        guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
+        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     // MARK: - Initializer
 
     @MainActor
@@ -100,6 +107,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         formLifecycleContinuation = continuation
 
         initializeLoadScripts()
+        subscribeToProfileUpdates()
     }
 
     @MainActor
@@ -109,6 +117,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        if let profileAttributesWKScript {
+            loadScripts?.insert(profileAttributesWKScript)
+        }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
         }
@@ -136,6 +147,50 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.warning("Error preloading URL: \(error)")
             }
             throw error
+        }
+    }
+
+    // MARK: - Handle profile changes
+
+    private func subscribeToProfileUpdates() {
+        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] result in
+                guard let self else { return }
+                guard case let .success(newProfileData) = result else { return }
+
+                // if the profile update includes an API key change, this will be
+                // handled by the IAFPresentationManager, not the IAFWebViewModel
+                guard newProfileData.apiKey == self.profileData.apiKey else { return }
+
+                if newProfileData != self.profileData {
+                    self.handleProfileDataChange(newProfileData)
+                }
+            }
+    }
+
+    private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
+        guard let profileDataString = try? profileData.toHtmlString() else { return nil }
+        let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
+        return profileAttributesScript
+    }
+
+    private func handleProfileDataChange(_ newProfileData: ProfileData) {
+        guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
+
+        Task {
+            do {
+                let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
+                if let successMessage = result as? String {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Successfully evaluated Javascript; message: \(successMessage)")
+                    }
+                }
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Error evaluating Javascript; error: \(error)")
+                }
+            }
         }
     }
 
