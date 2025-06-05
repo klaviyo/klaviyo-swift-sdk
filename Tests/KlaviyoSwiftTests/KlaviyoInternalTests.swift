@@ -22,12 +22,13 @@ final class KlaviyoInternalTests: XCTestCase {
     override func tearDownWithError() throws {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
+        KlaviyoInternal.resetProfileDataSubject()
     }
 
     @MainActor
     func testProfileChangePublisherEmitsCorrectData() throws {
         let expectation = XCTestExpectation(description: "Profile data is emitted")
-        var receivedProfile: ProfileData?
+        var receivedResult: KlaviyoInternal.ProfileDataResult?
 
         // Set up test environment
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
@@ -35,8 +36,8 @@ final class KlaviyoInternalTests: XCTestCase {
 
         // Subscribe to the publisher
         KlaviyoInternal.profileChangePublisher()
-            .sink { profile in
-                receivedProfile = profile
+            .sink { result in
+                receivedResult = result
                 expectation.fulfill()
             }
             .store(in: &cancellables)
@@ -50,9 +51,13 @@ final class KlaviyoInternalTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
 
         // Verify the emitted profile data
-        XCTAssertEqual(receivedProfile?.email, "a@b.com")
-        XCTAssertEqual(receivedProfile?.phoneNumber, "+15555555555")
-        XCTAssertEqual(receivedProfile?.externalId, "test123")
+        if case let .success(profileData) = receivedResult {
+            XCTAssertEqual(profileData.email, "a@b.com")
+            XCTAssertEqual(profileData.phoneNumber, "+15555555555")
+            XCTAssertEqual(profileData.externalId, "test123")
+        } else {
+            XCTFail("Expected success case but got \(String(describing: receivedResult))")
+        }
     }
 
     @MainActor
@@ -95,15 +100,24 @@ final class KlaviyoInternalTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Should receive valid key immediately")
         var receivedValues: [String] = []
 
-        // Set up the test environment with a valid key
-        let initialState = KlaviyoState(apiKey: "ABC123", queue: [])
+        // Set up the test environment with a valid key and initialized state
+        let initialState = KlaviyoState(
+            apiKey: "ABC123",
+            queue: [],
+            initalizationState: .initialized
+        )
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         KlaviyoInternal.apiKeyPublisher()
-            .sink { apiKey in
-                receivedValues.append(apiKey)
-                expectation.fulfill()
+            .sink { result in
+                switch result {
+                case let .success(apiKey):
+                    receivedValues.append(apiKey)
+                    expectation.fulfill()
+                case .failure:
+                    XCTFail("expected apiKeyPublisher to emit a `success` value with a valid API key")
+                }
             }
             .store(in: &cancellables)
 
@@ -121,10 +135,12 @@ final class KlaviyoInternalTests: XCTestCase {
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         KlaviyoInternal.apiKeyPublisher()
-            .sink { apiKey in
-                receivedValues.insert(apiKey)
-                if receivedValues.count == 2 {
-                    expectation.fulfill()
+            .sink { result in
+                if case let .success(apiKey) = result {
+                    receivedValues.insert(apiKey)
+                    if receivedValues.count == 2 {
+                        expectation.fulfill()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -141,40 +157,61 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedValues, Set<String>(["ABC123", "DEF456"]))
     }
 
-    func testApiKeyPublisher_willNotEmitNilAPIKey() async {
-        // Set up the test environment with a nil key
-        let initialState = KlaviyoState(queue: [])
+    func testApiKeyPublisher_nilAPIKeyEmitsFailure() async {
+        // Set up the test environment with a nil key but initialized state
+        let initialState = KlaviyoState(
+            apiKey: nil,
+            queue: [],
+            initalizationState: .initialized
+        )
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        let expectation = XCTestExpectation(description: "Publisher should not emit any values")
-        expectation.isInverted = true // fails the test if the expectation is fulfilled
+        let expectation = XCTestExpectation(description: "apiKeyPublisher to emit a `failure` value with error SDKError.apiKeyNilOrEmpty")
+        var receivedError: SDKError?
 
         KlaviyoInternal.apiKeyPublisher()
-            .sink { _ in
-                expectation.fulfill()
+            .sink { result in
+                switch result {
+                case .success:
+                    XCTFail("Expected apiKeyPublisher to emit a failure value")
+                case let .failure(error):
+                    receivedError = error
+                    expectation.fulfill()
+                }
             }
             .store(in: &cancellables)
 
-        // Wait for a short time to ensure no values are emitted
         await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedError, .apiKeyNilOrEmpty)
     }
 
-    func testApiKeyPublisher_willNotEmitEmptyAPIKey() {
-        // Set up the test environment with an empty key
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+    func testApiKeyPublisher_emptyAPIKeyEmitsFailure() async {
+        // Set up the test environment with a nil key but initialized state
+        let initialState = KlaviyoState(
+            apiKey: "",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-        _ = testStore.send(.initialize(""))
 
-        let expectation = XCTestExpectation(description: "Publisher should not emit any values")
-        expectation.isInverted = true // fails the test if the expectation is fulfilled
+        let expectation = XCTestExpectation(description: "apiKeyPublisher to emit a `failure` value with error SDKError.apiKeyNilOrEmpty")
+        var receivedError: SDKError?
 
         KlaviyoInternal.apiKeyPublisher()
-            .sink { _ in
-                expectation.fulfill()
+            .sink { result in
+                switch result {
+                case .success:
+                    XCTFail("Expected apiKeyPublisher to emit a failure value")
+                case let .failure(error):
+                    receivedError = error
+                    expectation.fulfill()
+                }
             }
             .store(in: &cancellables)
 
-        wait(for: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedError, .apiKeyNilOrEmpty)
     }
 }
