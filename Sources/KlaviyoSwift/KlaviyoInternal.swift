@@ -63,29 +63,23 @@ package enum KlaviyoInternal {
 
     /// A publisher that monitors the API key (aka Company ID) and emits valid API keys.
     ///
-    /// If a nil or empty string is received, it will start a 10-second timer and log a warning if no valid key is received before the timer elapses.
-    /// - Returns: A publisher that emits valid API keys (non-nil, non-empty strings)
-    package static func apiKeyPublisher() -> AnyPublisher<String, Never> {
-        profileChangePublisher()
-            .map(\.apiKey)
-            .removeDuplicates()
-            .map { apiKey -> AnyPublisher<String?, Never> in
-                if let apiKey = apiKey, !apiKey.isEmpty {
-                    // If we get a valid key, emit it immediately and cancel any pending timer
-                    return Just(apiKey).eraseToAnyPublisher()
-                } else {
-                    // If we get nil or empty string, start a timer that will emit a warning after 10 seconds
-                    return Just(nil)
-                        .delay(for: .seconds(10), scheduler: DispatchQueue.main)
-                        .handleEvents(receiveOutput: { _ in
-                            environment.emitDeveloperWarning("SDK must be initialized before usage.")
-                        })
-                        .eraseToAnyPublisher()
+    /// - Returns: A publisher that emits valid API keys (non-nil, non-empty strings), or a failure if the API is not initialized or the API key is empty or nil
+    package static func apiKeyPublisher() -> AnyPublisher<APIKeyResult, Never> {
+        setupProfileDataSubject()
+
+        return profileDataSubject
+            .map { result -> APIKeyResult in
+                switch result {
+                case let .success(profileData):
+                    guard let apiKey = profileData.apiKey,!apiKey.isEmpty else {
+                        return .failure(.apiKeyNilOrEmpty)
+                    }
+                    return .success(apiKey)
+                case let .failure(error):
+                    return .failure(error)
                 }
             }
-            .switchToLatest()
-            .compactMap { $0 } // Only emit non-nil values
-            .filter { !$0.isEmpty }
+            .removeDuplicates()
             .eraseToAnyPublisher()
     }
 
