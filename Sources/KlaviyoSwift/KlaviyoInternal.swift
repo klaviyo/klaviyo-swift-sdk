@@ -56,26 +56,9 @@ package enum KlaviyoInternal {
     }
 
     package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
-        klaviyoSwiftEnvironment.statePublisher()
-            .map { state -> ProfileDataResult in
-                if state.initalizationState != .initialized {
-                    return .failure(.notInitialized)
-                }
-
-                guard let apiKey = state.apiKey,!apiKey.isEmpty else {
-                    return .failure(.apiKeyNilOrEmpty)
-                }
-
-                return .success(ProfileData(
-                    apiKey: state.apiKey,
-                    email: state.email,
-                    anonymousId: state.anonymousId,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId
-                ))
-            }
-            .removeDuplicates()
-            .eraseToAnyPublisher()
+        // Set up the subject if it hasn't been set up yet
+        setupProfileDataSubject()
+        return profileDataSubject.eraseToAnyPublisher()
     }
 
     /// Create and send an aggregate event.
