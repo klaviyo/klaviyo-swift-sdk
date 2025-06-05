@@ -61,12 +61,6 @@ package enum KlaviyoInternal {
         return profileDataSubject.eraseToAnyPublisher()
     }
 
-    /// Create and send an aggregate event.
-    /// - Parameter event: the event to be tracked in Klaviyo
-    package static func create(aggregateEvent: AggregateEventPayload) {
-        dispatchOnMainThread(action: .enqueueAggregateEvent(aggregateEvent))
-    }
-
     /// A publisher that monitors the API key (aka Company ID) and emits valid API keys.
     ///
     /// If a nil or empty string is received, it will start a 10-second timer and log a warning if no valid key is received before the timer elapses.
@@ -93,5 +87,12 @@ package enum KlaviyoInternal {
             .compactMap { $0 } // Only emit non-nil values
             .filter { !$0.isEmpty }
             .eraseToAnyPublisher()
+    }
+
+    /// Create and send an aggregate event.
+    ///
+    /// - Parameter event: the event to be tracked in Klaviyo
+    package static func create(aggregateEvent: AggregateEventPayload) {
+        dispatchOnMainThread(action: .enqueueAggregateEvent(aggregateEvent))
     }
 }
