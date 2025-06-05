@@ -83,6 +83,29 @@ package enum KlaviyoInternal {
             .eraseToAnyPublisher()
     }
 
+    /// Fetches the current profile data once.
+    ///
+    /// - Returns: The current profile data, if available
+    /// - Throws: `SDKError.notInitialized` if the SDK is not initialized, or `SDKError.apiKeyNilOrEmpty` if the API key is invalid
+    package static func fetchProfileData() async throws -> ProfileData {
+        setupProfileDataSubject()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = profileDataSubject
+                .first()
+                .sink { result in
+                    switch result {
+                    case let .success(profileData):
+                        continuation.resume(returning: profileData)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
+                    }
+                    cancellable?.cancel()
+                }
+        }
+    }
+
     /// Create and send an aggregate event.
     ///
     /// - Parameter event: the event to be tracked in Klaviyo
