@@ -23,6 +23,38 @@ package enum KlaviyoInternal {
         case failure(SDKError)
     }
 
+    private static var profileDataCancellable: Cancellable?
+
+    // Single source of truth for profile data
+    private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
+
+    // Setup the profile data subject to receive updates from the state publisher
+    private static func setupProfileDataSubject() {
+        // Only set up the subscription if it hasn't already been set up
+        guard profileDataCancellable == nil else { return }
+
+        profileDataCancellable = klaviyoSwiftEnvironment.statePublisher()
+            .map { state -> ProfileDataResult in
+                if state.initalizationState != .initialized {
+                    return .failure(.notInitialized)
+                }
+
+                guard let apiKey = state.apiKey,!apiKey.isEmpty else {
+                    return .failure(.apiKeyNilOrEmpty)
+                }
+
+                return .success(ProfileData(
+                    apiKey: state.apiKey,
+                    email: state.email,
+                    anonymousId: state.anonymousId,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId
+                ))
+            }
+            .removeDuplicates()
+            .subscribe(profileDataSubject)
+    }
+
     package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
         klaviyoSwiftEnvironment.statePublisher()
             .map { state -> ProfileDataResult in
