@@ -18,6 +18,11 @@ package enum KlaviyoInternal {
         case failure(SDKError)
     }
 
+    package enum APIKeyResult: Equatable {
+        case success(String)
+        case failure(SDKError)
+    }
+
     package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
         klaviyoSwiftEnvironment.statePublisher()
             .map { state -> ProfileDataResult in
