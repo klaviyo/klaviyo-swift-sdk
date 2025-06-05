@@ -55,6 +55,13 @@ package enum KlaviyoInternal {
             .subscribe(profileDataSubject)
     }
 
+    /// Resets the profile data subject to its initial state.
+    package static func resetProfileDataSubject() {
+        profileDataCancellable?.cancel()
+        profileDataCancellable = nil
+        profileDataSubject.send(.failure(.notInitialized))
+    }
+
     package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
         // Set up the subject if it hasn't been set up yet
         setupProfileDataSubject()
