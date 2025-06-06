@@ -62,6 +62,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockLifecycleEvents = nil
         mockApiKeyPublisher = nil
         cancellables.removeAll()
+        KlaviyoInternal.resetProfileDataSubject()
         super.tearDown()
     }
 
@@ -134,7 +135,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
-        XCTAssertFalse(presentationManager.initializeIAF, "Web view should not be recreated when foregrounding within session")
+        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should not be recreated when foregrounding within session")
     }
 
     @MainActor
@@ -177,7 +178,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
-        XCTAssertTrue(presentationManager.initializeIAF, "Web view should be recreated when foregrounding in new session")
+        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should be recreated when foregrounding in new session")
     }
 
     @MainActor
@@ -218,7 +219,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.initializeIAF, "initializeIAF should be called when foregrounding in new session")
+        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -250,14 +251,14 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testIntializeApiKeyChangeCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        mockManager.initializeIAF(configuration: IAFConfiguration())
 
         // When
         mockApiKeyPublisher.send("initial-key")
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.initializeIAF, "initializeIAF should be called when foregrounding in new session")
+        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -339,13 +340,13 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 private final class MockIAFPresentationManager: IAFPresentationManager {
-    var initializeIAFCalled = false
+    var createFormAndAwaitFormEventsCalled = false
     var destroyWebviewCalled = false
     var formEventTask: Task<Void, Never>?
 
-    override func initializeIAF(assetSource: String? = nil) {
-        initializeIAFCalled = true
-        super.initializeIAF(assetSource: assetSource)
+    override func createFormAndAwaitFormEvents(assetSource: String? = nil) async throws {
+        createFormAndAwaitFormEventsCalled = true
+        try await super.createFormAndAwaitFormEvents(assetSource: assetSource)
     }
 
     override func destroyWebView() {
