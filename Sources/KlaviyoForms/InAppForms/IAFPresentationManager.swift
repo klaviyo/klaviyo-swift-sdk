@@ -266,10 +266,11 @@ class IAFPresentationManager {
     @MainActor
     func destroyWebView() {
         guard let viewController else { return }
-        viewController.dismiss(animated: false) { [weak self] in
-            self?.viewController = nil
-            self?.viewModel = nil
-        }
+
+        viewController.dismiss(animated: false, completion: nil)
+
+        self.viewController = nil
+        viewModel = nil
     }
 
     @MainActor
