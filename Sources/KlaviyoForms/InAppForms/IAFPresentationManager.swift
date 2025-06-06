@@ -56,7 +56,7 @@ class IAFPresentationManager {
         }
     }
 
-    func setupLifecycleEvents(configuration: IAFConfiguration) {
+    func setupLifecycleEventsSubscription(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 Task { @MainActor in
