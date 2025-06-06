@@ -255,6 +255,7 @@ class IAFPresentationManager {
         viewController?.modalPresentationStyle = .overCurrentContext
     }
 
+    @MainActor
     func destroyWebView() {
         guard let viewController else { return }
         viewController.dismiss(animated: false) { [weak self] in
@@ -263,6 +264,7 @@ class IAFPresentationManager {
         }
     }
 
+    @MainActor
     func destroyWebviewAndListeners() {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
@@ -306,6 +308,7 @@ class IAFPresentationManager {
         }
     }
 
+    @MainActor
     func dismissForm() {
         guard let viewController else { return }
         viewController.dismiss(animated: false)
