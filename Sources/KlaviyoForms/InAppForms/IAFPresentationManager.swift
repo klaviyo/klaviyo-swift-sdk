@@ -136,9 +136,7 @@ class IAFPresentationManager {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
             } catch {
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
-                viewController = nil
-                self.viewModel = nil
-                return
+                destroyWebviewAndListeners()
             }
 
             // now that we've established the handshake, we can start a task that listens for Form events.
