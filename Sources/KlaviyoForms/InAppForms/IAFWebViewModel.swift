@@ -127,6 +127,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
+    @MainActor
     func establishHandshake(timeout: TimeInterval) async throws {
         guard let delegate else {
             if #available(iOS 14.0, *) {
@@ -135,7 +136,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             throw ObjectStateError.objectDeallocated
         }
 
-        await delegate.preloadUrl()
+        delegate.preloadUrl()
 
         do {
             try await withTimeout(seconds: timeout) { [weak self] in
@@ -201,12 +202,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - handle WKWebView events
 
+    @MainActor
     func handleNavigationEvent(_ event: WKNavigationEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
         }
     }
 
+    @MainActor
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
@@ -229,6 +232,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
