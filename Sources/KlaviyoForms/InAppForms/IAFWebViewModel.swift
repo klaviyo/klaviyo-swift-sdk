@@ -128,7 +128,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Loading
 
     func establishHandshake(timeout: TimeInterval) async throws {
-        guard let delegate else { return }
+        guard let delegate else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Required reference to `KlaviyoWebViewDelegate` is `nil`; unable to establish handshake")
+            }
+            throw ObjectStateError.objectDeallocated
+        }
 
         await delegate.preloadUrl()
 
@@ -139,12 +144,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+                Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
             throw error
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error preloading URL: \(error)")
+                Logger.webViewLogger.warning("Error establishing handshake: \(error)")
             }
             throw error
         }
