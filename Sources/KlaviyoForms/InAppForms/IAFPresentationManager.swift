@@ -25,8 +25,10 @@ class IAFPresentationManager {
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
-    private var isLoading: Bool = false
+    private var assetSource: String?
+
     private var formEventTask: Task<Void, Never>?
+    private var initializationWarningTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -39,6 +41,14 @@ class IAFPresentationManager {
         }
     }()
 
+    private var isInitializingOrInitialized: Bool {
+        // setting up the API key subscription is the starting point to initializing In-App Forms,
+        // and the subscription persists for the entire lifecycle of the form. Therefore,
+        // if the apiKeyCancellable has been set then we know that the form is either
+        // initializing or initialized.
+        apiKeyCancellable != nil
+    }
+
     private init() {}
 
     #if DEBUG
@@ -47,23 +57,36 @@ class IAFPresentationManager {
     }
     #endif
 
+    func initializeIAF(configuration: IAFConfiguration, assetSource: String? = nil) {
+        guard !isInitializingOrInitialized else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.log("In-App Form is already either initializing or initialized; ignoring request.")
+            }
+            return
+        }
+
+        self.assetSource = assetSource
+        setupApiKeySubscription(configuration)
+    }
+
+    func createFormAndAwaitFormEvents(assetSource: String? = nil) async throws {
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+        createIAF(profileData: profileData, assetSource: assetSource)
+        listenForFormEvents()
+    }
+
     // MARK: - Event Subscriptions
 
-    private func setupApiKeySubscription() {
+    private func setupApiKeySubscription(_ configuration: IAFConfiguration) {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
-            .scan((nil, false)) { previous, current in
-                (current, previous.0 != nil)
-            }
-            .sink { [weak self] _, isSubsequent in
-                Task { @MainActor in
-                    if isSubsequent {
-                        // subsequent API key changes
-                        self?.destroyWebView()
-                        self?.constructWebview()
-                    } else {
-                        // initial launch
-                        self?.constructWebview()
-                    }
+            .sink { [weak self] result in
+                guard let self else { return }
+
+                switch result {
+                case let .success(apiKey):
+                    handleAPIKeyReceived(apiKey, configuration: configuration)
+                case let .failure(sdkError):
+                    handleAPIKeyError(sdkError)
                 }
             }
     }
@@ -84,13 +107,13 @@ class IAFPresentationManager {
                                 // new session
                                 if timeElapsed > timeoutDuration {
                                     self.destroyWebView()
-                                    self.initializeIAF()
+                                    try await self.createFormAndAwaitFormEvents()
                                 }
                             })
                         } else {
                             // launching
                             try await self.handleLifecycleEvent("foreground", additionalAction: {
-                                self.initializeIAF()
+                                try await self.createFormAndAwaitFormEvents()
                             })
                         }
                     case .backgrounded:
@@ -101,51 +124,6 @@ class IAFPresentationManager {
                     }
                 }
             }
-
-        setupApiKeySubscription()
-    }
-
-    func initializeIAF(assetSource: String? = nil) {
-        guard !isLoading else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.log("In-App Form is already loading; ignoring request.")
-            }
-            return
-        }
-
-        guard let fileUrl = indexHtmlFileUrl else { return }
-
-        isLoading = true
-
-        Task {
-            defer { isLoading = false }
-
-            guard let companyId = await withCheckedContinuation({ continuation in
-                KlaviyoInternal.apiKey { apiKey in
-                    continuation.resume(returning: apiKey)
-                }
-            }) else {
-                environment.emitDeveloperWarning("SDK must be initialized before usage.")
-                return
-            }
-
-            // FIXME: replace this with full profile data, this is just to get the code to compile for now
-            let profileData = ProfileData(apiKey: companyId)
-
-            createIAF(profileData: profileData, assetSource: assetSource)
-            listenForFormEvents()
-        }
-    }
-
-    /// - Parameter newProfileData: the profile information with which to load the IAF
-    @MainActor
-    private func createIAF(profileData: ProfileData, assetSource: String?) {
-        guard let fileUrl = indexHtmlFileUrl else { return }
-
-        let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
-        self.viewModel = viewModel
-        viewController = KlaviyoWebViewController(viewModel: viewModel)
-        viewController?.modalPresentationStyle = .overCurrentContext
     }
 
     @MainActor
@@ -174,14 +152,82 @@ class IAFPresentationManager {
 
     // MARK: - Event Handling
 
-    func handleLifecycleEvent(_ event: String, additionalAction: (() async -> Void)? = nil) async throws {
+    private func handleAPIKeyReceived(_ apiKey: String, configuration: IAFConfiguration) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
+        }
+
+        initializationWarningTask?.cancel()
+        initializationWarningTask = nil
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            if viewController != nil {
+                if let viewModel, viewModel.profileData.apiKey == apiKey {
+                    // if viewController/viewModel already exist and the viewModel's
+                    // API key matches the one we just received, do nothing
+                    return
+                } else {
+                    await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
+                }
+            } else {
+                try await self.createFormAndAwaitFormEvents(assetSource: self.assetSource)
+                setupLifecycleEventsSubscription(configuration: configuration)
+            }
+        }
+    }
+
+    /// Dismisses and re-initializes the in-app form when the user's profile information changes.
+    @MainActor
+    private func handleAPIKeyChange(apiKey: String, configuration: IAFConfiguration, assetSource: String?) async {
+        destroyWebView()
+        formEventTask?.cancel()
+        lifecycleCancellable?.cancel()
+        formEventTask = nil
+        lifecycleCancellable = nil
+        do {
+            try await createFormAndAwaitFormEvents()
+            setupLifecycleEventsSubscription(configuration: configuration)
+        } catch {
+            // TODO: implement catch
+            ()
+        }
+    }
+
+    private func handleAPIKeyError(_ sdkError: SDKError) {
+        switch sdkError {
+        case .notInitialized:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received profile state change event, but SDK is not initialized. Skipping form initialization until the SDK is successfully initialized.")
+            }
+        case .apiKeyNilOrEmpty:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received profile state change event, but the SDK API key is empty or nil. Skipping form initialization until a valid API key is received.")
+            }
+        }
+
+        initializationWarningTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds in nanoseconds
+                // Check if task was cancelled before emitting warning
+                try Task.checkCancellation()
+                environment.emitDeveloperWarning("SDK must be initialized before usage.")
+            } catch {
+                // Task was cancelled or other error occurred
+                return
+            }
+        }
+    }
+
+    func handleLifecycleEvent(_ event: String, additionalAction: (() async throws -> Void)? = nil) async throws {
         do {
             let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
             if let successMessage = result as? String {
                 print("Successfully evaluated Javascript; message: \(successMessage)")
             }
             if let additionalAction = additionalAction {
-                await additionalAction()
+                try await additionalAction()
             }
         } catch {
             print("Javascript evaluation failed; message: \(error.localizedDescription)")
@@ -201,10 +247,22 @@ class IAFPresentationManager {
 
     // MARK: - Object lifecycle
 
+    /// - Parameter newProfileData: the profile information with which to load the IAF
+    @MainActor
+    private func createIAF(profileData: ProfileData, assetSource: String?) {
+        guard let fileUrl = indexHtmlFileUrl else { return }
+
+        let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
+        self.viewModel = viewModel
+        viewController = KlaviyoWebViewController(viewModel: viewModel)
+        viewController?.modalPresentationStyle = .overCurrentContext
+    }
+
     func destroyWebView() {
         guard let viewController else { return }
         viewController.dismiss(animated: false) { [weak self] in
             self?.viewController = nil
+            self?.viewModel = nil
         }
     }
 
@@ -212,7 +270,6 @@ class IAFPresentationManager {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
-        isLoading = false
         lastBackgrounded = nil
         lifecycleCancellable?.cancel()
         apiKeyCancellable?.cancel()
@@ -220,6 +277,7 @@ class IAFPresentationManager {
         lifecycleCancellable = nil
         apiKeyCancellable = nil
         formEventTask = nil
+        KlaviyoInternal.resetProfileDataSubject()
         destroyWebView()
     }
 
