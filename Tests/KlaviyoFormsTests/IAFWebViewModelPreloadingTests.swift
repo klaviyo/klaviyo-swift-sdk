@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoForms
+@testable import KlaviyoSwift
 import KlaviyoCore
 import WebKit
 import XCTest
@@ -20,7 +21,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!, companyId: "abc123")
+        let profileData = ProfileData(apiKey: "abc123")
+
+        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!, profileData: profileData)
         delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
     }
