@@ -98,7 +98,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-        
+
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
         presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
