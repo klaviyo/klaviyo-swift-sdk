@@ -54,6 +54,7 @@ class IAFPresentationManager {
     }
     #endif
 
+    @MainActor
     func initializeIAF(configuration: IAFConfiguration, assetSource: String? = nil) {
         guard !isInitializingOrInitialized else {
             if #available(iOS 14.0, *) {
@@ -66,6 +67,7 @@ class IAFPresentationManager {
         setupApiKeySubscription(configuration)
     }
 
+    @MainActor
     func createFormAndAwaitFormEvents(assetSource: String? = nil) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
         createIAF(profileData: profileData, assetSource: assetSource)
@@ -74,6 +76,7 @@ class IAFPresentationManager {
 
     // MARK: - Event Subscriptions
 
+    @MainActor
     private func setupApiKeySubscription(_ configuration: IAFConfiguration) {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .sink { [weak self] result in
@@ -88,6 +91,7 @@ class IAFPresentationManager {
             }
     }
 
+    @MainActor
     func setupLifecycleEventsSubscription(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
@@ -149,6 +153,7 @@ class IAFPresentationManager {
 
     // MARK: - Event Handling
 
+    @MainActor
     private func handleAPIKeyReceived(_ apiKey: String, configuration: IAFConfiguration) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
@@ -192,6 +197,7 @@ class IAFPresentationManager {
         }
     }
 
+    @MainActor
     private func handleAPIKeyError(_ sdkError: SDKError) {
         switch sdkError {
         case .notInitialized:
@@ -217,6 +223,7 @@ class IAFPresentationManager {
         }
     }
 
+    @MainActor
     func handleLifecycleEvent(_ event: String, additionalAction: (() async throws -> Void)? = nil) async throws {
         do {
             let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
@@ -231,6 +238,7 @@ class IAFPresentationManager {
         }
     }
 
+    @MainActor
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         switch event {
         case .present:
@@ -282,6 +290,7 @@ class IAFPresentationManager {
 
     // MARK: - View Lifecycle
 
+    @MainActor
     private func presentForm() {
         guard let viewController else {
             if #available(iOS 14.0, *) {
