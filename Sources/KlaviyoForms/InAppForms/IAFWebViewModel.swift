@@ -190,10 +190,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         Task { @MainActor in
             do {
                 let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
-                if let successMessage = result as? String {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Successfully evaluated Javascript; message: \(successMessage)")
-                    }
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Successfully evaluated Javascript; message: \(result.debugDescription)")
                 }
             } catch {
                 if #available(iOS 14.0, *) {
