@@ -11,12 +11,19 @@ import KlaviyoSwift
 import WebKit
 import XCTest
 
-// To test these locally, you may need to comment out the entire decidePolicyFor func in KlaviyoWebViewController
+// Test-specific subclass that overrides navigation policy to allow all navigation
+// This is required to get these unit tests to pass
+private class TestKlaviyoWebViewController: KlaviyoWebViewController {
+    override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        .allow
+    }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - setup
 
     var viewModel: IAFWebViewModel!
-    var viewController: KlaviyoWebViewController!
+    private var viewController: TestKlaviyoWebViewController!
 
     @MainActor
     override func setUp() async throws {
@@ -34,12 +41,7 @@ final class IAFWebViewModelTests: XCTestCase {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
         viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
-        viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
+        viewController = TestKlaviyoWebViewController(viewModel: viewModel)
     }
 
     override func tearDown() {
@@ -111,6 +113,18 @@ final class IAFWebViewModelTests: XCTestCase {
     func testInjectFormsDataEnvironmentSetToWeb() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
         // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        environment.formsDataEnvironment = { .web }
+
+        // Create a new viewModel with the updated environment
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        viewModel = await IAFWebViewModel(url: fileUrl, companyId: "abc123")
+        viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+            let configuration = WKWebViewConfiguration()
+            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+            let webView = WKWebView(frame: .zero, configuration: configuration)
+            return webView
+        })
+
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
