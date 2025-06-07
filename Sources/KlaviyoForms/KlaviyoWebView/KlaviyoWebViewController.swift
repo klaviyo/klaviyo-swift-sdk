@@ -143,7 +143,21 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any? {
-        try await webView.evaluateJavaScript(script)
+        // while there is a native Async/Await version of `WKWebView.evaluateJavaScript()`,
+        // there appears to be a bug that causes a fatal error. See
+        // https://stackoverflow.com/questions/74364029/fatal-error-while-using-evaluatejavascript-on-wkwebview
+        // and
+        // https://developer.apple.com/forums/thread/712899?login=true&page=1#726423022
+        // Until this is resolved, we need to fall back on the closure-based implementation of `evaluateJavaScript()`.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Any?, Error>) in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: result)
+                }
+            }
+        }
     }
 
     // MARK: - Layout
