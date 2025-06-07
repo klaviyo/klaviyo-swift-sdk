@@ -15,20 +15,6 @@ package struct ProfileData: Equatable, CustomDebugStringConvertible {
     package var phoneNumber: String?
     package var externalId: String?
 
-    package init(
-        apiKey: String? = nil,
-        email: String? = nil,
-        anonymousId: String? = nil,
-        phoneNumber: String? = nil,
-        externalId: String? = nil
-    ) {
-        self.apiKey = apiKey
-        self.email = email
-        self.anonymousId = anonymousId
-        self.phoneNumber = phoneNumber
-        self.externalId = externalId
-    }
-
     package var debugDescription: String {
         """
         apiKey: \t\t\(apiKey ?? "<no API key>")
