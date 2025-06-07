@@ -158,6 +158,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Handle profile changes
 
+    @MainActor
     private func subscribeToProfileUpdates() {
         profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
             .receive(on: DispatchQueue.main)
@@ -175,16 +176,18 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
     }
 
+    @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
         let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
         return profileAttributesScript
     }
 
+    @MainActor
     private func handleProfileDataChange(_ newProfileData: ProfileData) {
         guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
 
-        Task {
+        Task { @MainActor in
             do {
                 let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
                 if let successMessage = result as? String {
