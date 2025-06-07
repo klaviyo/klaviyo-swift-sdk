@@ -79,6 +79,7 @@ class IAFPresentationManager {
     @MainActor
     private func setupApiKeySubscription(_ configuration: IAFConfiguration) {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] result in
                 guard let self else { return }
 
@@ -94,6 +95,7 @@ class IAFPresentationManager {
     @MainActor
     func setupLifecycleEventsSubscription(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 Task { @MainActor in
                     guard let self else { return }
