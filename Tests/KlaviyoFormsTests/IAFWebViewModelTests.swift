@@ -6,8 +6,8 @@
 //
 
 @testable import KlaviyoForms
+@testable import KlaviyoSwift
 import KlaviyoCore
-import KlaviyoSwift
 import WebKit
 import XCTest
 
@@ -27,16 +27,31 @@ final class IAFWebViewModelTests: XCTestCase {
 
     @MainActor
     override func setUp() async throws {
-        // FIXME: refactor the KlaviyoUI test suite so we can use the TCA tools to initialize a test Klaviyo environment and set the Company ID, similar to how we do it here: https://github.com/klaviyo/klaviyo-swift-sdk/blob/c9bdf25e65a9c575d1e30216dcfcaa156c2ac60b/Tests/KlaviyoSwiftTests/StateManagementTests.swift#L29. Until we're able to do this, the apiKey in the test suite will be nil, and IAFWebViewModel.initializeLoadScripts() will return without injecting the required scripts. Once this is fixed, we should remove the `XCTSkipIf` line.
-        try XCTSkipIf(
-            KlaviyoInternal.apiKey == nil,
-            "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID"
-        )
-
         try await super.setUp()
 
+        // Reset environment to clean state to avoid state persistence from other tests
+        environment = KlaviyoEnvironment.test()
         environment.sdkName = { "swift" }
         environment.sdkVersion = { "0.0.1" }
+        // Override CDN URL to return the expected production URL for tests
+        environment.cdnURL = {
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "static.klaviyo.com"
+            return components
+        }
+
+        // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
+        let testState = KlaviyoState(
+            apiKey: "abc123",
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = {
+            testStore.state.eraseToAnyPublisher()
+        }
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
