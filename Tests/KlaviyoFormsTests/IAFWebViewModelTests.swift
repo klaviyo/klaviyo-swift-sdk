@@ -21,25 +21,26 @@ final class IAFWebViewModelTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         // FIXME: refactor the KlaviyoUI test suite so we can use the TCA tools to initialize a test Klaviyo environment and set the Company ID, similar to how we do it here: https://github.com/klaviyo/klaviyo-swift-sdk/blob/c9bdf25e65a9c575d1e30216dcfcaa156c2ac60b/Tests/KlaviyoSwiftTests/StateManagementTests.swift#L29. Until we're able to do this, the apiKey in the test suite will be nil, and IAFWebViewModel.initializeLoadScripts() will return without injecting the required scripts. Once this is fixed, we should remove the `XCTSkipIf` line.
-        try XCTSkipIf(
-            KlaviyoInternal.apiKey == nil,
-            "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID"
-        )
+        do {
+            let profileData = try await KlaviyoInternal.fetchProfileData()
 
-        try await super.setUp()
+            try await super.setUp()
 
-        environment.sdkName = { "swift" }
-        environment.sdkVersion = { "0.0.1" }
+            environment.sdkName = { "swift" }
+            environment.sdkVersion = { "0.0.1" }
 
-        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+            let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
-        viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
-        viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
+            viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData)
+            viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+                let configuration = WKWebViewConfiguration()
+                configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+                let webView = WKWebView(frame: .zero, configuration: configuration)
+                return webView
+            })
+        } catch {
+            try XCTSkipIf(true, "Skipping test because KlaviyoInternal.fetchProfileData() failed: \(error)")
+        }
     }
 
     override func tearDown() {
@@ -111,11 +112,23 @@ final class IAFWebViewModelTests: XCTestCase {
     func testInjectFormsDataEnvironmentSetToWeb() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
         // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        environment.formsDataEnvironment = { .web }
+
+        // Create a new viewModel with the updated environment
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+        viewModel = await IAFWebViewModel(url: fileUrl, profileData: profileData)
+        viewController = await KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+            let configuration = WKWebViewConfiguration()
+            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+            let webView = WKWebView(frame: .zero, configuration: configuration)
+            return webView
+        })
+
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        environment.formsDataEnvironment = { .web }
         try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
@@ -151,7 +164,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1}]
+            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)

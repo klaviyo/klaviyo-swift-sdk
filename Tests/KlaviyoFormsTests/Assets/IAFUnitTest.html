@@ -7,6 +7,15 @@
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Klaviyo In-App Form Test - 1</title>
                 <script>
+                    window.dispatchLifecycleEvent = function(type) {
+                        console.log('Dispatching lifecycle event:', type);
+                        document.head.dispatchEvent(new CustomEvent('lifecycleEvent', {
+                            detail: {
+                                type: type
+                            }
+                        }));
+                    };
+
                     document.addEventListener("DOMContentLoaded", function () {
                         const message = JSON.stringify({
                             type: "handShook",
