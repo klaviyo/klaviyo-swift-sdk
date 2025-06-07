@@ -61,7 +61,7 @@ final class IAFWebViewModelTests: XCTestCase {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
         viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData)
-        viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+        viewController = TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
             let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -144,7 +144,7 @@ final class IAFWebViewModelTests: XCTestCase {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         let profileData = try await KlaviyoInternal.fetchProfileData()
         viewModel = await IAFWebViewModel(url: fileUrl, profileData: profileData)
-        viewController = await KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+        viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
             let webView = WKWebView(frame: .zero, configuration: configuration)
