@@ -71,7 +71,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDispatchLifecycleEventInjection() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -101,7 +101,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -125,7 +125,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundWithinSessionKeepsViewControllerAlive() async throws {
         // Given
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
@@ -141,7 +141,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundWithinSessionRestoreEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
@@ -167,7 +167,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
 
@@ -184,7 +184,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundInNewSessionPurgeEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 second
 
@@ -211,7 +211,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundNewLaunchCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        mockManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -225,7 +225,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundNewLaunchRestoreEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -250,7 +250,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testIntializeApiKeyChangeCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        mockManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
 
         // When
         mockApiKeyPublisher.send("initial-key")
@@ -264,7 +264,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -290,7 +290,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEvents(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
