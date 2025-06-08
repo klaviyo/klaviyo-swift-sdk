@@ -14,23 +14,18 @@ import UIKit
 
 @MainActor
 class IAFPresentationManager {
+    // MARK: - Properties & Initializer
+
     static let shared = IAFPresentationManager()
     private var lastBackgrounded: Date?
 
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
+
     private var viewController: KlaviyoWebViewController?
 
     private var isLoading: Bool = false
     private var formEventTask: Task<Void, Never>?
-
-    private init() {}
-
-    #if DEBUG
-    package init(viewController: KlaviyoWebViewController?) {
-        self.viewController = viewController
-    }
-    #endif
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -40,19 +35,13 @@ class IAFPresentationManager {
         }
     }()
 
-    func handleLifecycleEvent(_ event: String, additionalAction: (() async -> Void)? = nil) async throws {
-        do {
-            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
-            if let successMessage = result as? String {
-                print("Successfully evaluated Javascript; message: \(successMessage)")
-            }
-            if let additionalAction = additionalAction {
-                await additionalAction()
-            }
-        } catch {
-            print("Javascript evaluation failed; message: \(error.localizedDescription)")
-        }
+    private init() {}
+
+    #if DEBUG
+    package init(viewController: KlaviyoWebViewController?) {
+        self.viewController = viewController
     }
+    #endif
 
     func setupLifecycleEvents(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
@@ -156,6 +145,22 @@ class IAFPresentationManager {
         }
     }
 
+    // MARK: - Event Handling
+
+    func handleLifecycleEvent(_ event: String, additionalAction: (() async -> Void)? = nil) async throws {
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
+            if let successMessage = result as? String {
+                print("Successfully evaluated Javascript; message: \(successMessage)")
+            }
+            if let additionalAction = additionalAction {
+                await additionalAction()
+            }
+        } catch {
+            print("Javascript evaluation failed; message: \(error.localizedDescription)")
+        }
+    }
+
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         switch event {
         case .present:
@@ -166,6 +171,32 @@ class IAFPresentationManager {
             formEventTask?.cancel()
         }
     }
+
+    // MARK: - Object lifecycle
+
+    func destroyWebView() {
+        guard let viewController else { return }
+        viewController.dismiss(animated: false) { [weak self] in
+            self?.viewController = nil
+        }
+    }
+
+    func destroyWebviewAndListeners() {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
+        }
+        isLoading = false
+        lastBackgrounded = nil
+        lifecycleCancellable?.cancel()
+        apiKeyCancellable?.cancel()
+        formEventTask?.cancel()
+        lifecycleCancellable = nil
+        apiKeyCancellable = nil
+        formEventTask = nil
+        destroyWebView()
+    }
+
+    // MARK: - View Lifecycle
 
     private func presentForm() {
         guard let viewController else {
@@ -197,29 +228,9 @@ class IAFPresentationManager {
         guard let viewController else { return }
         viewController.dismiss(animated: false)
     }
-
-    func destroyWebView() {
-        guard let viewController else { return }
-        viewController.dismiss(animated: false) { [weak self] in
-            self?.viewController = nil
-        }
-    }
-
-    func destroyWebviewAndListeners() {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
-        }
-        isLoading = false
-        lastBackgrounded = nil
-        lifecycleCancellable?.cancel()
-        apiKeyCancellable?.cancel()
-        formEventTask?.cancel()
-        lifecycleCancellable = nil
-        apiKeyCancellable = nil
-        formEventTask = nil
-        destroyWebView()
-    }
 }
+
+// MARK: - UI helpers
 
 extension UIViewController {
     fileprivate var isKlaviyoVC: Bool {
