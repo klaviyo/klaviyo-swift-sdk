@@ -43,6 +43,27 @@ class IAFPresentationManager {
     }
     #endif
 
+    // MARK: - Event Subscriptions
+
+    private func setupApiKeySubscription() {
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .scan((nil, false)) { previous, current in
+                (current, previous.0 != nil)
+            }
+            .sink { [weak self] _, isSubsequent in
+                Task { @MainActor in
+                    if isSubsequent {
+                        // subsequent API key changes
+                        self?.destroyWebView()
+                        self?.constructWebview()
+                    } else {
+                        // initial launch
+                        self?.constructWebview()
+                    }
+                }
+            }
+    }
+
     func setupLifecycleEventsSubscription(configuration: IAFConfiguration) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
@@ -78,25 +99,6 @@ class IAFPresentationManager {
             }
 
         setupApiKeySubscription()
-    }
-
-    private func setupApiKeySubscription() {
-        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
-            .scan((nil, false)) { previous, current in
-                (current, previous.0 != nil)
-            }
-            .sink { [weak self] _, isSubsequent in
-                Task { @MainActor in
-                    if isSubsequent {
-                        // subsequent API key changes
-                        self?.destroyWebView()
-                        self?.constructWebview()
-                    } else {
-                        // initial launch
-                        self?.constructWebview()
-                    }
-                }
-            }
     }
 
     func constructWebview(assetSource: String? = nil) {
