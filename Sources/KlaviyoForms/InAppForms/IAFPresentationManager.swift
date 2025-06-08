@@ -77,10 +77,10 @@ class IAFPresentationManager {
                 }
             }
 
-        setupApiKeyPublisher()
+        setupApiKeySubscription()
     }
 
-    private func setupApiKeyPublisher() {
+    private func setupApiKeySubscription() {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .scan((nil, false)) { previous, current in
                 (current, previous.0 != nil)
