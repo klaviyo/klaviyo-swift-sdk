@@ -173,7 +173,7 @@ class IAFPresentationManager {
         case .dismiss:
             dismissForm()
         case .abort:
-            formEventTask?.cancel()
+            destroyWebviewAndListeners()
         }
     }
 
