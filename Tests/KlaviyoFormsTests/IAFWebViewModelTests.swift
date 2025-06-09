@@ -6,40 +6,57 @@
 //
 
 @testable import KlaviyoForms
+@testable import KlaviyoSwift
 import KlaviyoCore
-import KlaviyoSwift
 import WebKit
 import XCTest
 
-// To test these locally, you may need to comment out the entire decidePolicyFor func in KlaviyoWebViewController
+// Test-specific subclass that overrides navigation policy to allow all navigation
+// This is required to get these unit tests to pass
+private class TestKlaviyoWebViewController: KlaviyoWebViewController {
+    override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        .allow
+    }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - setup
 
     var viewModel: IAFWebViewModel!
-    var viewController: KlaviyoWebViewController!
+    private var viewController: TestKlaviyoWebViewController!
 
     @MainActor
     override func setUp() async throws {
-        // FIXME: refactor the KlaviyoUI test suite so we can use the TCA tools to initialize a test Klaviyo environment and set the Company ID, similar to how we do it here: https://github.com/klaviyo/klaviyo-swift-sdk/blob/c9bdf25e65a9c575d1e30216dcfcaa156c2ac60b/Tests/KlaviyoSwiftTests/StateManagementTests.swift#L29. Until we're able to do this, the apiKey in the test suite will be nil, and IAFWebViewModel.initializeLoadScripts() will return without injecting the required scripts. Once this is fixed, we should remove the `XCTSkipIf` line.
-        try XCTSkipIf(
-            KlaviyoInternal.apiKey == nil,
-            "Skipping this test until the KlaviyoUI test suite is able to initialize a Company ID"
-        )
-
         try await super.setUp()
 
+        // Reset environment to clean state to avoid state persistence from other tests
+        environment = KlaviyoEnvironment.test()
         environment.sdkName = { "swift" }
         environment.sdkVersion = { "0.0.1" }
+        // Override CDN URL to return the expected production URL for tests
+        environment.cdnURL = {
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "static.klaviyo.com"
+            return components
+        }
+
+        // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
+        let testState = KlaviyoState(
+            apiKey: "abc123",
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = {
+            testStore.state.eraseToAnyPublisher()
+        }
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
         viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
-        viewController = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
+        viewController = TestKlaviyoWebViewController(viewModel: viewModel)
     }
 
     override func tearDown() {
@@ -111,6 +128,18 @@ final class IAFWebViewModelTests: XCTestCase {
     func testInjectFormsDataEnvironmentSetToWeb() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
         // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        environment.formsDataEnvironment = { .web }
+
+        // Create a new viewModel with the updated environment
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        viewModel = await IAFWebViewModel(url: fileUrl, companyId: "abc123")
+        viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+            let configuration = WKWebViewConfiguration()
+            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+            let webView = WKWebView(frame: .zero, configuration: configuration)
+            return webView
+        })
+
         let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 

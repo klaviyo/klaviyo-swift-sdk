@@ -15,6 +15,7 @@ private var webConsoleLoggingEnabled: Bool {
     ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
 }
 
+@MainActor
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
     // Required to allow localStorage data to be retained between webview instances
@@ -41,7 +42,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Initializers
 
-    init(viewModel: KlaviyoWebViewModeling, webViewFactory: () -> WKWebView = createDefaultWebView) {
+    init(viewModel: KlaviyoWebViewModeling, webViewFactory: @MainActor () -> WKWebView = createDefaultWebView) {
         self.viewModel = viewModel
         webView = webViewFactory()
         super.init(nibName: nil, bundle: nil)
