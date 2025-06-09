@@ -31,6 +31,9 @@ class IAFPresentationManager {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
         } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error loading InAppFormsTemplate.html")
+            }
             return nil
         }
     }()
