@@ -310,7 +310,7 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let profileData = ProfileData(
-        apiKey: "9BX3wh" // ⬅️ use a company ID that has a live form
+        apiKey: "" // ⬅️ use a company ID that has a live form
     )
     _ = klaviyoSwiftEnvironment.send(.initialize(profileData.apiKey ?? ""))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
