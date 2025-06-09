@@ -129,7 +129,7 @@ extension IAFNativeBridgeEvent {
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
-        case .openDeepLink: return 1
+        case .openDeepLink: return 2
         case .abort: return 1
         case .handShook: return 1
         case .analyticsEvent: return 1
