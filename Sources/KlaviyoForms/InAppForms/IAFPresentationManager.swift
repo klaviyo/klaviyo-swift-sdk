@@ -177,7 +177,7 @@ class IAFPresentationManager {
         }
     }
 
-    /// Dismisses and re-initializes the in-app form when the user's profile information changes.
+    /// Dismisses and re-initializes the in-app form when the public API key changes.
     private func handleAPIKeyChange(apiKey: String, configuration: IAFConfiguration, assetSource: String?) async {
         destroyWebView()
         formEventTask?.cancel()
