@@ -128,7 +128,6 @@ class IAFPresentationManager {
             }
     }
 
-    @MainActor
     private func listenForFormEvents() {
         guard let viewModel else { return }
 
@@ -179,7 +178,6 @@ class IAFPresentationManager {
     }
 
     /// Dismisses and re-initializes the in-app form when the user's profile information changes.
-    @MainActor
     private func handleAPIKeyChange(apiKey: String, configuration: IAFConfiguration, assetSource: String?) async {
         destroyWebView()
         formEventTask?.cancel()
@@ -248,7 +246,6 @@ class IAFPresentationManager {
     // MARK: - Object lifecycle
 
     /// - Parameter newProfileData: the profile information with which to load the IAF
-    @MainActor
     private func createIAF(profileData: ProfileData, assetSource: String?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
