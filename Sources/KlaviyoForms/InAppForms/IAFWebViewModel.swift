@@ -171,6 +171,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 guard newProfileData.apiKey == self.profileData.apiKey else { return }
 
                 if newProfileData != self.profileData {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+                    }
                     self.handleProfileDataChange(newProfileData)
                 }
             }
@@ -185,17 +188,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func handleProfileDataChange(_ newProfileData: ProfileData) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
+        }
         guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
 
         Task { @MainActor in
             do {
                 let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("Successfully evaluated Javascript; message: \(result.debugDescription)")
+                    Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
                 }
             } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error evaluating Javascript; error: \(error)")
+                    Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
                 }
             }
         }
