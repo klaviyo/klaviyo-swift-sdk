@@ -25,7 +25,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
-    let profileData: ProfileData
+    let apiKey: String
+    let profileData: ProfileData?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -40,7 +41,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
         apiURL.queryItems = [
-            URLQueryItem(name: "company_id", value: profileData.apiKey ?? ""),
+            URLQueryItem(name: "company_id", value: apiKey),
             URLQueryItem(name: "env", value: "in-app")
         ]
 
@@ -90,6 +91,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private var profileAttributesWKScript: WKUserScript? {
+        guard let profileData else { return nil }
         guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
         return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
@@ -97,8 +99,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, profileData: ProfileData, assetSource: String? = nil) {
+    init(url: URL, apiKey: String, profileData: ProfileData?, assetSource: String? = nil) {
         self.url = url
+        self.apiKey = apiKey
         self.profileData = profileData
         self.assetSource = assetSource
 
@@ -165,10 +168,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             .sink { [weak self] result in
                 guard let self else { return }
                 guard case let .success(newProfileData) = result else { return }
-
-                // if the profile update includes an API key change, this will be
-                // handled by the IAFPresentationManager, not the IAFWebViewModel
-                guard newProfileData.apiKey == self.profileData.apiKey else { return }
 
                 if newProfileData != self.profileData {
                     if #available(iOS 14.0, *) {

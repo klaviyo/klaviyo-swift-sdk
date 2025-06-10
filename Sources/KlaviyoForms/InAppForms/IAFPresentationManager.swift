@@ -69,9 +69,9 @@ class IAFPresentationManager {
         setupApiKeySubscription(configuration)
     }
 
-    func createFormAndAwaitFormEvents(assetSource: String? = nil) async throws {
+    func createFormAndAwaitFormEvents(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
-        createIAF(profileData: profileData, assetSource: assetSource)
+        createIAF(apiKey: apiKey, profileData: profileData)
         listenForFormEvents()
     }
 
@@ -109,13 +109,15 @@ class IAFPresentationManager {
                                 // new session
                                 if timeElapsed > timeoutDuration {
                                     self.destroyWebView()
-                                    try await self.createFormAndAwaitFormEvents()
+                                    let apiKey = try await KlaviyoInternal.fetchAPIKey()
+                                    try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
                                 }
                             })
                         } else {
                             // launching
                             try await self.handleLifecycleEvent("foreground", additionalAction: {
-                                try await self.createFormAndAwaitFormEvents()
+                                let apiKey = try await KlaviyoInternal.fetchAPIKey()
+                                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
                             })
                         }
                     case .backgrounded:
@@ -163,7 +165,7 @@ class IAFPresentationManager {
             guard let self else { return }
 
             if viewController != nil {
-                if let viewModel, viewModel.profileData.apiKey == apiKey {
+                if let viewModel, viewModel.apiKey == apiKey {
                     // if viewController/viewModel already exist and the viewModel's
                     // API key matches the one we just received, do nothing
                     return
@@ -171,7 +173,7 @@ class IAFPresentationManager {
                     await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
                 }
             } else {
-                try await self.createFormAndAwaitFormEvents(assetSource: self.assetSource)
+                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
                 setupLifecycleEventsSubscription(configuration: configuration)
             }
         }
@@ -185,7 +187,7 @@ class IAFPresentationManager {
         formEventTask = nil
         lifecycleCancellable = nil
         do {
-            try await createFormAndAwaitFormEvents()
+            try await createFormAndAwaitFormEvents(apiKey: apiKey)
             setupLifecycleEventsSubscription(configuration: configuration)
         } catch {
             // TODO: implement catch
@@ -246,10 +248,10 @@ class IAFPresentationManager {
     // MARK: - Object lifecycle
 
     /// - Parameter newProfileData: the profile information with which to load the IAF
-    private func createIAF(profileData: ProfileData, assetSource: String?) {
+    private func createIAF(apiKey: String, profileData: ProfileData?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
-        let viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData, assetSource: assetSource)
+        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
@@ -275,6 +277,7 @@ class IAFPresentationManager {
         lifecycleCancellable = nil
         apiKeyCancellable = nil
         formEventTask = nil
+        KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
         destroyWebView()
     }
