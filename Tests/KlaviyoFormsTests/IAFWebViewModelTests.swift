@@ -41,6 +41,7 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
+        KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
@@ -56,11 +57,12 @@ final class IAFWebViewModelTests: XCTestCase {
         }
 
         // Now fetch profile data with clean state
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
         let profileData = try await KlaviyoInternal.fetchProfileData()
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
-        viewModel = IAFWebViewModel(url: fileUrl, profileData: profileData)
+        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewController = TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
@@ -142,8 +144,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        viewModel = await IAFWebViewModel(url: fileUrl, profileData: profileData)
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        viewModel = await IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
         viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
