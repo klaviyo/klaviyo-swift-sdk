@@ -199,11 +199,11 @@ class IAFPresentationManager {
         switch sdkError {
         case .notInitialized:
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received profile state change event, but SDK is not initialized. Skipping form initialization until the SDK is successfully initialized.")
+                Logger.webViewLogger.info("SDK is not initialized. Skipping form initialization until the SDK is successfully initialized.")
             }
         case .apiKeyNilOrEmpty:
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received profile state change event, but the SDK API key is empty or nil. Skipping form initialization until a valid API key is received.")
+                Logger.webViewLogger.info("SDK API key is empty or nil. Skipping form initialization until a valid API key is received.")
             }
         }
 
