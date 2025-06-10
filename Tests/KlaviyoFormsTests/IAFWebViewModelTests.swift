@@ -277,7 +277,7 @@ final class IAFWebViewModelTests: XCTestCase {
             """
         )
 
-        viewModel.handleScriptMessage(scriptMessage)
+        await viewModel.handleScriptMessage(scriptMessage)
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
