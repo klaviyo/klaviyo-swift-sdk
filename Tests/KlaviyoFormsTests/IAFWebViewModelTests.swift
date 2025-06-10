@@ -236,4 +236,39 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(resultDict["type"] as? String, "foreground", "Event type should be 'foreground'")
     }
+
+    func testAbortEventYieldsAbortLifecycleEvent() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
+        let abortReason = "test abort reason"
+
+        // Create a task to listen for lifecycle events
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .abort = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate an abort script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "abort",
+              "data": {
+                "reason": "\(abortReason)"
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        lifecycleTask.cancel()
+    }
 }
