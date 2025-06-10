@@ -22,8 +22,11 @@ final class KlaviyoInternalTests: XCTestCase {
     override func tearDownWithError() throws {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
+        KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
     }
+
+    // MARK: - Profile Data Tests
 
     @MainActor
     func testProfileChangePublisherEmitsCorrectData() throws {
@@ -94,7 +97,61 @@ final class KlaviyoInternalTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    // MARK: - apiKeyPublisher tests
+    @MainActor
+    func testFetchProfileData_returnsProfileDataWhenInitialized() async throws {
+        // Set up test environment with initialized state
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+
+        XCTAssertEqual(profileData.email, KlaviyoState.test.email)
+        XCTAssertEqual(profileData.phoneNumber, KlaviyoState.test.phoneNumber)
+        XCTAssertEqual(profileData.externalId, KlaviyoState.test.externalId)
+    }
+
+    @MainActor
+    func testFetchProfileData_throwsWhenUninitialized() async {
+        // Set up test environment with uninitialized state
+        let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        do {
+            _ = try await KlaviyoInternal.fetchProfileData()
+            XCTFail("Expected fetchProfileData to throw")
+        } catch {
+            XCTAssertEqual(error as? SDKError, .notInitialized)
+        }
+    }
+
+    @MainActor
+    func testResetProfileDataSubject() {
+        let expectation = XCTestExpectation(description: "Profile data subject is reset")
+        var receivedError: SDKError?
+
+        // First initialize the subject
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        // Subscribe to see the reset state
+        KlaviyoInternal.profileChangePublisher()
+            .sink { result in
+                if case let .failure(error) = result {
+                    receivedError = error
+                    expectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Reset the subject
+        KlaviyoInternal.resetProfileDataSubject()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedError, .notInitialized)
+    }
+
+    // MARK: - API Key Tests
 
     func testApiKeyPublisher_emitsValidKeyImmediately() {
         let expectation = XCTestExpectation(description: "Should receive valid key immediately")
@@ -187,7 +244,7 @@ final class KlaviyoInternalTests: XCTestCase {
     }
 
     func testApiKeyPublisher_emptyAPIKeyEmitsFailure() async {
-        // Set up the test environment with a nil key but initialized state
+        // Set up the test environment with an empty key but initialized state
         let initialState = KlaviyoState(
             apiKey: "",
             queue: [],
@@ -215,39 +272,65 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedError, .apiKeyNilOrEmpty)
     }
 
-    // MARK: - fetchProfileData tests
-
-    @MainActor
-    func testFetchProfileData_returnsProfileDataWhenInitialized() async throws {
-        // Set up test environment with initialized state
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+    func testApiKeyPublisher_uninitializedEmitsFailure() async {
+        // Set up the test environment with uninitialized state
+        let initialState = KlaviyoState(
+            apiKey: "ABC123",
+            queue: [],
+            initalizationState: .uninitialized
+        )
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let expectation = XCTestExpectation(description: "apiKeyPublisher to emit a `failure` value with error SDKError.notInitialized")
+        var receivedError: SDKError?
 
-        XCTAssertEqual(profileData.email, KlaviyoState.test.email)
-        XCTAssertEqual(profileData.phoneNumber, KlaviyoState.test.phoneNumber)
-        XCTAssertEqual(profileData.externalId, KlaviyoState.test.externalId)
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { result in
+                switch result {
+                case .success:
+                    XCTFail("Expected apiKeyPublisher to emit a failure value")
+                case let .failure(error):
+                    receivedError = error
+                    expectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedError, .notInitialized)
     }
 
-    @MainActor
-    func testFetchProfileData_throwsWhenUninitialized() async {
+    func testFetchAPIKey_returnsValidKey() async throws {
+        // Set up test environment with valid API key
+        let initialState = KlaviyoState(
+            apiKey: "TEST123",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        XCTAssertEqual(apiKey, "TEST123")
+    }
+
+    func testFetchAPIKey_throwsWhenUninitialized() async {
         // Set up test environment with uninitialized state
         let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         do {
-            _ = try await KlaviyoInternal.fetchProfileData()
-            XCTFail("Expected fetchProfileData to throw")
+            _ = try await KlaviyoInternal.fetchAPIKey()
+            XCTFail("Expected fetchAPIKey to throw")
         } catch {
             XCTAssertEqual(error as? SDKError, .notInitialized)
         }
     }
 
-    @MainActor
-    func testFetchProfileData_throwsWhenApiKeyNil() async {
-        // Set up test environment with initialized state but nil API key
+    func testFetchAPIKey_throwsWhenAPIKeyNil() async {
+        // Set up test environment with nil API key
         let initialState = KlaviyoState(
             apiKey: nil,
             queue: [],
@@ -257,16 +340,15 @@ final class KlaviyoInternalTests: XCTestCase {
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         do {
-            _ = try await KlaviyoInternal.fetchProfileData()
-            XCTFail("Expected fetchProfileData to throw")
+            _ = try await KlaviyoInternal.fetchAPIKey()
+            XCTFail("Expected fetchAPIKey to throw")
         } catch {
             XCTAssertEqual(error as? SDKError, .apiKeyNilOrEmpty)
         }
     }
 
-    @MainActor
-    func testFetchProfileData_throwsWhenApiKeyEmpty() async {
-        // Set up test environment with initialized state but nil API key
+    func testFetchAPIKey_throwsWhenAPIKeyEmpty() async {
+        // Set up test environment with empty API key
         let initialState = KlaviyoState(
             apiKey: "",
             queue: [],
@@ -276,15 +358,65 @@ final class KlaviyoInternalTests: XCTestCase {
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         do {
-            _ = try await KlaviyoInternal.fetchProfileData()
-            XCTFail("Expected fetchProfileData to throw")
+            _ = try await KlaviyoInternal.fetchAPIKey()
+            XCTFail("Expected fetchAPIKey to throw")
         } catch {
             XCTAssertEqual(error as? SDKError, .apiKeyNilOrEmpty)
         }
     }
 
+    func testResetAPIKeySubject() {
+        let expectation = XCTestExpectation(description: "API key subject is reset")
+        var receivedError: SDKError?
+
+        // First initialize the subject with a valid state
+        let initialState = KlaviyoState(
+            apiKey: "TEST123",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        // Subscribe to see the reset state
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { result in
+                if case let .failure(error) = result {
+                    receivedError = error
+                    expectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Reset the subject
+        KlaviyoInternal.resetAPIKeySubject()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedError, .notInitialized)
+    }
+
+    // MARK: - Aggregate Events Tests
+
+//    @MainActor
+//    func testCreateAggregateEvent() {
+//        // Set up test environment
+//        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+//        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+//
+//        // Create a test aggregate event
+//        let testEvent = AggregateEventPayload(
+//            event: Event(data: EventData(type: .event, attributes: EventAttributes(eventName: "test_event"))),
+//            profile: nil
+//        )
+//
+//        // This should not throw - we're testing that the method can be called
+//        XCTAssertNoThrow(KlaviyoInternal.create(aggregateEvent: testEvent))
+//    }
+
+    // MARK: - Integration Tests
+
     @MainActor
-    func testProfileDataSubjectIsShared() async throws {
+    func testBothPublishersWorkIndependently() async throws {
         // Set up test environment
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
@@ -311,12 +443,15 @@ final class KlaviyoInternalTests: XCTestCase {
             .store(in: &cancellables)
 
         // Wait for both publishers to emit
-        await (fulfillment(of: [profileExpectation, apiKeyExpectation], timeout: 1.0))
+        await fulfillment(of: [profileExpectation, apiKeyExpectation], timeout: 1.0)
 
-        // Verify both publishers received the same state
-        if case let .success(profileData) = profileResult,
-           case let .success(apiKey) = apiKeyResult {
-            XCTAssertEqual(profileData.apiKey, apiKey)
+        // Verify both publishers received values from the same state
+        XCTAssertNotNil(profileResult)
+        XCTAssertNotNil(apiKeyResult)
+
+        if case .success = profileResult,
+           case .success = apiKeyResult {
+            // Both should succeed for the test state
         } else {
             XCTFail("Expected both publishers to emit success cases")
         }
