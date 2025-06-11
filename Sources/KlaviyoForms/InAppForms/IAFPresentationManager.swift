@@ -105,20 +105,23 @@ class IAFPresentationManager {
                         if let lastBackgrounded = self.lastBackgrounded {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             let timeoutDuration = configuration.sessionTimeoutDuration
-                            try await self.handleLifecycleEvent("foreground", additionalAction: {
-                                // new session
-                                if timeElapsed > timeoutDuration {
-                                    self.destroyWebView()
-                                    let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                                    try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+
+                            try await self.handleLifecycleEvent("foreground")
+
+                            if timeElapsed > timeoutDuration {
+                                if #available(iOS 14.0, *) {
+                                    Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                                 }
-                            })
-                        } else {
-                            // launching
-                            try await self.handleLifecycleEvent("foreground", additionalAction: {
+                                self.destroyWebView()
                                 let apiKey = try await KlaviyoInternal.fetchAPIKey()
                                 try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
-                            })
+                            }
+                        } else {
+                            // launching
+                            try await self.handleLifecycleEvent("foreground")
+
+                            let apiKey = try await KlaviyoInternal.fetchAPIKey()
+                            try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
@@ -220,17 +223,20 @@ class IAFPresentationManager {
         }
     }
 
-    func handleLifecycleEvent(_ event: String, additionalAction: (() async throws -> Void)? = nil) async throws {
+    func handleLifecycleEvent(_ event: String) async throws {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to dispatch '\(event)' lifecycle event via Klaviyo.JS")
+        }
+
         do {
             let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
-            if let successMessage = result as? String {
-                print("Successfully evaluated Javascript; message: \(successMessage)")
-            }
-            if let additionalAction = additionalAction {
-                try await additionalAction()
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
             }
         } catch {
-            print("Javascript evaluation failed; message: \(error.localizedDescription)")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
+            }
         }
     }
 
