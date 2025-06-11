@@ -143,7 +143,21 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any? {
-        try await webView.evaluateJavaScript(script)
+        // while there is a native Async/Await version of `WKWebView.evaluateJavaScript()`,
+        // there appears to be a bug that causes a fatal error. See
+        // https://stackoverflow.com/questions/74364029/fatal-error-while-using-evaluatejavascript-on-wkwebview
+        // and
+        // https://developer.apple.com/forums/thread/712899?login=true&page=1#726423022
+        // Until this is resolved, we need to fall back on the closure-based implementation of `evaluateJavaScript()`.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Any?, Error>) in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: result)
+                }
+            }
+        }
     }
 
     // MARK: - Layout
@@ -295,10 +309,10 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 #if swift(>=5.9)
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
-    let companyId: String = "9BX3wh" // ⬅️ use a company ID that has a live form
-    _ = klaviyoSwiftEnvironment.send(.initialize(companyId))
+    let apiKey = "" // ⬅️ use a company ID that has a live form
+    _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
-    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, companyId: companyId)
+    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, apiKey: apiKey, profileData: nil)
     return createKlaviyoWebPreview(viewModel: viewModel)
 }
 

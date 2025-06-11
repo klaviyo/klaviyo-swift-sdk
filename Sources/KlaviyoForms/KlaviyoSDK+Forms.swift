@@ -21,8 +21,7 @@ extension KlaviyoSDK {
     public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration()) {
         Task {
             await MainActor.run {
-                IAFPresentationManager.shared.setupLifecycleEventsSubscription(configuration: configuration)
-                IAFPresentationManager.shared.constructWebview()
+                IAFPresentationManager.shared.initializeIAF(configuration: configuration)
             }
         }
     }
@@ -53,8 +52,10 @@ extension KlaviyoSDK {
     public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration(), assetSource: String) {
         Task {
             await MainActor.run {
-                IAFPresentationManager.shared.setupLifecycleEventsSubscription(configuration: configuration)
-                IAFPresentationManager.shared.constructWebview(assetSource: assetSource)
+                IAFPresentationManager.shared.initializeIAF(
+                    configuration: configuration,
+                    assetSource: assetSource
+                )
             }
         }
     }

@@ -25,9 +25,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
-    private let companyId: String?
+    let apiKey: String
+    let profileData: ProfileData?
     private let assetSource: String?
 
+    private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
@@ -39,7 +41,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         var apiURL = environment.cdnURL()
         apiURL.path = "/onsite/js/klaviyo.js"
         apiURL.queryItems = [
-            URLQueryItem(name: "company_id", value: companyId),
+            URLQueryItem(name: "company_id", value: apiKey),
             URLQueryItem(name: "env", value: "in-app")
         ]
 
@@ -87,12 +89,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
+    private var profileAttributesWKScript: WKUserScript? {
+        guard let profileData else { return nil }
+        guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
+        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, companyId: String, assetSource: String? = nil) {
+    init(url: URL, apiKey: String, profileData: ProfileData?, assetSource: String? = nil) {
         self.url = url
-        self.companyId = companyId
+        self.apiKey = apiKey
+        self.profileData = profileData
         self.assetSource = assetSource
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
@@ -100,6 +110,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         formLifecycleContinuation = continuation
 
         initializeLoadScripts()
+        subscribeToProfileUpdates()
     }
 
     @MainActor
@@ -109,6 +120,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        if let profileAttributesWKScript {
+            loadScripts?.insert(profileAttributesWKScript)
+        }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
         }
@@ -116,10 +130,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Loading
 
+    @MainActor
     func establishHandshake(timeout: TimeInterval) async throws {
-        guard let delegate else { return }
+        guard let delegate else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Required reference to `KlaviyoWebViewDelegate` is `nil`; unable to establish handshake")
+            }
+            throw ObjectStateError.objectDeallocated
+        }
 
-        await delegate.preloadUrl()
+        delegate.preloadUrl()
 
         do {
             try await withTimeout(seconds: timeout) { [weak self] in
@@ -128,25 +148,74 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+                Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
             throw error
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error preloading URL: \(error)")
+                Logger.webViewLogger.warning("Error establishing handshake: \(error)")
             }
             throw error
         }
     }
 
+    // MARK: - Handle profile changes
+
+    @MainActor
+    private func subscribeToProfileUpdates() {
+        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] result in
+                guard let self else { return }
+                guard case let .success(newProfileData) = result else { return }
+
+                if newProfileData != self.profileData {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+                    }
+                    self.handleProfileDataChange(newProfileData)
+                }
+            }
+    }
+
+    @MainActor
+    private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
+        guard let profileDataString = try? profileData.toHtmlString() else { return nil }
+        let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
+        return profileAttributesScript
+    }
+
+    @MainActor
+    private func handleProfileDataChange(_ newProfileData: ProfileData) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
+        }
+        guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
+
+        Task { @MainActor in
+            do {
+                let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
+                }
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
+                }
+            }
+        }
+    }
+
     // MARK: - handle WKWebView events
 
+    @MainActor
     func handleNavigationEvent(_ event: WKNavigationEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
         }
     }
 
+    @MainActor
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
@@ -169,6 +238,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
@@ -205,6 +275,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .analyticsEvent:
             ()
         case .lifecycleEvent:
+            ()
+        case .profileMutation:
             ()
         }
     }

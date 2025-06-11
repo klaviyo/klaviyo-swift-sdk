@@ -41,6 +41,9 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
+        KlaviyoInternal.resetAPIKeySubject()
+        KlaviyoInternal.resetProfileDataSubject()
+
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
             apiKey: "abc123",
@@ -53,10 +56,19 @@ final class IAFWebViewModelTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
+        // Now fetch profile data with clean state
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
 
-        viewModel = IAFWebViewModel(url: fileUrl, companyId: "abc123")
-        viewController = TestKlaviyoWebViewController(viewModel: viewModel)
+        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewController = TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
+            let configuration = WKWebViewConfiguration()
+            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
+            let webView = WKWebView(frame: .zero, configuration: configuration)
+            return webView
+        })
     }
 
     override func tearDown() {
@@ -132,7 +144,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = await IAFWebViewModel(url: fileUrl, companyId: "abc123")
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        viewModel = await IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
         viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
             let configuration = WKWebViewConfiguration()
             configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
@@ -144,7 +157,6 @@ final class IAFWebViewModelTests: XCTestCase {
         try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
 
         // Given
-        environment.formsDataEnvironment = { .web }
         try await viewModel.establishHandshake(timeout: 3.0)
 
         // When
@@ -180,7 +192,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1}]
+            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -265,7 +277,7 @@ final class IAFWebViewModelTests: XCTestCase {
             """
         )
 
-        viewModel.handleScriptMessage(scriptMessage)
+        await viewModel.handleScriptMessage(scriptMessage)
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
