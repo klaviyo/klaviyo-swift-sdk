@@ -20,10 +20,11 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
 }
 
 final class IAFWebViewModelTests: XCTestCase {
-    // MARK: - setup
+    // MARK: - Properties
 
     var viewModel: IAFWebViewModel!
-    private var viewController: TestKlaviyoWebViewController!
+
+    // MARK: - Setup
 
     @MainActor
     override func setUp() async throws {
@@ -61,34 +62,21 @@ final class IAFWebViewModelTests: XCTestCase {
         let profileData = try await KlaviyoInternal.fetchProfileData()
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
-        viewController = TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
     }
 
     override func tearDown() {
         viewModel = nil
-        viewController = nil
-
         super.tearDown()
     }
 
-    // MARK: - html injection tests
+    // MARK: - SDK Attribute Tests
 
     @MainActor
     func testInjectSdkNameAttribute() async throws {
-        // Given
-        viewModel.initializeLoadScripts()
-
         // When
-        let sdkNameScript = viewModel.loadScripts?.first { script in
-            script.source.contains("data-sdk-name") && script.source.contains("swift")
-        }
+        viewModel.initializeLoadScripts()
+        let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
 
         // Then
         XCTAssertNotNil(sdkNameScript, "SDK name script should be injected")
@@ -96,27 +84,21 @@ final class IAFWebViewModelTests: XCTestCase {
 
     @MainActor
     func testInjectSdkVersionAttribute() async throws {
-        // Given
-        viewModel.initializeLoadScripts()
-
         // When
-        let sdkVersionScript = viewModel.loadScripts?.first { script in
-            script.source.contains("data-sdk-version") && script.source.contains("0.0.1")
-        }
+        viewModel.initializeLoadScripts()
+        let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
 
         // Then
         XCTAssertNotNil(sdkVersionScript, "SDK version script should be injected")
     }
 
+    // MARK: - Environment Tests
+
     @MainActor
     func testInjectFormsDataEnvironmentAttribute() async throws {
-        // Given
-        viewModel.initializeLoadScripts()
-
         // When
-        let environmentScript = viewModel.loadScripts?.first { script in
-            script.source.contains("data-forms-data-environment")
-        }
+        viewModel.initializeLoadScripts()
+        let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
 
         // Then
         XCTAssertNil(environmentScript, "Forms data environment script should not be injected when not set")
@@ -134,32 +116,25 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // When
         viewModel.initializeLoadScripts()
-        let environmentScript = viewModel.loadScripts?.first { script in
-            script.source.contains("data-forms-data-environment") && script.source.contains("web")
-        }
+        let environmentScript = viewModel.findScript(containing: ["data-forms-data-environment", "web"])
 
         // Then
         XCTAssertNotNil(environmentScript, "Forms data environment script should be injected when set to web")
     }
 
+    // MARK: - Handshake Tests
+
     @MainActor
     func testInjectHandshakeAttribute() async throws {
-        // Given
-        viewModel.initializeLoadScripts()
-
         // When
-        let handshakeScript = viewModel.loadScripts?.first { script in
-            script.source.contains("data-native-bridge-handshake")
-        }
+        viewModel.initializeLoadScripts()
+        let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
 
         // Then
         XCTAssertNotNil(handshakeScript, "Handshake script should be injected")
 
         // Extract the handshake string from the script source
-        // The script source looks like: document.head.setAttribute('data-native-bridge-handshake', '[{"type":"formWillAppear",...}]');
         let scriptSource = handshakeScript?.source ?? ""
-
-        // Find the content between the last two single quotes
         let components = scriptSource.components(separatedBy: "'")
         guard components.count >= 2 else {
             XCTFail("Could not find handshake data in script")
@@ -167,8 +142,7 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         let handshakeString = components[components.count - 2]
 
-        XCTAssertNotNil(handshakeString, "Handshake string should be present in script")
-
+        // Verify handshake data
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
             var version: Int
@@ -186,15 +160,13 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 
+    // MARK: - Klaviyo JS Tests
+
     @MainActor
     func testInjectKlaviyoJsScript() async throws {
-        // Given
-        viewModel.initializeLoadScripts()
-
         // When
-        let klaviyoJsScript = viewModel.loadScripts?.first { script in
-            script.source.contains("klaviyoJS") && script.source.contains("static.klaviyo.com/onsite/js/klaviyo.js")
-        }
+        viewModel.initializeLoadScripts()
+        let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
 
         // Then
         XCTAssertNotNil(klaviyoJsScript, "Klaviyo JS script should be injected")
@@ -264,5 +236,23 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         lifecycleTask.cancel()
+    }
+}
+
+extension IAFWebViewModel {
+    @MainActor
+    fileprivate func findScript(containing text: String) -> WKUserScript? {
+        loadScripts?.first { script in
+            script.source.contains(text)
+        }
+    }
+
+    @MainActor
+    fileprivate func findScript(containing texts: [String]) -> WKUserScript? {
+        loadScripts?.first { script in
+            texts.allSatisfy { text in
+                script.source.contains(text)
+            }
+        }
     }
 }
