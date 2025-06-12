@@ -57,7 +57,7 @@ class IAFPresentationManager {
     }
     #endif
 
-    func initializeIAF(configuration: IAFConfiguration, assetSource: String? = nil) {
+    func initializeIAF(configuration: InAppFormsConfig, assetSource: String? = nil) {
         guard !isInitializingOrInitialized else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("In-App Form is already either initializing or initialized; ignoring request.")
@@ -77,7 +77,7 @@ class IAFPresentationManager {
 
     // MARK: - Event Subscriptions
 
-    private func setupApiKeySubscription(_ configuration: IAFConfiguration) {
+    private func setupApiKeySubscription(_ configuration: InAppFormsConfig) {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] result in
@@ -92,7 +92,7 @@ class IAFPresentationManager {
             }
     }
 
-    func setupLifecycleEventsSubscription(configuration: IAFConfiguration) {
+    func setupLifecycleEventsSubscription(configuration: InAppFormsConfig) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
@@ -156,7 +156,7 @@ class IAFPresentationManager {
 
     // MARK: - Event Handling
 
-    private func handleAPIKeyReceived(_ apiKey: String, configuration: IAFConfiguration) {
+    private func handleAPIKeyReceived(_ apiKey: String, configuration: InAppFormsConfig) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
         }
@@ -183,7 +183,7 @@ class IAFPresentationManager {
     }
 
     /// Dismisses and re-initializes the in-app form when the public API key changes.
-    private func handleAPIKeyChange(apiKey: String, configuration: IAFConfiguration, assetSource: String?) async {
+    private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
         destroyWebView()
         formEventTask?.cancel()
         lifecycleCancellable?.cancel()

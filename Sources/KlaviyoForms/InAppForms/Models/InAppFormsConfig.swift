@@ -1,5 +1,5 @@
 //
-//  IAFConfiguration.swift
+//  InAppFormsConfig.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Isobelle Lim on 5/7/25.
@@ -7,7 +7,7 @@
 import Foundation
 
 /// Configuration for in-app forms
-public struct IAFConfiguration {
+public struct InAppFormsConfig {
     public let sessionTimeoutDuration: TimeInterval
 
     /// - Parameter sessionTimeoutDuration: Duration (in seconds) of the period of user inactivity after which the user's app session is terminated and the forms session is ended. Defaults to 1 Hour.

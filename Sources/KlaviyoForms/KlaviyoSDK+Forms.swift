@@ -18,7 +18,7 @@ extension KlaviyoSDK {
     /// - Parameter configuration: Configuration options for in-app forms, including session timeout duration.
     ///   Defaults to a 1-hour session timeout.
     @MainActor
-    public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration()) {
+    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
@@ -49,7 +49,7 @@ extension KlaviyoSDK {
     @MainActor
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
-    public func registerForInAppForms(configuration: IAFConfiguration = IAFConfiguration(), assetSource: String) {
+    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig(), assetSource: String) {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(
