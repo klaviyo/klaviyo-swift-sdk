@@ -174,32 +174,72 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertTrue(klaviyoJsScript?.source.contains("env=in-app") ?? false, "Script should include environment")
     }
 
-    func testInjectLifecycleEventsScript() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+    // MARK: - Event Handling Tests
 
+    @MainActor
+    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
         // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
+        let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
 
-        // When
-        let script = """
-            (function() {
-                let eventDetails = null;
-                document.head.addEventListener('lifecycleEvent', function(e) {
-                    eventDetails = e.detail;
-                });
-                window.dispatchLifecycleEvent('foreground');
-                return eventDetails;
-            })();
-        """
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultDict = try XCTUnwrap(result as? [String: Any])
+        // Create a task to listen for lifecycle events
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .present = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a form will appear script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillAppear",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        XCTAssertEqual(resultDict["type"] as? String, "foreground", "Event type should be 'foreground'")
+        await fulfillment(of: [expectation], timeout: 1.0)
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
+
+        // Create a task to listen for lifecycle events
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .dismiss = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a form disappeared script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formDisappeared",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        lifecycleTask.cancel()
     }
 
     @MainActor
