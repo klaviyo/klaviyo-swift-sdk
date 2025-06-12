@@ -73,7 +73,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDispatchLifecycleEventInjection() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -103,7 +103,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -127,7 +127,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundWithinSessionKeepsViewControllerAlive() async throws {
         // Given
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
@@ -143,7 +143,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundWithinSessionRestoreEventInjected() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
@@ -171,7 +171,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         mockApiKeyPublisher.send("test-api-key")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
 
@@ -190,7 +190,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockApiKeyPublisher.send("test-api-key")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
         let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration(sessionTimeoutDuration: 2))
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 second
 
@@ -219,7 +219,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockApiKeyPublisher.send("test-api-key")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        mockManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -235,7 +235,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockApiKeyPublisher.send("test-api-key")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
         let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -260,7 +260,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testIntializeApiKeyChangeCreatesNewViewController() async throws {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.initializeIAF(configuration: IAFConfiguration())
+        mockManager.initializeIAF(configuration: InAppFormsConfig())
 
         // When
         mockApiKeyPublisher.send("initial-key")
@@ -274,7 +274,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -300,7 +300,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEventsSubscription(configuration: IAFConfiguration())
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
