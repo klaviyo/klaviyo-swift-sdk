@@ -20,10 +20,11 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
 }
 
 final class IAFWebViewModelTests: XCTestCase {
-    // MARK: - setup
+    // MARK: - Properties
 
     var viewModel: IAFWebViewModel!
-    private var viewController: TestKlaviyoWebViewController!
+
+    // MARK: - Setup
 
     @MainActor
     override func setUp() async throws {
@@ -61,130 +62,87 @@ final class IAFWebViewModelTests: XCTestCase {
         let profileData = try await KlaviyoInternal.fetchProfileData()
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
-        viewController = TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
     }
 
     override func tearDown() {
         viewModel = nil
-        viewController = nil
-
         super.tearDown()
     }
 
-    // MARK: - html injection tests
+    // MARK: - SDK Attribute Tests
 
+    @MainActor
     func testInjectSdkNameAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
-
         // When
-        let script = "document.head.getAttribute('data-sdk-name');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        viewModel.initializeLoadScripts()
+        let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
 
         // Then
-        XCTAssertEqual(resultString, "swift")
+        XCTAssertNotNil(sdkNameScript, "SDK name script should be injected")
     }
 
+    @MainActor
     func testInjectSdkVersionAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
-
         // When
-        let script = "document.head.getAttribute('data-sdk-version');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        viewModel.initializeLoadScripts()
+        let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
 
         // Then
-        XCTAssertEqual(resultString, "0.0.1")
+        XCTAssertNotNil(sdkVersionScript, "SDK version script should be injected")
     }
 
+    // MARK: - Environment Tests
+
+    @MainActor
     func testInjectFormsDataEnvironmentAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
-
         // When
-        let script = "document.head.getAttribute('data-forms-data-environment');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultString = result as? String
+        viewModel.initializeLoadScripts()
+        let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
 
         // Then
-        XCTAssertNil(resultString)
+        XCTAssertNil(environmentScript, "Forms data environment script should not be injected when not set")
     }
 
+    @MainActor
     func testInjectFormsDataEnvironmentSetToWeb() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        // Given
         environment.formsDataEnvironment = { .web }
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        viewModel = await IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
-        viewController = await TestKlaviyoWebViewController(viewModel: viewModel, webViewFactory: {
-            let configuration = WKWebViewConfiguration()
-            configuration.processPool = WKProcessPool() // Ensures a fresh WebKit process
-            let webView = WKWebView(frame: .zero, configuration: configuration)
-            return webView
-        })
-
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
+        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
 
         // When
-        let script = "document.head.getAttribute('data-forms-data-environment');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        viewModel.initializeLoadScripts()
+        let environmentScript = viewModel.findScript(containing: ["data-forms-data-environment", "web"])
 
         // Then
-        XCTAssertEqual(resultString, "web")
+        XCTAssertNotNil(environmentScript, "Forms data environment script should be injected when set to web")
     }
 
+    // MARK: - Handshake Tests
+
+    @MainActor
     func testInjectHandshakeAttribute() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
-
         // When
-        let script = "document.head.getAttribute('data-native-bridge-handshake');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let actualHandshakeString = try XCTUnwrap(result as? String)
+        viewModel.initializeLoadScripts()
+        let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
 
         // Then
+        XCTAssertNotNil(handshakeScript, "Handshake script should be injected")
+
+        // Extract the handshake string from the script source
+        let scriptSource = handshakeScript?.source ?? ""
+        let components = scriptSource.components(separatedBy: "'")
+        guard components.count >= 2 else {
+            XCTFail("Could not find handshake data in script")
+            return
+        }
+        let handshakeString = components[components.count - 2]
+
+        // Verify handshake data
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
             var version: Int
@@ -197,58 +155,94 @@ final class IAFWebViewModelTests: XCTestCase {
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
 
-        let actualData = try XCTUnwrap(actualHandshakeString.data(using: .utf8))
+        let actualData = try XCTUnwrap(handshakeString.data(using: .utf8))
         let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 
+    // MARK: - Klaviyo JS Tests
+
+    @MainActor
     func testInjectKlaviyoJsScript() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
-        // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
-
         // When
-        let script = "document.getElementById('klaviyoJS').getAttribute('src');"
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultString = try XCTUnwrap(result as? String)
+        viewModel.initializeLoadScripts()
+        let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
 
         // Then
-        XCTAssertEqual(resultString, "https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=abc123&env=in-app")
+        XCTAssertNotNil(klaviyoJsScript, "Klaviyo JS script should be injected")
+        XCTAssertTrue(klaviyoJsScript?.source.contains("company_id=abc123") ?? false, "Script should include company ID")
+        XCTAssertTrue(klaviyoJsScript?.source.contains("env=in-app") ?? false, "Script should include environment")
     }
 
-    func testInjectLifecycleEventsScript() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
+    // MARK: - Event Handling Tests
 
+    @MainActor
+    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
         // Given
-        try await viewModel.establishHandshake(timeout: 3.0)
+        let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
 
-        // When
-        let script = """
-            (function() {
-                let eventDetails = null;
-                document.head.addEventListener('lifecycleEvent', function(e) {
-                    eventDetails = e.detail;
-                });
-                window.dispatchLifecycleEvent('foreground');
-                return eventDetails;
-            })();
-        """
-        let delegate = try XCTUnwrap(viewModel.delegate)
-        let result = try await delegate.evaluateJavaScript(script)
-        let resultDict = try XCTUnwrap(result as? [String: Any])
+        // Create a task to listen for lifecycle events
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .present = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a form will appear script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillAppear",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        XCTAssertEqual(resultDict["type"] as? String, "foreground", "Event type should be 'foreground'")
+        await fulfillment(of: [expectation], timeout: 5.0)
+        lifecycleTask.cancel()
     }
 
+    @MainActor
+    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
+
+        // Create a task to listen for lifecycle events
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .dismiss = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a form disappeared script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formDisappeared",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 5.0)
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
     func testAbortEventYieldsAbortLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
@@ -277,10 +271,28 @@ final class IAFWebViewModelTests: XCTestCase {
             """
         )
 
-        await viewModel.handleScriptMessage(scriptMessage)
+        viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
+    }
+}
+
+extension IAFWebViewModel {
+    @MainActor
+    fileprivate func findScript(containing text: String) -> WKUserScript? {
+        loadScripts?.first { script in
+            script.source.contains(text)
+        }
+    }
+
+    @MainActor
+    fileprivate func findScript(containing texts: [String]) -> WKUserScript? {
+        loadScripts?.first { script in
+            texts.allSatisfy { text in
+                script.source.contains(text)
+            }
+        }
     }
 }

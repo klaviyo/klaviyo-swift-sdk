@@ -169,17 +169,21 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testForegroundInNewSessionCreatesNewViewController() async throws {
         // Given
+        let destroyExpectation = XCTestExpectation(description: "Web view is destroyed on new session")
+        let createExpectation = XCTestExpectation(description: "Web view is created on new session")
+        presentationManager.destroyWebviewExpectation = destroyExpectation
+        presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
+
         mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
         presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
 
         // When
         mockLifecycleEvents.send(.foregrounded)
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
         // Then
+        await fulfillment(of: [destroyExpectation, createExpectation], timeout: 5.0)
         XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
         XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should be recreated when foregrounding in new session")
     }
@@ -352,14 +356,18 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var createFormAndAwaitFormEventsCalled = false
     var destroyWebviewCalled = false
     var formEventTask: Task<Void, Never>?
+    var destroyWebviewExpectation: XCTestExpectation?
+    var createFormAndAwaitFormEventsExpectation: XCTestExpectation?
 
     override func createFormAndAwaitFormEvents(apiKey: String) async throws {
         createFormAndAwaitFormEventsCalled = true
+        createFormAndAwaitFormEventsExpectation?.fulfill()
         try await super.createFormAndAwaitFormEvents(apiKey: apiKey)
     }
 
     override func destroyWebView() {
         destroyWebviewCalled = true
+        destroyWebviewExpectation?.fulfill()
         super.destroyWebView()
     }
 
