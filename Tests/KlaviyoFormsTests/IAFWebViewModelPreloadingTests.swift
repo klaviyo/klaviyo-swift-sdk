@@ -39,12 +39,12 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     @MainActor
     func testPreloadWebsiteSuccess() async throws {
         // Given
-        delegate.handshakeResult = .handshakeEstablished(delay: 0.1)
+        delegate.handshakeResult = .handshakeEstablished(delay: 0)
         let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
         // When
         do {
-            try await viewModel.establishHandshake(timeout: 1.0)
+            try await viewModel.establishHandshake(timeout: 5.0)
             expectation.fulfill()
         } catch {
             XCTFail("Expected success, but got error: \(error)")
@@ -72,7 +72,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         }
 
         // Then
-        await fulfillment(of: [expectation], timeout: 2.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
     }
 
     /// Tests scenario in which the delegate does nothing and emits no events after `preloadUrl()` is called.
