@@ -225,7 +225,7 @@ class IAFPresentationManager {
 
     func handleLifecycleEvent(_ event: String) async throws {
         if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event)' lifecycle event via Klaviyo.JS")
+            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
         }
 
         do {
@@ -241,6 +241,9 @@ class IAFPresentationManager {
     }
 
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
+        }
         switch event {
         case .present:
             presentForm()

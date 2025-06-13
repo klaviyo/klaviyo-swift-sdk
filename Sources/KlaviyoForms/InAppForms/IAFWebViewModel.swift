@@ -263,7 +263,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Aborting webview: \(reason)")
+                Logger.webViewLogger.info("Aborting webview: \(reason, privacy: .public)")
             }
             formLifecycleContinuation.yield(.abort)
         case .handShook:
