@@ -222,7 +222,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         mockApiKeyPublisher.send("test-api-key")
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        let mockManager = MockIAFPresentationManager(viewController: mockViewController)
+        let mockManager = MockIAFPresentationManager(viewController: mockViewController) // Set viewController to nil to simulate fresh launch
         mockManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         // When
@@ -230,7 +230,23 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding in new session")
+        XCTAssertFalse(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding on new launch/new session")
+    }
+
+    @MainActor
+    func testForegroundFromExistingInstanceCreatesNewViewController() async throws {
+        // Given
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        let mockManager = MockIAFPresentationManager(viewController: nil) // Set viewController to nil to simulate fresh launch
+        mockManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
+
+        // When
+        mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
+        // Then
+        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should not be called when foregrounding in existing instance (such as opening the notificaiton/control center)")
     }
 
     @MainActor
