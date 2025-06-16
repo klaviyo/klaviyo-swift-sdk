@@ -313,7 +313,6 @@ class IAFPresentationManager {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
             }
-            destroyWebView()
         } else {
             topController.present(viewController, animated: false, completion: nil)
         }
