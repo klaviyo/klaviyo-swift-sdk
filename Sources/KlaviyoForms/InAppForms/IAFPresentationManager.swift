@@ -113,8 +113,7 @@ class IAFPresentationManager {
                                     Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                                 }
                                 self.destroyWebView()
-                                let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                                try await self.initializeFormWithAPIKey()
                             }
                         } else {
                             try await self.handleLifecycleEvent("foreground")
@@ -122,8 +121,7 @@ class IAFPresentationManager {
                             // no backgrounded lifecycle event is dispatched in that case, only foregrounded event
                             if self.viewController == nil {
                                 // fresh launch
-                                let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                                try await self.initializeFormWithAPIKey()
                             }
                         }
                     case .backgrounded:
@@ -224,6 +222,11 @@ class IAFPresentationManager {
                 return
             }
         }
+    }
+
+    private func initializeFormWithAPIKey() async throws {
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        try await createFormAndAwaitFormEvents(apiKey: apiKey)
     }
 
     func handleLifecycleEvent(_ event: String) async throws {
