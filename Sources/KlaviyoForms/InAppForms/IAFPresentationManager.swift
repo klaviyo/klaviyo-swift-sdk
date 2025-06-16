@@ -102,26 +102,25 @@ class IAFPresentationManager {
                     case .terminated:
                         break
                     case .foregrounded:
+                        try await self.handleLifecycleEvent("foreground")
                         if let lastBackgrounded = self.lastBackgrounded {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             let timeoutDuration = configuration.sessionTimeoutDuration
-
-                            try await self.handleLifecycleEvent("foreground")
-
                             if timeElapsed > timeoutDuration {
                                 if #available(iOS 14.0, *) {
                                     Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                                 }
                                 self.destroyWebView()
-                                let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                                try await self.initializeFormWithAPIKey()
                             }
                         } else {
-                            // launching
-                            try await self.handleLifecycleEvent("foreground")
-
-                            let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                            try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+                            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+                            // This check ensures that don't reinitialize in this situation.
+                            if self.viewController == nil {
+                                // fresh launch
+                                try await self.initializeFormWithAPIKey()
+                            }
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
@@ -221,6 +220,11 @@ class IAFPresentationManager {
                 return
             }
         }
+    }
+
+    private func initializeFormWithAPIKey() async throws {
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        try await createFormAndAwaitFormEvents(apiKey: apiKey)
     }
 
     func handleLifecycleEvent(_ event: String) async throws {
