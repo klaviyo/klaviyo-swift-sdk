@@ -102,12 +102,10 @@ class IAFPresentationManager {
                     case .terminated:
                         break
                     case .foregrounded:
+                        try await self.handleLifecycleEvent("foreground")
                         if let lastBackgrounded = self.lastBackgrounded {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             let timeoutDuration = configuration.sessionTimeoutDuration
-
-                            try await self.handleLifecycleEvent("foreground")
-
                             if timeElapsed > timeoutDuration {
                                 if #available(iOS 14.0, *) {
                                     Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
@@ -116,9 +114,9 @@ class IAFPresentationManager {
                                 try await self.initializeFormWithAPIKey()
                             }
                         } else {
-                            try await self.handleLifecycleEvent("foreground")
-                            // to prevent case when app is reforegrounded from opening the notification/control center
-                            // no backgrounded lifecycle event is dispatched in that case, only foregrounded event
+                            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+                            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+                            // This check ensures that don't reinitialize in this situation.
                             if self.viewController == nil {
                                 // fresh launch
                                 try await self.initializeFormWithAPIKey()
