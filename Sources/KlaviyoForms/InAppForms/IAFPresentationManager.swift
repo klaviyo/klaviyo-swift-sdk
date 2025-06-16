@@ -117,11 +117,14 @@ class IAFPresentationManager {
                                 try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
                             }
                         } else {
-                            // launching
                             try await self.handleLifecycleEvent("foreground")
-
-                            let apiKey = try await KlaviyoInternal.fetchAPIKey()
-                            try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                            // to prevent case when app is reforegrounded from opening the notification/control center
+                            // no backgrounded lifecycle event is dispatched in that case, only foregrounded event
+                            if self.viewController == nil {
+                                // fresh launch
+                                let apiKey = try await KlaviyoInternal.fetchAPIKey()
+                                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                            }
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
