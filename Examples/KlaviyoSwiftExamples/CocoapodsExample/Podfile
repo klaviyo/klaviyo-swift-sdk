@@ -2,10 +2,10 @@ platform :ios, '13.0'
 use_frameworks!
 
 target 'CocoapodsExample' do
-  pod 'KlaviyoSwift', '4.2.0'
-  pod 'KlaviyoForms', '4.2.0'
+  pod 'KlaviyoSwift', '4.3.0'
+  pod 'KlaviyoForms', '4.3.0'
 end
 
 target 'NotificationServiceExtension' do
-  pod 'KlaviyoSwiftExtension', '4.2.0'
+  pod 'KlaviyoSwiftExtension', '4.3.0'
 end
