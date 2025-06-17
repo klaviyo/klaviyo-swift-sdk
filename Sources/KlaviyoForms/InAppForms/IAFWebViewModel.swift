@@ -269,6 +269,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
                 }
                 UIApplication.shared.open(url)
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL’s scheme, or b) you haven’t declared the URL’s scheme in your Info.plist file")
+                }
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
