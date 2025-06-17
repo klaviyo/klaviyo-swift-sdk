@@ -28,6 +28,8 @@ extension ProfileData: Encodable {
     package func toHtmlString() throws -> String {
         do {
             let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+
             let jsonData = try encoder.encode(self)
             let jsonString = String(data: jsonData, encoding: .utf8)
             return jsonString ?? ""
