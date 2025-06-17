@@ -341,6 +341,85 @@ final class IAFPresentationManagerTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(evaluatedScripts.isEmpty, "Unexpected script evaluation: \(evaluatedScripts)")
     }
+
+    // MARK: - Session Timeout Tests
+
+    @MainActor
+    func testNegativeSessionTimeoutDurationIsNormalizedToZero() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
+        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+
+        // When
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: -1))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        mockLifecycleEvents.send(.foregrounded)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using negative timeout duration")
+    }
+
+    @MainActor
+    func testZeroSessionTimeoutDurationResetsImmediately() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
+        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+
+        // When
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        mockLifecycleEvents.send(.foregrounded)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using zero timeout duration")
+    }
+
+    @MainActor
+    func testInfiniteSessionTimeoutDurationNeverResets() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form is not recreated after session timeout")
+        expectation.isInverted = true
+        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+
+        // When
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: TimeInterval.infinity))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+        mockLifecycleEvents.send(.foregrounded)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Form should not be recreated when using infinite timeout duration")
+    }
+
+    @MainActor
+    func testValidSessionTimeoutDurationResetsAfterTimeout() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
+        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+
+        // When
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 1))
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        mockLifecycleEvents.send(.foregrounded)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated after timeout duration")
+    }
 }
 
 // MARK: - Mock Classes
