@@ -14,9 +14,9 @@ final class ProfileDataTests: XCTestCase {
 
         XCTAssertFalse(htmlString.isEmpty)
         XCTAssertTrue(htmlString.contains("\"email\":\"test@example.com\""))
-        XCTAssertTrue(htmlString.contains("\"anonymousId\":\"anon-123\""))
-        XCTAssertTrue(htmlString.contains("\"phoneNumber\":\"+1234567890\""))
-        XCTAssertTrue(htmlString.contains("\"externalId\":\"ext-456\""))
+        XCTAssertTrue(htmlString.contains("\"anonymous_id\":\"anon-123\""))
+        XCTAssertTrue(htmlString.contains("\"phone_number\":\"+1234567890\""))
+        XCTAssertTrue(htmlString.contains("\"external_id\":\"ext-456\""))
     }
 
     func testToHtmlStringWithEmptyData() throws {
