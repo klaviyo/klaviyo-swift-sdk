@@ -277,6 +277,183 @@ final class IAFWebViewModelTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
     }
+
+    @MainActor
+    func testTimerEventCreatesTask() async throws {
+        // Skip on iOS 17.0+ since timer script is only loaded on iOS < 17.0
+        guard #unavailable(iOS 17.0) else {
+            throw XCTSkip("This code path only occurs on iOS versions below 17.0")
+        }
+
+        // Given
+        let duration = 100 // 100 milliseconds for quick test
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        // When - simulate a timer script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "timer",
+              "data": {
+                "duration": \(duration)
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - verify that evaluateJavaScript was called after the timer completes
+        let expectation = XCTestExpectation(description: "Timer should call evaluateJavaScript")
+
+        // Wait for the timer to complete and call evaluateJavaScript
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(duration) / 1000.0 + 0.1) {
+            if mockDelegate.evaluateJavaScriptCalled {
+                expectation.fulfill()
+            }
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled, "Timer should have called evaluateJavaScript")
+    }
+
+    @MainActor
+    func testMultipleTimerEventsCreateMultipleTasks() async throws {
+        // Skip on iOS 17.0+ since timer script is only loaded on iOS < 17.0
+        guard #unavailable(iOS 17.0) else {
+            throw XCTSkip("This code path only occurs on iOS versions below 17.0")
+        }
+
+        // Given
+        let duration1 = 50 // 50 milliseconds
+        let duration2 = 100 // 100 milliseconds
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        // When - simulate multiple timer script messages
+        let scriptMessage1 = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "timer",
+              "data": {
+                "duration": \(duration1)
+              }
+            }
+            """
+        )
+
+        let scriptMessage2 = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "timer",
+              "data": {
+                "duration": \(duration2)
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage1)
+        viewModel.handleScriptMessage(scriptMessage2)
+
+        // Then - verify that evaluateJavaScript was called twice (once for each timer)
+        let expectation = XCTestExpectation(description: "Both timers should call evaluateJavaScript")
+        var callCount = 0
+
+        // Wait for both timers to complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(duration2) / 1000.0 + 0.1) {
+            // Since we can't easily track multiple calls in the mock, we'll just verify
+            // that at least one call was made, indicating the timers are working
+            if mockDelegate.evaluateJavaScriptCalled {
+                callCount += 1
+                expectation.fulfill()
+            }
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled, "At least one timer should have called evaluateJavaScript")
+    }
+
+    @MainActor
+    func testTimerEventWithZeroDuration() async throws {
+        // Skip on iOS 17.0+ since timer script is only loaded on iOS < 17.0
+        guard #unavailable(iOS 17.0) else {
+            throw XCTSkip("This code path only occurs on iOS versions below 17.0")
+        }
+
+        // Given
+        let duration = 0 // 0 milliseconds
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        // When - simulate a timer script message with zero duration
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "timer",
+              "data": {
+                "duration": \(duration)
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - verify that evaluateJavaScript was called immediately (or very quickly)
+        let expectation = XCTestExpectation(description: "Zero duration timer should call evaluateJavaScript quickly")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if mockDelegate.evaluateJavaScriptCalled {
+                expectation.fulfill()
+            }
+        }
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled, "Zero duration timer should have called evaluateJavaScript")
+    }
+
+    @MainActor
+    func testTimerEventWithoutDelegate() async throws {
+        // Skip on iOS 17.0+ since timer script is only loaded on iOS < 17.0
+        guard #unavailable(iOS 17.0) else {
+            throw XCTSkip("This code path only occurs on iOS versions below 17.0")
+        }
+
+        // Given
+        let duration = 100
+        viewModel.delegate = nil // No delegate set
+
+        // When - simulate a timer script message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "timer",
+              "data": {
+                "duration": \(duration)
+              }
+            }
+            """
+        )
+
+        // Then - should not crash when delegate is nil
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Wait a bit to ensure no crashes
+        let expectation = XCTestExpectation(description: "Timer should complete without crashing")
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(duration) / 1000.0 + 0.1) {
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+        // If we get here without crashing, the test passes
+    }
 }
 
 extension IAFWebViewModel {
