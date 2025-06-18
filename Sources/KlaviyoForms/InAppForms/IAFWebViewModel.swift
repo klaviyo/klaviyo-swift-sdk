@@ -33,6 +33,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
+    private var timerTasks: Set<Task<Void, Never>> = []
 
     // MARK: - Scripts
 
@@ -124,6 +125,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         initializeLoadScripts()
         subscribeToProfileUpdates()
+    }
+
+    deinit {
+        timerTasks.forEach { $0.cancel() }
+        timerTasks.removeAll()
     }
 
     @MainActor
@@ -309,6 +315,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .profileMutation:
             ()
+        case let .timer(duration):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.debug("Received 'timer' event from KlaviyoJS with duration \(duration) milliseconds")
+            }
+
+            let timerTask = Task { [weak self] in
+                // Convert milliseconds to nanoseconds for Task.sleep
+                let nanoseconds = UInt64(duration) * 1_000_000
+                try? await Task.sleep(nanoseconds: nanoseconds)
+
+                try? Task.checkCancellation()
+
+                // Send a no-op Javascript event to wake the web view so it can display a form
+                _ = try? await self?.delegate?.evaluateJavaScript("")
+            }
+
+            timerTasks.insert(timerTask)
         }
     }
 }
