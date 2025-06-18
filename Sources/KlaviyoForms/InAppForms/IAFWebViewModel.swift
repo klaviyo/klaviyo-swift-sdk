@@ -96,6 +96,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
+    private var timerWKScript: WKUserScript? {
+        do {
+            let timerScript = try ResourceLoader.getResourceContents(path: "timerScript", type: "js")
+            return WKUserScript(source: timerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error loading 'timerScript.js'")
+            }
+            return nil
+        }
+    }
+
     // MARK: - Initializer
 
     @MainActor
@@ -125,6 +138,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
+        }
+        if #unavailable(iOS 17.0) {
+            if let timerWKScript {
+                loadScripts?.insert(timerWKScript)
+            }
         }
     }
 
