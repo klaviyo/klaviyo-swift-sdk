@@ -261,7 +261,28 @@ struct IAFNativeBridgeEventTests {
 
         let associatedValueDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: associatedValueData)
 
-        #expect(aggregateEventDataDecoded == associatedValueDataDecoded)
+        #expect(associatedValueDataDecoded == aggregateEventDataDecoded)
+    }
+
+    @Test
+    func testDecodeTimer() async throws {
+        let json = """
+        {
+          "type": "timer",
+          "data": {
+            "duration": 5000
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .timer(duration) = event else {
+            Issue.record("event type should be .timer but was '.\(event)'")
+            return
+        }
+
+        #expect(duration == 5000)
     }
 }
 #endif
