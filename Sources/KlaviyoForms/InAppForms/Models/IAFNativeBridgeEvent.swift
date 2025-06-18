@@ -21,6 +21,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case analyticsEvent
     case lifecycleEvent
     case profileMutation
+    case timer(Int)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -39,6 +40,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case analyticsEvent
         case lifecycleEvent
         case profileMutation
+        case timer
     }
 
     init(from decoder: Decoder) throws {
@@ -74,6 +76,9 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .lifecycleEvent
         case .profileMutation:
             self = .profileMutation
+        case .timer:
+            let data = try container.decode(TimerPayload.self, forKey: .data)
+            self = .timer(data.duration)
         }
     }
 }
@@ -85,6 +90,10 @@ extension IAFNativeBridgeEvent {
 
     struct AbortPayload: Codable {
         let reason: String
+    }
+
+    struct TimerPayload: Codable {
+        let duration: Int
     }
 }
 
@@ -140,6 +149,7 @@ extension IAFNativeBridgeEvent {
         case .analyticsEvent: return 1
         case .lifecycleEvent: return 1
         case .profileMutation: return 1
+        case .timer: return 1
         }
     }
 
@@ -156,6 +166,7 @@ extension IAFNativeBridgeEvent {
         case .analyticsEvent: return "analyticsEvent"
         case .lifecycleEvent: return "lifecycleEvent"
         case .profileMutation: return "profileMutation"
+        case .timer: return "timer"
         }
     }
 }
