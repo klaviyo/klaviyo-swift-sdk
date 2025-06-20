@@ -5,13 +5,30 @@
 //  Created by Isobelle Lim on 5/7/25.
 //
 import Foundation
+import OSLog
 
-/// Configuration for in-app forms
+/// Configuration for in-app forms functionality.
+///
+/// This struct provides configuration options for managing in-app forms behavior,
+/// including session management and timeout settings.
 public struct InAppFormsConfig {
-    public let sessionTimeoutDuration: TimeInterval
+    /// The duration in seconds after which a form session is considered expired.
+    let sessionTimeoutDuration: TimeInterval
 
-    /// - Parameter sessionTimeoutDuration: Duration (in seconds) of the period of user inactivity after which the user's app session is terminated and the forms session is ended. Defaults to 1 Hour.
+    /// Creates a new in-app forms configuration.
+    ///
+    /// - Parameter sessionTimeoutDuration: Duration (in seconds) of user inactivity after which the form session is terminated.
+    ///   Defaults to 1 hour, must be non-negative.
+    ///   Use 0 to timeout as soon as the app is backgrounded.
+    ///   To disable session timeout altogether, use ``TimeInterval.infinity``.
     public init(sessionTimeoutDuration: TimeInterval = 3600) {
-        self.sessionTimeoutDuration = sessionTimeoutDuration
+        if sessionTimeoutDuration < 0 {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("`sessionTimeoutDuration` cannot be negative, 0s will be used instead.")
+            }
+            self.sessionTimeoutDuration = 0
+        } else {
+            self.sessionTimeoutDuration = sessionTimeoutDuration
+        }
     }
 }
