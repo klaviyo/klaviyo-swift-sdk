@@ -245,10 +245,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .formWillAppear:
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received `formWillAppear` event from KlaviyoJS")
+                Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
             formLifecycleContinuation.yield(.present)
         case .formDisappeared:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
+            }
             formLifecycleContinuation.yield(.dismiss)
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -258,12 +261,22 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url, privacy: .public)")
+            }
             if UIApplication.shared.canOpenURL(url) {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
+                }
                 UIApplication.shared.open(url)
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL’s scheme, or b) you haven’t declared the URL’s scheme in your Info.plist file")
+                }
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Aborting webview: \(reason, privacy: .public)")
+                Logger.webViewLogger.info("Received 'abort' event from KlaviyoJS with reason: \(reason, privacy: .public)")
             }
             formLifecycleContinuation.yield(.abort)
         case .handShook:

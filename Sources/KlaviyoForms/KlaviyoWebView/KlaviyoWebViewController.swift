@@ -21,6 +21,10 @@ private func createDefaultWebView() -> WKWebView {
     // Required to allow localStorage data to be retained between webview instances
     config.websiteDataStore = WKWebsiteDataStore.default()
 
+    if #available(iOS 17.0, *) {
+        config.preferences.inactiveSchedulingPolicy = .none
+    }
+
     let webView = WKWebView(frame: .zero, configuration: config)
     webView.isOpaque = false
     webView.scrollView.contentInsetAdjustmentBehavior = .never
