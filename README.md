@@ -557,7 +557,9 @@ Beginning with version 4.3.0, in-app forms support advanced targeting and segmen
 
 ### Setup
 
-To display in-app forms, add the following code to your application.
+#### Registering for in-app forms
+
+To configure your app to display in-app forms, add the following code to your application:
 
 ```swift
     import KlaviyoSwift
@@ -573,7 +575,7 @@ To display in-app forms, add the following code to your application.
     KlaviyoSDK().registerForInAppForms()
 ```
 
-#### App Session configuration
+##### App Session configuration
 
 An "app session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept regarding in-app forms, as we want to ensure that a user will not see a form multiple times within the same app session.
 
@@ -590,6 +592,16 @@ then pass this into the SDK when calling `registerForInAppForms()`:
 ```swift
 KlaviyoSDK().registerForInAppForms(configuration: config)
 ```
+
+#### Unregistering from in-app forms
+
+If at any point you need to prevent the SDK from displaying in-app forms, you may call:
+
+```swift
+KlaviyoSDK().unregisterFromInAppForms()
+```
+
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new app session by the SDK.
 
 ### Behavior
 
