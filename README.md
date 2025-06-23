@@ -575,6 +575,8 @@ To configure your app to display in-app forms, add the following code to your ap
     KlaviyoSDK().registerForInAppForms()
 ```
 
+Note that the in-app forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
+
 ##### App Session configuration
 
 An "app session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept regarding in-app forms, as we want to ensure that a user will not see a form multiple times within the same app session.
