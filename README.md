@@ -609,22 +609,11 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 ### Behavior
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 15 seconds,  based on form targeting and behavior settings.
+Once `registerForInAppForms()` is called, the SDK will begin persistently listening for any in-app forms targeted to the current user. You only need to call this once. The SDK will handle presenting forms to the appropriate profiles at the appropriate times, as specified within the forms editor in the Klaviyo dashboard.
 
-You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
+By calling `registerForInAppForms()` within your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method, you'll ensure that your app is ready to display forms at any point within your app's lifecycle.
 
-Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
-
-
-| **App State**                | **Lifecycle Method**                              | **Example Implementation** |
-|------------------------------|--------------------------------------------------|------------------------------|
-| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L41) |
-| **App Became Active**         | `applicationDidBecomeActive(_:)`                 | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L59) |
-| **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
-
-
-Registering from `applicationDidBecomeActive(_:)` is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition this based on the user's context within your application. Future versions of this product will provide more control in this regard.
-
+You may also call `registerForInAppForms()` at an appropriate place within your app's logic, but note that until you call `unregisterFromInAppForms()` the SDK will listen persistently for eligible forms regardless of whatever screen is currently displayed. This means that even if you call `registerForInAppForms()` from within a specific View Controller or SwiftUI View, the SDK will *not* be restricted to displaying the form only within that view.
 
 ### Deep linking
 
