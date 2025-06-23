@@ -575,6 +575,8 @@ To configure your app to display in-app forms, add the following code to your ap
     KlaviyoSDK().registerForInAppForms()
 ```
 
+After registering, the SDK will be ready to display any form(s) targeted to the current user's profile. See the Behavior section below for more details.
+
 Note that the in-app forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
 ##### App Session configuration
