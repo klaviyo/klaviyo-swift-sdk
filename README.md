@@ -610,8 +610,6 @@ Consider how often you want to register for forms. Below are some ideas on when 
 Registering from `applicationDidBecomeActive(_:)` is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition this based on the user's context within your application. Future versions of this product will provide more control in this regard.
 
 
-**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
-
 ### Deep linking
 
 Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
