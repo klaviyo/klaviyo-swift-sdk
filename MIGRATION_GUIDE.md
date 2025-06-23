@@ -11,10 +11,9 @@ In version 4.2.0, calling `registerForInAppForms()` functioned like a "fetch" th
 
 To account for this change, you may choose to revisit the logic of when you call `registerForInAppForms()`. If previously you were calling this multiple times throughout the app in places where you wanted to check for forms, you should now consider calling it once (perhaps within your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method).
 
-
 ### New `unregisterFromInAppForms()` method
 
-Because the `registerForInAppForms()` method now functions as a listener rather than a "fetch", we've now added an `unregisterFromInAppForms()` method so you can stop listening for forms if necessary at appropriate points in your app.
+Because the `registerForInAppForms()` method now functions as a listener rather than a "fetch", we've now [added an `unregisterFromInAppForms()` method](https://github.com/klaviyo/klaviyo-swift-sdk?tab=readme-ov-file#unregister-from-in-app-forms) so you can stop listening for forms if necessary at appropriate points in your app.
 
 ### Optional app session configuration
 
