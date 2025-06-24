@@ -557,6 +557,14 @@ Beginning with version 5.0.0, in-app forms support advanced targeting and segmen
 
 * Using Klaviyo SDK version 4.2.0 and higher
 * Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest in-app forms features. The minimum supported version for in-app forms is `4.2.0`, but a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
+* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding the changes to the In-App Forms behavior.
+
+| Feature            | Minimum SDK Version |
+|--------------------|---------------------|
+| Basic In-App Forms  | 4.2.0+             |
+| Time Delay          | 5.0.0              |
+| Audience Targeting  | 5.0.0              |
 
 ### Setup
 
