@@ -590,21 +590,18 @@ After registering, the SDK will be ready to display any form(s) targeted to the 
 
 Note that the in-app forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
-##### App Session configuration
+##### In-App Forms Session Configuration
 
-An "app session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept regarding in-app forms, as we want to ensure that a user will not see a form multiple times within the same app session.
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept for in-app forms, as we want to ensure that a user will not see a form multiple times within a single session.
 
-An app session will timeout after a specified period of inactivity. When a user launches the app, if the time between the previous interaction with the app and the current one exceeds the specified timeout, we will consider this to be a new app session.
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
 
-This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, create a new `InAppFormsConfig` object:
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig` object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
 
 ```swift
+import KlaviyoForms
+// e.g. to configure a session timeout of 30 minutes
 let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
-```
-
-then pass this into the SDK when calling `registerForInAppForms()`:
-
-```swift
 KlaviyoSDK().registerForInAppForms(configuration: config)
 ```
 
