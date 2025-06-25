@@ -568,29 +568,27 @@ Beginning with version 5.0.0, In-App Forms supports advanced targeting and segme
 
 ### Setup
 
-#### Registering for In-App Forms
-
 To configure your app to display In-App Forms, add the following code to your application:
 
 ```swift
-    import KlaviyoSwift
-    import KlaviyoForms
-    ...
+import KlaviyoSwift
+import KlaviyoForms
+...
 
-    // Refer the behavior section for where to place this code.
-    KlaviyoSDK()
-        .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-        .registerForInAppForms()
+// Refer the behavior section for where to place this code.
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerForInAppForms()
 
-    // if registering elsewhere after `KlaviyoSDK` is initialized
-    KlaviyoSDK().registerForInAppForms()
+// if registering elsewhere after `KlaviyoSDK` is initialized
+KlaviyoSDK().registerForInAppForms()
 ```
 
-After registering, the SDK will be ready to display any form(s) targeted to the current user's profile. See the Behavior section below for more details.
+Once registered, the SDK may launch an overlay view at any time to present a form according to its targeting and behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method.
 
 Note that the In-App Forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
-##### In-App Forms Session Configuration
+#### In-App Forms Session Configuration
 
 A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms, as we want to ensure that a user will not see a form multiple times within a single session.
 
@@ -605,7 +603,7 @@ let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
 KlaviyoSDK().registerForInAppForms(configuration: config)
 ```
 
-#### Unregistering from In-App Forms
+### Unregistering from In-App Forms
 
 If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
 
@@ -616,17 +614,10 @@ KlaviyoSDK().unregisterFromInAppForms()
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
-### Behavior
-
-Once `registerForInAppForms()` is called, the SDK will begin persistently listening for any In-App Forms targeted to the current user. You only need to call this once. The SDK will handle presenting forms to the appropriate profiles at the appropriate times, as specified within the forms editor in the Klaviyo dashboard.
-
-By calling `registerForInAppForms()` within your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method, you'll ensure that your app is ready to display forms at any point within your app's lifecycle.
-
-You may also call `registerForInAppForms()` at an appropriate place within your app's logic, but note that until you call `unregisterFromInAppForms()` the SDK will listen persistently for eligible forms regardless of whatever screen is currently displayed. This means that even if you call `registerForInAppForms()` from within a specific View Controller or SwiftUI View, the SDK will *not* be restricted to displaying the form only within that view.
 
 ### Deep linking
 
-Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
+Deep linking to a particular screen based on user action from an In-App Form is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
 
 ## Additional Details
 
