@@ -551,20 +551,20 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 [In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
-Beginning with version 5.0.0, in-app forms support advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude a specific list or segment, and the form will be displayed to (or hidden from) profiles included in the specified list or segment.
+Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers set via the `analytics` package.
 
 ### Prerequisites
 
 * Using Klaviyo SDK version 4.2.0 and higher
 * Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
-* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest in-app forms features. The minimum supported version for in-app forms is `4.2.0`, but a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
-* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding the changes to the In-App Forms behavior.
+* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features. The minimum SDK version supporting In-App Forms is `4.2.0`, and a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
+* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding changes to In-App Forms behavior.
 
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
-| Basic In-App Forms  | 4.2.0+             |
-| Time Delay          | 5.0.0              |
-| Audience Targeting  | 5.0.0              |
+| Basic In-App Forms | 4.2.0+              |
+| Time Delay         | 5.0.0               |
+| Audience Targeting | 5.0.0               |
 
 ### Setup
 
