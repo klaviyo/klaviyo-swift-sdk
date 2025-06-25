@@ -5,19 +5,24 @@ This guide outlines how developers can migrate from older versions of our SDK to
 
 ## Migrating to v5.0.0
 
-### Updated `registerForInAppForms()` behavior:
+### In-App Forms
 
-In version 4.2.0-4.2.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was available and, if yes, display it. Version 5.0.0 changes this behavior so that `registerForInAppForms()` sets up a persistent listener that will be ready to display a form if and when one is targeted to the current profile.
+As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()` when upgrading from 4.2.0-4.2.1, particularly if you were registering than once per application session. Consult the [README](./README.md#in-app-forms) for the latest integration instructions.
 
-To account for this change, you may choose to revisit the logic of when you call `registerForInAppForms()`. If previously you were calling this multiple times throughout the app in places where you wanted to check for forms, you should now consider calling it once (perhaps within your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method).
 
-### New `unregisterFromInAppForms()` method
+#### Updated behaviors
 
-Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch", we've now [added an `unregisterFromInAppForms()` method](https://github.com/klaviyo/klaviyo-swift-sdk?tab=readme-ov-file#unregister-from-in-app-forms) so you can stop listening for forms if necessary at appropriate points in your app.
+- In versions 4.2.0-4.2.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was available and if yes, display it. Version 5.0.0 changes this behavior so that `registerForInAppForms()` sets up a persistent listener that will be ready to display a form if and when one is targeted to the current profile.
+- A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order to prevent a race condition if the host application expects the form to be closed before handling the deep link.
 
-### Optional app session configuration
+#### Configurable In-App Form session timeout
 
-This version adds the concept of an "app session" to the SDK. If you wish to customize the app session timeout, you may do so when calling `registerForInAppForms()`. Please [see the README](https://github.com/klaviyo/klaviyo-swift-sdk?tab=readme-ov-file#app-session-configuration) for details.
+Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an optional argument to `registerForInAppForms()`.
+
+#### New `unregisterFromInAppForms()` method
+
+Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch",  we've introduced an [`unregisterFromInAppForms()` method](https://github.com/klaviyo/klaviyo-swift-sdk?tab=readme-ov-file#unregister-from-in-app-forms) so you can stop listening for In-App Forms at appropriate times, such as when a user logs out.
+
 
 ## Migrating to v4.0.0
 
