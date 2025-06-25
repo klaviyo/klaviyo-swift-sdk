@@ -605,15 +605,16 @@ let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
 KlaviyoSDK().registerForInAppForms(configuration: config)
 ```
 
-#### Unregistering from in-app forms
+#### Unregistering from In-App Forms
 
-If at any point you need to prevent the SDK from displaying in-app forms, you may call:
+If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
 
 ```swift
+import KlaviyoForms
 KlaviyoSDK().unregisterFromInAppForms()
 ```
 
-Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new app session by the SDK.
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
 ### Behavior
 
