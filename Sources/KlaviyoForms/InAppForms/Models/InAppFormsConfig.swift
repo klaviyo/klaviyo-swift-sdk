@@ -7,15 +7,15 @@
 import Foundation
 import OSLog
 
-/// Configuration for in-app forms functionality.
+/// Configuration for In-App Forms functionality.
 ///
-/// This struct provides configuration options for managing in-app forms behavior,
+/// This struct provides configuration options for managing In-App Forms behavior,
 /// including session management and timeout settings.
 public struct InAppFormsConfig {
     /// The duration in seconds after which a form session is considered expired.
     let sessionTimeoutDuration: TimeInterval
 
-    /// Creates a new in-app forms configuration.
+    /// Creates a new In-App Forms configuration.
     ///
     /// - Parameter sessionTimeoutDuration: Duration (in seconds) of user inactivity after which the form session is terminated.
     ///   Defaults to 1 hour, must be non-negative.

@@ -181,7 +181,7 @@ class IAFPresentationManager {
         }
     }
 
-    /// Dismisses and re-initializes the in-app form when the public API key changes.
+    /// Dismisses and re-initializes the In-App Form when the public API key changes.
     private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
         destroyWebView()
         formEventTask?.cancel()
