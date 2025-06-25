@@ -3,11 +3,32 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v5.0.0
+
+### In-App Forms
+
+As a result of changes summarized below, you may wish to revisit the logic of when you call `registerForInAppForms()` when upgrading from 4.2.0-4.2.1, particularly if you were registering than once per application session. Consult the [README](./README.md#in-app-forms) for the latest integration instructions.
+
+
+#### Updated behaviors
+
+- In versions 4.2.0-4.2.1, calling `registerForInAppForms()` functioned like a "fetch" that would check if a form was available and if yes, display it. Version 5.0.0 changes this behavior so that `registerForInAppForms()` sets up a persistent listener that will be ready to display a form if and when one is targeted to the current profile.
+- A deep link from an In-App Form will now be issued *after* the form has closed, instead of during the close animation in order to prevent a race condition if the host application expects the form to be closed before handling the deep link.
+
+#### Configurable In-App Form session timeout
+
+Introduced a configurable session timeout for In-App Forms, which defaults to 60 minutes, as an optional argument to `registerForInAppForms()`.
+
+#### New `unregisterFromInAppForms()` method
+
+Because the `registerForInAppForms()` method now functions as a persistent listener rather than a "fetch",  we've introduced an [`unregisterFromInAppForms()` method](./README.md#unregister-from-in-app-forms) so you can stop listening for In-App Forms at appropriate times, such as when a user logs out.
+
+
 ## Migrating to v4.0.0
 
 ### `Event.EventName` enum:
 
-- We have removed the PascalCase names in the `Event.EventName` enum, leaving only the camelCase names. You will need to remove any references to the old PascalCase names. See [Migrating to v3.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/blob/as/rel-400/MIGRATION_GUIDE.md#migrating-to-v330) below for more details.
+- We have removed the PascalCase names in the `Event.EventName` enum, leaving only the camelCase names. You will need to remove any references to the old PascalCase names. See [Migrating to v3.3.0](#migrating-to-v330) below for more details.
 - We have removed the `.OpenedPush` case (there is no camelCase replacement), as this is intended for internal use only. You will need to remove any references to the `.OpenedPush` case.
 
 ## Migrating to v3.3.0

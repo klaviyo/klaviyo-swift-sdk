@@ -31,9 +31,11 @@
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
 - [In-App Forms](#in-app-forms)
+  - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-  - [Behavior](#behavior)
-  - [Deep linking](#deep-linking)
+    - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Deep linking](#deep-linking-1)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -543,58 +545,78 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
 ## In-App Forms
-> ℹ️ In-app forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+> ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 
-[In-app forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new in-app forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
+[In-App Forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new In-App Forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
+
+Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers configured via the [`KlaviyoSDK().set(...)` methods](https://github.com/klaviyo/klaviyo-swift-sdk/blob/61e64552ad2acb65985e9305ae56eb57ff38d28b/Sources/KlaviyoSwift/Klaviyo.swift#L69-L135).
 
 ### Prerequisites
 
 * Using Klaviyo SDK version 4.2.0 and higher
 * Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features. The minimum SDK version supporting In-App Forms is `4.2.0`, and a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
+* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding changes to In-App Forms behavior.
+
+| Feature            | Minimum SDK Version |
+|--------------------|---------------------|
+| Basic In-App Forms | 4.2.0+              |
+| Time Delay         | 5.0.0               |
+| Audience Targeting | 5.0.0               |
 
 ### Setup
 
-To display in-app forms, add the following code to your application.
+To configure your app to display In-App Forms, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key. Once registered, the SDK may launch an overlay view at any time to present a form according to its targeting and behavior settings configured in your Klaviyo account.
+
+For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method.
 
 ```swift
-    import KlaviyoSwift
-    import KlaviyoForms
-    ...
+import KlaviyoSwift
+import KlaviyoForms
+...
 
-    // Refer the behavior section for where to place this code.
-    KlaviyoSDK()
-        .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-        .registerForInAppForms()
+// if registering in the same location where you're initializing the SDK
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerForInAppForms()
 
-    // if registering else where after `KlaviyoSDK` is initialized
-    KlaviyoSDK().registerForInAppForms()
+// if registering elsewhere after `KlaviyoSDK` is initialized
+KlaviyoSDK().registerForInAppForms()
 ```
 
-### Behavior
+Note that the In-App Forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
-Once `registerForInAppForms()` is called, the SDK will load form data for your account and display no more than one form within 15 seconds,  based on form targeting and behavior settings.
+#### In-App Forms Session Configuration
 
-You can call `registerForInAppForms()` any time after initializing with your public API key to control when and where in your app's UI a form can appear. It is safe to register multiple times per application session. The SDK will internally prevent multiple forms appearing at once.
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms, as we want to ensure that a user will not see a form multiple times within a single session.
 
-Consider how often you want to register for forms. Below are some ideas on when forms can potentially be shown,
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
 
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig` object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
 
-| **App State**                | **Lifecycle Method**                              | **Example Implementation** |
-|------------------------------|--------------------------------------------------|------------------------------|
-| **App Launched (Cold Start)** | `application(_:didFinishLaunchingWithOptions:)` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L41) |
-| **App Became Active**         | `applicationDidBecomeActive(_:)`                 | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/AppDelegate.swift#L59) |
-| **Any App View Controller**         | `viewDidLoad()` | [See here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/Shared/MenuPageViewController.swift#L35) |
+```swift
+import KlaviyoForms
+// e.g. to configure a session timeout of 30 minutes
+let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
+KlaviyoSDK().registerForInAppForms(configuration: config)
+```
 
+### Unregistering from In-App Forms
 
-Registering from `applicationDidBecomeActive(_:)` is advisable as it increases the chance of your user seeing the form. However, be advised that this will be shown as soon as the form is ready in the SDK, so you may still need to condition this based on the user's context within your application. Future versions of this product will provide more control in this regard.
+If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
 
+```swift
+import KlaviyoForms
+KlaviyoSDK().unregisterFromInAppForms()
+```
 
-**Note:** At this time, when device orientation changes any currently visible form is closed and will not be re-displayed automatically.
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
 
 ### Deep linking
 
-Deep linking to a particular screen based on user action from an IAF is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
+Deep linking to a particular screen based on user action from an In-App Form is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
 
 ## Additional Details
 
