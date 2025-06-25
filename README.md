@@ -567,14 +567,16 @@ Beginning with version 5.0.0, In-App Forms supports advanced targeting and segme
 
 ### Setup
 
-To configure your app to display In-App Forms, add the following code to your application:
+To configure your app to display In-App Forms, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key. Once registered, the SDK may launch an overlay view at any time to present a form according to its targeting and behavior settings configured in your Klaviyo account.
+
+For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method.
 
 ```swift
 import KlaviyoSwift
 import KlaviyoForms
 ...
 
-// Refer the behavior section for where to place this code.
+// if registering in the same location where you're initializing the SDK
 KlaviyoSDK()
     .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
     .registerForInAppForms()
@@ -582,8 +584,6 @@ KlaviyoSDK()
 // if registering elsewhere after `KlaviyoSDK` is initialized
 KlaviyoSDK().registerForInAppForms()
 ```
-
-Once registered, the SDK may launch an overlay view at any time to present a form according to its targeting and behavior settings configured in your Klaviyo account. For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method.
 
 Note that the In-App Forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
