@@ -35,7 +35,7 @@
   - [Setup](#setup)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
-  - [Deep linking](#deep-linking)
+  - [Deep linking](#deep-linking-1)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
