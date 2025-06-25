@@ -11,12 +11,14 @@ import KlaviyoSwift
 extension KlaviyoSDK {
     /// Registers app to receive and display In-App Forms from Klaviyo.
     ///
-    /// This method sets up the necessary lifecycle event handlers and constructs the web view
-    /// that will be used to display In-App Forms. The forms will be displayed based on your
-    /// Klaviyo form display settings.
+    /// This will load forms data and establish ongoing listeners to present a form to the user
+    /// whenever a form is triggered by an event or condition according to the targeting and behavior
+    /// settings configured for forms in your Klaviyo account.
     ///
     /// - Parameter configuration: Configuration options for In-App Forms, including session timeout duration.
     ///   Defaults to a 1-hour session timeout.
+    ///
+    /// - Note: a public API key is required, so ``KlaviyoSDK().initialize(with:)`` must be called first. If the API key changes, the session will be re-initialized automatically with the new key.
     @MainActor
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) {
         Task {
