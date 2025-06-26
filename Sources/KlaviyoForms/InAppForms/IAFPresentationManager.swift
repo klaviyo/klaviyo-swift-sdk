@@ -313,18 +313,73 @@ class IAFPresentationManager {
             return
         }
 
-        if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+        // If the top controller is an alert controller, add our form view directly to the view hierarchy
+        if topController is UIAlertController {
+            guard let presentingController = topController.presentingViewController else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Unable to find presenting controller for UIAlertController; ignoring `presentForm()` request.")
+                }
+                return
             }
+
+            if presentingController.isKlaviyoVC || presentingController.hasKlaviyoVCInStack {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+                }
+                return
+            }
+
+            // Check if view is already in hierarchy
+            if viewController.view.superview != nil {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Form view is already in view hierarchy; ignoring request")
+                }
+                return
+            }
+
+            // Ensure presenting controller's view is loaded
+            guard presentingController.isViewLoaded else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Presenting controller's view is not loaded; ignoring request")
+                }
+                return
+            }
+
+            // Add the form view directly to the presenting controller's view
+            viewController.view.frame = presentingController.view.bounds
+            viewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            presentingController.view.addSubview(viewController.view)
+            presentingController.addChild(viewController)
+            viewController.didMove(toParent: presentingController)
+
+            // Trigger appearance transitions to ensure viewController gets proper lifecycle events
+            viewController.beginAppearanceTransition(true, animated: false)
+            viewController.endAppearanceTransition()
         } else {
-            topController.present(viewController, animated: false, completion: nil)
+            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+                }
+            } else {
+                topController.present(viewController, animated: false, completion: nil)
+            }
         }
     }
 
     func dismissForm() {
         guard let viewController else { return }
-        viewController.dismiss(animated: false)
+
+        // Check if the view controller is a child view controller (added directly to view hierarchy)
+        if viewController.parent != nil {
+            viewController.beginAppearanceTransition(false, animated: false)
+            viewController.willMove(toParent: nil)
+            viewController.view.removeFromSuperview()
+            viewController.removeFromParent()
+            viewController.endAppearanceTransition()
+        } else {
+            // Modal presentation case
+            viewController.dismiss(animated: false)
+        }
     }
 }
 
