@@ -41,10 +41,13 @@ public enum KlaviyoExtensionSDK {
         contentHandler: @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpeg"
     ) {
-        // handle badge setting from the push notification payload
-        handleBadge(bestAttemptContent: bestAttemptContent)
-        // handle rich media setup
-        handleRichMedia(bestAttemptContent: bestAttemptContent, contentHandler: contentHandler, fallbackMediaType: fallbackMediaType)
+        // Check for the _k parameter to verify the push message originated from Klaviyo
+        if let body = bestAttemptContent.userInfo["body"] as? [String: Any], let _ = body["_k"] {
+            // handle badge setting from the push notification payload
+            handleBadge(bestAttemptContent: bestAttemptContent)
+            // handle rich media setup
+            handleRichMedia(bestAttemptContent: bestAttemptContent, contentHandler: contentHandler, fallbackMediaType: fallbackMediaType)
+        }
     }
 
     /// reads the badge count configuration setting received in the payload and handles it accordingly and syncs to the stored count
