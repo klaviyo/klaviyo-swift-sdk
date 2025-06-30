@@ -29,6 +29,7 @@ class IAFPresentationManager {
 
     private var formEventTask: Task<Void, Never>?
     private var initializationWarningTask: Task<Void, Never>?
+    private var delayedPresentationTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -287,9 +288,11 @@ class IAFPresentationManager {
         lifecycleCancellable?.cancel()
         apiKeyCancellable?.cancel()
         formEventTask?.cancel()
+        delayedPresentationTask?.cancel()
         lifecycleCancellable = nil
         apiKeyCancellable = nil
         formEventTask = nil
+        delayedPresentationTask = nil
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
         destroyWebView()
@@ -313,12 +316,25 @@ class IAFPresentationManager {
             return
         }
 
-        if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
+        if topController is UIAlertController {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+                Logger.webViewLogger.warning("Alert is currently being displayed. Delaying form presentation until alert is dismissed.")
+            }
+
+            // We'll recursively call `presentForm()` after a short delay.
+            delayedPresentationTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                try? Task.checkCancellation()
+                self.presentForm()
             }
         } else {
-            topController.present(viewController, animated: false, completion: nil)
+            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
+                }
+            } else {
+                topController.present(viewController, animated: false, completion: nil)
+            }
         }
     }
 
