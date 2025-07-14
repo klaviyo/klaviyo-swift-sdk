@@ -117,6 +117,8 @@ Once integrated, your marketing team will be able to better understand your app 
 4. Finally, in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file.
   This sample covers calling into Klaviyo so that we can download and attach the media to the push notification as well as handle custom badge counts. It also demonstrates how to access custom data (key-value pairs) sent from Klaviyo.
 
+> Advanced: If you are using multiple push sending providers, to distinguish a message from Klaviyo you can check for the presence of the `_k` parameter within the message's paylod body. For reference, check out the implementation of `KlaviyoSDK().handle()`.
+
 ## Initialization
 The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
 for your Klaviyo account, also known as your Site ID.
