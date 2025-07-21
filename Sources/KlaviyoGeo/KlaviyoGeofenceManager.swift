@@ -72,3 +72,35 @@ public class KlaviyoGeofenceManager {
         }
     }
 }
+
+// TODO: Implement this
+// See this: https://forums.developer.apple.com/forums/thread/757002
+// if #available(iOS 17.0, *) {
+//    Task {
+//        // Create a custom monitor.
+//        let monitor = await CLMonitor("my_custom_monitor")
+//        // Register the condition for 200 meters.
+//        let center1 = CLLocationCoordinate2D(latitude: 72, longitude: -120);
+//        let condition = CLMonitor.CircularGeographicCondition(center: center1, radius: 100)
+//        // Add the condition to the monitor.
+//        await monitor.add(condition, identifier: "stay_within_200_meters")
+//        // Start monitoring.
+//        for try await event in await monitor.events {
+//            // Respond to events.
+//            if event.state == .satisfied {
+//                // Process the 200 meter condition.
+//            }
+//        }
+//    }
+// }
+
+// Start monitoring
+// if #available(iOS 17.0, *) {
+//    Task {
+//        let locationMontior: CLMonitor = await .init("geofence monitor")
+//        let condition = CLMonitor.CircularGeographicCondition(center: regionCoordinate, radius: 200)
+//        await locationMontior.add(condition, identifier: "place1", assuming: CLMonitor.Event.State.satisfied)
+//    }
+// } else {
+//    locationManager.startMonitoring(for: geofenceRegion)
+// }
