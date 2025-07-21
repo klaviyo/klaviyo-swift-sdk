@@ -8,7 +8,7 @@
 import Foundation
 
 public struct KlaviyoRequest: Equatable, Codable {
-    public let apiKey: String
+    private let apiKey: String
     public let endpoint: KlaviyoEndpoint
     public var uuid: String
 
