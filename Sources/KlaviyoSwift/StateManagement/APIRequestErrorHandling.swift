@@ -13,6 +13,15 @@ enum ErrorHandlingConstants {
     static let maxBackoff = 60 * 3 // 3 minutes
 }
 
+extension KlaviyoEndpoint {
+    var maxRetries: Int {
+        switch self {
+        case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent:
+            return 50
+        }
+    }
+}
+
 enum InvalidField: Equatable {
     case email
     case phone
