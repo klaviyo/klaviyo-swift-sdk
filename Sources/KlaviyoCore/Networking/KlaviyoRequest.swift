@@ -22,7 +22,7 @@ public struct KlaviyoRequest: Equatable, Codable {
         self.uuid = uuid
     }
 
-    public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
+    public func urlRequest(currentAttempt: Int = 1, maxAttempts: Int) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
         }
@@ -38,7 +38,7 @@ public struct KlaviyoRequest: Equatable, Codable {
         }
 
         request.httpMethod = endpoint.httpMethod.rawValue
-        request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
+        request.setValue("\(currentAttempt)/\(maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
     }

@@ -16,7 +16,10 @@ public struct KlaviyoAPI {
 
         var urlRequest: URLRequest
         do {
-            urlRequest = try request.urlRequest(attemptNumber)
+            urlRequest = try request.urlRequest(
+                currentAttempt: attemptNumber,
+                maxAttempts: 50
+            )
         } catch {
             requestHandler(request, nil, .error(.requestFailed(error)))
             return .failure(.internalRequestError(error))
