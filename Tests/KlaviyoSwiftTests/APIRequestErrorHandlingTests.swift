@@ -56,7 +56,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -79,7 +79,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -102,7 +102,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -147,14 +147,14 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(2)
+            $0.retryState = .retry(2)
         }
     }
 
     @MainActor
     func testSendRequestFailureWithBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
+        initialState.retryState = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
@@ -168,14 +168,14 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(2)
+            $0.retryState = .retry(2)
         }
     }
 
     @MainActor
     func testSendRequestMaxRetries() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retry(ErrorHandlingConstants.maxRetries)
+        initialState.retryState = .retry(ErrorHandlingConstants.maxRetries)
 
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
@@ -191,7 +191,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request2]
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -214,7 +214,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -236,7 +236,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -258,7 +258,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -279,7 +279,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -300,7 +300,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 
@@ -321,14 +321,14 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
     }
 
     @MainActor
     func testRateLimitErrorWithExistingBackoffRetry() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
+        initialState.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -341,14 +341,14 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
+            $0.retryState = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
     }
 
     @MainActor
     func testRetryWithRetryAfter() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
+        initialState.retryState = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -361,7 +361,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryInfo = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
+            $0.retryState = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
         }
     }
 
@@ -370,7 +370,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     @MainActor
     func testMissingOrInvalidResponse() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
+        initialState.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -383,7 +383,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.flushing = false
             $0.queue = []
             $0.requestsInFlight = []
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
         }
     }
 }

@@ -26,7 +26,7 @@ enum StateManagementConstants {
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
-enum RetryInfo: Equatable {
+enum RetryState: Equatable {
     /// Indicates that the request should be retried immediately (subject to
     /// the regular flush cadence).
     ///
@@ -101,7 +101,7 @@ enum KlaviyoAction: Equatable {
     case cancelInFlightRequests
 
     /// called when there is a network or rate limit error
-    case requestFailed(KlaviyoRequest, RetryInfo)
+    case requestFailed(KlaviyoRequest, RetryState)
 
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
@@ -279,17 +279,17 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.flushing {
                 return .none
             }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryInfo {
+            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
                 if newBackOff > 0 {
-                    state.retryInfo = .retryWithBackoff(
+                    state.retryState = .retryWithBackoff(
                         requestCount: requestCount,
                         totalRetryCount: totalCount,
                         currentBackoff: newBackOff
                     )
                     return .none
                 } else {
-                    state.retryInfo = .retry(requestCount)
+                    state.retryState = .retry(requestCount)
                 }
             }
             if state.pendingProfile != nil {
@@ -356,7 +356,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.uuid == inflightRequest.uuid
             }
-            state.retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
+            state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -375,9 +375,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
-            let retryInfo = state.retryInfo
+            let retryState = state.retryState
             var numAttempts = 1
-            if case let .retry(attempts) = retryInfo {
+            if case let .retry(attempts) = retryState {
                 numAttempts = attempts
             }
 
@@ -387,7 +387,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 case .success:
                     await send(.deQueueCompletedResults(request))
                 case let .failure(error):
-                    await send(handleRequestError(request: request, error: error, retryInfo: retryInfo))
+                    await send(handleRequestError(request: request, error: error, retryState: retryState))
                 }
             } catch: { error, send in
                 // For now assuming this is cancellation since nothing else can throw AFAICT
@@ -423,15 +423,15 @@ struct KlaviyoReducer: ReducerProtocol {
                 }.eraseToEffect()
                 .cancellable(id: FlushTimer.self, cancelInFlight: true)
 
-        case let .requestFailed(request, retryInfo):
+        case let .requestFailed(request, retryState):
             var exceededRetries = false
-            switch retryInfo {
+            switch retryState {
             case let .retry(count):
                 exceededRetries = count > request.endpoint.maxRetries
-                state.retryInfo = .retry(exceededRetries ? 1 : count)
+                state.retryState = .retry(exceededRetries ? 1 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
                 exceededRetries = requestCount > request.endpoint.maxRetries
-                state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
+                state.retryState = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
             }
             if exceededRetries {
                 state.requestsInFlight.removeAll { inflightRequest in
