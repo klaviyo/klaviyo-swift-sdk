@@ -9,7 +9,6 @@ import Foundation
 import KlaviyoCore
 
 enum ErrorHandlingConstants {
-    static let maxRetries = 50
     static let maxBackoff = 60 * 3 // 3 minutes
 }
 
