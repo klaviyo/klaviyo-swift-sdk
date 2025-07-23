@@ -25,8 +25,25 @@ enum StateManagementConstants {
     static let initialAttempt = 1
 }
 
+/// Describes how the state machine should handle retrying a request after a failure.
 enum RetryInfo: Equatable {
-    case retry(Int) // Int is current count for first request
+    /// Indicates that the request should be retried immediately (subject to
+    /// the regular flush cadence).
+    ///
+    /// - Parameter currentCount: The attempt number for the *current* request.
+    ///   The value should start at `1` for the very first send and is incremented each
+    ///   time a transient failure (such as a network error) occurs.
+    case retry(_ currentCount: Int)
+
+    /// Indicates that the request should be retried after waiting for a
+    /// server-specified back-off interval. This path is typically triggered by
+    /// an HTTP 429 "Too Many Requests" response that includes a `Retry-After`
+    /// header.
+    ///
+    /// - Parameters:
+    ///   - requestCount: The number of attempts made for this specific request.
+    ///   - totalRetryCount: The total number of attempts made for this request across all retry strategies.
+    ///   - currentBackoff: The remaining time in seconds to wait before the next retry attempt.
     case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
 }
 
