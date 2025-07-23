@@ -175,9 +175,10 @@ class APIRequestErrorHandlingTests: XCTestCase {
     @MainActor
     func testSendRequestMaxRetries() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryState = .retry(ErrorHandlingConstants.maxRetries)
-
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let maxRetries = request.endpoint.maxRetries
+        initialState.retryState = .retry(maxRetries)
+
         var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
         request2.uuid = "foo"
         initialState.requestsInFlight = [request, request2]
@@ -187,7 +188,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retry(ErrorHandlingConstants.maxRetries + 1)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retry(maxRetries + 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
             $0.queue = [request2]
             $0.requestsInFlight = []
