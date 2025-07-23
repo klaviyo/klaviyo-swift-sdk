@@ -12,7 +12,7 @@
     ▿ some: 1 key/value pair
       ▿ (2 elements)
         - key: "X-Klaviyo-Attempt-Count"
-        - value: "0/50"
+        - value: "1/50"
   - httpBody: Optional<Data>.none
   - httpBodyStream: Optional<NSInputStream>.none
   - httpShouldHandleCookies: true
