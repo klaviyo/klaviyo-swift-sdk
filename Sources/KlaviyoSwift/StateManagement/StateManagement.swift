@@ -365,7 +365,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .run { [numAttempts] send in
-                let result = await environment.klaviyoAPI.send(request, numAttempts)
+                let result = await environment.klaviyoAPI.send(request, (attemptNumber: numAttempts, maxAttempts: request.endpoint.maxRetries))
                 switch result {
                 case .success:
                     await send(.deQueueCompletedResults(request))
@@ -410,10 +410,10 @@ struct KlaviyoReducer: ReducerProtocol {
             var exceededRetries = false
             switch retryInfo {
             case let .retry(count):
-                exceededRetries = count > ErrorHandlingConstants.maxRetries
+                exceededRetries = count > request.endpoint.maxRetries
                 state.retryInfo = .retry(exceededRetries ? 1 : count)
             case let .retryWithBackoff(requestCount, totalCount, backOff):
-                exceededRetries = requestCount > ErrorHandlingConstants.maxRetries
+                exceededRetries = requestCount > request.endpoint.maxRetries
                 state.retryInfo = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
             }
             if exceededRetries {
