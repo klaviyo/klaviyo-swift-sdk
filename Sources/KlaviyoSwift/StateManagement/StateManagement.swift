@@ -382,7 +382,18 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .run { [numAttempts] send in
-                let requestAttemptInfo = RequestAttemptInfo(attemptNumber: numAttempts, maxAttempts: request.endpoint.maxRetries)
+                let requestAttemptInfo: RequestAttemptInfo
+                do {
+                    requestAttemptInfo = try RequestAttemptInfo(
+                        attemptNumber: numAttempts,
+                        maxAttempts: request.endpoint.maxRetries
+                    )
+                } catch {
+                    environment.emitDeveloperWarning("Invalid RequestAttemptInfo parameters: \(error)")
+                    await send(.cancelInFlightRequests)
+                    return
+                }
+
                 let result = await environment.klaviyoAPI.send(request, requestAttemptInfo)
                 switch result {
                 case .success:

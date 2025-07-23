@@ -13,10 +13,20 @@ public struct RequestAttemptInfo: Equatable {
     /// The maximum number of attempts allowed for the request.
     public let maxAttempts: Int
 
+    /// Error cases thrown by ``RequestAttemptInfo``'s initializer.
+    public enum InitializationError: Error, Equatable {
+        /// The provided values are outside of the valid range.
+        case invalidRange(attemptNumber: Int, maxAttempts: Int)
+    }
+
+    /// Creates a new instance or throws ``InitializationError`` if the supplied values are invalid.
     /// - Parameters:
-    ///   - attemptNumber: The current attempt count (must be `>= 1`).
-    ///   - maxAttempts: The maximum attempts permitted (must be `>= attemptNumber`).
-    public init(attemptNumber: Int, maxAttempts: Int) {
+    ///   - attemptNumber: The current attempt count. Must be **≥ 1**.
+    ///   - maxAttempts: The maximum attempts permitted. Must be **≥ attemptNumber**.
+    public init(attemptNumber: Int, maxAttempts: Int) throws {
+        guard attemptNumber >= 1, maxAttempts >= attemptNumber else {
+            throw InitializationError.invalidRange(attemptNumber: attemptNumber, maxAttempts: maxAttempts)
+        }
         self.attemptNumber = attemptNumber
         self.maxAttempts = maxAttempts
     }
