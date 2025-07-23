@@ -9,16 +9,16 @@ import AnyCodable
 import Foundation
 
 public struct KlaviyoAPI {
-    public var send: (KlaviyoRequest, (attemptNumber: Int, maxAttempts: Int)) async -> Result<Data, KlaviyoAPIError>
+    public var send: (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError>
 
-    public init(send: @escaping (KlaviyoRequest, (attemptNumber: Int, maxAttempts: Int)) async -> Result<Data, KlaviyoAPIError> = { request, retryInfo in
+    public init(send: @escaping (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError> = { request, requestAttemptInfo in
         let start = environment.date()
 
         var urlRequest: URLRequest
         do {
             urlRequest = try request.urlRequest(
-                currentAttempt: retryInfo.attemptNumber,
-                maxAttempts: retryInfo.maxAttempts
+                currentAttempt: requestAttemptInfo.attemptNumber,
+                maxAttempts: requestAttemptInfo.maxAttempts
             )
         } catch {
             requestHandler(request, nil, .error(.requestFailed(error)))
@@ -44,7 +44,7 @@ public struct KlaviyoAPI {
         }
 
         if httpResponse.statusCode == 429 || httpResponse.statusCode == 503 {
-            let exponentialBackOff = Int(pow(2.0, Double(retryInfo.attemptNumber)))
+            let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {
                 nextBackoff = Int(retryAfter) ?? exponentialBackOff
