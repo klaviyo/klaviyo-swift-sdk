@@ -420,6 +420,54 @@ final class IAFPresentationManagerTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated after timeout duration")
     }
+
+    // MARK: - Profile Event Injection Tests
+
+    @MainActor
+    func testHandleProfileEventCreatedInjectsEvent() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event is handled successfully")
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When
+        let testEvent = Event(name: .addedToCartMetric, properties: ["amount": 99.99, "currency": "USD"])
+        try await presentationManager.handleProfileEventCreated(testEvent)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("dispatchProfileEvent") && script.contains("Added to Cart")
+        }, "Event should be dispatched with correct event name")
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("amount") && script.contains("currency")
+        }, "Event should include properties")
+    }
+
+    @MainActor
+    func testEventSubscriptionCleanup() async throws {
+        // Given
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        // Create and publish an event after cleanup
+        let testEvent = Event(name: .customEvent("test_event"), properties: ["key": "value"])
+        KlaviyoInternal.publishEvent(testEvent)
+
+        // Should not crash or cause issues
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+    }
 }
 
 // MARK: - Mock Classes
