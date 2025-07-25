@@ -21,6 +21,7 @@ class IAFPresentationManager {
 
     private var lifecycleCancellable: AnyCancellable?
     private var apiKeyCancellable: AnyCancellable?
+    private var profileEventCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -68,6 +69,7 @@ class IAFPresentationManager {
 
         self.assetSource = assetSource
         setupApiKeySubscription(configuration)
+        setupProfileEventSubscription()
     }
 
     func createFormAndAwaitFormEvents(apiKey: String) async throws {
@@ -89,6 +91,17 @@ class IAFPresentationManager {
                     handleAPIKeyReceived(apiKey, configuration: configuration)
                 case let .failure(sdkError):
                     handleAPIKeyError(sdkError)
+                }
+            }
+    }
+
+    private func setupProfileEventSubscription() {
+        profileEventCancellable = KlaviyoInternal.eventPublisher()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                guard let self else { return }
+                Task {
+                    try? await self.handleProfileEventCreated(event)
                 }
             }
     }
@@ -245,6 +258,23 @@ class IAFPresentationManager {
         }
     }
 
+    func handleProfileEventCreated(_ event: Event) async throws {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to dispatch '\(event.metric.name.value, privacy: .public)' event via Klaviyo.JS")
+        }
+
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', '\(event.properties)')")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
+            }
+        }
+    }
+
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
@@ -287,14 +317,17 @@ class IAFPresentationManager {
         lastBackgrounded = nil
         lifecycleCancellable?.cancel()
         apiKeyCancellable?.cancel()
+        profileEventCancellable?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         lifecycleCancellable = nil
         apiKeyCancellable = nil
+        profileEventCancellable = nil
         formEventTask = nil
         delayedPresentationTask = nil
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
+        KlaviyoInternal.resetEventSubject()
         destroyWebView()
     }
 

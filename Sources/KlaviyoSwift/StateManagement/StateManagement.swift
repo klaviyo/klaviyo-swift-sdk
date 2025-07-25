@@ -437,6 +437,9 @@ struct KlaviyoReducer: ReducerProtocol {
 
             event = event.updateEventWithState(state: &state)
 
+            // Publish the event to subscribers
+            KlaviyoInternal.publishEvent(event)
+
             let payload = CreateEventPayload(
                 data: CreateEventPayload.Event(
                     name: event.metric.name.value,
