@@ -25,9 +25,11 @@ package enum KlaviyoInternal {
 
     private static var profileDataCancellable: Cancellable?
     private static var apiKeyCancellable: Cancellable?
+    private static var profileEventCancellable: Cancellable?
 
     private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
+    private static let profileEventSubject = PassthroughSubject<Event, Never>()
 
     // MARK: - API Key methods
 
@@ -149,6 +151,28 @@ package enum KlaviyoInternal {
         profileDataCancellable?.cancel()
         profileDataCancellable = nil
         profileDataSubject.send(.failure(.notInitialized))
+    }
+
+    // MARK: - Profile Event methods
+
+    /// Publishes an event to subscribers.
+    ///
+    /// - Parameter event: the profile event to publish
+    package static func publishEvent(_ event: Event) {
+        profileEventSubject.send(event)
+    }
+
+    /// A publisher that emits events when they are created.
+    ///
+    /// - Returns: A publisher that emits profile events
+    package static func eventPublisher() -> AnyPublisher<Event, Never> {
+        profileEventSubject.eraseToAnyPublisher()
+    }
+
+    /// Resets the profile event subject to its initial state.
+    package static func resetEventSubject() {
+        profileEventCancellable?.cancel()
+        profileEventCancellable = nil
     }
 
     // MARK: - Aggregate Events methods
