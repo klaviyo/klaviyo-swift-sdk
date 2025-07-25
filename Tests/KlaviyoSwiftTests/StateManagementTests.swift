@@ -333,7 +333,7 @@ class StateManagementTests: XCTestCase {
     @MainActor
     func testFlushQueueDuringExponentialBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
+        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
@@ -341,14 +341,14 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
-            $0.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
+            $0.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
         }
     }
 
     @MainActor
     func testFlushQueueExponentialBackoffGoesToSize() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
+        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
@@ -356,7 +356,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
-            $0.retryInfo = .retry(23)
+            $0.retryState = .retry(23)
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
@@ -366,7 +366,7 @@ class StateManagementTests: XCTestCase {
         // didn't fake uuid since we are not testing this.
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
             $0.requestsInFlight = []
             $0.queue = []
         }
