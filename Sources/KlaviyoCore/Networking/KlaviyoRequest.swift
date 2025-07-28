@@ -7,19 +7,19 @@
 
 import Foundation
 
-public struct KlaviyoRequest: Equatable, Codable {
+public struct KlaviyoRequest: Identifiable, Equatable, Codable {
+    public let id: String
     private let apiKey: String
     public let endpoint: KlaviyoEndpoint
-    public var uuid: String
 
     public init(
+        id: String = environment.uuid().uuidString,
         apiKey: String,
-        endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString
+        endpoint: KlaviyoEndpoint
     ) {
+        self.id = id
         self.apiKey = apiKey
         self.endpoint = endpoint
-        self.uuid = uuid
     }
 
     /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.

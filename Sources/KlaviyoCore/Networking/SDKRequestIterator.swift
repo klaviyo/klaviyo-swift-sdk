@@ -94,7 +94,7 @@ public struct SDKRequest: Identifiable, Equatable {
         let type = RequestType.fromEndpoint(request: request)
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
-        return SDKRequest(id: request.uuid,
+        return SDKRequest(id: request.id,
                           type: type,
                           url: url,
                           method: method,
