@@ -20,6 +20,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case handShook
     case analyticsEvent
     case lifecycleEvent
+    case profileEvent
     case profileMutation
 
     private enum CodingKeys: String, CodingKey {
@@ -38,6 +39,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case handShook
         case analyticsEvent
         case lifecycleEvent
+        case profileEvent
         case profileMutation
     }
 
@@ -72,6 +74,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .analyticsEvent
         case .lifecycleEvent:
             self = .lifecycleEvent
+        case .profileEvent:
+            self = .profileEvent
         case .profileMutation:
             self = .profileMutation
         }
@@ -123,6 +127,7 @@ extension IAFNativeBridgeEvent {
             .openDeepLink(URL(string: "https://example.com")!),
             .abort(""),
             .lifecycleEvent,
+            .profileEvent,
             .profileMutation
         ]
     }
@@ -139,6 +144,7 @@ extension IAFNativeBridgeEvent {
         case .handShook: return 1
         case .analyticsEvent: return 1
         case .lifecycleEvent: return 1
+        case .profileEvent: return 1
         case .profileMutation: return 1
         }
     }
@@ -155,6 +161,7 @@ extension IAFNativeBridgeEvent {
         case .handShook: return "handShook"
         case .analyticsEvent: return "analyticsEvent"
         case .lifecycleEvent: return "lifecycleEvent"
+        case .profileEvent: return "profileEvent"
         case .profileMutation: return "profileMutation"
         }
     }
