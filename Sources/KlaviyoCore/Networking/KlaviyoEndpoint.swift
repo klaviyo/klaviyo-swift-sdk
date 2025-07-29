@@ -15,6 +15,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
+    case resolveDestinationURL(trackingLink: URL)
 
     public var headers: [String: String] { [:] }
 
@@ -26,6 +27,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
+        case .resolveDestinationURL:
+            return []
         }
     }
 
@@ -33,26 +36,33 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
+        case let .resolveDestinationURL(trackingLink: trackingLink):
+            return .get
         }
     }
 
     public func baseURL() throws -> URL {
-        guard environment.apiURL().scheme != nil,
-              environment.apiURL().host != nil,
-              let url = environment.apiURL().url else {
-            let errorMessage = (environment.apiURL().scheme == nil || environment.apiURL().host == nil)
-                ?
-                "Failed to build valid URL; scheme and/or host is nil"
-                :
-                "Failed to build valid URL from base components '\(String(describing: environment.apiURL()))'"
+        switch self {
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+            guard environment.apiURL().scheme != nil,
+                  environment.apiURL().host != nil,
+                  let url = environment.apiURL().url else {
+                let errorMessage = (environment.apiURL().scheme == nil || environment.apiURL().host == nil)
+                    ?
+                    "Failed to build valid URL; scheme and/or host is nil"
+                    :
+                    "Failed to build valid URL from base components '\(String(describing: environment.apiURL()))'"
 
-            if #available(iOS 14.0, *) {
-                Logger.networking.warning("\(errorMessage)")
+                if #available(iOS 14.0, *) {
+                    Logger.networking.warning("\(errorMessage)")
+                }
+                throw KlaviyoAPIError.internalError("\(errorMessage)")
             }
-            throw KlaviyoAPIError.internalError("\(errorMessage)")
-        }
 
-        return url
+            return url
+        case let .resolveDestinationURL(trackingLink):
+            return trackingLink
+        }
     }
 
     var path: String {
@@ -67,6 +77,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-token-unregister/"
         case .aggregateEvent:
             return "/onsite/track-analytics"
+        case .resolveDestinationURL:
+            return ""
         }
     }
 
@@ -82,6 +94,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .aggregateEvent(_, payload):
             return payload
+        case .resolveDestinationURL:
+            return nil
         }
     }
 }
