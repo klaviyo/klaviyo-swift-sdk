@@ -22,7 +22,16 @@ public struct KlaviyoRequest: Equatable, Codable {
         self.uuid = uuid
     }
 
-    public func urlRequest(currentAttempt: Int = 1, maxAttempts: Int) throws -> URLRequest {
+    /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.
+    ///
+    /// This method adds an attempt count header to the request, which helps the Klaviyo API
+    /// understand the request's retry status and can influence rate limiting behavior.
+    ///
+    /// - Parameter attemptInfo: Information about the current attempt and maximum attempts allowed.
+    /// - Returns: A URLRequest configured with the appropriate headers and endpoint information.
+    /// - Throws: An error if the request cannot be created, either from the endpoint or if
+    ///           the provided attemptInfo is invalid.
+    public func urlRequest(attemptInfo: RequestAttemptInfo) throws -> URLRequest {
         guard let url = url else {
             throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
         }
@@ -38,7 +47,7 @@ public struct KlaviyoRequest: Equatable, Codable {
         }
 
         request.httpMethod = endpoint.httpMethod.rawValue
-        request.setValue("\(currentAttempt)/\(maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
+        request.setValue("\(attemptInfo.attemptNumber)/\(attemptInfo.maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
 
         return request
     }
