@@ -29,7 +29,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         }
     }
 
-    var httpMethod: RequestMethod {
+    var httpMethod: HTTPMethod {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
