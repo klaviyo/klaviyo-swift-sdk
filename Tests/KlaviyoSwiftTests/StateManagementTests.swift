@@ -483,7 +483,7 @@ class StateManagementTests: XCTestCase {
             $0.pendingProfile = nil
             request = $0.requestsInFlight[0]
             switch request?.endpoint {
-            case let .registerPushToken(payload):
+            case let .registerPushToken(_, payload):
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.city, Profile.test.location!.city)
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.region, Profile.test.location!.region!)
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.address1, Profile.test.location!.address1!)
@@ -544,13 +544,16 @@ class StateManagementTests: XCTestCase {
             $0.pushTokenData = nil
 
             let request = KlaviyoRequest(
-                apiKey: initialState.apiKey!,
-                endpoint: .registerPushToken(PushTokenPayload(
-                    pushToken: initialState.pushTokenData!.pushToken,
-                    enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                    background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!)
-                )
+                endpoint: .registerPushToken(
+                    initialState.apiKey!,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile.test.toAPIModel(
+                            anonymousId: initialState.anonymousId!
+                        )
+                    )
                 )
             )
             $0.queue = [request]
@@ -583,18 +586,21 @@ class StateManagementTests: XCTestCase {
             await store.send(.enqueueEvent(event)) {
                 try $0.enqueueRequest(
                     request: KlaviyoRequest(
-                        apiKey: XCTUnwrap($0.apiKey),
-                        endpoint: .createEvent(CreateEventPayload(
-                            data: CreateEventPayload.Event(
-                                name: eventName.value,
-                                properties: event.properties,
-                                phoneNumber: $0.phoneNumber,
-                                anonymousId: initialState.anonymousId!,
-                                time: event.time,
-                                pushToken: initialState.pushTokenData!.pushToken
+                        endpoint: .createEvent(
+                            XCTUnwrap($0.apiKey),
+                            CreateEventPayload(
+                                data: CreateEventPayload.Event(
+                                    name: eventName.value,
+                                    properties: event.properties,
+                                    phoneNumber: $0.phoneNumber,
+                                    anonymousId: initialState.anonymousId!,
+                                    time: event.time,
+                                    pushToken: initialState.pushTokenData!.pushToken
+                                )
                             )
-                        ))
-                    ))
+                        )
+                    )
+                )
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -622,16 +628,18 @@ class StateManagementTests: XCTestCase {
         await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
-                    apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .createEvent(CreateEventPayload(
-                        data: CreateEventPayload.Event(
-                            name: Event.EventName.openedAppMetric.value,
-                            properties: event.properties,
-                            phoneNumber: $0.phoneNumber,
-                            anonymousId: initialState.anonymousId!,
-                            time: event.time
+                    endpoint: .createEvent(
+                        XCTUnwrap($0.apiKey),
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: Event.EventName.openedAppMetric.value,
+                                properties: event.properties,
+                                phoneNumber: $0.phoneNumber,
+                                anonymousId: initialState.anonymousId!,
+                                time: event.time
+                            )
                         )
-                    ))
+                    )
                 )
             )
         }
@@ -653,8 +661,10 @@ class StateManagementTests: XCTestCase {
         await store.send(.enqueueAggregateEvent(data)) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
-                    apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data))
+                    endpoint: .aggregateEvent(
+                        XCTUnwrap($0.apiKey),
+                        AggregateEventPayload(data)
+                    )
                 )
             )
         }
@@ -678,8 +688,10 @@ class StateManagementTests: XCTestCase {
         await store.receive(.enqueueAggregateEvent(data), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
-                    apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .aggregateEvent(AggregateEventPayload(data))
+                    endpoint: .aggregateEvent(
+                        XCTUnwrap($0.apiKey),
+                        AggregateEventPayload(data)
+                    )
                 )
             )
         }

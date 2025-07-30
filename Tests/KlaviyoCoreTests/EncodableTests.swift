@@ -55,7 +55,7 @@ final class EncodableTests: XCTestCase {
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
         )
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
+        let request = KlaviyoRequest(endpoint: .registerPushToken("foo", tokenPayload))
         assertSnapshot(matching: request, as: .json)
     }
 }

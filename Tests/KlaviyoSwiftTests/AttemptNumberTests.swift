@@ -12,7 +12,7 @@ final class AttemptNumberTests: XCTestCase {
         }
 
         // Build a minimal request and pre-populate state with it in flight.
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(.init(data: .init(name: "foo"))))
+        let request = KlaviyoRequest(endpoint: .createEvent("foo", .init(data: .init(name: "foo"))))
         let initialState = KlaviyoState(
             apiKey: "foo",
             anonymousId: environment.uuid().uuidString,
