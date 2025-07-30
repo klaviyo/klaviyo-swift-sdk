@@ -7,19 +7,34 @@
 
 import Foundation
 
-public struct KlaviyoRequest: Equatable, Codable {
-    private let apiKey: String
-    public let endpoint: KlaviyoEndpoint
-    public var uuid: String
+/// A request that can be sent to the Klaviyo API.
+///
+/// This struct encapsulates all the information needed to make a request to Klaviyo's API,
+/// including the endpoint to call and a unique identifier for tracking the request.
+public struct KlaviyoRequest: Identifiable, Equatable, Codable {
+    /// A unique identifier for the request.
+    public let id: String
 
+    /// The API key (a.k.a. "Company ID") to use for the request.
+    private let apiKey: String
+
+    /// The API endpoint this request targets.
+    public let endpoint: KlaviyoEndpoint
+
+    /// Creates a new request to the Klaviyo API.
+    ///
+    /// - Parameters:
+    ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
+    ///   - apiKey: The API key (a.k.a. "Company ID") to use for the request.
+    ///   - endpoint: The endpoint this request will target.
     public init(
+        id: String = environment.uuid().uuidString,
         apiKey: String,
-        endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString
+        endpoint: KlaviyoEndpoint
     ) {
+        self.id = id
         self.apiKey = apiKey
         self.endpoint = endpoint
-        self.uuid = uuid
     }
 
     /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.

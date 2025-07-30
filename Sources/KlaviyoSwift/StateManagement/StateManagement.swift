@@ -354,7 +354,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 )
             }
             state.requestsInFlight.removeAll { inflightRequest in
-                completedRequest.uuid == inflightRequest.uuid
+                completedRequest.id == inflightRequest.id
             }
             state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
@@ -447,7 +447,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if exceededRetries {
                 state.requestsInFlight.removeAll { inflightRequest in
-                    request.uuid == inflightRequest.uuid
+                    request.id == inflightRequest.id
                 }
             }
             state.flushing = false
