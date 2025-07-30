@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import OSLog
 
 public enum KlaviyoEndpoint: Equatable, Codable {
     case createProfile(CreateProfilePayload)
@@ -20,6 +21,25 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
         }
+    }
+
+    public func baseURL() throws -> URL {
+        guard environment.apiURL().scheme != nil,
+              environment.apiURL().host != nil,
+              let url = environment.apiURL().url else {
+            let errorMessage = (environment.apiURL().scheme == nil || environment.apiURL().host == nil)
+                ?
+                "Failed to build valid URL; scheme and/or host is nil"
+                :
+                "Failed to build valid URL from base components '\(String(describing: environment.apiURL()))'"
+
+            if #available(iOS 14.0, *) {
+                Logger.networking.warning("\(errorMessage)")
+            }
+            throw KlaviyoAPIError.internalError("\(errorMessage)")
+        }
+
+        return url
     }
 
     var path: String {
