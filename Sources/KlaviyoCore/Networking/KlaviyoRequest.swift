@@ -47,38 +47,8 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// - Throws: An error if the request cannot be created, either from the endpoint or if
     ///           the provided attemptInfo is invalid.
     public func urlRequest(attemptInfo: RequestAttemptInfo) throws -> URLRequest {
-        guard let url = url else {
-            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
-        }
-
-        var request = URLRequest(url: url)
-
-        do {
-            if let body = try endpoint.body(), !body.isEmpty {
-                request.httpBody = body
-            }
-        } catch {
-            throw KlaviyoAPIError.dataEncodingError(self)
-        }
-
-        request.httpMethod = endpoint.httpMethod.rawValue
+        var request = try endpoint.urlRequest()
         request.setValue("\(attemptInfo.attemptNumber)/\(attemptInfo.maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
-
         return request
-    }
-
-    var url: URL? {
-        do {
-            guard var urlComponents = try URLComponents(url: endpoint.baseURL(), resolvingAgainstBaseURL: true) else {
-                return nil
-            }
-            urlComponents.path = endpoint.path
-            urlComponents.queryItems = [
-                URLQueryItem(name: "company_id", value: apiKey)
-            ]
-            return urlComponents.url
-        } catch {
-            return nil
-        }
     }
 }
