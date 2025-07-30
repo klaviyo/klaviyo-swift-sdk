@@ -180,7 +180,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryState = .retry(maxRetries)
 
         var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
-        request2.uuid = "foo"
+        request2 = KlaviyoRequest(id: "foo", apiKey: initialState.apiKey!, endpoint: request2.endpoint)
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
