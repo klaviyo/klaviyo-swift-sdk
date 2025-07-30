@@ -16,6 +16,10 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case unregisterPushToken(UnregisterPushTokenPayload)
     case aggregateEvent(AggregateEventPayload)
 
+    public var headers: [String: String] { [:] }
+
+    public var queryItems: [URLQueryItem] { [] }
+
     var httpMethod: RequestMethod {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
@@ -70,5 +74,51 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case let .aggregateEvent(payload):
             return payload
         }
+    }
+}
+
+extension KlaviyoEndpoint {
+    public func urlRequest() throws -> URLRequest {
+        let baseURL = try baseURL()
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: true) else {
+            let message = "Failed to build URL components from base URL '\(baseURL)'"
+            if #available(iOS 14.0, *) {
+                Logger.networking.warning("\(message)")
+            }
+            throw KlaviyoAPIError.internalError(message)
+        }
+
+        let validatedPath = path
+        if !validatedPath.isEmpty && !validatedPath.hasPrefix("/") {
+            let message = "Path does not begin with '/': '\(validatedPath)'. Paths should start with a forward slash."
+            if #available(iOS 14.0, *) {
+                Logger.networking.warning("\(message)")
+            }
+            throw KlaviyoAPIError.internalError(message)
+        }
+
+        components.path = validatedPath
+
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+
+        guard let url = components.url else {
+            let message = "Failed to build valid URL from components: \(components)"
+            if #available(iOS 14.0, *) {
+                Logger.networking.warning("\(message)")
+            }
+            throw KlaviyoAPIError.internalError(message)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = httpMethod.rawValue
+        request.allHTTPHeaderFields = headers
+
+        if let body = try body(), !body.isEmpty {
+            request.httpBody = body
+        }
+
+        return request
     }
 }
