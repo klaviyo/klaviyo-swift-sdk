@@ -1,8 +1,8 @@
 {
-  "apiKey" : "foo",
   "endpoint" : {
     "registerPushToken" : {
-      "_0" : {
+      "_0" : "foo",
+      "_1" : {
         "data" : {
           "attributes" : {
             "background" : "AVAILABLE",
