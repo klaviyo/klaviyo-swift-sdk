@@ -466,9 +466,6 @@ struct KlaviyoReducer: ReducerProtocol {
 
             event = event.updateEventWithState(state: &state)
 
-            // Publish the event to subscribers
-            KlaviyoInternal.publishEvent(event)
-
             let payload = CreateEventPayload(
                 data: CreateEventPayload.Event(
                     name: event.metric.name.value,
@@ -493,7 +490,11 @@ struct KlaviyoReducer: ReducerProtocol {
              we don't miss any user engagement events. In all other cases we will flush the queue
              using the flush intervals defined above in `StateManagementConstants`
              */
-            return event.metric.name == ._openedPush ? .task { .flushQueue } : .none
+            let baseEffect = event.metric.name == ._openedPush ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            return .merge([
+                baseEffect,
+                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+            ])
 
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,

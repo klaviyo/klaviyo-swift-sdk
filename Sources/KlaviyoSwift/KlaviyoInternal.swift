@@ -158,7 +158,7 @@ package enum KlaviyoInternal {
     /// Publishes an event to subscribers.
     ///
     /// - Parameter event: the profile event to publish
-    package static func publishEvent(_ event: Event) {
+    internal static func publishEvent(_ event: Event) {
         profileEventSubject.send(event)
     }
 
