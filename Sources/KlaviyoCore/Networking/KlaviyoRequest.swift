@@ -68,17 +68,17 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     }
 
     var url: URL? {
-        var urlComponents = environment.apiURL()
-
-        guard urlComponents.scheme != nil, urlComponents.host != nil else {
+        do {
+            guard var urlComponents = try URLComponents(url: endpoint.baseURL(), resolvingAgainstBaseURL: true) else {
+                return nil
+            }
+            urlComponents.path = endpoint.path
+            urlComponents.queryItems = [
+                URLQueryItem(name: "company_id", value: apiKey)
+            ]
+            return urlComponents.url
+        } catch {
             return nil
         }
-
-        urlComponents.path = endpoint.path
-        urlComponents.queryItems = [
-            URLQueryItem(name: "company_id", value: apiKey)
-        ]
-
-        return urlComponents.url
     }
 }
