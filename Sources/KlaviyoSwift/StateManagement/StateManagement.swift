@@ -342,7 +342,7 @@ struct KlaviyoReducer: ReducerProtocol {
             ])
 
         case let .deQueueCompletedResults(completedRequest):
-            if case let .registerPushToken(payload) = completedRequest.endpoint {
+            if case let .registerPushToken(_, payload) = completedRequest.endpoint {
                 let requestData = payload.data.attributes
                 let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
@@ -480,8 +480,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     pushToken: state.pushTokenData?.pushToken
                 ))
 
-            let endpoint = KlaviyoEndpoint.createEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
 
             state.enqueueRequest(request: request)
 
@@ -500,8 +500,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let endpoint = KlaviyoEndpoint.aggregateEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            let endpoint = KlaviyoEndpoint.aggregateEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
 
             state.enqueueRequest(request: request)
 
@@ -539,13 +539,11 @@ struct KlaviyoReducer: ReducerProtocol {
                     profile: profilePayload
                 )
                 request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                    endpoint: KlaviyoEndpoint.registerPushToken(apiKey, payload)
                 )
             } else {
                 request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload))
+                    endpoint: KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: profilePayload))
                 )
             }
             state.enqueueRequest(request: request)

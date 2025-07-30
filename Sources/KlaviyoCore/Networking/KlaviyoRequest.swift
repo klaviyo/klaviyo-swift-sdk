@@ -15,9 +15,6 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// A unique identifier for the request.
     public let id: String
 
-    /// The API key (a.k.a. "Company ID") to use for the request.
-    private let apiKey: String
-
     /// The API endpoint this request targets.
     public let endpoint: KlaviyoEndpoint
 
@@ -25,15 +22,12 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     ///
     /// - Parameters:
     ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
-    ///   - apiKey: The API key (a.k.a. "Company ID") to use for the request.
     ///   - endpoint: The endpoint this request will target.
     public init(
         id: String = environment.uuid().uuidString,
-        apiKey: String,
         endpoint: KlaviyoEndpoint
     ) {
         self.id = id
-        self.apiKey = apiKey
         self.endpoint = endpoint
     }
 

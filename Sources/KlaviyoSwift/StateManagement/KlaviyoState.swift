@@ -127,9 +127,9 @@ struct KlaviyoState: Equatable, Codable {
     mutating func enqueueProfileRequest(apiKey: String, anonymousId: String) {
         let request = buildProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
         switch request.endpoint {
-        case let .createProfile(payload):
+        case let .createProfile(_, payload):
             let updatedPayload = updateRequestAndStateWithPendingProfile(profile: payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload))
+            let request = KlaviyoRequest(endpoint: .createProfile(apiKey, updatedPayload))
             enqueueRequest(request: request)
         default:
             environment.raiseFatalError("Unexpected request type. \(request.endpoint)")
@@ -240,8 +240,7 @@ struct KlaviyoState: Equatable, Codable {
                 )
 
                 let request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                    endpoint: KlaviyoEndpoint.registerPushToken(apiKey, payload)
                 )
 
                 enqueueRequest(request: request)
@@ -273,9 +272,9 @@ struct KlaviyoState: Equatable, Codable {
             anonymousId: anonymousId
         )
 
-        let endpoint = KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload))
+        let endpoint = KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: payload))
 
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 
     mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
@@ -299,8 +298,8 @@ struct KlaviyoState: Equatable, Codable {
             background: environment.getBackgroundSetting().rawValue,
             profile: profile.toAPIModel(anonymousId: anonymousId)
         )
-        let endpoint = KlaviyoEndpoint.registerPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        let endpoint = KlaviyoEndpoint.registerPushToken(apiKey, payload)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 
     func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
@@ -311,8 +310,8 @@ struct KlaviyoState: Equatable, Codable {
             externalId: externalId,
             anonymousId: anonymousId
         )
-        let endpoint = KlaviyoEndpoint.unregisterPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        let endpoint = KlaviyoEndpoint.unregisterPushToken(apiKey, payload)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 }
 

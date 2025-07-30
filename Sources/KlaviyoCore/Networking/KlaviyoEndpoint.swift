@@ -10,15 +10,24 @@ import Foundation
 import OSLog
 
 public enum KlaviyoEndpoint: Equatable, Codable {
-    case createProfile(CreateProfilePayload)
-    case createEvent(CreateEventPayload)
-    case registerPushToken(PushTokenPayload)
-    case unregisterPushToken(UnregisterPushTokenPayload)
-    case aggregateEvent(AggregateEventPayload)
+    case createProfile(_ apiKey: String, _ payload: CreateProfilePayload)
+    case createEvent(_ apiKey: String, _ payload: CreateEventPayload)
+    case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
+    case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
+    case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
 
     public var headers: [String: String] { [:] }
 
-    public var queryItems: [URLQueryItem] { [] }
+    public var queryItems: [URLQueryItem] {
+        switch self {
+        case let .createProfile(apiKey, _),
+             let .createEvent(apiKey, _),
+             let .registerPushToken(apiKey, _),
+             let .unregisterPushToken(apiKey, _),
+             let .aggregateEvent(apiKey, _):
+            return [URLQueryItem(name: "company_id", value: apiKey)]
+        }
+    }
 
     var httpMethod: RequestMethod {
         switch self {
@@ -63,15 +72,15 @@ public enum KlaviyoEndpoint: Equatable, Codable {
 
     func body() throws -> Data? {
         switch self {
-        case let .createProfile(payload):
+        case let .createProfile(_, payload):
             return try environment.encodeJSON(payload)
-        case let .createEvent(payload):
+        case let .createEvent(_, payload):
             return try environment.encodeJSON(payload)
-        case let .registerPushToken(payload):
+        case let .registerPushToken(_, payload):
             return try environment.encodeJSON(payload)
-        case let .unregisterPushToken(payload):
+        case let .unregisterPushToken(_, payload):
             return try environment.encodeJSON(payload)
-        case let .aggregateEvent(payload):
+        case let .aggregateEvent(_, payload):
             return payload
         }
     }
