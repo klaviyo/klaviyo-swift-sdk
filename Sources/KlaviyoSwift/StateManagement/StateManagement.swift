@@ -120,13 +120,14 @@ enum KlaviyoAction: Equatable {
     /// the data that was passed to the client endpoint
     case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
+    case resolveTrackingLinkDestination(from: URL)
+
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
-
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken, .resolveTrackingLinkDestination:
             return true
 
         case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
