@@ -594,6 +594,10 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+
+        case let .resolveTrackingLinkDestination(from: from):
+            // TODO: implement this
+            return .none
         }
     }
 }

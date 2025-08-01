@@ -15,9 +15,21 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
-    case resolveDestinationURL(trackingLink: URL)
+    case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
 
-    public var headers: [String: String] { [:] }
+    public var headers: [String: String] {
+        switch self {
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+            return [:]
+        case let .resolveDestinationURL(_, profileInfo):
+            if let profileData = try? environment.encodeJSON(profileInfo),
+               let profileDataString = String(data: profileData, encoding: .utf8) {
+                return ["X-Klaviyo-Profile-Info": profileDataString]
+            } else {
+                return [:]
+            }
+        }
+    }
 
     public var queryItems: [URLQueryItem] {
         switch self {
@@ -36,7 +48,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
-        case let .resolveDestinationURL(trackingLink: trackingLink):
+        case let .resolveDestinationURL(trackingLink, _):
             return .get
         }
     }
@@ -60,7 +72,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             }
 
             return url
-        case let .resolveDestinationURL(trackingLink):
+        case let .resolveDestinationURL(trackingLink, _):
             return trackingLink
         }
     }

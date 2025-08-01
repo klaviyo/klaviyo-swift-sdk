@@ -79,7 +79,7 @@ public struct SDKRequest: Identifiable, Equatable {
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
-            case let .resolveDestinationURL(trackingLink: trackingLink):
+            case let .resolveDestinationURL(trackingLink, _):
                 return .resolveDestinationURL(trackingLink: trackingLink)
             }
         }
