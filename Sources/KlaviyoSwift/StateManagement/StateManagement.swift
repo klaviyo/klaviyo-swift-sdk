@@ -595,9 +595,43 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .task { .deQueueCompletedResults(request) }
 
-        case let .resolveTrackingLinkDestination(from: from):
-            // TODO: implement this
-            return .none
+        case let .resolveTrackingLinkDestination(from: trackingLinkURL):
+            guard case .initialized = state.initalizationState else {
+                return .none
+            }
+
+            let profileInfo = ProfilePayload(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: state.anonymousId ?? ""
+            )
+
+            return .run { _ in
+                do {
+                    let endpoint = KlaviyoEndpoint.resolveDestinationURL(
+                        trackingLink: trackingLinkURL,
+                        profileInfo: profileInfo
+                    )
+                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
+                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+                    switch result {
+                    case let .success(data):
+                        let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
+                        let destinationURL = response.destinationLink
+
+                    // TODO: handle destination URL
+                    // example:
+                    // await send(.navigateToDestinationURL(destinationURL))
+                    case let .failure(error):
+                        // TODO: handle error
+                    }
+                } catch {
+                    // TODO: handle error
+                }
+            }
         }
     }
 }
