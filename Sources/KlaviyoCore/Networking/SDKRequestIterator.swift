@@ -49,14 +49,14 @@ public struct SDKRequest: Identifiable, Equatable {
 
         fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
-            case let .createProfile(payload):
+            case let .createProfile(_, payload):
                 return .createProfile(ProfileInfo(
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
                     externalId: payload.data.attributes.externalId,
                     anonymousId: payload.data.attributes.anonymousId
                 ))
-            case let .createEvent(payload):
+            case let .createEvent(_, payload):
                 return .createEvent(
                     EventInfo(eventName: payload.data.attributes.metric.data.attributes.name),
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
@@ -64,15 +64,15 @@ public struct SDKRequest: Identifiable, Equatable {
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
                 )
-            case let .aggregateEvent(payload):
+            case let .aggregateEvent(_, payload):
                 return .createAggregateEvent(payload)
-            case let .registerPushToken(payload):
+            case let .registerPushToken(_, payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
-            case let .unregisterPushToken(payload):
+            case let .unregisterPushToken(_, payload):
                 return .unregisterToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
