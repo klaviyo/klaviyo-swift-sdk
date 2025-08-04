@@ -73,7 +73,16 @@ public enum KlaviyoEndpoint: Equatable, Codable {
 
             return url
         case let .resolveDestinationURL(trackingLink, _):
-            return trackingLink
+            var urlComponents = URLComponents()
+
+            urlComponents.scheme = trackingLink.scheme
+            urlComponents.host = trackingLink.host
+
+            guard let url = urlComponents.url else {
+                throw KlaviyoAPIError.internalError("Failed to build valid URL from URLComponents '\(urlComponents)'")
+            }
+
+            return url
         }
     }
 
@@ -89,8 +98,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-token-unregister/"
         case .aggregateEvent:
             return "/onsite/track-analytics"
-        case .resolveDestinationURL:
-            return ""
+        case let .resolveDestinationURL(trackingLink, _):
+            return trackingLink.path
         }
     }
 
