@@ -598,7 +598,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case let .resolveTrackingLinkDestination(from: trackingLinkURL):
             if #available(iOS 14.0, *) {
-                Logger.stateLogger.info("Attempting to resolve tracking link destination from URL '\(trackingLinkURL.absoluteString)'")
+                Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
             }
 
             guard case .initialized = state.initalizationState else {
