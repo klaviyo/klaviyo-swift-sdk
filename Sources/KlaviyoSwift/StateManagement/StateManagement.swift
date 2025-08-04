@@ -15,6 +15,7 @@ import AnyCodable
 import Combine
 import Foundation
 import KlaviyoCore
+import OSLog
 import UIKit
 import UserNotifications
 
@@ -596,6 +597,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .task { .deQueueCompletedResults(request) }
 
         case let .resolveTrackingLinkDestination(from: trackingLinkURL):
+            if #available(iOS 14.0, *) {
+                Logger.stateLogger.info("Attempting to resolve tracking link destination from URL '\(trackingLinkURL.absoluteString)'")
+            }
+
             guard case .initialized = state.initalizationState else {
                 return .none
             }
@@ -622,13 +627,23 @@ struct KlaviyoReducer: ReducerProtocol {
                         let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
                         let destinationURL = response.destinationLink
 
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
+                        }
+
                     // TODO: handle destination URL
                     // example:
                     // await send(.navigateToDestinationURL(destinationURL))
                     case let .failure(error):
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                        }
                         // TODO: handle error
                     }
                 } catch {
+                    if #available(iOS 14.0, *) {
+                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                    }
                     // TODO: handle error
                 }
             }
