@@ -90,6 +90,30 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertEqual(request.httpBody, payload)
     }
 
+    func testResolveDestinationURLEndpointUrlRequest() throws {
+        // Given
+        let trackingLink = URL(string: "https://email.klaviyo.com/tracking/link")!
+        let profileInfo = ProfilePayload(email: "test@example.com", phoneNumber: "+15551234567", externalId: "user-123", anonymousId: "anon-456")
+        let endpoint = KlaviyoEndpoint.resolveDestinationURL(trackingLink: trackingLink, profileInfo: profileInfo)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.absoluteString, trackingLink.absoluteString)
+        XCTAssertNil(request.url?.query) // No query items for this endpoint
+        XCTAssertNil(request.httpBody) // No body for this endpoint
+
+        // Test headers
+        if let profileData = try? environment.encodeJSON(profileInfo),
+           let profileDataString = String(data: profileData, encoding: .utf8) {
+            XCTAssertEqual(request.allHTTPHeaderFields?["X-Klaviyo-Profile-Info"], profileDataString)
+        } else {
+            XCTFail("Failed to encode profile info for header")
+        }
+    }
+
     func testPathValidation() throws {
         // Given
         environment.apiURL = {
