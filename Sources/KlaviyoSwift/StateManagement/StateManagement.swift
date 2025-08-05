@@ -128,10 +128,10 @@ enum KlaviyoAction: Equatable {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken, .resolveTrackingLinkDestination:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .resolveTrackingLinkDestination:
             return false
         }
     }
@@ -599,10 +599,6 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .resolveTrackingLinkDestination(from: trackingLinkURL):
             if #available(iOS 14.0, *) {
                 Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
-            }
-
-            guard case .initialized = state.initalizationState else {
-                return .none
             }
 
             let profileInfo = ProfilePayload(
