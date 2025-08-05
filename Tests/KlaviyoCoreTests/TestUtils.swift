@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/15/24.
 //
 
-import AnyCodable
 import Combine
 import Foundation
 import KlaviyoCore
@@ -62,17 +61,18 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 let SAMPLE_PROPERTIES = [
-    "blob": "blob",
-    "stuff": 2,
-    "hello": [
-        "sub": "dict"
+    "Blob": "blob",
+    "Stuff": 2,
+    "Hello": [
+        "Sub": "dict"
     ]
 ] as [String: Any]
 
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA })
+        unarchivedMutableArray: { _ in SAMPLE_DATA }
+    )
 }
 
 extension KlaviyoEnvironment {
@@ -87,6 +87,7 @@ extension KlaviyoEnvironment {
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
+            getBadgeAutoClearingSetting: { true },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },
@@ -94,7 +95,8 @@ extension KlaviyoEnvironment {
             raiseFatalError: { _ in },
             emitDeveloperWarning: { _ in },
             networkSession: { NetworkSession.test() },
-            apiURL: { "dead_beef" },
+            apiURL: { URLComponents(string: "https://dead_beef")! },
+            cdnURL: { URLComponents(string: "https://dead_beef")! },
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
@@ -104,7 +106,9 @@ extension KlaviyoEnvironment {
             klaviyoAPI: KlaviyoAPI.test(),
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
-            SDKVersion: { __klaviyoSwiftVersion })
+            SDKVersion: { __klaviyoSwiftVersion },
+            formsDataEnvironment: { nil }
+        )
     }
 }
 
@@ -113,7 +117,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL })
+        libraryDirectory: { TEST_URL }
+    )
 }
 
 extension KlaviyoAPI {
@@ -142,7 +147,7 @@ extension NetworkSession {
     }
 }
 
-class TestJSONDecoder: JSONDecoder {
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         AppLifeCycleEvents.test as! T
     }
@@ -171,7 +176,8 @@ extension PushTokenPayload {
         pushToken: "foo",
         enablement: "AUTHORIZED",
         background: "AVAILABLE",
-        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"))
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id")
+    )
 }
 
 extension ProfilePayload {
@@ -183,7 +189,8 @@ extension ProfilePayload {
         latitude: 1,
         longitude: 1,
         region: "BL",
-        zip: "0BLOB")
+        zip: "0BLOB"
+    )
 
     static let test = ProfilePayload(
         email: "blobemail",
@@ -196,5 +203,6 @@ extension ProfilePayload {
         image: "foo",
         location: location,
         properties: [:],
-        anonymousId: "foo")
+        anonymousId: "foo"
+    )
 }

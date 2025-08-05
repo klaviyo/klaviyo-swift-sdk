@@ -26,7 +26,8 @@ class NotificationService: UNNotificationServiceExtension {
 
     override func didReceive(
         _ request: UNNotificationRequest,
-        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
         self.request = request
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
@@ -35,7 +36,18 @@ class NotificationService: UNNotificationServiceExtension {
             KlaviyoExtensionSDK.handleNotificationServiceDidReceivedRequest(
                 request: self.request,
                 bestAttemptContent: bestAttemptContent,
-                contentHandler: contentHandler)
+                contentHandler: contentHandler
+            )
+        }
+
+        // Access key-value pairs
+        let userInfo = request.content.userInfo
+        if let kvPairs = userInfo["key_value_pairs"] as? [String: String] {
+            for (key, value) in kvPairs {
+                print("Key: \(key), Value: \(value)")
+            }
+        } else {
+            print("No key_value_pairs found in notification")
         }
     }
 
@@ -47,7 +59,8 @@ class NotificationService: UNNotificationServiceExtension {
             KlaviyoExtensionSDK.handleNotificationServiceExtensionTimeWillExpireRequest(
                 request: request,
                 bestAttemptContent: bestAttemptContent,
-                contentHandler: contentHandler)
+                contentHandler: contentHandler
+            )
         }
     }
 }

@@ -20,7 +20,8 @@ class ViewController: UIViewController {
     @IBOutlet var zipcodeTextField: UITextField!
     @IBOutlet var rememberMeSwitch: UISwitch!
 
-    @IBAction func login(_ sender: UIButton) {
+    @IBAction
+    func login(_ sender: UIButton) {
         if checkForZipAndEmail {
             performSegue(withIdentifier: "loginSegue", sender: sender)
         } else {
@@ -59,10 +60,12 @@ class ViewController: UIViewController {
         let alertController = UIAlertController(
             title: "Oh No!",
             message: "Please enter a zipcode or email",
-            preferredStyle: .alert)
+            preferredStyle: .alert
+        )
         let okAction = UIAlertAction(
             title: "OK",
-            style: .default)
+            style: .default
+        )
 
         alertController.addAction(okAction)
         present(alertController, animated: true, completion: nil)

@@ -1,4 +1,4 @@
-// swift-tools-version: 5.6
+// swift-tools-version: 5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -12,8 +12,8 @@ let package = Package(
             targets: ["KlaviyoSwift"]
         ),
         .library(
-            name: "KlaviyoUI",
-            targets: ["KlaviyoUI"]
+            name: "KlaviyoForms",
+            targets: ["KlaviyoForms"]
         ),
         .library(
             name: "KlaviyoGeo",
@@ -70,23 +70,30 @@ let package = Package(
             ]
         ),
         .target(
-            name: "KlaviyoUI",
+            name: "KlaviyoForms",
             dependencies: ["KlaviyoSwift"],
-            path: "Sources/KlaviyoUI",
-            resources: [.process("KlaviyoWebView/Resources")]
+            path: "Sources/KlaviyoForms",
+            resources: [
+                .process("InAppForms/Assets"),
+                .process("KlaviyoWebView/Resources"),
+                .process("KlaviyoWebView/Development Assets/Scripts"),
+                .process("KlaviyoWebView/Development Assets/HTML")
+            ]
         ),
         .testTarget(
-            name: "KlaviyoUITests",
+            name: "KlaviyoFormsTests",
             dependencies: [
                 "KlaviyoSwift",
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoForms"
+            ],
+            resources: [
+                .process("Assets")
             ]
         ),
         .target(
             name: "KlaviyoGeo",
-            dependencies: [
-                "KlaviyoSwift"
-            ],
+            dependencies: ["KlaviyoSwift"],
             path: "Sources/KlaviyoGeo"
         ),
         .testTarget(

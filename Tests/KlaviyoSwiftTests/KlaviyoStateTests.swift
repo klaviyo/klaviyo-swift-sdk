@@ -6,7 +6,6 @@
 //
 
 @testable import KlaviyoSwift
-import AnyCodable
 import Foundation
 import KlaviyoCore
 import SnapshotTesting
@@ -118,7 +117,8 @@ final class KlaviyoStateTests: XCTestCase {
                 apiKey: "foo",
                 anonymousId: environment.uuid().uuidString,
                 queue: [],
-                requestsInFlight: []))
+                requestsInFlight: []
+            ))
         }
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
@@ -128,22 +128,23 @@ final class KlaviyoStateTests: XCTestCase {
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
         let event = Event.test
         let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: event.metric.name.value))
-        let eventRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
+        let eventRequest = KlaviyoRequest(endpoint: .createEvent("foo", createEventPayload))
 
         let profile = Profile.test
         let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
 
-        let profileRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
+        let profileRequest = KlaviyoRequest(endpoint: .createProfile("foo", payload))
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"))
-        let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
+        )
+        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken("foo", tokenPayload))
 
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, eventRequest, profileRequest])
 
-        let encodedState = try KlaviyoEnvironment.production.encodeJSON(AnyEncodable(state))
+        let encodedState = try KlaviyoEnvironment.production.encodeJSON(state)
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.decoder.decode(encodedState)
 
         XCTAssertEqual(decodedState, state)

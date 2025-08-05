@@ -25,8 +25,12 @@ final class EncodableTests: XCTestCase {
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo"))
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: KlaviyoEnvironment.test().uuid().uuidString)
+            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
+        )
+        let request = KlaviyoRequest(
+            id: KlaviyoEnvironment.test().uuid().uuidString,
+            endpoint: .registerPushToken("foo", tokenPayload)
+        )
         let klaviyoState = KlaviyoState(
             email: "foo",
             anonymousId: "foo",
@@ -35,9 +39,11 @@ final class EncodableTests: XCTestCase {
                 pushToken: "foo",
                 pushEnablement: .authorized,
                 pushBackground: .available,
-                deviceData: .init(context: KlaviyoEnvironment.test().appContextInfo())),
+                deviceData: .init(context: KlaviyoEnvironment.test().appContextInfo())
+            ),
             queue: [request],
-            requestsInFlight: [request])
+            requestsInFlight: [request]
+        )
         assertSnapshot(matching: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
     }
 }

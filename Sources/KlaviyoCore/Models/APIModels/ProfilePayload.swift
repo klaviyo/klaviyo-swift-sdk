@@ -119,7 +119,8 @@ public struct ProfilePayload: Equatable, Codable {
             image: image,
             location: location,
             properties: properties,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
     }
 
     public init(attributes: Attributes) {

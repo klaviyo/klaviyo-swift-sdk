@@ -5,10 +5,10 @@
 //  Created by Noah Durell on 11/14/22.
 //
 
-import Foundation
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Combine
+import Foundation
 import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let TEST_API_KEY = "fake-key"
 
@@ -23,7 +23,8 @@ let INITIALIZED_TEST_STATE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITILIZING_TEST_STATE = {
@@ -33,7 +34,8 @@ let INITILIZING_TEST_STATE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITIALIZED_TEST_STATE_INVALID_PHONE = {
@@ -48,7 +50,8 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
@@ -63,7 +66,8 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
         queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
-        flushing: true)
+        flushing: true
+    )
 }
 
 extension Profile {
@@ -84,7 +88,8 @@ extension Profile {
         title: "Jelly",
         image: "foo",
         location: .test,
-        properties: [:])
+        properties: [:]
+    )
 }
 
 extension Profile.Location {
@@ -96,7 +101,8 @@ extension Profile.Location {
         latitude: 1,
         longitude: 1,
         region: "BL",
-        zip: "0BLOB")
+        zip: "0BLOB"
+    )
 }
 
 extension Event {
@@ -132,7 +138,8 @@ extension KlaviyoState {
                                        pushToken: "blob_token",
                                        pushEnablement: .authorized,
                                        pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())),
+                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
+                                   ),
                                    queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
@@ -160,6 +167,24 @@ let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER = """
         "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
         "source": {
           "pointer": "/data/attributes/phone_number"
+        },
+        "meta": {}
+      }
+    ]
+}
+"""
+
+let TEST_FAILURE_JSON_INVALID_PHONE_NUMBER_DIFFERENT_SOURCE_POINTER = """
+{
+    "errors": [
+      {
+        "id": "9997bd4f-7d5f-4f01-bbd1-df0065ef4faa",
+        "status": 400,
+        "code": "invalid",
+        "title": "Invalid input.",
+        "detail": "Invalid phone number format (Example of a valid format: +12345678901)",
+        "source": {
+          "pointer": "/data/attributes/profile/data/attributes/phone_number"
         },
         "meta": {}
       }
@@ -197,6 +222,8 @@ extension KlaviyoSwiftEnvironment {
             Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
         }, stateChangePublisher: {
             Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+        }, setBadgeCount: { _ in
+            nil
         })
     }
 }

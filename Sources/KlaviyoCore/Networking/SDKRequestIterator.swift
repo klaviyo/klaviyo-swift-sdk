@@ -42,33 +42,37 @@ public struct SDKRequest: Identifiable, Equatable {
         }
 
         case createEvent(EventInfo, ProfileInfo)
+        case createAggregateEvent(Data)
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
 
-        static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
+        fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
-            case let .createProfile(payload):
-
+            case let .createProfile(_, payload):
                 return .createProfile(ProfileInfo(
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
                     externalId: payload.data.attributes.externalId,
-                    anonymousId: payload.data.attributes.anonymousId))
-            case let .createEvent(payload):
+                    anonymousId: payload.data.attributes.anonymousId
+                ))
+            case let .createEvent(_, payload):
                 return .createEvent(
                     EventInfo(eventName: payload.data.attributes.metric.data.attributes.name),
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
-                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
-            case let .registerPushToken(payload):
+                                anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
+                )
+            case let .aggregateEvent(_, payload):
+                return .createAggregateEvent(payload)
+            case let .registerPushToken(_, payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
-            case let .unregisterPushToken(payload):
+            case let .unregisterPushToken(_, payload):
                 return .unregisterToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
@@ -86,11 +90,11 @@ public struct SDKRequest: Identifiable, Equatable {
         case requestError(String, Double)
     }
 
-    static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
+    fileprivate static func fromAPIRequest(request: KlaviyoRequest, urlRequest: URLRequest?, response: SDKRequest.Response) -> SDKRequest {
         let type = RequestType.fromEndpoint(request: request)
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
-        return SDKRequest(id: request.uuid,
+        return SDKRequest(id: request.id,
                           type: type,
                           url: url,
                           method: method,

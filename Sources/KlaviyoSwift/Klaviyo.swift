@@ -83,6 +83,13 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .resetProfile)
     }
 
+    /// Sets the badge number on the application icon. Syncs with the persisted count
+    /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
+    /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
+    public func setBadgeCount(_ count: Int) {
+        dispatchOnMainThread(action: .setBadgeCount(count))
+    }
+
     /// Set the current user's email.
     /// - Parameter email: a string contining the users email.
     /// - Returns: a KlaviyoSDK instance
@@ -96,7 +103,7 @@ public struct KlaviyoSDK {
     /// NOTE: The phone number should be in a format that Klaviyo accepts.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
-    /// - Parameter phonNumber: a string contining the users phone number.
+    /// - Parameter phoneNumber: a string contining the users phone number.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
@@ -171,9 +178,9 @@ public struct KlaviyoSDK {
                     completionHandler()
                 }
             }
-
             return true
         }
+        dispatchOnMainThread(action: .syncBadgeCount)
         return false
     }
 }

@@ -5,11 +5,11 @@
 //  Created by Noah Durell on 12/6/22.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSwift
 import AnyCodable
 import Combine
 import Foundation
-import KlaviyoCore
 import XCTest
 
 class StateManagementTests: XCTestCase {
@@ -43,6 +43,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
     }
 
     @MainActor
@@ -161,7 +162,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized)
+            enablement: .authorized
+        )
 
         _ = await store.send(.setPushToken(initialState.pushTokenData!.pushToken, .authorized)) {
             $0.queue = [pushTokenRequest]
@@ -182,7 +184,8 @@ class StateManagementTests: XCTestCase {
                 pushToken: initialState.pushTokenData!.pushToken,
                 pushEnablement: .authorized,
                 pushBackground: initialState.pushTokenData!.pushBackground,
-                deviceData: initialState.pushTokenData!.deviceData)
+                deviceData: initialState.pushTokenData!.deviceData
+            )
         }
     }
 
@@ -236,7 +239,8 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken,
-            enablement: .authorized)
+            enablement: .authorized
+        )
 
         _ = await store.send(.setPushEnablement(.authorized))
 
@@ -329,7 +333,7 @@ class StateManagementTests: XCTestCase {
     @MainActor
     func testFlushQueueDuringExponentialBackoff() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
+        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
@@ -337,14 +341,14 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
-            $0.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
+            $0.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
         }
     }
 
     @MainActor
     func testFlushQueueExponentialBackoffGoesToSize() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryInfo = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
+        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
@@ -352,7 +356,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
-            $0.retryInfo = .retry(23)
+            $0.retryState = .retry(23)
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
@@ -362,7 +366,7 @@ class StateManagementTests: XCTestCase {
         // didn't fake uuid since we are not testing this.
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
-            $0.retryInfo = .retry(1)
+            $0.retryState = .retry(1)
             $0.requestsInFlight = []
             $0.queue = []
         }
@@ -432,6 +436,7 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
         }
+        await store.receive(.syncBadgeCount)
     }
 
     // MARK: - Test pending profile
@@ -478,7 +483,7 @@ class StateManagementTests: XCTestCase {
             $0.pendingProfile = nil
             request = $0.requestsInFlight[0]
             switch request?.endpoint {
-            case let .registerPushToken(payload):
+            case let .registerPushToken(_, payload):
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.city, Profile.test.location!.city)
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.region, Profile.test.location!.region!)
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.location?.address1, Profile.test.location!.address1!)
@@ -539,14 +544,32 @@ class StateManagementTests: XCTestCase {
             $0.pushTokenData = nil
 
             let request = KlaviyoRequest(
-                apiKey: initialState.apiKey!,
-                endpoint: .registerPushToken(PushTokenPayload(
-                    pushToken: initialState.pushTokenData!.pushToken,
-                    enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                    background: initialState.pushTokenData!.pushBackground.rawValue,
-                    profile: Profile.test.toAPIModel(anonymousId: initialState.anonymousId!))
-                ))
+                endpoint: .registerPushToken(
+                    initialState.apiKey!,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile.test.toAPIModel(
+                            anonymousId: initialState.anonymousId!
+                        )
+                    )
+                )
+            )
             $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testCreateProfileWithTrailingWhitespaceProperties() async throws {
+        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "foo@blob.com ", phoneNumber: "+19999999999     ", externalId: "abcdefg    "))) {
+            $0.phoneNumber = "+19999999999"
+            $0.email = "foo@blob.com"
+            $0.externalId = "abcdefg"
+            $0.enqueueProfileOrTokenRequest()
+            $0.pushTokenData = nil
         }
     }
 
@@ -563,16 +586,21 @@ class StateManagementTests: XCTestCase {
             await store.send(.enqueueEvent(event)) {
                 try $0.enqueueRequest(
                     request: KlaviyoRequest(
-                        apiKey: XCTUnwrap($0.apiKey),
-                        endpoint: .createEvent(CreateEventPayload(
-                            data: CreateEventPayload.Event(
-                                name: eventName.value,
-                                properties: event.properties,
-                                phoneNumber: $0.phoneNumber,
-                                anonymousId: initialState.anonymousId!,
-                                time: event.time,
-                                pushToken: initialState.pushTokenData!.pushToken)
-                        ))))
+                        endpoint: .createEvent(
+                            XCTUnwrap($0.apiKey),
+                            CreateEventPayload(
+                                data: CreateEventPayload.Event(
+                                    name: eventName.value,
+                                    properties: event.properties,
+                                    phoneNumber: $0.phoneNumber,
+                                    anonymousId: initialState.anonymousId!,
+                                    time: event.time,
+                                    pushToken: initialState.pushTokenData!.pushToken
+                                )
+                            )
+                        )
+                    )
+                )
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -600,20 +628,77 @@ class StateManagementTests: XCTestCase {
         await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
-                    apiKey: XCTUnwrap($0.apiKey),
-                    endpoint: .createEvent(CreateEventPayload(
-                        data: CreateEventPayload.Event(
-                            name: Event.EventName.openedAppMetric.value,
-                            properties: event.properties,
-                            phoneNumber: $0.phoneNumber,
-                            anonymousId: initialState.anonymousId!,
-                            time: event.time)
-                    )))
+                    endpoint: .createEvent(
+                        XCTUnwrap($0.apiKey),
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: Event.EventName.openedAppMetric.value,
+                                properties: event.properties,
+                                phoneNumber: $0.phoneNumber,
+                                anonymousId: initialState.anonymousId!,
+                                time: event.time
+                            )
+                        )
+                    )
+                )
             )
         }
 
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
+    }
+
+    // MARK: - Test enqueue aggregate event
+
+    @MainActor
+    func testEnqueueAggregateEvent() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let data = Data()
+        await store.send(.enqueueAggregateEvent(data)) {
+            try $0.enqueueRequest(
+                request: KlaviyoRequest(
+                    endpoint: .aggregateEvent(
+                        XCTUnwrap($0.apiKey),
+                        AggregateEventPayload(data)
+                    )
+                )
+            )
+        }
+    }
+
+    @MainActor
+    func testEnqueueAggregateEventWhenInitilizingSendsEvent() async throws {
+        let initialState = INITILIZING_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let data = Data()
+        await store.send(.enqueueAggregateEvent(data)) {
+            $0.pendingRequests = [KlaviyoState.PendingRequest.aggregateEvent(data)]
+        }
+
+        await store.send(.completeInitialization(initialState)) {
+            $0.pendingRequests = []
+            $0.initalizationState = .initialized
+        }
+
+        await store.receive(.enqueueAggregateEvent(data), timeout: TIMEOUT_NANOSECONDS) {
+            try $0.enqueueRequest(
+                request: KlaviyoRequest(
+                    endpoint: .aggregateEvent(
+                        XCTUnwrap($0.apiKey),
+                        AggregateEventPayload(data)
+                    )
+                )
+            )
+        }
+
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
     }
 }

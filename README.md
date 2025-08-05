@@ -22,9 +22,20 @@
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
     - [Deep Linking](#deep-linking)
-      - [Option 1: URL Schemes](#option-1-URL-schemes)
+      - [Option 1: URL Schemes](#option-1-url-schemes)
       - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
+    - [Badge Count](#badge-count)
+       - [Autoclearing](#autoclearing)
+      - [Handling Other Badging Sources](#handling-other-badging-sources)
+    - [Silent Push Notifications](#silent-push-notifications)
+    - [Custom Data](#custom-data)
+- [In-App Forms](#in-app-forms)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+    - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Deep linking](#deep-linking-1)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -43,7 +54,7 @@ Once integrated, your marketing team will be able to better understand your app 
 ## Installation
 
 1. Enable push notification capabilities in your Xcode project. The section "Enable the push notification capability" in this [Apple developer guide](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns#2980170) provides detailed instructions.
-2. [Optional but recommended] If you intend to use [rich push notifications](#rich-push) add a [Notification service extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your xcode project. A notification service app extension ships as a separate bundle inside your iOS app. To add this extension to your app:
+2. If you intend to use [rich push notifications](#rich-push), [custom badge counts](#custom-badge-count), or [custom data](#custom-data), add a [Notification Service Extension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to your Xcode project. A Notification Service Extension ships as a separate bundle inside your iOS app. To add this extension to your app:
    - Select File > New > Target in Xcode.
    - Select the Notification Service Extension target from the iOS > Application extension section.
    - Click Next.
@@ -54,19 +65,28 @@ Once integrated, your marketing team will be able to better understand your app 
              If this exceeds your app's minimum supported iOS version, push notifications may not display attached media on older devices.
              To avoid this, ensure the extension's minimum deployment target matches that of your app. ⚠️
 
+    Set up an App Group between your main app target and your Notification Service Extension.
+    - Select your main app target > Signing & Capabilities
+    - Select + Capability (make sure it is set to All not Debug or Release) > App Groups
+    - Create a new App Group based on the recommended naming scheme `group.[MainTargetBundleId].[descriptor]`
+    - In your app's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
+    - Select your Notification Service Extension target > Signing & Capabilities
+    - Add an App Group with the same name as the main target's App Group
+    - In your Notification Service Extension's `Info.plist`, add a new entry for `klaviyo_app_group` as a String with the App Group name
+
 3. Based on which dependency manager you use, follow the instructions below to install the Klaviyo's dependencies.
 
       <details>
       <summary>Swift Package Manager [Recommended]</summary>
 
-      KlaviyoSwift is available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+      KlaviyoSwift and KlaviyoForms are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
       1. Open your project and navigate to your project’s settings.
       2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
       3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
       4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
       5. Click **Add Package**.
-      6. On the next prompt, assign the package product `KlaviyoSwift`  to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift` and `KlaviyoForms` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
       </details>
 
@@ -82,6 +102,10 @@ Once integrated, your marketing team will be able to better understand your app 
         pod 'KlaviyoSwift'
       end
 
+      target 'YourAppTarget' do
+        pod 'KlaviyoForms'
+      end
+
       target 'YourAppNotificationServiceExtenionTarget' do
         pod 'KlaviyoSwiftExtension'
       end
@@ -91,7 +115,9 @@ Once integrated, your marketing team will be able to better understand your app 
       </details>
 
 4. Finally, in the `NotificationService.swift` file add the code for the two required delegates from [this](Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) file.
-  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification.
+  This sample covers calling into Klaviyo so that we can download and attach the media to the push notification as well as handle custom badge counts. It also demonstrates how to access custom data (key-value pairs) sent from Klaviyo.
+
+> Advanced: If you are using multiple push sending providers, to distinguish a message from Klaviyo you can check for the presence of the `_k` parameter within the message's payload body. For reference, check out the implementation of `KlaviyoSDK().handle()`.
 
 ## Initialization
 The SDK must be initialized with the short alphanumeric [public API key](https://help.klaviyo.com/hc/en-us/articles/115005062267#difference-between-public-and-private-api-keys1)
@@ -252,24 +278,24 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
     UIApplication.shared.registerForRemoteNotifications()
 
     let center = UNUserNotificationCenter.current()
-	center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
-	let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-	// use the below options if you are interested in using provisional push notifications. Note that using this will not
-	// show the push notifications prompt to the user.
-	// let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-	center.requestAuthorization(options: options) { granted, error in
-	    if let error = error {
-	        // Handle the error here.
-	        print("error = ", error)
-	    }
+    center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+    let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+    // use the below options if you are interested in using provisional push notifications. Note that using this will not
+    // show the push notifications prompt to the user.
+    // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+    center.requestAuthorization(options: options) { granted, error in
+        if let error = error {
+            // Handle the error here.
+            print("error = ", error)
+        }
 
-	    // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
-	    // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
-	    // will make sure that Klaviyo always has the latest push authorization status.
+        // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+        // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+        // will make sure that Klaviyo always has the latest push authorization status.
             DispatchQueue.main.async {
                 UIApplication.shared.registerForRemoteNotifications()
             }
-	}
+    }
 
     return true
 }
@@ -313,44 +339,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 ```
-When tracking opened push notification, you can also decrement the badge count on the app icon by adding the following code to the `userNotificationCenter:didReceive:withCompletionHandler` method:
-
-```swift
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void) {
-        // decrement the badge count on the app icon
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(UIApplication.shared.applicationIconBadgeNumber - 1)
-        } else {
-            UIApplication.shared.applicationIconBadgeNumber -= 1
-        }
-
-        // If this notification is Klaviyo's notification we'll handle it
-        // else pass it on to the next push notification service to which it may belong
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
-        if !handled {
-            completionHandler()
-        }
-    }
-```
-
-Additionally, if you just want to reset the badge count to zero when the app is opened(note that this could be from
-the user just opening the app independent of the push message), you can add the following code to
-the `applicationDidBecomeActive` method in the app delegate:
-
-```swift
-
-func applicationDidBecomeActive(_ application: UIApplication) {
-    // reset the badge count on the app icon
-    if #available(iOS 16.0, *) {
-        UNUserNotificationCenter.current().setBadgeCount(0)
-    } else {
-        UIApplication.shared.applicationIconBadgeNumber = 0
-    }
-}
-```
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
@@ -387,16 +375,16 @@ In order to edit the Info.plist directly, just fill in your app specific details
 ```xml
 <key>CFBundleURLTypes</key>
 <array>
-	<dict>
-		<key>CFBundleTypeRole</key>
-		<string>Editor</string>
-		<key>CFBundleURLName</key>
-		<string>{your_unique_identifier}</string>
-		<key>CFBundleURLSchemes</key>
-		<array>
-			<string>{your_URL_scheme}</string>
-		</array>
-	</dict>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>{your_unique_identifier}</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>{your_URL_scheme}</string>
+        </array>
+    </dict>
 </array>
 ```
 
@@ -409,7 +397,7 @@ This needs to be done in the Info.plist directly:
 ```xml
 <key>LSApplicationQueriesSchemes</key>
 <array>
-	<string>{your custom URL scheme}</string>
+    <string>{your custom URL scheme}</string>
 </array>
 ```
 
@@ -506,12 +494,12 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 {
   "aps": {
     "alert": {
-      "title": "Free apple vision pro",
-      "body": "Free Apple vision pro when you buy a Klaviyo subscription."
+      "title": "Sample title for a Klaviyo push notification,
+      "body": "Sample body for a Klaviyo push notification"
     },
     "mutable-content": 1
   },
-  "rich-media": "https://www.apple.com/v/apple-vision-pro/a/images/overview/hero/portrait_base__bwsgtdddcl7m_large.jpg",
+  "rich-media": "https://picsum.photos/200/300.jpg",
   "rich-media-type": "jpg"
 }
 ```
@@ -519,11 +507,124 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
+#### Badge Count
+>  ℹ️ Setting or incrementing the badge count is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
+
+Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
+
+##### Autoclearing
+
+By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
+
+##### Handling Other Badging Sources
+
+Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+#### Silent Push Notifications
+
+Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
+>  ℹ️ Silent push support is available by default. The Klaviyo SDK does not provide specific handling for silent push notifications. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
+
+To handle silent push notifications in your app, you'll need to implement the appropriate delegate methods yourself. Here's an example of how to handle silent push notifications:
+
+```
+func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+  // Access custom key-value pairs from the top level
+  if let customData = userInfo["key_value_pairs"] as? [String: String] {
+    // Process your custom key-value pairs here
+    for (key, value) in kvPairs {
+        print("Key: \(key), Value: \(value)")
+    }
+  } else {
+      print("No key_value_pairs found in notification")
+  }
+}
+```
+
+>  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
+
+#### Custom Data
+Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
+
+## In-App Forms
+> ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
+
+[In-App Forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new In-App Forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
+display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
+
+Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers configured via the [`KlaviyoSDK().set(...)` methods](https://github.com/klaviyo/klaviyo-swift-sdk/blob/61e64552ad2acb65985e9305ae56eb57ff38d28b/Sources/KlaviyoSwift/Klaviyo.swift#L69-L135).
+
+### Prerequisites
+
+* Using Klaviyo SDK version 4.2.0 and higher
+* Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features. The minimum SDK version supporting In-App Forms is `4.2.0`, and a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
+* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding changes to In-App Forms behavior.
+
+| Feature            | Minimum SDK Version |
+|--------------------|---------------------|
+| Basic In-App Forms | 4.2.0+              |
+| Time Delay         | 5.0.0               |
+| Audience Targeting | 5.0.0               |
+
+### Setup
+
+To configure your app to display In-App Forms, call `Klaviyo.registerForInAppForms()` after initializing the SDK with your public API key. Once registered, the SDK may launch an overlay view at any time to present a form according to its targeting and behavior settings configured in your Klaviyo account.
+
+For the best user experience, we recommend registering after any splash screen or loading animations have completed. Depending on your app's architecture, this might be in your AppDelegate's `application(_:didFinishLaunchingWithOptions:)` method.
+
+```swift
+import KlaviyoSwift
+import KlaviyoForms
+...
+
+// if registering in the same location where you're initializing the SDK
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerForInAppForms()
+
+// if registering elsewhere after `KlaviyoSDK` is initialized
+KlaviyoSDK().registerForInAppForms()
+```
+
+Note that the In-App Forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
+
+#### In-App Forms Session Configuration
+
+A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms, as we want to ensure that a user will not see a form multiple times within a single session.
+
+A session will time out after a specified period of inactivity. When a user launches the app, if the time between the previous interaction with the app and the current one exceeds the specified timeout, we will consider this a new session.
+
+This timeout has a default value of 3600 seconds (1 hour), but it can be customized. To do so, pass an `InAppFormsConfig` object to the `registerForInAppForms()` method. For example, to set a session timeout of 30 minutes:
+
+```swift
+import KlaviyoForms
+// e.g. to configure a session timeout of 30 minutes
+let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
+KlaviyoSDK().registerForInAppForms(configuration: config)
+```
+
+### Unregistering from In-App Forms
+
+If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:
+
+```swift
+import KlaviyoForms
+KlaviyoSDK().unregisterFromInAppForms()
+```
+
+Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+
+### Deep linking
+
+Deep linking to a particular screen based on user action from an In-App Form is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
+
 ## Additional Details
 
 ### Sandbox Support
 
-> ℹ️ Sandbox support is available in SDK version 2.2.0 and higher
+> ℹ️ Sandbox support is available in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
 Apple has two environments with push notification support - Production and Sandbox.
 The Production environment supports sending push notifications to real users when an app is published in the App Store or TestFlight.

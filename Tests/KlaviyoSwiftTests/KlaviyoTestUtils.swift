@@ -4,19 +4,20 @@
 //
 //  Created by Noah Durell on 9/30/22.
 //
-import AnyCodable
+
 import Combine
-import XCTest
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import CombineSchedulers
 import KlaviyoCore
+import XCTest
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let ARCHIVED_RETURNED_DATA = Data()
 
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA })
+        unarchivedMutableArray: { _ in SAMPLE_DATA }
+    )
 }
 
 extension AppLifeCycleEvents {
@@ -35,6 +36,7 @@ extension KlaviyoEnvironment {
             notificationCenterPublisher: { _ in Empty<Notification, Never>().eraseToAnyPublisher() },
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
+            getBadgeAutoClearingSetting: { true },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },
@@ -42,7 +44,8 @@ extension KlaviyoEnvironment {
             raiseFatalError: { _ in },
             emitDeveloperWarning: { _ in },
             networkSession: { NetworkSession.test() },
-            apiURL: { "dead_beef" },
+            apiURL: { URLComponents(string: "https://dead_beef")! },
+            cdnURL: { URLComponents(string: "https://dead_beef")! },
             encodeJSON: { _ in TEST_RETURN_DATA },
             decoder: DataDecoder(jsonDecoder: TestJSONDecoder()),
             uuid: { UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
@@ -52,17 +55,19 @@ extension KlaviyoEnvironment {
             klaviyoAPI: KlaviyoAPI.test(),
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
-            SDKVersion: { __klaviyoSwiftVersion })
+            SDKVersion: { __klaviyoSwiftVersion },
+            formsDataEnvironment: { nil }
+        )
     }
 }
 
-class TestJSONDecoder: JSONDecoder {
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         KlaviyoState.test as! T
     }
 }
 
-class InvalidJSONDecoder: JSONDecoder {
+class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         throw KlaviyoDecodingError.invalidType
     }
@@ -89,7 +94,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL })
+        libraryDirectory: { TEST_URL }
+    )
 }
 
 extension KlaviyoAPI {
@@ -146,13 +152,15 @@ private final class KeyedArchiver: NSKeyedArchiver {
 extension UNNotificationResponse {
     static func with(
         userInfo: [AnyHashable: Any],
-        actionIdentifier: String = UNNotificationDefaultActionIdentifier) throws -> UNNotificationResponse {
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier
+    ) throws -> UNNotificationResponse {
         let content = UNMutableNotificationContent()
         content.userInfo = userInfo
         let request = UNNotificationRequest(
             identifier: "",
             content: content,
-            trigger: nil)
+            trigger: nil
+        )
 
         let notification = try XCTUnwrap(UNNotification(coder: KeyedArchiver(requiringSecureCoding: false)))
         notification.setValue(request, forKey: "request")

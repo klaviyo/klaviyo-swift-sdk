@@ -16,7 +16,8 @@ public struct FileClient {
         write: @escaping (Data, URL) throws -> Void,
         fileExists: @escaping (String) -> Bool,
         removeItem: @escaping (String) throws -> Void,
-        libraryDirectory: @escaping () -> URL) {
+        libraryDirectory: @escaping () -> URL
+    ) {
         self.write = write
         self.fileExists = fileExists
         self.removeItem = removeItem
@@ -32,7 +33,8 @@ public struct FileClient {
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! })
+        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! }
+    )
 }
 
 /**
@@ -67,13 +69,27 @@ public func removeFile(at url: URL) -> Bool {
     return false
 }
 
-/// load any plist from app main bundle
+/// load any plist from app main bundle or React Native framework bundle
 /// - Parameter name: the name of the plist
 /// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
 func loadPlist(named name: String) -> [String: AnyObject]? {
-    if let path = Bundle.main.path(forResource: name, ofType: "plist"),
-       let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] {
+    let plistPath: String? = {
+        if let path = Bundle.main.path(forResource: name, ofType: "plist") {
+            // Try loading from main bundle first
+            return path
+        } else if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
+                  let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
+            // If not found in main bundle, try loading from React Native framework bundle
+            return path
+        } else {
+            return nil
+        }
+    }()
+
+    if let plistPath,
+       let dict = NSDictionary(contentsOfFile: plistPath) as? [String: AnyObject] {
         return dict
+    } else {
+        return nil
     }
-    return nil
 }

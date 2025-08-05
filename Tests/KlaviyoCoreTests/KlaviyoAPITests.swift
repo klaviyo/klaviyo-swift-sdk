@@ -16,11 +16,11 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func testInvalidURL() async throws {
-        environment.apiURL = { "" }
+        environment.apiURL = { URLComponents() }
 
-        await sendAndAssert(with: KlaviyoRequest(
-            apiKey: "foo",
-            endpoint: .createProfile(CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: KlaviyoRequest(
+            endpoint: .createProfile("foo", CreateProfilePayload(data: .test))
+        )
         ) { result in
             switch result {
             case let .failure(error):
@@ -34,8 +34,8 @@ final class KlaviyoAPITests: XCTestCase {
     func testEncodingError() async throws {
         environment.encodeJSON = { _ in throw EncodingError.invalidValue("foo", .init(codingPath: [], debugDescription: "invalid"))
         }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
 
             switch result {
             case let .failure(error):
@@ -50,8 +50,8 @@ final class KlaviyoAPITests: XCTestCase {
         environment.networkSession = { NetworkSession.test(data: { _ in
             throw NSError(domain: "network error", code: 0)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
 
             switch result {
             case let .failure(error):
@@ -66,8 +66,8 @@ final class KlaviyoAPITests: XCTestCase {
         environment.networkSession = { NetworkSession.test(data: { _ in
             (Data(), .non200Response)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
 
             switch result {
             case let .failure(error):
@@ -83,8 +83,8 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(CreateProfilePayload(data: .test)))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
 
             switch result {
             case let .success(data):
@@ -100,8 +100,8 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(CreateEventPayload(data: CreateEventPayload.Event(name: "test"))))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .createEvent("foo", CreateEventPayload(data: CreateEventPayload.Event(name: "test"))))
+        try await sendAndAssert(with: request) { result in
             switch result {
             case let .success(data):
                 assertSnapshot(matching: data, as: .dump)
@@ -116,8 +116,8 @@ final class KlaviyoAPITests: XCTestCase {
             assertSnapshot(matching: request, as: .dump)
             return (Data(), .validResponse)
         }) }
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
-        await sendAndAssert(with: request) { result in
+        let request = KlaviyoRequest(endpoint: .registerPushToken("foo", .test))
+        try await sendAndAssert(with: request) { result in
 
             switch result {
             case let .success(data):
@@ -129,8 +129,9 @@ final class KlaviyoAPITests: XCTestCase {
     }
 
     func sendAndAssert(with request: KlaviyoRequest,
-                       assertion: (Result<Data, KlaviyoAPIError>) -> Void) async {
-        let result = await KlaviyoAPI().send(request, 0)
+                       assertion: (Result<Data, KlaviyoAPIError>) -> Void) async throws {
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50))
+        let result = await KlaviyoAPI().send(request, attemptInfo)
         assertion(result)
     }
 }

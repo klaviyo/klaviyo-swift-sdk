@@ -63,7 +63,8 @@ final class StateChangePublisherTests: XCTestCase {
         }
 
         testScheduler.run()
-        @MainActor func runDebouncedEffect() {
+        @MainActor
+        func runDebouncedEffect() {
             _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
             testScheduler.run()
             // This should not trigger a save since in our reducer it does not change the state.
@@ -108,7 +109,8 @@ final class StateChangePublisherTests: XCTestCase {
             test.state.eraseToAnyPublisher()
         }
 
-        @MainActor func runDebouncedEffect() {
+        @MainActor
+        func runDebouncedEffect() {
             _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
             _ = klaviyoSwiftEnvironment.send(.flushQueue)
             _ = klaviyoSwiftEnvironment.send(.flushQueue)

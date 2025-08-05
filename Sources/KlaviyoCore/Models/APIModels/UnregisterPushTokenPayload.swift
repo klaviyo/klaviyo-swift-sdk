@@ -24,7 +24,8 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
                 email: email,
                 phoneNumber: phoneNumber,
                 externalId: externalId,
-                anonymousId: anonymousId)
+                anonymousId: anonymousId
+            )
         }
 
         public struct Attributes: Equatable, Codable {
@@ -64,7 +65,8 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
                     image: image,
                     location: location,
                     properties: properties,
-                    anonymousId: anonymousId)
+                    anonymousId: anonymousId
+                )
             }
 
             public struct Profile: Equatable, Codable {
@@ -92,7 +94,8 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
                         image: image,
                         location: location,
                         properties: properties,
-                        anonymousId: anonymousId))
+                        anonymousId: anonymousId
+                    ))
                 }
             }
         }
@@ -108,6 +111,7 @@ public struct UnregisterPushTokenPayload: Equatable, Codable {
             email: email,
             phoneNumber: phoneNumber,
             externalId: externalId,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
     }
 }

@@ -62,7 +62,8 @@ public class Reachability {
             #endif
         }(),
         notifierRunning: Bool = false,
-        reachabilityRef: SCNetworkReachability? = nil) {
+        reachabilityRef: SCNetworkReachability? = nil
+    ) {
         self.whenReachable = whenReachable
         self.whenUnreachable = whenUnreachable
         self.reachableOnWWAN = reachableOnWWAN

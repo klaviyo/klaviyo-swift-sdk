@@ -33,15 +33,21 @@ class AppLifeCycleEventsTests: XCTestCase {
     // MARK: - App Terminate
 
     @MainActor
-    func testAppTerminateStopsReachability() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.willTerminateNotification)
-        let expection = XCTestExpectation(description: "Stop reachability is called.")
-        environment.stopReachability = { expection.fulfill() }
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
+    func testAppTerminateStopsReachability() async {
+        environment = KlaviyoEnvironment.test()
+        let expectation = XCTestExpectation(description: "Stop reachability is called")
+        environment.stopReachability = { expectation.fulfill() }
 
-        passThroughSubject.send(Notification(name: UIApplication.willTerminateNotification.self))
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
+            lifecycleSubject.eraseToAnyPublisher()
+        })
 
-        wait(for: [expection], timeout: 0.1)
+        environment.appLifeCycle = customLifeCycleEvents
+        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
+
+        lifecycleSubject.send(.terminated)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
     }
 
@@ -64,15 +70,20 @@ class AppLifeCycleEventsTests: XCTestCase {
 
     // MARK: - App Background
 
-    func testAppBackgroundStopsReachability() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didEnterBackgroundNotification)
-        let expection = XCTestExpectation(description: "Stop reachability is called.")
-        environment.stopReachability = { expection.fulfill() }
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
+    func testAppBackgroundStopsReachability() async {
+        environment = KlaviyoEnvironment.test()
+        let expectation = XCTestExpectation(description: "Stop reachability is called")
+        environment.stopReachability = { expectation.fulfill() }
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
+            lifecycleSubject.eraseToAnyPublisher()
+        })
 
-        passThroughSubject.send(Notification(name: UIApplication.didEnterBackgroundNotification.self))
+        environment.appLifeCycle = customLifeCycleEvents
+        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
+        lifecycleSubject.send(.backgrounded)
 
-        wait(for: [expection], timeout: 0.1)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
     }
 
@@ -95,22 +106,20 @@ class AppLifeCycleEventsTests: XCTestCase {
 
     // MARK: - Did become active
 
-    func testAppBecomesActiveStartsReachibility() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didBecomeActiveNotification)
-        let expection = XCTestExpectation(description: "Start reachability is called.")
-        var count = 0
-        environment.startReachability = {
-            if count == 0 {
-                count += 1
-            } else {
-                expection.fulfill()
-            }
-        }
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
+    func testAppBecomesActiveStartsReachibility() async {
+        environment = KlaviyoEnvironment.test()
+        let expectation = XCTestExpectation(description: "Start reachability is called")
+        environment.startReachability = { expectation.fulfill() }
 
-        passThroughSubject.send(Notification(name: UIApplication.didBecomeActiveNotification.self))
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
+            lifecycleSubject.eraseToAnyPublisher()
+        })
+        environment.appLifeCycle = customLifeCycleEvents
+        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
 
-        wait(for: [expection], timeout: 0.1)
+        lifecycleSubject.send(.foregrounded)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
     }
 
@@ -131,34 +140,27 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    func testStartReachabilityCalledOnSubscription() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didBecomeActiveNotification)
-        let expection = XCTestExpectation(description: "Start reachability is called.")
-        expection.assertForOverFulfill = true
-        environment.startReachability = { expection.fulfill() }
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
-
-        wait(for: [expection], timeout: 0.1)
-        XCTAssertEqual(1, expection.expectedFulfillmentCount)
-        cancellable.cancel()
-    }
-
     // MARK: Reachability start failure
 
-    func testReachabilityStartFailureIsHandled() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didBecomeActiveNotification)
-        let expection = XCTestExpectation(description: "Start reachability is called.")
+    func testReachabilityStartFailureIsHandled() async {
+        environment = KlaviyoEnvironment.test()
+        let expectation = XCTestExpectation(description: "Start reachability is called")
         environment.startReachability = {
-            expection.fulfill()
+            expectation.fulfill()
             throw KlaviyoAPIError.internalError("foo")
         }
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 
-        passThroughSubject.send(Notification(name: UIApplication.didBecomeActiveNotification.self))
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
+            lifecycleSubject.eraseToAnyPublisher()
+        })
+        environment.appLifeCycle = customLifeCycleEvents
+        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
 
-        wait(for: [expection], timeout: 0.1)
+        lifecycleSubject.send(.foregrounded)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
-        XCTAssertEqual(1, expection.expectedFulfillmentCount)
+        XCTAssertEqual(1, expectation.expectedFulfillmentCount)
     }
 
     // MARK: Reachability notifications

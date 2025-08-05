@@ -5,78 +5,44 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
 
-public struct KlaviyoRequest: Equatable, Codable {
-    public let apiKey: String
+/// A request that can be sent to the Klaviyo API.
+///
+/// This struct encapsulates all the information needed to make a request to Klaviyo's API,
+/// including the endpoint to call and a unique identifier for tracking the request.
+public struct KlaviyoRequest: Identifiable, Equatable, Codable {
+    /// A unique identifier for the request.
+    public let id: String
+
+    /// The API endpoint this request targets.
     public let endpoint: KlaviyoEndpoint
-    public var uuid: String
 
+    /// Creates a new request to the Klaviyo API.
+    ///
+    /// - Parameters:
+    ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
+    ///   - endpoint: The endpoint this request will target.
     public init(
-        apiKey: String,
-        endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString) {
-        self.apiKey = apiKey
+        id: String = environment.uuid().uuidString,
+        endpoint: KlaviyoEndpoint
+    ) {
+        self.id = id
         self.endpoint = endpoint
-        self.uuid = uuid
     }
 
-    public func urlRequest(_ attemptNumber: Int = 1) throws -> URLRequest {
-        guard let url = url else {
-            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
-        }
-        var request = URLRequest(url: url)
-        // We only support post right now
-        guard let body = try? encodeBody() else {
-            throw KlaviyoAPIError.dataEncodingError(self)
-        }
-        request.httpBody = body
-        request.httpMethod = "POST"
-        request.setValue("\(attemptNumber)/50", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
-
+    /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.
+    ///
+    /// This method adds an attempt count header to the request, which helps the Klaviyo API
+    /// understand the request's retry status and can influence rate limiting behavior.
+    ///
+    /// - Parameter attemptInfo: Information about the current attempt and maximum attempts allowed.
+    /// - Returns: A URLRequest configured with the appropriate headers and endpoint information.
+    /// - Throws: An error if the request cannot be created, either from the endpoint or if
+    ///           the provided attemptInfo is invalid.
+    public func urlRequest(attemptInfo: RequestAttemptInfo) throws -> URLRequest {
+        var request = try endpoint.urlRequest()
+        request.setValue("\(attemptInfo.attemptNumber)/\(attemptInfo.maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
         return request
-    }
-
-    var url: URL? {
-        switch endpoint {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken:
-            if !environment.apiURL().isEmpty {
-                return URL(string: "\(environment.apiURL())/\(path)/?company_id=\(apiKey)")
-            }
-            return nil
-        }
-    }
-
-    var path: String {
-        switch endpoint {
-        case .createProfile:
-            return "client/profiles"
-
-        case .createEvent:
-            return "client/events"
-
-        case .registerPushToken:
-            return "client/push-tokens"
-
-        case .unregisterPushToken:
-            return "client/push-token-unregister"
-        }
-    }
-
-    func encodeBody() throws -> Data {
-        switch endpoint {
-        case let .createProfile(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .createEvent(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .registerPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-
-        case let .unregisterPushToken(payload):
-            return try environment.encodeJSON(AnyEncodable(payload))
-        }
     }
 }

@@ -1,6 +1,6 @@
-▿ dead_beef/client/profiles/?company_id=foo
+▿ https://dead_beef/client/profiles/?company_id=foo
   ▿ url: Optional<URL>
-    - some: dead_beef/client/profiles/?company_id=foo
+    - some: https://dead_beef/client/profiles/?company_id=foo
   - cachePolicy: 0
   - timeoutInterval: 60.0
   - mainDocumentURL: Optional<URL>.none
@@ -12,9 +12,8 @@
     ▿ some: 1 key/value pair
       ▿ (2 elements)
         - key: "X-Klaviyo-Attempt-Count"
-        - value: "0/50"
-  ▿ httpBody: Optional<Data>
-    - some: 0 bytes
+        - value: "1/50"
+  - httpBody: Optional<Data>.none
   - httpBodyStream: Optional<NSInputStream>.none
   - httpShouldHandleCookies: true
   - httpShouldUsePipelining: false

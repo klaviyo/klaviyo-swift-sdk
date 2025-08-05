@@ -9,8 +9,9 @@ import Foundation
 import KlaviyoCore
 
 extension String {
-    fileprivate func returnNilIfEmpty() -> String? {
-        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
+    internal func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
+        let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedString.isEmpty ? nil : trimmedString
     }
 }
 
@@ -19,11 +20,12 @@ extension Profile {
         email: String? = nil,
         phoneNumber: String? = nil,
         externalId: String? = nil,
-        anonymousId: String) -> ProfilePayload {
+        anonymousId: String
+    ) -> ProfilePayload {
         ProfilePayload(
-            email: email ?? self.email?.returnNilIfEmpty(),
-            phoneNumber: phoneNumber ?? self.phoneNumber?.returnNilIfEmpty(),
-            externalId: externalId ?? self.externalId?.returnNilIfEmpty(),
+            email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            externalId: externalId?.trimWhiteSpaceOrReturnNilIfEmpty() ?? self.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
             firstName: firstName,
             lastName: lastName,
             organization: organization,
@@ -31,7 +33,8 @@ extension Profile {
             image: image,
             location: location?.toAPILocation,
             properties: properties,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
     }
 }
 
@@ -46,6 +49,7 @@ extension Profile.Location {
             longitude: longitude,
             region: region,
             zip: zip,
-            timezone: timezone)
+            timezone: timezone
+        )
     }
 }

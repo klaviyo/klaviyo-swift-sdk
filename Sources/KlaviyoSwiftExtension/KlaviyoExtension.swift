@@ -7,6 +7,22 @@
 import Foundation
 import UserNotifications
 
+private enum KlaviyoBadgeConfig {
+    case incrementOne
+    case setCount
+    case setProperty
+    case unknown(value: String)
+
+    init(rawValue: String) {
+        switch rawValue {
+        case "increment_one": self = .incrementOne
+        case "set_count": self = .setCount
+        case "set_property": self = .setProperty
+        default: self = .unknown(value: rawValue)
+        }
+    }
+}
+
 public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
@@ -23,7 +39,52 @@ public enum KlaviyoExtensionSDK {
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg") {
+        fallbackMediaType: String = "jpeg"
+    ) {
+        // handle badge setting from the push notification payload
+        handleBadge(bestAttemptContent: bestAttemptContent)
+        // handle rich media setup
+        handleRichMedia(bestAttemptContent: bestAttemptContent, contentHandler: contentHandler, fallbackMediaType: fallbackMediaType)
+    }
+
+    /// reads the badge count configuration setting received in the payload and handles it accordingly and syncs to the stored count
+    /// - Parameters:
+    ///   - bestAttemptContent: the best attempt at mutating the APNS payload before attaching it to the push notification
+    private static func handleBadge(bestAttemptContent: UNMutableNotificationContent) {
+        guard let badgeConfigValue = bestAttemptContent.userInfo["badge_config"] as? String else { return }
+        // retrieve the app group user defaults used to store the count
+        guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
+              let userDefaults = UserDefaults(suiteName: appGroup) else { return }
+
+        // update the badge value according to the configuration
+        var newBadgeValue: Int?
+        let badgeConfig = KlaviyoBadgeConfig(rawValue: badgeConfigValue)
+        switch badgeConfig {
+        case .incrementOne:
+            let currentBadgeCount = userDefaults.integer(forKey: "badgeCount")
+            newBadgeValue = currentBadgeCount + 1
+        case .setCount, .setProperty:
+            if let badgeValue = bestAttemptContent.userInfo["badge_value"] as? Int {
+                newBadgeValue = badgeValue
+            }
+        case .unknown:
+            return
+        }
+
+        // store the count and set that updated value to the push payload
+        userDefaults.set(newBadgeValue, forKey: "badgeCount")
+        bestAttemptContent.badge = newBadgeValue as? NSNumber
+    }
+
+    /// sets up the rich media for a rich push, parameters given by `handleNotificationServiceDidReceivedRequest(:)`
+    /// - Parameters:
+    ///   - bestAttemptContent: the best attempt at mutating the APNS payload before attaching it to the push notification
+    ///   - contentHandler: the closure that needs to be called before the time iOS provides for us to mutate the content
+    private static func handleRichMedia(
+        bestAttemptContent: UNMutableNotificationContent,
+        contentHandler: @escaping (UNNotificationContent) -> Void,
+        fallbackMediaType: String = "jpeg"
+    ) {
         // 1a. get the rich media url from the push notification payload
         guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
@@ -45,24 +106,26 @@ public enum KlaviyoExtensionSDK {
             // 3. once we have the local file URL we will create an attachment
             createAttachment(
                 localFileURL: localFileURL,
-                localFilePathWithTypeString: localFilePathWithTypeString) { attachment in
-                    guard let attachment = attachment else {
-                        contentHandler(bestAttemptContent)
-                        return
-                    }
-
-                    // 4. assign the create attachement to the best attempt content attachment and call the content handler so that the notification with the
-                    //    media can be delivered to the user.
-                    bestAttemptContent.attachments = [attachment]
+                localFilePathWithTypeString: localFilePathWithTypeString
+            ) { attachment in
+                guard let attachment = attachment else {
                     contentHandler(bestAttemptContent)
+                    return
                 }
+
+                // 4. assign the create attachement to the best attempt content attachment and call the content handler so that the notification with the
+                //    media can be delivered to the user.
+                bestAttemptContent.attachments = [attachment]
+                contentHandler(bestAttemptContent)
+            }
         }
     }
 
     public static func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
-        contentHandler: @escaping (UNNotificationContent) -> Void) {
+        contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
         contentHandler(bestAttemptContent)
     }
 
@@ -73,7 +136,8 @@ public enum KlaviyoExtensionSDK {
     ///                 note that in the case of failure the closure will still be called but with `nil`.
     private static func downloadMedia(
         for urlString: String,
-        completion: @escaping (URL?) -> Void) {
+        completion: @escaping (URL?) -> Void
+    ) {
         guard let imageURL = URL(string: urlString) else {
             completion(nil)
             return
@@ -104,7 +168,8 @@ public enum KlaviyoExtensionSDK {
     private static func createAttachment(
         localFileURL: URL,
         localFilePathWithTypeString: String,
-        completion: @escaping (UNNotificationAttachment?) -> Void) {
+        completion: @escaping (UNNotificationAttachment?) -> Void
+    ) {
         let localFileURLWithType: URL
         if #available(iOS 16.0, *) {
             localFileURLWithType = URL(filePath: localFilePathWithTypeString)
@@ -122,7 +187,9 @@ public enum KlaviyoExtensionSDK {
         guard let attachment = try? UNNotificationAttachment(
             identifier: "",
             url: localFileURLWithType,
-            options: nil) else {
+            options: nil
+        )
+        else {
             completion(nil)
             return
         }

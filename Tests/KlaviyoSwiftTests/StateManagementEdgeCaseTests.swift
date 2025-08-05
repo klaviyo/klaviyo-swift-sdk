@@ -114,6 +114,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
     }
 
     // MARK: - Set Email
@@ -154,6 +155,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -161,11 +163,26 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setEmail(""))
     }
 
+    @MainActor
     func testSetEmailWithWhiteSpace() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setEmail("        "))
+    }
+
+    @MainActor
+    func testSetEmailWithTrailingWhiteSpace() async throws {
+        let apiKey = "fake-key"
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: false)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        _ = await store.send(.setEmail("test@blob.com        ")) {
+            $0.email = "test@blob.com"
+        }
     }
 
     // MARK: - Set External Id
@@ -199,6 +216,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -206,11 +224,26 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setExternalId(""))
     }
 
+    @MainActor
     func testSetExternalIdWithWhiteSpaces() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setExternalId(""))
+        _ = await store.send(.setExternalId("      "))
+    }
+
+    @MainActor
+    func testSetExternalIdWithTrailingWhiteSpace() async throws {
+        let apiKey = "fake-key"
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: false)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        _ = await store.send(.setExternalId("external-blob-id        ")) {
+            $0.externalId = "external-blob-id"
+        }
     }
 
     // MARK: - Set Phone number
@@ -243,6 +276,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSetEmptyPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -250,11 +284,26 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.setPhoneNumber(""))
     }
 
+    @MainActor
     func testSetPhoneNumberWithWhiteSpaces() async throws {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.setPhoneNumber(""))
+        _ = await store.send(.setPhoneNumber("       "))
+    }
+
+    @MainActor
+    func testSetPhoneNumberWithTrailingWhiteSpace() async throws {
+        let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
+                                        queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: false)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setPhoneNumber("1-800-Blobs4u        ")) {
+            $0.phoneNumber = "1-800-Blobs4u"
+        }
     }
 
     // MARK: - Set Push Token
@@ -335,6 +384,73 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.start)
     }
 
+    // MARK: - Default Badge Clearing
+
+    @MainActor
+    func testDefaultBadgeClearingOn() async throws {
+        let apiKey = "fake-key"
+        environment.getBadgeAutoClearingSetting = { true }
+        let expectation = XCTestExpectation(description: "Should set badge to 0")
+        klaviyoSwiftEnvironment.setBadgeCount = { _ in
+            expectation.fulfill()
+            return nil
+        }
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: "foo", queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initializing,
+                                                         flushing: true), reducer: KlaviyoReducer())
+        // Attempting to get more coverage
+        _ = await store.send(.completeInitialization(initialState)) {
+            $0.initalizationState = .initialized
+            $0.anonymousId = "foo"
+        }
+        await store.receive(.start)
+        await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
+    }
+
+    // MARK: - Default Badge Clearing Turned Off
+
+    @MainActor
+    func testDefaultBadgeClearingOff() async {
+        let apiKey = "fake-key"
+        environment.getBadgeAutoClearingSetting = { false }
+        let expectation = XCTestExpectation(description: "Should not set badge to 0")
+        expectation.isInverted = true
+        klaviyoSwiftEnvironment.setBadgeCount = { _ in
+            expectation.fulfill()
+            return nil
+        }
+        let initialState = KlaviyoState(apiKey: apiKey,
+                                        anonymousId: "foo", queue: [],
+                                        requestsInFlight: [],
+                                        initalizationState: .initialized,
+                                        flushing: true)
+        let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
+                                                         requestsInFlight: [],
+                                                         initalizationState: .initializing,
+                                                         flushing: true), reducer: KlaviyoReducer())
+        // Attempting to get more coverage
+        _ = await store.send(.completeInitialization(initialState)) {
+            $0.initalizationState = .initialized
+            $0.anonymousId = "foo"
+        }
+        await store.receive(.start)
+        await store.receive(.flushQueue)
+        await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.receive(.syncBadgeCount)
+        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
+    }
+
     // MARK: - Network Status Changed
 
     @MainActor
@@ -360,7 +476,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
-            flushing: false)
+            flushing: false
+        )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Impossible case really but we want coverage on it.
@@ -414,6 +531,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await fulfillment(of: [expection])
     }
 
+    @MainActor
     func testSetProfileWithEmptyStringIdentifiers() async throws {
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,
@@ -428,7 +546,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
             queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
-            flushing: true)
+            flushing: true
+        )
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 

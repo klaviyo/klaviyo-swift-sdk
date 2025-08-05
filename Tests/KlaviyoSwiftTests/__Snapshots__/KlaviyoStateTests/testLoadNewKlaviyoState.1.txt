@@ -14,5 +14,5 @@
   - pushTokenData: Optional<PushTokenData>.none
   - queue: 0 elements
   - requestsInFlight: 0 elements
-  ▿ retryInfo: RetryInfo
+  ▿ retryState: RetryState
     - retry: 1

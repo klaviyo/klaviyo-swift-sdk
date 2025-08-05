@@ -5,7 +5,6 @@
 //  Created by Noah Durell on 9/28/22.
 //
 
-import AnyCodable
 import Combine
 import Foundation
 import UIKit
@@ -22,6 +21,7 @@ public struct KlaviyoEnvironment {
         notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
+        getBadgeAutoClearingSetting: @escaping () async -> Bool,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
@@ -29,8 +29,9 @@ public struct KlaviyoEnvironment {
         raiseFatalError: @escaping (String) -> Void,
         emitDeveloperWarning: @escaping (String) -> Void,
         networkSession: @escaping () -> NetworkSession,
-        apiURL: @escaping () -> String,
-        encodeJSON: @escaping (AnyEncodable) throws -> Data,
+        apiURL: @escaping () -> URLComponents,
+        cdnURL: @escaping () -> URLComponents,
+        encodeJSON: @escaping (Encodable) throws -> Data,
         decoder: DataDecoder,
         uuid: @escaping () -> UUID,
         date: @escaping () -> Date,
@@ -39,7 +40,9 @@ public struct KlaviyoEnvironment {
         klaviyoAPI: KlaviyoAPI,
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
-        SDKVersion: @escaping () -> String) {
+        SDKVersion: @escaping () -> String,
+        formsDataEnvironment: @escaping () -> FormEnvironment?
+    ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
@@ -48,6 +51,7 @@ public struct KlaviyoEnvironment {
         self.notificationCenterPublisher = notificationCenterPublisher
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
+        self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
         self.startReachability = startReachability
         self.stopReachability = stopReachability
         self.reachabilityStatus = reachabilityStatus
@@ -56,6 +60,7 @@ public struct KlaviyoEnvironment {
         self.emitDeveloperWarning = emitDeveloperWarning
         self.networkSession = networkSession
         self.apiURL = apiURL
+        self.cdnURL = cdnURL
         self.encodeJSON = encodeJSON
         self.decoder = decoder
         self.uuid = uuid
@@ -66,9 +71,23 @@ public struct KlaviyoEnvironment {
         self.timer = timer
         sdkName = SDKName
         sdkVersion = SDKVersion
+        self.formsDataEnvironment = formsDataEnvironment
     }
 
-    static let productionHost = "https://a.klaviyo.com"
+    static let productionHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "a.klaviyo.com"
+        return components
+    }()
+
+    static let cdnHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "static.klaviyo.com"
+        return components
+    }()
+
     public static let encoder = { () -> JSONEncoder in
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -81,7 +100,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: URL(string: productionHost)!.host!)
+    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
 
     public var archiverClient: ArchiverClient
     public var fileClient: FileClient
@@ -94,6 +113,7 @@ public struct KlaviyoEnvironment {
     public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
+    public var getBadgeAutoClearingSetting: () async -> Bool
 
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
@@ -105,8 +125,9 @@ public struct KlaviyoEnvironment {
     public var emitDeveloperWarning: (String) -> Void
 
     public var networkSession: () -> NetworkSession
-    public var apiURL: () -> String
-    public var encodeJSON: (AnyEncodable) throws -> Data
+    public var apiURL: () -> URLComponents
+    public var cdnURL: () -> URLComponents
+    public var encodeJSON: (Encodable) throws -> Data
     public var decoder: DataDecoder
     public var uuid: () -> UUID
     public var date: () -> Date
@@ -114,23 +135,41 @@ public struct KlaviyoEnvironment {
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
+    public var formsDataEnvironment: () -> FormEnvironment?
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
 
-    private static let rnSDKConfig: [String: AnyObject] = {
-        loadPlist(named: "klaviyo-react-native-sdk-configuration") ?? [:]
-    }()
+    public func lifecycleEventsWithReachability() -> AnyPublisher<LifeCycleEvents, Never> {
+        appLifeCycle.lifeCycleEvents()
+            .handleEvents(receiveOutput: { event in
+                switch event {
+                case .terminated, .backgrounded:
+                    stopReachability()
+                case .foregrounded:
+                    do {
+                        try startReachability()
+                    } catch {
+                        emitDeveloperWarning("failure to start reachability notifier")
+                    }
+                case .reachabilityChanged:
+                    break
+                }
+            })
+            .eraseToAnyPublisher()
+    }
+
+    private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
 
     private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_name"] as? String {
+        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
             return sdkName
         }
         return __klaviyoSwiftName
     }
 
     private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["react_native_sdk_version"] as? String {
+        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
             return sdkVersion
         }
         return __klaviyoSwiftVersion
@@ -150,7 +189,12 @@ public struct KlaviyoEnvironment {
             let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
             return PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
-        getBackgroundSetting: { .create(from: UIApplication.shared.backgroundRefreshStatus) },
+        getBackgroundSetting: {
+            .create(from: UIApplication.shared.backgroundRefreshStatus)
+        },
+        getBadgeAutoClearingSetting: {
+            Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
+        },
         startReachability: {
             try reachabilityService?.startNotifier()
         },
@@ -169,6 +213,7 @@ public struct KlaviyoEnvironment {
         emitDeveloperWarning: { runtimeWarn($0) },
         networkSession: createNetworkSession,
         apiURL: { KlaviyoEnvironment.productionHost },
+        cdnURL: { KlaviyoEnvironment.cdnHost },
         encodeJSON: { encodable in try encoder.encode(encodable) },
         decoder: DataDecoder.production,
         uuid: { UUID() },
@@ -182,7 +227,9 @@ public struct KlaviyoEnvironment {
                 .eraseToAnyPublisher()
         },
         SDKName: KlaviyoEnvironment.getSDKName,
-        SDKVersion: KlaviyoEnvironment.getSDKVersion)
+        SDKVersion: KlaviyoEnvironment.getSDKVersion,
+        formsDataEnvironment: { nil }
+    )
 }
 
 public var networkSession: NetworkSession!
@@ -195,6 +242,11 @@ public func createNetworkSession() -> NetworkSession {
 
 public enum KlaviyoDecodingError: Error {
     case invalidType
+}
+
+public enum FormEnvironment: String, Equatable, Codable, CaseIterable {
+    case inApp = "in-app"
+    case web
 }
 
 public struct DataDecoder {

@@ -22,7 +22,8 @@ public struct PushTokenPayload: Equatable, Codable {
                 pushToken: pushToken,
                 enablement: enablement,
                 background: background,
-                profile: profile)
+                profile: profile
+            )
         }
 
         public struct Attributes: Equatable, Codable {
@@ -123,6 +124,7 @@ public struct PushTokenPayload: Equatable, Codable {
             pushToken: pushToken,
             enablement: enablement,
             background: background,
-            profile: profile)
+            profile: profile
+        )
     }
 }

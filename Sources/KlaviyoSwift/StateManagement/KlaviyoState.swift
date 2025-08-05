@@ -22,6 +22,7 @@ public struct KlaviyoState: Equatable, Codable {
 
     enum PendingRequest: Equatable {
         case event(Event)
+        case aggregateEvent(Data)
         case profile(Profile)
         case pushToken(String, PushEnablement)
         case setEmail(String)
@@ -57,7 +58,7 @@ public struct KlaviyoState: Equatable, Codable {
     var initalizationState = InitializationState.uninitialized
     var flushing = false
     var flushInterval = StateManagementConstants.wifiFlushInterval
-    var retryInfo = RetryInfo.retry(StateManagementConstants.initialAttempt)
+    var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
@@ -80,21 +81,21 @@ public struct KlaviyoState: Equatable, Codable {
 
     mutating func updateEmail(email: String) {
         if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            self.email = email
+            self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updateExternalId(externalId: String) {
         if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
-            self.externalId = externalId
+            self.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
 
     mutating func updatePhoneNumber(phoneNumber: String) {
         if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            self.phoneNumber = phoneNumber
+            self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
             enqueueProfileOrTokenRequest()
         }
     }
@@ -127,9 +128,9 @@ public struct KlaviyoState: Equatable, Codable {
     mutating func enqueueProfileRequest(apiKey: String, anonymousId: String) {
         let request = buildProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
         switch request.endpoint {
-        case let .createProfile(payload):
+        case let .createProfile(_, payload):
             let updatedPayload = updateRequestAndStateWithPendingProfile(profile: payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: .createProfile(updatedPayload))
+            let request = KlaviyoRequest(endpoint: .createProfile(apiKey, updatedPayload))
             enqueueRequest(request: request)
         default:
             environment.raiseFatalError("Unexpected request type. \(request.endpoint)")
@@ -139,17 +140,17 @@ public struct KlaviyoState: Equatable, Codable {
     mutating func updateStateWithProfile(profile: Profile) {
         if let profileEmail = profile.email,
            profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            email = profileEmail
+            email = profileEmail.trimWhiteSpaceOrReturnNilIfEmpty()
         }
 
         if let profilePhoneNumber = profile.phoneNumber,
            profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            phoneNumber = profilePhoneNumber
+            phoneNumber = profilePhoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
         }
 
         if let profileExternalId = profile.externalId,
            profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
-            externalId = profileExternalId
+            externalId = profileExternalId.trimWhiteSpaceOrReturnNilIfEmpty()
         }
     }
 
@@ -240,8 +241,7 @@ public struct KlaviyoState: Equatable, Codable {
                 )
 
                 let request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                    endpoint: KlaviyoEndpoint.registerPushToken(apiKey, payload)
                 )
 
                 enqueueRequest(request: request)
@@ -273,9 +273,9 @@ public struct KlaviyoState: Equatable, Codable {
             anonymousId: anonymousId
         )
 
-        let endpoint = KlaviyoEndpoint.createProfile(CreateProfilePayload(data: payload))
+        let endpoint = KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: payload))
 
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 
     mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
@@ -299,8 +299,8 @@ public struct KlaviyoState: Equatable, Codable {
             background: environment.getBackgroundSetting().rawValue,
             profile: profile.toAPIModel(anonymousId: anonymousId)
         )
-        let endpoint = KlaviyoEndpoint.registerPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        let endpoint = KlaviyoEndpoint.registerPushToken(apiKey, payload)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 
     func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
@@ -311,8 +311,8 @@ public struct KlaviyoState: Equatable, Codable {
             externalId: externalId,
             anonymousId: anonymousId
         )
-        let endpoint = KlaviyoEndpoint.unregisterPushToken(payload)
-        return KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+        let endpoint = KlaviyoEndpoint.unregisterPushToken(apiKey, payload)
+        return KlaviyoRequest(endpoint: endpoint)
     }
 }
 
