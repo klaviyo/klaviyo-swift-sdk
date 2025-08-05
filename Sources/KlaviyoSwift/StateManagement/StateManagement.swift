@@ -627,20 +627,20 @@ struct KlaviyoReducer: ReducerProtocol {
                             Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
                         }
 
-                    // TODO: handle destination URL
+                    // TODO: [CHNL-23276] handle destination URL
                     // example:
                     // await send(.navigateToDestinationURL(destinationURL))
                     case let .failure(error):
                         if #available(iOS 14.0, *) {
                             Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
                         }
-                        // TODO: handle error
+                        // TODO: [CHNL-22886] handle error
                     }
                 } catch {
                     if #available(iOS 14.0, *) {
                         Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
                     }
-                    // TODO: handle error
+                    // TODO: [CHNL-22886] handle error
                 }
             }
         }

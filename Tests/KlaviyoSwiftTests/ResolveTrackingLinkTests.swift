@@ -52,7 +52,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // When/Then
         await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
 
-        // TODO: Validate that
+        // TODO: [CHNL-23276] Validate that destination URL is handled
     }
 
     @MainActor
@@ -91,7 +91,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // When/Then
         await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
 
-        // TODO: validate that error is handled properly
+        // TODO: [CHNL-23276] Validate that destination URL is handled
     }
 
     @MainActor
@@ -126,6 +126,6 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // When/Then
         await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
 
-        // TODO: validate that error is handled properly
+        // TODO: [CHNL-22886] validate that error is handled properly
     }
 }
