@@ -10,9 +10,11 @@ import Foundation
 import UIKit
 import UserNotifications
 
-var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
+@_spi(KlaviyoPrivate)
+public var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
 
-struct KlaviyoSwiftEnvironment {
+@_spi(KlaviyoPrivate)
+public struct KlaviyoSwiftEnvironment {
     public var send: (KlaviyoAction) -> Task<Void, Never>?
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>

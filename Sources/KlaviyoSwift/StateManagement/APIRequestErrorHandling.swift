@@ -21,7 +21,8 @@ extension KlaviyoEndpoint {
     }
 }
 
-enum InvalidField: Equatable {
+@_spi(KlaviyoPrivate)
+public enum InvalidField: Equatable {
     case email
     case phone
 
