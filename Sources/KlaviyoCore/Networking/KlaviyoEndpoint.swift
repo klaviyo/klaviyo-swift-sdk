@@ -48,7 +48,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
-        case let .resolveDestinationURL(trackingLink, _):
+        case let .resolveDestinationURL:
             return .get
         }
     }
