@@ -107,8 +107,23 @@ final class KlaviyoEndpointTests: XCTestCase {
 
         // Test headers
         if let profileData = try? environment.encodeJSON(profileInfo),
-           let profileDataString = String(data: profileData, encoding: .utf8) {
-            XCTAssertEqual(request.allHTTPHeaderFields?["X-Klaviyo-Profile-Info"], profileDataString)
+           let profileDataString = String(data: profileData, encoding: .utf8),
+           let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-Profile-Info"] {
+            // Compare JSON objects instead of string representations to avoid order issues
+            let profileJson = try JSONSerialization.jsonObject(with: Data(profileDataString.utf8), options: []) as! [String: Any]
+            let headerJson = try JSONSerialization.jsonObject(with: Data(headerValue.utf8), options: []) as! [String: Any]
+
+            // Compare the type
+            XCTAssertEqual(profileJson["type"] as? String, headerJson["type"] as? String)
+
+            // Compare attributes as dictionaries
+            let profileAttrs = profileJson["attributes"] as! [String: Any]
+            let headerAttrs = headerJson["attributes"] as! [String: Any]
+
+            XCTAssertEqual(profileAttrs["email"] as? String, headerAttrs["email"] as? String)
+            XCTAssertEqual(profileAttrs["phone_number"] as? String, headerAttrs["phone_number"] as? String)
+            XCTAssertEqual(profileAttrs["external_id"] as? String, headerAttrs["external_id"] as? String)
+            XCTAssertEqual(profileAttrs["anonymous_id"] as? String, headerAttrs["anonymous_id"] as? String)
         } else {
             XCTFail("Failed to encode profile info for header")
         }
