@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import OSLog
 import UserNotifications
 
 extension UNNotificationResponse {
@@ -29,10 +30,16 @@ extension UNNotificationResponse {
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.
     public var klaviyoProperties: [String: Any]? {
         guard isKlaviyoNotification else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Attempting to access Klaviyo properties from a non-Klaviyo notification.")
+            }
             return nil
         }
 
         guard let properties = notification.request.content.userInfo as? [String: Any] else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.log("Unable to retrieve properties from the Klaviyo notification payload.")
+            }
             return nil
         }
 
@@ -42,6 +49,9 @@ extension UNNotificationResponse {
     /// Returns the deep link URL from a Klaviyo notification payload, if present.
     public var klaviyoDeepLinkURL: URL? {
         guard isKlaviyoNotification else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Attempting to access a Klaviyo deep link URL from a non-Klaviyo notification.")
+            }
             return nil
         }
 
@@ -50,10 +60,16 @@ extension UNNotificationResponse {
         }
 
         guard let urlString = properties["url"] as? String else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.log("Unable to retrieve deep link URL from the Klaviyo notification payload.")
+            }
             return nil
         }
 
         guard let url = URL(string: urlString) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Unable to convert string '\(urlString)' to a valid URL.")
+            }
             return nil
         }
 
