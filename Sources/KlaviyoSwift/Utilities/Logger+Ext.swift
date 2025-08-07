@@ -22,4 +22,7 @@ extension Logger {
 extension Logger {
     /// Logger for ``Codable`` events (JSON encoding & decoding)
     static let codableLogger = Logger(category: "Encoding/Decoding Logger")
+
+    /// Logger for state events that run through the reducer
+    static let stateLogger = Logger(category: "State logger")
 }

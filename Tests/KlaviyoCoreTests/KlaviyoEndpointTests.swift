@@ -90,6 +90,45 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertEqual(request.httpBody, payload)
     }
 
+    func testResolveDestinationURLEndpointUrlRequest() throws {
+        // Given
+        let trackingLink = URL(string: "https://email.klaviyo.com/tracking/link")!
+        let profileInfo = ProfilePayload(email: "test@example.com", phoneNumber: "+15551234567", externalId: "user-123", anonymousId: "anon-456")
+        let endpoint = KlaviyoEndpoint.resolveDestinationURL(trackingLink: trackingLink, profileInfo: profileInfo)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.absoluteString, trackingLink.absoluteString)
+        XCTAssertNil(request.url?.query) // No query items for this endpoint
+        XCTAssertNil(request.httpBody) // No body for this endpoint
+
+        // Test headers
+        if let profileData = try? environment.encodeJSON(profileInfo),
+           let profileDataString = String(data: profileData, encoding: .utf8),
+           let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-Profile-Info"] {
+            // Compare JSON objects instead of string representations to avoid order issues
+            let profileJson = try JSONSerialization.jsonObject(with: Data(profileDataString.utf8), options: []) as! [String: Any]
+            let headerJson = try JSONSerialization.jsonObject(with: Data(headerValue.utf8), options: []) as! [String: Any]
+
+            // Compare the type
+            XCTAssertEqual(profileJson["type"] as? String, headerJson["type"] as? String)
+
+            // Compare attributes as dictionaries
+            let profileAttrs = profileJson["attributes"] as! [String: Any]
+            let headerAttrs = headerJson["attributes"] as! [String: Any]
+
+            XCTAssertEqual(profileAttrs["email"] as? String, headerAttrs["email"] as? String)
+            XCTAssertEqual(profileAttrs["phone_number"] as? String, headerAttrs["phone_number"] as? String)
+            XCTAssertEqual(profileAttrs["external_id"] as? String, headerAttrs["external_id"] as? String)
+            XCTAssertEqual(profileAttrs["anonymous_id"] as? String, headerAttrs["anonymous_id"] as? String)
+        } else {
+            XCTFail("Failed to encode profile info for header")
+        }
+    }
+
     func testPathValidation() throws {
         // Given
         environment.apiURL = {

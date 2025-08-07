@@ -15,8 +15,21 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
+    case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
 
-    public var headers: [String: String] { [:] }
+    public var headers: [String: String] {
+        switch self {
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+            return [:]
+        case let .resolveDestinationURL(_, profileInfo):
+            if let profileData = try? environment.encodeJSON(profileInfo),
+               let profileDataString = String(data: profileData, encoding: .utf8) {
+                return ["X-Klaviyo-Profile-Info": profileDataString]
+            } else {
+                return [:]
+            }
+        }
+    }
 
     public var queryItems: [URLQueryItem] {
         switch self {
@@ -26,6 +39,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
+        case .resolveDestinationURL:
+            return []
         }
     }
 
@@ -33,26 +48,42 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
+        case let .resolveDestinationURL:
+            return .get
         }
     }
 
     public func baseURL() throws -> URL {
-        guard environment.apiURL().scheme != nil,
-              environment.apiURL().host != nil,
-              let url = environment.apiURL().url else {
-            let errorMessage = (environment.apiURL().scheme == nil || environment.apiURL().host == nil)
-                ?
-                "Failed to build valid URL; scheme and/or host is nil"
-                :
-                "Failed to build valid URL from base components '\(String(describing: environment.apiURL()))'"
+        switch self {
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+            guard environment.apiURL().scheme != nil,
+                  environment.apiURL().host != nil,
+                  let url = environment.apiURL().url else {
+                let errorMessage = (environment.apiURL().scheme == nil || environment.apiURL().host == nil)
+                    ?
+                    "Failed to build valid URL; scheme and/or host is nil"
+                    :
+                    "Failed to build valid URL from base components '\(String(describing: environment.apiURL()))'"
 
-            if #available(iOS 14.0, *) {
-                Logger.networking.warning("\(errorMessage)")
+                if #available(iOS 14.0, *) {
+                    Logger.networking.warning("\(errorMessage)")
+                }
+                throw KlaviyoAPIError.internalError("\(errorMessage)")
             }
-            throw KlaviyoAPIError.internalError("\(errorMessage)")
-        }
 
-        return url
+            return url
+        case let .resolveDestinationURL(trackingLink, _):
+            var urlComponents = URLComponents()
+
+            urlComponents.scheme = trackingLink.scheme
+            urlComponents.host = trackingLink.host
+
+            guard let url = urlComponents.url else {
+                throw KlaviyoAPIError.internalError("Failed to build valid URL from URLComponents '\(urlComponents)'")
+            }
+
+            return url
+        }
     }
 
     var path: String {
@@ -67,6 +98,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-token-unregister/"
         case .aggregateEvent:
             return "/onsite/track-analytics"
+        case let .resolveDestinationURL(trackingLink, _):
+            return trackingLink.path
         }
     }
 
@@ -82,6 +115,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .aggregateEvent(_, payload):
             return payload
+        case .resolveDestinationURL:
+            return nil
         }
     }
 }

@@ -17,6 +17,8 @@ extension KlaviyoEndpoint {
         switch self {
         case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent:
             return 50
+        case .resolveDestinationURL:
+            return 1
         }
     }
 }

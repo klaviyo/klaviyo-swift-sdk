@@ -15,6 +15,7 @@ import AnyCodable
 import Combine
 import Foundation
 import KlaviyoCore
+import OSLog
 import UIKit
 import UserNotifications
 
@@ -120,16 +121,17 @@ enum KlaviyoAction: Equatable {
     /// the data that was passed to the client endpoint
     case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
+    case resolveTrackingLinkDestination(from: URL)
+
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
-
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .resolveTrackingLinkDestination:
             return false
         }
     }
@@ -593,6 +595,54 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+
+        case let .resolveTrackingLinkDestination(from: trackingLinkURL):
+            if #available(iOS 14.0, *) {
+                Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
+            }
+
+            let profileInfo = ProfilePayload(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: state.anonymousId ?? ""
+            )
+
+            return .run { _ in
+                do {
+                    let endpoint = KlaviyoEndpoint.resolveDestinationURL(
+                        trackingLink: trackingLinkURL,
+                        profileInfo: profileInfo
+                    )
+                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
+                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+                    switch result {
+                    case let .success(data):
+                        let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
+                        let destinationURL = response.destinationLink
+
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
+                        }
+
+                    // TODO: [CHNL-23276] handle destination URL
+                    // example:
+                    // await send(.navigateToDestinationURL(destinationURL))
+                    case let .failure(error):
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                        }
+                        // TODO: [CHNL-22886] handle error
+                    }
+                } catch {
+                    if #available(iOS 14.0, *) {
+                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                    }
+                    // TODO: [CHNL-22886] handle error
+                }
+            }
         }
     }
 }
