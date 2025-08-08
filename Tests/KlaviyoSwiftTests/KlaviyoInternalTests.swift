@@ -153,6 +153,7 @@ final class KlaviyoInternalTests: XCTestCase {
 
     // MARK: - API Key Tests
 
+    @MainActor
     func testApiKeyPublisher_emitsValidKeyImmediately() {
         let expectation = XCTestExpectation(description: "Should receive valid key immediately")
         var receivedValues: [String] = []
@@ -182,6 +183,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedValues, ["ABC123"])
     }
 
+    @MainActor
     func testApiKeyPublisher_emitsMultipleValues() {
         let expectation = XCTestExpectation(description: "Publisher should emit two API keys")
         var receivedValues = Set<String>()
@@ -214,6 +216,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedValues, Set<String>(["ABC123", "DEF456"]))
     }
 
+    @MainActor
     func testApiKeyPublisher_nilAPIKeyEmitsFailure() async {
         // Set up the test environment with a nil key but initialized state
         let initialState = KlaviyoState(
@@ -243,6 +246,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedError, .apiKeyNilOrEmpty)
     }
 
+    @MainActor
     func testApiKeyPublisher_emptyAPIKeyEmitsFailure() async {
         // Set up the test environment with an empty key but initialized state
         let initialState = KlaviyoState(
@@ -272,6 +276,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedError, .apiKeyNilOrEmpty)
     }
 
+    @MainActor
     func testApiKeyPublisher_uninitializedEmitsFailure() async {
         // Set up the test environment with uninitialized state
         let initialState = KlaviyoState(
@@ -301,6 +306,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(receivedError, .notInitialized)
     }
 
+    @MainActor
     func testFetchAPIKey_returnsValidKey() async throws {
         // Set up test environment with valid API key
         let initialState = KlaviyoState(
@@ -315,6 +321,7 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(apiKey, "TEST123")
     }
 
+    @MainActor
     func testFetchAPIKey_throwsWhenUninitialized() async {
         // Set up test environment with uninitialized state
         let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)
@@ -329,6 +336,7 @@ final class KlaviyoInternalTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFetchAPIKey_throwsWhenAPIKeyNil() async {
         // Set up test environment with nil API key
         let initialState = KlaviyoState(
@@ -347,6 +355,7 @@ final class KlaviyoInternalTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFetchAPIKey_throwsWhenAPIKeyEmpty() async {
         // Set up test environment with empty API key
         let initialState = KlaviyoState(
@@ -365,6 +374,7 @@ final class KlaviyoInternalTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testResetAPIKeySubject() {
         let expectation = XCTestExpectation(description: "API key subject is reset")
         var receivedError: SDKError?

@@ -1,0 +1,79 @@
+//
+//  UNNotificationResponse+Klaviyo.swift
+//
+//  Klaviyo Swift SDK
+//
+//  Created for Klaviyo
+//
+//  Copyright (c) 2025 Klaviyo
+//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
+//
+
+import Foundation
+import OSLog
+import UserNotifications
+
+extension UNNotificationResponse {
+    /// Determines if a notification originated from Klaviyo.
+    ///
+    /// A notification is considered a Klaviyo notification if it contains
+    /// a "body" dictionary with a "_k" key in its userInfo.
+    public var isKlaviyoNotification: Bool {
+        if let properties = notification.request.content.userInfo as? [String: Any],
+           let body = properties["body"] as? [String: Any],
+           let _ = body["_k"] {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.
+    var klaviyoProperties: [String: Any]? {
+        guard isKlaviyoNotification else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Attempting to access Klaviyo properties from a non-Klaviyo notification.")
+            }
+            return nil
+        }
+
+        guard let properties = notification.request.content.userInfo as? [String: Any] else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.log("Unable to retrieve properties from the Klaviyo notification payload.")
+            }
+            return nil
+        }
+
+        return properties
+    }
+
+    /// Returns the deep link URL from a Klaviyo notification payload, if present.
+    var klaviyoDeepLinkURL: URL? {
+        guard isKlaviyoNotification else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Attempting to access a Klaviyo deep link URL from a non-Klaviyo notification.")
+            }
+            return nil
+        }
+
+        guard let properties = klaviyoProperties else {
+            return nil
+        }
+
+        guard let urlString = properties["url"] as? String else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.log("Unable to retrieve deep link URL from the Klaviyo notification payload.")
+            }
+            return nil
+        }
+
+        guard let url = URL(string: urlString) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Unable to convert string '\(urlString)' to a valid URL.")
+            }
+            return nil
+        }
+
+        return url
+    }
+}
