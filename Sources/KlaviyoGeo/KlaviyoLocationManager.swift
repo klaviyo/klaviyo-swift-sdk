@@ -11,17 +11,25 @@ import Foundation
 import OSLog
 @_spi(KlaviyoPrivate) import KlaviyoSwift
 
-public class KlaviyoLocationManager: NSObject {
-    let manager = CLLocationManager()
-    let geofenceManager: KlaviyoGeofenceManager
-    public let geofencePublisher: PassthroughSubject<String, Never> = .init()
-
-    override private convenience init() {
-        self.init()
+extension KlaviyoSDK {
+    @MainActor
+    public func registerGeofences() {
+        Task {
+            await MainActor.run {
+                KlaviyoLocationManager.shared.requestLocationAuthorization()
+            }
+        }
     }
+}
 
-    public init(geofenceManager: KlaviyoGeofenceManager = .init()) {
-        self.geofenceManager = geofenceManager
+public class KlaviyoLocationManager: NSObject {
+    static let shared = KlaviyoLocationManager()
+    let manager = CLLocationManager()
+    public let geofencePublisher: PassthroughSubject<String, Never> = .init()
+    let geofenceManager: KlaviyoGeofenceManager
+
+    override public init() {
+        geofenceManager = KlaviyoGeofenceManager(locationManager: manager)
         super.init()
         manager.delegate = self
         manager.allowsBackgroundLocationUpdates = true

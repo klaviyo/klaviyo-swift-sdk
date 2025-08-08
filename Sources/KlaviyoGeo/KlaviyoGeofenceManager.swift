@@ -60,7 +60,7 @@ public class KlaviyoGeofenceManager {
                 if #available(iOS 14.0, *) {
                     Logger.geoservices.info("Start monitoring for region \(region.identifier)")
                 }
-                CLLocationManager().startMonitoring(for: region)
+                locationManager.startMonitoring(for: region)
             }
 
             for region in regionsToRemove {
