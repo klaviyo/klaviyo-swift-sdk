@@ -171,17 +171,17 @@ public struct KlaviyoSDK {
         }
 
         create(event: Event(name: ._openedPush, properties: properties))
-        Task {
-            await MainActor.run {
-                if let url = notificationResponse.klaviyoDeepLinkURL {
-                    if let deepLinkHandler = deepLinkHandler {
-                        deepLinkHandler(url)
-                    } else {
-                        UIApplication.shared.open(url)
-                    }
+        if let url = notificationResponse.klaviyoDeepLinkURL {
+            if let deepLinkHandler = deepLinkHandler {
+                Task { @MainActor in
+                    deepLinkHandler(url)
                 }
-                completionHandler()
+            } else {
+                dispatchOnMainThread(action: .openDeepLink(url))
             }
+        }
+        Task { @MainActor in
+            completionHandler()
         }
         return true
     }
