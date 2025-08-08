@@ -8,6 +8,7 @@
 import AnyCodable
 import Foundation
 import KlaviyoCore
+import OSLog
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
@@ -163,24 +164,25 @@ public struct KlaviyoSDK {
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
-        if let properties = notificationResponse.notification.request.content.userInfo as? [String: Any],
-           let body = properties["body"] as? [String: Any], let _ = body["_k"] {
-            create(event: Event(name: ._openedPush, properties: properties))
-            Task {
-                await MainActor.run {
-                    if let url = properties["url"] as? String, let url = URL(string: url) {
-                        if let deepLinkHandler = deepLinkHandler {
-                            deepLinkHandler(url)
-                        } else {
-                            UIApplication.shared.open(url)
-                        }
-                    }
-                    completionHandler()
-                }
-            }
-            return true
+        guard notificationResponse.isKlaviyoNotification,
+              let properties = notificationResponse.klaviyoProperties else {
+            dispatchOnMainThread(action: .syncBadgeCount)
+            return false
         }
-        dispatchOnMainThread(action: .syncBadgeCount)
-        return false
+
+        create(event: Event(name: ._openedPush, properties: properties))
+        Task {
+            await MainActor.run {
+                if let url = notificationResponse.klaviyoDeepLinkURL {
+                    if let deepLinkHandler = deepLinkHandler {
+                        deepLinkHandler(url)
+                    } else {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                completionHandler()
+            }
+        }
+        return true
     }
 }
