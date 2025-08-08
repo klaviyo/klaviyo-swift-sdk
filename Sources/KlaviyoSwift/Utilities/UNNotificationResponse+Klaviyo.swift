@@ -29,7 +29,7 @@ extension UNNotificationResponse {
     }
 
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.
-    public var klaviyoProperties: [String: Any]? {
+    var klaviyoProperties: [String: Any]? {
         guard isKlaviyoNotification else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning("Attempting to access Klaviyo properties from a non-Klaviyo notification.")
@@ -48,7 +48,7 @@ extension UNNotificationResponse {
     }
 
     /// Returns the deep link URL from a Klaviyo notification payload, if present.
-    public var klaviyoDeepLinkURL: URL? {
+    var klaviyoDeepLinkURL: URL? {
         guard isKlaviyoNotification else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning("Attempting to access a Klaviyo deep link URL from a non-Klaviyo notification.")
