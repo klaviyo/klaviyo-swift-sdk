@@ -41,7 +41,8 @@ public struct KlaviyoEnvironment {
         timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
-        formsDataEnvironment: @escaping () -> FormEnvironment?
+        formsDataEnvironment: @escaping () -> FormEnvironment?,
+        openURL: @escaping (URL) async -> Void
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -72,6 +73,7 @@ public struct KlaviyoEnvironment {
         sdkName = SDKName
         sdkVersion = SDKVersion
         self.formsDataEnvironment = formsDataEnvironment
+        self.openURL = openURL
     }
 
     static let productionHost: URLComponents = {
@@ -136,6 +138,7 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
     public var formsDataEnvironment: () -> FormEnvironment?
+    public var openURL: (URL) async -> Void
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -228,7 +231,12 @@ public struct KlaviyoEnvironment {
         },
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
-        formsDataEnvironment: { nil }
+        formsDataEnvironment: { nil },
+        openURL: { url in
+            await MainActor.run {
+                UIApplication.shared.open(url)
+            }
+        }
     )
 }
 
