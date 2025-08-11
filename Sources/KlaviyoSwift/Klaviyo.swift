@@ -198,6 +198,28 @@ public struct KlaviyoSDK {
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
+        guard notificationResponse.isKlaviyoNotification,
+              let properties = notificationResponse.klaviyoProperties else {
+            dispatchOnMainThread(action: .syncBadgeCount)
+            return false
+        }
+
+        create(event: Event(name: ._openedPush, properties: properties))
+        if let url = notificationResponse.klaviyoDeepLinkURL {
+            dispatchOnMainThread(action: .openDeepLink(url))
+        }
+        Task { @MainActor in
+            completionHandler()
+        }
+        return true
+    }
+
+    /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
+    /// - Parameters:
+    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
