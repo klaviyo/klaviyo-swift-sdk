@@ -25,4 +25,7 @@ extension Logger {
 
     /// Logger for state events that run through the reducer
     static let stateLogger = Logger(category: "State logger")
+
+    /// Logger for notification events.
+    static let notifications = Logger(category: "Notifications logger")
 }
