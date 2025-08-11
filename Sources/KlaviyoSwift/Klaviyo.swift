@@ -157,6 +157,21 @@ public struct KlaviyoSDK {
         }
     }
 
+    /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
+    ///
+    /// If set, this handler will be invoked instead of the default URL opener.
+    /// - Parameter handler: a closure receiving the deep link `URL` to handle.
+    /// - Returns: a KlaviyoSDK instance for chaining.
+    @discardableResult
+    public func registerDeepLinkHandler(_ handler: @escaping (URL) -> Void) -> KlaviyoSDK {
+        environment.openURL = { url in
+            await MainActor.run {
+                handler(url)
+            }
+        }
+        return self
+    }
+
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
     ///   - remoteNotification: the remote notificaiton that was opened
