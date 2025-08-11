@@ -200,6 +200,7 @@ public struct KlaviyoSDK {
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    @available(iOS, deprecated: 5.1.0, obsoleted: 6.0, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
