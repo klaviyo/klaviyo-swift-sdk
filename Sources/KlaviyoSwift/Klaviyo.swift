@@ -141,14 +141,14 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         set(pushToken: apnDeviceToken)
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: String formatted push token.
     public func set(pushToken: String) {
         Task {
@@ -174,9 +174,9 @@ public struct KlaviyoSDK {
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
-    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
-    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
@@ -196,10 +196,10 @@ public struct KlaviyoSDK {
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
-    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
-    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,

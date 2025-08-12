@@ -230,7 +230,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertFalse(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should not be called when foregrounding in existing instance (such as opening the notificaiton/control center)")
+        XCTAssertFalse(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should not be called when foregrounding in existing instance (such as opening the notification/control center)")
     }
 
     @MainActor
