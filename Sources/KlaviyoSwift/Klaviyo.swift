@@ -198,7 +198,7 @@ public struct KlaviyoSDK {
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
-    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
@@ -218,7 +218,7 @@ public struct KlaviyoSDK {
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
-    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
