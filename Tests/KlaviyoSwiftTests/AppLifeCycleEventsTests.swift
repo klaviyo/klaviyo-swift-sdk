@@ -14,7 +14,7 @@ import XCTest
 class AppLifeCycleEventsTests: XCTestCase {
     let passThroughSubject = PassthroughSubject<Notification, Never>()
 
-    func getFilteredNotificaitonPublished(name: Notification.Name) -> (Notification.Name) -> AnyPublisher<Notification, Never> {
+    func getFilteredNotificationPublished(name: Notification.Name) -> (Notification.Name) -> AnyPublisher<Notification, Never> {
         // returns passthrough if it's match other return nothing
         { [weak self] notificationName in
             if name == notificationName {
@@ -52,7 +52,7 @@ class AppLifeCycleEventsTests: XCTestCase {
     }
 
     func testAppTerminateGetsStopAction() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.willTerminateNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.willTerminateNotification)
         let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
@@ -88,7 +88,7 @@ class AppLifeCycleEventsTests: XCTestCase {
     }
 
     func testAppBackgroundGetsStopAction() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didEnterBackgroundNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.didEnterBackgroundNotification)
         let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
@@ -124,7 +124,7 @@ class AppLifeCycleEventsTests: XCTestCase {
     }
 
     func testAppBecomeActiveGetsStartAction() {
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: UIApplication.didBecomeActiveNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.didBecomeActiveNotification)
         let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
         stopActionExpection.assertForOverFulfill = true
         var receivedAction: KlaviyoAction?
@@ -167,7 +167,7 @@ class AppLifeCycleEventsTests: XCTestCase {
 
     func testReachabilityNotificationStatusHandled() {
         let expection = XCTestExpectation(description: "Reachability status is accessed")
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: ReachabilityChangedNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: ReachabilityChangedNotification)
         environment.reachabilityStatus = {
             expection.fulfill()
             return .reachableViaWWAN
@@ -182,7 +182,7 @@ class AppLifeCycleEventsTests: XCTestCase {
 
     func testReachabilityStatusNilThenNotNil() {
         let expection = XCTestExpectation(description: "Reachability status is accessed")
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: ReachabilityChangedNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: ReachabilityChangedNotification)
         var count = 0
         environment.reachabilityStatus = {
             if count == 0 {
@@ -205,7 +205,7 @@ class AppLifeCycleEventsTests: XCTestCase {
 
     func testReachaibilityNotificationGetsRightAction() {
         environment.reachabilityStatus = { .reachableViaWWAN }
-        environment.notificationCenterPublisher = getFilteredNotificaitonPublished(name: ReachabilityChangedNotification)
+        environment.notificationCenterPublisher = getFilteredNotificationPublished(name: ReachabilityChangedNotification)
         let reachabilityAction = XCTestExpectation(description: "Reachabilty changed is received.")
         var receivedAction: KlaviyoAction?
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in

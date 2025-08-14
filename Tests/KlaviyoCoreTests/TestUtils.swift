@@ -107,7 +107,8 @@ extension KlaviyoEnvironment {
             timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
-            formsDataEnvironment: { nil }
+            formsDataEnvironment: { nil },
+            openURL: { _ in }
         )
     }
 }

@@ -159,4 +159,12 @@ package enum KlaviyoInternal {
     package static func create(aggregateEvent: AggregateEventPayload) {
         dispatchOnMainThread(action: .enqueueAggregateEvent(aggregateEvent))
     }
+
+    // MARK: - Deep link handling
+
+    /// Handles a deep link according to the handler configured in `klaviyoSwiftEnvironment`
+    /// - Parameter url: the URL of the deep link to be handled
+    package static func handleDeepLink(url: URL) {
+        dispatchOnMainThread(action: .openDeepLink(url))
+    }
 }

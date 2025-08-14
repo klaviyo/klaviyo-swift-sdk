@@ -123,6 +123,9 @@ enum KlaviyoAction: Equatable {
 
     case resolveTrackingLinkDestination(from: URL)
 
+    /// open a deep link URL originating from a Klaviyo notification
+    case openDeepLink(URL)
+
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
@@ -131,7 +134,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .resolveTrackingLinkDestination:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .resolveTrackingLinkDestination, .openDeepLink:
             return false
         }
     }
@@ -642,6 +645,11 @@ struct KlaviyoReducer: ReducerProtocol {
                     }
                     // TODO: [CHNL-22886] handle error
                 }
+            }
+
+        case let .openDeepLink(url):
+            return .run { _ in
+                await environment.openURL(url)
             }
         }
     }

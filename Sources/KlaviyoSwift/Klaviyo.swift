@@ -141,14 +141,14 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         set(pushToken: apnDeviceToken)
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notificaitons.
+    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: String formatted push token.
     public func set(pushToken: String) {
         Task {
@@ -157,12 +157,50 @@ public struct KlaviyoSDK {
         }
     }
 
+    /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
+    ///
+    /// If set, this handler will be invoked instead of the default URL opener.
+    /// - Parameter handler: a closure receiving the deep link `URL` to handle.
+    /// - Returns: a KlaviyoSDK instance for chaining.
+    @discardableResult
+    public func registerDeepLinkHandler(_ handler: @escaping (URL) -> Void) -> KlaviyoSDK {
+        environment.openURL = { url in
+            await MainActor.run {
+                handler(url)
+            }
+        }
+        return self
+    }
+
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
-    ///   - remoteNotification: the remote notificaiton that was opened
+    ///   - remoteNotification: the remote notification that was opened
+    ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
+    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
+    public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
+        guard notificationResponse.isKlaviyoNotification,
+              let properties = notificationResponse.klaviyoProperties else {
+            dispatchOnMainThread(action: .syncBadgeCount)
+            return false
+        }
+
+        create(event: Event(name: ._openedPush, properties: properties))
+        if let url = notificationResponse.klaviyoDeepLinkURL {
+            dispatchOnMainThread(action: .openDeepLink(url))
+        }
+        Task { @MainActor in
+            completionHandler()
+        }
+        return true
+    }
+
+    /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
+    /// - Parameters:
+    ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
-    /// - Returns: true if the notificaiton originated from Klaviyo, false otherwise.
+    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
+    @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
@@ -171,17 +209,17 @@ public struct KlaviyoSDK {
         }
 
         create(event: Event(name: ._openedPush, properties: properties))
-        Task {
-            await MainActor.run {
-                if let url = notificationResponse.klaviyoDeepLinkURL {
-                    if let deepLinkHandler = deepLinkHandler {
-                        deepLinkHandler(url)
-                    } else {
-                        UIApplication.shared.open(url)
-                    }
+        if let url = notificationResponse.klaviyoDeepLinkURL {
+            if let deepLinkHandler = deepLinkHandler {
+                Task { @MainActor in
+                    deepLinkHandler(url)
                 }
-                completionHandler()
+            } else {
+                dispatchOnMainThread(action: .openDeepLink(url))
             }
+        }
+        Task { @MainActor in
+            completionHandler()
         }
         return true
     }
