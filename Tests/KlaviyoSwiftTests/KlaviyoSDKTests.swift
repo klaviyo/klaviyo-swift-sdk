@@ -177,4 +177,15 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertEqual("blobtoken", klaviyo.pushToken)
         XCTAssertEqual("my_test_id", klaviyo.externalId)
     }
+
+    // MARK: tracking link handling
+
+    func testHandleTrackingLinkDispatchesTrackingLinkReceived() throws {
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
+
+        klaviyo.handleTrackingLink(url)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
 }
