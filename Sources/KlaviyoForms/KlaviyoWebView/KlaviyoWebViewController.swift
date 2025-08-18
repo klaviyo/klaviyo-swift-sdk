@@ -41,6 +41,7 @@ private func createDefaultWebView() -> WKWebView {
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
+    private var addedMessageHandlers: Set<String> = []
 
     private var viewModel: KlaviyoWebViewModeling
 
@@ -61,6 +62,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     deinit {
         viewModel.messageHandlers?.forEach {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+            addedMessageHandlers.remove($0)
         }
         #if DEBUG
         if webConsoleLoggingEnabled {
@@ -114,7 +116,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
+            if !addedMessageHandlers.contains($0) {
+                webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
+                addedMessageHandlers.insert($0)
+            }
         }
 
         #if DEBUG
@@ -141,7 +146,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         )
 
         webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
+
+        if !addedMessageHandlers.contains("consoleMessageHandler") {
+            webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
+            addedMessageHandlers.insert("consoleMessageHandler")
+        }
     }
     #endif
 
