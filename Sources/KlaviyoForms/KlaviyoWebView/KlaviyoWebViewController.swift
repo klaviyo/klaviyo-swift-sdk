@@ -67,6 +67,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         #if DEBUG
         if webConsoleLoggingEnabled {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+            addedMessageHandlers.remove("consoleMessageHandler")
         }
         #endif
     }
@@ -116,10 +117,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            if !addedMessageHandlers.contains($0) {
-                webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
-                addedMessageHandlers.insert($0)
-            }
+            dedupeInsertMessageHandler($0)
         }
 
         #if DEBUG
@@ -146,13 +144,16 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         )
 
         webView.configuration.userContentController.addUserScript(script)
-
-        if !addedMessageHandlers.contains("consoleMessageHandler") {
-            webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
-            addedMessageHandlers.insert("consoleMessageHandler")
-        }
+        dedupeInsertMessageHandler("consoleMessageHandler")
     }
     #endif
+
+    private func dedupeInsertMessageHandler(_ handlerName: String) {
+        if !addedMessageHandlers.contains(handlerName) {
+            webView.configuration.userContentController.add(scriptDelegateWrapper, name: handlerName)
+            addedMessageHandlers.insert(handlerName)
+        }
+    }
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any? {
