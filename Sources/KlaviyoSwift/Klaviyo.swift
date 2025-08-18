@@ -157,6 +157,10 @@ public struct KlaviyoSDK {
         }
     }
 
+    public func handleTrackingLink(_ url: URL) {
+        dispatchOnMainThread(action: .trackingLinkReceived(url))
+    }
+
     /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
     ///
     /// If set, this handler will be invoked instead of the default URL opener.
