@@ -613,7 +613,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 anonymousId: state.anonymousId ?? ""
             )
 
-            return .run { _ in
+            return .run { send in
                 do {
                     let endpoint = KlaviyoEndpoint.resolveDestinationURL(
                         trackingLink: trackingLinkURL,
@@ -632,9 +632,7 @@ struct KlaviyoReducer: ReducerProtocol {
                             Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
                         }
 
-                    // TODO: [CHNL-23276] handle destination URL
-                    // example:
-                    // await send(.navigateToDestinationURL(destinationURL))
+                        await send(.trackingLinkDestinationResolved(destinationURL))
                     case let .failure(error):
                         if #available(iOS 14.0, *) {
                             Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")

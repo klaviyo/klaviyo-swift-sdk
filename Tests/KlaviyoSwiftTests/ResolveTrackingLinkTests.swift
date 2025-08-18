@@ -49,10 +49,11 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // When/Then
-
-        // TODO: [CHNL-23276] Validate that destination URL is handled
+        // When
         await store.send(.trackingLinkReceived(from: trackingLinkURL))
+        // Then
+        await store.receive(.trackingLinkDestinationResolved(destinationURL))
+        await store.receive(.openDeepLink(destinationURL))
     }
 
     @MainActor
@@ -88,10 +89,11 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // When/Then
-
-        // TODO: [CHNL-23276] Validate that destination URL is handled
+        // When
         await store.send(.trackingLinkReceived(from: trackingLinkURL))
+        // Then
+        await store.receive(.trackingLinkDestinationResolved(destinationURL))
+        await store.receive(.openDeepLink(destinationURL))
     }
 
     @MainActor
