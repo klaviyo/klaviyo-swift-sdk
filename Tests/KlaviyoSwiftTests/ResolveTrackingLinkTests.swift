@@ -128,4 +128,24 @@ final class ResolveTrackingLinkTests: XCTestCase {
 
         // TODO: [CHNL-22886] validate that error is handled properly
     }
+
+    @MainActor
+    func testTrackingLinkDestinationResolvedTriggersOpenDeepLink() async throws {
+        // Given
+        let destinationURL = try XCTUnwrap(URL(string: "https://example.com/destination"))
+        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
+
+        let openCalled = expectation(description: "environment.openURL called with destination")
+        environment.openURL = { url in
+            XCTAssertEqual(url, destinationURL)
+            openCalled.fulfill()
+        }
+
+        // When
+        await store.send(.trackingLinkDestinationResolved(destinationURL))
+
+        // Then the reducer should emit .openDeepLink and call environment.openURL
+        await store.receive(.openDeepLink(destinationURL))
+        await fulfillment(of: [openCalled], timeout: 1.0)
+    }
 }

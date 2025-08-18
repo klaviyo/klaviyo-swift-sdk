@@ -123,6 +123,8 @@ enum KlaviyoAction: Equatable {
 
     case trackingLinkReceived(URL)
 
+    case trackingLinkDestinationResolved(URL)
+
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
 
@@ -134,7 +136,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .openDeepLink:
             return false
         }
     }
@@ -645,6 +647,11 @@ struct KlaviyoReducer: ReducerProtocol {
                     }
                     // TODO: [CHNL-22886] handle error
                 }
+            }
+
+        case let .trackingLinkDestinationResolved(url):
+            return .run { send in
+                await send(.openDeepLink(url))
             }
 
         case let .openDeepLink(url):
