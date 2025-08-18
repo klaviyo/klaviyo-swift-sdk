@@ -121,7 +121,7 @@ enum KlaviyoAction: Equatable {
     /// the data that was passed to the client endpoint
     case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
-    case resolveTrackingLinkDestination(from: URL)
+    case trackingLinkReceived(URL)
 
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
@@ -134,7 +134,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .resolveTrackingLinkDestination, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .openDeepLink:
             return false
         }
     }
@@ -599,7 +599,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .task { .deQueueCompletedResults(request) }
 
-        case let .resolveTrackingLinkDestination(from: trackingLinkURL):
+        case let .trackingLinkReceived(from: trackingLinkURL):
             if #available(iOS 14.0, *) {
                 Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
             }

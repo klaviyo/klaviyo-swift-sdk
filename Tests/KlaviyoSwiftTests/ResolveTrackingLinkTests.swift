@@ -50,9 +50,9 @@ final class ResolveTrackingLinkTests: XCTestCase {
         }
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
 
         // TODO: [CHNL-23276] Validate that destination URL is handled
+        await store.send(.trackingLinkReceived(from: trackingLinkURL))
     }
 
     @MainActor
@@ -89,9 +89,9 @@ final class ResolveTrackingLinkTests: XCTestCase {
         }
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
 
         // TODO: [CHNL-23276] Validate that destination URL is handled
+        await store.send(.trackingLinkReceived(from: trackingLinkURL))
     }
 
     @MainActor
@@ -108,7 +108,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         }
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
+        await store.send(.trackingLinkReceived(from: trackingLinkURL))
 
         // TODO: [CHNL-22886] validate that error is handled properly
     }
@@ -124,7 +124,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         environment.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
+        await store.send(.trackingLinkReceived(from: trackingLinkURL))
 
         // TODO: [CHNL-22886] validate that error is handled properly
     }
