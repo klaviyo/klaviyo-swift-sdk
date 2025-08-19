@@ -15,7 +15,7 @@ class CompanyObserver: JSBridgeObserver {
     var apiKeyCancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
-    private var configuration: InAppFormsConfig
+    private let configuration: InAppFormsConfig
 
     init(configuration: InAppFormsConfig) {
         self.configuration = configuration

@@ -15,7 +15,7 @@ class LifecycleObserver: JSBridgeObserver {
     private var lifecycleCancellable: AnyCancellable?
     private var lastBackgrounded: Date?
 
-    private var configuration: InAppFormsConfig
+    private let configuration: InAppFormsConfig
 
     init(configuration: InAppFormsConfig) {
         self.configuration = configuration
@@ -32,17 +32,13 @@ class LifecycleObserver: JSBridgeObserver {
                         break
                     case .foregrounded:
                         try await IAFPresentationManager.shared.handleLifecycleEvent("foreground")
-                        if let lastBackgrounded = self.lastBackgrounded {
-                            let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            let timeoutDuration = self.configuration.sessionTimeoutDuration
-                            if timeElapsed > timeoutDuration {
-                                if #available(iOS 14.0, *) {
-                                    Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
-                                }
-                                try await IAFPresentationManager.shared.reinitializeInAppForms()
+                        if self.isSessionExpired {
+                            if #available(iOS 14.0, *) {
+                                Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                             }
+                            try await IAFPresentationManager.shared.reinitializeInAppForms()
                         } else {
-                            try await IAFPresentationManager.shared.initializeForForegroundEvent()
+                            try await IAFPresentationManager.shared.handleInSessionForegroundEvent()
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
@@ -58,5 +54,12 @@ class LifecycleObserver: JSBridgeObserver {
         lifecycleCancellable?.cancel()
         lifecycleCancellable = nil
         lastBackgrounded = nil
+    }
+
+    private var isSessionExpired: Bool {
+        guard let lastBackgrounded else { return false }
+        let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+        let timeoutDuration = configuration.sessionTimeoutDuration
+        return timeElapsed > timeoutDuration
     }
 }

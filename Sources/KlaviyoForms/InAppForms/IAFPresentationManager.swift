@@ -57,6 +57,8 @@ class IAFPresentationManager {
     }
     #endif
 
+    // MARK: - Initialization & Setup
+
     func initializeIAF(configuration: InAppFormsConfig, assetSource: String? = nil) {
         guard !isInitializingOrInitialized else {
             if #available(iOS 14.0, *) {
@@ -71,28 +73,28 @@ class IAFPresentationManager {
         companyObserver?.startObserving()
     }
 
-    func createFormAndAwaitFormEvents(apiKey: String) async throws {
+    private func createFormAndAwaitFormEvents(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
         createIAF(apiKey: apiKey, profileData: profileData)
         listenForFormEvents()
     }
 
-    // MARK: - Event Subscriptions
-
-    func reinitializeInAppForms() async throws {
-        destroyWebView()
-        try await initializeFormWithAPIKey()
+    private func initializeFormWithAPIKey() async throws {
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        try await createFormAndAwaitFormEvents(apiKey: apiKey)
     }
 
-    func initializeForForegroundEvent() async throws {
-        // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
-        // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
-        // This check ensures that don't reinitialize in this situation.
-        if viewController == nil {
-            // fresh launch
-            try await initializeFormWithAPIKey()
-        }
+    /// - Parameter newProfileData: the profile information with which to load the IAF
+    private func createIAF(apiKey: String, profileData: ProfileData?) {
+        guard let fileUrl = indexHtmlFileUrl else { return }
+
+        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
+        self.viewModel = viewModel
+        viewController = KlaviyoWebViewController(viewModel: viewModel)
+        viewController?.modalPresentationStyle = .overCurrentContext
     }
+
+    // MARK: - Form Event Subscription
 
     private func listenForFormEvents() {
         guard let viewModel else { return }
@@ -115,7 +117,50 @@ class IAFPresentationManager {
         }
     }
 
-    // MARK: - Event Handling
+    private func handleFormEvent(_ event: IAFLifecycleEvent) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
+        }
+        switch event {
+        case .present:
+            presentForm()
+        case .dismiss:
+            dismissForm()
+        case .abort:
+            destroyWebviewAndListeners()
+        }
+    }
+
+    // MARK: - Lifecycle Event Handling
+
+    func handleLifecycleEvent(_ event: String) async throws {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
+        }
+
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // There are cases when a `foreground` event may be dispatched even if there was not a `background` event
+    // such as the case when the Notification/Control Center is opened. We want to ensure we do not mistakenly
+    // re-initialize in that case
+    func handleInSessionForegroundEvent() async throws {
+        if viewController == nil {
+            // fresh launch
+            try await initializeFormWithAPIKey()
+        }
+    }
+
+    // MARK: - API Key Event Handling
 
     func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
         Task { @MainActor [weak self] in
@@ -151,77 +196,9 @@ class IAFPresentationManager {
         }
     }
 
-    private func initializeFormWithAPIKey() async throws {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        try await createFormAndAwaitFormEvents(apiKey: apiKey)
-    }
-
-    func handleLifecycleEvent(_ event: String) async throws {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
-        }
-
-        do {
-            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func handleFormEvent(_ event: IAFLifecycleEvent) {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
-        }
-        switch event {
-        case .present:
-            presentForm()
-        case .dismiss:
-            dismissForm()
-        case .abort:
-            destroyWebviewAndListeners()
-        }
-    }
-
-    // MARK: - Object lifecycle
-
-    /// - Parameter newProfileData: the profile information with which to load the IAF
-    private func createIAF(apiKey: String, profileData: ProfileData?) {
-        guard let fileUrl = indexHtmlFileUrl else { return }
-
-        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
-        self.viewModel = viewModel
-        viewController = KlaviyoWebViewController(viewModel: viewModel)
-        viewController?.modalPresentationStyle = .overCurrentContext
-    }
-
-    func destroyWebView() {
-        guard let viewController else { return }
-
-        viewController.dismiss(animated: false, completion: nil)
-
-        self.viewController = nil
-        viewModel = nil
-    }
-
-    func destroyWebviewAndListeners() {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
-        }
-        lifecycleObserver?.stopObserving()
-        companyObserver?.stopObserving()
-
-        formEventTask?.cancel()
-        delayedPresentationTask?.cancel()
-        formEventTask = nil
-        delayedPresentationTask = nil
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
+    func reinitializeInAppForms() async throws {
         destroyWebView()
+        try await initializeFormWithAPIKey()
     }
 
     // MARK: - View Lifecycle
@@ -267,6 +244,33 @@ class IAFPresentationManager {
     func dismissForm() {
         guard let viewController else { return }
         viewController.dismiss(animated: false)
+    }
+
+    // MARK: - Cleanup & Destruction
+
+    func destroyWebView() {
+        guard let viewController else { return }
+
+        viewController.dismiss(animated: false, completion: nil)
+
+        self.viewController = nil
+        viewModel = nil
+    }
+
+    func destroyWebviewAndListeners() {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
+        }
+        lifecycleObserver?.stopObserving()
+        companyObserver?.stopObserving()
+
+        formEventTask?.cancel()
+        delayedPresentationTask?.cancel()
+        formEventTask = nil
+        delayedPresentationTask = nil
+        KlaviyoInternal.resetAPIKeySubject()
+        KlaviyoInternal.resetProfileDataSubject()
+        destroyWebView()
     }
 }
 
