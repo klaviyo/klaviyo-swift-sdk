@@ -30,7 +30,7 @@ class LifecycleObserver: JSBridgeObserver {
                     case .terminated:
                         break
                     case .foregrounded:
-//                        try await self.handleLifecycleEvent("foreground")
+                        try await self.handleLifecycleEvent("foreground")
                         if let lastBackgrounded = self.lastBackgrounded {
                             let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
                             let timeoutDuration = self.configuration.sessionTimeoutDuration
@@ -50,12 +50,29 @@ class LifecycleObserver: JSBridgeObserver {
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
-//                        try await self.handleLifecycleEvent("background")
+                        try await self.handleLifecycleEvent("background")
                     case .reachabilityChanged:
                         break
                     }
                 }
             }
+    }
+
+    func handleLifecycleEvent(_ event: String) async throws {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
+        }
+
+        do {
+            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
+            }
+        }
     }
 
     func stopObserving() {

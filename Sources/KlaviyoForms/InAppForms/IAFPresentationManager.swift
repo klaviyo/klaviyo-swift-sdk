@@ -79,45 +79,7 @@ class IAFPresentationManager {
 
     // MARK: - Event Subscriptions
 
-    func setupLifecycleEventsSubscription(configuration: InAppFormsConfig) {
-        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                Task { @MainActor in
-                    guard let self else { return }
-                    switch event {
-                    case .terminated:
-                        break
-                    case .foregrounded:
-                        try await self.handleLifecycleEvent("foreground")
-                        if let lastBackgrounded = self.lastBackgrounded {
-                            let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            let timeoutDuration = configuration.sessionTimeoutDuration
-                            if timeElapsed > timeoutDuration {
-                                if #available(iOS 14.0, *) {
-                                    Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
-                                }
-                                self.destroyWebView()
-                                try await self.initializeFormWithAPIKey()
-                            }
-                        } else {
-                            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
-                            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
-                            // This check ensures that don't reinitialize in this situation.
-                            if self.viewController == nil {
-                                // fresh launch
-                                try await self.initializeFormWithAPIKey()
-                            }
-                        }
-                    case .backgrounded:
-                        self.lastBackgrounded = Date()
-                        try await self.handleLifecycleEvent("background")
-                    case .reachabilityChanged:
-                        break
-                    }
-                }
-            }
-    }
+    func setupLifecycleEventsSubscription(configuration: InAppFormsConfig) {}
 
     private func listenForFormEvents() {
         guard let viewModel else { return }
@@ -209,27 +171,7 @@ class IAFPresentationManager {
         }
     }
 
-    private func initializeFormWithAPIKey() async throws {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        try await createFormAndAwaitFormEvents(apiKey: apiKey)
-    }
-
-    func handleLifecycleEvent(_ event: String) async throws {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
-        }
-
-        do {
-            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
-            }
-        }
-    }
+    func handleLifecycleEvent(_ event: String) async throws {}
 
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
         if #available(iOS 14.0, *) {
@@ -246,6 +188,11 @@ class IAFPresentationManager {
     }
 
     // MARK: - Object lifecycle
+
+    private func initializeFormWithAPIKey() async throws {
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        try await createFormAndAwaitFormEvents(apiKey: apiKey)
+    }
 
     /// - Parameter newProfileData: the profile information with which to load the IAF
     private func createIAF(apiKey: String, profileData: ProfileData?) {
