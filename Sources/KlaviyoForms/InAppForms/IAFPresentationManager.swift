@@ -111,17 +111,10 @@ class IAFPresentationManager {
                                 if #available(iOS 14.0, *) {
                                     Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                                 }
-                                self.destroyWebView()
-                                try await self.initializeFormWithAPIKey()
+                                try await self.reinitializeInAppForms()
                             }
                         } else {
-                            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
-                            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
-                            // This check ensures that don't reinitialize in this situation.
-                            if self.viewController == nil {
-                                // fresh launch
-                                try await self.initializeFormWithAPIKey()
-                            }
+                            try await self.initializeForForegroundEvent()
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()
@@ -131,6 +124,21 @@ class IAFPresentationManager {
                     }
                 }
             }
+    }
+
+    func reinitializeInAppForms() async throws {
+        destroyWebView()
+        try await initializeFormWithAPIKey()
+    }
+
+    func initializeForForegroundEvent() async throws {
+        // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+        // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+        // This check ensures that don't reinitialize in this situation.
+        if viewController == nil {
+            // fresh launch
+            try await initializeFormWithAPIKey()
+        }
     }
 
     private func listenForFormEvents() {
