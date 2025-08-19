@@ -5,7 +5,6 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
-import Combine
 import Foundation
 import KlaviyoCore
 import KlaviyoSwift
@@ -27,7 +26,6 @@ class IAFPresentationManager {
     private var assetSource: String?
 
     private var formEventTask: Task<Void, Never>?
-    private var initializationWarningTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
@@ -42,10 +40,9 @@ class IAFPresentationManager {
     }()
 
     private var isInitializingOrInitialized: Bool {
-        // setting up the API key subscription is the starting point to initializing In-App Forms,
-        // and the subscription persists for the entire lifecycle of the form. Therefore,
-        // if the apiKeyCancellable has been set then we know that the form is either
-        // initializing or initialized.
+        // The company observer's API key subscription indicates whether In-App Forms
+        // is either initializing or initialized, as this subscription persists for
+        // the entire lifecycle of the form.
         companyObserver?.apiKeyCancellable != nil
     }
 
@@ -191,8 +188,9 @@ class IAFPresentationManager {
             try await createFormAndAwaitFormEvents(apiKey: apiKey)
             lifecycleObserver?.startObserving()
         } catch {
-            // TODO: implement catch
-            ()
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
+            }
         }
     }
 
