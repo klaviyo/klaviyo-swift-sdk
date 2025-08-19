@@ -163,7 +163,10 @@ class IAFPresentationManager {
 
         initializationWarningTask?.cancel()
         initializationWarningTask = nil
+        reinitializeIAFForNewAPIKey(apiKey, configuration: configuration)
+    }
 
+    func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
         Task { @MainActor [weak self] in
             guard let self else { return }
 

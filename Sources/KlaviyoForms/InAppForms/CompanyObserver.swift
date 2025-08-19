@@ -15,6 +15,12 @@ class CompanyObserver: JSBridgeObserver {
     private var apiKeyCancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
+    private var configuration: InAppFormsConfig
+
+    init(configuration: InAppFormsConfig) {
+        self.configuration = configuration
+    }
+
     func startObserving() {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
@@ -23,8 +29,15 @@ class CompanyObserver: JSBridgeObserver {
 
                 switch result {
                 case let .success(apiKey):
-//                    handleAPIKeyReceived(apiKey, configuration: configuration)
-                    break
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
+                    }
+
+                    initializationWarningTask?.cancel()
+                    initializationWarningTask = nil
+                    Task { [weak self] in
+                        await IAFPresentationManager.shared.reinitializeIAFForNewAPIKey(apiKey, configuration: configuration)
+                    }
                 case let .failure(sdkError):
                     handleAPIKeyError(sdkError)
                 }
