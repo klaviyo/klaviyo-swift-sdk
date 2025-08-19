@@ -12,7 +12,7 @@ import KlaviyoSwift
 import OSLog
 
 class CompanyObserver: JSBridgeObserver {
-    private var apiKeyCancellable: AnyCancellable?
+    var apiKeyCancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
     private var configuration: InAppFormsConfig

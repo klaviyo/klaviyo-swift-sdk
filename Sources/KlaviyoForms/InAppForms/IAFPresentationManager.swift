@@ -19,8 +19,7 @@ class IAFPresentationManager {
     static let shared = IAFPresentationManager()
 
     private var lifecycleObserver: LifecycleObserver?
-
-    private var apiKeyCancellable: AnyCancellable?
+    private var companyObserver: CompanyObserver?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -47,7 +46,7 @@ class IAFPresentationManager {
         // and the subscription persists for the entire lifecycle of the form. Therefore,
         // if the apiKeyCancellable has been set then we know that the form is either
         // initializing or initialized.
-        apiKeyCancellable != nil
+        companyObserver?.apiKeyCancellable != nil
     }
 
     private init() {}
@@ -68,7 +67,8 @@ class IAFPresentationManager {
 
         self.assetSource = assetSource
         lifecycleObserver = LifecycleObserver(configuration: configuration)
-        setupApiKeySubscription(configuration)
+        companyObserver = CompanyObserver(configuration: configuration)
+        companyObserver?.startObserving()
     }
 
     func createFormAndAwaitFormEvents(apiKey: String) async throws {
@@ -78,21 +78,6 @@ class IAFPresentationManager {
     }
 
     // MARK: - Event Subscriptions
-
-    private func setupApiKeySubscription(_ configuration: InAppFormsConfig) {
-        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
-                guard let self else { return }
-
-                switch result {
-                case let .success(apiKey):
-                    handleAPIKeyReceived(apiKey, configuration: configuration)
-                case let .failure(sdkError):
-                    handleAPIKeyError(sdkError)
-                }
-            }
-    }
 
     func reinitializeInAppForms() async throws {
         destroyWebView()
@@ -132,16 +117,6 @@ class IAFPresentationManager {
 
     // MARK: - Event Handling
 
-    private func handleAPIKeyReceived(_ apiKey: String, configuration: InAppFormsConfig) {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
-        }
-
-        initializationWarningTask?.cancel()
-        initializationWarningTask = nil
-        reinitializeIAFForNewAPIKey(apiKey, configuration: configuration)
-    }
-
     func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -173,31 +148,6 @@ class IAFPresentationManager {
         } catch {
             // TODO: implement catch
             ()
-        }
-    }
-
-    private func handleAPIKeyError(_ sdkError: SDKError) {
-        switch sdkError {
-        case .notInitialized:
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("SDK is not initialized. Skipping form initialization until the SDK is successfully initialized.")
-            }
-        case .apiKeyNilOrEmpty:
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("SDK API key is empty or nil. Skipping form initialization until a valid API key is received.")
-            }
-        }
-
-        initializationWarningTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds in nanoseconds
-                // Check if task was cancelled before emitting warning
-                try Task.checkCancellation()
-                environment.emitDeveloperWarning("SDK must be initialized before usage.")
-            } catch {
-                // Task was cancelled or other error occurred
-                return
-            }
         }
     }
 
@@ -263,10 +213,10 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         lifecycleObserver?.stopObserving()
-        apiKeyCancellable?.cancel()
+        companyObserver?.stopObserving()
+
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
-        apiKeyCancellable = nil
         formEventTask = nil
         delayedPresentationTask = nil
         KlaviyoInternal.resetAPIKeySubject()
