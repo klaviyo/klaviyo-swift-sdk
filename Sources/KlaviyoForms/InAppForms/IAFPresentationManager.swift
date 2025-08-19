@@ -20,7 +20,7 @@ class IAFPresentationManager {
     private var lastBackgrounded: Date?
 
     private var lifecycleCancellable: AnyCancellable?
-    private var apiKeyCancellable: AnyCancellable?
+    private var companyObserver: CompanyObserver?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -47,7 +47,7 @@ class IAFPresentationManager {
         // and the subscription persists for the entire lifecycle of the form. Therefore,
         // if the apiKeyCancellable has been set then we know that the form is either
         // initializing or initialized.
-        apiKeyCancellable != nil
+        companyObserver != nil
     }
 
     private init() {}
@@ -67,7 +67,8 @@ class IAFPresentationManager {
         }
 
         self.assetSource = assetSource
-        setupApiKeySubscription(configuration)
+        companyObserver = CompanyObserver()
+        companyObserver?.startObserving()
     }
 
     func createFormAndAwaitFormEvents(apiKey: String) async throws {
@@ -77,21 +78,6 @@ class IAFPresentationManager {
     }
 
     // MARK: - Event Subscriptions
-
-    private func setupApiKeySubscription(_ configuration: InAppFormsConfig) {
-        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
-                guard let self else { return }
-
-                switch result {
-                case let .success(apiKey):
-                    handleAPIKeyReceived(apiKey, configuration: configuration)
-                case let .failure(sdkError):
-                    handleAPIKeyError(sdkError)
-                }
-            }
-    }
 
     func setupLifecycleEventsSubscription(configuration: InAppFormsConfig) {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
@@ -285,12 +271,12 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         lastBackgrounded = nil
+        companyObserver?.stopObserving()
+        companyObserver = nil
         lifecycleCancellable?.cancel()
-        apiKeyCancellable?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         lifecycleCancellable = nil
-        apiKeyCancellable = nil
         formEventTask = nil
         delayedPresentationTask = nil
         KlaviyoInternal.resetAPIKeySubject()
