@@ -42,7 +42,7 @@ class LifecycleObserver: JSBridgeObserver {
                                 try await IAFPresentationManager.shared.reinitializeInAppForms()
                             }
                         } else {
-                            try await self.initializeForForegroundEvent()
+                            try await IAFPresentationManager.shared.initializeForForegroundEvent()
                         }
                     case .backgrounded:
                         self.lastBackgrounded = Date()

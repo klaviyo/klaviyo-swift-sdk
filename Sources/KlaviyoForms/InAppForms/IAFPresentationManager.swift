@@ -17,9 +17,9 @@ class IAFPresentationManager {
     // MARK: - Properties & Initializer
 
     static let shared = IAFPresentationManager()
-    private var lastBackgrounded: Date?
 
-    private var lifecycleCancellable: AnyCancellable?
+    private var lifecycleObserver: LifecycleObserver?
+
     private var apiKeyCancellable: AnyCancellable?
 
     private var viewController: KlaviyoWebViewController?
@@ -67,6 +67,7 @@ class IAFPresentationManager {
         }
 
         self.assetSource = assetSource
+        lifecycleObserver = LifecycleObserver(configuration: configuration)
         setupApiKeySubscription(configuration)
     }
 
@@ -89,39 +90,6 @@ class IAFPresentationManager {
                     handleAPIKeyReceived(apiKey, configuration: configuration)
                 case let .failure(sdkError):
                     handleAPIKeyError(sdkError)
-                }
-            }
-    }
-
-    func setupLifecycleEventsSubscription(configuration: InAppFormsConfig) {
-        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                Task { @MainActor in
-                    guard let self else { return }
-                    switch event {
-                    case .terminated:
-                        break
-                    case .foregrounded:
-                        try await self.handleLifecycleEvent("foreground")
-                        if let lastBackgrounded = self.lastBackgrounded {
-                            let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
-                            let timeoutDuration = configuration.sessionTimeoutDuration
-                            if timeElapsed > timeoutDuration {
-                                if #available(iOS 14.0, *) {
-                                    Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
-                                }
-                                try await self.reinitializeInAppForms()
-                            }
-                        } else {
-                            try await self.initializeForForegroundEvent()
-                        }
-                    case .backgrounded:
-                        self.lastBackgrounded = Date()
-                        try await self.handleLifecycleEvent("background")
-                    case .reachabilityChanged:
-                        break
-                    }
                 }
             }
     }
@@ -188,7 +156,7 @@ class IAFPresentationManager {
                 }
             } else {
                 try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
-                setupLifecycleEventsSubscription(configuration: configuration)
+                lifecycleObserver?.startObserving()
             }
         }
     }
@@ -197,12 +165,11 @@ class IAFPresentationManager {
     private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
         destroyWebView()
         formEventTask?.cancel()
-        lifecycleCancellable?.cancel()
         formEventTask = nil
-        lifecycleCancellable = nil
+        lifecycleObserver?.stopObserving()
         do {
             try await createFormAndAwaitFormEvents(apiKey: apiKey)
-            setupLifecycleEventsSubscription(configuration: configuration)
+            lifecycleObserver?.startObserving()
         } catch {
             // TODO: implement catch
             ()
@@ -295,12 +262,10 @@ class IAFPresentationManager {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
-        lastBackgrounded = nil
-        lifecycleCancellable?.cancel()
+        lifecycleObserver?.stopObserving()
         apiKeyCancellable?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
-        lifecycleCancellable = nil
         apiKeyCancellable = nil
         formEventTask = nil
         delayedPresentationTask = nil
