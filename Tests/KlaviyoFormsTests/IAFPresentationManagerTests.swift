@@ -409,11 +409,34 @@ final class IAFPresentationManagerTests: XCTestCase {
         presentationManager.createFormAndAwaitFormEventsExpectation = expectation
 
         // When
+        // Ensure the API key is available before proceeding to avoid CI timing flakiness
+        let apiKeyReady = XCTestExpectation(description: "API key initialized")
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { result in
+                if case .success = result {
+                    apiKeyReady.fulfill()
+                }
+            }
+            .store(in: &cancellables)
         mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 1))
+        await fulfillment(of: [apiKeyReady], timeout: 2.0)
+
+        // Use a short timeout to keep the test fast, but coordinate on actual background handling
+        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 0.2))
+
+        let backgroundInjected = XCTestExpectation(description: "Background lifecycle event dispatched")
+        mockViewController.evaluateJavaScriptCallback = { script in
+            if script.contains("dispatchLifecycleEvent('background')") {
+                backgroundInjected.fulfill()
+            }
+            return true
+        }
+
         mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        await fulfillment(of: [backgroundInjected], timeout: 2.0)
+
+        // Sleep just beyond the configured timeout to deterministically exceed the session window
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
