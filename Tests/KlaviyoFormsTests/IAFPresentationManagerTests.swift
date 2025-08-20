@@ -370,15 +370,34 @@ final class IAFPresentationManagerTests: XCTestCase {
         presentationManager.createFormAndAwaitFormEventsExpectation = expectation
 
         // When
+        // Ensure API key is initialized to avoid race with notInitialized on CI
+        let apiKeyReady = XCTestExpectation(description: "API key initialized")
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { result in
+                if case .success = result { apiKeyReady.fulfill() }
+            }
+            .store(in: &cancellables)
         mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+        await fulfillment(of: [apiKeyReady], timeout: 2.0)
+
         presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+
+        // Confirm the background lifecycle event was processed before foregrounding
+        let backgroundInjected = XCTestExpectation(description: "Background lifecycle event dispatched")
+        mockViewController.evaluateJavaScriptCallback = { script in
+            if script.contains("dispatchLifecycleEvent('background')") {
+                backgroundInjected.fulfill()
+            }
+            return true
+        }
         mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        await fulfillment(of: [backgroundInjected], timeout: 2.0)
+
+        // Foreground should force immediate reset since timeout is zero
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
         XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using zero timeout duration")
     }
 
