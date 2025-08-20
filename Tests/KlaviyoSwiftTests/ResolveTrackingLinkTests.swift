@@ -49,10 +49,11 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
-
-        // TODO: [CHNL-23276] Validate that destination URL is handled
+        // When
+        await store.send(.trackingLinkReceived(trackingLinkURL))
+        // Then
+        await store.receive(.trackingLinkDestinationResolved(destinationURL))
+        await store.receive(.openDeepLink(destinationURL))
     }
 
     @MainActor
@@ -88,10 +89,11 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
-
-        // TODO: [CHNL-23276] Validate that destination URL is handled
+        // When
+        await store.send(.trackingLinkReceived(trackingLinkURL))
+        // Then
+        await store.receive(.trackingLinkDestinationResolved(destinationURL))
+        await store.receive(.openDeepLink(destinationURL))
     }
 
     @MainActor
@@ -108,7 +110,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         }
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
+        await store.send(.trackingLinkReceived(trackingLinkURL))
 
         // TODO: [CHNL-22886] validate that error is handled properly
     }
@@ -124,8 +126,28 @@ final class ResolveTrackingLinkTests: XCTestCase {
         environment.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
 
         // When/Then
-        await store.send(.resolveTrackingLinkDestination(from: trackingLinkURL))
+        await store.send(.trackingLinkReceived(trackingLinkURL))
 
         // TODO: [CHNL-22886] validate that error is handled properly
+    }
+
+    @MainActor
+    func testTrackingLinkDestinationResolvedTriggersOpenDeepLink() async throws {
+        // Given
+        let destinationURL = try XCTUnwrap(URL(string: "https://example.com/destination"))
+        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
+
+        let openCalled = expectation(description: "environment.openURL called with destination")
+        environment.openURL = { url in
+            XCTAssertEqual(url, destinationURL)
+            openCalled.fulfill()
+        }
+
+        // When
+        await store.send(.trackingLinkDestinationResolved(destinationURL))
+
+        // Then the reducer should emit .openDeepLink and call environment.openURL
+        await store.receive(.openDeepLink(destinationURL))
+        await fulfillment(of: [openCalled], timeout: 1.0)
     }
 }
