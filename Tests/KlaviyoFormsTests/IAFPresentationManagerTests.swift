@@ -67,6 +67,19 @@ final class IAFPresentationManagerTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - helpers
+
+    private func isRunningOnCI() -> Bool {
+        let env = ProcessInfo.processInfo.environment
+        let keys = ["CI", "GITHUB_ACTIONS", "GITHUB_CI"]
+        for key in keys {
+            if let value = env[key]?.lowercased(), ["true", "1", "yes"].contains(value) {
+                return true
+            }
+        }
+        return false
+    }
+
     // MARK: - tests
 
     @MainActor
@@ -96,14 +109,8 @@ final class IAFPresentationManagerTests: XCTestCase {
 
     @MainActor
     func testBackgroundPersistEventInjected() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        let isRunningOnCI = Bool(ProcessInfo.processInfo.environment["GITHUB_CI"] ?? "false") ?? false
-        try XCTSkipIf(isRunningOnCI, "Skipping test in Github CI environment")
-
         // Given
         let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -115,7 +122,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         }
 
         // When
-        mockLifecycleEvents.send(.backgrounded)
+        try await presentationManager.handleLifecycleEvent("background")
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
