@@ -125,6 +125,8 @@ enum KlaviyoAction: Equatable {
 
     case trackingLinkDestinationResolved(URL)
 
+    case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
+
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
 
@@ -133,10 +135,11 @@ enum KlaviyoAction: Equatable {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
         case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
+
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
             return false
         }
     }
@@ -602,6 +605,8 @@ struct KlaviyoReducer: ReducerProtocol {
             return .task { .deQueueCompletedResults(request) }
 
         case let .trackingLinkReceived(trackingLinkURL):
+            let clickTime = environment.date()
+
             if #available(iOS 14.0, *) {
                 Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
             }
@@ -635,15 +640,15 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.trackingLinkDestinationResolved(destinationURL))
                     case let .failure(error):
                         if #available(iOS 14.0, *) {
-                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
                         }
-                        // TODO: [CHNL-22886] handle error
+                        await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
                     }
                 } catch {
                     if #available(iOS 14.0, *) {
-                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error: '\(error)'")
+                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
                     }
-                    // TODO: [CHNL-22886] handle error
+                    await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
                 }
             }
 
@@ -651,6 +656,25 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 await send(.openDeepLink(url))
             }
+
+        case let .trackingLinkResolutionFailed(trackingLink, clickTime):
+            let profileInfo = ProfilePayload(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: state.anonymousId ?? ""
+            )
+
+            let request = KlaviyoRequest(
+                endpoint: .logTrackingLinkClicked(
+                    trackingLink: trackingLink,
+                    clickTime: clickTime,
+                    profileInfo: profileInfo
+                )
+            )
+            state.enqueueRequest(request: request)
+
+            return .none
 
         case let .openDeepLink(url):
             return .run { _ in
