@@ -65,12 +65,12 @@ class IAFPresentationManager {
         }
 
         self.assetSource = assetSource
-        lifecycleObserver = LifecycleObserver(configuration: configuration)
-        companyObserver = CompanyObserver(configuration: configuration)
+        lifecycleObserver = LifecycleObserver(manager: self, configuration: configuration)
+        companyObserver = CompanyObserver(manager: self, configuration: configuration)
         companyObserver?.startObserving()
     }
 
-    private func createFormAndAwaitFormEvents(apiKey: String) async throws {
+    func createFormAndAwaitFormEvents(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
         createIAF(apiKey: apiKey, profileData: profileData)
         listenForFormEvents()

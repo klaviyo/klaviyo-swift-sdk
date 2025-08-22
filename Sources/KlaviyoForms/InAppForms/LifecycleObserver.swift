@@ -15,9 +15,11 @@ class LifecycleObserver: JSBridgeObserver {
     private var lifecycleCancellable: AnyCancellable?
     private var lastBackgrounded: Date?
 
+    private let manager: IAFPresentationManager
     private let configuration: InAppFormsConfig
 
-    init(configuration: InAppFormsConfig) {
+    init(manager: IAFPresentationManager, configuration: InAppFormsConfig) {
+        self.manager = manager
         self.configuration = configuration
     }
 
@@ -31,18 +33,19 @@ class LifecycleObserver: JSBridgeObserver {
                     case .terminated:
                         break
                     case .foregrounded:
-                        try await IAFPresentationManager.shared.handleLifecycleEvent("foreground")
+                        try await self.manager.handleLifecycleEvent("foreground")
                         if self.isSessionExpired {
                             if #available(iOS 14.0, *) {
                                 Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                             }
-                            try await IAFPresentationManager.shared.reinitializeInAppForms()
+                            try await self.manager.reinitializeInAppForms()
                         } else {
-                            try await IAFPresentationManager.shared.handleInSessionForegroundEvent()
+                            try await self.manager.handleInSessionForegroundEvent()
                         }
                     case .backgrounded:
+                        print("BACKGROUNDED GOT")
                         self.lastBackgrounded = Date()
-                        try await IAFPresentationManager.shared.handleLifecycleEvent("background")
+                        try await self.manager.handleLifecycleEvent("background")
                     case .reachabilityChanged:
                         break
                     }

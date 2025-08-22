@@ -15,9 +15,11 @@ class CompanyObserver: JSBridgeObserver {
     var apiKeyCancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
+    private let manager: IAFPresentationManager
     private let configuration: InAppFormsConfig
 
-    init(configuration: InAppFormsConfig) {
+    init(manager: IAFPresentationManager, configuration: InAppFormsConfig) {
+        self.manager = manager
         self.configuration = configuration
     }
 
@@ -36,7 +38,8 @@ class CompanyObserver: JSBridgeObserver {
                     initializationWarningTask?.cancel()
                     initializationWarningTask = nil
                     Task { [weak self] in
-                        await IAFPresentationManager.shared.reinitializeIAFForNewAPIKey(apiKey, configuration: configuration)
+                        guard let self else { return }
+                        await self.manager.reinitializeIAFForNewAPIKey(apiKey, configuration: self.configuration)
                     }
                 case let .failure(sdkError):
                     handleAPIKeyError(sdkError)
