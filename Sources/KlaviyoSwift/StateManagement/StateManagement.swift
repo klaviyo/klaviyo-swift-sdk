@@ -121,10 +121,15 @@ enum KlaviyoAction: Equatable {
     /// the data that was passed to the client endpoint
     case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
+    /// when the host app receives a Klaviyo tracking link that should be resolved to a destination link.
+    /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
     case trackingLinkReceived(URL)
 
+    /// when we've successfully resolved the tracking link into a destination link
     case trackingLinkDestinationResolved(URL)
 
+    /// when the attempt to resolve the tracking link into a destination link fails.
+    /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 
     /// open a deep link URL originating from a Klaviyo notification
