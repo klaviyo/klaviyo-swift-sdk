@@ -69,19 +69,6 @@ final class IAFPresentationManagerTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - helpers
-
-    private func isRunningOnCI() -> Bool {
-        let env = ProcessInfo.processInfo.environment
-        let keys = ["CI", "GITHUB_ACTIONS", "GITHUB_CI"]
-        for key in keys {
-            if let value = env[key]?.lowercased(), ["true", "1", "yes"].contains(value) {
-                return true
-            }
-        }
-        return false
-    }
-
     // MARK: - tests
 
     @MainActor
@@ -114,6 +101,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testBackgroundForegroundLifecycleEventsInjected() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
         // When
@@ -130,6 +118,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundEvent_WithinSession_KeepsViewControllerAlive() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         presentationManager.destroyWebviewCalled = false
@@ -149,6 +138,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundEvent_InNewSession_DestroysViewController() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         presentationManager.destroyWebviewCalled = false
@@ -175,6 +165,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         let createExpectation = XCTestExpectation(description: "Web view is created on new session")
         presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // When
         mockLifecycleEvents.send(.foregrounded)
@@ -189,6 +180,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
         mockManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // When
         mockApiKeyPublisher.send("new-key")
@@ -204,6 +196,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -230,6 +223,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -261,6 +255,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: -1))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockLifecycleEvents.send(.foregrounded)
@@ -278,6 +273,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockLifecycleEvents.send(.foregrounded)
@@ -293,6 +289,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testInfiniteSessionTimeoutDurationNeverResets() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: .infinity))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // Wait for initial setup to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
