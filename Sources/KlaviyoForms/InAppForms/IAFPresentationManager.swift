@@ -264,7 +264,17 @@ class IAFPresentationManager {
         }
 
         do {
-            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', '\(event.properties)')")
+            // Convert properties to JSON string to ensure proper object serialization
+            let propertiesJSON: String
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties),
+               let propertiesString = String(data: propertiesData, encoding: .utf8) {
+                propertiesJSON = propertiesString
+            } else {
+                // Fallback to empty object if serialization fails
+                propertiesJSON = "{}"
+            }
+
+            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(propertiesJSON))")
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
             }

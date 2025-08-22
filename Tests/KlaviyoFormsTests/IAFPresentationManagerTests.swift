@@ -445,9 +445,20 @@ final class IAFPresentationManagerTests: XCTestCase {
         XCTAssertTrue(evaluatedScripts.contains { script in
             script.contains("dispatchProfileEvent") && script.contains("Added to Cart")
         }, "Event should be dispatched with correct event name")
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("amount") && script.contains("currency")
-        }, "Event should include properties")
+
+        // Verify properties are passed as JSON object (not string)
+        let scriptWithProperties = evaluatedScripts.first { script in
+            script.contains("dispatchProfileEvent") && script.contains("Added to Cart")
+        }
+        XCTAssertNotNil(scriptWithProperties, "Should find script with dispatchProfileEvent")
+
+        if let script = scriptWithProperties {
+            // Properties should be passed as JSON object, not quoted string
+            XCTAssertTrue(script.contains("\"amount\":"), "Properties should include amount key")
+            XCTAssertTrue(script.contains("\"currency\":"), "Properties should include currency key")
+            XCTAssertTrue(script.contains("USD"), "Properties should include USD value")
+            XCTAssertFalse(script.contains("'{\"amount\":99.99,\"currency\":\"USD\"}'"), "Properties should not be wrapped in quotes")
+        }
     }
 
     @MainActor
