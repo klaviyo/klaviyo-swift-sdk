@@ -43,7 +43,6 @@ class LifecycleObserver: JSBridgeObserver {
                             try await self.manager.handleInSessionForegroundEvent()
                         }
                     case .backgrounded:
-                        print("BACKGROUNDED GOT")
                         self.lastBackgrounded = Date()
                         try await self.manager.handleLifecycleEvent("background")
                     case .reachabilityChanged:
