@@ -17,17 +17,20 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
     case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
 
+    private enum HeaderKey {
+        static let profileInfo = "X-Klaviyo-Profile-Info"
+    }
+
     public var headers: [String: String] {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return [:]
         case let .resolveDestinationURL(_, profileInfo):
-            if let profileData = try? environment.encodeJSON(profileInfo),
-               let profileDataString = String(data: profileData, encoding: .utf8) {
-                return ["X-Klaviyo-Profile-Info": profileDataString]
-            } else {
-                return [:]
+            var dict = [String: String]()
+            if let profileInfoString = try? profileInfo.asJSONString() {
+                dict[HeaderKey.profileInfo] = profileInfoString
             }
+            return dict
         }
     }
 
@@ -164,5 +167,19 @@ extension KlaviyoEndpoint {
         }
 
         return request
+    }
+}
+
+extension ProfilePayload {
+    fileprivate func asJSONString() throws -> String {
+        do {
+            let profileData = try environment.encodeJSON(self)
+            return String(decoding: profileData, as: UTF8.self)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.codable.warning("Unable to encode ProfilePayload into JSON string; error: \(error)")
+            }
+            throw error
+        }
     }
 }
