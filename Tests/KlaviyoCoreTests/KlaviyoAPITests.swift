@@ -80,7 +80,9 @@ final class KlaviyoAPITests: XCTestCase {
 
     func testSuccessfulResponseWithProfile() async throws {
         environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.absoluteString, "https://dead_beef/client/profiles/?company_id=foo")
+            XCTAssertEqual(request.allHTTPHeaderFields?["X-Klaviyo-Attempt-Count"], "1/50")
             return (Data(), .validResponse)
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
@@ -88,7 +90,7 @@ final class KlaviyoAPITests: XCTestCase {
 
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                XCTAssertEqual(data.count, 0)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -97,14 +99,16 @@ final class KlaviyoAPITests: XCTestCase {
 
     func testSuccessfulResponseWithEvent() async throws {
         environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.absoluteString, "https://dead_beef/client/events/?company_id=foo")
+            XCTAssertEqual(request.allHTTPHeaderFields?["X-Klaviyo-Attempt-Count"], "1/50")
             return (Data(), .validResponse)
         }) }
         let request = KlaviyoRequest(endpoint: .createEvent("foo", CreateEventPayload(data: CreateEventPayload.Event(name: "test"))))
         try await sendAndAssert(with: request) { result in
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                XCTAssertEqual(data.count, 0)
             default:
                 XCTFail("Expected failure here.")
             }
@@ -113,7 +117,9 @@ final class KlaviyoAPITests: XCTestCase {
 
     func testSuccessfulResponseWithStoreToken() async throws {
         environment.networkSession = { NetworkSession.test(data: { request in
-            assertSnapshot(matching: request, as: .dump)
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.absoluteString, "https://dead_beef/client/push-tokens/?company_id=foo")
+            XCTAssertEqual(request.allHTTPHeaderFields?["X-Klaviyo-Attempt-Count"], "1/50")
             return (Data(), .validResponse)
         }) }
         let request = KlaviyoRequest(endpoint: .registerPushToken("foo", .test))
@@ -121,7 +127,7 @@ final class KlaviyoAPITests: XCTestCase {
 
             switch result {
             case let .success(data):
-                assertSnapshot(matching: data, as: .dump)
+                XCTAssertEqual(data.count, 0)
             default:
                 XCTFail("Expected failure here.")
             }

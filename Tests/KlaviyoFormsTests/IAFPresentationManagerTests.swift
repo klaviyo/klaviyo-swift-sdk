@@ -69,6 +69,19 @@ final class IAFPresentationManagerTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - helpers
+
+    private func isRunningOnCI() -> Bool {
+        let env = ProcessInfo.processInfo.environment
+        let keys = ["CI", "GITHUB_ACTIONS", "GITHUB_CI"]
+        for key in keys {
+            if let value = env[key]?.lowercased(), ["true", "1", "yes"].contains(value) {
+                return true
+            }
+        }
+        return false
+    }
+
     // MARK: - tests
 
     @MainActor
