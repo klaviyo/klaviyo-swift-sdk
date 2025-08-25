@@ -53,6 +53,8 @@ final class IAFPresentationManagerTests: XCTestCase {
         }
 
         presentationManager = MockIAFPresentationManager(viewController: mockViewController)
+        mockApiKeyPublisher.send("setup-key") // initialize SDK
+//        try await Task.sleep(nanoseconds: 100_000_000)
     }
 
     override func tearDown() {
@@ -67,26 +69,14 @@ final class IAFPresentationManagerTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - helpers
-
-    private func isRunningOnCI() -> Bool {
-        let env = ProcessInfo.processInfo.environment
-        let keys = ["CI", "GITHUB_ACTIONS", "GITHUB_CI"]
-        for key in keys {
-            if let value = env[key]?.lowercased(), ["true", "1", "yes"].contains(value) {
-                return true
-            }
-        }
-        return false
-    }
-
     // MARK: - tests
 
     @MainActor
-    func testDispatchLifecycleEventInjection() async throws {
+    func testDispatchEventInjection() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
+        let expectation = XCTestExpectation(description: "Event is injected")
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         var evaluatedScripts: [String] = []
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -108,37 +98,35 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-    func testBackgroundPersistEventInjected() async throws {
+    func testBackgroundForegroundLifecycleEventsInjected() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Background lifecycle event script is injected")
-
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
         // When
-        try await presentationManager.handleLifecycleEvent("background")
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('background')")
-        })
+        XCTAssertEqual(presentationManager.handledEvents, ["background", "foreground"], "Background and foreground event should be handled")
     }
 
     @MainActor
-    func testForegroundWithinSessionKeepsViewControllerAlive() async throws {
+    func testForegroundEvent_WithinSession_KeepsViewControllerAlive() async throws {
         // Given
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
+        // Wait for initial setup creating webview to complete and reset flags
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        presentationManager.destroyWebviewCalled = false
+        presentationManager.createFormAndAwaitFormEventsCalled = false
 
         // When
+        mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
@@ -147,140 +135,44 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-    func testForegroundWithinSessionRestoreEventInjected() async throws {
+    func testForegroundEvent_InNewSession_DestroysViewController() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
+        // Wait for initial setup creating webview to complete and reset flags
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        presentationManager.destroyWebviewCalled = false
+        presentationManager.createFormAndAwaitFormEventsCalled = false
 
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When
-        mockLifecycleEvents.send(.foregrounded)
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground')")
-        })
-    }
-
-    @MainActor
-    func testForegroundInNewSessionCreatesNewViewController() async throws {
-        // Given
         let destroyExpectation = XCTestExpectation(description: "Web view is destroyed on new session")
         let createExpectation = XCTestExpectation(description: "Web view is created on new session")
         presentationManager.destroyWebviewExpectation = destroyExpectation
         presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
 
-        mockApiKeyPublisher.send("test-api-key")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        // When
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-
-        // When
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
         await fulfillment(of: [destroyExpectation, createExpectation], timeout: 5.0)
         XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
-        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should be recreated when foregrounding in new session")
-    }
-
-    @MainActor
-    func testForegroundInNewSessionPurgeEventInjected() async throws {
-        // Given
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        let expectation = XCTestExpectation(description: "Foreground lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 3_000_000_000) // 3 second
-
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When
-        mockLifecycleEvents.send(.foregrounded)
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground')")
-        })
-    }
-
-    @MainActor
-    func testForegroundFromExistingInstanceDoesNotCreatesNewViewController() async throws {
-        // Given
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        let mockManager = MockIAFPresentationManager(viewController: mockViewController)
-        mockManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
-
-        // When
-        mockLifecycleEvents.send(.foregrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-
-        // Then
-        XCTAssertFalse(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should not be called when foregrounding in existing instance (such as opening the notification/control center)")
     }
 
     @MainActor
     func testForegroundNewLaunchCreatesNewViewController() async throws {
         // Given
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        let mockManager = MockIAFPresentationManager(viewController: nil) // simulate fresh launch
-        mockManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
+        let createExpectation = XCTestExpectation(description: "Web view is created on new session")
+        presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // When
         mockLifecycleEvents.send(.foregrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding on new launch/new session")
-    }
-
-    @MainActor
-    func testForegroundNewLaunchRestoreEventInjected() async throws {
-        // Given
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        let expectation = XCTestExpectation(description: "Lifecycle event script is injected")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
-
-        var evaluatedScripts: [String] = []
-        mockViewController.evaluateJavaScriptCallback = { script in
-            evaluatedScripts.append(script)
-            if script.contains("dispatchLifecycleEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When
-        mockLifecycleEvents.send(.foregrounded)
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 3.0)
-        XCTAssertTrue(evaluatedScripts.contains { script in
-            script.contains("dispatchLifecycleEvent('foreground')")
-        })
+        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should be recreated when foregrounding in new session")
     }
 
     @MainActor
@@ -288,12 +180,14 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let mockManager = MockIAFPresentationManager(viewController: mockViewController)
         mockManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // When
-        mockApiKeyPublisher.send("initial-key")
+        mockApiKeyPublisher.send("new-key")
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
+        XCTAssertTrue(mockManager.destroyWebviewCalled, "destroyWebview should be called when api key changes")
         XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding in new session")
     }
 
@@ -301,7 +195,8 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpLifecycleSubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -327,7 +222,8 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testDestroyWebviewAndListenersCleansUpApiKeySubscription() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Event script is not injected after destroying listener")
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig())
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         expectation.isInverted = true
 
         var evaluatedScripts: [String] = []
@@ -358,9 +254,8 @@ final class IAFPresentationManagerTests: XCTestCase {
         presentationManager.createFormAndAwaitFormEventsExpectation = expectation
 
         // When
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: -1))
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: -1))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockLifecycleEvents.send(.foregrounded)
@@ -377,55 +272,41 @@ final class IAFPresentationManagerTests: XCTestCase {
         presentationManager.createFormAndAwaitFormEventsExpectation = expectation
 
         // When
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
         XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using zero timeout duration")
     }
 
     @MainActor
+
     func testInfiniteSessionTimeoutDurationNeverResets() async throws {
         // Given
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: .infinity))
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
+
+        // Wait for initial setup to complete and reset flags
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        presentationManager.destroyWebviewCalled = false
+        presentationManager.createFormAndAwaitFormEventsCalled = false
         let expectation = XCTestExpectation(description: "Form is not recreated after session timeout")
         expectation.isInverted = true
         presentationManager.createFormAndAwaitFormEventsExpectation = expectation
 
-        // When
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: TimeInterval.infinity))
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Form should not be recreated when using infinite timeout duration")
-    }
-
-    @MainActor
-    func testValidSessionTimeoutDurationResetsAfterTimeout() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
-        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
-
-        // When
-        mockApiKeyPublisher.send("test-api-key")
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
-        presentationManager.setupLifecycleEventsSubscription(configuration: InAppFormsConfig(sessionTimeoutDuration: 1))
-        mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        mockLifecycleEvents.send(.foregrounded)
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated after timeout duration")
+        XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should never be destroyed when foregrounding in an infinite session")
+        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Form should never be recreated")
     }
 }
 
@@ -460,6 +341,8 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var formEventTask: Task<Void, Never>?
     var destroyWebviewExpectation: XCTestExpectation?
     var createFormAndAwaitFormEventsExpectation: XCTestExpectation?
+    var handleLifecycleEventExpectation: XCTestExpectation?
+    var handledEvents: [String] = []
 
     override func createFormAndAwaitFormEvents(apiKey: String) async throws {
         createFormAndAwaitFormEventsCalled = true
@@ -476,5 +359,11 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     override func dismissForm() {
         destroyWebviewCalled = true
         super.destroyWebView()
+    }
+
+    override func handleLifecycleEvent(_ event: String) async throws {
+        handledEvents.append(event)
+        handleLifecycleEventExpectation?.fulfill()
+        try await super.handleLifecycleEvent(event)
     }
 }
