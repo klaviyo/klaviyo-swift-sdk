@@ -137,7 +137,7 @@ final class KlaviyoAPITests: XCTestCase {
 
     func sendAndAssert(with request: KlaviyoRequest,
                        assertion: (Result<Data, KlaviyoAPIError>) -> Void) async {
-        let result = await KlaviyoAPI().send(request, 0)
+        let result = await KlaviyoAPI().send(request, 1)
         assertion(result)
     }
 }
