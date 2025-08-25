@@ -225,4 +225,23 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         // Then
         XCTAssertTrue(userScripts.contains(where: { $0.source.contains("data-klaviyo-profile") }), "Profile attributes script should be present in userContentController")
     }
+
+    @MainActor
+    func testScriptMessageHandlerDeduplication() async throws {
+        // Given
+        let viewController = createWebViewController()
+
+        // When
+        // Call configureLoadScripts multiple times (simulating multiple loadUrl calls)
+        // This should not crash and should only add each handler once
+        for _ in 0..<3 {
+            viewController.preloadUrl()
+        }
+
+        // Then
+        let userContentController = config.userContentController
+        XCTAssertTrue(userContentController.userScripts.contains(where: { $0.source.contains("klaviyoJS") }), "Klaviyo JS script should be present")
+        // Verify no crash occurred during multiple calls
+        // If the deduplication wasn't working, this test would have crashed with NSInvalidArgumentException
+    }
 }
