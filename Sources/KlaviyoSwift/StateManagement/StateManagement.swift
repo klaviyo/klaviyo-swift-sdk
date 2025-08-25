@@ -78,6 +78,9 @@ public enum KlaviyoAction: Equatable {
     /// call to sync the stored value in the User Defaults suite with the currently displayed badge count provided by `UIApplication.shared.applicationIconBadgeNumber`
     case syncBadgeCount
 
+    /// call to fetch and refresh the stored geofences on device
+    case fetchAndSetupGeofences
+
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
@@ -131,7 +134,7 @@ public enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .fetchAndSetupGeofences, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
             return false
         }
     }
@@ -334,6 +337,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     } else {
                         await send(KlaviyoAction.syncBadgeCount)
                     }
+                    await send(KlaviyoAction.fetchAndSetupGeofences)
                 },
                 environment.timer(state.flushInterval)
                     .map { _ in
@@ -551,6 +555,31 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+        case .fetchAndSetupGeofences:
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey else {
+                return .none
+            }
+
+            return .run { _ in
+                do {
+                    let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
+                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+                    switch result {
+                    case .success:
+                        // TODO: handle geofences
+                        break
+                    case .failure:
+                        // TODO: handle error
+                        break
+                    }
+                } catch {
+                    // TODO: handle error
+                }
+            }
 
         case let .setBadgeCount(count):
             return .run { _ in

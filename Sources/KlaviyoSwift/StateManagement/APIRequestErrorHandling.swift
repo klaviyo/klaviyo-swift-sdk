@@ -15,7 +15,7 @@ enum ErrorHandlingConstants {
 extension KlaviyoEndpoint {
     var maxRetries: Int {
         switch self {
-        case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent:
+        case .createProfile, .registerPushToken, .unregisterPushToken, .fetchGeofences, .createEvent, .aggregateEvent:
             return 50
         }
     }

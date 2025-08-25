@@ -12,6 +12,7 @@ import OSLog
 public enum KlaviyoEndpoint: Equatable, Codable {
     case createProfile(_ apiKey: String, _ payload: CreateProfilePayload)
     case createEvent(_ apiKey: String, _ payload: CreateEventPayload)
+    case fetchGeofences(_ apiKey: String)
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
@@ -22,6 +23,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case let .createProfile(apiKey, _),
              let .createEvent(apiKey, _),
+             let .fetchGeofences(apiKey),
              let .registerPushToken(apiKey, _),
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
@@ -33,6 +35,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
+        case .fetchGeofences:
+            return .get
         }
     }
 
@@ -61,6 +65,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/profiles/"
         case .createEvent:
             return "/client/events/"
+        case .fetchGeofences:
+            return "" // TODO: mock api call
         case .registerPushToken:
             return "/client/push-tokens/"
         case .unregisterPushToken:
@@ -76,6 +82,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .createEvent(_, payload):
             return try environment.encodeJSON(payload)
+        case .fetchGeofences:
+            return nil
         case let .registerPushToken(_, payload):
             return try environment.encodeJSON(payload)
         case let .unregisterPushToken(_, payload):
