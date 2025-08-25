@@ -16,18 +16,30 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
     case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
+    case logTrackingLinkClicked(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
+
+    private enum HeaderKey {
+        static let profileInfo = "X-Klaviyo-Profile-Info"
+        static let clickEventTimestamp = "X-Klaviyo-Click-Event-Timestamp"
+    }
 
     public var headers: [String: String] {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return [:]
         case let .resolveDestinationURL(_, profileInfo):
-            if let profileData = try? environment.encodeJSON(profileInfo),
-               let profileDataString = String(data: profileData, encoding: .utf8) {
-                return ["X-Klaviyo-Profile-Info": profileDataString]
-            } else {
-                return [:]
+            var dict = [String: String]()
+            if let profileInfoString = try? profileInfo.asJSONString() {
+                dict[HeaderKey.profileInfo] = profileInfoString
             }
+            return dict
+        case let .logTrackingLinkClicked(_, timestamp, profileInfo):
+            var dict = [String: String]()
+            if let profileInfoString = try? profileInfo.asJSONString() {
+                dict[HeaderKey.profileInfo] = profileInfoString
+            }
+            dict[HeaderKey.clickEventTimestamp] = String(Int(timestamp.timeIntervalSince1970))
+            return dict
         }
     }
 
@@ -39,7 +51,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
-        case .resolveDestinationURL:
+        case .resolveDestinationURL, .logTrackingLinkClicked:
             return []
         }
     }
@@ -48,7 +60,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
-        case let .resolveDestinationURL:
+        case .resolveDestinationURL, .logTrackingLinkClicked:
             return .get
         }
     }
@@ -72,7 +84,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             }
 
             return url
-        case let .resolveDestinationURL(trackingLink, _):
+        case let .resolveDestinationURL(trackingLink, _), let .logTrackingLinkClicked(trackingLink, _, _):
             var urlComponents = URLComponents()
 
             urlComponents.scheme = trackingLink.scheme
@@ -98,7 +110,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/client/push-token-unregister/"
         case .aggregateEvent:
             return "/onsite/track-analytics"
-        case let .resolveDestinationURL(trackingLink, _):
+        case let .resolveDestinationURL(trackingLink, _), let .logTrackingLinkClicked(trackingLink, _, _):
             return trackingLink.path
         }
     }
@@ -115,7 +127,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .aggregateEvent(_, payload):
             return payload
-        case .resolveDestinationURL:
+        case .resolveDestinationURL, .logTrackingLinkClicked:
             return nil
         }
     }
@@ -164,5 +176,19 @@ extension KlaviyoEndpoint {
         }
 
         return request
+    }
+}
+
+extension ProfilePayload {
+    fileprivate func asJSONString() throws -> String {
+        do {
+            let profileData = try environment.encodeJSON(self)
+            return String(decoding: profileData, as: UTF8.self)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.codable.warning("Unable to encode ProfilePayload into JSON string; error: \(error)")
+            }
+            throw error
+        }
     }
 }

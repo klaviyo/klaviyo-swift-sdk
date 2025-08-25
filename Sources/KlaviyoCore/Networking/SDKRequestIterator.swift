@@ -47,6 +47,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
         case resolveDestinationURL(trackingLink: URL)
+        case logTrackingLinkClicked(trackingLink: URL, clickTime: Date)
 
         fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
@@ -81,6 +82,8 @@ public struct SDKRequest: Identifiable, Equatable {
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
             case let .resolveDestinationURL(trackingLink, _):
                 return .resolveDestinationURL(trackingLink: trackingLink)
+            case let .logTrackingLinkClicked(trackingLink, clickTime, _):
+                return .logTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
             }
         }
     }

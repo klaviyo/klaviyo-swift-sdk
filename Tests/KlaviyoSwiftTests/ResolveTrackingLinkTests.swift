@@ -101,6 +101,10 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
+        environment.date = {
+            clickTime
+        }
 
         let trackingLinkURL = URL(string: "https://email.klaviyo.com/tracking/link")!
 
@@ -109,10 +113,26 @@ final class ResolveTrackingLinkTests: XCTestCase {
             .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled)))
         }
 
-        // When/Then
+        // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
 
-        // TODO: [CHNL-22886] validate that error is handled properly
+        // Then
+        await store.receive(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)) {
+            let request = KlaviyoRequest(
+                endpoint: .logTrackingLinkClicked(
+                    trackingLink: trackingLinkURL,
+                    clickTime: clickTime,
+                    profileInfo: ProfilePayload(
+                        email: initialState.email,
+                        phoneNumber: initialState.phoneNumber,
+                        externalId: initialState.externalId,
+                        anonymousId: initialState.anonymousId ?? ""
+                    )
+                )
+            )
+
+            $0.queue = [request]
+        }
     }
 
     @MainActor
@@ -120,15 +140,35 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
+        environment.date = {
+            clickTime
+        }
 
         let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
 
         environment.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
 
-        // When/Then
+        // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
 
-        // TODO: [CHNL-22886] validate that error is handled properly
+        // Then
+        await store.receive(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)) {
+            let request = KlaviyoRequest(
+                endpoint: .logTrackingLinkClicked(
+                    trackingLink: trackingLinkURL,
+                    clickTime: clickTime,
+                    profileInfo: ProfilePayload(
+                        email: initialState.email,
+                        phoneNumber: initialState.phoneNumber,
+                        externalId: initialState.externalId,
+                        anonymousId: initialState.anonymousId ?? ""
+                    )
+                )
+            )
+
+            $0.queue = [request]
+        }
     }
 
     @MainActor

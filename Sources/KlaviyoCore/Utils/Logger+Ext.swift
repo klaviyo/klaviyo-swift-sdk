@@ -20,6 +20,9 @@ extension Logger {
 
 @available(iOS 14.0, *)
 extension Logger {
+    /// Logger for ``Codable`` events (JSON encoding & decoding)
+    static let codable = Logger(category: "Encoding/Decoding Logger")
+
     /// Logger for networking events
     static let networking = Logger(category: "Networking")
 }
