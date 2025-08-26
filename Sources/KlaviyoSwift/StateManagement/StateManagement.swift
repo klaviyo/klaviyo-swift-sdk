@@ -77,6 +77,9 @@ enum KlaviyoAction: Equatable {
     /// call to sync the stored value in the User Defaults suite with the currently displayed badge count provided by `UIApplication.shared.applicationIconBadgeNumber`
     case syncBadgeCount
 
+    /// call to fetch and refresh the stored geofences on device
+    case setupGeofences
+
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
@@ -144,7 +147,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .setupGeofences, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
             return false
         }
     }
@@ -347,6 +350,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     } else {
                         await send(KlaviyoAction.syncBadgeCount)
                     }
+                    await send(KlaviyoAction.setupGeofences)
                 },
                 environment.timer(state.flushInterval)
                     .map { _ in
@@ -564,6 +568,32 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+        case .setupGeofences:
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey else {
+                // TODO: We eventually want to be able to setup geofencing without the dev having to call initialize, consider retreiving the company ID otherwise, so we don't need this guard https://klaviyo.slack.com/archives/C092G8ASQH1/p1756152426939399?thread_ts=1756152263.515719&cid=C092G8ASQH1
+                return .none
+            }
+
+            return .run { _ in
+                do {
+                    let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
+                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+                    switch result {
+                    case .success:
+                        // TODO: handle geofences - store on device and refresh the ones being monitored for
+                        break
+                    case .failure:
+                        // TODO: handle error
+                        break
+                    }
+                } catch {
+                    // TODO: handle error
+                }
+            }
 
         case let .setBadgeCount(count):
             return .run { _ in
