@@ -13,10 +13,25 @@
 
 import AnyCodable
 import Combine
+import CoreLocation
 import Foundation
 import KlaviyoCore
 import UIKit
 import UserNotifications
+
+// MARK: - Geofence Data Models
+
+private struct GeofenceData: Codable {
+    let location: String
+    let identifier: String
+    let radius: Double
+    let center: CenterData
+}
+
+private struct CenterData: Codable {
+    let latitude: Double
+    let longitude: Double
+}
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -569,15 +584,40 @@ struct KlaviyoReducer: ReducerProtocol {
                     let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
 
                     switch result {
-                    case .success:
-                        // TODO: handle geofences
-                        break
-                    case .failure:
-                        // TODO: handle error
-                        break
+                    case let .success(data):
+                        // Parse geofences from response data
+                        do {
+                            let geofences = try JSONDecoder().decode([GeofenceData].self, from: data)
+
+                            // Convert to CLRegion objects and set up monitoring
+                            var regions = Set<CLCircularRegion>()
+                            for geofence in geofences {
+                                let region = CLCircularRegion(
+                                    center: CLLocationCoordinate2D(
+                                        latitude: geofence.center.latitude,
+                                        longitude: geofence.center.longitude
+                                    ),
+                                    radius: CLLocationDistance(geofence.radius),
+                                    identifier: geofence.identifier
+                                )
+                                region.notifyOnEntry = true
+                                region.notifyOnExit = true
+                                regions.insert(region)
+                            }
+
+                            // TODO: Set up geofence monitoring with the regions
+                            // This would typically involve calling the geofence manager
+                            print("Successfully fetched \(regions.count) geofences")
+
+                        } catch {
+                            print("Error parsing geofence response: \(error)")
+                        }
+
+                    case let .failure(error):
+                        print("Failed to fetch geofences: \(error)")
                     }
                 } catch {
-                    // TODO: handle error
+                    print("Error creating geofence request: \(error)")
                 }
             }
 

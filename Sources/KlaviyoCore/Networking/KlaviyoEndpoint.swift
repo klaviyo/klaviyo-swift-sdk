@@ -66,7 +66,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case .createEvent:
             return "/client/events/"
         case .fetchGeofences:
-            return "" // TODO: mock api call
+            return "/geofences"
         case .registerPushToken:
             return "/client/push-tokens/"
         case .unregisterPushToken:

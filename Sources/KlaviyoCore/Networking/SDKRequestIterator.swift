@@ -65,10 +65,10 @@ public struct SDKRequest: Identifiable, Equatable {
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
                 )
-            case .fetchGeofences:
-                return .fetchGeofences
             case let .aggregateEvent(_, payload):
                 return .createAggregateEvent(payload)
+            case .fetchGeofences:
+                return .fetchGeofences
             case let .registerPushToken(_, payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,

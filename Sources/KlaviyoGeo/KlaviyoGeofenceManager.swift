@@ -10,6 +10,7 @@ import OSLog
 import SwiftUI
 
 public class KlaviyoGeofenceManager {
+    static let shared = KlaviyoGeofenceManager()
     private let locationManager: CLLocationManager
     private let geofenceService: GeofenceServiceProvider
 
