@@ -160,6 +160,15 @@ package enum KlaviyoInternal {
         dispatchOnMainThread(action: .enqueueAggregateEvent(aggregateEvent))
     }
 
+    // MARK: - Events methods
+
+    /// Create and send an event.
+    ///
+    /// - Parameter event: the event to be tracked in Klaviyo
+    package static func create(event: Event) {
+        dispatchOnMainThread(action: .enqueueEvent(event))
+    }
+
     // MARK: - Deep link handling
 
     /// Handles a deep link according to the handler configured in `klaviyoSwiftEnvironment`
