@@ -8,8 +8,8 @@
 import Combine
 import CoreLocation
 import Foundation
+import KlaviyoSwift
 import OSLog
-@_spi(KlaviyoPrivate) import KlaviyoSwift
 
 public class KlaviyoLocationManager: NSObject {
     let manager = CLLocationManager()
@@ -101,7 +101,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                _ = klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(enterEvent))
+                KlaviyoInternal.create(event: enterEvent)
                 geofencePublisher.send("Entered \(region.identifier)")
             }
         }
@@ -122,7 +122,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                _ = klaviyoSwiftEnvironment.send(KlaviyoAction.enqueueEvent(exitEvent))
+                KlaviyoInternal.create(event: exitEvent)
                 geofencePublisher.send("Exited \(region.identifier)")
             }
         }

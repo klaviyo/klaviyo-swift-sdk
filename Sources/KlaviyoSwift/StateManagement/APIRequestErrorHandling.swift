@@ -23,7 +23,7 @@ extension KlaviyoEndpoint {
     }
 }
 
-public enum InvalidField: Equatable {
+enum InvalidField: Equatable {
     case email
     case phone
 
