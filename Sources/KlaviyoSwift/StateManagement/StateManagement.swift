@@ -27,7 +27,7 @@ enum StateManagementConstants {
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
-enum RetryState: Equatable {
+public enum RetryState: Equatable {
     /// Indicates that the request should be retried immediately (subject to
     /// the regular flush cadence).
     ///
@@ -48,7 +48,8 @@ enum RetryState: Equatable {
     case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
 }
 
-enum KlaviyoAction: Equatable {
+@_spi(KlaviyoPrivate)
+public enum KlaviyoAction: Equatable {
     /// Sets the API key to state. If the state is already initialized then the push token is moved over to the company with the API key provided in this action.
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
     case initialize(String)

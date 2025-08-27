@@ -320,21 +320,21 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
     return parentViewController
 }
 
-#if swift(>=5.9)
-@available(iOS 17.0, *)
-#Preview("Klaviyo Form") {
-    let apiKey = "" // ⬅️ use a company ID that has a live form
-    _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
-    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, apiKey: apiKey, profileData: nil)
-    return createKlaviyoWebPreview(viewModel: viewModel)
-}
-
-@available(iOS 17.0, *)
-#Preview("JS Test Page") {
-    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "jstest", type: "html")
-    let viewModel = PreviewWebViewModel(url: indexHtmlFileUrl)
-    return KlaviyoWebViewController(viewModel: viewModel)
-}
-#endif
+// #if swift(>=5.9)
+// @available(iOS 17.0, *)
+// #Preview("Klaviyo Form") {
+//    let apiKey = "" // ⬅️ use a company ID that has a live form
+//    _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
+//    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
+//    let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, apiKey: apiKey, profileData: nil)
+//    createKlaviyoWebPreview(viewModel: viewModel)
+// }
+//
+// @available(iOS 17.0, *)
+// #Preview("JS Test Page") {
+//    let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "jstest", type: "html")
+//    let viewModel = PreviewWebViewModel(url: indexHtmlFileUrl)
+//    return KlaviyoWebViewController(viewModel: viewModel)
+// }
+// #endif
 #endif

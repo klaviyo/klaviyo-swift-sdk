@@ -12,7 +12,8 @@ import UIKit
 
 typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
 
-struct KlaviyoState: Equatable, Codable {
+@_spi(KlaviyoPrivate)
+public struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
         case uninitialized
         case initializing
