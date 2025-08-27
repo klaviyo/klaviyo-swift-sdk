@@ -27,7 +27,7 @@ class LifecycleObserver: JSBridgeObserver {
         lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     guard let self else { return }
                     switch event {
                     case .terminated:

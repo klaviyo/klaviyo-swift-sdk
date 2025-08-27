@@ -26,7 +26,7 @@ class CompanyObserver: JSBridgeObserver {
     func startObserving() {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
+            .sink { @MainActor [weak self] result in
                 guard let self else { return }
 
                 switch result {
