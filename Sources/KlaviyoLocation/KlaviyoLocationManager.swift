@@ -12,16 +12,14 @@ import KlaviyoSwift
 import OSLog
 
 public class KlaviyoLocationManager: NSObject {
+    static let shared = KlaviyoLocationManager()
+
     let manager = CLLocationManager()
     let geofenceManager: KlaviyoGeofenceManager
     public let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    override private convenience init() {
-        self.init()
-    }
-
-    public init(geofenceManager: KlaviyoGeofenceManager = .init()) {
-        self.geofenceManager = geofenceManager
+    override public init() {
+        geofenceManager = KlaviyoGeofenceManager(locationManager: manager)
         super.init()
         manager.delegate = self
         manager.allowsBackgroundLocationUpdates = true
