@@ -569,15 +569,9 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
         case .setupGeofences:
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey else {
-                // TODO: We eventually want to be able to setup geofencing without the dev having to call initialize, consider retreiving the company ID otherwise, so we don't need this guard https://klaviyo.slack.com/archives/C092G8ASQH1/p1756152426939399?thread_ts=1756152263.515719&cid=C092G8ASQH1
-                return .none
-            }
-
             return .run { _ in
                 do {
-                    let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+                    let endpoint = KlaviyoEndpoint.fetchGeofences
                     let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
                     let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
                     let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)

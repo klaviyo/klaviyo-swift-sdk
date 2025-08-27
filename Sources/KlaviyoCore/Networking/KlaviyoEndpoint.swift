@@ -12,7 +12,7 @@ import OSLog
 public enum KlaviyoEndpoint: Equatable, Codable {
     case createProfile(_ apiKey: String, _ payload: CreateProfilePayload)
     case createEvent(_ apiKey: String, _ payload: CreateEventPayload)
-    case fetchGeofences(_ apiKey: String)
+    case fetchGeofences
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)
     case unregisterPushToken(_ apiKey: String, _ payload: UnregisterPushTokenPayload)
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
@@ -48,12 +48,11 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case let .createProfile(apiKey, _),
              let .createEvent(apiKey, _),
-             let .fetchGeofences(apiKey),
              let .registerPushToken(apiKey, _),
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return []
         }
     }
