@@ -44,6 +44,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case createEvent(EventInfo, ProfileInfo)
         case createAggregateEvent(Data)
         case createProfile(ProfileInfo)
+        case fetchGeofences
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
         case resolveDestinationURL(trackingLink: URL)
@@ -66,6 +67,8 @@ public struct SDKRequest: Identifiable, Equatable {
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
                 )
+            case .fetchGeofences:
+                return .fetchGeofences
             case let .aggregateEvent(_, payload):
                 return .createAggregateEvent(payload)
             case let .registerPushToken(_, payload):

@@ -1,0 +1,56 @@
+[
+  {
+    "location": "One Infinite Loop",
+    "identifier": "One Infinite Loop",
+    "radius": 100,
+    "center": {
+      "latitude": 37.33204742438631,
+      "longitude": -122.03026995144546
+    }
+  },
+  {
+    "location": "Empire State Building",
+    "identifier": "Empire State Building",
+    "radius": 100,
+    "center": {
+      "latitude": 40.74859487385327,
+      "longitude": -73.98563220742138
+    }
+  },
+  {
+    "location": "Tatte",
+    "identifier": "Tatte",
+    "radius": 10,
+    "center": {
+      "latitude": 42.3586000204366,
+      "longitude": -71.05831575152477
+    }
+  },
+  {
+    "location": "George Dilboy VFW",
+    "identifier": "George Dilboy VFW",
+    "radius": 10,
+    "center": {
+      "latitude": 42.39377283506793,
+      "longitude": -71.11933974002551
+    }
+  },
+  {
+    "location": "Day Street Parking Lot",
+    "identifier": "Day Street Parking Lot",
+    "radius": 50,
+    "center": {
+      "latitude": 42.39545953282365,
+      "longitude": -71.12336490695512
+    }
+  },
+  {
+    "location": "Forest Hills",
+    "identifier": "Forest Hills",
+    "radius": 1000,
+    "center": {
+      "latitude": 42.29742802785763,
+      "longitude": -71.11579719578968
+    }
+  }
+]
