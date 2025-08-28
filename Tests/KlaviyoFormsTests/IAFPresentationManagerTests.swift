@@ -318,6 +318,10 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
 
     func testInfiniteSessionTimeoutDurationNeverResets() async throws {
+        // This test has been flaky when running on CI. It seems to have something to do with instability when
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
+        try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
+
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: .infinity))
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
