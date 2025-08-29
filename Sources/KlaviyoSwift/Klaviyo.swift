@@ -157,7 +157,7 @@ public struct KlaviyoSDK {
         }
     }
 
-    public func handleTrackingLink(_ url: URL) {
+    public func handleUniversalTrackingLink(_ url: URL) {
         dispatchOnMainThread(action: .trackingLinkReceived(url))
     }
 
