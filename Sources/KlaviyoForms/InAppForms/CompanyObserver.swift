@@ -39,7 +39,7 @@ class CompanyObserver: JSBridgeObserver {
                     initializationWarningTask = nil
                     Task { [weak self] in
                         guard let self else { return }
-                        await self.manager.reinitializeIAFForNewAPIKey(apiKey, configuration: self.configuration)
+                        self.manager.reinitializeIAFForNewAPIKey(apiKey, configuration: self.configuration)
                     }
                 case let .failure(sdkError):
                     handleAPIKeyError(sdkError)
