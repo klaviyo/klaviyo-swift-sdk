@@ -11,45 +11,45 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
+@MainActor
 class CompanyObserver: JSBridgeObserver {
-    var apiKeyCancellable: AnyCancellable?
+    enum Event { case apiKeyUpdated(String), error(SDKError) }
+
+    private var cancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
-    private let manager: IAFPresentationManager
-    private let configuration: InAppFormsConfig
+    private let eventsContinuation: AsyncStream<Event>.Continuation
+    let events: AsyncStream<Event>
 
-    init(manager: IAFPresentationManager, configuration: InAppFormsConfig) {
-        self.manager = manager
-        self.configuration = configuration
+    init() {
+        var continuation: AsyncStream<Event>.Continuation!
+        events = AsyncStream<Event> { continuation = $0 }
+        eventsContinuation = continuation
     }
 
     func startObserving() {
-        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+        cancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
+            .removeDuplicates()
             .sink { [weak self] result in
                 guard let self else { return }
-
                 switch result {
-                case let .success(apiKey):
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
-                    }
-
+                case let .success(key):
                     initializationWarningTask?.cancel()
-                    initializationWarningTask = nil
-                    Task { @MainActor [weak self] in
-                        guard let self else { return }
-                        self.manager.reinitializeIAFForNewAPIKey(apiKey, configuration: self.configuration)
-                    }
-                case let .failure(sdkError):
-                    handleAPIKeyError(sdkError)
+                    eventsContinuation.yield(.apiKeyUpdated(key))
+                case let .failure(error):
+                    handleAPIKeyError(error)
+                    eventsContinuation.yield(.error(error))
                 }
             }
     }
 
     func stopObserving() {
-        apiKeyCancellable?.cancel()
-        apiKeyCancellable = nil
+        cancellable?.cancel()
+        cancellable = nil
+        initializationWarningTask?.cancel()
+        initializationWarningTask = nil
+        eventsContinuation.finish()
     }
 
     private func handleAPIKeyError(_ sdkError: SDKError) {

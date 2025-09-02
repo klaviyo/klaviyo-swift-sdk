@@ -18,11 +18,14 @@ class IAFPresentationManager {
     static let shared = IAFPresentationManager()
 
     private var lifecycleObserver: LifecycleObserver?
+
     private var companyObserver: CompanyObserver?
+    private var companyEventsTask: Task<Void, Never>?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
+    private var configuration: InAppFormsConfig
     private var assetSource: String?
 
     private var formEventTask: Task<Void, Never>?
@@ -40,9 +43,7 @@ class IAFPresentationManager {
     }()
 
     private var isInitializingOrInitialized: Bool {
-        // The company observer's API key subscription indicates whether In-App Forms
-        // is either initializing or initialized, as this subscription persists for
-        // the entire lifecycle of the form.
+        // FIXME: need a better way to monitor state than to rely on `CompanyObserver`'s internals. May need to have a state enum here in `IAFPresentationManager`
         companyObserver?.apiKeyCancellable != nil
     }
 
@@ -64,10 +65,28 @@ class IAFPresentationManager {
             return
         }
 
+        self.configuration = configuration
         self.assetSource = assetSource
+
+        let observer = CompanyObserver()
+        companyObserver = observer
+        observer.startObserving()
+
+        companyEventsTask = Task { [weak self] in
+            for await event in observer.events {
+                guard let self else { return }
+                switch event {
+                case let .apiKeyUpdated(key):
+                    reinitializeIAFForNewAPIKey(key, configuration: configuration)
+                case let .error(e):
+                    // optionally handle/log
+                    break
+                }
+            }
+        }
+
+        // TODO: refactor LifecycleObsever to remove IAFPresentationManager dependency (similar to CompanyObserver)
         lifecycleObserver = LifecycleObserver(manager: self, configuration: configuration)
-        companyObserver = CompanyObserver(manager: self, configuration: configuration)
-        companyObserver?.startObserving()
     }
 
     func createFormAndAwaitFormEvents(apiKey: String) async throws {
