@@ -12,7 +12,9 @@ import KlaviyoSwift
 import OSLog
 
 class CompanyObserver: JSBridgeObserver {
-    enum Event { case apiKeyUpdated(String), error(SDKError) }
+    enum Event {
+        case apiKeyUpdated(String), error(SDKError)
+    }
 
     private var cancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
@@ -34,6 +36,9 @@ class CompanyObserver: JSBridgeObserver {
                 guard let self else { return }
                 switch result {
                 case let .success(key):
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Received API key change. New API key: \(key)")
+                    }
                     initializationWarningTask?.cancel()
                     eventsContinuation.yield(.apiKeyUpdated(key))
                 case let .failure(error):

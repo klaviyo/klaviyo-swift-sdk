@@ -19,13 +19,13 @@ class IAFPresentationManager {
 
     private var lifecycleObserver: LifecycleObserver?
 
-    private var companyObserver: CompanyObserver?
+    private let companyObserver = CompanyObserver()
     private var companyEventsTask: Task<Void, Never>?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
-    private var configuration: InAppFormsConfig
+    private var configuration: InAppFormsConfig?
     private var assetSource: String?
 
     private var formEventTask: Task<Void, Never>?
@@ -44,7 +44,8 @@ class IAFPresentationManager {
 
     private var isInitializingOrInitialized: Bool {
         // FIXME: need a better way to monitor state than to rely on `CompanyObserver`'s internals. May need to have a state enum here in `IAFPresentationManager`
-        companyObserver?.apiKeyCancellable != nil
+//        companyObserver?.apiKeyCancellable != nil
+        false
     }
 
     private init() {}
@@ -68,17 +69,15 @@ class IAFPresentationManager {
         self.configuration = configuration
         self.assetSource = assetSource
 
-        let observer = CompanyObserver()
-        companyObserver = observer
-        observer.startObserving()
+        companyObserver.startObserving()
 
         companyEventsTask = Task { [weak self] in
-            for await event in observer.events {
-                guard let self else { return }
+            guard let self else { return }
+            for await event in companyObserver.events {
                 switch event {
                 case let .apiKeyUpdated(key):
                     reinitializeIAFForNewAPIKey(key, configuration: configuration)
-                case let .error(e):
+                case .error:
                     // optionally handle/log
                     break
                 }
@@ -279,7 +278,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         lifecycleObserver?.stopObserving()
-        companyObserver?.stopObserving()
+        companyObserver.stopObserving()
 
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
