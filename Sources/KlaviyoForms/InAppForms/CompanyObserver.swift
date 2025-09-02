@@ -26,7 +26,7 @@ class CompanyObserver: JSBridgeObserver {
     func startObserving() {
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
-            .sink { @MainActor [weak self] result in
+            .sink { [weak self] result in
                 guard let self else { return }
 
                 switch result {
@@ -37,7 +37,7 @@ class CompanyObserver: JSBridgeObserver {
 
                     initializationWarningTask?.cancel()
                     initializationWarningTask = nil
-                    Task { [weak self] in
+                    Task { @MainActor [weak self] in
                         guard let self else { return }
                         self.manager.reinitializeIAFForNewAPIKey(apiKey, configuration: self.configuration)
                     }
