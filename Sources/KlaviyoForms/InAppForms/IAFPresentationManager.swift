@@ -21,6 +21,7 @@ class IAFPresentationManager {
 
     private let companyObserver = CompanyObserver()
     private var companyEventsTask: Task<Void, Never>?
+    private var isInitializingOrInitialized = false
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -41,12 +42,6 @@ class IAFPresentationManager {
             return nil
         }
     }()
-
-    private var isInitializingOrInitialized: Bool {
-        // FIXME: need a better way to monitor state than to rely on `CompanyObserver`'s internals. May need to have a state enum here in `IAFPresentationManager`
-//        companyObserver?.apiKeyCancellable != nil
-        false
-    }
 
     private init() {}
 
@@ -70,10 +65,11 @@ class IAFPresentationManager {
         self.assetSource = assetSource
 
         companyObserver.startObserving()
+        isInitializingOrInitialized = true
 
         companyEventsTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in companyObserver.events {
+            guard let self, let eventsStream = companyObserver.eventsStream else { return }
+            for await event in eventsStream {
                 switch event {
                 case let .apiKeyUpdated(key):
                     reinitializeIAFForNewAPIKey(key, configuration: configuration)
@@ -277,9 +273,9 @@ class IAFPresentationManager {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
+        isInitializingOrInitialized = false
         lifecycleObserver?.stopObserving()
         companyObserver.stopObserving()
-
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         formEventTask = nil

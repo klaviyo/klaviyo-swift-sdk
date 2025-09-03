@@ -19,16 +19,16 @@ class CompanyObserver: JSBridgeObserver {
     private var cancellable: AnyCancellable?
     private var initializationWarningTask: Task<Void, Never>?
 
-    private let eventsContinuation: AsyncStream<Event>.Continuation
-    let events: AsyncStream<Event>
+    private var eventsContinuation: AsyncStream<Event>.Continuation?
+    var eventsStream: AsyncStream<Event>?
 
-    init() {
-        var continuation: AsyncStream<Event>.Continuation!
-        events = AsyncStream<Event> { continuation = $0 }
-        eventsContinuation = continuation
-    }
+    init() {}
 
     func startObserving() {
+        let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
+        eventsStream = stream
+        eventsContinuation = continuation
+
         cancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
@@ -40,10 +40,10 @@ class CompanyObserver: JSBridgeObserver {
                         Logger.webViewLogger.info("Received API key change. New API key: \(key)")
                     }
                     initializationWarningTask?.cancel()
-                    eventsContinuation.yield(.apiKeyUpdated(key))
+                    eventsContinuation?.yield(.apiKeyUpdated(key))
                 case let .failure(error):
                     handleAPIKeyError(error)
-                    eventsContinuation.yield(.error(error))
+                    eventsContinuation?.yield(.error(error))
                 }
             }
     }
@@ -53,7 +53,9 @@ class CompanyObserver: JSBridgeObserver {
         cancellable = nil
         initializationWarningTask?.cancel()
         initializationWarningTask = nil
-        eventsContinuation.finish()
+        eventsContinuation?.finish()
+        eventsContinuation = nil
+        eventsStream = nil
     }
 
     private func handleAPIKeyError(_ sdkError: SDKError) {
