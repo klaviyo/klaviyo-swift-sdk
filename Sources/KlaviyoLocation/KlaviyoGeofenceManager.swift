@@ -11,14 +11,9 @@ import SwiftUI
 
 public class KlaviyoGeofenceManager {
     private let locationManager: CLLocationManager
-    private let geofenceService: GeofenceServiceProvider
 
-    public init(
-        locationManager: CLLocationManager,
-        geofenceService: GeofenceServiceProvider = GeofenceService()
-    ) {
+    public init(locationManager: CLLocationManager) {
         self.locationManager = locationManager
-        self.geofenceService = geofenceService
     }
 
     func setupGeofencing() {
@@ -49,11 +44,17 @@ public class KlaviyoGeofenceManager {
     }
 
     func destroyGeofencing() {
-        // TODO: clean up resources
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("Stop monitoring for all regions")
+        }
+        let activeGeofences = locationManager.monitoredRegions
+        for region in activeGeofences {
+            locationManager.stopMonitoring(for: region)
+        }
     }
 
     private func updateGeofences() async {
-        let remoteGeofences = await geofenceService.fetchGeofences()
+        let remoteGeofences = await GeofenceService().fetchGeofences()
         let activeGeofences = locationManager.monitoredRegions
 
         let regionsToRemove = activeGeofences.subtracting(remoteGeofences)
