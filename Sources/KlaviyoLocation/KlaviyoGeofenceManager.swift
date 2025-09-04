@@ -48,6 +48,10 @@ public class KlaviyoGeofenceManager {
         }
     }
 
+    func destroyGeofencing() {
+        // TODO: clean up resources
+    }
+
     private func updateGeofences() async {
         let remoteGeofences = await geofenceService.fetchGeofences()
         let activeGeofences = locationManager.monitoredRegions

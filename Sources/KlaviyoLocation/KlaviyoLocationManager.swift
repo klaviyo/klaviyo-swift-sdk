@@ -26,16 +26,19 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    public func requestLocationAuthorization() {
+    public func setupGeofencing() {
         if #available(iOS 14.0, *) {
-            if locationManager.authorizationStatus == .authorizedWhenInUse {
-                locationManager.requestAlwaysAuthorization()
-            } else {
-                locationManager.requestWhenInUseAuthorization()
+            if locationManager.authorizationStatus == .authorizedAlways {
+                geofenceManager.setupGeofencing()
             }
         } else {
             // TODO: pre-iOS-14 implmentation
         }
+    }
+
+    @MainActor
+    public func destroyGeofencing() {
+        geofenceManager.destroyGeofencing()
     }
 }
 
