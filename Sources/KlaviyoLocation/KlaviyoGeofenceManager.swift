@@ -14,7 +14,7 @@ public class KlaviyoGeofenceManager {
     private let geofenceService: GeofenceServiceProvider
 
     public init(
-        locationManager: CLLocationManager = CLLocationManager(),
+        locationManager: CLLocationManager,
         geofenceService: GeofenceServiceProvider = GeofenceService()
     ) {
         self.locationManager = locationManager

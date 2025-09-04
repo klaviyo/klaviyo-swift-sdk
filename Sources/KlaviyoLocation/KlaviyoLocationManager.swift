@@ -14,24 +14,24 @@ import OSLog
 public class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
-    let manager = CLLocationManager()
-    let geofenceManager: KlaviyoGeofenceManager
+    private let locationManager = CLLocationManager()
+    private let geofenceManager: KlaviyoGeofenceManager
     public let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
     override public init() {
-        geofenceManager = KlaviyoGeofenceManager(locationManager: manager)
+        geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager)
         super.init()
-        manager.delegate = self
-        manager.allowsBackgroundLocationUpdates = true
+        locationManager.delegate = self
+        locationManager.allowsBackgroundLocationUpdates = true
     }
 
     @MainActor
     public func requestLocationAuthorization() {
         if #available(iOS 14.0, *) {
-            if manager.authorizationStatus == .authorizedWhenInUse {
-                manager.requestAlwaysAuthorization()
+            if locationManager.authorizationStatus == .authorizedWhenInUse {
+                locationManager.requestAlwaysAuthorization()
             } else {
-                manager.requestWhenInUseAuthorization()
+                locationManager.requestWhenInUseAuthorization()
             }
         } else {
             // TODO: pre-iOS-14 implmentation
