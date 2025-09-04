@@ -25,6 +25,13 @@ public class KlaviyoLocationManager: NSObject {
         locationManager.allowsBackgroundLocationUpdates = true
     }
 
+    deinit {
+        locationManager.delegate = nil
+        locationManager.stopUpdatingLocation()
+        locationManager.stopMonitoringSignificantLocationChanges()
+        geofenceManager.destroyGeofencing()
+    }
+
     @MainActor
     public func setupGeofencing() {
         if #available(iOS 14.0, *) {

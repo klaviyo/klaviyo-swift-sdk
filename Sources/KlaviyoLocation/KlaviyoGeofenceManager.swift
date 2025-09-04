@@ -17,6 +17,7 @@ public class KlaviyoGeofenceManager {
     }
 
     func setupGeofencing() {
+        // TODO: Consider factoring permission checks out to its own class
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("Geofencing is not supported on this device")
@@ -47,8 +48,7 @@ public class KlaviyoGeofenceManager {
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("Stop monitoring for all regions")
         }
-        let activeGeofences = locationManager.monitoredRegions
-        for region in activeGeofences {
+        for region in locationManager.monitoredRegions {
             locationManager.stopMonitoring(for: region)
         }
     }

@@ -8,6 +8,7 @@
 import CoreLocation
 
 public protocol GeofenceServiceProvider {
+    // TODO: Use our own data structure for geofences in future.
     func fetchGeofences() async -> Set<CLRegion>
 }
 
