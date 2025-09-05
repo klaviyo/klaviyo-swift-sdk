@@ -55,7 +55,12 @@ public class KlaviyoGeofenceManager {
 
     private func updateGeofences() async {
         let remoteGeofences = await GeofenceService().fetchGeofences()
-        let activeGeofences = locationManager.monitoredRegions
+        let activeGeofences: Set<Geofence> = Set(
+            locationManager.monitoredRegions.compactMap { region in
+                guard let circularRegion = region as? CLCircularRegion else { return nil }
+                return circularRegion.toKlaviyoGeofence()
+            }
+        )
 
         let regionsToRemove = activeGeofences.subtracting(remoteGeofences)
         let regionsToAdd = remoteGeofences.subtracting(activeGeofences)
@@ -63,17 +68,25 @@ public class KlaviyoGeofenceManager {
         await MainActor.run {
             for region in regionsToAdd {
                 if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("Start monitoring for region \(region.identifier)")
+                    Logger.geoservices.info("Start monitoring for region \(region.id)")
                 }
-                locationManager.startMonitoring(for: region)
+                locationManager.startMonitoring(for: region.toCLCircularRegion())
             }
 
             for region in regionsToRemove {
                 if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("Stop monitoring for region \(region.identifier)")
+                    Logger.geoservices.info("Stop monitoring for region \(region.id)")
                 }
-                locationManager.stopMonitoring(for: region)
+                if let clRegion = locationManager.monitoredRegions.first(where: { $0.identifier == region.id }) {
+                    locationManager.stopMonitoring(for: clRegion)
+                }
             }
         }
+    }
+}
+
+extension CLCircularRegion {
+    func toKlaviyoGeofence() -> Geofence {
+        Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
 }
