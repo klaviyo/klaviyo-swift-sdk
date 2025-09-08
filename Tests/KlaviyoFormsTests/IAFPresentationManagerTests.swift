@@ -57,6 +57,13 @@ final class IAFPresentationManagerTests: XCTestCase {
             self.mockLifecycleEvents.eraseToAnyPublisher()
         })
 
+        // this unwrapping prevents a crash that sometimes happens because mockLifecycleEvents is nil
+        if let lifecycleEvents = mockLifecycleEvents {
+            environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
+                lifecycleEvents.eraseToAnyPublisher()
+            })
+        }
+
         let initialState = KlaviyoState(queue: [])
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -124,6 +131,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
@@ -145,6 +153,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
@@ -169,6 +178,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
