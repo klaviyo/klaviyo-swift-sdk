@@ -17,11 +17,13 @@ class IAFPresentationManager {
 
     static let shared = IAFPresentationManager()
 
-    private var lifecycleObserver: LifecycleObserver?
-
     private let companyObserver = CompanyObserver()
     private var companyEventsTask: Task<Void, Never>?
     private var isInitializingOrInitialized = false
+
+    private var lifecycleObserver = LifecycleObserver()
+    private var lifecycleEventsTask: Task<Void, Error>?
+    private var lastBackgrounded: Date?
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -79,9 +81,6 @@ class IAFPresentationManager {
                 }
             }
         }
-
-        // TODO: refactor LifecycleObsever to remove IAFPresentationManager dependency (similar to CompanyObserver)
-        lifecycleObserver = LifecycleObserver(manager: self, configuration: configuration)
     }
 
     func createFormAndAwaitFormEvents(apiKey: String) async throws {
@@ -187,7 +186,7 @@ class IAFPresentationManager {
                 }
             } else {
                 try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
-                lifecycleObserver?.startObserving()
+                startLifecycleObservation()
             }
         }
     }
@@ -197,15 +196,54 @@ class IAFPresentationManager {
         destroyWebView()
         formEventTask?.cancel()
         formEventTask = nil
-        lifecycleObserver?.stopObserving()
+        lifecycleObserver.stopObserving()
         do {
             try await createFormAndAwaitFormEvents(apiKey: apiKey)
-            lifecycleObserver?.startObserving()
+            startLifecycleObservation()
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
             }
         }
+    }
+
+    private func startLifecycleObservation() {
+        lifecycleEventsTask = Task { [weak self] in
+            guard let self, let eventsStream = lifecycleObserver.eventsStream else { return }
+            for await event in eventsStream {
+                switch event {
+                case .backgrounded:
+                    self.lastBackgrounded = Date()
+                    try? await self.handleLifecycleEvent("background")
+                case .foregrounded:
+                    try await self.handleLifecycleEvent("foreground")
+                    if let lastBackgrounded = self.lastBackgrounded {
+                        if isSessionExpired {
+                            if #available(iOS 14.0, *) {
+                                Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
+                            }
+                            self.destroyWebView()
+                            try await self.initializeFormWithAPIKey()
+                        }
+                    } else {
+                        // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+                        // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+                        // This check ensures that don't reinitialize in this situation.
+                        if self.viewController == nil {
+                            // fresh launch
+                            try await self.initializeFormWithAPIKey()
+                        }
+                    }
+                }
+            }
+        }
+        lifecycleObserver.startObserving()
+    }
+
+    private var isSessionExpired: Bool {
+        guard let lastBackgrounded, let timeoutDuration = configuration?.sessionTimeoutDuration else { return false }
+        let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
+        return timeElapsed > timeoutDuration
     }
 
     func reinitializeInAppForms() async throws {
@@ -274,7 +312,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
-        lifecycleObserver?.stopObserving()
+        lifecycleObserver.stopObserving()
         companyObserver.stopObserving()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
