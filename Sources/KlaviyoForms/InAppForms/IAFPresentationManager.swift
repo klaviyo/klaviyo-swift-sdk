@@ -160,19 +160,9 @@ class IAFPresentationManager {
         }
     }
 
-    // There are cases when a `foreground` event may be dispatched even if there was not a `background` event
-    // such as the case when the Notification/Control Center is opened. We want to ensure we do not mistakenly
-    // re-initialize in that case
-    func handleInSessionForegroundEvent() async throws {
-        if viewController == nil {
-            // fresh launch
-            try await initializeFormWithAPIKey()
-        }
-    }
-
     // MARK: - API Key Event Handling
 
-    func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
+    private func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
         Task { @MainActor [weak self] in
             guard let self else { return }
 
@@ -208,16 +198,14 @@ class IAFPresentationManager {
     }
 
     private func startLifecycleObservation() {
+        lifecycleObserver.startObserving()
         lifecycleEventsTask = Task { [weak self] in
             guard let self, let eventsStream = lifecycleObserver.eventsStream else { return }
             for await event in eventsStream {
                 switch event {
-                case .backgrounded:
-                    self.lastBackgrounded = Date()
-                    try? await self.handleLifecycleEvent("background")
                 case .foregrounded:
                     try await self.handleLifecycleEvent("foreground")
-                    if let lastBackgrounded = self.lastBackgrounded {
+                    if self.lastBackgrounded != nil {
                         if isSessionExpired {
                             if #available(iOS 14.0, *) {
                                 Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
@@ -234,21 +222,18 @@ class IAFPresentationManager {
                             try await self.initializeFormWithAPIKey()
                         }
                     }
+                case .backgrounded:
+                    self.lastBackgrounded = Date()
+                    try? await self.handleLifecycleEvent("background")
                 }
             }
         }
-        lifecycleObserver.startObserving()
     }
 
     private var isSessionExpired: Bool {
         guard let lastBackgrounded, let timeoutDuration = configuration?.sessionTimeoutDuration else { return false }
         let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
         return timeElapsed > timeoutDuration
-    }
-
-    func reinitializeInAppForms() async throws {
-        destroyWebView()
-        try await initializeFormWithAPIKey()
     }
 
     // MARK: - View Lifecycle
