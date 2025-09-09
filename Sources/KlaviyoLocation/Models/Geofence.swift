@@ -5,25 +5,35 @@
 //  Created by Isobelle Lim on 9/5/25.
 //
 
-import AnyCodable
 import CoreLocation
 import Foundation
 import KlaviyoCore
 import KlaviyoSwift
 
-/// Represents a geofence with its properties and metadata
+/// Represents a Klaviyo geofence
 public struct Geofence: Equatable, Hashable {
-    /// Unique identifier for the geofence
+    /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a hyphen.
     public let id: String
 
-    /// Longitude coordinate of the geofence center
+    /// Longitude of the geofence center
     public let longitude: Double
 
-    /// Latitude coordinate of the geofence center
+    /// Latitude of the geofence center
     public let latitude: Double
 
     /// Radius of the geofence in meters
     public let radius: Double
+
+    /// Company ID to which this geofence belongs, extracted from the geofence ID.
+    public var companyId: String {
+        id.split(separator: "-").first.map(String.init) ?? ""
+    }
+
+    /// Location ID to which this geofence belongs, extracted from the geofence ID.
+    public var locationId: String {
+        let components = id.split(separator: "-")
+        return components.count > 1 ? String(components[1]) : ""
+    }
 
     /// Creates a new geofence
     /// - Parameters:
@@ -43,22 +53,6 @@ public struct Geofence: Equatable, Hashable {
         self.radius = radius
     }
 
-    /// Creates a geofence from a Core Location circular region
-    /// - Parameter region: The Core Location circular region
-    /// - Returns: A new Geofence instance, or nil if the region is not circular
-    public init?(from region: CLRegion) {
-        guard let circularRegion = region as? CLCircularRegion else {
-            return nil
-        }
-
-        self.init(
-            id: circularRegion.identifier,
-            longitude: circularRegion.center.longitude,
-            latitude: circularRegion.center.latitude,
-            radius: circularRegion.radius
-        )
-    }
-
     /// Converts this geofence to a Core Location circular region
     /// - Returns: A CLCircularRegion instance
     public func toCLCircularRegion() -> CLCircularRegion {
@@ -69,22 +63,6 @@ public struct Geofence: Equatable, Hashable {
         )
         return region
     }
-}
-
-// MARK: - API Response Models
-
-/// Center coordinates for a geofence
-public struct GeofenceCenter: Codable, Equatable {
-    public let latitude: Double
-    public let longitude: Double
-}
-
-/// Individual geofence data from API response
-public struct GeofenceAPIData: Codable, Equatable {
-    public let identifier: String
-    public let location: String
-    public let radius: Double
-    public let center: GeofenceCenter
 }
 
 // MARK: - JSON Decoding Extensions
@@ -115,4 +93,20 @@ extension Geofence {
             )
         }
     }
+}
+
+// MARK: - Private API Response Models
+
+/// Center coordinates for a geofence
+private struct GeofenceCenter: Codable, Equatable {
+    let latitude: Double
+    let longitude: Double
+}
+
+/// Individual geofence data from API response
+private struct GeofenceAPIData: Codable, Equatable {
+    let identifier: String
+    let location: String
+    let radius: Double
+    let center: GeofenceCenter
 }

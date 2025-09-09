@@ -7,7 +7,6 @@
 
 import CoreLocation
 import OSLog
-import SwiftUI
 
 public class KlaviyoGeofenceManager {
     private let locationManager: CLLocationManager
