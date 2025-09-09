@@ -53,7 +53,7 @@ final class GeofenceTests: XCTestCase {
         let jsonData = """
         [
             {
-                "identifier": "One Infinite Loop",
+                "identifier": "ABC123-locA",
                 "location": "One Infinite Loop",
                 "radius": 100,
                 "center": {
@@ -62,7 +62,7 @@ final class GeofenceTests: XCTestCase {
                 }
             },
             {
-                "identifier": "Empire State Building",
+                "identifier": "ABC123-locB",
                 "location": "Empire State Building",
                 "radius": 100,
                 "center": {
@@ -78,16 +78,20 @@ final class GeofenceTests: XCTestCase {
         XCTAssertEqual(geofences.count, 2)
 
         let firstGeofence = geofences[0]
-        XCTAssertEqual(firstGeofence.id, "One Infinite Loop")
+        XCTAssertEqual(firstGeofence.id, "ABC123-locA")
         XCTAssertEqual(firstGeofence.latitude, 37.33204742438631)
         XCTAssertEqual(firstGeofence.longitude, -122.03026995144546)
         XCTAssertEqual(firstGeofence.radius, 100)
+        XCTAssertEqual(firstGeofence.companyId, "ABC123")
+        XCTAssertEqual(firstGeofence.locationId, "locA")
 
         let secondGeofence = geofences[1]
-        XCTAssertEqual(secondGeofence.id, "Empire State Building")
+        XCTAssertEqual(secondGeofence.id, "ABC123-locB")
         XCTAssertEqual(secondGeofence.latitude, 40.74859487385327)
         XCTAssertEqual(secondGeofence.longitude, -73.98563220742138)
         XCTAssertEqual(secondGeofence.radius, 100)
+        XCTAssertEqual(secondGeofence.companyId, "ABC123")
+        XCTAssertEqual(secondGeofence.locationId, "locB")
     }
 
     func testDecodeEmptyArray() throws {
