@@ -95,6 +95,12 @@ extension Geofence {
     }
 }
 
+extension CLCircularRegion {
+    func toKlaviyoGeofence() -> Geofence {
+        Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
+    }
+}
+
 // MARK: - Private API Response Models
 
 /// Center coordinates for a geofence

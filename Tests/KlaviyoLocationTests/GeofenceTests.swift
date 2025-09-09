@@ -25,6 +25,8 @@ final class GeofenceTests: XCTestCase {
         XCTAssertEqual(geofence.longitude, -122.03026995144546)
         XCTAssertEqual(geofence.latitude, 37.33204742438631)
         XCTAssertEqual(geofence.radius, 100.0)
+        XCTAssertEqual(geofence.companyId, "test")
+        XCTAssertEqual(geofence.locationId, "geofence")
     }
 
     // MARK: - Core Location Conversion Tests
