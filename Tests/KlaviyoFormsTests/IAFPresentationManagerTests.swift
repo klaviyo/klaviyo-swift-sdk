@@ -386,7 +386,6 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var formEventTask: Task<Void, Never>?
     var destroyWebviewExpectation: XCTestExpectation?
     var createFormAndAwaitFormEventsExpectation: XCTestExpectation?
-    var handleLifecycleEventExpectation: XCTestExpectation?
     var handledEvents: [String] = []
 
     override func createFormAndAwaitFormEvents(apiKey: String) async throws {
@@ -408,7 +407,6 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
 
     override func handleLifecycleEvent(_ event: String) async throws {
         handledEvents.append(event)
-        handleLifecycleEventExpectation?.fulfill()
         try await super.handleLifecycleEvent(event)
     }
 }

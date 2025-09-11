@@ -29,6 +29,7 @@ class CompanyObserver: JSBridgeObserver {
         eventsStream = stream
         eventsContinuation = continuation
 
+        guard cancellable == nil else { return }
         cancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
             .removeDuplicates()

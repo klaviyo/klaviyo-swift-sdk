@@ -31,19 +31,18 @@ class LifecycleObserver: JSBridgeObserver {
             eventsContinuation = continuation
         }
 
+        guard cancellable == nil else { return }
         cancellable = environment.appLifeCycle.lifeCycleEvents()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    switch event {
-                    case .foregrounded:
-                        eventsContinuation?.yield(.foregrounded)
-                    case .backgrounded:
-                        eventsContinuation?.yield(.backgrounded)
-                    default:
-                        break
-                    }
+                guard let self else { return }
+                switch event {
+                case .foregrounded:
+                    eventsContinuation?.yield(.foregrounded)
+                case .backgrounded:
+                    eventsContinuation?.yield(.backgrounded)
+                default:
+                    break
                 }
             }
     }
