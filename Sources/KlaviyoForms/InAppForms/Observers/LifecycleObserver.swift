@@ -19,18 +19,15 @@ class LifecycleObserver: JSBridgeObserver {
 
     private var cancellable: AnyCancellable?
     private var eventsContinuation: AsyncStream<Event>.Continuation?
-    var eventsStream: AsyncStream<Event>?
+    private let stream: AsyncStream<Event>
 
-    init() {}
+    var eventsStream: AsyncStream<Event> { stream }
+
+    init() {
+        (stream, eventsContinuation) = AsyncStream.makeStream(of: Event.self)
+    }
 
     func startObserving() {
-        // Only create a new stream if one doesn't exist
-        if eventsStream == nil {
-            let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
-            eventsStream = stream
-            eventsContinuation = continuation
-        }
-
         guard cancellable == nil else { return }
         cancellable = environment.appLifeCycle.lifeCycleEvents()
             .receive(on: DispatchQueue.main)
@@ -52,6 +49,9 @@ class LifecycleObserver: JSBridgeObserver {
         cancellable = nil
         eventsContinuation?.finish()
         eventsContinuation = nil
-        eventsStream = nil
+    }
+
+    deinit {
+        stopObserving()
     }
 }

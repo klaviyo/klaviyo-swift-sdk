@@ -20,15 +20,15 @@ class CompanyObserver: JSBridgeObserver {
     private var initializationWarningTask: Task<Void, Never>?
 
     private var eventsContinuation: AsyncStream<Event>.Continuation?
-    var eventsStream: AsyncStream<Event>?
+    private let stream: AsyncStream<Event>
 
-    init() {}
+    var eventsStream: AsyncStream<Event> { stream }
+
+    init() {
+        (stream, eventsContinuation) = AsyncStream.makeStream(of: Event.self)
+    }
 
     func startObserving() {
-        let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
-        eventsStream = stream
-        eventsContinuation = continuation
-
         guard cancellable == nil else { return }
         cancellable = KlaviyoInternal.apiKeyPublisher()
             .receive(on: DispatchQueue.main)
@@ -50,13 +50,16 @@ class CompanyObserver: JSBridgeObserver {
     }
 
     func stopObserving() {
-        cancellable?.cancel()
-        cancellable = nil
         initializationWarningTask?.cancel()
         initializationWarningTask = nil
+        cancellable?.cancel()
+        cancellable = nil
         eventsContinuation?.finish()
         eventsContinuation = nil
-        eventsStream = nil
+    }
+
+    deinit {
+        stopObserving()
     }
 
     private func handleAPIKeyError(_ sdkError: SDKError) {

@@ -17,11 +17,11 @@ class IAFPresentationManager {
 
     static let shared = IAFPresentationManager()
 
-    private let companyObserver = CompanyObserver()
+    private var companyObserver: CompanyObserver?
     private var companyEventsTask: Task<Void, Never>?
     private var isInitializingOrInitialized = false
 
-    private var lifecycleObserver = LifecycleObserver()
+    private var lifecycleObserver: LifecycleObserver?
     private var lifecycleEventsTask: Task<Void, Error>?
     private var lastBackgrounded: Date?
 
@@ -66,11 +66,12 @@ class IAFPresentationManager {
         self.configuration = configuration
         self.assetSource = assetSource
 
-        companyObserver.startObserving()
+        companyObserver = CompanyObserver()
+        companyObserver?.startObserving()
         isInitializingOrInitialized = true
 
         companyEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = companyObserver.eventsStream else { return }
+            guard let self, let eventsStream = companyObserver?.eventsStream else { return }
             for await event in eventsStream {
                 switch event {
                 case let .apiKeyUpdated(key):
@@ -186,7 +187,7 @@ class IAFPresentationManager {
         destroyWebView()
         formEventTask?.cancel()
         formEventTask = nil
-        lifecycleObserver.stopObserving()
+        lifecycleObserver?.stopObserving()
         do {
             try await createFormAndAwaitFormEvents(apiKey: apiKey)
             startLifecycleObservation()
@@ -197,10 +198,11 @@ class IAFPresentationManager {
         }
     }
 
-    private func startLifecycleObservation() {
-        lifecycleObserver.startObserving()
+    func startLifecycleObservation() {
+        lifecycleObserver = LifecycleObserver()
+        lifecycleObserver?.startObserving()
         lifecycleEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = lifecycleObserver.eventsStream else { return }
+            guard let self, let eventsStream = lifecycleObserver?.eventsStream else { return }
             for await event in eventsStream {
                 switch event {
                 case .foregrounded:
@@ -297,8 +299,8 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
-        lifecycleObserver.stopObserving()
-        companyObserver.stopObserving()
+        lifecycleObserver?.stopObserving()
+        companyObserver?.stopObserving()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         formEventTask = nil
