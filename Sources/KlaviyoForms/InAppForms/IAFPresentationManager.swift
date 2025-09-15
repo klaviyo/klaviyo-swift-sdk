@@ -299,8 +299,8 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
-        lifecycleObserver?.stopObserving()
-        companyObserver?.stopObserving()
+        lifecycleObserver = nil
+        companyObserver = nil
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         formEventTask = nil
