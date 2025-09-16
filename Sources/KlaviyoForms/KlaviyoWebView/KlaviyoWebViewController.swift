@@ -189,11 +189,19 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
-           await UIApplication.shared.open(url) {
-            return .cancel
-        } else {
-            return .allow
+           !(url.lastPathComponent == "InAppFormsTemplate.html") {
+            let didOpenURL = await UIApplication.shared.open(url)
+
+            if #available(iOS 14.0, *) {
+                if didOpenURL {
+                    Logger.webViewLogger.info("'UIApplication.shared.open(_:)' successfully opened URL '\(url.absoluteString)'")
+                } else {
+                    Logger.webViewLogger.info("'UIApplication.shared.open(_:)' did not open the URL '\(url.absoluteString)'")
+                }
+            }
         }
+
+        return .allow
     }
 }
 
