@@ -204,11 +204,10 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
-           await UIApplication.shared.open(url) {
-            return .cancel
-        } else {
-            return .allow
+           !url.absoluteString.contains("InAppFormsTemplate.html") {
+            await UIApplication.shared.open(url)
         }
+        return .allow
     }
 }
 
