@@ -233,9 +233,7 @@ public struct KlaviyoEnvironment {
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
         formsDataEnvironment: { nil },
         openURL: { url in
-            await MainActor.run {
-                UIApplication.shared.open(url)
-            }
+            await UniversalLinkHandler.open(url)
         }
     )
 }
