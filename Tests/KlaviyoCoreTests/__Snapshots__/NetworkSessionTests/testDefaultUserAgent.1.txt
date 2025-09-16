@@ -1,1 +1,1 @@
-- "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/4.2.1"
+- "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/4.2.2"
