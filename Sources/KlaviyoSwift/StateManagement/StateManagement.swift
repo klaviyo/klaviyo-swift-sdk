@@ -695,7 +695,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.isProcessingDeepLink = true
 
             return .run { send in
-                await environment.linkHandler.open(url)
+                await environment.linkHandler.openURL(url)
                 await send(.deepLinkProcessingCompleted)
             }
 

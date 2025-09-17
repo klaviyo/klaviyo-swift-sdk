@@ -49,7 +49,7 @@ public class DeepLinkHandler {
     // MARK: - Handle Link
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
-    package func open(_ url: URL) async {
+    package func openURL(_ url: URL) async {
         if let customDeepLinkHandler {
             if #available(iOS 14.0, *) {
                 Logger.navigation.info("Handling URL: '\(url.absoluteString, privacy: .public)' using registered deep link handler")
