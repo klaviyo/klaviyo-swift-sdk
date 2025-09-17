@@ -172,6 +172,14 @@ public struct KlaviyoSDK {
         return self
     }
 
+    /// Unregisters any custom deep link handler that was previously registered, reverting the SDK to using a fallback deep link handler implementation.
+    ///
+    /// - Note: For stability and future-proofing, we recommend always having a deep link handler registered
+    public func unregisterDeepLinkHandler() -> KlaviyoSDK {
+        environment.linkHandler.unregisterCustomHandler()
+        return self
+    }
+
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
