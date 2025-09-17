@@ -168,7 +168,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance for chaining.
     @discardableResult
     public func registerDeepLinkHandler(_ handler: @escaping (URL) -> Void) -> KlaviyoSDK {
-        environment.openURL = { url in
+        environment.linkHandler = { url in
             await MainActor.run {
                 handler(url)
             }

@@ -683,7 +683,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case let .openDeepLink(url):
             return .run { _ in
-                await environment.openURL(url)
+                await environment.linkHandler.open(url)
             }
         }
     }
