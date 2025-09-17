@@ -42,7 +42,7 @@ public struct KlaviyoEnvironment {
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
         formsDataEnvironment: @escaping () -> FormEnvironment?,
-        linkHandler: @escaping (URL) async -> Void
+        linkHandler: DeepLinkHandler
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -138,7 +138,7 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
     public var formsDataEnvironment: () -> FormEnvironment?
-    public var linkHandler: (URL) async -> Void
+    public var linkHandler: DeepLinkHandler
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -232,9 +232,7 @@ public struct KlaviyoEnvironment {
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
         formsDataEnvironment: { nil },
-        linkHandler: { url in
-            await UniversalLinkHandler.open(url)
-        }
+        linkHandler: DeepLinkHandler()
     )
 }
 
