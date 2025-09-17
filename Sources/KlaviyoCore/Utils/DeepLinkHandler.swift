@@ -9,8 +9,6 @@ import OSLog
 import UIKit
 
 public class DeepLinkHandler {
-    private var isProcessing = false
-
     // MARK: - Custom Deep Link Handler
 
     private var customDeepLinkHandler: (@MainActor (URL) -> Void)?
@@ -47,17 +45,7 @@ public class DeepLinkHandler {
     // MARK: - Handle Link
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
-//    @MainActor
     package func open(_ url: URL) async {
-        guard !isProcessing else {
-            if #available(iOS 14.0, *) {
-                Logger.navigation.log("Already processing a link; skipping.")
-            }
-            return
-        }
-
-        isProcessing = true
-
         if let customDeepLinkHandler {
             if #available(iOS 14.0, *) {
                 Logger.navigation.info("Handling URL: '\(url.absoluteString, privacy: .public)' using registered deep link handler")
@@ -71,14 +59,11 @@ public class DeepLinkHandler {
             }
 
             if ["http", "https"].contains(url.scheme?.lowercased()) {
-                //
                 await Self.openWithFallbackHandler(url: url)
             } else {
                 await Self.openWithUIApplicationAPI(url)
             }
         }
-
-        isProcessing = false
     }
 
     @MainActor
