@@ -17,6 +17,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
     case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
     case logTrackingLinkClicked(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
+    case fetchGeofences
 
     private enum HeaderKey {
         static let profileInfo = "X-Klaviyo-Profile-Info"
@@ -25,7 +26,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
 
     public var headers: [String: String] {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .fetchGeofences:
             return [:]
         case let .resolveDestinationURL(_, profileInfo):
             var dict = [String: String]()
@@ -51,7 +52,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return []
         }
     }
@@ -60,14 +61,14 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return .get
         }
     }
 
     public func baseURL() throws -> URL {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .fetchGeofences:
             guard environment.apiURL().scheme != nil,
                   environment.apiURL().host != nil,
                   let url = environment.apiURL().url else {
@@ -112,6 +113,8 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/onsite/track-analytics"
         case let .resolveDestinationURL(trackingLink, _), let .logTrackingLinkClicked(trackingLink, _, _):
             return trackingLink.path
+        case .fetchGeofences:
+            return "/geofences"
         }
     }
 
@@ -127,7 +130,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .aggregateEvent(_, payload):
             return payload
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return nil
         }
     }

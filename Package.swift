@@ -102,6 +102,14 @@ let package = Package(
                 "KlaviyoSwift",
                 "KlaviyoCore"
             ]
+        ),
+        .testTarget(
+            name: "KlaviyoLocationTests",
+            dependencies: [
+                "KlaviyoSwift",
+                "KlaviyoCore",
+                "KlaviyoLocation"
+            ]
         )
     ]
 )
