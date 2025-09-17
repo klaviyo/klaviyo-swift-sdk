@@ -13,18 +13,18 @@ public class DeepLinkHandler {
 
     // MARK: - Custom Deep Link Handler
 
-    private var deepLinkHandler: (@MainActor (URL) -> Void)?
+    private var customDeepLinkHandler: (@MainActor (URL) -> Void)?
 
     package func registerCustomHandler(_ handler: @escaping (URL) -> Void) {
         if #available(iOS 14.0, *) {
             Logger.navigation.log("Registering a custom deep link handler")
         }
-        deepLinkHandler = handler
+        customDeepLinkHandler = handler
     }
 
     package func unregisterCustomHandler() {
         if #available(iOS 14.0, *) {
-            if deepLinkHandler != nil {
+            if customDeepLinkHandler != nil {
                 Logger.navigation.log("""
                 Unregistering the custom deep link handler;
                 SDK will revert to using fallback mechanism for handling deep links.
@@ -41,7 +41,7 @@ public class DeepLinkHandler {
             on application launch.
             """)
         }
-        deepLinkHandler = nil
+        customDeepLinkHandler = nil
     }
 
     // MARK: - Handle Link
@@ -58,12 +58,12 @@ public class DeepLinkHandler {
 
         isProcessing = true
 
-        if let deepLinkHandler {
+        if let customDeepLinkHandler {
             if #available(iOS 14.0, *) {
                 Logger.navigation.info("Handling URL: '\(url.absoluteString, privacy: .public)' using registered deep link handler")
             }
             await MainActor.run {
-                deepLinkHandler(url)
+                customDeepLinkHandler(url)
             }
         } else {
             if #available(iOS 14.0, *) {
