@@ -157,8 +157,16 @@ public struct KlaviyoSDK {
         }
     }
 
-    public func handleUniversalTrackingLink(_ url: URL) {
+    public func handleUniversalTrackingLink(_ url: URL) -> Bool {
+        if !url.isUniversalTrackingUrl {
+            if #available(iOS 14.0, *) {
+                Logger.navigation.log("URL '\(url)' is not a Klaviyo universal tracking URL and will not be handled by the Klaviyo SDK")
+            }
+            return false
+        }
+
         dispatchOnMainThread(action: .trackingLinkReceived(url))
+        return true
     }
 
     /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
@@ -230,5 +238,14 @@ public struct KlaviyoSDK {
             completionHandler()
         }
         return true
+    }
+}
+
+// MARK: - Private Helpers
+
+extension URL {
+    /// Determines whether the provided URL is a Klaviyo universal tracking URL.
+    fileprivate var isUniversalTrackingUrl: Bool {
+        ["http", "https"].contains(scheme?.lowercased()) && path.hasPrefix("/u/")
     }
 }
