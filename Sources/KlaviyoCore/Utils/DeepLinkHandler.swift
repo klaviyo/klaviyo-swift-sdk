@@ -42,6 +42,10 @@ public class DeepLinkHandler {
         customDeepLinkHandler = nil
     }
 
+    package var hasCustomHandler: Bool {
+        customDeepLinkHandler != nil
+    }
+
     // MARK: - Handle Link
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers

@@ -188,6 +188,11 @@ public struct KlaviyoSDK {
         return self
     }
 
+    /// Returns true if a custom deep link handler is currently registered.
+    public var isDeepLinkHandlerRegistered: Bool {
+        environment.linkHandler.hasCustomHandler
+    }
+
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
