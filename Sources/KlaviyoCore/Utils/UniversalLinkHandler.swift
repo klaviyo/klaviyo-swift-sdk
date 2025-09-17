@@ -8,13 +8,12 @@
 import OSLog
 import UIKit
 
-@MainActor
-internal enum UniversalLinkHandler {
-    private static var isProcessing = false
+public class UniversalLinkHandler {
+    private var isProcessing = false
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
     @discardableResult
-    static func open(_ url: URL) async -> Bool {
+    func open(_ url: URL) async -> Bool {
         guard !isProcessing else {
             if #available(iOS 14.0, *) {
                 Logger.navigation.log("Already processing a link; skipping.")
@@ -46,12 +45,12 @@ internal enum UniversalLinkHandler {
         }
 
         #if os(iOS)
-        if await routeWithSceneSessionActivation(url: url) {
+        if await Self.routeWithSceneSessionActivation(url: url) {
             return true
-        } else if await routeWithAppDelegate(url: url) {
+        } else if await Self.routeWithAppDelegate(url: url) {
             return true
         } else {
-            return await openWithUIApplicationAPI(url)
+            return await Self.openWithUIApplicationAPI(url)
         }
         #else
         return false
@@ -80,17 +79,17 @@ internal enum UniversalLinkHandler {
             return false
         }
 
-        let activity = createUserActivity(for: url)
+        let activity = Self.createUserActivity(for: url)
 
         if #available(iOS 17.0, *) {
             // Pass a closure containing the iOS 17+ API call.
-            return await performSceneSessionActivation { errorHandler in
+            return await Self.performSceneSessionActivation { errorHandler in
                 let request = UISceneSessionActivationRequest(session: windowScene.session, userActivity: activity)
                 UIApplication.shared.activateSceneSession(for: request, errorHandler: errorHandler)
             }
         } else {
             // Pass a closure containing the pre-iOS 17 API call.
-            return await performSceneSessionActivation { errorHandler in
+            return await Self.performSceneSessionActivation { errorHandler in
                 UIApplication.shared.requestSceneSessionActivation(
                     windowScene.session, userActivity: activity, options: nil, errorHandler: errorHandler
                 )
@@ -130,11 +129,12 @@ internal enum UniversalLinkHandler {
     }
 
     /// Routes the URL using the AppDelegate API.
+    @MainActor
     private static func routeWithAppDelegate(url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via the host application's AppDelegate.")
         }
-        let activity = createUserActivity(for: url)
+        let activity = Self.createUserActivity(for: url)
 
         if let delegate = UIApplication.shared.delegate,
            delegate.application?(
