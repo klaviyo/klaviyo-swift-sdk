@@ -11,16 +11,78 @@ import UIKit
 public class UniversalLinkHandler {
     private var isProcessing = false
 
+    // MARK: - Custom Deep Link Handler
+
+    private var deepLinkHandler: (@MainActor (URL) -> Void)?
+
+    package func registerCustomHandler(_ handler: @escaping (URL) -> Void) {
+        if #available(iOS 14.0, *) {
+            Logger.navigation.log("Registering a custom deep link handler")
+        }
+        deepLinkHandler = handler
+    }
+
+    package func unregisterCustomHandler() {
+        if #available(iOS 14.0, *) {
+            if deepLinkHandler != nil {
+                Logger.navigation.log("""
+                Unregistering the custom deep link handler;
+                SDK will revert to using fallback mechanism for handling deep links.
+                """)
+            } else {
+                Logger.navigation.info("""
+                Called `unregisterDeepLinkHandler()`, though no custom handler was registered.
+                No action will be taken.
+                """)
+            }
+            Logger.navigation.warning("""
+            For improved stability and future-proofing, please provide your own
+            deep link handler logic by calling `KlaviyoSDK().registerDeepLinkHandler(_:)`
+            on application launch.
+            """)
+        }
+        deepLinkHandler = nil
+    }
+
+    // MARK: - Handle Link
+
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
-    @discardableResult
-    func open(_ url: URL) async -> Bool {
+//    @MainActor
+    package func open(_ url: URL) async {
         guard !isProcessing else {
             if #available(iOS 14.0, *) {
                 Logger.navigation.log("Already processing a link; skipping.")
             }
-            return false
+            return
         }
 
+        isProcessing = true
+
+        if let deepLinkHandler {
+            if #available(iOS 14.0, *) {
+                Logger.navigation.info("Handling URL: '\(url.absoluteString, privacy: .public)' using registered deep link handler")
+            }
+            await MainActor.run {
+                deepLinkHandler(url)
+            }
+        } else {
+            if #available(iOS 14.0, *) {
+                Logger.navigation.info("A deep link handler has not been registered.\nHandling URL: '\(url.absoluteString, privacy: .public)' using fallback deep link handler")
+            }
+
+            if ["http", "https"].contains(url.scheme?.lowercased()) {
+                //
+                await Self.openWithFallbackHandler(url: url)
+            } else {
+                await Self.openWithUIApplicationAPI(url)
+            }
+        }
+
+        isProcessing = false
+    }
+
+    @MainActor
+    private static func openWithFallbackHandler(url: URL) async {
         if #available(iOS 14.0, *) {
             Logger.navigation.warning("""
             Attempting to handle universal link via a fallback mechanism.
@@ -30,41 +92,20 @@ public class UniversalLinkHandler {
             """)
         }
 
-        guard url.scheme?.lowercased() == "https" else {
-            if #available(iOS 14.0, *) {
-                Logger.navigation.log("Invalid URL scheme. Only https is supported.")
-            }
-            return false
-        }
+        // First try to route with the Scene Delegate
+        if await routeWithSceneSessionActivation(url: url) { return }
 
-        isProcessing = true
-        defer { isProcessing = false }
+        // If that fails, try to route with the App Delegate
+        if await routeWithAppDelegate(url: url) { return }
 
-        if #available(iOS 14.0, *) {
-            Logger.navigation.info("Attempting to handle URL: \(url.absoluteString, privacy: .public)")
-        }
-
-        #if os(iOS)
-        if await Self.routeWithSceneSessionActivation(url: url) {
-            return true
-        } else if await Self.routeWithAppDelegate(url: url) {
-            return true
-        } else {
-            return await Self.openWithUIApplicationAPI(url)
-        }
-        #else
-        return false
-        #endif
-    }
-
-    /// Determines whether the provided URL is a Klaviyo universal tracking URL.
-    private func isUniversalTrackingUrl(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased()) && url.path.hasPrefix("/u/")
+        // If that fails, fall back to opening with `UIApplication.shared.open(_:)`
+        await openWithUIApplicationAPI(url)
     }
 
     // MARK: - Private Routing Helpers
 
     /// Routes the URL using the modern SceneDelegate API.
+    @MainActor
     private static func routeWithSceneSessionActivation(url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via the host application's SceneDelegate.")
@@ -98,6 +139,8 @@ public class UniversalLinkHandler {
     }
 
     /// A private helper that wraps the shared `withCheckedContinuation` logic for the scene activation requests.
+    @MainActor
+    @discardableResult
     private static func performSceneSessionActivation(
         _ activationCall: @escaping (_ errorHandler: @escaping (Error) -> Void) -> Void
     ) async -> Bool {
@@ -130,6 +173,7 @@ public class UniversalLinkHandler {
 
     /// Routes the URL using the AppDelegate API.
     @MainActor
+    @discardableResult
     private static func routeWithAppDelegate(url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via the host application's AppDelegate.")
@@ -147,6 +191,8 @@ public class UniversalLinkHandler {
     }
 
     /// Fallback that attempts to open the URL using ``UIApplication.shared.open(_:)``.
+    @MainActor
+    @discardableResult
     private static func openWithUIApplicationAPI(_ url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via UIApplication API.")
