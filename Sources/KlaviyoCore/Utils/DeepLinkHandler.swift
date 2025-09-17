@@ -1,5 +1,5 @@
 //
-//  UniversalLinkHandler.swift
+//  DeepLinkHandler.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 9/15/25.
@@ -8,7 +8,7 @@
 import OSLog
 import UIKit
 
-public class UniversalLinkHandler {
+public class DeepLinkHandler {
     private var isProcessing = false
 
     // MARK: - Custom Deep Link Handler
