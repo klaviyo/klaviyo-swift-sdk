@@ -181,7 +181,7 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: tracking link handling
 
     func testHandleUniversalTrackingLinkDispatchesTrackingLinkReceived() throws {
-        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link"))
         let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
 
         klaviyo.handleUniversalTrackingLink(url)
