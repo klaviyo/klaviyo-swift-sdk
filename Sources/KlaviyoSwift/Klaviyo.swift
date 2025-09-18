@@ -183,6 +183,7 @@ public struct KlaviyoSDK {
     /// Unregisters any custom deep link handler that was previously registered, reverting the SDK to using a fallback deep link handler implementation.
     ///
     /// - Note: For stability and future-proofing, we recommend always having a deep link handler registered
+    @discardableResult
     public func unregisterDeepLinkHandler() -> KlaviyoSDK {
         environment.linkHandler.unregisterCustomHandler()
         return self

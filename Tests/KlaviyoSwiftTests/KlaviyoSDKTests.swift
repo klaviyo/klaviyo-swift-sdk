@@ -294,7 +294,7 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyo.registerDeepLinkHandler { _ in }
         XCTAssertTrue(klaviyo.isDeepLinkHandlerRegistered, "Handler should be registered")
 
-        _ = klaviyo.unregisterDeepLinkHandler()
+        klaviyo.unregisterDeepLinkHandler()
 
         XCTAssertFalse(klaviyo.isDeepLinkHandlerRegistered, "Handler should be unregistered")
     }
