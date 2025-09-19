@@ -264,20 +264,31 @@ class IAFPresentationManager {
         }
 
         do {
-            // Convert properties to JSON string to ensure proper object serialization
+            var webviewProperties = event.properties
+
+            // For $opened_push events, extract title from aps.alert to root level for webview form triggering
+            if event.metric.name.value == "$opened_push" {
+                if let aps = event.properties["aps"] as? [String: Any],
+                   let alert = aps["alert"] as? [String: Any],
+                   let title = alert["title"] as? String {
+                    webviewProperties["title"] = title
+                }
+                // Remove aps field for cleaner webview payload
+                webviewProperties.removeValue(forKey: "aps")
+            }
+
             let propertiesJSON: String
-            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties),
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: webviewProperties),
                let propertiesString = String(data: propertiesData, encoding: .utf8) {
                 propertiesJSON = propertiesString
             } else {
-                // Fallback to empty object if serialization fails
                 propertiesJSON = "{}"
             }
 
-            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(propertiesJSON))")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
+            let escapedMetric = event.metric.name.value.replacingOccurrences(of: "'", with: "\\'")
+            let jsCommand = "dispatchProfileEvent('\(escapedMetric)', \(propertiesJSON))"
+
+            let result = try await viewController?.evaluateJavaScript(jsCommand)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")

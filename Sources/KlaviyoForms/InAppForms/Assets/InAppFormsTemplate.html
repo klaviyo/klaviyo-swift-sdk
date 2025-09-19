@@ -14,13 +14,13 @@
                     }));
                 };
                 window.dispatchProfileEvent = function(metric, properties) {
-                    console.log('Dispatching profile event:', metric);
                     document.head.dispatchEvent(new CustomEvent('profileEvent', {
                         detail: {
                             metric: metric,
                             properties: properties
                         }
                     }));
+                    return true;
                 };
             </script>
             <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css"/>
