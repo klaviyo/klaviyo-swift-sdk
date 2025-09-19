@@ -81,11 +81,11 @@ public class DeepLinkHandler {
             """)
         }
 
-        // First try to route with the Scene Delegate
-        if await routeWithSceneSessionActivation(url: url) { return }
-
-        // If that fails, try to route with the App Delegate
+        // First try to route with the App Delegate
         if await routeWithAppDelegate(url: url) { return }
+
+        // If that fails, try to route with the Scene Delegate
+        if await routeWithSceneSessionActivation(url: url) { return }
 
         // If that fails, fall back to opening with `UIApplication.shared.open(_:)`
         await openWithUIApplicationAPI(url)
@@ -93,70 +93,78 @@ public class DeepLinkHandler {
 
     // MARK: - Private Routing Helpers
 
-    /// Routes the URL using the modern SceneDelegate API.
+    /// Attempts to trigger the host app's own universal link handling logic via the Scene Delegate.
+    ///
+    /// - Parameter url: The universal link URL to be handled.
+    /// - Returns: `true` if the link was successfully submitted or handled, and `false` otherwise.
     @MainActor
     private static func routeWithSceneSessionActivation(url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via the host application's SceneDelegate.")
         }
 
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive }) else {
-            if #available(iOS 14.0, *) {
-                Logger.navigation.log("No active scene found for SceneDelegate routing.")
-            }
-            return false
-        }
+        let activity = createUserActivity(for: url)
 
-        let activity = Self.createUserActivity(for: url)
-
-        if #available(iOS 17.0, *) {
-            // Pass a closure containing the iOS 17+ API call.
-            return await Self.performSceneSessionActivation { errorHandler in
-                let request = UISceneSessionActivationRequest(session: windowScene.session, userActivity: activity)
-                UIApplication.shared.activateSceneSession(for: request, errorHandler: errorHandler)
+        if UIApplication.shared.supportsMultipleScenes {
+            // Find the active scene to reuse its window.
+            guard let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.warning("No foreground active scene found to handle the link.")
+                }
+                return false
             }
+
+            return await performSceneActivation(for: windowScene, with: activity)
+
         } else {
-            // Pass a closure containing the pre-iOS 17 API call.
-            return await Self.performSceneSessionActivation { errorHandler in
-                UIApplication.shared.requestSceneSessionActivation(
-                    windowScene.session, userActivity: activity, options: nil, errorHandler: errorHandler
-                )
+            // Fallback for single-scene devices like iPhone.
+            guard let scene = UIApplication.shared.connectedScenes.first,
+                  let delegate = scene.delegate else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.warning("Could not find scene or delegate in single-scene path.")
+                }
+                return false
+            }
+
+            if delegate.responds(to: #selector(UISceneDelegate.scene(_:continue:))) {
+                if delegate.scene?(scene, continue: activity) != nil {
+                    return true
+                } else {
+                    return false
+                }
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.warning("Delegate does not respond to scene(_:continue:). Cannot handle link.")
+                }
+                return false
             }
         }
     }
 
-    /// A private helper that wraps the shared `withCheckedContinuation` logic for the scene activation requests.
+    /// Helper that wraps the async logic for scene activation and handles API availability.
     @MainActor
-    @discardableResult
-    private static func performSceneSessionActivation(
-        _ activationCall: @escaping (_ errorHandler: @escaping (Error) -> Void) -> Void
-    ) async -> Bool {
-        var continuation: CheckedContinuation<Bool, Never>?
-        return await withCheckedContinuation {
-            continuation = $0
-
+    private static func performSceneActivation(for scene: UIWindowScene, with activity: NSUserActivity) async -> Bool {
+        await withCheckedContinuation { continuation in
             let errorHandler = { (error: Error) in
                 if #available(iOS 14.0, *) {
-                    Logger.navigation.log("Scene activation failed with error: \(error.localizedDescription)")
+                    Logger.navigation.warning("Scene activation request failed: \(error.localizedDescription)")
                 }
-                continuation?.resume(returning: false)
-                continuation = nil
+                continuation.resume(returning: false)
             }
 
-            // Execute the specific API call passed in from the caller.
-            activationCall(errorHandler)
-
-            // The success case for the scene activation requests (both `activateSceneSession` and
-            // `requestSceneSessionActivation`) is when the error handler is *not* called.
-            // There's no explicit success callback. To prevent the continuation from
-            // waiting forever, we optimistically resume with `true` after a very short delay.
-            // This gives the system a moment to call the error handler if it's going to.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                continuation?.resume(returning: true)
-                continuation = nil
+            // Use the modern API on iOS 17+ and fall back to the older one.
+            if #available(iOS 17.0, *) {
+                let request = UISceneSessionActivationRequest(session: scene.session, userActivity: activity)
+                UIApplication.shared.activateSceneSession(for: request, errorHandler: errorHandler)
+            } else {
+                UIApplication.shared.requestSceneSessionActivation(
+                    scene.session, userActivity: activity, options: nil, errorHandler: errorHandler
+                )
             }
+
+            continuation.resume(returning: true)
         }
     }
 
@@ -206,7 +214,7 @@ public class DeepLinkHandler {
     private static func createUserActivity(for url: URL) -> NSUserActivity {
         let userActivity = NSUserActivity(activityType: NSUserActivityTypeBrowsingWeb)
         userActivity.webpageURL = url
-        userActivity.userInfo = ["source": "UniversalLinkOpener"]
+        userActivity.userInfo = ["source": "KlaviyoSwiftSDK"]
         return userActivity
     }
 }
