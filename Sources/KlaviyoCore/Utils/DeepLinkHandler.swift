@@ -116,8 +116,31 @@ public class DeepLinkHandler {
                 return false
             }
 
-            return await performSceneActivation(for: windowScene, with: activity)
+            guard let sceneDelegate = windowScene.delegate else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.warning("Could not find a valid scene delegate.")
+                }
+                return false
+            }
 
+            let selector = #selector(UISceneDelegate.scene(_:continue:))
+            if sceneDelegate.responds(to: selector),
+               sceneDelegate.scene?(windowScene, continue: activity) != nil {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.debug("App has SceneDelegate. Calling scene(_:continue:) directly.")
+                }
+                return true
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.warning("SceneDelegate was unable to handle the user activity.")
+                }
+                return false
+            }
+
+            if #available(iOS 14.0, *) {
+                Logger.navigation.warning("Could not find a valid delegate method to handle the user activity.")
+            }
+            return false
         } else {
             // Fallback for single-scene devices like iPhone.
             guard let scene = UIApplication.shared.connectedScenes.first,
@@ -140,31 +163,6 @@ public class DeepLinkHandler {
                 }
                 return false
             }
-        }
-    }
-
-    /// Helper that wraps the async logic for scene activation and handles API availability.
-    @MainActor
-    private static func performSceneActivation(for scene: UIWindowScene, with activity: NSUserActivity) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let errorHandler = { (error: Error) in
-                if #available(iOS 14.0, *) {
-                    Logger.navigation.warning("Scene activation request failed: \(error.localizedDescription)")
-                }
-                continuation.resume(returning: false)
-            }
-
-            // Use the modern API on iOS 17+ and fall back to the older one.
-            if #available(iOS 17.0, *) {
-                let request = UISceneSessionActivationRequest(session: scene.session, userActivity: activity)
-                UIApplication.shared.activateSceneSession(for: request, errorHandler: errorHandler)
-            } else {
-                UIApplication.shared.requestSceneSessionActivation(
-                    scene.session, userActivity: activity, options: nil, errorHandler: errorHandler
-                )
-            }
-
-            continuation.resume(returning: true)
         }
     }
 
