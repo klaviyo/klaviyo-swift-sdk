@@ -462,6 +462,55 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
+    func testHandleOpenedPushEventExtractsTitleForWebview() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Opened push event is handled with title extraction")
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchProfileEvent") && script.contains("$opened_push") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When - Create a $opened_push event with nested aps.alert.title structure
+        let pushEvent = Event(name: ._openedPush, properties: [
+            "body": [
+                "_k": [
+                    "campaign": "test-campaign"
+                ]
+            ],
+            "aps": [
+                "alert": [
+                    "title": "Test Form Trigger",
+                    "body": "This should trigger a form"
+                ]
+            ],
+            "push_token": "test_token"
+        ])
+        try await presentationManager.handleProfileEventCreated(pushEvent)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        // Verify the script contains the extracted title at root level
+        let scriptWithEvent = evaluatedScripts.first { script in
+            script.contains("dispatchProfileEvent") && script.contains("$opened_push")
+        }
+        XCTAssertNotNil(scriptWithEvent, "Should find script with $opened_push event")
+
+        if let script = scriptWithEvent {
+            // Title should be extracted to root level
+            XCTAssertTrue(script.contains("\"title\":\"Test Form Trigger\""), "Title should be at root level for webview")
+            // aps field should be removed from webview payload
+            XCTAssertFalse(script.contains("\"aps\":"), "aps field should not be in webview payload")
+            // Other properties should be preserved
+            XCTAssertTrue(script.contains("\"push_token\":\"test_token\""), "Other properties should be preserved")
+        }
+    }
+
+    @MainActor
     func testEventSubscriptionCleanup() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
