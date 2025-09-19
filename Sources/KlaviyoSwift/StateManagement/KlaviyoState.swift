@@ -60,6 +60,7 @@ struct KlaviyoState: Equatable, Codable {
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
+    var isProcessingDeepLink = false
 
     enum CodingKeys: CodingKey {
         case apiKey

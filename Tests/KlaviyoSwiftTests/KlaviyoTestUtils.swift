@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 9/30/22.
 //
 
+@testable import KlaviyoCore
 import Combine
 import CombineSchedulers
-import KlaviyoCore
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
@@ -57,7 +57,7 @@ extension KlaviyoEnvironment {
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
-            openURL: { _ in }
+            linkHandler: DeepLinkHandler()
         )
     }
 }

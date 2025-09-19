@@ -28,4 +28,7 @@ extension Logger {
 
     /// Logger for notification events.
     static let notifications = Logger(category: "Notifications logger")
+
+    /// Logger for app navigation and deep linking events
+    static let navigation = Logger(category: "Linking and Navigation")
 }

@@ -49,11 +49,20 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
+        // Register a mock handler to prevent fallback execution in test environment
+        environment.linkHandler.registerCustomHandler { _ in }
+
         // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
         // Then
         await store.receive(.trackingLinkDestinationResolved(destinationURL))
-        await store.receive(.openDeepLink(destinationURL))
+        await store.receive(.openDeepLink(destinationURL)) {
+            $0.isProcessingDeepLink = true
+        }
+        await store.receive(.deepLinkProcessingCompleted) {
+            $0.isProcessingDeepLink = false
+        }
+        await store.finish()
     }
 
     @MainActor
@@ -89,11 +98,20 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
+        // Register a mock handler to prevent fallback execution in test environment
+        environment.linkHandler.registerCustomHandler { _ in }
+
         // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
         // Then
         await store.receive(.trackingLinkDestinationResolved(destinationURL))
-        await store.receive(.openDeepLink(destinationURL))
+        await store.receive(.openDeepLink(destinationURL)) {
+            $0.isProcessingDeepLink = true
+        }
+        await store.receive(.deepLinkProcessingCompleted) {
+            $0.isProcessingDeepLink = false
+        }
+        await store.finish()
     }
 
     @MainActor
@@ -177,8 +195,8 @@ final class ResolveTrackingLinkTests: XCTestCase {
         let destinationURL = try XCTUnwrap(URL(string: "https://example.com/destination"))
         let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
 
-        let openCalled = expectation(description: "environment.openURL called with destination")
-        environment.openURL = { url in
+        let openCalled = expectation(description: "linkHandler.openURL called with destination")
+        environment.linkHandler.registerCustomHandler { url in
             XCTAssertEqual(url, destinationURL)
             openCalled.fulfill()
         }
@@ -186,8 +204,13 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // When
         await store.send(.trackingLinkDestinationResolved(destinationURL))
 
-        // Then the reducer should emit .openDeepLink and call environment.openURL
-        await store.receive(.openDeepLink(destinationURL))
+        // Then the reducer should emit .openDeepLink and call linkHandler.openURL
+        await store.receive(.openDeepLink(destinationURL)) {
+            $0.isProcessingDeepLink = true
+        }
+        await store.receive(.deepLinkProcessingCompleted) {
+            $0.isProcessingDeepLink = false
+        }
         await fulfillment(of: [openCalled], timeout: 1.0)
     }
 }

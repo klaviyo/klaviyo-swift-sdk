@@ -181,11 +181,126 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: tracking link handling
 
     func testHandleUniversalTrackingLinkDispatchesTrackingLinkReceived() throws {
-        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link"))
         let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
 
-        klaviyo.handleUniversalTrackingLink(url)
+        let result = klaviyo.handleUniversalTrackingLink(url)
 
+        XCTAssertTrue(result, "Should return true for valid HTTPS universal tracking link")
         wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHandleUniversalTrackingLinkWithHTTPURL() throws {
+        let url = try XCTUnwrap(URL(string: "http://email.klaviyo.com/u/tracking/link"))
+        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertTrue(result, "Should return true for valid HTTP universal tracking link")
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHandleUniversalTrackingLinkWithDifferentPath() throws {
+        let url = try XCTUnwrap(URL(string: "https://manage.kmail-lists.com/u/campaign/12345"))
+        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertTrue(result, "Should return true for universal tracking link with different domain")
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHandleUniversalTrackingLinkRejectsNonTrackingURL() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/regular/path"))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertFalse(result, "Should return false for non-universal tracking URL")
+    }
+
+    func testHandleUniversalTrackingLinkRejectsCustomScheme() throws {
+        let url = try XCTUnwrap(URL(string: "myapp://u/tracking/link"))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertFalse(result, "Should return false for custom scheme URL")
+    }
+
+    func testHandleUniversalTrackingLinkRejectsWrongPath() throws {
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/v/tracking/link"))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertFalse(result, "Should return false for URL without /u/ path prefix")
+    }
+
+    func testHandleUniversalTrackingLinkRejectsPathNotStartingWithU() throws {
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/user/tracking/link"))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertFalse(result, "Should return false for URL with path starting with /user/ instead of /u/")
+    }
+
+    func testHandleUniversalTrackingLinkWithQueryParameters() throws {
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link?utm_source=email&utm_campaign=test"))
+        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertTrue(result, "Should return true for universal tracking link with query parameters")
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHandleUniversalTrackingLinkWithFragment() throws {
+        let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link#section"))
+        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
+
+        let result = klaviyo.handleUniversalTrackingLink(url)
+
+        XCTAssertTrue(result, "Should return true for universal tracking link with fragment")
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHandleUniversalTrackingLinkEdgeCases() throws {
+        // Test /u without trailing slash should fail (doesn't match hasPrefix("/u/"))
+        let justUURL = try XCTUnwrap(URL(string: "https://example.com/u"))
+        let justUResult = klaviyo.handleUniversalTrackingLink(justUURL)
+        XCTAssertFalse(justUResult, "Should return false for path /u without trailing slash")
+
+        // Test root path should fail
+        let rootURL = try XCTUnwrap(URL(string: "https://example.com/"))
+        let rootResult = klaviyo.handleUniversalTrackingLink(rootURL)
+        XCTAssertFalse(rootResult, "Should return false for root path")
+
+        // Test path with /u/ in the middle should fail
+        let middleUURL = try XCTUnwrap(URL(string: "https://example.com/api/u/track"))
+        let middleUResult = klaviyo.handleUniversalTrackingLink(middleUURL)
+        XCTAssertFalse(middleUResult, "Should return false for path with /u/ in the middle")
+    }
+
+    // MARK: - Deep Link Handler Registration Tests
+
+    func testRegisterDeepLinkHandler() {
+        XCTAssertFalse(klaviyo.isDeepLinkHandlerRegistered, "Should start with no handler registered")
+
+        let handler = klaviyo.registerDeepLinkHandler { _ in }
+
+        XCTAssertTrue(klaviyo.isDeepLinkHandlerRegistered, "Handler should be registered after registerDeepLinkHandler")
+        XCTAssertNotNil(handler, "Should return a non-nil handler reference")
+    }
+
+    func testUnregisterDeepLinkHandler() {
+        klaviyo.registerDeepLinkHandler { _ in }
+        XCTAssertTrue(klaviyo.isDeepLinkHandlerRegistered, "Handler should be registered")
+
+        klaviyo.unregisterDeepLinkHandler()
+
+        XCTAssertFalse(klaviyo.isDeepLinkHandlerRegistered, "Handler should be unregistered")
+    }
+
+    func testIsDeepLinkHandlerRegisteredInitialState() {
+        let freshSDK = KlaviyoSDK()
+        XCTAssertFalse(freshSDK.isDeepLinkHandlerRegistered, "New SDK instance should have no handler registered")
     }
 }
