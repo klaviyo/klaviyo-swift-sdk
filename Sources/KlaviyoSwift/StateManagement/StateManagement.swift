@@ -135,6 +135,9 @@ enum KlaviyoAction: Equatable {
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
 
+    /// indicates that deep link processing has completed
+    case deepLinkProcessingCompleted
+
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
@@ -144,7 +147,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -682,9 +685,23 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .openDeepLink(url):
-            return .run { _ in
-                await environment.openURL(url)
+            guard !state.isProcessingDeepLink else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.log("Already processing a deep link; skipping.")
+                }
+                return .none
             }
+
+            state.isProcessingDeepLink = true
+
+            return .run { send in
+                await environment.linkHandler.openURL(url)
+                await send(.deepLinkProcessingCompleted)
+            }
+
+        case .deepLinkProcessingCompleted:
+            state.isProcessingDeepLink = false
+            return .none
         }
     }
 }
