@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-struct MenuItem: Hashable {
+struct MenuItem: Hashable, Codable {
     var name: String
     var id: Int
     var description: String

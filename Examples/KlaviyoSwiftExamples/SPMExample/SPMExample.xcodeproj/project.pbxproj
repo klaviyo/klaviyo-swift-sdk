@@ -3,30 +3,33 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1EE639C72D7B3C1C00B6D0A2 /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = 1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */; };
+		1E6B745A2E819B8B00602827 /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = 1E6B74592E819B8B00602827 /* KlaviyoForms */; };
+		1E6B745C2E819B8B00602827 /* KlaviyoLocation in Frameworks */ = {isa = PBXBuildFile; productRef = 1E6B745B2E819B8B00602827 /* KlaviyoLocation */; };
+		1E6B745E2E819B8B00602827 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1E6B745D2E819B8B00602827 /* KlaviyoSwift */; };
+		1E6B74602E819B8B00602827 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 1E6B745F2E819B8B00602827 /* KlaviyoSwiftExtension */; };
 		340590E429CCCD520015991E /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E229CCCD520015991E /* DeepLinking.swift */; };
 		340590E529CCCD520015991E /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
 		3425CA0D2A3A635D0019E33A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
 		3425CA112A3A635D0019E33A /* NotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */; };
-		34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 34F2BEBA29AD203E006B8037 /* KlaviyoSwift */; };
 		7CC1C83828D74DB60073197F /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
-		7CC1C83928D74DB60073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82D28D74DB60073197F /* Main.storyboard */; };
 		7CC1C83A28D74DB60073197F /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C82E28D74DB60073197F /* MenuItem.swift */; };
 		7CC1C83C28D74DB60073197F /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83028D74DB60073197F /* User.swift */; };
-		7CC1C83D28D74DB60073197F /* CheckOutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83128D74DB60073197F /* CheckOutViewController.swift */; };
-		7CC1C83E28D74DB60073197F /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83228D74DB60073197F /* ViewController.swift */; };
 		7CC1C83F28D74DB60073197F /* CheckOutTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83328D74DB60073197F /* CheckOutTableViewCell.swift */; };
 		7CC1C84028D74DB60073197F /* MenuItemTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83428D74DB60073197F /* MenuItemTableViewCell.swift */; };
 		7CC1C84128D74DB60073197F /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83528D74DB60073197F /* Cart.swift */; };
-		7CC1C84228D74DB60073197F /* MenuPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83628D74DB60073197F /* MenuPageViewController.swift */; };
 		7CC1C84328D74DB60073197F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83728D74DB60073197F /* AppDelegate.swift */; };
 		7CC1C84628D74DB60073197F /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84428D74DB60073197F /* MapViewController.swift */; };
 		7CC1C84728D74DB60073197F /* Geofences.json in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C84528D74DB60073197F /* Geofences.json */; };
+		7CC1C84F28D74DB60073197F /* KLMuncheryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */; };
+		7CC1C85028D74DB60073197F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84928D74DB60073197F /* ContentView.swift */; };
+		7CC1C85128D74DB60073197F /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84A28D74DB60073197F /* LoginView.swift */; };
+		7CC1C85228D74DB60073197F /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84B28D74DB60073197F /* MenuView.swift */; };
+		7CC1C85328D74DB60073197F /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84C28D74DB60073197F /* MapView.swift */; };
+		7CC1C85428D74DB60073197F /* CheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84D28D74DB60073197F /* CheckoutView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,18 +83,20 @@
 		7CC1C81828D74D840073197F /* SPMExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SPMExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SPMExample-Bridging-Header.h"; sourceTree = "<group>"; };
 		7CC1C82C28D74DB60073197F /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ../../Shared/Images.xcassets; sourceTree = "<group>"; };
-		7CC1C82D28D74DB60073197F /* Main.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = Main.storyboard; path = ../../Shared/Main.storyboard; sourceTree = "<group>"; };
 		7CC1C82E28D74DB60073197F /* MenuItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuItem.swift; path = ../../Shared/MenuItem.swift; sourceTree = "<group>"; };
 		7CC1C83028D74DB60073197F /* User.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = User.swift; path = ../../Shared/User.swift; sourceTree = "<group>"; };
-		7CC1C83128D74DB60073197F /* CheckOutViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckOutViewController.swift; path = ../../Shared/CheckOutViewController.swift; sourceTree = "<group>"; };
-		7CC1C83228D74DB60073197F /* ViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ViewController.swift; path = ../../Shared/ViewController.swift; sourceTree = "<group>"; };
 		7CC1C83328D74DB60073197F /* CheckOutTableViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckOutTableViewCell.swift; path = ../../Shared/CheckOutTableViewCell.swift; sourceTree = "<group>"; };
 		7CC1C83428D74DB60073197F /* MenuItemTableViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuItemTableViewCell.swift; path = ../../Shared/MenuItemTableViewCell.swift; sourceTree = "<group>"; };
 		7CC1C83528D74DB60073197F /* Cart.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Cart.swift; path = ../../Shared/Cart.swift; sourceTree = "<group>"; };
-		7CC1C83628D74DB60073197F /* MenuPageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuPageViewController.swift; path = ../../Shared/MenuPageViewController.swift; sourceTree = "<group>"; };
 		7CC1C83728D74DB60073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
 		7CC1C84428D74DB60073197F /* MapViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapViewController.swift; path = ../../Shared/MapViewController.swift; sourceTree = "<group>"; };
-		7CC1C84528D74DB60073197F /* Geofences.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = Geofences.json; path = Geofences.json; sourceTree = "<group>"; };
+		7CC1C84528D74DB60073197F /* Geofences.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Geofences.json; sourceTree = "<group>"; };
+		7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KLMuncheryApp.swift; path = ../../Shared/KLMuncheryApp.swift; sourceTree = "<group>"; };
+		7CC1C84928D74DB60073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../../Shared/ContentView.swift; sourceTree = "<group>"; };
+		7CC1C84A28D74DB60073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = ../../Shared/LoginView.swift; sourceTree = "<group>"; };
+		7CC1C84B28D74DB60073197F /* MenuView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuView.swift; path = ../../Shared/MenuView.swift; sourceTree = "<group>"; };
+		7CC1C84C28D74DB60073197F /* MapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = ../../Shared/MapView.swift; sourceTree = "<group>"; };
+		7CC1C84D28D74DB60073197F /* CheckoutView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckoutView.swift; path = ../../Shared/CheckoutView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,7 +104,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34A5E63B2A4659D1003559A7 /* KlaviyoSwiftExtension in Frameworks */,
+				1E6B74602E819B8B00602827 /* KlaviyoSwiftExtension in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,8 +112,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1EE639C72D7B3C1C00B6D0A2 /* KlaviyoForms in Frameworks */,
-				34F2BEBB29AD203E006B8037 /* KlaviyoSwift in Frameworks */,
+				1E6B745A2E819B8B00602827 /* KlaviyoForms in Frameworks */,
+				1E6B745E2E819B8B00602827 /* KlaviyoSwift in Frameworks */,
+				1E6B745C2E819B8B00602827 /* KlaviyoLocation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,16 +181,18 @@
 				7CC1C83728D74DB60073197F /* AppDelegate.swift */,
 				7CC1C83528D74DB60073197F /* Cart.swift */,
 				7CC1C83328D74DB60073197F /* CheckOutTableViewCell.swift */,
-				7CC1C83128D74DB60073197F /* CheckOutViewController.swift */,
 				7CC1C82C28D74DB60073197F /* Images.xcassets */,
-				7CC1C82D28D74DB60073197F /* Main.storyboard */,
 				7CC1C82E28D74DB60073197F /* MenuItem.swift */,
 				7CC1C83428D74DB60073197F /* MenuItemTableViewCell.swift */,
-				7CC1C83628D74DB60073197F /* MenuPageViewController.swift */,
 				7CC1C83028D74DB60073197F /* User.swift */,
-				7CC1C83228D74DB60073197F /* ViewController.swift */,
 				7CC1C84428D74DB60073197F /* MapViewController.swift */,
 				7CC1C84528D74DB60073197F /* Geofences.json */,
+				7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */,
+				7CC1C84928D74DB60073197F /* ContentView.swift */,
+				7CC1C84A28D74DB60073197F /* LoginView.swift */,
+				7CC1C84B28D74DB60073197F /* MenuView.swift */,
+				7CC1C84C28D74DB60073197F /* MapView.swift */,
+				7CC1C84D28D74DB60073197F /* CheckoutView.swift */,
 				7CC1C80928D74D830073197F /* Info.plist */,
 				7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */,
 			);
@@ -208,7 +216,7 @@
 			);
 			name = NotificationServiceExtension;
 			packageProductDependencies = (
-				34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */,
+				1E6B745F2E819B8B00602827 /* KlaviyoSwiftExtension */,
 			);
 			productName = NotificationServiceExtension;
 			productReference = 3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */;
@@ -230,8 +238,9 @@
 			);
 			name = SPMExample;
 			packageProductDependencies = (
-				34F2BEBA29AD203E006B8037 /* KlaviyoSwift */,
-				1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */,
+				1E6B74592E819B8B00602827 /* KlaviyoForms */,
+				1E6B745B2E819B8B00602827 /* KlaviyoLocation */,
+				1E6B745D2E819B8B00602827 /* KlaviyoSwift */,
 			);
 			productName = SPMExample;
 			productReference = 7CC1C7F828D74D810073197F /* SPMExample.app */;
@@ -310,7 +319,7 @@
 			);
 			mainGroup = 7CC1C7EF28D74D810073197F;
 			packageReferences = (
-				34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */,
+				1E6B74582E819B8B00602827 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */,
 			);
 			productRefGroup = 7CC1C7F928D74D810073197F /* Products */;
 			projectDirPath = "";
@@ -337,7 +346,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7CC1C83828D74DB60073197F /* Images.xcassets in Resources */,
-				7CC1C83928D74DB60073197F /* Main.storyboard in Resources */,
 				7CC1C84728D74DB60073197F /* Geofences.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -371,18 +379,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7CC1C84228D74DB60073197F /* MenuPageViewController.swift in Sources */,
-				7CC1C83D28D74DB60073197F /* CheckOutViewController.swift in Sources */,
 				340590E529CCCD520015991E /* DebugViewController.swift in Sources */,
 				7CC1C83C28D74DB60073197F /* User.swift in Sources */,
 				7CC1C84328D74DB60073197F /* AppDelegate.swift in Sources */,
 				340590E429CCCD520015991E /* DeepLinking.swift in Sources */,
-				7CC1C83E28D74DB60073197F /* ViewController.swift in Sources */,
 				7CC1C84128D74DB60073197F /* Cart.swift in Sources */,
 				7CC1C84028D74DB60073197F /* MenuItemTableViewCell.swift in Sources */,
 				7CC1C83A28D74DB60073197F /* MenuItem.swift in Sources */,
 				7CC1C83F28D74DB60073197F /* CheckOutTableViewCell.swift in Sources */,
 				7CC1C84628D74DB60073197F /* MapViewController.swift in Sources */,
+				7CC1C84F28D74DB60073197F /* KLMuncheryApp.swift in Sources */,
+				7CC1C85028D74DB60073197F /* ContentView.swift in Sources */,
+				7CC1C85128D74DB60073197F /* LoginView.swift in Sources */,
+				7CC1C85228D74DB60073197F /* MenuView.swift in Sources */,
+				7CC1C85328D74DB60073197F /* MapView.swift in Sources */,
+				7CC1C85428D74DB60073197F /* CheckoutView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -606,8 +617,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SPMExample/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -642,8 +651,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SPMExample/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -788,32 +795,29 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/klaviyo/klaviyo-swift-sdk";
-			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 4.2.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		1E6B74582E819B8B00602827 /* XCLocalSwiftPackageReference "../../../../klaviyo-swift-sdk" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../../../klaviyo-swift-sdk";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		1EE639C62D7B3C1C00B6D0A2 /* KlaviyoForms */ = {
+		1E6B74592E819B8B00602827 /* KlaviyoForms */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
 			productName = KlaviyoForms;
 		};
-		34A5E63A2A4659D1003559A7 /* KlaviyoSwiftExtension */ = {
+		1E6B745B2E819B8B00602827 /* KlaviyoLocation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
-			productName = KlaviyoSwiftExtension;
+			productName = KlaviyoLocation;
 		};
-		34F2BEBA29AD203E006B8037 /* KlaviyoSwift */ = {
+		1E6B745D2E819B8B00602827 /* KlaviyoSwift */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 34F2BEB929AD203E006B8037 /* XCRemoteSwiftPackageReference "klaviyo-swift-sdk" */;
 			productName = KlaviyoSwift;
+		};
+		1E6B745F2E819B8B00602827 /* KlaviyoSwiftExtension */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KlaviyoSwiftExtension;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

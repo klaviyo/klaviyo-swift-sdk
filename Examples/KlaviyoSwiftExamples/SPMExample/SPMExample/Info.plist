@@ -32,5 +32,9 @@
 	<string>This app needs location access to show your current location on the delivery map and help you find nearby delivery zones.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to monitor geofences and provide location-based notifications even when the app is in the background.</string>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
 </dict>
 </plist>
