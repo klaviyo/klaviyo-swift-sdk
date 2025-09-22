@@ -58,8 +58,10 @@ public class DeepLinkHandler {
                 customDeepLinkHandler(url)
             }
         } else {
-            if #available(iOS 14.0, *) {
-                Logger.navigation.info("A deep link handler has not been registered.\nHandling URL: '\(url.absoluteString, privacy: .public)' using fallback deep link handler")
+            if !KlaviyoEnvironment.isReactNative {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.info("A deep link handler has not been registered.\nHandling URL: '\(url.absoluteString, privacy: .public)' using fallback deep link handler")
+                }
             }
 
             if ["http", "https"].contains(url.scheme?.lowercased()) {
@@ -72,13 +74,15 @@ public class DeepLinkHandler {
 
     @MainActor
     private static func openWithFallbackHandler(url: URL) async {
-        if #available(iOS 14.0, *) {
-            Logger.navigation.warning("""
-            Attempting to handle universal link via a fallback mechanism.
-            For improved stability and future-proofing, please provide your own
-            deep link handler logic by calling `KlaviyoSDK().registerDeepLinkHandler(_:)`
-            on application launch. Refer to the Klaviyo Swift SDK's README for more details.
-            """)
+        if !KlaviyoEnvironment.isReactNative {
+            if #available(iOS 14.0, *) {
+                Logger.navigation.warning("""
+                Attempting to handle universal link via a fallback mechanism.
+                For improved stability and future-proofing, please provide your own
+                deep link handler logic by calling `KlaviyoSDK().registerDeepLinkHandler(_:)`
+                on application launch. Refer to the Klaviyo Swift SDK's README for more details.
+                """)
+            }
         }
 
         // First try to route with the App Delegate
