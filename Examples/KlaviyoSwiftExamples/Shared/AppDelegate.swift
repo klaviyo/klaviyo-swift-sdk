@@ -110,7 +110,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Access custom key-value pairs from the top level
         if let customData = userInfo["key_value_pairs"] as? [String: String] {
             // Process your custom key-value pairs here
-            for (key, value) in kvPairs {
+            for (key, value) in customData {
                 print("Key: \(key), Value: \(value)")
             }
         } else {
