@@ -38,7 +38,7 @@ public struct GeofenceService: GeofenceServiceProvider {
             switch result {
             case let .success(data):
                 do {
-                    let geofences = try Geofence.decode(from: data)
+                    let geofences = try JSONDecoder().decode([Geofence].self, from: data)
                     newRegions = Set(geofences)
                 } catch {
                     if #available(iOS 14.0, *) {

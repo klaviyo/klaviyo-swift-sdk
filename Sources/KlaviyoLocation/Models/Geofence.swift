@@ -11,7 +11,7 @@ import KlaviyoCore
 import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
-public struct Geofence: Equatable, Hashable {
+public struct Geofence: Equatable, Hashable, Codable {
     /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a hyphen.
     public let id: String
 
@@ -65,54 +65,8 @@ public struct Geofence: Equatable, Hashable {
     }
 }
 
-// MARK: - JSON Decoding Extensions
-
-extension Geofence {
-    /// Decodes geofences from JSON data
-    /// - Parameter data: JSON data containing geofence information
-    /// - Returns: Array of decoded Geofence objects
-    /// - Throws: DecodingError if the JSON structure is invalid
-    public static func decode(from data: Data) throws -> [Geofence] {
-        // First, try to decode as the expected API response format with "data" wrapper
-        do {
-            let apiDataArray = try JSONDecoder().decode([GeofenceAPIData].self, from: data)
-            return apiDataArray.compactMap { apiData in
-                Geofence(
-                    id: apiData.identifier,
-                    longitude: apiData.center.longitude,
-                    latitude: apiData.center.latitude,
-                    radius: apiData.radius
-                )
-            }
-        } catch {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: [],
-                    debugDescription: "Failed to decode geofences: \(error.localizedDescription)"
-                )
-            )
-        }
-    }
-}
-
 extension CLCircularRegion {
     func toKlaviyoGeofence() -> Geofence {
         Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
-}
-
-// MARK: - Private API Response Models
-
-/// Center coordinates for a geofence
-private struct GeofenceCenter: Codable, Equatable {
-    let latitude: Double
-    let longitude: Double
-}
-
-/// Individual geofence data from API response
-private struct GeofenceAPIData: Codable, Equatable {
-    let identifier: String
-    let location: String
-    let radius: Double
-    let center: GeofenceCenter
 }
