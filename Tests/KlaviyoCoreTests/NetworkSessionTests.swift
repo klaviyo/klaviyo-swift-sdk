@@ -26,7 +26,7 @@ class NetworkSessionTests: XCTestCase {
     func testSessionDataTask() async throws {
         URLProtocolOverrides.protocolClasses = [SimpleMockURLProtocol.self]
         let session = NetworkSession.production
-        let sampleRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(.test))
+        let sampleRequest = KlaviyoRequest(endpoint: .registerPushToken("foo", .test))
         let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
         let (data, response) = try await session.data(sampleRequest.urlRequest(attemptInfo: attemptInfo))
 
@@ -61,7 +61,7 @@ class NetworkSessionTests: XCTestCase {
 
             // Verify the result
             XCTAssertNotNil(result)
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.1 (test-plugin/1.0.0)")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3 (test-plugin/1.0.0)")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
@@ -77,7 +77,7 @@ class NetworkSessionTests: XCTestCase {
         // Call the function with our mock bundle
         let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
-        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.1")
+        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3")
     }
 
     func testGetPluginConfigurationWithInvalidPlist() {
@@ -97,7 +97,7 @@ class NetworkSessionTests: XCTestCase {
             let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
             // Verify the result is default
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.1")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)

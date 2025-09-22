@@ -46,17 +46,19 @@ public struct SDKRequest: Identifiable, Equatable {
         case createProfile(ProfileInfo)
         case saveToken(token: String, info: ProfileInfo)
         case unregisterToken(token: String, info: ProfileInfo)
+        case resolveDestinationURL(trackingLink: URL)
+        case logTrackingLinkClicked(trackingLink: URL, clickTime: Date)
 
         fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
-            case let .createProfile(payload):
+            case let .createProfile(_, payload):
                 return .createProfile(ProfileInfo(
                     email: payload.data.attributes.email,
                     phoneNumber: payload.data.attributes.phoneNumber,
                     externalId: payload.data.attributes.externalId,
                     anonymousId: payload.data.attributes.anonymousId
                 ))
-            case let .createEvent(payload):
+            case let .createEvent(_, payload):
                 return .createEvent(
                     EventInfo(eventName: payload.data.attributes.metric.data.attributes.name),
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
@@ -64,20 +66,24 @@ public struct SDKRequest: Identifiable, Equatable {
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId)
                 )
-            case let .aggregateEvent(payload):
+            case let .aggregateEvent(_, payload):
                 return .createAggregateEvent(payload)
-            case let .registerPushToken(payload):
+            case let .registerPushToken(_, payload):
                 return .saveToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
-            case let .unregisterPushToken(payload):
+            case let .unregisterPushToken(_, payload):
                 return .unregisterToken(token: payload.data.attributes.token, info:
                     ProfileInfo(email: payload.data.attributes.profile.data.attributes.email,
                                 phoneNumber: payload.data.attributes.profile.data.attributes.phoneNumber,
                                 externalId: payload.data.attributes.profile.data.attributes.externalId,
                                 anonymousId: payload.data.attributes.profile.data.attributes.anonymousId))
+            case let .resolveDestinationURL(trackingLink, _):
+                return .resolveDestinationURL(trackingLink: trackingLink)
+            case let .logTrackingLinkClicked(trackingLink, clickTime, _):
+                return .logTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
             }
         }
     }
@@ -94,7 +100,7 @@ public struct SDKRequest: Identifiable, Equatable {
         let type = RequestType.fromEndpoint(request: request)
         let method = urlRequest?.httpMethod ?? "Unknown"
         let url = urlRequest?.url?.description ?? "Unknown"
-        return SDKRequest(id: request.uuid,
+        return SDKRequest(id: request.id,
                           type: type,
                           url: url,
                           method: method,

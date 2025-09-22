@@ -27,7 +27,10 @@ final class EncodableTests: XCTestCase {
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
         )
-        let request = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload), uuid: KlaviyoEnvironment.test().uuid().uuidString)
+        let request = KlaviyoRequest(
+            id: KlaviyoEnvironment.test().uuid().uuidString,
+            endpoint: .registerPushToken("foo", tokenPayload)
+        )
         let klaviyoState = KlaviyoState(
             email: "foo",
             anonymousId: "foo",

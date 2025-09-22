@@ -123,7 +123,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.requestsInFlight = []
             $0.flushing = false
             $0.email = "foo@blob.com      "
-            if case let .registerPushToken(payload) = request.endpoint {
+            if case let .registerPushToken(_, payload) = request.endpoint {
                 XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "foo@blob.com", "Email should be trimmed of whitespace before being sent.")
             }
         }
@@ -180,7 +180,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.retryState = .retry(maxRetries)
 
         var request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "new_token", enablement: .authorized)
-        request2.uuid = "foo"
+        request2 = KlaviyoRequest(id: "foo", endpoint: request2.endpoint)
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 

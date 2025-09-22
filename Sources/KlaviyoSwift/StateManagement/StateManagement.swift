@@ -15,6 +15,7 @@ import AnyCodable
 import Combine
 import Foundation
 import KlaviyoCore
+import OSLog
 import UIKit
 import UserNotifications
 
@@ -120,6 +121,20 @@ enum KlaviyoAction: Equatable {
     /// the data that was passed to the client endpoint
     case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
 
+    /// when the host app receives a Klaviyo tracking link that should be resolved to a destination link.
+    /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
+    case trackingLinkReceived(URL)
+
+    /// when we've successfully resolved the tracking link into a destination link
+    case trackingLinkDestinationResolved(URL)
+
+    /// when the attempt to resolve the tracking link into a destination link fails.
+    /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
+    case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
+
+    /// open a deep link URL originating from a Klaviyo notification
+    case openDeepLink(URL)
+
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
@@ -129,7 +144,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
             return false
         }
     }
@@ -342,7 +357,7 @@ struct KlaviyoReducer: ReducerProtocol {
             ])
 
         case let .deQueueCompletedResults(completedRequest):
-            if case let .registerPushToken(payload) = completedRequest.endpoint {
+            if case let .registerPushToken(_, payload) = completedRequest.endpoint {
                 let requestData = payload.data.attributes
                 let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
@@ -354,7 +369,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 )
             }
             state.requestsInFlight.removeAll { inflightRequest in
-                completedRequest.uuid == inflightRequest.uuid
+                completedRequest.id == inflightRequest.id
             }
             state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
@@ -447,7 +462,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             if exceededRetries {
                 state.requestsInFlight.removeAll { inflightRequest in
-                    request.uuid == inflightRequest.uuid
+                    request.id == inflightRequest.id
                 }
             }
             state.flushing = false
@@ -480,8 +495,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     pushToken: state.pushTokenData?.pushToken
                 ))
 
-            let endpoint = KlaviyoEndpoint.createEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
 
             state.enqueueRequest(request: request)
 
@@ -504,8 +519,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let endpoint = KlaviyoEndpoint.aggregateEvent(payload)
-            let request = KlaviyoRequest(apiKey: apiKey, endpoint: endpoint)
+            let endpoint = KlaviyoEndpoint.aggregateEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
 
             state.enqueueRequest(request: request)
 
@@ -543,13 +558,11 @@ struct KlaviyoReducer: ReducerProtocol {
                     profile: profilePayload
                 )
                 request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.registerPushToken(payload)
+                    endpoint: KlaviyoEndpoint.registerPushToken(apiKey, payload)
                 )
             } else {
                 request = KlaviyoRequest(
-                    apiKey: apiKey,
-                    endpoint: KlaviyoEndpoint.createProfile(CreateProfilePayload(data: profilePayload))
+                    endpoint: KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: profilePayload))
                 )
             }
             state.enqueueRequest(request: request)
@@ -599,6 +612,83 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+
+        case let .trackingLinkReceived(trackingLinkURL):
+            let clickTime = environment.date()
+
+            if #available(iOS 14.0, *) {
+                Logger.stateLogger.info("Attempting to resolve tracking link destination from tracking URL '\(trackingLinkURL.absoluteString)'")
+            }
+
+            let profileInfo = ProfilePayload(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: state.anonymousId ?? ""
+            )
+
+            return .run { send in
+                do {
+                    let endpoint = KlaviyoEndpoint.resolveDestinationURL(
+                        trackingLink: trackingLinkURL,
+                        profileInfo: profileInfo
+                    )
+                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
+                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+                    switch result {
+                    case let .success(data):
+                        let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
+                        let destinationURL = response.destinationLink
+
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
+                        }
+
+                        await send(.trackingLinkDestinationResolved(destinationURL))
+                    case let .failure(error):
+                        if #available(iOS 14.0, *) {
+                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
+                        }
+                        await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
+                    }
+                } catch {
+                    if #available(iOS 14.0, *) {
+                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
+                    }
+                    await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
+                }
+            }
+
+        case let .trackingLinkDestinationResolved(url):
+            return .run { send in
+                await send(.openDeepLink(url))
+            }
+
+        case let .trackingLinkResolutionFailed(trackingLink, clickTime):
+            let profileInfo = ProfilePayload(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                anonymousId: state.anonymousId ?? ""
+            )
+
+            let request = KlaviyoRequest(
+                endpoint: .logTrackingLinkClicked(
+                    trackingLink: trackingLink,
+                    clickTime: clickTime,
+                    profileInfo: profileInfo
+                )
+            )
+            state.enqueueRequest(request: request)
+
+            return .none
+
+        case let .openDeepLink(url):
+            return .run { _ in
+                await environment.openURL(url)
+            }
         }
     }
 }

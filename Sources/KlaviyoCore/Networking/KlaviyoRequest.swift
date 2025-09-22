@@ -7,19 +7,28 @@
 
 import Foundation
 
-public struct KlaviyoRequest: Equatable, Codable {
-    private let apiKey: String
-    public let endpoint: KlaviyoEndpoint
-    public var uuid: String
+/// A request that can be sent to the Klaviyo API.
+///
+/// This struct encapsulates all the information needed to make a request to Klaviyo's API,
+/// including the endpoint to call and a unique identifier for tracking the request.
+public struct KlaviyoRequest: Identifiable, Equatable, Codable {
+    /// A unique identifier for the request.
+    public let id: String
 
+    /// The API endpoint this request targets.
+    public let endpoint: KlaviyoEndpoint
+
+    /// Creates a new request to the Klaviyo API.
+    ///
+    /// - Parameters:
+    ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
+    ///   - endpoint: The endpoint this request will target.
     public init(
-        apiKey: String,
-        endpoint: KlaviyoEndpoint,
-        uuid: String = environment.uuid().uuidString
+        id: String = environment.uuid().uuidString,
+        endpoint: KlaviyoEndpoint
     ) {
-        self.apiKey = apiKey
+        self.id = id
         self.endpoint = endpoint
-        self.uuid = uuid
     }
 
     /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.
@@ -32,38 +41,8 @@ public struct KlaviyoRequest: Equatable, Codable {
     /// - Throws: An error if the request cannot be created, either from the endpoint or if
     ///           the provided attemptInfo is invalid.
     public func urlRequest(attemptInfo: RequestAttemptInfo) throws -> URLRequest {
-        guard let url = url else {
-            throw KlaviyoAPIError.internalError("Invalid url string. API URL: \(environment.apiURL())")
-        }
-
-        var request = URLRequest(url: url)
-
-        do {
-            if let body = try endpoint.body(), !body.isEmpty {
-                request.httpBody = body
-            }
-        } catch {
-            throw KlaviyoAPIError.dataEncodingError(self)
-        }
-
-        request.httpMethod = endpoint.httpMethod.rawValue
+        var request = try endpoint.urlRequest()
         request.setValue("\(attemptInfo.attemptNumber)/\(attemptInfo.maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
-
         return request
-    }
-
-    var url: URL? {
-        var urlComponents = environment.apiURL()
-
-        guard urlComponents.scheme != nil, urlComponents.host != nil else {
-            return nil
-        }
-
-        urlComponents.path = endpoint.path
-        urlComponents.queryItems = [
-            URLQueryItem(name: "company_id", value: apiKey)
-        ]
-
-        return urlComponents.url
     }
 }

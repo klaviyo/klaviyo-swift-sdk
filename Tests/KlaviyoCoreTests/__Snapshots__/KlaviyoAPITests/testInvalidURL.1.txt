@@ -1,1 +1,1 @@
-internalRequestError(KlaviyoCore.KlaviyoAPIError.internalError("Invalid url string. API URL: "))
+internalRequestError(KlaviyoCore.KlaviyoAPIError.internalError("Failed to build valid URL; scheme and/or host is nil"))

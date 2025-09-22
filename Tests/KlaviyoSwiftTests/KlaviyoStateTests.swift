@@ -128,19 +128,19 @@ final class KlaviyoStateTests: XCTestCase {
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
         let event = Event.test
         let createEventPayload = CreateEventPayload(data: CreateEventPayload.Event(name: event.metric.name.value))
-        let eventRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createEvent(createEventPayload))
+        let eventRequest = KlaviyoRequest(endpoint: .createEvent("foo", createEventPayload))
 
         let profile = Profile.test
         let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
 
-        let profileRequest = KlaviyoRequest(apiKey: "foo", endpoint: .createProfile(payload))
+        let profileRequest = KlaviyoRequest(endpoint: .createProfile("foo", payload))
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
         )
-        let tokenRequest = KlaviyoRequest(apiKey: "foo", endpoint: .registerPushToken(tokenPayload))
+        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken("foo", tokenPayload))
 
         let state = KlaviyoState(apiKey: "key", queue: [tokenRequest, eventRequest, profileRequest])
 

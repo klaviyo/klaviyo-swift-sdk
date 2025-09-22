@@ -15,7 +15,7 @@
       "manufacturer" : "Orange",
       "os_name" : "iOS",
       "os_version" : "1.1.1",
-      "sdk_version" : "5.0.1"
+      "sdk_version" : "5.0.3"
     },
     "pushBackground" : "AVAILABLE",
     "pushEnablement" : "AUTHORIZED",
@@ -23,10 +23,10 @@
   },
   "queue" : [
     {
-      "apiKey" : "foo",
       "endpoint" : {
         "registerPushToken" : {
-          "_0" : {
+          "_0" : "foo",
+          "_1" : {
             "data" : {
               "attributes" : {
                 "background" : "AVAILABLE",
@@ -42,7 +42,7 @@
                   "manufacturer" : "Orange",
                   "os_name" : "iOS",
                   "os_version" : "1.1.1",
-                  "sdk_version" : "5.0.1"
+                  "sdk_version" : "5.0.3"
                 },
                 "enablement_status" : "AUTHORIZED",
                 "platform" : "ios",
@@ -67,7 +67,7 @@
           }
         }
       },
-      "uuid" : "00000000-0000-0000-0000-000000000001"
+      "id" : "00000000-0000-0000-0000-000000000001"
     }
   ]
 }

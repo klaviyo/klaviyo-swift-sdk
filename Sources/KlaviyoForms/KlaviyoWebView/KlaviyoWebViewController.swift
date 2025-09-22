@@ -41,6 +41,7 @@ private func createDefaultWebView() -> WKWebView {
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
+    private var addedMessageHandlers: Set<String> = []
 
     private var viewModel: KlaviyoWebViewModeling
 
@@ -61,10 +62,12 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     deinit {
         viewModel.messageHandlers?.forEach {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
+            addedMessageHandlers.remove($0)
         }
         #if DEBUG
         if webConsoleLoggingEnabled {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
+            addedMessageHandlers.remove("consoleMessageHandler")
         }
         #endif
     }
@@ -114,7 +117,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         }
 
         viewModel.messageHandlers?.forEach {
-            webView.configuration.userContentController.add(scriptDelegateWrapper, name: $0)
+            dedupeInsertMessageHandler($0)
         }
 
         #if DEBUG
@@ -141,9 +144,16 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         )
 
         webView.configuration.userContentController.addUserScript(script)
-        webView.configuration.userContentController.add(scriptDelegateWrapper, name: "consoleMessageHandler")
+        dedupeInsertMessageHandler("consoleMessageHandler")
     }
     #endif
+
+    private func dedupeInsertMessageHandler(_ handlerName: String) {
+        if !addedMessageHandlers.contains(handlerName) {
+            webView.configuration.userContentController.add(scriptDelegateWrapper, name: handlerName)
+            addedMessageHandlers.insert(handlerName)
+        }
+    }
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any? {
@@ -194,11 +204,19 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
-           await UIApplication.shared.open(url) {
-            return .cancel
-        } else {
-            return .allow
+           !(url.lastPathComponent == "InAppFormsTemplate.html") {
+            let didOpenURL = await UIApplication.shared.open(url)
+
+            if #available(iOS 14.0, *) {
+                if didOpenURL {
+                    Logger.webViewLogger.info("'UIApplication.shared.open(_:)' successfully opened URL '\(url.absoluteString)'")
+                } else {
+                    Logger.webViewLogger.info("'UIApplication.shared.open(_:)' did not open the URL '\(url.absoluteString)'")
+                }
+            }
         }
+
+        return .allow
     }
 }
 
