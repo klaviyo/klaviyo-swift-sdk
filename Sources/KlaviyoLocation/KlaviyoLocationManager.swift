@@ -8,6 +8,7 @@
 import Combine
 import CoreLocation
 import Foundation
+import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
@@ -34,11 +35,7 @@ public class KlaviyoLocationManager: NSObject {
 
     @MainActor
     internal func setupGeofencing() {
-        if #available(iOS 14.0, *) {
-            if locationManager.authorizationStatus == .authorizedAlways {
-                geofenceManager.setupGeofencing()
-            }
-        } else if CLLocationManager.authorizationStatus() == .authorizedAlways {
+        if environment.getLocationAuthorizationStatus() == .authorizedAlways {
             geofenceManager.setupGeofencing()
         }
     }

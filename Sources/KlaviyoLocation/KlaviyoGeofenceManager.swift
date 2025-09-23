@@ -6,6 +6,7 @@
 //
 
 import CoreLocation
+import KlaviyoCore
 import OSLog
 
 internal class KlaviyoGeofenceManager {
@@ -24,18 +25,11 @@ internal class KlaviyoGeofenceManager {
             return
         }
 
-        if #available(iOS 14.0, *) {
-            guard locationManager.authorizationStatus == .authorizedAlways else {
+        guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
+            if #available(iOS 14.0, *) {
                 Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
-                return
             }
-        } else {
-            guard CLLocationManager.authorizationStatus() == .authorizedAlways else {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
-                }
-                return
-            }
+            return
         }
 
         Task {
