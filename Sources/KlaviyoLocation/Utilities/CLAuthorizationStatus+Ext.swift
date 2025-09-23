@@ -8,7 +8,7 @@
 import CoreLocation
 
 extension CLAuthorizationStatus {
-    var description: String {
+    internal var description: String {
         switch self {
         case .notDetermined:
             "not determined"
