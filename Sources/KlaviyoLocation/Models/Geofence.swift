@@ -66,7 +66,7 @@ public struct Geofence: Equatable, Hashable, Codable {
 }
 
 extension CLCircularRegion {
-    func toKlaviyoGeofence() -> Geofence {
+    internal func toKlaviyoGeofence() -> Geofence {
         Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
 }

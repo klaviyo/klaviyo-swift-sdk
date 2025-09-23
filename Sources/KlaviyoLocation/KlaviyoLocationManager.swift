@@ -16,9 +16,9 @@ public class KlaviyoLocationManager: NSObject {
 
     private let locationManager = CLLocationManager()
     private let geofenceManager: KlaviyoGeofenceManager
-    public let geofencePublisher: PassthroughSubject<String, Never> = .init()
+    internal let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    override public init() {
+    override internal init() {
         geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager)
         super.init()
         locationManager.delegate = self
@@ -33,7 +33,7 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    public func setupGeofencing() {
+    internal func setupGeofencing() {
         if #available(iOS 14.0, *) {
             if locationManager.authorizationStatus == .authorizedAlways {
                 geofenceManager.setupGeofencing()
@@ -49,7 +49,7 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    public func destroyGeofencing() {
+    internal func destroyGeofencing() {
         geofenceManager.destroyGeofencing()
     }
 }

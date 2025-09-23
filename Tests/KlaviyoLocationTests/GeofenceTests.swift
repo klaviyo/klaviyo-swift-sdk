@@ -73,7 +73,7 @@ final class GeofenceTests: XCTestCase {
         ]
         """.data(using: .utf8)!
 
-        let geofences = try Geofence.decode(from: jsonData)
+        let geofences = try JSONDecoder().decode([Geofence].self, from: jsonData)
 
         XCTAssertEqual(geofences.count, 2)
 
@@ -96,14 +96,14 @@ final class GeofenceTests: XCTestCase {
 
     func testDecodeEmptyArray() throws {
         let jsonData = "[]".data(using: .utf8)!
-        let geofences = try Geofence.decode(from: jsonData)
+        let geofences = try JSONDecoder().decode([Geofence].self, from: jsonData)
         XCTAssertEqual(geofences.count, 0)
     }
 
     func testDecodeInvalidJSON() {
         let invalidJSON = "invalid json".data(using: .utf8)!
 
-        XCTAssertThrowsError(try Geofence.decode(from: invalidJSON)) { error in
+        XCTAssertThrowsError(try JSONDecoder().decode([Geofence].self, from: invalidJSON)) { error in
             XCTAssertTrue(error is DecodingError)
         }
     }
@@ -118,7 +118,7 @@ final class GeofenceTests: XCTestCase {
         ]
         """.data(using: .utf8)!
 
-        XCTAssertThrowsError(try Geofence.decode(from: jsonData)) { error in
+        XCTAssertThrowsError(try JSONDecoder().decode([Geofence].self, from: jsonData)) { error in
             XCTAssertTrue(error is DecodingError)
         }
     }
@@ -138,7 +138,7 @@ final class GeofenceTests: XCTestCase {
         ]
         """.data(using: .utf8)!
 
-        XCTAssertThrowsError(try Geofence.decode(from: jsonData)) { error in
+        XCTAssertThrowsError(try JSONDecoder().decode([Geofence].self, from: jsonData)) { error in
             XCTAssertTrue(error is DecodingError)
         }
     }

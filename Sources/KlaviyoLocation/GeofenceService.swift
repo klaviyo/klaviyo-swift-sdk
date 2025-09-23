@@ -9,14 +9,12 @@ import CoreLocation
 import KlaviyoCore
 import OSLog
 
-public protocol GeofenceServiceProvider {
+internal protocol GeofenceServiceProvider {
     func fetchGeofences() async -> Set<Geofence>
 }
 
-public struct GeofenceService: GeofenceServiceProvider {
-    public init() {}
-
-    public func fetchGeofences() async -> Set<Geofence> {
+internal struct GeofenceService: GeofenceServiceProvider {
+    internal func fetchGeofences() async -> Set<Geofence> {
         var newRegions = Set<Geofence>()
         do {
             // FIXME: Temporarily override the environment's API URL for this mock request

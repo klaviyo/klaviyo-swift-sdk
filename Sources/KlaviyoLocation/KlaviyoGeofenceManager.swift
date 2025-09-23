@@ -8,14 +8,14 @@
 import CoreLocation
 import OSLog
 
-public class KlaviyoGeofenceManager {
+internal class KlaviyoGeofenceManager {
     private let locationManager: CLLocationManager
 
-    public init(locationManager: CLLocationManager) {
+    internal init(locationManager: CLLocationManager) {
         self.locationManager = locationManager
     }
 
-    func setupGeofencing() {
+    internal func setupGeofencing() {
         // TODO: Consider factoring permission checks out to its own class
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
@@ -43,7 +43,7 @@ public class KlaviyoGeofenceManager {
         }
     }
 
-    func destroyGeofencing() {
+    internal func destroyGeofencing() {
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("Stop monitoring for all regions")
         }
