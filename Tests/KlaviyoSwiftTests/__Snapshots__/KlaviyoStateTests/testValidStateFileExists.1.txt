@@ -10,6 +10,7 @@
   - flushInterval: 10.0
   - flushing: true
   - initalizationState: InitializationState.initialized
+  - isProcessingDeepLink: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   ▿ phoneNumber: Optional<String>
