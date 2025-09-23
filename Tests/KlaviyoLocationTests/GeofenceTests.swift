@@ -53,22 +53,18 @@ final class GeofenceTests: XCTestCase {
         let jsonData = """
         [
             {
-                "identifier": "ABC123-locA",
+                "id": "ABC123-locA",
                 "location": "One Infinite Loop",
                 "radius": 100,
-                "center": {
-                    "latitude": 37.33204742438631,
-                    "longitude": -122.03026995144546
-                }
+                "latitude": 37.33204742438631,
+                "longitude": -122.03026995144546
             },
             {
-                "identifier": "ABC123-locB",
+                "id": "ABC123-locB",
                 "location": "Empire State Building",
                 "radius": 100,
-                "center": {
-                    "latitude": 40.74859487385327,
-                    "longitude": -73.98563220742138
-                }
+                "latitude": 40.74859487385327,
+                "longitude": -73.98563220742138
             }
         ]
         """.data(using: .utf8)!
@@ -112,7 +108,7 @@ final class GeofenceTests: XCTestCase {
         let jsonData = """
         [
             {
-                "identifier": "test",
+                "id": "test",
                 "radius": 100
             }
         ]
@@ -127,13 +123,11 @@ final class GeofenceTests: XCTestCase {
         let jsonData = """
         [
             {
-                "identifier": "test",
+                "id": "test",
                 "location": "test",
-                "radius": "invalid_radius",
-                "center": {
-                    "latitude": 37.33204742438631,
-                    "longitude": -122.03026995144546
-                }
+                "radius": "invalid_radius"
+                "latitude": 37.33204742438631,
+                "longitude": -122.03026995144546
             }
         ]
         """.data(using: .utf8)!
