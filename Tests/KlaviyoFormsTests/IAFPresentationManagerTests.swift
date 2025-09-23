@@ -353,6 +353,65 @@ final class IAFPresentationManagerTests: XCTestCase {
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should never be destroyed when foregrounding in an infinite session")
         XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Form should never be recreated")
     }
+
+    // MARK: - Profile Event Injection Tests
+
+    @MainActor
+    func testHandleProfileEventCreatedInjectsEvent() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event is handled successfully")
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When
+        let testEvent = Event(name: .addedToCartMetric, properties: ["amount": 99.99, "currency": "USD"])
+        try await presentationManager.handleProfileEventCreated(testEvent)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("dispatchProfileEvent") && script.contains("Added to Cart")
+        }, "Event should be dispatched with correct event name")
+
+        // Verify properties are passed as JSON object (not string)
+        let scriptWithProperties = evaluatedScripts.first { script in
+            script.contains("dispatchProfileEvent") && script.contains("Added to Cart")
+        }
+        XCTAssertNotNil(scriptWithProperties, "Should find script with dispatchProfileEvent")
+
+        if let script = scriptWithProperties {
+            // Properties should be passed as JSON object, not quoted string
+            XCTAssertTrue(script.contains("\"amount\":"), "Properties should include amount key")
+            XCTAssertTrue(script.contains("\"currency\":"), "Properties should include currency key")
+            XCTAssertTrue(script.contains("USD"), "Properties should include USD value")
+            XCTAssertFalse(script.contains("'{\"amount\":99.99,\"currency\":\"USD\"}'"), "Properties should not be wrapped in quotes")
+        }
+    }
+
+    @MainActor
+    func testEventSubscriptionCleanup() async throws {
+        // Given
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key")
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds to allow initialization
+
+        // When
+        presentationManager.destroyWebviewAndListeners()
+
+        // Then
+        // Create and publish an event after cleanup
+        let testEvent = Event(name: .customEvent("test_event"), properties: ["key": "value"])
+        KlaviyoInternal.publishEvent(testEvent)
+
+        // Should not crash or cause issues
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+    }
 }
 
 // MARK: - Mock Classes

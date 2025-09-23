@@ -423,6 +423,40 @@ final class KlaviyoInternalTests: XCTestCase {
 //        XCTAssertNoThrow(KlaviyoInternal.create(aggregateEvent: testEvent))
 //    }
 
+    // MARK: - Event Publishing Tests
+
+    @MainActor
+    func testEventPublisher_emitsEventWithProperties() throws {
+        // Given: Set up a mock to capture published events
+        var publishedEvents: [Event] = []
+        let initialState = KlaviyoState(
+            apiKey: "test-api-key",
+            anonymousId: "test-anonymous-id",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        KlaviyoInternal.eventPublisher()
+            .sink { event in
+                publishedEvents.append(event)
+            }
+            .store(in: &cancellables)
+
+        // When
+        let testEvent = Event(
+            name: .addedToCartMetric,
+            properties: ["amount": 99.99, "currency": "USD"]
+        )
+        _ = testStore.send(.enqueueEvent(testEvent))
+
+        // Then
+        XCTAssertEqual(publishedEvents.count, 1, "Should have published exactly one event")
+        XCTAssertEqual(publishedEvents.first?.metric.name, .addedToCartMetric, "Should have published the correct event name")
+        XCTAssertEqual(publishedEvents.first?.properties["amount"] as? Double, 99.99, "Should have published the correct properties")
+        XCTAssertEqual(publishedEvents.first?.properties["currency"] as? String, "USD", "Should have published the correct properties")
+    }
+
     // MARK: - Integration Tests
 
     @MainActor

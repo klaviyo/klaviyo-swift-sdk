@@ -25,6 +25,9 @@ class IAFPresentationManager {
     private var lifecycleEventsTask: Task<Void, Error>?
     private var lastBackgrounded: Date?
 
+    private var profileObserver: ProfileObserver?
+    private var profileEventsTask: Task<Void, Error>?
+
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
@@ -80,6 +83,16 @@ class IAFPresentationManager {
                     // optionally handle/log
                     break
                 }
+            }
+        }
+
+        profileObserver = ProfileObserver()
+        profileObserver?.startObserving()
+
+        profileEventsTask = Task { [weak self] in
+            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
+            for await event in eventsStream {
+                try await handleProfileEventCreated(event)
             }
         }
     }
@@ -157,6 +170,35 @@ class IAFPresentationManager {
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - Profile Event Handling
+
+    func handleProfileEventCreated(_ event: Event) async throws {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Attempting to dispatch '\(event.metric.name.value, privacy: .public)' event via Klaviyo.JS")
+        }
+
+        do {
+            // Convert properties to JSON string to ensure proper object serialization
+            let propertiesJSON: String
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties),
+               let propertiesString = String(data: propertiesData, encoding: .utf8) {
+                propertiesJSON = propertiesString
+            } else {
+                // Fallback to empty object if serialization fails
+                propertiesJSON = "{}"
+            }
+
+            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(propertiesJSON))")
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
             }
         }
     }
@@ -301,12 +343,15 @@ class IAFPresentationManager {
         isInitializingOrInitialized = false
         lifecycleObserver = nil
         companyObserver = nil
+        profileObserver = nil
+        profileEventsTask?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
+        KlaviyoInternal.resetEventSubject()
         destroyWebView()
     }
 }
