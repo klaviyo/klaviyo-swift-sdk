@@ -45,7 +45,9 @@ internal class KlaviyoGeofenceManager {
 
     internal func destroyGeofencing() {
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("Stop monitoring for all regions")
+            if !locationManager.monitoredRegions.isEmpty {
+                Logger.geoservices.info("Stop monitoring for all regions")
+            }
         }
         for region in locationManager.monitoredRegions {
             locationManager.stopMonitoring(for: region)
