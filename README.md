@@ -494,7 +494,7 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 {
   "aps": {
     "alert": {
-      "title": "Sample title for a Klaviyo push notification,
+      "title": "Sample title for a Klaviyo push notification",
       "body": "Sample body for a Klaviyo push notification"
     },
     "mutable-content": 1
