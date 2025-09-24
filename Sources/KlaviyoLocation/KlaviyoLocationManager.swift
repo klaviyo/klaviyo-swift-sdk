@@ -19,26 +19,19 @@ public class KlaviyoLocationManager: NSObject {
     private let geofenceManager: KlaviyoGeofenceManager
     private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    override private init() {
-        locationManager = CLLocationManager()
-        geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager as! CLLocationManager)
-        super.init()
-        locationManager.delegate = self
-        locationManager.allowsBackgroundLocationUpdates = true
-    }
+    internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
+        self.locationManager = locationManager ?? CLLocationManager()
+        self.geofenceManager = geofenceManager ?? Self.createDefaultGeofenceManager(with: self.locationManager)
 
-    #if DEBUG
-    internal init(locationManager: LocationManagerProtocol, geofenceManager: KlaviyoGeofenceManager) {
-        self.locationManager = locationManager
-        self.geofenceManager = geofenceManager
         super.init()
         self.locationManager.delegate = self
-        // Don't set allowsBackgroundLocationUpdates in test environment to avoid simulator issues
-        if NSClassFromString("XCTest") == nil {
-            self.locationManager.allowsBackgroundLocationUpdates = true
-        }
+        self.locationManager.allowsBackgroundLocationUpdates = true
     }
-    #endif
+
+    private static func createDefaultGeofenceManager(with locationManager: LocationManagerProtocol) -> KlaviyoGeofenceManager {
+        let clLocationManager = locationManager as? CLLocationManager ?? CLLocationManager()
+        return KlaviyoGeofenceManager(locationManager: clLocationManager)
+    }
 
     deinit {
         locationManager.delegate = nil

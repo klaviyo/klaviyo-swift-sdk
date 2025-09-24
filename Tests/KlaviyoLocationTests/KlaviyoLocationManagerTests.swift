@@ -5,10 +5,10 @@
 //  Created by Isobelle Lim on 1/27/25.
 //
 
+@testable import KlaviyoLocation
 import CoreLocation
 import Foundation
 import KlaviyoCore
-import KlaviyoLocation
 import XCTest
 
 // MARK: - Test Class
