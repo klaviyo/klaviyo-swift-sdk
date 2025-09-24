@@ -15,16 +15,30 @@ import OSLog
 public class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
-    private let locationManager = CLLocationManager()
+    private var locationManager: LocationManagerInterface
     private let geofenceManager: KlaviyoGeofenceManager
     internal let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
     override internal init() {
-        geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager)
+        locationManager = CLLocationManager()
+        geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager as! CLLocationManager)
         super.init()
         locationManager.delegate = self
         locationManager.allowsBackgroundLocationUpdates = true
     }
+
+    #if DEBUG
+    internal init(locationManager: LocationManagerInterface, geofenceManager: KlaviyoGeofenceManager) {
+        self.locationManager = locationManager
+        self.geofenceManager = geofenceManager
+        super.init()
+        self.locationManager.delegate = self
+        // Don't set allowsBackgroundLocationUpdates in test environment to avoid simulator issues
+        if NSClassFromString("XCTest") == nil {
+            self.locationManager.allowsBackgroundLocationUpdates = true
+        }
+    }
+    #endif
 
     deinit {
         locationManager.delegate = nil
@@ -57,7 +71,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @available(iOS 14.0, *)
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleCLAuthorizationStatusChange(manager, manager.authorizationStatus)
+        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
     }
 
     @available(iOS, deprecated: 14.0)
@@ -65,7 +79,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         handleCLAuthorizationStatusChange(manager, status)
     }
 
-    private func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
+    internal func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("Core Location authorization status changed. New status: \(status.description)")
         }
