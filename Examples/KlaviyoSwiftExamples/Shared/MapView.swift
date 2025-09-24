@@ -10,72 +10,117 @@ struct MapView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                Map(coordinateRegion: $locationManager.region,
-                    showsUserLocation: true,
-                    userTrackingMode: .none,
-                    annotationItems: geofenceAnnotations) { annotation in
-                        MapAnnotation(coordinate: annotation.coordinate) {
-                            VStack {
-                                Image(systemName: "mappin.circle.fill")
-                                    .foregroundColor(.red)
-                                    .font(.title)
-                                Text(annotation.title)
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .padding(4)
-                                    .background(Color.white)
-                                    .cornerRadius(4)
+            GeometryReader { _ in
+                ZStack {
+                    Map(coordinateRegion: $locationManager.region,
+                        showsUserLocation: true,
+                        userTrackingMode: .none,
+                        annotationItems: geofenceAnnotations) { annotation in
+                            MapAnnotation(coordinate: annotation.coordinate) {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.title2)
+                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+
+                                    Text(annotation.title)
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.red)
+                                        .cornerRadius(8)
+                                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                                }
                             }
                         }
-                    }
-                    .overlay(
-                        ForEach(geofenceOverlays, id: \.id) { overlay in
-                            Circle()
-//                            .stroke(Color.blue, lineWidth: 2)
-//                            .fill(Color.blue.opacity(0.3))
-                                .frame(width: overlay.radius * 2, height: overlay.radius * 2)
-                                .position(overlay.position)
+                        .onAppear {
+                            locationManager.requestLocationPermission()
+                            KlaviyoSDK().registerGeofencing()
                         }
-                    )
-                    .onAppear {
-                        locationManager.requestLocationPermission()
-                        KlaviyoSDK().registerGeofencing()
+
+                    // Header
+                    VStack {
+                        HStack {
+                            Button("Close") {
+                                dismiss()
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(20)
+
+                            Spacer()
+
+                            Text("Delivery Map")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(20)
+
+                            Spacer()
+
+                            // Location status indicator
+                            Image(systemName: locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways ? "location.fill" : "location.slash")
+                                .foregroundColor(locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways ? .green : .red)
+                                .font(.title3)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(20)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+
+                        Spacer()
                     }
 
-                if locationManager.authorizationStatus == .denied {
-                    VStack {
-                        Image(systemName: "location.slash")
-                            .font(.system(size: 50))
-                            .foregroundColor(.red)
-                        Text("Location Access Required")
-                            .font(.headline)
-                        Text("Please enable location access in Settings to view your location on the map.")
-                            .multilineTextAlignment(.center)
-                            .padding()
-                        Button("Open Settings") {
-                            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(settingsURL)
+                    if locationManager.authorizationStatus == .denied {
+                        VStack(spacing: 20) {
+                            Image(systemName: "location.slash")
+                                .font(.system(size: 60))
+                                .foregroundColor(.red)
+
+                            Text("Location Access Required")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+
+                            Text("Please enable location access in Settings to view your location on the map and receive location-based notifications.")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+
+                            Button("Open Settings") {
+                                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(settingsURL)
+                                }
                             }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(25)
                         }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(12)
-                    .shadow(radius: 10)
-                }
-            }
-            .navigationTitle("Delivery Map")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        dismiss()
+                        .padding(32)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(20)
+                        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                        .padding(.horizontal, 40)
                     }
                 }
             }
+            .navigationBarHidden(true)
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
 
     private var geofenceAnnotations: [GeofenceAnnotation] {

@@ -104,14 +104,13 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Group {
+        ZStack {
             if appState.isLoggedIn {
                 MenuView()
             } else {
                 LoginView()
             }
         }
-        .ignoresSafeArea(.all, edges: .all)
         .onAppear {
             print("ContentView: Appeared, isLoggedIn: \(appState.isLoggedIn)")
             // Track app open event
