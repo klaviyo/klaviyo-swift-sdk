@@ -8,14 +8,15 @@ struct MenuView: View {
     @State private var showingCheckout = false
 
     var body: some View {
-        NavigationView {
+        GeometryReader { _ in
             VStack(spacing: 0) {
                 // Header
                 HStack {
                     Button(action: logout) {
                         Image("Log Out")
                             .resizable()
-                            .frame(width: 30, height: 30)
+                            .frame(width: 32, height: 32)
+                            .foregroundColor(.white)
                     }
 
                     Spacer()
@@ -28,48 +29,84 @@ struct MenuView: View {
                     Spacer()
 
                     Button(action: { showingCheckout = true }) {
-                        Image(appState.cartItems.isEmpty ? "emptyCart" : "FullCart")
-                            .resizable()
-                            .frame(width: 30, height: 30)
+                        ZStack {
+                            Image(appState.cartItems.isEmpty ? "emptyCart" : "FullCart")
+                                .resizable()
+                                .frame(width: 32, height: 32)
+                                .foregroundColor(.white)
+
+                            if !appState.cartItems.isEmpty {
+                                Text("\(appState.cartItems.count)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .frame(width: 18, height: 18)
+                                    .background(Color.orange)
+                                    .clipShape(Circle())
+                                    .offset(x: 12, y: -12)
+                            }
+                        }
                     }
                 }
-                .padding()
-                .background(Color.red)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [.red, .red.opacity(0.8)]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
 
                 // Menu Items List
-                List(menuItems, id: \.id) { item in
-                    MenuItemRow(item: item, appState: appState)
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(menuItems, id: \.id) { item in
+                            MenuItemRow(item: item, appState: appState)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                    .padding(.vertical, 12)
                 }
-                .listStyle(PlainListStyle())
 
                 // Footer
-                HStack {
+                HStack(spacing: 16) {
                     Button(action: { showingMap = true }) {
-                        Image("Map")
-                            .resizable()
-                            .frame(width: 25, height: 25)
-                    }
+                        HStack(spacing: 8) {
+                            Image("Map")
+                                .resizable()
+                                .frame(width: 20, height: 20)
+                                .foregroundColor(.blue)
 
-                    Text("Zipcode: \(appState.userZipcode)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                            Text("Map")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
 
                     Spacer()
 
-                    Text("Email: \(appState.userEmail)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Zipcode: \(appState.userZipcode)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text("Email: \(appState.userEmail)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
                     Button(action: addEmail) {
                         Image("Email")
                             .resizable()
-                            .frame(width: 25, height: 25)
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(.blue)
                     }
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
                 .background(Color(.systemGray6))
             }
-            .navigationBarHidden(true)
         }
         .onAppear {
             loadMenuItems()
@@ -85,10 +122,10 @@ struct MenuView: View {
 
     private func loadMenuItems() {
         menuItems = [
-            MenuItem(name: "Fish & Chips", id: 1, description: "Lightly battered & fried fresh cod and freshly cooked fries", image: "battered_fish.jpg", price: 10.99),
-            MenuItem(name: "Nicoise Salad", id: 2, description: "Delicious salad of mixed greens, tuna nicoise and balasamic vinagrette", image: "nicoise_salad.jpg", price: 12.99),
-            MenuItem(name: "Red Pork", id: 3, description: "Our take on the popular Chinese dish", image: "red_pork.jpg", price: 11.99),
-            MenuItem(name: "Beef Bolognese", id: 4, description: "Traditional Italian Bolognese", image: "bolognese_meal.jpg", price: 10.99)
+            MenuItem(name: "Fish & Chips", id: 1, description: "Lightly battered & fried fresh cod and freshly cooked fries", price: 10.99),
+            MenuItem(name: "Nicoise Salad", id: 2, description: "Delicious salad of mixed greens, tuna nicoise and balasamic vinagrette", price: 12.99),
+            MenuItem(name: "Red Pork", id: 3, description: "Our take on the popular Chinese dish", price: 11.99),
+            MenuItem(name: "Beef Bolognese", id: 4, description: "Traditional Italian Bolognese", price: 10.99)
         ]
     }
 
@@ -107,61 +144,80 @@ struct MenuItemRow: View {
     let appState: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with name and price
             HStack {
-                Image(item.image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 150, height: 150)
-                    .clipped()
-                    .cornerRadius(8)
+                Text(item.name)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name)
-                        .font(.headline)
-                        .fontWeight(.bold)
+                Spacer()
 
-                    Text("$\(String(format: "%.2f", item.price))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                Text("$\(String(format: "%.2f", item.price))")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.red)
+            }
 
-                    Text(item.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(3)
+            // Description
+            Text(item.description)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
 
-                    Spacer()
+            // Quantity and Actions
+            HStack {
+                if appState.getQuantity(for: item) > 0 {
+                    HStack(spacing: 12) {
+                        Button(action: { appState.removeFromCart(item) }) {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.title2)
+                        }
 
-                    HStack {
-                        Text("Quantity: \(appState.getQuantity(for: item))")
-                            .font(.caption)
+                        Text("\(appState.getQuantity(for: item))")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .frame(minWidth: 30)
 
-                        if appState.getQuantity(for: item) > 0 {
-                            Button("X") {
-                                appState.removeFromCart(item)
-                            }
-                            .font(.caption)
-                            .foregroundColor(.red)
+                        Button(action: { appState.addToCart(item) }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.title2)
                         }
                     }
-
-                    Button("Add to Cart") {
-                        appState.addToCart(item)
+                } else {
+                    Button(action: { appState.addToCart(item) }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.white)
+                            Text("Add to Cart")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [.red, .red.opacity(0.8)]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(25)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(Color.red)
-                    .cornerRadius(8)
                 }
 
                 Spacer()
             }
         }
-        .navigationBarHidden(true)
-        .navigationViewStyle(StackNavigationViewStyle())
+        .padding(16)
         .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 }
 
