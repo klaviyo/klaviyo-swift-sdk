@@ -15,7 +15,7 @@ import OSLog
 public class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
-    private var locationManager: LocationManagerInterface
+    private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
     private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
@@ -28,7 +28,7 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     #if DEBUG
-    internal init(locationManager: LocationManagerInterface, geofenceManager: KlaviyoGeofenceManager) {
+    internal init(locationManager: LocationManagerProtocol, geofenceManager: KlaviyoGeofenceManager) {
         self.locationManager = locationManager
         self.geofenceManager = geofenceManager
         super.init()

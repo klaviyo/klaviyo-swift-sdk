@@ -127,7 +127,7 @@ class MockKlaviyoGeofenceManager: KlaviyoGeofenceManager {
     }
 }
 
-class MockLocationManager: LocationManagerInterface {
+class MockLocationManager: LocationManagerProtocol {
     var delegate: CLLocationManagerDelegate?
     var allowsBackgroundLocationUpdates: Bool = false
     var currentAuthorizationStatus: CLAuthorizationStatus = .notDetermined

@@ -1,5 +1,5 @@
 //
-//  CLLocationManager+LocationManagerInterface.swift
+//  CLLocationManager+LocationManagerProtocol.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Isobelle Lim on 9/24/25.
@@ -9,7 +9,7 @@ import CoreLocation
 
 // MARK: - Location Manager Protocol
 
-internal protocol LocationManagerInterface {
+internal protocol LocationManagerProtocol {
     var delegate: CLLocationManagerDelegate? { get set }
     var allowsBackgroundLocationUpdates: Bool { get set }
     var currentAuthorizationStatus: CLAuthorizationStatus { get }
@@ -24,7 +24,7 @@ internal protocol LocationManagerInterface {
 
 // MARK: - CLLocationManager Extension
 
-extension CLLocationManager: LocationManagerInterface {
+extension CLLocationManager: LocationManagerProtocol {
     var currentAuthorizationStatus: CLAuthorizationStatus {
         if #available(iOS 14.0, *) {
             return self.authorizationStatus
