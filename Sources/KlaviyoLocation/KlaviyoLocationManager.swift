@@ -17,9 +17,9 @@ public class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerInterface
     private let geofenceManager: KlaviyoGeofenceManager
-    internal let geofencePublisher: PassthroughSubject<String, Never> = .init()
+    private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    override internal init() {
+    override private init() {
         locationManager = CLLocationManager()
         geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager as! CLLocationManager)
         super.init()
@@ -79,7 +79,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         handleCLAuthorizationStatusChange(manager, status)
     }
 
-    internal func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
+    private func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("Core Location authorization status changed. New status: \(status.description)")
         }
