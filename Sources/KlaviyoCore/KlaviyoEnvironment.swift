@@ -234,6 +234,11 @@ public struct KlaviyoEnvironment {
         formsDataEnvironment: { nil },
         linkHandler: DeepLinkHandler()
     )
+
+    /// Returns `true` if the SDK is currently running in a React Native host app.
+    package static var isReactNative: Bool {
+        NSClassFromString("RCTBridge") != nil
+    }
 }
 
 public var networkSession: NetworkSession!
