@@ -37,6 +37,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .initialize(with: "ABC123")
             .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
 
+        // EXAMPLE: of how to track an event
+        KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
+
         // STEP3: register the user email with klaviyo so there is an unique way to identify your app user.
         if let email = email {
             KlaviyoSDK().set(email: email)

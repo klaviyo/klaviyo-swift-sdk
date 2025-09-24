@@ -23,7 +23,6 @@
 		7CC1C84128D74DB60073197F /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83528D74DB60073197F /* Cart.swift */; };
 		7CC1C84328D74DB60073197F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83728D74DB60073197F /* AppDelegate.swift */; };
 		7CC1C84628D74DB60073197F /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84428D74DB60073197F /* MapViewController.swift */; };
-		7CC1C84728D74DB60073197F /* Geofences.json in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C84528D74DB60073197F /* Geofences.json */; };
 		7CC1C84F28D74DB60073197F /* KLMuncheryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */; };
 		7CC1C85028D74DB60073197F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84928D74DB60073197F /* ContentView.swift */; };
 		7CC1C85128D74DB60073197F /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84A28D74DB60073197F /* LoginView.swift */; };
@@ -90,7 +89,6 @@
 		7CC1C83528D74DB60073197F /* Cart.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Cart.swift; path = ../../Shared/Cart.swift; sourceTree = "<group>"; };
 		7CC1C83728D74DB60073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
 		7CC1C84428D74DB60073197F /* MapViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapViewController.swift; path = ../../Shared/MapViewController.swift; sourceTree = "<group>"; };
-		7CC1C84528D74DB60073197F /* Geofences.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Geofences.json; sourceTree = "<group>"; };
 		7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KLMuncheryApp.swift; path = ../../Shared/KLMuncheryApp.swift; sourceTree = "<group>"; };
 		7CC1C84928D74DB60073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../../Shared/ContentView.swift; sourceTree = "<group>"; };
 		7CC1C84A28D74DB60073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = ../../Shared/LoginView.swift; sourceTree = "<group>"; };
@@ -186,7 +184,6 @@
 				7CC1C83428D74DB60073197F /* MenuItemTableViewCell.swift */,
 				7CC1C83028D74DB60073197F /* User.swift */,
 				7CC1C84428D74DB60073197F /* MapViewController.swift */,
-				7CC1C84528D74DB60073197F /* Geofences.json */,
 				7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */,
 				7CC1C84928D74DB60073197F /* ContentView.swift */,
 				7CC1C84A28D74DB60073197F /* LoginView.swift */,
@@ -346,7 +343,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7CC1C83828D74DB60073197F /* Images.xcassets in Resources */,
-				7CC1C84728D74DB60073197F /* Geofences.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
