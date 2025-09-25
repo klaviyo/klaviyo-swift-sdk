@@ -30,9 +30,13 @@
       - [Handling Other Badging Sources](#handling-other-badging-sources)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
+
+- [Universal Links](#universal-links)
+  - [Overview](#overview-1)
+  - [Setup](#setup)
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
+  - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Deep linking](#deep-linking-1)
@@ -545,6 +549,141 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 
 #### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
+
+## Universal Links
+
+### Overview
+Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in emails and In-App Forms. In order to ensure that a universal link click is properly tracked as a profile event *and* the link will be delivered to the host application to be handled as the developer intends, several things need to happen. At a high level, we do the following:
+
+1. When a marketer includes a universal link URL inside an email, Klaviyo will automatically wrap that link inside a new, uniquely identifiable URL. We call this new URL a "**universal tracking link**".
+2. When the end-user opens this email and clicks on a universal tracking link on a mobile device that has the host application installed, the link will get delivered to the host application's AppDelegate or SceneDelegate (depending on how the app is architected).
+3. The host application passes this universal tracking link to the Klaviyo Swift SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<universal tracking link>)`.
+4. The Klaviyo Swift SDK will track the click on the user's profile, and "unwrap" the universal tracking link into the *original* universal link.
+5. The Klaviyo Swift SDK handles this original universal link in one of two ways:
+    a) It uses an injected deep link handler that the host application previously registered using `KlaviyoSDK().registerDeepLinkHandler(_:)` to handle the original universal link according to the host app developer's instructions (this is the **preferred** method).
+    b) It passes the original universal link back to the AppDelegate or SceneDelegate via an [`NSUserActivity`](https://developer.apple.com/documentation/Foundation/NSUserActivity) object, invoking the link handling logic as implemented by the host application developer (this is the non-preferred **fallback** method).
+
+### Setup
+To support our universal linking implementation in your host app, you'll need to follow these setup instructions:
+>  ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
+
+#### Step 1: Configure your Klaviyo account
+Follow [these Klaviyo instructions](<TODO: link to universal linking documentation>) to configure universal linking support for your account on your Klaviyo.com dashboard.
+
+#### Step 2: Modify your app's entitlements file
+Follow Apple's developer documentation to [add the associated domains entitlement to your app](https://developer.apple.com/documentation/xcode/supporting-associated-domains#Add-the-associated-domains-entitlement-to-your-app).
+
+#### Step 3: **(recommended)** Register a deep link handler
+We recommend that you register a deep link handler to tell the Klaviyo SDK how to handle deep links. Although we have a fallback mechanism in case you don't register a handler, registering a handler will increase code stability and resiliency against possible iOS changes, and it can help reduce the complexity of your code.
+
+In the same location where you [initialize](#initialization) your SDK, call the `registerDeepLinkHandler(_:)`, passing in a callback that instructs the SDK how to handle a deep link
+
+For example:
+
+```swift
+import KlaviyoSwift
+import KlaviyoForms
+...
+
+// if registering in the same location where you're initializing the SDK
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerDeepLinkHandler { url in
+        // handle the URL here
+    }
+
+// **OR** if registering elsewhere after `KlaviyoSDK` is initialized
+KlaviyoSDK().registerDeepLinkHandler { url in
+    // handle the URL here
+}
+```
+
+#### Step 4: Pass the universal tracking link into the Klaviyo SDK
+Whether your app uses an AppDelegate or a SceneDelegate, you'll pass the universal tracking link into the Klaviyo Swift SDK using the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method.
+
+ The `handleUniversalTrackingLink` method will return `true` if the link is a valid Klaviyo universal tracking link. If the link is not a Klaviyo universal tracking link, the Klaviyo SDK will take no action with the link, and the method will return `false`. This leaves the host application to handle the non-Klaviyo link as appropriate.
+
+##### If your app uses an AppDelegate
+> *See the [next section](#if-you-have-opted-into-scenes) if your app uses a SceneDelegate*
+
+When the user opens a Klaviyo universal tracking link, the system will deliver the link to the AppDelegate's [`application(_:continue:restorationHandler:)`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/application(_:continue:restorationhandler:)) method. Within the body of this method, you'll need to extract the universal tracking link from the `NSUserActivity`, then pass the link to the Klaviyo SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<extracted URL>)`.
+
+ This code shows an example of one way to implement the `application(_:continue:restorationHandler:)` method:
+
+```swift
+func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+) -> Bool {
+    // Get the URL from the incoming user activity.
+    guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+        let incomingURL = userActivity.webpageURL
+    else {
+        return false
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return true
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+    }
+}
+```
+
+##### If you have opted into scenes
+
+If your app uses a SceneDelegate, the system delivers the Klaviyo universal tracking link to one of two SceneDelegate methods, depending on the App's state.
+
+If the app is terminated, the system delivers the universal tracking link to the [`scene(_:willConnectTo:options:)`](https://developer.apple.com/documentation/UIKit/UISceneDelegate/scene(_:willConnectTo:options:)) delegate method after launch.
+
+If the app is running or in the background, the system will deliver the universal tracking link to the [`scene(_:continue:)`](https://developer.apple.com/documentation/UIKit/UISceneDelegate/scene(_:continue:)) delegate method.
+
+Within the body of *both* of these methods, you'll need to extract the universal tracking link from the `NSUserActivity`, then pass the link to the Klaviyo SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<extracted URL>)`.
+
+As an example, your implementation may look something like this:
+
+```swift
+func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+) {
+    // Get the URL from the incoming user activity.
+    guard let userActivity = connectionOptions.userActivities.first,
+        userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+        let incomingURL = userActivity.webpageURL
+    else {
+        return
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+    }
+}
+
+...
+
+func scene(
+    _ scene: UIScene,
+    continue userActivity: NSUserActivity
+) {
+    // Get the URL from the incoming user activity.
+    guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+          let incomingURL = userActivity.webpageURL
+    else {
+        return
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+    }
+}
+```
 
 ## In-App Forms
 > ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
