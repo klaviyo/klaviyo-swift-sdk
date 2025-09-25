@@ -65,6 +65,11 @@ public class KlaviyoLocationManager: NSObject {
             geofenceDwellSettings[geofence.locationId] = geofence.dwell
         }
     }
+
+    @MainActor
+    internal func getCurrentGeofences() -> Set<CLRegion> {
+        locationManager.monitoredRegions
+    }
 }
 
 extension KlaviyoLocationManager: CLLocationManagerDelegate {
