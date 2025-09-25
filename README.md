@@ -528,28 +528,6 @@ Additionally, you can also locally trigger a deep link to make sure your code is
 
 `xcrun simctl openurl booted {your_URL_here}`
 
-##### Option 2: Universal links
-
-[Universal links](https://developer.apple.com/ios/universal-links/) are a more modern way of handling deep links and are recommended by Apple.
-They are more secure and provide a better user experience. However, unlike URL schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) Apple docs.
-
-Once you have the setup from the Apple docs in place you will need to modify the push open tracking as described below:
-
-```swift
-extension AppDelegate: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
-            print("deep link is ", url)
-        }
-        if !handled {
-           // not a klaviyo notification should be handled by other app code
-        }
-    }
-}
-```
-
-Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
-
 ### Handling Universal Links
 
 #### Overview
