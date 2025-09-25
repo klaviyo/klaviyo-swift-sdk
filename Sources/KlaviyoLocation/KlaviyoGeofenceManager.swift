@@ -6,12 +6,13 @@
 //
 
 import CoreLocation
+import KlaviyoCore
 import OSLog
 
 internal class KlaviyoGeofenceManager {
-    private let locationManager: CLLocationManager
+    private let locationManager: LocationManagerProtocol
 
-    internal init(locationManager: CLLocationManager) {
+    internal init(locationManager: LocationManagerProtocol) {
         self.locationManager = locationManager
     }
 
@@ -24,18 +25,11 @@ internal class KlaviyoGeofenceManager {
             return
         }
 
-        if #available(iOS 14.0, *) {
-            guard locationManager.authorizationStatus == .authorizedAlways else {
+        guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
+            if #available(iOS 14.0, *) {
                 Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
-                return
             }
-        } else {
-            guard CLLocationManager.authorizationStatus() == .authorizedAlways else {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
-                }
-                return
-            }
+            return
         }
 
         Task {
@@ -45,7 +39,9 @@ internal class KlaviyoGeofenceManager {
 
     internal func destroyGeofencing() {
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("Stop monitoring for all regions")
+            if !locationManager.monitoredRegions.isEmpty {
+                Logger.geoservices.info("Stop monitoring for all regions")
+            }
         }
         for region in locationManager.monitoredRegions {
             locationManager.stopMonitoring(for: region)

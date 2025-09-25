@@ -8,21 +8,24 @@
 import Combine
 import CoreLocation
 import Foundation
+import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
 public class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
-    private let locationManager = CLLocationManager()
+    private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
-    internal let geofencePublisher: PassthroughSubject<String, Never> = .init()
+    private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    override internal init() {
-        geofenceManager = KlaviyoGeofenceManager(locationManager: locationManager)
+    internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
+        self.locationManager = locationManager ?? CLLocationManager()
+        self.geofenceManager = geofenceManager ?? KlaviyoGeofenceManager(locationManager: self.locationManager)
+
         super.init()
-        locationManager.delegate = self
-        locationManager.allowsBackgroundLocationUpdates = true
+        self.locationManager.delegate = self
+        self.locationManager.allowsBackgroundLocationUpdates = true
     }
 
     deinit {
@@ -34,17 +37,8 @@ public class KlaviyoLocationManager: NSObject {
 
     @MainActor
     internal func setupGeofencing() {
-        if #available(iOS 14.0, *) {
-            if locationManager.authorizationStatus == .authorizedAlways {
-                geofenceManager.setupGeofencing()
-            }
-            // FIXME: Temporary way to trigger the location auth prompt on the SDK side to ease testing until we add it properly in the test app
-            else {
-                locationManager.requestWhenInUseAuthorization()
-                locationManager.requestAlwaysAuthorization()
-            }
-        } else {
-            // TODO: pre-iOS-14 implmentation
+        if environment.getLocationAuthorizationStatus() == .authorizedAlways {
+            geofenceManager.setupGeofencing()
         }
     }
 
@@ -65,7 +59,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @available(iOS 14.0, *)
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleCLAuthorizationStatusChange(manager, manager.authorizationStatus)
+        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
     }
 
     @available(iOS, deprecated: 14.0)
@@ -82,15 +76,11 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         case .authorizedAlways:
             geofenceManager.setupGeofencing()
 
-        case .authorizedWhenInUse:
-            break
-
-        case .restricted, .denied:
-            // TODO: disable location features
-            break
-
-        case .notDetermined:
-            break
+        case .authorizedWhenInUse, .restricted, .denied, .notDetermined:
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("Geofencing not supported on permission level: \(status.description)")
+            }
+            geofenceManager.destroyGeofencing()
 
         default:
             break

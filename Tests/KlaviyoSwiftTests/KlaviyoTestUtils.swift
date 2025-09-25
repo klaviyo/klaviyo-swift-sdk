@@ -7,6 +7,7 @@
 
 import Combine
 import CombineSchedulers
+import CoreLocation
 import KlaviyoCore
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
@@ -37,6 +38,7 @@ extension KlaviyoEnvironment {
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
             getBadgeAutoClearingSetting: { true },
+            getLocationAuthorizationStatus: { .authorizedAlways },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },

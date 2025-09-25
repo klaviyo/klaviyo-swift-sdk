@@ -6,6 +6,7 @@
 //
 
 import Combine
+import CoreLocation
 import Foundation
 import KlaviyoCore
 
@@ -88,6 +89,7 @@ extension KlaviyoEnvironment {
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
             getBadgeAutoClearingSetting: { true },
+            getLocationAuthorizationStatus: { .authorizedAlways },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },
