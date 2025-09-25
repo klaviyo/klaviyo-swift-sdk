@@ -553,30 +553,40 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 ## Universal Links
 
 ### Overview
-Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in emails and In-App Forms. In order to ensure that a universal link click is properly tracked as a profile event *and* the link will be delivered to the host application to be handled as the developer intends, several things need to happen. At a high level, we do the following:
 
-1. When a marketer includes a universal link URL inside an email, Klaviyo will automatically wrap that link inside a new, uniquely identifiable URL. We call this new URL a "**universal tracking link**".
-2. When the end-user opens this email and clicks on a universal tracking link on a mobile device that has the host application installed, the link will get delivered to the host application's AppDelegate or SceneDelegate (depending on how the app is architected).
-3. The host application passes this universal tracking link to the Klaviyo Swift SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<universal tracking link>)`.
-4. The Klaviyo Swift SDK will track the click on the user's profile, and "unwrap" the universal tracking link into the *original* universal link.
-5. The Klaviyo Swift SDK handles this original universal link in one of two ways:
-    a) It uses an injected deep link handler that the host application previously registered using `KlaviyoSDK().registerDeepLinkHandler(_:)` to handle the original universal link according to the host app developer's instructions (this is the **preferred** method).
-    b) It passes the original universal link back to the AppDelegate or SceneDelegate via an [`NSUserActivity`](https://developer.apple.com/documentation/Foundation/NSUserActivity) object, invoking the link handling logic as implemented by the host application developer (this is the non-preferred **fallback** method).
+Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in emails and In-App Forms. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
 
+1.  A marketer includes a universal link in a Klaviyo email. Klaviyo automatically wraps it in a unique, trackable URL, which we call a **universal tracking link**.
+2.  When a user clicks the link on a device with your app installed, iOS delivers the wrapped link to your application.
+3.  Your app passes this universal tracking link to the Klaviyo SDK by calling the `handleUniversalTrackingLink(_:)` method.
+4.  The SDK records a click event on the user's profile, and unwraps the universal tracking link into the *original* universal link.
+5.  The SDK then processes the original link in one of two ways:
+    * **Preferred:** It's passed to a custom deep link handler you register with the SDK. This gives you full control over the navigation logic.
+    * **Fallback:** It's passed back to your `AppDelegate` or `SceneDelegate`, invoking the logic you've written there to handle URLs.
+
+***
 ### Setup
-To support our universal linking implementation in your host app, you'll need to follow these setup instructions:
->  ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
 
-#### Step 1: Configure your Klaviyo account
-Follow [these Klaviyo instructions](<TODO: link to universal linking documentation>) to configure universal linking support for your account on your Klaviyo.com dashboard.
+Follow these steps to configure your app to handle Klaviyo universal links.
 
-#### Step 2: Modify your app's entitlements file
+> ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
+
+#### Step 1: Configure Universal Links in your Klaviyo account
+Follow our guide on [setting up universal links](<TODO: link to universal linking documentation>) in your Klaviyo account dashboard.
+
+#### Step 2: Add the Associated Domains Entitlement
 Follow Apple's developer documentation to [add the associated domains entitlement to your app](https://developer.apple.com/documentation/xcode/supporting-associated-domains#Add-the-associated-domains-entitlement-to-your-app).
 
-#### Step 3: **(recommended)** Register a deep link handler
-We recommend that you register a deep link handler to tell the Klaviyo SDK how to handle deep links. Although we have a fallback mechanism in case you don't register a handler, registering a handler will increase code stability and resiliency against possible iOS changes, and it can help reduce the complexity of your code.
+You must add the universal link domain you configured in step 1. The domain should be prefixed with `applinks:`; for example:
 
-In the same location where you [initialize](#initialization) your SDK, call the `registerDeepLinkHandler(_:)`, passing in a callback that instructs the SDK how to handle a deep link
+`applinks:mycompany.com`
+
+#### Step 3: **(Recommended)** Register a Deep Link Handler
+Registering a handler provides a reliable, centralized place to manage incoming links from Klaviyo and simplifies your app's logic.
+
+Registering a handler tells the Klaviyo SDK how to handle deep links. Although we have a fallback mechanism in case you don't register a handler, registering a handler increases code stability and resiliency against possible iOS changes, and can help reduce your code's complexity.
+
+In the same location where you [initialize](#initialization) the SDK, call `registerDeepLinkHandler(_:)` with a closure that handles the URL.
 
 For example:
 
@@ -585,23 +595,21 @@ import KlaviyoSwift
 import KlaviyoForms
 ...
 
-// if registering in the same location where you're initializing the SDK
+// Chained with initialization
 KlaviyoSDK()
     .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
     .registerDeepLinkHandler { url in
-        // handle the URL here
+        // Your code to parse the URL and use the result to navigate to a specific screen
     }
 
-// **OR** if registering elsewhere after `KlaviyoSDK` is initialized
+// **Or** called separately after initialization
 KlaviyoSDK().registerDeepLinkHandler { url in
-    // handle the URL here
+    // Your code to parse the URL and use the result to navigate to a specific screen
 }
 ```
 
 #### Step 4: Pass the universal tracking link into the Klaviyo SDK
-Whether your app uses an AppDelegate or a SceneDelegate, you'll pass the universal tracking link into the Klaviyo Swift SDK using the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method.
-
- The `handleUniversalTrackingLink` method will return `true` if the link is a valid Klaviyo universal tracking link. If the link is not a Klaviyo universal tracking link, the Klaviyo SDK will take no action with the link, and the method will return `false`. This leaves the host application to handle the non-Klaviyo link as appropriate.
+You need to pass the incoming universal tracking link URL from the `NSUserActivity` object to the Klaviyo SDK by calling the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method. This method returns `true` if the link is a valid Klaviyo universal tracking link. If it returns `false`, the link is not a Klaviyo universal tracking link, and you should handle the non-Klaviyo link as appropriate.
 
 ##### If your app uses an AppDelegate
 > *See the [next section](#if-you-have-opted-into-scenes) if your app uses a SceneDelegate*
@@ -684,6 +692,8 @@ func scene(
     }
 }
 ```
+
+To reduce duplication of code, you may choose to create a single helper method to process the URL and call it from both places.
 
 ## In-App Forms
 > ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
