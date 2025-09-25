@@ -21,16 +21,15 @@
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
-    - [Deep Linking](#deep-linking)
-      - [Option 1: URL Schemes](#option-1-url-schemes)
-      - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
     - [Badge Count](#badge-count)
        - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
-
+- [Deep Linking](#deep-linking)
+  - [Option 1: URL Schemes](#option-1-url-schemes)
+  - [Option 2: Universal Links](#option-2-universal-links)
 - [Universal Links](#universal-links)
   - [Overview](#overview-1)
   - [Setup](#setup)
@@ -346,7 +345,77 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Deep Linking
+#### Rich Push
+
+>  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
+
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.  Once the steps
+in the [Installation](#installation) section are complete, you should have a notification service extension in your
+project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
+
+##### Testing rich push notifications
+
+* To test rich push notifications, you will need three things:
+  * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
+* A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "Sample title for a Klaviyo push notification",
+      "body": "Sample body for a Klaviyo push notification"
+    },
+    "mutable-content": 1
+  },
+  "rich-media": "https://picsum.photos/200/300.jpg",
+  "rich-media-type": "jpg"
+}
+```
+  * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
+
+Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+#### Badge Count
+>  ℹ️ Setting or incrementing the badge count is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
+
+Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
+
+##### Autoclearing
+
+By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
+
+##### Handling Other Badging Sources
+
+Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
+
+#### Silent Push Notifications
+
+Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
+>  ℹ️ Silent push support is available by default. The Klaviyo SDK does not provide specific handling for silent push notifications. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
+
+To handle silent push notifications in your app, you'll need to implement the appropriate delegate methods yourself. Here's an example of how to handle silent push notifications:
+
+```
+func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+  // Access custom key-value pairs from the top level
+  if let customData = userInfo["key_value_pairs"] as? [String: String] {
+    // Process your custom key-value pairs here
+    for (key, value) in kvPairs {
+        print("Key: \(key), Value: \(value)")
+    }
+  } else {
+      print("No key_value_pairs found in notification")
+  }
+}
+```
+
+>  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
+
+#### Custom Data
+Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
+
+## Deep Linking
 
 >  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
 
@@ -479,76 +548,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 ```
 
 Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
-
-#### Rich Push
-
->  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
-
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.  Once the steps
-in the [Installation](#installation) section are complete, you should have a notification service extension in your
-project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
-
-##### Testing rich push notifications
-
-* To test rich push notifications, you will need three things:
-  * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
-* A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
-
-```json
-{
-  "aps": {
-    "alert": {
-      "title": "Sample title for a Klaviyo push notification",
-      "body": "Sample body for a Klaviyo push notification"
-    },
-    "mutable-content": 1
-  },
-  "rich-media": "https://picsum.photos/200/300.jpg",
-  "rich-media-type": "jpg"
-}
-```
-  * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
-
-Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
-
-#### Badge Count
->  ℹ️ Setting or incrementing the badge count is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
-
-Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
-
-##### Autoclearing
-
-By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
-
-##### Handling Other Badging Sources
-
-Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
-
-#### Silent Push Notifications
-
-Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
->  ℹ️ Silent push support is available by default. The Klaviyo SDK does not provide specific handling for silent push notifications. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
-
-To handle silent push notifications in your app, you'll need to implement the appropriate delegate methods yourself. Here's an example of how to handle silent push notifications:
-
-```
-func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-  // Access custom key-value pairs from the top level
-  if let customData = userInfo["key_value_pairs"] as? [String: String] {
-    // Process your custom key-value pairs here
-    for (key, value) in kvPairs {
-        print("Key: \(key), Value: \(value)")
-    }
-  } else {
-      print("No key_value_pairs found in notification")
-  }
-}
-```
-
->  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
-
-#### Custom Data
-Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
 ## Universal Links
 
