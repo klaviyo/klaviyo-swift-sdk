@@ -554,7 +554,7 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ### Overview
 
-Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in emails and In-App Forms. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
+Klaviyo supports embedding trackable [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in email campaigns. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
 
 1.  A marketer includes a universal link in a Klaviyo email. Klaviyo automatically wraps it in a unique, trackable URL, which we call a **universal tracking link**.
 2.  When a user clicks the link on a device with your app installed, iOS delivers the wrapped link to your application.
