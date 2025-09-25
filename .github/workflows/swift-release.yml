@@ -1,0 +1,82 @@
+# A workflow for validating that release branch versions match the version in code
+
+name: Release Branch Version Check
+
+# Triggers the workflow when we push to a rel/* branch or create a tag
+on:
+  push:
+    branches:
+      - 'rel/*'
+    tags:
+      - '*'
+
+jobs:
+  version-check:
+    name: Validate Release Branch Version
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Extract version from branch name and Version.swift, then compare them
+      - name: Validate Version Match
+        id: validate_version_match
+        run: |
+          # Determine if this is a tag or branch push
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/}"
+            echo "Detected tag push: $VERSION_NAME"
+          elif [[ "${GITHUB_REF}" == refs/heads/rel/* ]]; then
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            if [[ $BRANCH_NAME =~ ^rel/(.+)$ ]]; then
+              VERSION_NAME="${BASH_REMATCH[1]}"
+              echo "Detected rel/* branch push: $VERSION_NAME"
+            else
+              ERROR_MESSAGE="Error: branch name does not match expected pattern"
+              echo "$ERROR_MESSAGE"
+              echo "ERROR_MESSAGE=$ERROR_MESSAGE" >> $GITHUB_ENV
+              exit 1
+            fi
+          else
+            echo "Info: Not a rel/* branch or tag push. Exiting successfully."
+            exit 0
+          fi
+
+          # Extract version from Version.swift
+          SWIFT_VERSION=$(grep -o '__klaviyoSwiftVersion = "[^"]*"' Sources/KlaviyoCore/Utils/Version.swift | sed 's/.*"\([^"]*\)".*/\1/')
+          echo "Version.swift version: $SWIFT_VERSION"
+
+          # Compare versions
+          if [ "$VERSION_NAME" = "$SWIFT_VERSION" ]; then
+            echo "✅ Version match confirmed: $VERSION_NAME"
+          else
+            ERROR_MESSAGE="❌ Version mismatch! Expected version: $VERSION_NAME, Version.swift version: $SWIFT_VERSION. Please update the version number in Sources/KlaviyoCore/Utils/Version.swift (or correct the branch/tag name)."
+            echo "$ERROR_MESSAGE"
+            echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+            echo "SWIFT_VERSION=$SWIFT_VERSION" >> $GITHUB_ENV
+            echo "ERROR_MESSAGE=$ERROR_MESSAGE" >> $GITHUB_ENV
+            exit 1
+          fi
+
+      # Send Slack notification on failure
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Release Version Mismatch Detected"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Release Version Mismatch Detected\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Ref:* `${{ github.ref_name }}`\n*Expected Version:* `${{ env.VERSION_NAME }}`\n*Version.swift Version:* `${{ env.SWIFT_VERSION }}`\n*Error:* `${{ env.ERROR_MESSAGE }}`\n*Action:* Please update the version number in `Sources/KlaviyoCore/Utils/Version.swift` (or correct the branch/tag name)."
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
