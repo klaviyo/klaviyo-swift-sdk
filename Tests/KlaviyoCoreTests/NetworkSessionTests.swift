@@ -61,7 +61,7 @@ class NetworkSessionTests: XCTestCase {
 
             // Verify the result
             XCTAssertNotNil(result)
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3 (test-plugin/1.0.0)")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.1.0 (test-plugin/1.0.0)")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
@@ -77,7 +77,7 @@ class NetworkSessionTests: XCTestCase {
         // Call the function with our mock bundle
         let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
-        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3")
+        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.1.0")
     }
 
     func testGetPluginConfigurationWithInvalidPlist() {
@@ -97,7 +97,7 @@ class NetworkSessionTests: XCTestCase {
             let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
             // Verify the result is default
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.0.3")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.1.0")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
