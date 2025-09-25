@@ -21,16 +21,11 @@ public class KlaviyoLocationManager: NSObject {
 
     internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
-        self.geofenceManager = geofenceManager ?? Self.createDefaultGeofenceManager(with: self.locationManager)
+        self.geofenceManager = geofenceManager ?? KlaviyoGeofenceManager(locationManager: self.locationManager)
 
         super.init()
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
-    }
-
-    private static func createDefaultGeofenceManager(with locationManager: LocationManagerProtocol) -> KlaviyoGeofenceManager {
-        let clLocationManager = locationManager as? CLLocationManager ?? CLLocationManager()
-        return KlaviyoGeofenceManager(locationManager: clLocationManager)
     }
 
     deinit {

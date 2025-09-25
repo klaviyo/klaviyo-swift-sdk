@@ -10,9 +10,9 @@ import KlaviyoCore
 import OSLog
 
 internal class KlaviyoGeofenceManager {
-    private let locationManager: CLLocationManager
+    private let locationManager: LocationManagerProtocol
 
-    internal init(locationManager: CLLocationManager) {
+    internal init(locationManager: LocationManagerProtocol) {
         self.locationManager = locationManager
     }
 
