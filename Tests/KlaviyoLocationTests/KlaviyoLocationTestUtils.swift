@@ -119,7 +119,7 @@ extension KlaviyoState {
 
 // MARK: - Test Data Helpers
 
-extension GeofenceTestsUtils {
+enum KlaviyoLocationTestUtils {
     /// Creates test geofence data in the JSON API format
     static func createTestGeofenceData() -> Data {
         let jsonString = """
