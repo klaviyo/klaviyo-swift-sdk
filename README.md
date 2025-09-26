@@ -421,6 +421,23 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link on an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
 
 
+### Adding link-handling logic
+
+We recommend that your create a helper method to contain the link handling logic. This may include parsing a URL into its components, using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
+
+As an example, you may add a method like the following within your `AppDelegate` or `SceneDelegate`:
+
+```swift
+func handleDeepLink(url: URL) {
+    // parse the URL into its components by creating a URLComponents object; i.e.,
+    // let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
+
+    // extract the path and/or the query items from the URL components
+
+    // use your app's navigation logic to handle routing to the appropriate
+    // screen given the extracted path and/or query items
+}
+```
 
 ### Handling URL Schemes
 
@@ -462,7 +479,8 @@ struct MyApplication: App {
         WindowGroup {
             ContentView()
                 .onOpenURL { url in
-                // handle the URL that must be opened
+                // handle the URL
+                // if you created a helper method (see "Adding link-handling logic", above), call it here
             }
         }
     }
@@ -536,11 +554,13 @@ KlaviyoSDK()
     .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
     .registerDeepLinkHandler { url in
         // Your code to parse the URL and use the result to navigate to a specific screen
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
     }
 
 // **Or** called separately after initialization
 KlaviyoSDK().registerDeepLinkHandler { url in
     // Your code to parse the URL and use the result to navigate to a specific screen
+    // if you created a helper method (see "Adding link-handling logic", above), call it here
 }
 ```
 
@@ -571,6 +591,7 @@ func application(
         return true
     } else {
         // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
     }
 }
 ```
@@ -605,6 +626,7 @@ func scene(
         return
     } else {
         // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
     }
 }
 
@@ -625,11 +647,10 @@ func scene(
         return
     } else {
         // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
     }
 }
 ```
-
-To reduce duplication of code, you may choose to create a single helper method to process the URL and call it from both places.
 
 ## In-App Forms
 > ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
