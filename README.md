@@ -494,12 +494,13 @@ If your app uses the UIKit app life cycle, you will handle incoming URLs in your
 For detailed instructions and code examples for the UIKit approach, please refer to Apple's official documentation: [Handling incoming URLs](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Handle-incoming-URLs)
 
 
-#### Validation
+### Validation
 
-Once you've completed this setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website.
-Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
+To validate your deep linking setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. You can configure the push notification to trigger a deep link via either a URL scheme or a universal link. When you send the push notification and open it on your mobile device, validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
 
-Additionally, you can locally trigger a deep link to make sure your code is working using the following command in the terminal.
+To validate that Klaviyo universal tracking links are working properly, you'll need to create a test email campaign through the Klaviyo website, and include in the email a universal link matching the scheme you congfigured when you [set up universal links in your Klaviyo account](#configure-universal-links-in-your-klaviyo-account). Send the campaign, and copy the link from the email. Open the link on your mobile device and validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
+
+Additionally, you can locally trigger a deep link using the following command in the terminal:
 
 `xcrun simctl openurl booted {your_URL_here}`
 
