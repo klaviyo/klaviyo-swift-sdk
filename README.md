@@ -342,6 +342,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
+>  ℹ️ To ensure that push notifications are handled properly when they contain deep links (via a custom URL scheme or via a universal link), please refer to the [Deep Linking](#deep-linking) section below.
+
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
 #### Rich Push
