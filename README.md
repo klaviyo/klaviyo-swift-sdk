@@ -420,7 +420,6 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link on an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
 
-
 ### Adding link-handling logic
 
 We recommend that your create a helper method to contain the link handling logic. This may include parsing a URL into its components, using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
@@ -492,17 +491,6 @@ struct MyApplication: App {
 If your app uses the UIKit app life cycle, you will handle incoming URLs in your `SceneDelegate` or `AppDelegate`.
 
 For detailed instructions and code examples for the UIKit approach, please refer to Apple's official documentation: [Handling incoming URLs](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Handle-incoming-URLs)
-
-
-### Validation
-
-To validate your deep linking setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. You can configure the push notification to trigger a deep link via either a URL scheme or a universal link. When you send the push notification and open it on your mobile device, validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
-
-To validate that Klaviyo universal tracking links are working properly, you'll need to create a test email campaign through the Klaviyo website, and include in the email a universal link matching the scheme you congfigured when you [set up universal links in your Klaviyo account](#configure-universal-links-in-your-klaviyo-account). Send the campaign, and copy the link from the email. Open the link on your mobile device and validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
-
-Additionally, you can locally trigger a deep link using the following command in the terminal:
-
-`xcrun simctl openurl booted {your_URL_here}`
 
 ### Handling Universal Links
 
@@ -652,6 +640,16 @@ func scene(
     }
 }
 ```
+
+### Validation
+
+To validate your deep linking setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. You can configure the push notification to trigger a deep link via either a URL scheme or a universal link. When you send the push notification and open it on your mobile device, validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
+
+To validate that Klaviyo universal tracking links are working properly, you'll need to create a test email campaign through the Klaviyo website, and include in the email a universal link matching the scheme you congfigured when you [set up universal links in your Klaviyo account](#configure-universal-links-in-your-klaviyo-account). Send the campaign, and copy the link from the email. Open the link on your mobile device and validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
+
+Additionally, you can locally trigger a deep link using the following command in the terminal:
+
+`xcrun simctl openurl booted {your_URL_here}`
 
 ## In-App Forms
 > ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
