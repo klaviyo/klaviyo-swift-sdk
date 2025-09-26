@@ -434,7 +434,7 @@ URL schemes are the traditional and simpler way of deep linking from a push noti
 However, these links will only work if your mobile app is installed on a device and will not be understood by
 a web browser if, for example, you want to link from an email to your app.
 
-###### Step 1: Register the URL scheme
+#### Step 1: Register the URL scheme
 
 In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
 
@@ -462,7 +462,7 @@ In order to edit the Info.plist directly, just fill in your app specific details
 </array>
 ```
 
-###### Step 2: Whitelist supported URL schemes
+#### Step 2: Whitelist supported URL schemes
 
 Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
 
@@ -475,7 +475,7 @@ This needs to be done in the Info.plist directly:
 </array>
 ```
 
-###### Step 3: Implement handling deep links in your app
+#### Step 3: Implement handling deep links in your app
 
 Steps 1 and 2 enable your app to receive deep links, but you also need to handle these links within your app.
 This is done by implementing the [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application)
