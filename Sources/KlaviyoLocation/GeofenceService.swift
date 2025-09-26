@@ -7,6 +7,7 @@
 
 import CoreLocation
 import KlaviyoCore
+import KlaviyoSwift
 import OSLog
 
 internal protocol GeofenceServiceProvider {
@@ -36,7 +37,17 @@ internal struct GeofenceService: GeofenceServiceProvider {
             switch result {
             case let .success(data):
                 do {
-                    let geofences = try JSONDecoder().decode([Geofence].self, from: data)
+                    let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
+                    let companyId = try await KlaviyoInternal.fetchAPIKey()
+
+                    let geofences = try response.data.map { rawGeofence in
+                        try Geofence(
+                            id: "\(companyId)-\(rawGeofence.id)",
+                            longitude: rawGeofence.attributes.longitude,
+                            latitude: rawGeofence.attributes.latitude,
+                            radius: rawGeofence.attributes.radius
+                        )
+                    }
                     newRegions = Set(geofences)
                 } catch {
                     if #available(iOS 14.0, *) {
@@ -55,5 +66,21 @@ internal struct GeofenceService: GeofenceServiceProvider {
         }
 
         return newRegions
+    }
+}
+
+private struct GeofenceJSONResponse: Codable {
+    let data: [GeofenceJSON]
+}
+
+private struct GeofenceJSON: Codable {
+    let type: String
+    let id: String
+    let attributes: Attributes
+
+    struct Attributes: Codable {
+        let latitude: Double
+        let longitude: Double
+        let radius: Double
     }
 }
