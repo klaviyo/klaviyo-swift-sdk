@@ -497,6 +497,8 @@ Klaviyo supports embedding trackable [universal links](https://developer.apple.c
     * **Preferred:** It's passed to a custom deep link handler you register with the SDK. This gives you full control over the navigation logic.
     * **Fallback:** It's passed back to your `AppDelegate` or `SceneDelegate`, invoking the logic you've written there to handle URLs.
 
+Note that the instructions below will also enable your app to handle standard universal links (i.e., links that are not Klaviyo universal tracking links)
+
 #### Setup
 
 Follow these steps to configure your app to handle Klaviyo universal links.
