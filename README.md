@@ -416,115 +416,70 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ## Deep Linking
 
+[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link on an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
+
+
+
 ### Handling URL Schemes
 
 >  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
 
-[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification.
-
-You need to configure deep links in your app for them to work. The configuration process for Klaviyo is no different from what is required for handling deep linking in general,
-so you can follow the [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) for deep linking in conjunction
-with the steps outlined here.
-
-You have two options for implementing deep links: URL schemes and Universal Links.
-
-##### Option 1: URL Schemes
-
-URL schemes are the traditional and simpler way of deep linking from a push notification to your app.
-However, these links will only work if your mobile app is installed on a device and will not be understood by
-a web browser if, for example, you want to link from an email to your app.
+URL schemes are a simple way to enable deep linking in your app. Here's how to set them up:
 
 #### Step 1: Register the URL scheme
 
-In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
+First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
 
-The required fields are as following:
+#### Step 2: Whitelist Your URL Scheme
 
-1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
-1. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
-1. **Role** - Since your app will be editing the role select the role as editor.
+Next, you need to whitelist your URL scheme in your app's `Info.plist` file. This allows your app to open deep links from push notifications.
 
-In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist.
-
-```xml
-<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>{your_unique_identifier}</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>{your_URL_scheme}</string>
-        </array>
-    </dict>
-</array>
-```
-
-#### Step 2: Whitelist supported URL schemes
-
-Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
-
-This needs to be done in the Info.plist directly:
+To do this, add the following to your `Info.plist`:
 
 ```xml
 <key>LSApplicationQueriesSchemes</key>
 <array>
-    <string>{your custom URL scheme}</string>
+    <string>{your_url_scheme}</string>
 </array>
 ```
 
-#### Step 3: Implement handling deep links in your app
+Replace `{your_url_scheme}` with the URL scheme you registered in Step 1.
 
-Steps 1 and 2 enable your app to receive deep links, but you also need to handle these links within your app.
-This is done by implementing the [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application)
-method in your app delegate.
+#### Step 3: Handle the deep links in your app
 
-Example:
+Finally, you need to add code to your app to process incoming URLs and navigate to the correct content. The implementation differs depending on whether your app uses SwiftUI or UIKit for its lifecycle.
 
-```swift
-func application(
-    _ app: UIApplication,
-    open url: URL,
-    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-) -> Bool {
-    guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true)
-    else {
-       print("Invalid deep linking URL")
-       return false
-    }
+##### For SwiftUI Apps
 
-    print("components: \(components.debugDescription)")
-
-    return true
-}
-```
-
-If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](<https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)>) as a view modifier in the view you intent to handle deep links. This may or may not be the root of your scene.
-
-Example:
+If your app uses the SwiftUI app life cycle, you should use the [`onOpenURL(perform:)`](<https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)>) view modifier. Attach the modifier to the root view in your main App scene.
 
 ```swift
 @main
 struct MyApplication: App {
-  var body: some Scene {
-    WindowGroup {
-      ContentView()
-        .onOpenURL { url in
-          // handle the URL that must be opened
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .onOpenURL { url in
+                // handle the URL that must be opened
+            }
         }
     }
-  }
 }
 ```
 
-Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
+##### For UIKit Apps
 
-Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website.
+If your app uses the UIKit app life cycle, you will handle incoming URLs in your `SceneDelegate` or `AppDelegate`.
+
+For detailed instructions and code examples for the UIKit approach, please refer to Apple's official documentation: [Handling incoming URLs](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Handle-incoming-URLs)
+
+
+#### Validation
+
+Once you've completed this setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website.
 Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
 
-Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
+Additionally, you can locally trigger a deep link to make sure your code is working using the following command in the terminal.
 
 `xcrun simctl openurl booted {your_URL_here}`
 
