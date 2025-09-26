@@ -53,7 +53,14 @@ internal class KlaviyoGeofenceManager {
         let activeGeofences: Set<Geofence> = Set(
             locationManager.monitoredRegions.compactMap { region in
                 guard let circularRegion = region as? CLCircularRegion else { return nil }
-                return circularRegion.toKlaviyoGeofence()
+                do {
+                    return try circularRegion.toKlaviyoGeofence()
+                } catch {
+                    if #available(iOS 14.0, *) {
+                        Logger.geoservices.error("Failed to convert CLCircularRegion to Geofence: \(error)")
+                    }
+                    return nil
+                }
             }
         )
 
