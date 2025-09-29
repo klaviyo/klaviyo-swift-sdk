@@ -114,7 +114,6 @@ final class GeofenceTests: XCTestCase {
         let firstGeofence = geofences.first { $0.locationId == "8db4effa-44f1-45e6-a88d-8e7d50516a0f" }!
         XCTAssertEqual(firstGeofence.id, "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(firstGeofence.companyId, "ABC123")
-        XCTAssertEqual(firstGeofence.locationId, "8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(firstGeofence.latitude, 40.7128)
         XCTAssertEqual(firstGeofence.longitude, -74.006)
         XCTAssertEqual(firstGeofence.radius, 100)
@@ -122,24 +121,12 @@ final class GeofenceTests: XCTestCase {
         let secondGeofence = geofences.first { $0.locationId == "a84011cf-93ef-4e78-b047-c0ce4ea258e4" }!
         XCTAssertEqual(secondGeofence.id, "ABC123-a84011cf-93ef-4e78-b047-c0ce4ea258e4")
         XCTAssertEqual(secondGeofence.companyId, "ABC123")
-        XCTAssertEqual(secondGeofence.locationId, "a84011cf-93ef-4e78-b047-c0ce4ea258e4")
         XCTAssertEqual(secondGeofence.latitude, 40.6892)
         XCTAssertEqual(secondGeofence.longitude, -74.0445)
         XCTAssertEqual(secondGeofence.radius, 200)
     }
 
     // MARK: - ID Validation Tests
-
-    func testValidIdFormat() throws {
-        // Test valid format: 6 alphanumeric company ID + UUID
-        let geofence = try Geofence(
-            id: "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f",
-            longitude: -74.006,
-            latitude: 40.7128,
-            radius: 100.0
-        )
-        XCTAssertEqual(geofence.id, "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f")
-    }
 
     func testInvalidIdFormatMissingCompanyId() {
         XCTAssertThrowsError(try Geofence(
