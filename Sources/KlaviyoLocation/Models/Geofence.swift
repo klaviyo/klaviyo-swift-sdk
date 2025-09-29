@@ -62,7 +62,7 @@ public struct Geofence: Equatable, Hashable, Codable {
     private static func validateIdFormat(_ id: String) throws {
         let pattern = "^[a-zA-Z0-9]{6}-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
         guard id.range(of: pattern, options: .regularExpression) != nil else {
-            throw GeofenceError.invalidIdFormat("ID must be in format 'ABC123-uuid', got: '\(id)'")
+            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}-{geofenceUUID}', got: '\(id)'")
         }
     }
 
@@ -79,15 +79,8 @@ public struct Geofence: Equatable, Hashable, Codable {
 }
 
 /// Errors that can occur when working with geofences
-public enum GeofenceError: Error, LocalizedError {
+public enum GeofenceError: Error {
     case invalidIdFormat(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case let .invalidIdFormat(message):
-            return "Invalid geofence ID format: \(message)"
-        }
-    }
 }
 
 extension CLCircularRegion {

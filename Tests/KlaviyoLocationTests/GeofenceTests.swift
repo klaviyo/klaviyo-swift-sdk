@@ -148,7 +148,7 @@ final class GeofenceTests: XCTestCase {
             latitude: 40.7128,
             radius: 100.0
         )) { error in
-            XCTAssertTrue(error is GeofenceError)
+            XCTAssertTrue(error is GeofenceError.invalidIdFormat)
         }
     }
 }

@@ -10,12 +10,6 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-/// Errors that can occur in GeofenceService
-internal enum GeofenceServiceError: Error {
-    case apiRequestFailed
-    case decodingFailed
-}
-
 internal protocol GeofenceServiceProvider {
     func fetchGeofences() async -> Set<Geofence>
 }
@@ -55,11 +49,11 @@ internal struct GeofenceService: GeofenceServiceProvider {
         switch result {
         case let .success(data):
             return data
-        case .failure:
+        case let .failure(error):
             if #available(iOS 14.0, *) {
                 Logger.geoservices.error("Failed to fetch geofences from mock endpoint https://mock-api.com/geofences")
             }
-            throw GeofenceServiceError.apiRequestFailed
+            throw error
         }
     }
 
@@ -82,7 +76,7 @@ internal struct GeofenceService: GeofenceServiceProvider {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.error("Failed to decode geofences from response: \(error)")
             }
-            throw GeofenceServiceError.decodingFailed
+            throw error
         }
     }
 }

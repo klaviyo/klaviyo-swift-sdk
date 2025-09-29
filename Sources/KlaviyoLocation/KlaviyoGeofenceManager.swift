@@ -17,17 +17,16 @@ internal class KlaviyoGeofenceManager {
     }
 
     internal func setupGeofencing() {
-        // TODO: Consider factoring permission checks out to its own class
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Geofencing is not supported on this device")
+                Logger.geoservices.warning("Geofencing is not supported on this device")
             }
             return
         }
 
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
+                Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
             }
             return
         }
