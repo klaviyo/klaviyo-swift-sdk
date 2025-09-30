@@ -723,11 +723,6 @@ KlaviyoSDK().unregisterFromInAppForms()
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
-
-### Deep linking
-
-Deep linking to a particular screen based on user action from an In-App Form is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
-
 ## Additional Details
 
 ### Sandbox Support
