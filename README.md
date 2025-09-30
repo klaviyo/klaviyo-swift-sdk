@@ -424,7 +424,7 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ### Adding link-handling logic
 
-We recommend that your create a helper method to contain the link handling logic. This may include parsing a URL into its components, using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
+We recommend that your create a helper method to contain the link handling logic. This may include parsing a URL into its components, then using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
 
 As an example, you may add a method like the following within your `AppDelegate` or `SceneDelegate`:
 
