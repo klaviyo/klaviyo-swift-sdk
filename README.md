@@ -424,7 +424,7 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ### Adding link-handling logic
 
-We recommend that your create a helper method to contain the link handling logic. This may include parsing a URL into its components, then using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
+We recommend that you create a helper method to contain the link handling logic. This may include parsing a URL into its components, then using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
 
 As an example, you may add a method like the following within your `AppDelegate` or `SceneDelegate`:
 
@@ -496,7 +496,8 @@ For detailed instructions and code examples for the UIKit approach, please refer
 
 ### Handling Universal Links
 
->  ℹ️  Full trackable universal links support is available in SDK version 5.1.0 and higher
+>  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
+>  Full trackable universal links support is available in SDK version 5.1.0 and higher.
 
 Klaviyo supports embedding trackable [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in email campaigns. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
 
@@ -660,6 +661,7 @@ Additionally, you can locally trigger a deep link using the following command in
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers configured via the [`KlaviyoSDK().set(...)` methods](https://github.com/klaviyo/klaviyo-swift-sdk/blob/61e64552ad2acb65985e9305ae56eb57ff38d28b/Sources/KlaviyoSwift/Klaviyo.swift#L69-L135).
+With version 5.1.0, In-App Forms supports triggering from any event tracked via `KlaviyoSDK().create(event: event)` including opened push events. No additional code changes are required. Marketers can configure new forms to be triggered by specific events and any app using 5.1.0+ will be eligible.
 
 ### Prerequisites
 
@@ -671,8 +673,9 @@ Beginning with version 5.0.0, In-App Forms supports advanced targeting and segme
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
 | Basic In-App Forms | 4.2.0+              |
-| Time Delay         | 5.0.0               |
-| Audience Targeting | 5.0.0               |
+| Time Delay         | 5.0.0+              |
+| Audience Targeting | 5.0.0+              |
+| Event Triggers     | 5.1.0               |
 
 ### Setup
 
