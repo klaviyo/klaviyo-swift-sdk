@@ -672,9 +672,9 @@ With version 5.1.0, In-App Forms supports triggering from any event tracked via 
 
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
-| Basic In-App Forms | 4.2.0+              |
-| Time Delay         | 5.0.0+              |
-| Audience Targeting | 5.0.0+              |
+| Basic In-App Forms | 4.2.0               |
+| Time Delay         | 5.0.0               |
+| Audience Targeting | 5.0.0               |
 | Event Triggers     | 5.1.0               |
 
 ### Setup
