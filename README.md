@@ -420,7 +420,7 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ## Deep Linking
 
-[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link on an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
+Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link in an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
 
 ### Adding link-handling logic
 
@@ -499,7 +499,7 @@ For detailed instructions and code examples for the UIKit approach, please refer
 >  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
 >  Full trackable universal links support is available in SDK version 5.1.0 and higher.
 
-Klaviyo supports embedding trackable [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) in email campaigns. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
+Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) with click tracking in emails. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
 
 1.  A marketer includes a universal link in a Klaviyo email. Klaviyo automatically wraps it in a unique, trackable URL, which we call a **universal tracking link**.
 2.  When a user clicks the link on a device with your app installed, iOS delivers the wrapped link to your application.
@@ -513,7 +513,7 @@ Note that the instructions below will also enable your app to handle standard un
 
 #### Setup
 
-Follow these steps to configure your app to handle Klaviyo universal links.
+Follow these steps to configure your app to handle Klaviyo universal tracking links.
 
 > ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
 
@@ -557,7 +557,7 @@ KlaviyoSDK().registerDeepLinkHandler { url in
 ```
 
 #### Step 4: Pass the universal tracking link into the Klaviyo SDK
-You need to pass the incoming universal tracking link URL from the `NSUserActivity` object to the Klaviyo SDK by calling the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method. This method returns `true` if the link is a valid Klaviyo universal tracking link. If it returns `false`, the link is not a Klaviyo universal tracking link, and you should handle the non-Klaviyo link as appropriate.
+You need to pass the incoming universal tracking link URL from the `NSUserActivity` object to the Klaviyo SDK by calling the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method. This method returns `true` synchronously if the link is a valid Klaviyo universal tracking link. If it returns `false`, the link is not a Klaviyo universal tracking link, and you should handle the non-Klaviyo link as appropriate.
 
 ##### If your app uses an AppDelegate
 > *See the [next section](#if-you-have-opted-into-scenes) if your app uses a SceneDelegate*
