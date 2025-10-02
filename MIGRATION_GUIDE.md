@@ -15,9 +15,6 @@ We have added a deprecation warning for the `handle(notificationResponse:withCom
 
 This version enhances functionality for universal links, ensuring that links delivered via email campaigns can be opened in-app *and* be tracked as a Klaviyo profile event when clicked. We encourage you to adopt this new functionality to ensure you're getting full support for universal links. Refer to [**Handling Universal Links**](./README.md#handling-universal-links) in the README.
 
-#### Trigger In-App Forms with an Event
-With 5.1.0, we introduced support for triggering an in-app form off any event tracked via `KlaviyoSDK().create(event: event)`, including opening a push notification. No additional code changes are required to enable this feature.
-
 ## Migrating to v5.0.0
 
 ### In-App Forms

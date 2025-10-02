@@ -420,7 +420,7 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 ## Deep Linking
 
-Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping on a link in an In-App Form, or by tapping on a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
+Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping an In-App Form link, or by tapping a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
 
 ### Adding link-handling logic
 
@@ -661,6 +661,7 @@ Additionally, you can locally trigger a deep link using the following command in
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
 Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers configured via the [`KlaviyoSDK().set(...)` methods](https://github.com/klaviyo/klaviyo-swift-sdk/blob/61e64552ad2acb65985e9305ae56eb57ff38d28b/Sources/KlaviyoSwift/Klaviyo.swift#L69-L135).
+
 With version 5.1.0, In-App Forms supports triggering from any event tracked via `KlaviyoSDK().create(event: event)` including opened push events. No additional code changes are required. Marketers can configure new forms to be triggered by specific events and any app using 5.1.0+ will be eligible.
 
 ### Prerequisites
