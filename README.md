@@ -662,6 +662,12 @@ display forms according to their targeting and behavior settings and collect del
 
 In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific segments of profiles and configure event-based triggers and delays. See the table below to understand available features by SDK version.
 
+### Prerequisites
+
+* Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
+* We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features. The minimum SDK version supporting In-App Forms is `4.2.0`, and a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
+* Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding changes to In-App Forms behavior.
+
 
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
