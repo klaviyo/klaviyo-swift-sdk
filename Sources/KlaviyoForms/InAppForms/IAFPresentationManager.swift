@@ -94,7 +94,9 @@ class IAFPresentationManager {
             }
         }
 
-        profileObserver = ProfileObserver()
+        if profileObserver == nil {
+            profileObserver = ProfileObserver()
+        }
         profileObserver?.startObserving()
 
         profileEventsTask = Task { [weak self] in
@@ -150,6 +152,8 @@ class IAFPresentationManager {
         Task { [weak self] in
             guard let self else { return }
             do {
+                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
+
                 // Wait for forms data to load before processing buffered events
                 try await viewModel.waitForFormsDataLoaded(timeout: NetworkSession.networkTimeout.seconds)
 

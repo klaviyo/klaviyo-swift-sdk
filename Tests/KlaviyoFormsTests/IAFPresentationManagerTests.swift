@@ -548,6 +548,29 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     func handleScriptMessage(_ message: WKScriptMessage) {}
 }
 
+private final class MockProfileObserver: JSBridgeObserver {
+    let stream: AsyncStream<Event>
+    let continuation: AsyncStream<Event>.Continuation
+
+    var eventsStream: AsyncStream<Event> { stream }
+
+    init() {
+        (stream, continuation) = AsyncStream.makeStream(of: Event.self)
+    }
+
+    func startObserving() {
+        // Mock - do nothing
+    }
+
+    func stopObserving() {
+        continuation.finish()
+    }
+
+    func simulateEvent(_ event: Event) {
+        continuation.yield(event)
+    }
+}
+
 private final class MockIAFPresentationManager: IAFPresentationManager {
     var createFormAndAwaitFormEventsCalled = false
     var destroyWebviewCalled = false
@@ -555,6 +578,7 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var destroyWebviewExpectation: XCTestExpectation?
     var createFormAndAwaitFormEventsExpectation: XCTestExpectation?
     var handledEvents: [String] = []
+    var mockProfileObserver: MockProfileObserver?
 
     override func createFormAndAwaitFormEvents(apiKey: String) async throws {
         createFormAndAwaitFormEventsCalled = true
