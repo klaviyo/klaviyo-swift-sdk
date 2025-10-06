@@ -33,6 +33,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
+    private let (formsDataLoadedStream, formsDataLoadedContinuation) = AsyncStream.makeStream(of: Void.self)
 
     // MARK: - Scripts
 
@@ -159,6 +160,26 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
+    func waitForFormsDataLoaded(timeout: TimeInterval) async throws {
+        do {
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.formsDataLoadedStream.first { _ in true }
+            }
+        } catch let error as TimeoutError {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Forms data loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+            }
+            throw error
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error waiting for forms data loaded: \(error)")
+            }
+            throw error
+        }
+    }
+
     // MARK: - Handle profile changes
 
     @MainActor
@@ -242,7 +263,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
-            ()
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received 'formsDataLoaded' event from KlaviyoJS")
+            }
+            formsDataLoadedContinuation.yield(())
         case .formWillAppear:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")

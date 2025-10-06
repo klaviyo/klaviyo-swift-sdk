@@ -38,7 +38,7 @@ class IAFPresentationManager {
     private var delayedPresentationTask: Task<Void, Never>?
 
     package var pendingProfileEvents: [Event] = []
-    package var isHandshakeComplete = false
+    package var isFormsDataLoaded = false
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -95,8 +95,8 @@ class IAFPresentationManager {
         profileEventsTask = Task { [weak self] in
             guard let self, let eventsStream = self.profileObserver?.eventsStream else { return }
             for await event in eventsStream {
-                // Buffer events until handshake completes
-                if self.isHandshakeComplete {
+                // Buffer events until forms data is loaded
+                if self.isFormsDataLoaded {
                     try await self.handleProfileEventCreated(event)
                 } else {
                     // Check if event is fresh (not older than 10 seconds)
@@ -104,7 +104,7 @@ class IAFPresentationManager {
                     if eventAge <= 10.0 {
                         self.pendingProfileEvents.append(event)
                         if #available(iOS 14.0, *) {
-                            Logger.webViewLogger.info("Buffering event '\(event.metric.name.value, privacy: .public)' until handshake completes")
+                            Logger.webViewLogger.info("Buffering event '\(event.metric.name.value, privacy: .public)' until forms data is loaded")
                         }
                     } else {
                         if #available(iOS 14.0, *) {
@@ -147,11 +147,14 @@ class IAFPresentationManager {
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
 
-                // Handshake complete! Process buffered events
+                // Wait for forms data to load before processing buffered events
+                try await viewModel.waitForFormsDataLoaded(timeout: NetworkSession.networkTimeout.seconds)
+
+                // Forms data loaded! Process buffered events
                 await self.processBufferedEvents()
 
             } catch {
-                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake or load forms data with KlaviyoJS: \(error).") }
                 self.destroyWebviewAndListeners()
             }
 
@@ -165,7 +168,7 @@ class IAFPresentationManager {
     }
 
     private func processBufferedEvents() async {
-        self.isHandshakeComplete = true
+        self.isFormsDataLoaded = true
 
         if #available(iOS 14.0, *), !self.pendingProfileEvents.isEmpty {
             Logger.webViewLogger.info("Processing \(self.pendingProfileEvents.count) buffered event(s)")
@@ -394,7 +397,7 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
-        isHandshakeComplete = false
+        isFormsDataLoaded = false
         pendingProfileEvents.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()

@@ -512,11 +512,11 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then - event should be buffered, not injected yet
         XCTAssertEqual(presentationManager.pendingProfileEvents.count, 1)
-        XCTAssertFalse(presentationManager.isHandshakeComplete)
+        XCTAssertFalse(presentationManager.isFormsDataLoaded)
     }
 
     @MainActor
-    func testBufferedEventsAreProcessedAfterHandshake() async throws {
+    func testBufferedEventsAreProcessedAfterFormsDataLoaded() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Buffered event is processed")
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
@@ -528,18 +528,18 @@ final class IAFPresentationManagerTests: XCTestCase {
             return true
         }
 
-        // Create and buffer event before handshake
+        // Create and buffer event before forms data is loaded
         let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
         KlaviyoInternal.publishEvent(testEvent)
 
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
-        // When - trigger handshake completion
+        // When - trigger forms data loaded completion
         mockApiKeyPublisher.send("test-api-key")
 
         // Then - buffered event should be processed
         await fulfillment(of: [expectation], timeout: 2.0)
-        XCTAssertTrue(presentationManager.isHandshakeComplete)
+        XCTAssertTrue(presentationManager.isFormsDataLoaded)
         XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
     }
 
