@@ -395,6 +395,88 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
+    func testHandleProfileEventWithEmoji() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event with emoji is handled successfully")
+        var evaluatedScripts: [String] = []
+        var caughtError: Error?
+
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            print("📝 Evaluated script: \(script)")
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When - test with emoji in event name
+        let testEvent = Event(name: .customEvent("Push Opened 🎉"), properties: ["title": "Test Push"])
+
+        do {
+            try await presentationManager.handleProfileEventCreated(testEvent)
+        } catch {
+            caughtError = error
+        }
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertNil(caughtError, "Should not throw error with emoji in event name")
+
+        let scriptWithEmoji = evaluatedScripts.first { script in
+            script.contains("dispatchProfileEvent") && script.contains("🎉")
+        }
+        XCTAssertNotNil(scriptWithEmoji, "Should find script with emoji")
+
+        if let script = scriptWithEmoji {
+            print("✅ Script with emoji: \(script)")
+            // Verify the script is syntactically correct JavaScript
+            XCTAssertTrue(script.contains("'Push Opened 🎉'"), "Event name with emoji should be properly formatted")
+        }
+    }
+
+    @MainActor
+    func testHandleProfileEventWithSpecialCharacters() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event with special characters is handled")
+        var evaluatedScripts: [String] = []
+        var caughtError: Error?
+
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            print("📝 Evaluated script: \(script)")
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When - test with single quote in event name
+        let testEvent = Event(name: .customEvent("User's Action"), properties: [:])
+
+        do {
+            try await presentationManager.handleProfileEventCreated(testEvent)
+        } catch {
+            caughtError = error
+        }
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        if let error = caughtError {
+            print("❌ Error caught: \(error)")
+        }
+
+        let scriptWithQuote = evaluatedScripts.first { script in
+            script.contains("dispatchProfileEvent")
+        }
+
+        if let script = scriptWithQuote {
+            print("📄 Generated script: \(script)")
+        }
+    }
+
+    @MainActor
     func testEventSubscriptionCleanup() async throws {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
@@ -411,6 +493,100 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Should not crash or cause issues
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+    }
+
+    // MARK: - Event Buffering Tests
+
+    @MainActor
+    func testEventsAreBufferedBeforeHandshakeCompletes() async throws {
+        // Given
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+
+        // Create event before handshake completes
+        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
+
+        // When - publish event before handshake
+        KlaviyoInternal.publishEvent(testEvent)
+
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then - event should be buffered, not injected yet
+        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 1)
+        XCTAssertFalse(presentationManager.isHandshakeComplete)
+    }
+
+    @MainActor
+    func testBufferedEventsAreProcessedAfterHandshake() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Buffered event is processed")
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+
+        mockViewController.evaluateJavaScriptCallback = { script in
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // Create and buffer event before handshake
+        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
+        KlaviyoInternal.publishEvent(testEvent)
+
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // When - trigger handshake completion
+        mockApiKeyPublisher.send("test-api-key")
+
+        // Then - buffered event should be processed
+        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(presentationManager.isHandshakeComplete)
+        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
+    }
+
+    @MainActor
+    func testStaleEventsAreNotBuffered() async throws {
+        // Given
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+
+        // Create stale event (15 seconds old)
+        let staleEvent = Event(
+            name: ._openedPush,
+            properties: ["title": "Test Push"],
+            time: Date(timeIntervalSinceNow: -15)
+        )
+
+        // When
+        KlaviyoInternal.publishEvent(staleEvent)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        // Then - stale event should not be buffered
+        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
+    }
+
+    @MainActor
+    func testEventsAfterHandshakeAreProcessedImmediately() async throws {
+        // Given
+        let expectation = XCTestExpectation(description: "Event processed immediately")
+        presentationManager.initializeIAF(configuration: InAppFormsConfig())
+        mockApiKeyPublisher.send("test-api-key")
+
+        // Wait for handshake to complete
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+        mockViewController.evaluateJavaScriptCallback = { script in
+            if script.contains("dispatchProfileEvent") {
+                expectation.fulfill()
+            }
+            return true
+        }
+
+        // When - publish event after handshake
+        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
+        KlaviyoInternal.publishEvent(testEvent)
+
+        // Then - event should be processed immediately, not buffered
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
     }
 }
 

@@ -37,6 +37,9 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
 
+    package var pendingProfileEvents: [Event] = []
+    package var isHandshakeComplete = false
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -90,9 +93,25 @@ class IAFPresentationManager {
         profileObserver?.startObserving()
 
         profileEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
+            guard let self, let eventsStream = self.profileObserver?.eventsStream else { return }
             for await event in eventsStream {
-                try await handleProfileEventCreated(event)
+                // Buffer events until handshake completes
+                if self.isHandshakeComplete {
+                    try await self.handleProfileEventCreated(event)
+                } else {
+                    // Check if event is fresh (not older than 10 seconds)
+                    let eventAge = Date().timeIntervalSince(event.time)
+                    if eventAge <= 10.0 {
+                        self.pendingProfileEvents.append(event)
+                        if #available(iOS 14.0, *) {
+                            Logger.webViewLogger.info("Buffering event '\(event.metric.name.value, privacy: .public)' until handshake completes")
+                        }
+                    } else {
+                        if #available(iOS 14.0, *) {
+                            Logger.webViewLogger.info("Skipping stale event '\(event.metric.name.value, privacy: .public)' (age: \(String(format: "%.1f", eventAge))s)")
+                        }
+                    }
+                }
             }
         }
     }
@@ -127,9 +146,13 @@ class IAFPresentationManager {
             guard let self else { return }
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
+
+                // Handshake complete! Process buffered events
+                await self.processBufferedEvents()
+
             } catch {
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
-                destroyWebviewAndListeners()
+                self.destroyWebviewAndListeners()
             }
 
             // now that we've established the handshake, we can start a task that listens for Form events.
@@ -139,6 +162,28 @@ class IAFPresentationManager {
                 }
             }
         }
+    }
+
+    private func processBufferedEvents() async {
+        self.isHandshakeComplete = true
+
+        if #available(iOS 14.0, *), !self.pendingProfileEvents.isEmpty {
+            Logger.webViewLogger.info("Processing \(self.pendingProfileEvents.count) buffered event(s)")
+        }
+
+        for event in self.pendingProfileEvents {
+            // Re-check age in case processing took time
+            let eventAge = Date().timeIntervalSince(event.time)
+            if eventAge <= 10.0 {
+                try? await self.handleProfileEventCreated(event)
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Skipping stale buffered event '\(event.metric.name.value, privacy: .public)' (age: \(String(format: "%.1f", eventAge))s)")
+                }
+            }
+        }
+
+        self.pendingProfileEvents.removeAll()
     }
 
     private func handleFormEvent(_ event: IAFLifecycleEvent) {
@@ -349,6 +394,8 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
+        isHandshakeComplete = false
+        pendingProfileEvents.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()
