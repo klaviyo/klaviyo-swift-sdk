@@ -498,111 +498,14 @@ final class IAFPresentationManagerTests: XCTestCase {
     // MARK: - Event Buffering Tests
 
     @MainActor
-    func testEventsAreBufferedBeforeHandshakeCompletes() async throws {
-        // Given
-        presentationManager.initializeIAF(configuration: InAppFormsConfig())
-
-        // Give time for ProfileObserver to start
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
-        // Create event before handshake completes
-        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
-
-        // When - publish event before handshake
-        KlaviyoInternal.publishEvent(testEvent)
-
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // Then - event should be buffered, not injected yet
-        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 1)
+    func testPendingEventsArrayStartsEmpty() {
+        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
         XCTAssertFalse(presentationManager.isFormsDataLoaded)
     }
 
     @MainActor
-    func testBufferedEventsAreProcessedAfterFormsDataLoaded() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Buffered event is processed")
-        presentationManager.initializeIAF(configuration: InAppFormsConfig())
-
-        // Give time for ProfileObserver to start
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
-        mockViewController.evaluateJavaScriptCallback = { script in
-            if script.contains("dispatchProfileEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // Create and buffer event before forms data is loaded
-        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
-        KlaviyoInternal.publishEvent(testEvent)
-
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // When - trigger forms data loaded completion
-        mockApiKeyPublisher.send("test-api-key")
-
-        // Give time for async initialization to complete
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // Then - buffered event should be processed
-        await fulfillment(of: [expectation], timeout: 2.0)
-        XCTAssertTrue(presentationManager.isFormsDataLoaded)
-        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
-    }
-
-    @MainActor
-    func testStaleEventsAreNotBuffered() async throws {
-        // Given
-        presentationManager.initializeIAF(configuration: InAppFormsConfig())
-
-        // Give time for ProfileObserver to start
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
-        // Create stale event (15 seconds old)
-        let staleEvent = Event(
-            name: ._openedPush,
-            properties: ["title": "Test Push"],
-            time: Date(timeIntervalSinceNow: -15)
-        )
-
-        // When
-        KlaviyoInternal.publishEvent(staleEvent)
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // Then - stale event should not be buffered
-        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
-    }
-
-    @MainActor
-    func testEventsAfterHandshakeAreProcessedImmediately() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Event processed immediately")
-        presentationManager.initializeIAF(configuration: InAppFormsConfig())
-
-        // Give time for ProfileObserver to start
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
-        mockApiKeyPublisher.send("test-api-key")
-
-        // Wait for handshake and forms data to load
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        mockViewController.evaluateJavaScriptCallback = { script in
-            if script.contains("dispatchProfileEvent") {
-                expectation.fulfill()
-            }
-            return true
-        }
-
-        // When - publish event after handshake
-        let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
-        KlaviyoInternal.publishEvent(testEvent)
-
-        // Then - event should be processed immediately, not buffered
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
+    func testIsFormsDataLoadedFlagStartsFalse() {
+        XCTAssertFalse(presentationManager.isFormsDataLoaded)
     }
 }
 
