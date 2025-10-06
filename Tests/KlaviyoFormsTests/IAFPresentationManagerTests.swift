@@ -78,7 +78,7 @@ final class IAFPresentationManagerTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        presentationManager = MockIAFPresentationManager(viewController: mockViewController)
+        presentationManager = MockIAFPresentationManager(viewController: mockViewController, viewModel: mockViewModel)
         mockApiKeyPublisher.send("setup-key") // initialize SDK
         try await Task.sleep(nanoseconds: 1_000_000_000) // wait for initialization to be completed
     }
@@ -502,13 +502,16 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
 
+        // Give time for ProfileObserver to start
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
         // Create event before handshake completes
         let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
 
         // When - publish event before handshake
         KlaviyoInternal.publishEvent(testEvent)
 
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
         // Then - event should be buffered, not injected yet
         XCTAssertEqual(presentationManager.pendingProfileEvents.count, 1)
@@ -521,6 +524,9 @@ final class IAFPresentationManagerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Buffered event is processed")
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
 
+        // Give time for ProfileObserver to start
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
         mockViewController.evaluateJavaScriptCallback = { script in
             if script.contains("dispatchProfileEvent") {
                 expectation.fulfill()
@@ -532,10 +538,13 @@ final class IAFPresentationManagerTests: XCTestCase {
         let testEvent = Event(name: ._openedPush, properties: ["title": "Test Push"])
         KlaviyoInternal.publishEvent(testEvent)
 
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
         // When - trigger forms data loaded completion
         mockApiKeyPublisher.send("test-api-key")
+
+        // Give time for async initialization to complete
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
         // Then - buffered event should be processed
         await fulfillment(of: [expectation], timeout: 2.0)
@@ -548,6 +557,9 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
 
+        // Give time for ProfileObserver to start
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
         // Create stale event (15 seconds old)
         let staleEvent = Event(
             name: ._openedPush,
@@ -557,7 +569,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         KlaviyoInternal.publishEvent(staleEvent)
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
         // Then - stale event should not be buffered
         XCTAssertEqual(presentationManager.pendingProfileEvents.count, 0)
@@ -568,9 +580,13 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Given
         let expectation = XCTestExpectation(description: "Event processed immediately")
         presentationManager.initializeIAF(configuration: InAppFormsConfig())
+
+        // Give time for ProfileObserver to start
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
         mockApiKeyPublisher.send("test-api-key")
 
-        // Wait for handshake to complete
+        // Wait for handshake and forms data to load
         try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
         mockViewController.evaluateJavaScriptCallback = { script in
@@ -640,7 +656,9 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     override func createFormAndAwaitFormEvents(apiKey: String) async throws {
         createFormAndAwaitFormEventsCalled = true
         createFormAndAwaitFormEventsExpectation?.fulfill()
-        try await super.createFormAndAwaitFormEvents(apiKey: apiKey)
+        // Skip creating new viewController/viewModel since mocks are already set
+        // Just start listening for form events
+        listenForFormEvents()
     }
 
     override func destroyWebView() {

@@ -18,9 +18,17 @@ protocol KlaviyoWebViewModeling: AnyObject {
     var loadScripts: Set<WKUserScript>? { get }
     var messageHandlers: Set<String>? { get }
 
+    var formLifecycleStream: AsyncStream<IAFLifecycleEvent> { get }
+
     @MainActor
     func handleNavigationEvent(_ event: WKNavigationEvent)
 
     @MainActor
     func handleScriptMessage(_ message: WKScriptMessage)
+
+    @MainActor
+    func establishHandshake(timeout: TimeInterval) async throws
+
+    @MainActor
+    func waitForFormsDataLoaded(timeout: TimeInterval) async throws
 }

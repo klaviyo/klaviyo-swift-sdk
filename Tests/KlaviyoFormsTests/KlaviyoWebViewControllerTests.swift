@@ -37,8 +37,22 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
     var loadScripts: Set<WKUserScript>?
 
+    let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
+    private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
+
     init(url: URL) {
         self.url = url
+        let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
+        formLifecycleStream = stream
+        formLifecycleContinuation = continuation
+    }
+
+    func establishHandshake(timeout: TimeInterval) async throws {
+        // Mock implementation - immediately succeeds
+    }
+
+    func waitForFormsDataLoaded(timeout: TimeInterval) async throws {
+        // Mock implementation - immediately succeeds
     }
 
     func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {}

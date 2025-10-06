@@ -29,7 +29,7 @@ class IAFPresentationManager {
     private var profileEventsTask: Task<Void, Error>?
 
     private var viewController: KlaviyoWebViewController?
-    private var viewModel: IAFWebViewModel?
+    private var viewModel: KlaviyoWebViewModeling?
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
@@ -56,6 +56,11 @@ class IAFPresentationManager {
     #if DEBUG
     package init(viewController: KlaviyoWebViewController?) {
         self.viewController = viewController
+    }
+
+    package init(viewController: KlaviyoWebViewController?, viewModel: KlaviyoWebViewModeling?) {
+        self.viewController = viewController
+        self.viewModel = viewModel
     }
     #endif
 
@@ -139,14 +144,12 @@ class IAFPresentationManager {
 
     // MARK: - Form Event Subscription
 
-    private func listenForFormEvents() {
+    package func listenForFormEvents() {
         guard let viewModel else { return }
 
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
-
                 // Wait for forms data to load before processing buffered events
                 try await viewModel.waitForFormsDataLoaded(timeout: NetworkSession.networkTimeout.seconds)
 
@@ -258,7 +261,7 @@ class IAFPresentationManager {
             guard let self else { return }
 
             if viewController != nil {
-                if let viewModel, viewModel.apiKey == apiKey {
+                if let viewModel = viewModel as? IAFWebViewModel, viewModel.apiKey == apiKey {
                     // if viewController/viewModel already exist and the viewModel's
                     // API key matches the one we just received, do nothing
                     return

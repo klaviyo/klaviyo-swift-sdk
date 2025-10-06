@@ -24,10 +24,15 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     var loadScripts: Set<WKUserScript>? = PreviewWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
+    let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
+    private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
 
     init(url: URL) {
         self.url = url
+        let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
+        formLifecycleStream = stream
+        formLifecycleContinuation = continuation
     }
 
     private static func initializeLoadScripts() -> Set<WKUserScript> {
@@ -89,6 +94,14 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     }
 
     // MARK: handle WKWebView events
+
+    public func establishHandshake(timeout: TimeInterval) async throws {
+        // Preview implementation - not needed for previews
+    }
+
+    public func waitForFormsDataLoaded(timeout: TimeInterval) async throws {
+        // Preview implementation - not needed for previews
+    }
 
     public func handleNavigationEvent(_ event: WKNavigationEvent) {
         navEventContinuation.yield(event)
