@@ -27,9 +27,9 @@ class IAFPresentationManager {
 
     private var profileObserver: ProfileObserver?
     private var profileEventsTask: Task<Void, Error>?
-    private var pendingEvents: [Event] = []
+    var pendingEvents: [Event] = []
 
-    private var viewController: KlaviyoWebViewController?
+    var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
     private var configuration: InAppFormsConfig?
@@ -121,7 +121,7 @@ class IAFPresentationManager {
 
     // MARK: - Form Lifecycle Listener Setup
 
-    private func setupFormLifecycleListener() {
+    func setupFormLifecycleListener() {
         guard let viewModel else { return }
 
         if #available(iOS 14.0, *) {
@@ -160,7 +160,7 @@ class IAFPresentationManager {
         }
     }
 
-    private func handleFormEvent(_ event: IAFLifecycleEvent) {
+    func handleFormEvent(_ event: IAFLifecycleEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
         }
@@ -241,7 +241,7 @@ class IAFPresentationManager {
     }
     
     /// Replays all pending events that were buffered before webview was ready
-    private func replayPendingEvents() async {
+    func replayPendingEvents() async {
         guard !pendingEvents.isEmpty else { return }
         
         if #available(iOS 14.0, *) {

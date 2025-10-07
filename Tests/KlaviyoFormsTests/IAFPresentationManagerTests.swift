@@ -412,6 +412,181 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Should not crash or cause issues
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
     }
+    
+    // MARK: - Event Buffering Tests
+    
+    @MainActor
+    func testEventBufferedWhenWebviewNotReady() async throws {
+        // Given - Verify buffer starts empty
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should start empty")
+        
+        // Simulate race condition by temporarily setting viewController to nil
+        let originalViewController = presentationManager.viewController
+        presentationManager.viewController = nil
+        
+        // When - Send event when viewController is nil
+        let event = Event(name: ._openedPush, properties: ["message_id": "123"])
+        try await presentationManager.handleProfileEventCreated(event)
+        
+        // Then - Event should be buffered
+        XCTAssertEqual(presentationManager.pendingEvents.count, 1, "Event should be buffered when viewController is nil")
+        XCTAssertEqual(presentationManager.pendingEvents.first?.metric.name, ._openedPush, "Buffered event should be the opened push event")
+        
+        // Restore viewController
+        presentationManager.viewController = originalViewController
+    }
+    
+    @MainActor
+    func testBufferedEventReplayedAfterWebviewReady() async throws {
+        // Given
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            return true
+        }
+        
+        // Buffer an event manually
+        let event = Event(name: ._openedPush, properties: ["message_id": "456"])
+        presentationManager.pendingEvents = [event]
+        
+        XCTAssertEqual(presentationManager.pendingEvents.count, 1, "Event should be in buffer")
+        
+        // When - Call replayPendingEvents with viewController present
+        await presentationManager.replayPendingEvents()
+        
+        try await Task.sleep(nanoseconds: 100_000_000) // Wait for async dispatch
+        
+        // Then - Event should be replayed and buffer cleared
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should be cleared after replay")
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("dispatchProfileEvent") && script.contains("$opened_push")
+        }, "Buffered event should be dispatched to JavaScript")
+    }
+    
+    @MainActor
+    func testFormsDataLoadedTriggersImmediateReplay() async throws {
+        // Given
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            return true
+        }
+        
+        // Buffer an event manually
+        let event = Event(name: ._openedPush, properties: ["test": "value"])
+        presentationManager.pendingEvents = [event]
+        
+        // When - Trigger formsDataLoaded event
+        presentationManager.handleFormEvent(.formsDataLoaded)
+        try await Task.sleep(nanoseconds: 100_000_000) // Wait for async replay task
+        
+        // Then - Event should be replayed immediately
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should be cleared")
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("dispatchProfileEvent") && script.contains("$opened_push")
+        }, "Event should be replayed immediately when formsDataLoaded arrives")
+    }
+    
+    @MainActor
+    func testEventsDispatchedImmediatelyWhenWebviewReady() async throws {
+        // Given - viewController already exists from setUp
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            return true
+        }
+        
+        // Verify buffer is empty and viewController exists
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should start empty")
+        
+        // When - Send event when viewController exists
+        let event = Event(name: .viewedProductMetric, properties: ["product_id": "789"])
+        try await presentationManager.handleProfileEventCreated(event)
+        
+        try await Task.sleep(nanoseconds: 100_000_000) // Wait for async dispatch
+        
+        // Then - Event should be dispatched immediately (not buffered)
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Event should not be buffered when viewController exists")
+        XCTAssertTrue(evaluatedScripts.contains { script in
+            script.contains("dispatchProfileEvent") && script.contains("Viewed Product")
+        }, "Event should be dispatched immediately when webview already exists")
+    }
+    
+    @MainActor
+    func testMultipleEventsBufferedAndReplayedInOrder() async throws {
+        // Given
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            return true
+        }
+        
+        // Buffer multiple events manually
+        let event1 = Event(name: ._openedPush, properties: ["order": "1"])
+        let event2 = Event(name: .viewedProductMetric, properties: ["order": "2"])
+        let event3 = Event(name: .addedToCartMetric, properties: ["order": "3"])
+        
+        presentationManager.pendingEvents = [event1, event2, event3]
+        XCTAssertEqual(presentationManager.pendingEvents.count, 3, "All events should be in buffer")
+        
+        // When - Replay events
+        await presentationManager.replayPendingEvents()
+        try await Task.sleep(nanoseconds: 200_000_000) // Wait for async dispatches
+        
+        // Then - All events should be replayed in order
+        let openedPushIndex = evaluatedScripts.firstIndex { $0.contains("$opened_push") }
+        let viewedProductIndex = evaluatedScripts.firstIndex { $0.contains("Viewed Product") }
+        let addedToCartIndex = evaluatedScripts.firstIndex { $0.contains("Added to Cart") }
+        
+        XCTAssertNotNil(openedPushIndex, "First event should be replayed")
+        XCTAssertNotNil(viewedProductIndex, "Second event should be replayed")
+        XCTAssertNotNil(addedToCartIndex, "Third event should be replayed")
+        
+        if let idx1 = openedPushIndex, let idx2 = viewedProductIndex, let idx3 = addedToCartIndex {
+            XCTAssertTrue(idx1 < idx2 && idx2 < idx3, "Events should be replayed in order")
+        }
+    }
+    
+    @MainActor
+    func testBufferClearedOnDestroy() async throws {
+        // Given - Buffer an event
+        let event = Event(name: ._openedPush, properties: ["message_id": "999"])
+        presentationManager.pendingEvents = [event]
+        
+        XCTAssertEqual(presentationManager.pendingEvents.count, 1, "Event should be in buffer")
+        
+        // When - Destroy
+        presentationManager.destroyWebviewAndListeners()
+        
+        // Then - Buffer should be cleared
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should be cleared on destroy")
+    }
+    
+    @MainActor
+    func testDoubleReplayDoesNotDuplicateEvents() async throws {
+        // Given
+        var evaluatedScripts: [String] = []
+        mockViewController.evaluateJavaScriptCallback = { script in
+            evaluatedScripts.append(script)
+            return true
+        }
+        
+        // Buffer an event
+        let event = Event(name: ._openedPush, properties: ["test": "idempotent"])
+        presentationManager.pendingEvents = [event]
+        
+        // When - Call replay multiple times (simulates both fast path and timeout)
+        await presentationManager.replayPendingEvents()
+        await presentationManager.replayPendingEvents()
+        await presentationManager.replayPendingEvents()
+        
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Then - Event should only be dispatched once (idempotent)
+        let openedPushCount = evaluatedScripts.filter { $0.contains("$opened_push") }.count
+        XCTAssertEqual(openedPushCount, 1, "Event should only be replayed once despite multiple replay calls")
+        XCTAssertTrue(presentationManager.pendingEvents.isEmpty, "Buffer should be empty after first replay")
+    }
 }
 
 // MARK: - Mock Classes
@@ -446,10 +621,15 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var destroyWebviewExpectation: XCTestExpectation?
     var createFormWebViewAndListenExpectation: XCTestExpectation?
     var handledEvents: [String] = []
+    
+    override init(viewController: KlaviyoWebViewController?) {
+        super.init(viewController: viewController)
+    }
 
     override func createFormWebViewAndListen(apiKey: String) async throws {
         createFormWebViewAndListenCalled = true
         createFormWebViewAndListenExpectation?.fulfill()
+        // Call super to properly set up viewModel and viewController
         try await super.createFormWebViewAndListen(apiKey: apiKey)
     }
 
