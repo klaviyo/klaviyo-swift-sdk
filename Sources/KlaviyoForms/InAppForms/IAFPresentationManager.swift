@@ -27,6 +27,7 @@ class IAFPresentationManager {
 
     private var profileObserver: ProfileObserver?
     private var profileEventsTask: Task<Void, Error>?
+    private var pendingEvents: [Event] = []
 
     private var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -37,10 +38,6 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     
-    // Buffer for events that arrive before webview is ready and forms data is loaded
-    private var pendingEvents: [Event] = []
-    private var isFormsDataLoaded = false
-
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -101,19 +98,19 @@ class IAFPresentationManager {
         }
     }
 
-    func createFormAndAwaitFormEvents(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        createIAF(apiKey: apiKey, profileData: profileData)
-        listenForFormEvents()
-    }
-
     private func initializeFormWithAPIKey() async throws {
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        try await createFormAndAwaitFormEvents(apiKey: apiKey)
+        try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    /// - Parameter newProfileData: the profile information with which to load the IAF
-    private func createIAF(apiKey: String, profileData: ProfileData?) {
+    func createFormWebViewAndListen(apiKey: String) async throws {
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+        createFormWebView(apiKey: apiKey, profileData: profileData)
+        setupFormLifecycleListener()
+    }
+
+    /// Creates the webview, view model, and view controller for displaying in-app forms
+    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
@@ -122,17 +119,16 @@ class IAFPresentationManager {
         viewController?.modalPresentationStyle = .overCurrentContext
     }
 
-    // MARK: - Form Event Subscription
+    // MARK: - Form Lifecycle Listener Setup
 
-    private func listenForFormEvents() {
+    private func setupFormLifecycleListener() {
         guard let viewModel else { return }
 
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("👂 Starting to listen for form lifecycle events (BEFORE handshake)")
         }
 
-        // Start listening for form lifecycle events BEFORE handshake completes
-        // This ensures we don't miss the .present event if it's triggered during handshake
+        // Start listening for form lifecycle events before handshake to avoid missing any events
         formEventTask = Task { [weak self] in
             guard let self else { return }
             for await event in viewModel.formLifecycleStream {
@@ -148,32 +144,13 @@ class IAFPresentationManager {
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("✅ Handshake completed successfully")
-                    Logger.webViewLogger.info("⏳ Waiting for forms data to load before replaying events...")
+                    Logger.webViewLogger.info("✅ Handshake completed successfully. Waiting for forms data to load before replaying events...")
                 }
                 
-                // Wait up to 3 seconds for forms data to load
-                // If it doesn't load in that time, replay events anyway as a fallback
-                let formsDataTimeout: TimeInterval = 3.0
-                let startTime = Date()
+                // Wait up to 5 seconds for forms data to load
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
                 
-                while !self.isFormsDataLoaded {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // Check every 0.1 seconds
-                    
-                    if Date().timeIntervalSince(startTime) > formsDataTimeout {
-                        if #available(iOS 14.0, *) {
-                            Logger.webViewLogger.warning("⚠️ Forms data didn't load within \(formsDataTimeout)s timeout. Replaying events anyway...")
-                        }
-                        break
-                    }
-                }
-                
-                // Replay events (either after formsDataLoaded or after timeout)
-                if self.isFormsDataLoaded {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("✅ Forms data loaded successfully")
-                    }
-                }
+                // Replay events (either already replayed by formsDataLoaded, or now as fallback)
                 await self.replayPendingEvents()
                 
             } catch {
@@ -189,8 +166,10 @@ class IAFPresentationManager {
         }
         switch event {
         case .formsDataLoaded:
-            // Just mark as loaded - the handshake task will handle replaying
-            isFormsDataLoaded = true
+            // Replay buffered events immediately now that forms data is ready
+            Task {
+                await replayPendingEvents()
+            }
         case .present:
             presentForm()
         case .dismiss:
@@ -302,7 +281,7 @@ class IAFPresentationManager {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
                 }
-                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                try await self.createFormWebViewAndListen(apiKey: apiKey)
                 startLifecycleObservation()
             }
         }
@@ -315,7 +294,7 @@ class IAFPresentationManager {
         formEventTask = nil
         lifecycleObserver?.stopObserving()
         do {
-            try await createFormAndAwaitFormEvents(apiKey: apiKey)
+            try await createFormWebViewAndListen(apiKey: apiKey)
             startLifecycleObservation()
         } catch {
             if #available(iOS 14.0, *) {
@@ -418,7 +397,6 @@ class IAFPresentationManager {
 
         self.viewController = nil
         viewModel = nil
-        isFormsDataLoaded = false
     }
 
     func destroyWebviewAndListeners() {
@@ -426,7 +404,6 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
-        isFormsDataLoaded = false
         lifecycleObserver = nil
         companyObserver = nil
         profileObserver = nil

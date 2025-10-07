@@ -158,7 +158,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         presentationManager.destroyWebviewCalled = false
-        presentationManager.createFormAndAwaitFormEventsCalled = false
+        presentationManager.createFormWebViewAndListenCalled = false
 
         // When
         mockLifecycleEvents.send(.backgrounded)
@@ -167,7 +167,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
-        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should not be recreated when foregrounding within session")
+        XCTAssertFalse(presentationManager.createFormWebViewAndListenCalled, "Web view should not be recreated when foregrounding within session")
     }
 
     @MainActor
@@ -183,12 +183,12 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Wait for initial setup creating webview to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         presentationManager.destroyWebviewCalled = false
-        presentationManager.createFormAndAwaitFormEventsCalled = false
+        presentationManager.createFormWebViewAndListenCalled = false
 
         let destroyExpectation = XCTestExpectation(description: "Web view is destroyed on new session")
         let createExpectation = XCTestExpectation(description: "Web view is created on new session")
         presentationManager.destroyWebviewExpectation = destroyExpectation
-        presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
+        presentationManager.createFormWebViewAndListenExpectation = createExpectation
 
         // When
         mockLifecycleEvents.send(.backgrounded)
@@ -204,7 +204,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testForegroundNewLaunchCreatesNewViewController() async throws {
         // Given
         let createExpectation = XCTestExpectation(description: "Web view is created on new session")
-        presentationManager.createFormAndAwaitFormEventsExpectation = createExpectation
+        presentationManager.createFormWebViewAndListenExpectation = createExpectation
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
@@ -213,7 +213,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
-        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Web view should be recreated when foregrounding in new session")
+        XCTAssertTrue(presentationManager.createFormWebViewAndListenCalled, "Web view should be recreated when foregrounding in new session")
     }
 
     @MainActor
@@ -229,7 +229,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockManager.destroyWebviewCalled, "destroyWebview should be called when api key changes")
-        XCTAssertTrue(mockManager.createFormAndAwaitFormEventsCalled, "createFormAndAwaitFormEvents should be called when foregrounding in new session")
+        XCTAssertTrue(mockManager.createFormWebViewAndListenCalled, "createFormWebViewAndListen should be called when foregrounding in new session")
     }
 
     @MainActor
@@ -292,7 +292,7 @@ final class IAFPresentationManagerTests: XCTestCase {
     func testNegativeSessionTimeoutDurationIsNormalizedToZero() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
-        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+        presentationManager.createFormWebViewAndListenExpectation = expectation
 
         // When
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: -1))
@@ -303,14 +303,14 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using negative timeout duration")
+        XCTAssertTrue(presentationManager.createFormWebViewAndListenCalled, "Form should be recreated immediately when using negative timeout duration")
     }
 
     @MainActor
     func testZeroSessionTimeoutDurationResetsImmediately() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form is recreated after session timeout")
-        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+        presentationManager.createFormWebViewAndListenExpectation = expectation
 
         // When
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
@@ -322,7 +322,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(presentationManager.destroyWebviewCalled, "Web view should be destroyed when foregrounding in new session")
-        XCTAssertTrue(presentationManager.createFormAndAwaitFormEventsCalled, "Form should be recreated immediately when using zero timeout duration")
+        XCTAssertTrue(presentationManager.createFormWebViewAndListenCalled, "Form should be recreated immediately when using zero timeout duration")
     }
 
     @MainActor
@@ -339,10 +339,10 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Wait for initial setup to complete and reset flags
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         presentationManager.destroyWebviewCalled = false
-        presentationManager.createFormAndAwaitFormEventsCalled = false
+        presentationManager.createFormWebViewAndListenCalled = false
         let expectation = XCTestExpectation(description: "Form is not recreated after session timeout")
         expectation.isInverted = true
-        presentationManager.createFormAndAwaitFormEventsExpectation = expectation
+        presentationManager.createFormWebViewAndListenExpectation = expectation
 
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
@@ -351,7 +351,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should never be destroyed when foregrounding in an infinite session")
-        XCTAssertFalse(presentationManager.createFormAndAwaitFormEventsCalled, "Form should never be recreated")
+        XCTAssertFalse(presentationManager.createFormWebViewAndListenCalled, "Form should never be recreated")
     }
 
     // MARK: - Profile Event Injection Tests
@@ -440,17 +440,17 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 private final class MockIAFPresentationManager: IAFPresentationManager {
-    var createFormAndAwaitFormEventsCalled = false
+    var createFormWebViewAndListenCalled = false
     var destroyWebviewCalled = false
     var formEventTask: Task<Void, Never>?
     var destroyWebviewExpectation: XCTestExpectation?
-    var createFormAndAwaitFormEventsExpectation: XCTestExpectation?
+    var createFormWebViewAndListenExpectation: XCTestExpectation?
     var handledEvents: [String] = []
 
-    override func createFormAndAwaitFormEvents(apiKey: String) async throws {
-        createFormAndAwaitFormEventsCalled = true
-        createFormAndAwaitFormEventsExpectation?.fulfill()
-        try await super.createFormAndAwaitFormEvents(apiKey: apiKey)
+    override func createFormWebViewAndListen(apiKey: String) async throws {
+        createFormWebViewAndListenCalled = true
+        createFormWebViewAndListenExpectation?.fulfill()
+        try await super.createFormWebViewAndListen(apiKey: apiKey)
     }
 
     override func destroyWebView() {
