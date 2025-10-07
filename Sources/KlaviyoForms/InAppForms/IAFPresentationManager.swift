@@ -27,7 +27,6 @@ class IAFPresentationManager {
 
     private var profileObserver: ProfileObserver?
     private var profileEventsTask: Task<Void, Error>?
-    var pendingEvents: [Event] = []
 
     var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
@@ -86,16 +85,6 @@ class IAFPresentationManager {
                 }
             }
         }
-
-        profileObserver = ProfileObserver()
-        profileObserver?.startObserving()
-
-        profileEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
-            for await event in eventsStream {
-                try await handleProfileEventCreated(event)
-            }
-        }
     }
 
     private func initializeFormWithAPIKey() async throws {
@@ -144,15 +133,8 @@ class IAFPresentationManager {
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("✅ Handshake completed successfully. Waiting for forms data to load before replaying events...")
+                    Logger.webViewLogger.info("✅ Handshake completed successfully.")
                 }
-                
-                // Wait up to 5 seconds for forms data to load
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-                
-                // Replay events (either already replayed by formsDataLoaded, or now as fallback)
-                await self.replayPendingEvents()
-                
             } catch {
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("❌ Unable to establish handshake with KlaviyoJS: \(error).") }
                 destroyWebviewAndListeners()
@@ -165,11 +147,12 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
         }
         switch event {
-        case .formsDataLoaded:
-            // Replay buffered events immediately now that forms data is ready
-            Task {
-                await replayPendingEvents()
+        case .handShook:
+            // Handshake complete - webview is ready, start observing profile events
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
+            startProfileObservation()
         case .present:
             presentForm()
         case .dismiss:
@@ -199,18 +182,40 @@ class IAFPresentationManager {
     }
 
     // MARK: - Profile Event Handling
+    
+    /// Starts observing profile events from KlaviyoInternal.
+    func startProfileObservation() {
+        guard profileObserver == nil else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.log("Profile observer already exists; skipping.")
+            }
+            return
+        }
+        
+        profileObserver = ProfileObserver()
+        profileObserver?.startObserving()
+
+        profileEventsTask = Task { [weak self] in
+            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
+            for await event in eventsStream {
+                try await handleProfileEventCreated(event)
+            }
+        }
+        
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("👂 Started observing profile events. Buffered events will now be replayed.")
+        }
+    }
 
     func handleProfileEventCreated(_ event: Event) async throws {
         if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("📨 Received event '\(event.metric.name.value, privacy: .public)'. viewController: \(self.viewController != nil ? "EXISTS" : "NIL")")
+            Logger.webViewLogger.info("📨 Received event '\(event.metric.name.value, privacy: .public)'")
         }
         
-        // If webview doesn't exist yet, buffer the event
         guard let viewController = viewController else {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("⏸️ Buffering event '\(event.metric.name.value, privacy: .public)' - webview not ready yet")
+                Logger.webViewLogger.warning("⚠️ Received event but webview is nil (this shouldn't happen)")
             }
-            pendingEvents.append(event)
             return
         }
         
@@ -237,22 +242,6 @@ class IAFPresentationManager {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
             }
-        }
-    }
-    
-    /// Replays all pending events that were buffered before webview was ready
-    func replayPendingEvents() async {
-        guard !pendingEvents.isEmpty else { return }
-        
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("▶️ Replaying \(self.pendingEvents.count) buffered event(s)")
-        }
-        
-        let eventsToReplay = pendingEvents
-        pendingEvents = []
-        
-        for event in eventsToReplay {
-            try? await handleProfileEventCreated(event)
         }
     }
 
@@ -293,6 +282,10 @@ class IAFPresentationManager {
         formEventTask?.cancel()
         formEventTask = nil
         lifecycleObserver?.stopObserving()
+        profileObserver?.stopObserving()
+        profileObserver = nil
+        profileEventsTask?.cancel()
+        profileEventsTask = nil
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
             startLifecycleObservation()
@@ -412,7 +405,6 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
-        pendingEvents = []  // Clear buffered events
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()

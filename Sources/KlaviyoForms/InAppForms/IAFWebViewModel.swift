@@ -242,10 +242,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("📦 Received 'formsDataLoaded' event from KlaviyoJS")
-            }
-            formLifecycleContinuation.yield(.formsDataLoaded)
+            ()
         case .formWillAppear:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
@@ -288,6 +285,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             handshakeContinuation.yield()
             handshakeContinuation.finish()
+            formLifecycleContinuation.yield(.handShook)
         case .analyticsEvent:
             ()
         case .lifecycleEvent:

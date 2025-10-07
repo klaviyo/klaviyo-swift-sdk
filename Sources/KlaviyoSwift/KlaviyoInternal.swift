@@ -30,6 +30,9 @@ package enum KlaviyoInternal {
     private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
     private static let profileEventSubject = PassthroughSubject<Event, Never>()
+    
+    // Event replay buffer to handle race conditions where events are published before subscribers exist
+    private static let eventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)
 
     // MARK: - API Key methods
 
@@ -159,20 +162,49 @@ package enum KlaviyoInternal {
     ///
     /// - Parameter event: the profile event to publish
     internal static func publishEvent(_ event: Event) {
+        // Add event to buffer for replay to future subscribers
+        eventBuffer.buffer(event)
+        
+        // Publish event to current subscribers
         profileEventSubject.send(event)
     }
 
     /// A publisher that emits events when they are created.
     ///
+    /// Replays recently buffered events (up to 10 events or 10 seconds old) to new subscribers,
+    /// then continues emitting new events as they are published. This handles the race condition
+    /// where events may be published before subscribers (e.g., "Opened Push" before forms initialization).
+    ///
     /// - Returns: A publisher that emits profile events
     package static func eventPublisher() -> AnyPublisher<Event, Never> {
-        profileEventSubject.eraseToAnyPublisher()
+        // Create a publisher that first emits buffered events, then subscribes to new events
+        let replayPublisher = Deferred {
+            Future<[Event], Never> { promise in
+                let recentEvents = eventBuffer.getRecentEvents()
+                promise(.success(recentEvents))
+            }
+        }
+        .flatMap { bufferedEvents -> AnyPublisher<Event, Never> in
+            // First emit all buffered events
+            let buffered = Publishers.Sequence(sequence: bufferedEvents)
+                .setFailureType(to: Never.self)
+                .eraseToAnyPublisher()
+            
+            // Then merge with live events from the subject
+            return Publishers.Merge(buffered, profileEventSubject)
+                .eraseToAnyPublisher()
+        }
+        
+        return replayPublisher.eraseToAnyPublisher()
     }
 
     /// Resets the profile event subject to its initial state.
     package static func resetEventSubject() {
         profileEventCancellable?.cancel()
         profileEventCancellable = nil
+        
+        // Clear the event buffer
+        eventBuffer.clear()
     }
 
     // MARK: - Aggregate Events methods

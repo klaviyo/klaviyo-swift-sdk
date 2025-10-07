@@ -9,5 +9,5 @@ enum IAFLifecycleEvent: String {
     case present
     case dismiss
     case abort
-    case formsDataLoaded
+    case handShook
 }
