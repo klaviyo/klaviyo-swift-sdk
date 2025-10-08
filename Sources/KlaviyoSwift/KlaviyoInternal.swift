@@ -24,14 +24,13 @@ package enum KlaviyoInternal {
     }
 
     private static var profileDataCancellable: Cancellable?
-    private static var apiKeyCancellable: Cancellable?
-    private static var profileEventCancellable: Cancellable?
-
     private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
+
+    private static var apiKeyCancellable: Cancellable?
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
-    private static let profileEventSubject = PassthroughSubject<Event, Never>()
     
-    // Event replay buffer to handle race conditions where events are published before subscribers exist
+    private static let profileEventSubject = PassthroughSubject<Event, Never>()
+    private static var profileEventCancellable: Cancellable?
     private static let eventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)
 
     // MARK: - API Key methods
