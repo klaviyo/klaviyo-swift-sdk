@@ -208,10 +208,6 @@ class IAFPresentationManager {
     }
 
     func handleProfileEventCreated(_ event: Event) async throws {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("📨 Received event '\(event.metric.name.value, privacy: .public)'")
-        }
-
         guard let viewController = viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("⚠️ Received event but webview is nil (this shouldn't happen)")
@@ -219,16 +215,9 @@ class IAFPresentationManager {
             return
         }
 
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event.metric.name.value, privacy: .public)' event via Klaviyo.JS")
-        }
-
         do {
             let detailJSON = try createEventDetailJSON(from: event)
-            let result = try await viewController.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(detailJSON))")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("✅ Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
+            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(detailJSON))")
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
