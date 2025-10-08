@@ -11,7 +11,7 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-class LifecycleObserver: JSBridgeObserver {
+class LifecycleObserver {
     enum Event {
         case foregrounded
         case backgrounded

@@ -11,7 +11,7 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-class ProfileEventObserver: JSBridgeObserver {
+class ProfileEventObserver {
     private var cancellable: AnyCancellable?
     private var eventsContinuation: AsyncStream<Event>.Continuation?
     private let stream: AsyncStream<Event>

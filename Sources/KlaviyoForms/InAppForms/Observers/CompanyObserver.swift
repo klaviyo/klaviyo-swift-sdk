@@ -11,7 +11,7 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-class CompanyObserver: JSBridgeObserver {
+class CompanyObserver {
     enum Event {
         case apiKeyUpdated(String), error(SDKError)
     }
