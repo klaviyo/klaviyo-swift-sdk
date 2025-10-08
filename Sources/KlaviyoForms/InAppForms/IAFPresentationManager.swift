@@ -36,7 +36,7 @@ class IAFPresentationManager {
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
-    
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -182,7 +182,7 @@ class IAFPresentationManager {
     }
 
     // MARK: - Profile Event Handling
-    
+
     /// Starts observing profile events from KlaviyoInternal.
     func startProfileObservation() {
         guard profileEventObserver == nil else {
@@ -191,7 +191,7 @@ class IAFPresentationManager {
             }
             return
         }
-        
+
         profileEventObserver = ProfileEventObserver()
         profileEventObserver?.startObserving()
 
@@ -201,7 +201,7 @@ class IAFPresentationManager {
                 try await handleProfileEventCreated(event)
             }
         }
-        
+
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("👂 Started observing profile events. Buffered events will now be replayed.")
         }
@@ -211,14 +211,14 @@ class IAFPresentationManager {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("📨 Received event '\(event.metric.name.value, privacy: .public)'")
         }
-        
+
         guard let viewController = viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("⚠️ Received event but webview is nil (this shouldn't happen)")
             }
             return
         }
-        
+
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to dispatch '\(event.metric.name.value, privacy: .public)' event via Klaviyo.JS")
         }
@@ -287,7 +287,7 @@ class IAFPresentationManager {
         profileEventsTask?.cancel()
         profileEventsTask = nil
         KlaviyoInternal.resetEventSubject()
-        
+
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
             startLifecycleObservation()

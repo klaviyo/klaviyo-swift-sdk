@@ -28,7 +28,7 @@ package enum KlaviyoInternal {
 
     private static var apiKeyCancellable: Cancellable?
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
-    
+
     private static let profileEventSubject = PassthroughSubject<Event, Never>()
     private static var profileEventCancellable: Cancellable?
     private static let eventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)
@@ -185,12 +185,12 @@ package enum KlaviyoInternal {
             let buffered = Publishers.Sequence(sequence: bufferedEvents)
                 .setFailureType(to: Never.self)
                 .eraseToAnyPublisher()
-            
+
             // Then merge with live events from the subject
             return Publishers.Merge(buffered, profileEventSubject)
                 .eraseToAnyPublisher()
         }
-        
+
         return replayPublisher.eraseToAnyPublisher()
     }
 

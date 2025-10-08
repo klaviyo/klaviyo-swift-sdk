@@ -412,9 +412,9 @@ final class IAFPresentationManagerTests: XCTestCase {
         // Should not crash or cause issues
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
     }
-    
+
     // MARK: - Event Replay Tests
-    
+
     @MainActor
     func testEventsDispatchedDirectlyWhenWebviewReady() async throws {
         // Given - viewController already exists from setUp
@@ -423,13 +423,13 @@ final class IAFPresentationManagerTests: XCTestCase {
             evaluatedScripts.append(script)
             return true
         }
-        
+
         // When - Send event when viewController exists
         let event = Event(name: .viewedProductMetric, properties: ["product_id": "789"])
         try await presentationManager.handleProfileEventCreated(event)
-        
+
         try await Task.sleep(nanoseconds: 100_000_000) // Wait for async dispatch
-        
+
         // Then - Event should be dispatched immediately (no buffering at this level)
         XCTAssertTrue(evaluatedScripts.contains { script in
             script.contains("dispatchProfileEvent") && script.contains("Viewed Product")
@@ -469,7 +469,7 @@ private final class MockIAFPresentationManager: IAFPresentationManager {
     var destroyWebviewExpectation: XCTestExpectation?
     var createFormWebViewAndListenExpectation: XCTestExpectation?
     var handledEvents: [String] = []
-    
+
     override init(viewController: KlaviyoWebViewController?) {
         super.init(viewController: viewController)
     }
