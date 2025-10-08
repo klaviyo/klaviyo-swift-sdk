@@ -25,7 +25,7 @@ class IAFPresentationManager {
     private var lifecycleEventsTask: Task<Void, Error>?
     private var lastBackgrounded: Date?
 
-    private var profileObserver: ProfileObserver?
+    private var profileEventObserver: ProfileEventObserver?
     private var profileEventsTask: Task<Void, Error>?
 
     var viewController: KlaviyoWebViewController?
@@ -185,18 +185,18 @@ class IAFPresentationManager {
     
     /// Starts observing profile events from KlaviyoInternal.
     func startProfileObservation() {
-        guard profileObserver == nil else {
+        guard profileEventObserver == nil else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.log("Profile observer already exists; skipping.")
             }
             return
         }
         
-        profileObserver = ProfileObserver()
-        profileObserver?.startObserving()
+        profileEventObserver = ProfileEventObserver()
+        profileEventObserver?.startObserving()
 
         profileEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
+            guard let self, let eventsStream = profileEventObserver?.eventsStream else { return }
             for await event in eventsStream {
                 try await handleProfileEventCreated(event)
             }
@@ -282,10 +282,12 @@ class IAFPresentationManager {
         formEventTask?.cancel()
         formEventTask = nil
         lifecycleObserver?.stopObserving()
-        profileObserver?.stopObserving()
-        profileObserver = nil
+        profileEventObserver?.stopObserving()
+        profileEventObserver = nil
         profileEventsTask?.cancel()
         profileEventsTask = nil
+        KlaviyoInternal.resetEventSubject()
+        
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
             startLifecycleObservation()
@@ -399,7 +401,7 @@ class IAFPresentationManager {
         isInitializingOrInitialized = false
         lifecycleObserver = nil
         companyObserver = nil
-        profileObserver = nil
+        profileEventObserver = nil
         profileEventsTask?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()

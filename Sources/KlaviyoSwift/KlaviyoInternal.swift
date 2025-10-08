@@ -158,14 +158,11 @@ package enum KlaviyoInternal {
 
     // MARK: - Profile Event methods
 
-    /// Publishes an event to subscribers.
+    /// Publishes an event to subscribers and also buffers it for replay to future subscribers.
     ///
     /// - Parameter event: the profile event to publish
     internal static func publishEvent(_ event: Event) {
-        // Add event to buffer for replay to future subscribers
         eventBuffer.buffer(event)
-        
-        // Publish event to current subscribers
         profileEventSubject.send(event)
     }
 
@@ -202,8 +199,6 @@ package enum KlaviyoInternal {
     package static func resetEventSubject() {
         profileEventCancellable?.cancel()
         profileEventCancellable = nil
-        
-        // Clear the event buffer
         eventBuffer.clear()
     }
 
