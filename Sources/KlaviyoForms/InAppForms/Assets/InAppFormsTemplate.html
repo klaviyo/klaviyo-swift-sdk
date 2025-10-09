@@ -13,11 +13,13 @@
                         }
                     }));
                 };
-                window.dispatchProfileEvent = function(metric, properties) {
-                    console.log('Dispatching profile event:', metric);
+                window.dispatchProfileEvent = function(metric, uuid, time, value, properties) {
                     document.head.dispatchEvent(new CustomEvent('profileEvent', {
                         detail: {
                             metric: metric,
+                            unique_id: uuid,
+                            time: time,
+                            value: value,
                             properties: properties
                         }
                     }));

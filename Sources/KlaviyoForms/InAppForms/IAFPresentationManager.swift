@@ -216,41 +216,24 @@ class IAFPresentationManager {
         }
 
         do {
-            let detailJSON = try createEventDetailJSON(from: event)
-            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(detailJSON))")
+            // Convert properties to JSON string to ensure proper object serialization, default to empty dict if serialization fails
+            var propertiesJSON = "{}"
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties) {
+                propertiesJSON = String(data: propertiesData, encoding: .utf8) ?? propertiesJSON
+            }
+            
+            // Format timestamp as ISO8601 string (which is always in UTC)
+            let timestamp = ISO8601DateFormatter().string(from: event.time)
+            
+            // Get event's value or null
+            let eventValue = event.value != nil ? String(event.value!) : "null"
+            
+            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', '\(event.uniqueId)', '\(timestamp)', \(eventValue), \(propertiesJSON))")
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
             }
         }
-    }
-
-    private func createEventDetailJSON(from event: Event) throws -> String {
-        // Format timestamp as ISO8601 string
-        let iso8601Formatter = ISO8601DateFormatter()
-        iso8601Formatter.formatOptions = [.withInternetDateTime]
-        let timestamp = iso8601Formatter.string(from: event.time)
-
-        // Build detail object with nested properties
-        var detailDict: [String: Any] = [
-            "metric": event.metric.name.value,
-            "time": timestamp,
-            "unique_id": event.uniqueId,
-            "properties": event.properties
-        ]
-
-        // Add value if present
-        if let value = event.value {
-            detailDict["value"] = value
-        }
-
-        // Convert detail object to JSON string
-        guard let detailData = try? JSONSerialization.data(withJSONObject: detailDict),
-              let detailString = String(data: detailData, encoding: .utf8) else {
-            throw NSError(domain: "IAFPresentationManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to serialize event detail"])
-        }
-
-        return detailString
     }
 
     // MARK: - API Key Event Handling
