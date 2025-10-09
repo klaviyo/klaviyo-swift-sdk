@@ -171,27 +171,14 @@ package enum KlaviyoInternal {
     /// then continues emitting new events as they are published. This handles the race condition
     /// where events may be published before subscribers (e.g., "Opened Push" before forms initialization).
     ///
-    /// - Returns: A publisher that emits profile events
+    /// - Returns: A publisher that emits profile events plus any buffered events
     package static func eventPublisher() -> AnyPublisher<Event, Never> {
-        // Create a publisher that first emits buffered events, then subscribes to new events
-        let replayPublisher = Deferred {
-            Future<[Event], Never> { promise in
-                let recentEvents = eventBuffer.getRecentEvents()
-                promise(.success(recentEvents))
-            }
+        Deferred {
+            let buffered = eventBuffer.getRecentEvents()
+            return profileEventSubject
+                .prepend(buffered) // guaranteed order: replay first, then live
         }
-        .flatMap { bufferedEvents -> AnyPublisher<Event, Never> in
-            // First emit all buffered events
-            let buffered = Publishers.Sequence(sequence: bufferedEvents)
-                .setFailureType(to: Never.self)
-                .eraseToAnyPublisher()
-
-            // Then merge with live events from the subject
-            return Publishers.Merge(buffered, profileEventSubject)
-                .eraseToAnyPublisher()
-        }
-
-        return replayPublisher.eraseToAnyPublisher()
+        .eraseToAnyPublisher()
     }
 
     /// Resets the profile event subject to its initial state.
