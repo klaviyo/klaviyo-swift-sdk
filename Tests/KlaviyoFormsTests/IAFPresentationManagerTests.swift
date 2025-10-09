@@ -223,6 +223,9 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockManager.initializeIAF(configuration: InAppFormsConfig())
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
+        // Wait for initial webview creation to complete
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
         // When
         mockApiKeyPublisher.send("new-key")
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
