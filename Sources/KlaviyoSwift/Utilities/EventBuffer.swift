@@ -93,15 +93,4 @@ final class EventBuffer {
             return recentEvents
         }
     }
-
-    /// Clears all buffered events.
-    func clear() {
-        queue.async(flags: .barrier) { [weak self] in
-            self?.buffer.removeAll()
-
-            if #available(iOS 14.0, *) {
-                Logger.eventBuffer.info("🗑️ Cleared event buffer")
-            }
-        }
-    }
 }

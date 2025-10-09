@@ -185,7 +185,6 @@ package enum KlaviyoInternal {
     package static func resetEventSubject() {
         profileEventCancellable?.cancel()
         profileEventCancellable = nil
-        eventBuffer.clear()
     }
 
     // MARK: - Aggregate Events methods
