@@ -58,7 +58,8 @@ package enum KlaviyoInternal {
 
     /// A publisher that monitors the API key (aka Company ID) and emits valid API keys.
     ///
-    /// - Returns: A publisher that emits valid API keys (non-nil, non-empty strings), or a failure if the API is not initialized or the API key is empty or nil
+    /// - Returns: A publisher that emits valid API keys (non-nil, non-empty strings),
+    //             or a failure if the API is not initialized or the API key is empty or nil
     package static func apiKeyPublisher() -> AnyPublisher<APIKeyResult, Never> {
         // Set up the subject if it hasn't been set up yet
         setupAPIKeySubject()
