@@ -285,6 +285,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             handshakeContinuation.yield()
             handshakeContinuation.finish()
+            formLifecycleContinuation.yield(.handShook)
         case .analyticsEvent:
             ()
         case .lifecycleEvent:

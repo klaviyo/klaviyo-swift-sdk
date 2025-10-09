@@ -25,10 +25,10 @@ class IAFPresentationManager {
     private var lifecycleEventsTask: Task<Void, Error>?
     private var lastBackgrounded: Date?
 
-    private var profileObserver: ProfileObserver?
+    private var profileEventObserver: ProfileEventObserver?
     private var profileEventsTask: Task<Void, Error>?
 
-    private var viewController: KlaviyoWebViewController?
+    var viewController: KlaviyoWebViewController?
     private var viewModel: IAFWebViewModel?
 
     private var configuration: InAppFormsConfig?
@@ -85,31 +85,21 @@ class IAFPresentationManager {
                 }
             }
         }
-
-        profileObserver = ProfileObserver()
-        profileObserver?.startObserving()
-
-        profileEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = profileObserver?.eventsStream else { return }
-            for await event in eventsStream {
-                try await handleProfileEventCreated(event)
-            }
-        }
-    }
-
-    func createFormAndAwaitFormEvents(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        createIAF(apiKey: apiKey, profileData: profileData)
-        listenForFormEvents()
     }
 
     private func initializeFormWithAPIKey() async throws {
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        try await createFormAndAwaitFormEvents(apiKey: apiKey)
+        try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    /// - Parameter newProfileData: the profile information with which to load the IAF
-    private func createIAF(apiKey: String, profileData: ProfileData?) {
+    func createFormWebViewAndListen(apiKey: String) async throws {
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+        createFormWebView(apiKey: apiKey, profileData: profileData)
+        setupFormLifecycleListener()
+    }
+
+    /// Creates the webview, view model, and view controller for displaying in-app forms
+    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
@@ -118,34 +108,51 @@ class IAFPresentationManager {
         viewController?.modalPresentationStyle = .overCurrentContext
     }
 
-    // MARK: - Form Event Subscription
+    // MARK: - Form Lifecycle Listener Setup
 
-    private func listenForFormEvents() {
+    func setupFormLifecycleListener() {
         guard let viewModel else { return }
+
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("👂 Starting to listen for form lifecycle events (BEFORE handshake)")
+        }
+
+        // Start listening for form lifecycle events before handshake to avoid missing any events
+        formEventTask = Task { [weak self] in
+            guard let self else { return }
+            for await event in viewModel.formLifecycleStream {
+                self.handleFormEvent(event)
+            }
+        }
 
         Task { [weak self] in
             guard let self else { return }
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("🤝 Starting handshake with KlaviyoJS")
+            }
             do {
                 try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
-            } catch {
-                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("Unable to establish handshake with KlaviyoJS: \(error).") }
-                destroyWebviewAndListeners()
-            }
-
-            // now that we've established the handshake, we can start a task that listens for Form events.
-            self.formEventTask = Task {
-                for await event in viewModel.formLifecycleStream {
-                    self.handleFormEvent(event)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("✅ Handshake completed successfully.")
                 }
+            } catch {
+                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("❌ Unable to establish handshake with KlaviyoJS: \(error).") }
+                destroyWebviewAndListeners()
             }
         }
     }
 
-    private func handleFormEvent(_ event: IAFLifecycleEvent) {
+    func handleFormEvent(_ event: IAFLifecycleEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
         }
         switch event {
+        case .handShook:
+            // Handshake complete - webview is ready, start observing profile events
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
+            }
+            startProfileObservation()
         case .present:
             presentForm()
         case .dismiss:
@@ -176,29 +183,66 @@ class IAFPresentationManager {
 
     // MARK: - Profile Event Handling
 
-    func handleProfileEventCreated(_ event: Event) async throws {
+    /// Starts observing profile events from KlaviyoInternal.
+    func startProfileObservation() {
+        guard profileEventObserver == nil else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.log("Profile observer already exists; skipping.")
+            }
+            return
+        }
+
+        profileEventObserver = ProfileEventObserver()
+        profileEventObserver?.startObserving()
+
+        profileEventsTask = Task { [weak self] in
+            guard let self, let eventsStream = profileEventObserver?.eventsStream else { return }
+            for await event in eventsStream {
+                try await handleProfileEventCreated(event)
+            }
+        }
+
         if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event.metric.name.value, privacy: .public)' event via Klaviyo.JS")
+            Logger.webViewLogger.info("👂 Started observing profile events. Buffered events will now be replayed.")
+        }
+    }
+
+    func handleProfileEventCreated(_ event: Event) async throws {
+        guard let viewController = viewController else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("⚠️ Received event but webview is nil (this shouldn't happen)")
+            }
+            return
         }
 
         do {
-            // Convert properties to JSON string to ensure proper object serialization
-            let propertiesJSON: String
-            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties),
-               let propertiesString = String(data: propertiesData, encoding: .utf8) {
-                propertiesJSON = propertiesString
-            } else {
-                // Fallback to empty object if serialization fails
-                propertiesJSON = "{}"
+            // Safely convert metric to a JSON string or null
+            let metricData = try KlaviyoEnvironment.encoder.encode(event.metric.name.value)
+            let metric = String(data: metricData, encoding: .utf8) ?? "null"
+
+            // Safely convert uniqueID to a JSON string or null
+            let uniqueIdData = try KlaviyoEnvironment.encoder.encode(event.uniqueId)
+            let uniqueId = String(data: uniqueIdData, encoding: .utf8) ?? "null"
+
+            // Convert date to JSON, formatting with ISO8601 (which is always in UTC)
+            let timestampData = try KlaviyoEnvironment.encoder.encode(event.time)
+            let timestamp = String(data: timestampData, encoding: .utf8) ?? "null"
+
+            // Get event's value as JSON or null
+            let valueData = try KlaviyoEnvironment.encoder.encode(event.value)
+            let value = String(data: valueData, encoding: .utf8) ?? "null"
+
+            // Convert properties to JSON string to ensure proper object serialization, default to empty dict if serialization fails
+            var propertiesJSON = "{}"
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties) {
+                propertiesJSON = String(data: propertiesData, encoding: .utf8) ?? propertiesJSON
             }
 
-            let result = try await viewController?.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', \(propertiesJSON))")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully dispatched event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
+            // JSON encoding adds the necessary quotes to strings, and escapes unsafe chars, so no need to add add single quotes
+            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent(\(metric), \(uniqueId), \(timestamp), \(value), \(propertiesJSON))")
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
+                Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
             }
         }
     }
@@ -209,16 +253,26 @@ class IAFPresentationManager {
         Task { @MainActor [weak self] in
             guard let self else { return }
 
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("🔄 reinitializeIAFForNewAPIKey called. viewController exists: \(self.viewController != nil)")
+            }
+
             if viewController != nil {
                 if let viewModel, viewModel.apiKey == apiKey {
                     // if viewController/viewModel already exist and the viewModel's
                     // API key matches the one we just received, do nothing
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("✅ Webview already exists with same API key, skipping reinit")
+                    }
                     return
                 } else {
                     await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
                 }
             } else {
-                try await self.createFormAndAwaitFormEvents(apiKey: apiKey)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
+                }
+                try await self.createFormWebViewAndListen(apiKey: apiKey)
                 startLifecycleObservation()
             }
         }
@@ -230,8 +284,14 @@ class IAFPresentationManager {
         formEventTask?.cancel()
         formEventTask = nil
         lifecycleObserver?.stopObserving()
+        profileEventObserver?.stopObserving()
+        profileEventObserver = nil
+        profileEventsTask?.cancel()
+        profileEventsTask = nil
+        KlaviyoInternal.resetEventSubject()
+
         do {
-            try await createFormAndAwaitFormEvents(apiKey: apiKey)
+            try await createFormWebViewAndListen(apiKey: apiKey)
             startLifecycleObservation()
         } catch {
             if #available(iOS 14.0, *) {
@@ -343,7 +403,7 @@ class IAFPresentationManager {
         isInitializingOrInitialized = false
         lifecycleObserver = nil
         companyObserver = nil
-        profileObserver = nil
+        profileEventObserver = nil
         profileEventsTask?.cancel()
         formEventTask?.cancel()
         delayedPresentationTask?.cancel()
