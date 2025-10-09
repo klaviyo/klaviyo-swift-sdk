@@ -216,19 +216,30 @@ class IAFPresentationManager {
         }
 
         do {
+            // Safely convert metric to a JSON string or null
+            let metricData = try KlaviyoEnvironment.encoder.encode(event.metric.name.value)
+            let metric = String(data: metricData, encoding: .utf8) ?? "null"
+
+            // Safely convert uniqueID to a JSON string or null
+            let uniqueIdData = try KlaviyoEnvironment.encoder.encode(event.uniqueId)
+            let uniqueId = String(data: uniqueIdData, encoding: .utf8) ?? "null"
+
+            // Convert date to JSON, formatting with ISO8601 (which is always in UTC)
+            let timestampData = try KlaviyoEnvironment.encoder.encode(event.time)
+            let timestamp = String(data: timestampData, encoding: .utf8) ?? "null"
+
+            // Get event's value as JSON or null
+            let valueData = try KlaviyoEnvironment.encoder.encode(event.value)
+            let value = String(data: valueData, encoding: .utf8) ?? "null"
+
             // Convert properties to JSON string to ensure proper object serialization, default to empty dict if serialization fails
             var propertiesJSON = "{}"
             if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties) {
                 propertiesJSON = String(data: propertiesData, encoding: .utf8) ?? propertiesJSON
             }
-            
-            // Format timestamp as ISO8601 string (which is always in UTC)
-            let timestamp = ISO8601DateFormatter().string(from: event.time)
-            
-            // Get event's value or null
-            let eventValue = event.value != nil ? String(event.value!) : "null"
-            
-            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent('\(event.metric.name.value)', '\(event.uniqueId)', '\(timestamp)', \(eventValue), \(propertiesJSON))")
+
+            // JSON encoding adds the necessary quotes to strings, and escapes unsafe chars, so no need to add add single quotes
+            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent(\(metric), \(uniqueId), \(timestamp), \(value), \(propertiesJSON))")
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
