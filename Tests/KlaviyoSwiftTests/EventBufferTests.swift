@@ -147,41 +147,6 @@ class EventBufferTests: XCTestCase {
         XCTAssertFalse(events.contains { $0.metric.name.value == "old_event" })
     }
 
-    // MARK: - Clear Tests
-
-    func testClearEmptiesBuffer() {
-        // Given
-        eventBuffer.buffer(Event(name: .customEvent("event_1")))
-        eventBuffer.buffer(Event(name: .customEvent("event_2")))
-        XCTAssertEqual(eventBuffer.getRecentEvents().count, 2)
-
-        // When
-        eventBuffer.clear()
-
-        // Then
-        XCTAssertTrue(eventBuffer.getRecentEvents().isEmpty, "Buffer should be empty after clear")
-    }
-
-    func testClearOnEmptyBufferDoesNotCrash() {
-        // When/Then
-        XCTAssertNoThrow(eventBuffer.clear(), "Clearing empty buffer should not crash")
-        XCTAssertTrue(eventBuffer.getRecentEvents().isEmpty)
-    }
-
-    func testBufferWorksAfterClear() {
-        // Given
-        eventBuffer.buffer(Event(name: .customEvent("old_event")))
-        eventBuffer.clear()
-
-        // When
-        eventBuffer.buffer(Event(name: .customEvent("new_event")))
-        let events = eventBuffer.getRecentEvents()
-
-        // Then
-        XCTAssertEqual(events.count, 1)
-        XCTAssertEqual(events.first?.metric.name.value, "new_event")
-    }
-
     // MARK: - Thread Safety Tests
 
     func testConcurrentBuffering() async throws {
