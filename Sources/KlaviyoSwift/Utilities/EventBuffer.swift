@@ -24,7 +24,7 @@ final class EventBuffer {
 
     private struct BufferedEvent {
         let event: Event
-        let timestamp: Date
+        let timestamp: TimeInterval // systemUptime (monotonic clock)
     }
 
     private var buffer: [BufferedEvent] = []
@@ -54,10 +54,10 @@ final class EventBuffer {
 
         queue.async(flags: .barrier) { [weak self] in
             guard let self else { return }
-            let now = Date()
+            let now = ProcessInfo.processInfo.systemUptime
 
-            // Clean old events from buffer
-            self.buffer = self.buffer.filter { now.timeIntervalSince($0.timestamp) < self.maxBufferAge }
+            // Clean old events from buffer (using monotonic clock to avoid issues with device clock changes)
+            self.buffer = self.buffer.filter { now - $0.timestamp < self.maxBufferAge }
 
             // Add new event
             self.buffer.append(BufferedEvent(event: event, timestamp: now))
@@ -77,9 +77,9 @@ final class EventBuffer {
     /// - Returns: Array of buffered events that haven't expired
     func getRecentEvents() -> [Event] {
         queue.sync {
-            let now = Date()
+            let now = ProcessInfo.processInfo.systemUptime
             let recentEvents = buffer
-                .filter { now.timeIntervalSince($0.timestamp) < maxBufferAge }
+                .filter { now - $0.timestamp < maxBufferAge }
                 .map(\.event)
 
             if #available(iOS 14.0, *) {
