@@ -162,8 +162,9 @@ package enum KlaviyoInternal {
     ///
     /// - Parameter event: the profile event to publish
     internal static func publishEvent(_ event: Event) {
-        eventBuffer.buffer(event)
-        profileEventSubject.send(event)
+        let enrichedEvent = enrichEventWithMetadata(event)
+        eventBuffer.buffer(enrichedEvent)
+        profileEventSubject.send(enrichedEvent)
     }
 
     /// A publisher that emits events when they are created.
@@ -186,6 +187,21 @@ package enum KlaviyoInternal {
     package static func resetEventSubject() {
         profileEventCancellable?.cancel()
         profileEventCancellable = nil
+    }
+
+    /// Enriches an event with metadata (device info, SDK info, etc.)
+    /// - Parameter event: The event to enrich
+    /// - Returns: A new Event with metadata appended to properties
+    private static func enrichEventWithMetadata(_ event: Event) -> Event {
+        let enrichedProperties = event.properties.appendMetadataToProperties(pushToken: "") ?? event.properties
+        return Event(
+            name: event.metric.name,
+            properties: enrichedProperties,
+            identifiers: event.identifiers,
+            value: event.value,
+            time: event.time,
+            uniqueId: event.uniqueId
+        )
     }
 
     // MARK: - Aggregate Events methods
