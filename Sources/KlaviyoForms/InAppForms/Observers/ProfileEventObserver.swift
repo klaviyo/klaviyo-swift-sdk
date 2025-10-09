@@ -1,5 +1,5 @@
 //
-//  ProfileObserver.swift
+//  ProfileEventObserver.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Isobelle Lim on 9/22/25.
@@ -11,7 +11,7 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-class ProfileObserver: JSBridgeObserver {
+class ProfileEventObserver {
     private var cancellable: AnyCancellable?
     private var eventsContinuation: AsyncStream<Event>.Continuation?
     private let stream: AsyncStream<Event>
