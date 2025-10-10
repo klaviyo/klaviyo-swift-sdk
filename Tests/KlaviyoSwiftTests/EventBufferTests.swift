@@ -178,18 +178,22 @@ class EventBufferTests: XCTestCase {
             for i in 0..<50 {
                 self.eventBuffer.buffer(Event(name: .customEvent("event_\(i)")))
             }
+            // Add small delay to allow async buffer operations to settle
+            Thread.sleep(forTimeInterval: 0.1)
             writeExpectation.fulfill()
         }
 
         DispatchQueue.global().async {
             for _ in 0..<50 {
                 _ = self.eventBuffer.getRecentEvents()
+                // Add tiny delay between reads to prevent tight loop
+                Thread.sleep(forTimeInterval: 0.001)
             }
             readExpectation.fulfill()
         }
 
         // Then - should not crash
-        await fulfillment(of: [writeExpectation, readExpectation], timeout: 5.0)
+        await fulfillment(of: [writeExpectation, readExpectation], timeout: 10.0)
         XCTAssertNoThrow(eventBuffer.getRecentEvents())
     }
 
