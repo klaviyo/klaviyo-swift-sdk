@@ -226,4 +226,20 @@ extension KlaviyoSwiftEnvironment {
             nil
         })
     }
+
+    // Creates a fresh test environment with a new store (for integration tests)
+    static func freshTest() -> KlaviyoSwiftEnvironment {
+        let freshStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+        return KlaviyoSwiftEnvironment(send: { action in
+            freshStore.send(action)
+        }, state: {
+            freshStore.state.value
+        }, statePublisher: {
+            freshStore.state.eraseToAnyPublisher()
+        }, stateChangePublisher: {
+            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+        }, setBadgeCount: { _ in
+            nil
+        })
+    }
 }
