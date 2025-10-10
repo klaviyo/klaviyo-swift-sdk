@@ -210,9 +210,9 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         mockLifecycleEvents.send(.foregrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
+        await fulfillment(of: [createExpectation], timeout: 2.0)
         XCTAssertTrue(presentationManager.createFormWebViewAndListenCalled, "Web view should be recreated when foregrounding in new session")
     }
 
