@@ -5,7 +5,7 @@
 //  Created by Ajay Subramanya on 10/10/25.
 //
 
-@testable import KlaviyoCore
+import KlaviyoCore
 import XCTest
 
 final class DictionaryMetadataTests: XCTestCase {
@@ -30,7 +30,7 @@ final class DictionaryMetadataTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(enriched)
-        XCTAssertEqual(enriched?.count, 11, "Should have 11 metadata fields")
+        XCTAssertEqual(enriched?.count, 12, "Should have 12 metadata fields")
         XCTAssertNotNil(enriched?["Device ID"])
         XCTAssertNotNil(enriched?["Device Manufacturer"])
         XCTAssertNotNil(enriched?["Device Model"])
@@ -60,7 +60,7 @@ final class DictionaryMetadataTests: XCTestCase {
         XCTAssertEqual(enriched?["custom_prop"] as? String, "custom_value")
         XCTAssertEqual(enriched?["event_id"] as? Int, 123)
         XCTAssertNotNil(enriched?["nested"] as? [String: String])
-        XCTAssertEqual(enriched?.count, 14, "Should have 3 original + 11 metadata fields")
+        XCTAssertEqual(enriched?.count, 15, "Should have 3 original + 12 metadata fields")
     }
 
     func testAppendMetadataWithPushToken() {
