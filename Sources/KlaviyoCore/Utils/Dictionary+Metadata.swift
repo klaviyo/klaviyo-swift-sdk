@@ -11,7 +11,7 @@ extension Dictionary where Key == String, Value == Any {
     /// Appends device, SDK, and app metadata to event properties
     /// - Parameter pushToken: Optional push token to include in metadata
     /// - Returns: Dictionary with metadata merged into properties
-    package func appendMetadataToProperties(pushToken: String?) -> [String: Any]? {
+    package func appendMetadataToProperties(pushToken: String? = nil) -> [String: Any]? {
         let context = environment.appContextInfo()
         let metadata: [String: Any] = [
             "Device ID": context.deviceId,

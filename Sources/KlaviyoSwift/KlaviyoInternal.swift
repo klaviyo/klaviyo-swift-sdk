@@ -193,7 +193,7 @@ package enum KlaviyoInternal {
     /// - Parameter event: The event to enrich
     /// - Returns: A new Event with metadata appended to properties
     private static func enrichEventWithMetadata(_ event: Event) -> Event {
-        let enrichedProperties = event.properties.appendMetadataToProperties(pushToken: "") ?? event.properties
+        let enrichedProperties = event.properties.appendMetadataToProperties() ?? event.properties
         return Event(
             name: event.metric.name,
             properties: enrichedProperties,
