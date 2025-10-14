@@ -3,6 +3,18 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v5.1.0
+
+### Deep Linking
+
+#### Custom deep link handling
+
+We have added a deprecation warning for the `handle(notificationResponse:withCompletionHandler:deepLinkHandler:)` method, which will be obsoleted in the next major version of the SDK. This method has been replaced with with [`handle(notificationResponse:withCompletionHandler:)`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/bea7fa7717f0a1c6470d646539fa6e2e4f826645/Sources/KlaviyoSwift/Klaviyo.swift#L206). If you were previously providing your own deep link handling logic using the now-deprecated method, you should now call our new [`registerDeepLinkHandler(_:)`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/bea7fa7717f0a1c6470d646539fa6e2e4f826645/Sources/KlaviyoSwift/Klaviyo.swift#L182) method. For more information, see the [**Deep Linking** section](./README.md#deep-linking) of the README.
+
+#### Handling universal links
+
+This version enhances functionality for universal links, ensuring that links delivered via email campaigns can be opened in-app *and* be tracked as a Klaviyo profile event when clicked. We encourage you to adopt this new functionality to ensure you're getting full support for universal links. Refer to [**Handling Universal Links**](./README.md#handling-universal-links) in the README.
+
 ## Migrating to v5.0.0
 
 ### In-App Forms
