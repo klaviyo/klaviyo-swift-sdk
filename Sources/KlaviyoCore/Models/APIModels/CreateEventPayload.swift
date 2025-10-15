@@ -112,25 +112,3 @@ public struct CreateEventPayload: Equatable, Codable {
         self.data = data
     }
 }
-
-extension Dictionary where Key == String, Value == Any {
-    fileprivate func appendMetadataToProperties(pushToken: String?) -> [String: Any]? {
-        let context = environment.appContextInfo()
-        let metadata: [String: Any] = [
-            "Device ID": context.deviceId,
-            "Device Manufacturer": context.manufacturer,
-            "Device Model": context.deviceModel,
-            "OS Name": context.osName,
-            "OS Version": context.osVersion,
-            "SDK Name": environment.sdkName(),
-            "SDK Version": environment.sdkVersion(),
-            "App Name": context.appName,
-            "App ID": context.bundleId,
-            "App Version": context.appVersion,
-            "App Build": context.appBuild,
-            "Push Token": pushToken ?? ""
-        ]
-
-        return merging(metadata) { _, new in new }
-    }
-}

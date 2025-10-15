@@ -130,18 +130,31 @@ final class IAFPresentationManagerTests: XCTestCase {
         try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
 
         // Given
+        let backgroundExpectation = XCTestExpectation(description: "Background event handled")
+        let foregroundExpectation = XCTestExpectation(description: "Foreground event handled")
+
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
+        // Setup expectations tracking
+        var originalEvaluateCallback = mockViewController.evaluateJavaScriptCallback
+        mockViewController.evaluateJavaScriptCallback = { script in
+            if script.contains("dispatchLifecycleEvent('background')") {
+                backgroundExpectation.fulfill()
+            } else if script.contains("dispatchLifecycleEvent('foreground')") {
+                foregroundExpectation.fulfill()
+            }
+            return originalEvaluateCallback?(script) ?? true
+        }
+
         // When
         mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
         mockLifecycleEvents.send(.foregrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
+        await fulfillment(of: [backgroundExpectation, foregroundExpectation], timeout: 3.0)
         XCTAssertEqual(presentationManager.handledEvents, ["background", "foreground"], "Background and foreground event should be handled")
     }
 
@@ -210,9 +223,9 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         mockLifecycleEvents.send(.foregrounded)
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Then
+        await fulfillment(of: [createExpectation], timeout: 2.0)
         XCTAssertTrue(presentationManager.createFormWebViewAndListenCalled, "Web view should be recreated when foregrounding in new session")
     }
 

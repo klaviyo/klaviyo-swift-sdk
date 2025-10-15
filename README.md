@@ -15,31 +15,35 @@
   - [Reset Profile](#reset-profile)
   - [Anonymous Tracking Notice](#anonymous-tracking-notice)
 - [Event tracking](#event-tracking)
+  - [Arguments](#arguments)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
-    - [Deep Linking](#deep-linking)
-      - [Option 1: URL Schemes](#option-1-url-schemes)
-      - [Option 2: Universal Links](#option-2-universal-links)
     - [Rich Push](#rich-push)
+      - [Testing rich push notifications](#testing-rich-push-notifications)
     - [Badge Count](#badge-count)
-       - [Autoclearing](#autoclearing)
+      - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
+- [Deep Linking](#deep-linking)
+  - [Adding link-handling logic](#adding-link-handling-logic)
+  - [Handling URL Schemes](#handling-url-schemes)
+  - [Handling Universal Links](#handling-universal-links)
+  - [Validation](#validation)
 - [In-App Forms](#in-app-forms)
-  - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
+  - [Prerequisites](#prerequisites-1)
+  - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
-  - [Deep linking](#deep-linking-1)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
+- [Contributing](#contributing)
   - [License](#license)
 
 ## Overview
@@ -340,141 +344,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 ```
 
+>  ℹ️ To ensure that push notifications are handled properly when they contain deep links (via a custom URL scheme or via a universal link), please refer to the [Deep Linking](#deep-linking) section below.
+
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
-
-#### Deep Linking
-
->  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
-
-[Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification.
-
-You need to configure deep links in your app for them to work. The configuration process for Klaviyo is no different from what is required for handling deep linking in general,
-so you can follow the [Apple documentation](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) for deep linking in conjunction
-with the steps outlined here.
-
-You have two options for implementing deep links: URL schemes and Universal Links.
-
-##### Option 1: URL Schemes
-
-URL schemes are the traditional and simpler way of deep linking from a push notification to your app.
-However, these links will only work if your mobile app is installed on a device and will not be understood by
-a web browser if, for example, you want to link from an email to your app.
-
-###### Step 1: Register the URL scheme
-
-In order for Apple to route a deep link to your application you need to register a URL scheme in your application's Info.plist file. This can be done using the editor that xcode provides from the Info tab of your project settings or by editing the Info.plist directly.
-
-The required fields are as following:
-
-1. **Identifier** - The identifier you supply with your scheme distinguishes your app from others that declare support for the same scheme. To ensure uniqueness, specify a reverse DNS string that incorporates your company’s domain and app name. Although using a reverse DNS string is a best practice, it doesn’t prevent other apps from registering the same scheme and handling the associated links.
-1. **URL schemes** - In the URL Schemes box, specify the prefix you use for your URLs.
-1. **Role** - Since your app will be editing the role select the role as editor.
-
-In order to edit the Info.plist directly, just fill in your app specific details and paste this in your plist.
-
-```xml
-<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>{your_unique_identifier}</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>{your_URL_scheme}</string>
-        </array>
-    </dict>
-</array>
-```
-
-###### Step 2: Whitelist supported URL schemes
-
-Since iOS 9 Apple has mandated that the URL schemes that your app can open need to also be listed in the Info.plist. This is in addition to Step 1 above. Even if your app isn't opening any other apps, you still need to list your app's URL scheme in order for deep linking to work.
-
-This needs to be done in the Info.plist directly:
-
-```xml
-<key>LSApplicationQueriesSchemes</key>
-<array>
-    <string>{your custom URL scheme}</string>
-</array>
-```
-
-###### Step 3: Implement handling deep links in your app
-
-Steps 1 and 2 enable your app to receive deep links, but you also need to handle these links within your app.
-This is done by implementing the [`application:openURL:options:`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/1623112-application)
-method in your app delegate.
-
-Example:
-
-```swift
-func application(
-    _ app: UIApplication,
-    open url: URL,
-    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-) -> Bool {
-    guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true)
-    else {
-       print("Invalid deep linking URL")
-       return false
-    }
-
-    print("components: \(components.debugDescription)")
-
-    return true
-}
-```
-
-If you are using SwiftUI, then you can implement [`onOpenURL(perform:)`](<https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)>) as a view modifier in the view you intent to handle deep links. This may or may not be the root of your scene.
-
-Example:
-
-```swift
-@main
-struct MyApplication: App {
-  var body: some Scene {
-    WindowGroup {
-      ContentView()
-        .onOpenURL { url in
-          // handle the URL that must be opened
-        }
-    }
-  }
-}
-```
-
-Finally, we have an example app (`Examples/KlaviyoSwiftExamples`) in the SDK repo that you can reference to get an example of how to implement deep links in your app.
-
-Once the above steps are complete, you can send push notifications from the Klaviyo Push editor within the Klaviyo website.
-Here you can build and send a push notification through Klaviyo to make sure that the URL shows up in the handler you implemented in Step 3.
-
-Additionally, you can also locally trigger a deep link to make sure your code is working using the below command in the terminal.
-
-`xcrun simctl openurl booted {your_URL_here}`
-
-##### Option 2: Universal links
-
-[Universal links](https://developer.apple.com/ios/universal-links/) are a more modern way of handling deep links and are recommended by Apple.
-They are more secure and provide a better user experience. However, unlike URL schemes they require a bit more setup that is highlighted in [these](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html) Apple docs.
-
-Once you have the setup from the Apple docs in place you will need to modify the push open tracking as described below:
-
-```swift
-extension AppDelegate: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler) { url in
-            print("deep link is ", url)
-        }
-        if !handled {
-           // not a klaviyo notification should be handled by other app code
-        }
-    }
-}
-```
-
-Note that the deep link handler will be called back on the main thread. If you want to handle URL schemes in addition to universal links you implement them as described in [Option 1: URL Schemes](#option-1-URL-schemes).
 
 #### Rich Push
 
@@ -546,26 +418,263 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 #### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
+## Deep Linking
+
+Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping an In-App Form link, or by tapping a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
+
+### Adding link-handling logic
+
+We recommend that you create a helper method to contain the link handling logic. This may include parsing a URL into its components, then using those components to navigate to the appropriate screen in the app. By encapsulating this logic within a helper method, you can centralize your logic and reduce duplication of code as you complete the rest of your deep linking setup via [url schemes](#handling-url-schemes) and [universal links](#handling-universal-links).
+
+As an example, you may add a method like the following within your `AppDelegate` or `SceneDelegate`:
+
+```swift
+func handleDeepLink(url: URL) {
+    // parse the URL into its components by creating a URLComponents object; i.e.,
+    // let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
+
+    // extract the path and/or the query items from the URL components
+
+    // use your app's navigation logic to handle routing to the appropriate
+    // screen given the extracted path and/or query items
+}
+```
+
+### Handling URL Schemes
+
+>  ℹ️  Your app needs to use version 1.7.2 at a minimum in order for the below steps to work.
+
+URL schemes are a simple way to enable deep linking in your app. Here's how to set them up:
+
+#### Step 1: Register the URL scheme
+
+First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
+
+#### Step 2: Whitelist Your URL Scheme
+
+Next, you need to whitelist your URL scheme in your app's `Info.plist` file. This allows your app to open deep links from push notifications.
+
+To do this, add the following to your `Info.plist`:
+
+```xml
+<key>LSApplicationQueriesSchemes</key>
+<array>
+    <string>{your_url_scheme}</string>
+</array>
+```
+
+Replace `{your_url_scheme}` with the URL scheme you registered in Step 1.
+
+#### Step 3: Handle the deep links in your app
+
+Finally, you need to add code to your app to process incoming URLs and navigate to the correct content. The implementation differs depending on whether your app uses SwiftUI or UIKit for its lifecycle.
+
+##### For SwiftUI Apps
+
+If your app uses the SwiftUI app life cycle, you should use the [`onOpenURL(perform:)`](<https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)>) view modifier. Attach the modifier to the root view in your main App scene.
+
+```swift
+@main
+struct MyApplication: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .onOpenURL { url in
+                // handle the URL
+                // if you created a helper method (see "Adding link-handling logic", above), call it here
+            }
+        }
+    }
+}
+```
+
+##### For UIKit Apps
+
+If your app uses the UIKit app life cycle, you will handle incoming URLs in your `SceneDelegate` or `AppDelegate`.
+
+For detailed instructions and code examples for the UIKit approach, please refer to Apple's official documentation: [Handling incoming URLs](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Handle-incoming-URLs)
+
+### Handling Universal Links
+
+>  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
+>  Full trackable universal links support is available in SDK version 5.1.0 and higher.
+
+Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) with click tracking in emails. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
+
+1.  A marketer includes a universal link in a Klaviyo email. Klaviyo automatically wraps it in a unique, trackable URL, which we call a **universal tracking link**.
+2.  When a user clicks the link on a device with your app installed, iOS delivers the wrapped link to your application.
+3.  Your app passes this universal tracking link to the Klaviyo SDK by calling the `handleUniversalTrackingLink(_:)` method.
+4.  The SDK records a click event on the user's profile, and unwraps the universal tracking link into the *original* universal link.
+5.  The SDK then processes the original link in one of two ways:
+    * **Preferred:** It's passed to a custom deep link handler you register with the SDK. This gives you full control over the navigation logic.
+    * **Fallback:** It's passed back to your `AppDelegate` or `SceneDelegate`, invoking the logic you've written there to handle URLs.
+
+Note that the instructions below will also enable your app to handle standard universal links (i.e., links that are not Klaviyo universal tracking links)
+
+#### Setup
+
+Follow these steps to configure your app to handle Klaviyo universal tracking links.
+
+> ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
+
+#### Step 1: Configure Universal Links in your Klaviyo account
+Follow our guide on [setting up universal links](<TODO: link to universal linking documentation>) in your Klaviyo account dashboard.
+
+#### Step 2: Add the Associated Domains Entitlement
+Follow Apple's developer documentation to [add the associated domains entitlement to your app](https://developer.apple.com/documentation/xcode/supporting-associated-domains#Add-the-associated-domains-entitlement-to-your-app).
+
+You must add the universal link domain you configured in step 1. The domain should be prefixed with `applinks:`; for example:
+
+`applinks:mycompany.com`
+
+#### Step 3: **(Recommended)** Register a Deep Link Handler
+Registering a handler provides a reliable, centralized place to manage incoming links from Klaviyo and simplifies your app's logic.
+
+Registering a handler tells the Klaviyo SDK how to handle deep links. Although we have a fallback mechanism in case you don't register a handler, registering a handler increases code stability and resiliency against possible iOS changes, and can help reduce your code's complexity.
+
+In the same location where you [initialize](#initialization) the SDK, call `registerDeepLinkHandler(_:)` with a closure that handles the URL.
+
+For example:
+
+```swift
+import KlaviyoSwift
+import KlaviyoForms
+...
+
+// Chained with initialization
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerDeepLinkHandler { url in
+        // Your code to parse the URL and use the result to navigate to a specific screen
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
+    }
+
+// **Or** called separately after initialization
+KlaviyoSDK().registerDeepLinkHandler { url in
+    // Your code to parse the URL and use the result to navigate to a specific screen
+    // if you created a helper method (see "Adding link-handling logic", above), call it here
+}
+```
+
+#### Step 4: Pass the universal tracking link into the Klaviyo SDK
+You need to pass the incoming universal tracking link URL from the `NSUserActivity` object to the Klaviyo SDK by calling the Klaviyo SDK's `handleUniversalTrackingLink(_:)` method. This method returns `true` synchronously if the link is a valid Klaviyo universal tracking link. If it returns `false`, the link is not a Klaviyo universal tracking link, and you should handle the non-Klaviyo link as appropriate.
+
+##### If your app uses an AppDelegate
+> *See the [next section](#if-you-have-opted-into-scenes) if your app uses a SceneDelegate*
+
+When the user opens a Klaviyo universal tracking link, the system will deliver the link to the AppDelegate's [`application(_:continue:restorationHandler:)`](https://developer.apple.com/documentation/uikit/uiapplicationdelegate/application(_:continue:restorationhandler:)) method. Within the body of this method, you'll need to extract the universal tracking link from the `NSUserActivity`, then pass the link to the Klaviyo SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<extracted URL>)`.
+
+ This code shows an example of one way to implement the `application(_:continue:restorationHandler:)` method:
+
+```swift
+func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+) -> Bool {
+    // Get the URL from the incoming user activity.
+    guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+        let incomingURL = userActivity.webpageURL
+    else {
+        return false
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return true
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
+    }
+}
+```
+
+##### If you have opted into scenes
+
+If your app uses a SceneDelegate, the system delivers the Klaviyo universal tracking link to one of two SceneDelegate methods, depending on the App's state.
+
+If the app is terminated, the system delivers the universal tracking link to the [`scene(_:willConnectTo:options:)`](https://developer.apple.com/documentation/UIKit/UISceneDelegate/scene(_:willConnectTo:options:)) delegate method after launch.
+
+If the app is running or in the background, the system will deliver the universal tracking link to the [`scene(_:continue:)`](https://developer.apple.com/documentation/UIKit/UISceneDelegate/scene(_:continue:)) delegate method.
+
+Within the body of *both* of these methods, you'll need to extract the universal tracking link from the `NSUserActivity`, then pass the link to the Klaviyo SDK by calling `KlaviyoSDK().handleUniversalTrackingLink(<extracted URL>)`.
+
+As an example, your implementation may look something like this:
+
+```swift
+func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+) {
+    // Get the URL from the incoming user activity.
+    guard let userActivity = connectionOptions.userActivities.first,
+        userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+        let incomingURL = userActivity.webpageURL
+    else {
+        return
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
+    }
+}
+
+...
+
+func scene(
+    _ scene: UIScene,
+    continue userActivity: NSUserActivity
+) {
+    // Get the URL from the incoming user activity.
+    guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+          let incomingURL = userActivity.webpageURL
+    else {
+        return
+    }
+
+    if KlaviyoSDK().handleUniversalTrackingLink(incomingURL) {
+        return
+    } else {
+        // handle a link that's not a Klaviyo universal tracking link
+        // if you created a helper method (see "Adding link-handling logic", above), call it here
+    }
+}
+```
+
+### Validation
+
+To validate your deep linking setup, you can send push notifications from the Klaviyo Push editor within the Klaviyo website. You can configure the push notification to trigger a deep link via either a URL scheme or a universal link. When you send the push notification and open it on your mobile device, validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
+
+To validate that Klaviyo universal tracking links are working properly, you'll need to create a test email campaign through the Klaviyo website, and include in the email a universal link matching the scheme you congfigured when you [set up universal links in your Klaviyo account](#configure-universal-links-in-your-klaviyo-account). Send the campaign, and copy the link from the email. Open the link on your mobile device and validate that the link is handled according to the logic you established in ["Adding link-handling logic"](#adding-link-handling-logic).
+
+Additionally, you can locally trigger a deep link using the following command in the terminal:
+
+`xcrun simctl openurl booted {your_URL_here}`
+
 ## In-App Forms
 > ℹ️ In-App Forms support is available in SDK version [4.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.2.0) and higher
 
 [In-App Forms](https://help.klaviyo.com/hc/en-us/articles/34567685177883) are messages displayed to mobile app users while they are actively using an app. You can create new In-App Forms in a drag-and-drop editor in the Sign-Up Forms tab in Klaviyo.  Follow the instructions in this section to integrate forms with your app. The SDK will
 display forms according to their targeting and behavior settings and collect delivery and engagement analytics automatically.
 
-Beginning with version 5.0.0, In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific lists or segments, and the form will only be shown to users matching those criteria, based on their profile identifiers configured via the [`KlaviyoSDK().set(...)` methods](https://github.com/klaviyo/klaviyo-swift-sdk/blob/61e64552ad2acb65985e9305ae56eb57ff38d28b/Sources/KlaviyoSwift/Klaviyo.swift#L69-L135).
+In-App Forms supports advanced targeting and segmentation. In your Klaviyo account, you can configure forms to target or exclude specific segments of profiles and configure event-based triggers and delays. See the table below to understand available features by SDK version.
 
 ### Prerequisites
 
-* Using Klaviyo SDK version 4.2.0 and higher
 * Imported `KlaviyoSwift` and `KlaviyoForms` SDK modules and adding it to the app target.
 * We strongly recommend using the latest version of the SDK to ensure compatibility with the latest In-App Forms features. The minimum SDK version supporting In-App Forms is `4.2.0`, and a feature matrix is provided below. Forms that leverage unsupported features will not appear in your app until you update to a version that supports those features.
 * Please read the [migration guide](MIGRATION_GUIDE.md) if you are upgrading from 4.2.0-4.2.1 to understanding changes to In-App Forms behavior.
 
+
 | Feature            | Minimum SDK Version |
 |--------------------|---------------------|
-| Basic In-App Forms | 4.2.0+              |
+| Basic In-App Forms | 4.2.0               |
 | Time Delay         | 5.0.0               |
 | Audience Targeting | 5.0.0               |
+| Event Triggers     | 5.1.0               |
 
 ### Setup
 
@@ -614,11 +723,6 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
-
-
-### Deep linking
-
-Deep linking to a particular screen based on user action from an In-App Form is similar to handling deep links originating from push notifications. [Step 3](#step-3-implement-handling-deep-links-in-your-app) of the deep linking section outlines exactly how this can be achieved. For further information on how the deep link is handled, see [Apple's documentation](https://developer.apple.com/documentation/uikit/uiapplication/open(_:options:completionhandler:)).
 
 ## Additional Details
 
