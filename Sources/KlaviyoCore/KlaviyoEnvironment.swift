@@ -44,7 +44,7 @@ public struct KlaviyoEnvironment {
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
         formsDataEnvironment: @escaping () -> FormEnvironment?,
-        openURL: @escaping (URL) async -> Void
+        linkHandler: DeepLinkHandler
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -76,7 +76,7 @@ public struct KlaviyoEnvironment {
         sdkName = SDKName
         sdkVersion = SDKVersion
         self.formsDataEnvironment = formsDataEnvironment
-        self.openURL = openURL
+        self.linkHandler = linkHandler
     }
 
     static let productionHost: URLComponents = {
@@ -142,7 +142,7 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
     public var formsDataEnvironment: () -> FormEnvironment?
-    public var openURL: (URL) async -> Void
+    public var linkHandler: DeepLinkHandler
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -243,12 +243,13 @@ public struct KlaviyoEnvironment {
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
         formsDataEnvironment: { nil },
-        openURL: { url in
-            await MainActor.run {
-                UIApplication.shared.open(url)
-            }
-        }
+        linkHandler: DeepLinkHandler()
     )
+
+    /// Returns `true` if the SDK is currently running in a React Native host app.
+    package static var isReactNative: Bool {
+        NSClassFromString("RCTBridge") != nil
+    }
 }
 
 public var networkSession: NetworkSession!

@@ -5,10 +5,10 @@
 //  Created by Isobelle Lim on 5/6/25.
 //
 
+@testable import KlaviyoCore
 import Combine
 import CoreLocation
 import Foundation
-import KlaviyoCore
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 enum FakeFileError: Error {
@@ -111,7 +111,7 @@ extension KlaviyoEnvironment {
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
-            openURL: { _ in }
+            linkHandler: DeepLinkHandler()
         )
     }
 }

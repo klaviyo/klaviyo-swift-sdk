@@ -5,10 +5,10 @@
 //  Created by Ajay Subramanya on 8/15/24.
 //
 
+@testable import KlaviyoCore
 import Combine
 import CoreLocation
 import Foundation
-import KlaviyoCore
 
 enum FakeFileError: Error {
     case fake
@@ -110,7 +110,7 @@ extension KlaviyoEnvironment {
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
-            openURL: { _ in }
+            linkHandler: DeepLinkHandler()
         )
     }
 }

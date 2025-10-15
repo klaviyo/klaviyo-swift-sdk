@@ -186,7 +186,7 @@ extension ProfilePayload {
     fileprivate func asJSONString() throws -> String {
         do {
             let profileData = try environment.encodeJSON(self)
-            return String(decoding: profileData, as: UTF8.self)
+            return profileData.base64EncodedString()
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.codable.warning("Unable to encode ProfilePayload into JSON string; error: \(error)")

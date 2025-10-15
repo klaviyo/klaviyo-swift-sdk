@@ -10,6 +10,7 @@
   - flushInterval: 10.0
   - flushing: true
   - initalizationState: InitializationState.initialized
+  - isProcessingDeepLink: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   ▿ phoneNumber: Optional<String>
@@ -28,7 +29,7 @@
         - manufacturer: "Orange"
         - osName: "iOS"
         - osVersion: "1.1.1"
-        - sdkVersion: "5.0.2"
+        - sdkVersion: "5.1.0"
       - pushBackground: PushBackground.available
       - pushEnablement: PushEnablement.authorized
       - pushToken: "blob_token"
