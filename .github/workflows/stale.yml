@@ -18,8 +18,8 @@ jobs:
         days-before-issue-stale: 14
         days-before-issue-close: 14
         stale-issue-label: 'stale'
-        stale-issue-message: 'This issue was marked as needing more information from the reporter. It will automatically close in 14 days if there is no response. If you are still experiencing this issue, please respond with the requested information.'
-        close-issue-message: 'This issue was automatically closed due to no response from the reporter after requesting more information. Please feel free to reopen if you can provide the requested details.'
+        stale-issue-message: 'This issue is stale due to inactivity. Please let us know if you are still encountering issues, otherwise this issue will automatically close in 14 days.'
+        close-issue-message: 'This issue has seen no updates in the past 28 days and will now be closed. Please open a new issue if you wish to report an update.'
         exempt-issue-labels: 'evergreen,investigating,awaiting-team'
         days-before-pr-stale: 16
         days-before-pr-close: 14
