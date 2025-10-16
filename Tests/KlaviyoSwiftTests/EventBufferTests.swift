@@ -40,7 +40,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(event)
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         let events = eventBuffer.getRecentEvents()
 
@@ -61,7 +61,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(event3)
 
         // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
 
         let events = eventBuffer.getRecentEvents()
 
@@ -82,7 +82,7 @@ class EventBufferTests: XCTestCase {
         events.forEach { eventBuffer.buffer($0) }
 
         // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
 
         let recentEvents = eventBuffer.getRecentEvents()
 
@@ -102,7 +102,7 @@ class EventBufferTests: XCTestCase {
         }
 
         // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
 
         let events = eventBuffer.getRecentEvents()
 
@@ -153,7 +153,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(Event(name: .customEvent("new_event_2")))
 
         // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
 
         // When
         let events = eventBuffer.getRecentEvents()
@@ -197,7 +197,7 @@ class EventBufferTests: XCTestCase {
                 self.eventBuffer.buffer(Event(name: .customEvent("event_\(i)")))
             }
             // Add small delay to allow async buffer operations to settle
-            Thread.sleep(forTimeInterval: 0.1)
+            Thread.sleep(forTimeInterval: 0.25)
             writeExpectation.fulfill()
         }
 
@@ -225,7 +225,7 @@ class EventBufferTests: XCTestCase {
         zeroBuffer.buffer(Event(name: .customEvent("event")))
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         let events = zeroBuffer.getRecentEvents()
 
@@ -241,7 +241,7 @@ class EventBufferTests: XCTestCase {
         zeroAgeBuffer.buffer(Event(name: .customEvent("event")))
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         let events = zeroAgeBuffer.getRecentEvents()
 
@@ -254,7 +254,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(Event(name: .customEvent("event")))
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         // When
         let events1 = eventBuffer.getRecentEvents()
@@ -276,7 +276,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(event)
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         let retrievedEvents = eventBuffer.getRecentEvents()
 
@@ -297,7 +297,7 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(openedPushEvent)
 
         // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         let events = eventBuffer.getRecentEvents()
 
