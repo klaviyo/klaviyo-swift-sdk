@@ -15,6 +15,7 @@ jobs:
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         only-labels: 'awaiting-reporter-response,missing-details'
+        remove-stale-when-updated: true
         days-before-issue-stale: 14
         days-before-issue-close: 14
         stale-issue-label: 'stale'
