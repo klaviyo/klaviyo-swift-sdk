@@ -16,11 +16,11 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         only-labels: 'awaiting-reporter-response,missing-details'
         days-before-issue-stale: 14
-        days-before-issue-close: 7
+        days-before-issue-close: 14
         stale-issue-label: 'stale'
-        stale-issue-message: 'This issue was marked as needing more information from the reporter. It will automatically close in 7 days if there is no response. If you are still experiencing this issue, please respond with the requested information.'
+        stale-issue-message: 'This issue was marked as needing more information from the reporter. It will automatically close in 14 days if there is no response. If you are still experiencing this issue, please respond with the requested information.'
         close-issue-message: 'This issue was automatically closed due to no response from the reporter after requesting more information. Please feel free to reopen if you can provide the requested details.'
-        exempt-issue-labels: 'evergreen,bug,feature-request,investigating,awaiting-team'
+        exempt-issue-labels: 'evergreen,investigating,awaiting-team'
         days-before-pr-stale: 16
         days-before-pr-close: 14
         stale-pr-message: 'This PR has not seen any updates in the last 16 days. Without further action this PR will be closed in 14 days. To disable further staleness checks add the `evergreen` label.'
