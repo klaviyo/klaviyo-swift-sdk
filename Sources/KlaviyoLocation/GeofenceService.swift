@@ -81,11 +81,11 @@ internal struct GeofenceService: GeofenceServiceProvider {
     }
 }
 
-internal struct GeofenceJSONResponse: Codable {
+private struct GeofenceJSONResponse: Codable {
     let data: [GeofenceJSON]
 }
 
-internal struct GeofenceJSON: Codable {
+private struct GeofenceJSON: Codable {
     let type: String
     let id: String
     let attributes: Attributes
