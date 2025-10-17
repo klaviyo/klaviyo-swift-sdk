@@ -12,7 +12,7 @@ import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
 public struct Geofence: Equatable, Hashable, Codable {
-    /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a hyphen.
+    /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
     public let id: String
 
     /// Longitude of the geofence center
@@ -26,18 +26,18 @@ public struct Geofence: Equatable, Hashable, Codable {
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     public var companyId: String {
-        id.split(separator: "-").first.map(String.init) ?? ""
+        id.split(separator: ":").first.map(String.init) ?? ""
     }
 
     /// Location UUID to which this geofence belongs, extracted from the geofence ID.
     public var locationId: String {
-        let components = id.split(separator: "-", maxSplits: 1)
+        let components = id.split(separator: ":", maxSplits: 1)
         return components.count > 1 ? String(components[1]) : ""
     }
 
     /// Creates a new geofence
     /// - Parameters:
-    ///   - id: Unique identifier for the geofence in format "{companyId}-{UUID}" where companyId is 6 alphanumeric characters
+    ///   - id: Unique identifier for the geofence in format "{companyId}:{UUID}" where companyId is 6 alphanumeric characters
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
@@ -55,14 +55,14 @@ public struct Geofence: Equatable, Hashable, Codable {
         self.radius = radius
     }
 
-    /// Validates that the geofence ID follows the expected format: {companyId}-{UUID}
+    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
     /// where companyId is exactly 6 alphanumeric characters and UUID follows standard format
     /// - Parameter id: The ID to validate
     /// - Throws: `GeofenceError.invalidIdFormat` if the format is invalid
     private static func validateIdFormat(_ id: String) throws {
-        let pattern = "^[a-zA-Z0-9]{6}-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        let pattern = "^[a-zA-Z0-9]{6}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
         guard id.range(of: pattern, options: .regularExpression) != nil else {
-            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}-{geofenceUUID}', got: '\(id)'")
+            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}', got: '\(id)'")
         }
     }
 

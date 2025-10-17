@@ -17,13 +17,13 @@ final class GeofenceTests: XCTestCase {
 
     func testGeofenceInitialization() throws {
         let geofence = try Geofence(
-            id: "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+            id: "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f",
             longitude: -122.03026995144546,
             latitude: 37.33204742438631,
             radius: 100.0
         )
 
-        XCTAssertEqual(geofence.id, "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f")
+        XCTAssertEqual(geofence.id, "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(geofence.longitude, -122.03026995144546)
         XCTAssertEqual(geofence.latitude, 37.33204742438631)
         XCTAssertEqual(geofence.radius, 100.0)
@@ -35,7 +35,7 @@ final class GeofenceTests: XCTestCase {
 
     func testToCLCircularRegion() throws {
         let geofence = try Geofence(
-            id: "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+            id: "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f",
             longitude: -122.03026995144546,
             latitude: 37.33204742438631,
             radius: 100.0
@@ -43,7 +43,7 @@ final class GeofenceTests: XCTestCase {
 
         let clRegion = geofence.toCLCircularRegion()
 
-        XCTAssertEqual(clRegion.identifier, "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f")
+        XCTAssertEqual(clRegion.identifier, "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(clRegion.center.longitude, -122.03026995144546)
         XCTAssertEqual(clRegion.center.latitude, 37.33204742438631)
         XCTAssertEqual(clRegion.radius, 100.0)
@@ -112,14 +112,14 @@ final class GeofenceTests: XCTestCase {
         // Then
         XCTAssertEqual(geofences.count, 2)
         let firstGeofence = geofences.first { $0.locationId == "8db4effa-44f1-45e6-a88d-8e7d50516a0f" }!
-        XCTAssertEqual(firstGeofence.id, "ABC123-8db4effa-44f1-45e6-a88d-8e7d50516a0f")
+        XCTAssertEqual(firstGeofence.id, "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(firstGeofence.companyId, "ABC123")
         XCTAssertEqual(firstGeofence.latitude, 40.7128)
         XCTAssertEqual(firstGeofence.longitude, -74.006)
         XCTAssertEqual(firstGeofence.radius, 100)
 
         let secondGeofence = geofences.first { $0.locationId == "a84011cf-93ef-4e78-b047-c0ce4ea258e4" }!
-        XCTAssertEqual(secondGeofence.id, "ABC123-a84011cf-93ef-4e78-b047-c0ce4ea258e4")
+        XCTAssertEqual(secondGeofence.id, "ABC123:a84011cf-93ef-4e78-b047-c0ce4ea258e4")
         XCTAssertEqual(secondGeofence.companyId, "ABC123")
         XCTAssertEqual(secondGeofence.latitude, 40.6892)
         XCTAssertEqual(secondGeofence.longitude, -74.0445)
@@ -135,7 +135,11 @@ final class GeofenceTests: XCTestCase {
             latitude: 40.7128,
             radius: 100.0
         )) { error in
-            XCTAssertTrue(error is GeofenceError.invalidIdFormat)
+            if case .invalidIdFormat = error as? GeofenceError {
+                // Test passes if we get the expected error type
+            } else {
+                XCTFail("Expected GeofenceError.invalidIdFormat, got: \(error)")
+            }
         }
     }
 }

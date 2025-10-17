@@ -64,7 +64,7 @@ internal struct GeofenceService: GeofenceServiceProvider {
             let companyId = try await KlaviyoInternal.fetchAPIKey()
             let geofences = try response.data.map { rawGeofence in
                 try Geofence(
-                    id: "\(companyId)-\(rawGeofence.id)",
+                    id: "\(companyId):\(rawGeofence.id)",
                     longitude: rawGeofence.attributes.longitude,
                     latitude: rawGeofence.attributes.latitude,
                     radius: rawGeofence.attributes.radius
