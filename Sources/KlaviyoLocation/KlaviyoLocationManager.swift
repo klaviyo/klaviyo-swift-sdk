@@ -78,7 +78,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         case .authorizedWhenInUse, .restricted, .denied, .notDetermined:
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Geofencing not supported on permission level: \(status.description)")
+                Logger.geoservices.warning("Geofencing not supported on permission level: \(status.description)")
             }
             geofenceManager.destroyGeofencing()
 
