@@ -518,7 +518,7 @@ Follow these steps to configure your app to handle Klaviyo universal tracking li
 > ⚠️ Note that these instructions diverge somewhat from [Apple's developer documentation](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) on supporting universal links.
 
 #### Step 1: Configure Universal Links in your Klaviyo account
-Follow our guide on [setting up universal links](<TODO: link to universal linking documentation>) in your Klaviyo account dashboard.
+Follow our guide on [setting up universal links](https://help.klaviyo.com/hc/en-us/articles/41701832186523) in your Klaviyo account dashboard.
 
 #### Step 2: Add the Associated Domains Entitlement
 Follow Apple's developer documentation to [add the associated domains entitlement to your app](https://developer.apple.com/documentation/xcode/supporting-associated-domains#Add-the-associated-domains-entitlement-to-your-app).
