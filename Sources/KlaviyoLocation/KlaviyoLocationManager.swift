@@ -46,6 +46,11 @@ public class KlaviyoLocationManager: NSObject {
     internal func destroyGeofencing() {
         geofenceManager.destroyGeofencing()
     }
+
+    @MainActor
+    internal func getCurrentGeofences() -> Set<CLRegion> {
+        locationManager.monitoredRegions
+    }
 }
 
 extension KlaviyoLocationManager: CLLocationManagerDelegate {

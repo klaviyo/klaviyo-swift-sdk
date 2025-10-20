@@ -21,7 +21,12 @@
 		7CC1C7A828D7492C0073197F /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79C28D7492C0073197F /* ViewController.swift */; };
 		7CC1C7A928D7492C0073197F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79D28D7492C0073197F /* AppDelegate.swift */; };
 		7CC1C7AB28D7492C0073197F /* MenuPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C79F28D7492C0073197F /* MenuPageViewController.swift */; };
-		7CC1C7AC28D7492C0073197F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C7A028D7492C0073197F /* Main.storyboard */; };
+		7CC1C7AC28D7492C0073197F /* CocoapodsExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7A028D7492C0073197F /* CocoapodsExampleApp.swift */; };
+		7CC1C7B528D7492C0073197F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7B028D7492C0073197F /* ContentView.swift */; };
+		7CC1C7B628D7492C0073197F /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7B128D7492C0073197F /* LoginView.swift */; };
+		7CC1C7B728D7492C0073197F /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7B228D7492C0073197F /* MenuView.swift */; };
+		7CC1C7B828D7492C0073197F /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7B328D7492C0073197F /* MapView.swift */; };
+		7CC1C7B928D7492C0073197F /* CheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C7B428D7492C0073197F /* CheckoutView.swift */; };
 		AFE72889800741191D32F862 /* Pods_CocoapodsExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9F3B7C999EC91D8C05B1FEA /* Pods_CocoapodsExample.framework */; };
 		FD1A5DA5B5F2CFD51DB4DF15 /* Pods_NotificationServiceExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750E7E2D22F7060008D59247 /* Pods_NotificationServiceExtension.framework */; };
 /* End PBXBuildFile section */
@@ -86,7 +91,12 @@
 		7CC1C79C28D7492C0073197F /* ViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ViewController.swift; path = ../../Shared/ViewController.swift; sourceTree = "<group>"; };
 		7CC1C79D28D7492C0073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
 		7CC1C79F28D7492C0073197F /* MenuPageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuPageViewController.swift; path = ../../Shared/MenuPageViewController.swift; sourceTree = "<group>"; };
-		7CC1C7A028D7492C0073197F /* Main.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = Main.storyboard; path = ../../Shared/Main.storyboard; sourceTree = "<group>"; };
+		7CC1C7A028D7492C0073197F /* CocoapodsExampleApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CocoapodsExampleApp.swift; path = CocoapodsExample/CocoapodsExampleApp.swift; sourceTree = "<group>"; };
+		7CC1C7B028D7492C0073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../../Shared/ContentView.swift; sourceTree = "<group>"; };
+		7CC1C7B128D7492C0073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = ../../Shared/LoginView.swift; sourceTree = "<group>"; };
+		7CC1C7B228D7492C0073197F /* MenuView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuView.swift; path = ../../Shared/MenuView.swift; sourceTree = "<group>"; };
+		7CC1C7B328D7492C0073197F /* MapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = ../../Shared/MapView.swift; sourceTree = "<group>"; };
+		7CC1C7B428D7492C0073197F /* CheckoutView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckoutView.swift; path = ../../Shared/CheckoutView.swift; sourceTree = "<group>"; };
 		7CC1C7AF28D749B70073197F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../../Shared/Info.plist; sourceTree = "<group>"; };
 		7CC1C7B128D74C660073197F /* CocoapodsExample */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CocoapodsExample; sourceTree = "<group>"; };
 		B9F3B7C999EC91D8C05B1FEA /* Pods_CocoapodsExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CocoapodsExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -163,7 +173,12 @@
 				7CC1C79A28D7492C0073197F /* CheckOutTableViewCell.swift */,
 				7CC1C79628D7492C0073197F /* CheckOutViewController.swift */,
 				7CC1C79B28D7492C0073197F /* Images.xcassets */,
-				7CC1C7A028D7492C0073197F /* Main.storyboard */,
+				7CC1C7A028D7492C0073197F /* CocoapodsExampleApp.swift */,
+				7CC1C7B028D7492C0073197F /* ContentView.swift */,
+				7CC1C7B128D7492C0073197F /* LoginView.swift */,
+				7CC1C7B228D7492C0073197F /* MenuView.swift */,
+				7CC1C7B328D7492C0073197F /* MapView.swift */,
+				7CC1C7B428D7492C0073197F /* CheckoutView.swift */,
 				7CC1C79928D7492C0073197F /* MenuItem.swift */,
 				7CC1C79528D7492C0073197F /* MenuItemTableViewCell.swift */,
 				7CC1C79F28D7492C0073197F /* MenuPageViewController.swift */,
@@ -314,7 +329,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7CC1C7AC28D7492C0073197F /* Main.storyboard in Resources */,
 				7CC1C7A728D7492C0073197F /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -416,6 +430,12 @@
 				7CC1C7A428D7492C0073197F /* Cart.swift in Sources */,
 				7CC1C7A528D7492C0073197F /* MenuItem.swift in Sources */,
 				7CC1C7AB28D7492C0073197F /* MenuPageViewController.swift in Sources */,
+				7CC1C7AC28D7492C0073197F /* CocoapodsExampleApp.swift in Sources */,
+				7CC1C7B528D7492C0073197F /* ContentView.swift in Sources */,
+				7CC1C7B628D7492C0073197F /* LoginView.swift in Sources */,
+				7CC1C7B728D7492C0073197F /* MenuView.swift in Sources */,
+				7CC1C7B828D7492C0073197F /* MapView.swift in Sources */,
+				7CC1C7B928D7492C0073197F /* CheckoutView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -627,8 +647,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CocoapodsExample/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -663,8 +682,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CocoapodsExample/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
