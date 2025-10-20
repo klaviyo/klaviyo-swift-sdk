@@ -1,44 +1,31 @@
-[
-  {
-    "location": "One Infinite Loop",
-    "id": "locA",
-    "radius": 100,
-    "latitude": 37.33204742438631,
-    "longitude": -122.03026995144546
-  },
-  {
-    "location": "Empire State Building",
-    "id": "locB",
-    "radius": 100,
-    "latitude": 40.74859487385327,
-    "longitude": -73.98563220742138
-  },
-  {
-    "location": "Tatte",
-    "id": "locC",
-    "radius": 10,
-    "latitude": 42.3586000204366,
-    "longitude": -71.05831575152477
-  },
-  {
-    "location": "George Dilboy VFW",
-    "id": "locD",
-    "radius": 10,
-    "latitude": 42.39377283506793,
-    "longitude": -71.11933974002551
-  },
-  {
-    "location": "Day Street Parking Lot",
-    "id": "locE",
-    "radius": 50,
-    "latitude": 42.39545953282365,
-    "longitude": -71.12336490695512
-  },
-  {
-    "location": "Forest Hills",
-    "id": "locF",
-    "radius": 1000,
-    "latitude": 42.29742802785763,
-    "longitude": -71.11579719578968
-  }
-]
+{
+  "data": [
+    {
+      "type": "geofence",
+      "id": "8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+      "attributes": {
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "radius": 100
+      }
+    },
+    {
+      "type": "geofence",
+      "id": "a84011cf-93ef-4e78-b047-c0ce4ea258e4",
+      "attributes": {
+        "latitude": 40.6892,
+        "longitude": -74.0445,
+        "radius": 200
+      }
+    },
+    {
+      "type": "geofence",
+      "id": "e1ded9eb-ba47-453d-afba-3f462bc87576",
+      "attributes": {
+        "latitude": 40.758,
+        "longitude": -73.9855,
+        "radius": 150
+      }
+    }
+  ]
+}

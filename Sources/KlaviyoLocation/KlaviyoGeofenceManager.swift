@@ -17,17 +17,16 @@ internal class KlaviyoGeofenceManager {
     }
 
     internal func setupGeofencing() {
-        // TODO: Consider factoring permission checks out to its own class
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Geofencing is not supported on this device")
+                Logger.geoservices.warning("Geofencing is not supported on this device")
             }
             return
         }
 
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("App does not have 'authorizedAlways' permission to access the user's location")
+                Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
             }
             return
         }
@@ -53,7 +52,14 @@ internal class KlaviyoGeofenceManager {
         let activeGeofences: Set<Geofence> = Set(
             locationManager.monitoredRegions.compactMap { region in
                 guard let circularRegion = region as? CLCircularRegion else { return nil }
-                return circularRegion.toKlaviyoGeofence()
+                do {
+                    return try circularRegion.toKlaviyoGeofence()
+                } catch {
+                    if #available(iOS 14.0, *) {
+                        Logger.geoservices.error("Failed to convert CLCircularRegion to Geofence: \(error)")
+                    }
+                    return nil
+                }
             }
         )
 
