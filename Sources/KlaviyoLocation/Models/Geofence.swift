@@ -87,4 +87,12 @@ extension CLCircularRegion {
     internal func toKlaviyoGeofence() throws -> Geofence {
         try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
+
+    internal var klaviyoLocationId: String? {
+        do {
+            return try toKlaviyoGeofence().locationId
+        } catch {
+            return nil
+        }
+    }
 }

@@ -23,8 +23,9 @@ public struct Event: Equatable {
         }
 
         public enum LocationEvent: Equatable {
-            case enteredBoundary
-            case exitedBoundary
+            case geofenceEnter
+            case geofenceExit
+            case geofenceDwell
         }
     }
 
@@ -103,10 +104,12 @@ extension Event.EventName {
         case .startedCheckoutMetric: return "Started Checkout"
         case let .locationEvent(type):
             switch type {
-            case .enteredBoundary:
-                return "Entered Location"
-            case .exitedBoundary:
-                return "Exited Location"
+            case .geofenceEnter:
+                return "$geofence_enter"
+            case .geofenceExit:
+                return "$geofence_exit"
+            case .geofenceDwell:
+                return "$geofence_dwell"
             }
         case let .customEvent(value): return "\(value)"
         }

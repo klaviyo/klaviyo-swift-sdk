@@ -92,20 +92,20 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         guard let region = region as? CLCircularRegion else { return }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(region.identifier)\"")
+            Logger.geoservices.info("🌎 User entered region \"\(region.klaviyoLocationId ?? region.identifier)\"")
         }
 
         let enterEvent = Event(
-            name: .locationEvent(.enteredBoundary),
+            name: .locationEvent(.geofenceEnter),
             properties: [
-                "boundaryIdentifier": region.identifier
+                "geofence_id": region.klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: enterEvent)
-                geofencePublisher.send("Entered \(region.identifier)")
+                geofencePublisher.send("Entered \(region.klaviyoLocationId)")
             }
         }
     }
@@ -113,13 +113,13 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         guard let region = region as? CLCircularRegion else { return }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(region.identifier)\"")
+            Logger.geoservices.info("🌎 User exited region \"\(region.klaviyoLocationId ?? region.identifier)\"")
         }
 
         let exitEvent = Event(
-            name: .locationEvent(.exitedBoundary),
+            name: .locationEvent(.geofenceExit),
             properties: [
-                "boundaryIdentifier": region.identifier
+                "geofence_id": region.klaviyoLocationId
             ]
         )
 
