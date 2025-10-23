@@ -21,7 +21,6 @@ public class KlaviyoLocationManager: NSObject {
 
     private var geofenceDwellSettings: [String: Int] = [:]
     private var dwellTimers: [String: Timer] = [:]
-    private var dwellEnterTimes: [String: Date] = [:]
 
     internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -43,7 +42,6 @@ public class KlaviyoLocationManager: NSObject {
             timer.invalidate()
         }
         dwellTimers.removeAll()
-        dwellEnterTimes.removeAll()
         geofenceDwellSettings.removeAll()
     }
 
@@ -182,7 +180,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             return
         }
 
-        dwellEnterTimes[klaviyoLocationId] = Date()
         let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(dwellSeconds), repeats: false) { [weak self] _ in
             self?.handleDwellTimerFired(for: klaviyoLocationId)
         }
@@ -197,7 +194,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         if let timer = dwellTimers[klaviyoLocationId] {
             timer.invalidate()
             dwellTimers.removeValue(forKey: klaviyoLocationId)
-            dwellEnterTimes.removeValue(forKey: klaviyoLocationId)
 
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("🕐 Cancelled dwell timer for region \(klaviyoLocationId)")
@@ -207,7 +203,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     private func handleDwellTimerFired(for klaviyoLocationId: String) {
         dwellTimers.removeValue(forKey: klaviyoLocationId)
-        dwellEnterTimes.removeValue(forKey: klaviyoLocationId)
 
         let dwellEvent = Event(
             name: .locationEvent(.geofenceDwell),
