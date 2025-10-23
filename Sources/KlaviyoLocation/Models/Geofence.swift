@@ -24,6 +24,9 @@ public struct Geofence: Equatable, Hashable, Codable {
     /// Radius of the geofence in meters
     public let radius: Double
 
+    /// Optional time in seconds to trigger a dwell event after entering and staying in the geofence for this duration. If not provided, only enter and exit events will be emitted for the geofence.
+    public let dwell: Int?
+
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     public var companyId: String {
         id.split(separator: ":").first.map(String.init) ?? ""
@@ -41,18 +44,21 @@ public struct Geofence: Equatable, Hashable, Codable {
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
+    ///   - dwell: Optional dwell time in seconds. If provided, a dwell event will be triggered after entering and staying in the geofence for this duration
     /// - Throws: `GeofenceError.invalidIdFormat` if the ID doesn't match the expected format
     public init(
         id: String,
         longitude: Double,
         latitude: Double,
         radius: Double,
+        dwell: Int?
     ) throws {
         try Self.validateIdFormat(id)
         self.id = id
         self.longitude = longitude
         self.latitude = latitude
         self.radius = radius
+        self.dwell = dwell
     }
 
     /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
@@ -85,7 +91,7 @@ public enum GeofenceError: Error {
 
 extension CLCircularRegion {
     internal func toKlaviyoGeofence() throws -> Geofence {
-        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
+        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius, dwell: nil)
     }
 
     internal var klaviyoLocationId: String? {

@@ -67,7 +67,8 @@ internal struct GeofenceService: GeofenceServiceProvider {
                     id: "\(companyId):\(rawGeofence.id)",
                     longitude: rawGeofence.attributes.longitude,
                     latitude: rawGeofence.attributes.latitude,
-                    radius: rawGeofence.attributes.radius
+                    radius: rawGeofence.attributes.radius,
+                    dwell: rawGeofence.attributes.dwell
                 )
             }
 
@@ -94,5 +95,6 @@ private struct GeofenceJSON: Codable {
         let latitude: Double
         let longitude: Double
         let radius: Double
+        let dwell: Int?
     }
 }

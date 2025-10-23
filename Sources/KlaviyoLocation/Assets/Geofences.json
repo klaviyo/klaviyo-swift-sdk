@@ -6,7 +6,8 @@
       "attributes": {
         "latitude": 40.7128,
         "longitude": -74.006,
-        "radius": 100
+        "radius": 100,
+        "dwell": 1
       }
     },
     {
@@ -24,7 +25,8 @@
       "attributes": {
         "latitude": 40.758,
         "longitude": -73.9855,
-        "radius": 150
+        "radius": 150,
+        "dwell": 3
       }
     }
   ]
