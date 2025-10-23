@@ -109,122 +109,122 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     // MARK: Geofencing
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion else { return }
+        guard let region = region as? CLCircularRegion,
+              let klaviyoLocationId = region.klaviyoLocationId else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
+            }
+            return
+        }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(region.klaviyoLocationId ?? region.identifier)\"")
+            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId)\"")
         }
 
         let enterEvent = Event(
             name: .locationEvent(.geofenceEnter),
             properties: [
-                "geofence_id": region.klaviyoLocationId
+                "geofence_id": klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: enterEvent)
-                geofencePublisher.send("Entered \(region.klaviyoLocationId)")
+                geofencePublisher.send("Entered \(klaviyoLocationId)")
             }
         }
 
         Task {
             await MainActor.run {
-                startDwellTimer(for: region)
+                startDwellTimer(for: klaviyoLocationId)
             }
         }
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion else { return }
+        guard let region = region as? CLCircularRegion,
+              let klaviyoLocationId = region.klaviyoLocationId else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
+            }
+            return
+        }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(region.klaviyoLocationId ?? region.identifier)\"")
+            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId)\"")
         }
 
         let exitEvent = Event(
             name: .locationEvent(.geofenceExit),
             properties: [
-                "geofence_id": region.klaviyoLocationId
+                "geofence_id": klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: exitEvent)
-                geofencePublisher.send("Exited \(region.klaviyoLocationId)")
+                geofencePublisher.send("Exited \(klaviyoLocationId)")
             }
         }
 
         Task {
             await MainActor.run {
-                cancelDwellTimer(for: region)
+                cancelDwellTimer(for: klaviyoLocationId)
             }
         }
     }
 
     // MARK: Dwell Timer Management
 
-    private func startDwellTimer(for region: CLCircularRegion) {
-        guard let regionId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Received unexpected region without a klaviyoLocationId")
-            }
-            return
-        }
-        cancelDwellTimer(for: region)
-        guard let dwellSeconds = geofenceDwellSettings[regionId] else {
+    private func startDwellTimer(for klaviyoLocationId: String) {
+        cancelDwellTimer(for: klaviyoLocationId)
+        guard let dwellSeconds = geofenceDwellSettings[klaviyoLocationId] else {
             return
         }
 
-        dwellEnterTimes[regionId] = Date()
+        dwellEnterTimes[klaviyoLocationId] = Date()
         let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(dwellSeconds), repeats: false) { [weak self] _ in
-            self?.handleDwellTimerFired(for: regionId)
+            self?.handleDwellTimerFired(for: klaviyoLocationId)
         }
-        dwellTimers[regionId] = timer
+        dwellTimers[klaviyoLocationId] = timer
 
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🕐 Started dwell timer for region \(regionId) with \(dwellSeconds) seconds")
+            Logger.geoservices.info("🕐 Started dwell timer for region \(klaviyoLocationId) with \(dwellSeconds) seconds")
         }
     }
 
-    private func cancelDwellTimer(for region: CLCircularRegion) {
-        guard let regionId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Received unexpected region without a klaviyoLocationId")
-            }
-            return
-        }
-        if let timer = dwellTimers[regionId] {
+    private func cancelDwellTimer(for klaviyoLocationId: String) {
+        if let timer = dwellTimers[klaviyoLocationId] {
             timer.invalidate()
-            dwellTimers.removeValue(forKey: regionId)
-            dwellEnterTimes.removeValue(forKey: regionId)
+            dwellTimers.removeValue(forKey: klaviyoLocationId)
+            dwellEnterTimes.removeValue(forKey: klaviyoLocationId)
 
             if #available(iOS 14.0, *) {
-                Logger.geoservices.info("🕐 Cancelled dwell timer for region \(regionId)")
+                Logger.geoservices.info("🕐 Cancelled dwell timer for region \(klaviyoLocationId)")
             }
         }
     }
 
-    private func handleDwellTimerFired(for locationId: String) {
-        dwellTimers.removeValue(forKey: locationId)
-        dwellEnterTimes.removeValue(forKey: locationId)
+    private func handleDwellTimerFired(for klaviyoLocationId: String) {
+        dwellTimers.removeValue(forKey: klaviyoLocationId)
+        dwellEnterTimes.removeValue(forKey: klaviyoLocationId)
 
         let dwellEvent = Event(
             name: .locationEvent(.geofenceDwell),
             properties: [
-                "geofence_id": locationId
+                "geofence_id": klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: dwellEvent)
-                geofencePublisher.send("Dwelled in \(locationId)")
+                geofencePublisher.send("Dwelled in \(klaviyoLocationId)")
             }
         }
 
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🕐 Dwell event fired for region \(locationId)")
+            Logger.geoservices.info("🕐 Dwell event fired for region \(klaviyoLocationId)")
         }
     }
 }
