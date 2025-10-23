@@ -24,8 +24,8 @@ public struct Geofence: Equatable, Hashable, Codable {
     /// Radius of the geofence in meters
     public let radius: Double
 
-    /// Optional time in seconds to trigger a dwell event after entering and staying in the geofence for this duration. If not provided, only enter and exit events will be emitted for the geofence.
-    public let dwell: Int?
+    /// Time in seconds to trigger a dwell event after entering and staying in the geofence for this duration
+    public let dwell: Int
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     public var companyId: String {
@@ -44,7 +44,7 @@ public struct Geofence: Equatable, Hashable, Codable {
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
-    ///   - dwell: Optional dwell time in seconds. If provided, a dwell event will be triggered after entering and staying in the geofence for this duration
+    ///   - dwell: Optional time in seconds to trigger a dwell event after entering and staying in the geofence for this duration. If not provided, time will default to 5 minutes.
     /// - Throws: `GeofenceError.invalidIdFormat` if the ID doesn't match the expected format
     public init(
         id: String,
@@ -58,7 +58,7 @@ public struct Geofence: Equatable, Hashable, Codable {
         self.longitude = longitude
         self.latitude = latitude
         self.radius = radius
-        self.dwell = dwell
+        self.dwell = dwell ?? 300
     }
 
     /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
