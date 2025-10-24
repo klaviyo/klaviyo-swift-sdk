@@ -20,7 +20,8 @@ final class GeofenceTests: XCTestCase {
             id: "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f",
             longitude: -122.03026995144546,
             latitude: 37.33204742438631,
-            radius: 100.0
+            radius: 100.0,
+            dwell: nil
         )
 
         XCTAssertEqual(geofence.id, "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f")
@@ -29,6 +30,18 @@ final class GeofenceTests: XCTestCase {
         XCTAssertEqual(geofence.radius, 100.0)
         XCTAssertEqual(geofence.companyId, "ABC123")
         XCTAssertEqual(geofence.locationId, "8db4effa-44f1-45e6-a88d-8e7d50516a0f")
+        XCTAssertNil(geofence.dwell)
+    }
+
+    func testGeofenceInitializationDefaultDwell() throws {
+        let geofence = try Geofence(
+            id: "ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+            longitude: -122.03026995144546,
+            latitude: 37.33204742438631,
+            radius: 100.0
+        )
+
+        XCTAssertEqual(geofence.dwell, 300)
     }
 
     // MARK: - Core Location Conversion Tests
@@ -133,7 +146,8 @@ final class GeofenceTests: XCTestCase {
             id: "8db4effa-44f1-45e6-a88d-8e7d50516a0f",
             longitude: -74.006,
             latitude: 40.7128,
-            radius: 100.0
+            radius: 100.0,
+            dwell: nil
         )) { error in
             if case .invalidIdFormat = error as? GeofenceError {
                 // Test passes if we get the expected error type
