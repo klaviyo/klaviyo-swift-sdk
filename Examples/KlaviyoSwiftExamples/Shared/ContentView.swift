@@ -80,7 +80,7 @@ class AppState: ObservableObject {
         let propertiesDictionary = [
             "Items in Cart": cartItems.map(\.name)
         ]
-        KlaviyoSDK().create(event: .init(name: .startedCheckoutMetric, properties: propertiesDictionary))
+        KlaviyoSDK().create(event: .init(name: .addedToCartMetric, properties: propertiesDictionary))
     }
 
     func removeFromCart(_ item: MenuItem) {
