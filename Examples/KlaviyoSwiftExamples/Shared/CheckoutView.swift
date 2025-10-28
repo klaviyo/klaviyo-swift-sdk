@@ -1,175 +1,189 @@
 import KlaviyoSwift
 import SwiftUI
 
+// MARK: - Cart Item with Quantity
+
+struct CartItem: Identifiable, Hashable {
+    let id = UUID()
+    let menuItem: MenuItem
+    var quantity: Int
+
+    var totalPrice: Double {
+        menuItem.price * Double(quantity)
+    }
+}
+
 struct CheckoutView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var appState: AppState
+    @Binding var cartItems: [MenuItem]
+    @State private var localCartItems: [CartItem] = []
 
     var body: some View {
         NavigationView {
-            GeometryReader { _ in
-                VStack(spacing: 0) {
-                    if appState.cartItems.isEmpty {
-                        VStack(spacing: 24) {
-                            Spacer()
-
-                            Image(systemName: "cart")
-                                .font(.system(size: 80))
-                                .foregroundColor(.gray.opacity(0.6))
-
-                            Text("Your cart is empty!")
-                                .font(.title)
+            VStack(spacing: 0) {
+                if localCartItems.isEmpty {
+                    EmptyCartView {
+                        dismiss()
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        // Header
+                        HStack {
+                            Text("Items in Your Cart")
+                                .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
 
-                            Text("Please add some items before you check out.")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
+                            Spacer()
 
-                            Button("Back to Menu") {
+                            Button("Close") {
                                 dismiss()
                             }
-
-                            Spacer()
+                            .font(.headline)
+                            .foregroundColor(.blue)
                         }
-                    } else {
-                        VStack(spacing: 0) {
-                            // Header
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .background(Color(.systemBackground))
+
+                        // Cart Items List
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(localCartItems) { cartItem in
+                                    CheckoutItemRow(
+                                        cartItem: cartItem,
+                                        onQuantityChange: { newQuantity in
+                                            updateQuantity(for: cartItem, to: newQuantity)
+                                        }
+                                    )
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.vertical, 16)
+                        }
+
+                        // Order Total
+                        VStack(spacing: 16) {
+                            Divider()
+
                             HStack {
-                                Text("Items in Your Cart")
+                                Text("Order Total:")
                                     .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.primary)
+                                    .fontWeight(.medium)
 
                                 Spacer()
 
-                                Button("Close") {
-                                    dismiss()
-                                }
-                                .font(.headline)
-                                .foregroundColor(.blue)
+                                Text("$\(String(format: "%.2f", totalPrice))")
+                                    .font(.title)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.red)
                             }
                             .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
-                            .background(Color(.systemBackground))
 
-                            // Cart Items List
-                            ScrollView {
-                                LazyVStack(spacing: 12) {
-                                    ForEach(Array(Set(appState.cartItems.map(\.id))), id: \.self) { itemId in
-                                        if let item = appState.cartItems.first(where: { $0.id == itemId }) {
-                                            CheckoutItemRow(item: item, appState: appState)
-                                                .padding(.horizontal, 16)
-                                        }
-                                    }
+                            // Action Buttons
+                            HStack {
+                                Button {
+                                    dismiss()
+                                } label: {
+                                    Text("Back to Menu")
+                                        .frame(maxWidth: .infinity)
                                 }
-                                .padding(.vertical, 16)
+                                .buttonStyle(.bordered)
+                                .controlSize(.large)
+                                .frame(maxWidth: .infinity)
+
+                                Button(action: checkout) {
+                                    Text("Check Out")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.green)
+                                .controlSize(.large)
                             }
-
-                            // Order Total
-                            VStack(spacing: 16) {
-                                Divider()
-
-                                HStack {
-                                    Text("Order Total:")
-                                        .font(.title2)
-                                        .fontWeight(.medium)
-
-                                    Spacer()
-
-                                    Text("$\(String(format: "%.2f", totalPrice))")
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.red)
-                                }
-                                .padding(.horizontal, 20)
-
-                                // Action Buttons
-                                HStack(spacing: 16) {
-                                    Button("Back to Menu") {
-                                        dismiss()
-                                    }
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(12)
-
-                                    Button("Check Out") {
-                                        checkout()
-                                    }
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        LinearGradient(
-                                            gradient: Gradient(colors: [.green, .green.opacity(0.8)]),
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .cornerRadius(12)
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                            .padding(.bottom, 20)
-                            .background(Color(.systemBackground))
+                            .padding(.horizontal, 20)
                         }
+                        .padding(.bottom, 20)
+                        .background(Color(.systemBackground))
                     }
                 }
             }
             .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .onAppear {
+            loadCartItems()
+        }
     }
 
     private var totalPrice: Double {
-        appState.cartItems.reduce(0) { $0 + $1.price }
+        localCartItems.reduce(0) { $0 + $1.totalPrice }
+    }
+
+    private func loadCartItems() {
+        // Convert cart items to CartItem array
+        let groupedItems = Dictionary(grouping: cartItems, by: \.id)
+        localCartItems = groupedItems.compactMap { _, items in
+            guard let firstItem = items.first else { return nil }
+            return CartItem(menuItem: firstItem, quantity: items.count)
+        }
+    }
+
+    private func updateQuantity(for cartItem: CartItem, to newQuantity: Int) {
+        if let index = localCartItems.firstIndex(where: { $0.id == cartItem.id }) {
+            if newQuantity <= 0 {
+                localCartItems.remove(at: index)
+            } else {
+                localCartItems[index].quantity = newQuantity
+            }
+        }
+
+        // Sync changes back to binding
+        syncToBinding()
+    }
+
+    private func syncToBinding() {
+        // Convert CartItem array back to MenuItem array for binding
+        var newCartItems: [MenuItem] = []
+        for cartItem in localCartItems {
+            for _ in 0..<cartItem.quantity {
+                newCartItems.append(cartItem.menuItem)
+            }
+        }
+        cartItems = newCartItems
     }
 
     private func checkout() {
         // Track checkout event
         let propertiesDictionary = [
-            "Items in Cart": appState.cartItems.map(\.name),
+            "Items in Cart": localCartItems.map { "\($0.menuItem.name) x\($0.quantity)" },
             "Total Price": totalPrice
         ] as [String: Any]
 
         KlaviyoSDK().create(event: .init(name: .startedCheckoutMetric, properties: propertiesDictionary))
 
         // Clear cart and dismiss
-        appState.cartItems = []
+        localCartItems = []
+        syncToBinding()
         dismiss()
     }
 }
 
 struct CheckoutItemRow: View {
-    let item: MenuItem
-    let appState: AppState
-
-    private var quantity: Int {
-        appState.getQuantity(for: item)
-    }
-
-    private var totalPrice: Double {
-        item.price * Double(quantity)
-    }
+    let cartItem: CartItem
+    let onQuantityChange: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with name and total price
             HStack {
-                Text(item.name)
+                Text(cartItem.menuItem.name)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
 
                 Spacer()
 
-                Text("$\(String(format: "%.2f", totalPrice))")
+                Text("$\(String(format: "%.2f", cartItem.totalPrice))")
                     .font(.headline)
                     .fontWeight(.bold)
                     .foregroundColor(.red)
@@ -177,25 +191,29 @@ struct CheckoutItemRow: View {
 
             // Quantity controls
             HStack {
-                Text("Quantity: \(quantity)")
+                Text("Quantity: \(cartItem.quantity)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
                 Spacer()
 
                 HStack(spacing: 12) {
-                    Button(action: { appState.removeFromCart(item) }) {
+                    Button(action: {
+                        onQuantityChange(cartItem.quantity - 1)
+                    }) {
                         Image(systemName: "minus.circle.fill")
                             .foregroundColor(.red)
                             .font(.title2)
                     }
 
-                    Text("\(quantity)")
+                    Text("\(cartItem.quantity)")
                         .font(.headline)
                         .fontWeight(.semibold)
                         .frame(minWidth: 30)
 
-                    Button(action: { appState.addToCart(item) }) {
+                    Button(action: {
+                        onQuantityChange(cartItem.quantity + 1)
+                    }) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(.green)
                             .font(.title2)
@@ -204,13 +222,71 @@ struct CheckoutItemRow: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(.ultraThinMaterial)
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 }
 
-#Preview {
-    CheckoutView()
-        .environmentObject(AppState())
+struct EmptyCartView: View {
+    var dismiss: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image(systemName: "cart")
+                .font(.system(size: 80))
+                .foregroundColor(.gray.opacity(0.6))
+
+            Text("Your cart is empty!")
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+
+            Text("Please add some items before you check out.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Button("Back to Menu") {
+                dismiss?()
+            }
+
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Checkout View") {
+    @State var cartItems: [MenuItem] = [
+        MenuItem(
+            name: "Fish & Chips",
+            id: 1,
+            description: "",
+            price: 10.99,
+            numberOfItems: 1
+        )
+    ]
+
+    CheckoutView(cartItems: $cartItems)
+}
+
+#Preview("Empty Cart View") {
+    EmptyCartView()
+}
+
+#Preview("Checkout Item Row") {
+    let menuItem = MenuItem(
+        name: "Fish & Chips",
+        id: 1,
+        description: "Lightly battered fish fillet, served with crispy golden chips and tartar sauce.",
+        price: 10.99,
+        numberOfItems: 1
+    )
+
+    CheckoutItemRow(cartItem: CartItem(menuItem: menuItem, quantity: 3), onQuantityChange: { _ in })
+        .padding()
 }
