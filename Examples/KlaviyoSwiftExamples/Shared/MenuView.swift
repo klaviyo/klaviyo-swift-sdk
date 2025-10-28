@@ -8,80 +8,55 @@ struct MenuView: View {
     @State private var showingCheckout = false
 
     var body: some View {
-        GeometryReader { _ in
-            VStack(spacing: 0) {
-                // Header
-                HStack {
+        NavigationView {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(menuItems, id: \.id) { item in
+                        MenuItemRow(item: item, onAddToCart: { item in
+                            appState.addToCart(item)
+                        })
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .padding(.vertical, 12)
+            }
+            .navigationTitle("Select Your Items")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: logout) {
                         Image("Log Out")
                             .resizable()
-                            .frame(width: 32, height: 32)
-                            .foregroundColor(.white)
+                            .frame(width: 20, height: 20)
                     }
+                }
 
-                    Spacer()
-
-                    Text("Select Your Items")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-
-                    Spacer()
-
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCheckout = true }) {
                         ZStack {
                             Image(appState.cartItems.isEmpty ? "emptyCart" : "FullCart")
                                 .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(.white)
+                                .frame(width: 30, height: 30)
 
                             if !appState.cartItems.isEmpty {
                                 Text("\(appState.cartItems.count)")
                                     .font(.caption2)
                                     .fontWeight(.bold)
                                     .foregroundColor(.white)
-                                    .frame(width: 18, height: 18)
+                                    .frame(width: 16, height: 16)
                                     .background(Color.orange)
                                     .clipShape(Circle())
-                                    .offset(x: 12, y: -12)
+                                    .offset(x: 8, y: -8)
                             }
                         }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.red, .red.opacity(0.8)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-
-                // Menu Items List
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(menuItems, id: \.id) { item in
-                            MenuItemRow(item: item, appState: appState)
-                                .padding(.horizontal, 16)
-                        }
-                    }
-                    .padding(.vertical, 12)
-                }
-
-                // Footer
-                HStack(spacing: 16) {
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .bottomBar) {
                     Button(action: { showingMap = true }) {
-                        HStack(spacing: 8) {
-                            Image("Map")
-                                .resizable()
-                                .frame(width: 20, height: 20)
-                                .foregroundColor(.blue)
-
-                            Text("Map")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        }
+                        Label("Map", systemImage: "map")
+                            .font(.caption)
                     }
 
                     Spacer()
@@ -100,12 +75,8 @@ struct MenuView: View {
                         Image("Email")
                             .resizable()
                             .frame(width: 20, height: 20)
-                            .foregroundColor(.blue)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(Color(.systemGray6))
             }
         }
         .onAppear {
@@ -116,7 +87,7 @@ struct MenuView: View {
             MapView()
         }
         .sheet(isPresented: $showingCheckout) {
-            CheckoutView()
+            CheckoutView(cartItems: $appState.cartItems)
         }
     }
 
@@ -141,7 +112,7 @@ struct MenuView: View {
 
 struct MenuItemRow: View {
     let item: MenuItem
-    let appState: AppState
+    let onAddToCart: (MenuItem) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -167,48 +138,27 @@ struct MenuItemRow: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
 
-            // Quantity and Actions
+            // Add to Cart Button
             HStack {
-                if appState.getQuantity(for: item) > 0 {
-                    HStack(spacing: 12) {
-                        Button(action: { appState.removeFromCart(item) }) {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundColor(.red)
-                                .font(.title2)
-                        }
-
-                        Text("\(appState.getQuantity(for: item))")
+                Button(action: { onAddToCart(item) }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.white)
+                        Text("Add to Cart")
                             .font(.headline)
                             .fontWeight(.semibold)
-                            .frame(minWidth: 30)
-
-                        Button(action: { appState.addToCart(item) }) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.green)
-                                .font(.title2)
-                        }
+                            .foregroundColor(.white)
                     }
-                } else {
-                    Button(action: { appState.addToCart(item) }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.white)
-                            Text("Add to Cart")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [.red, .red.opacity(0.8)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.red, .red.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
                         )
-                        .cornerRadius(25)
-                    }
+                    )
+                    .cornerRadius(25)
                 }
 
                 Spacer()

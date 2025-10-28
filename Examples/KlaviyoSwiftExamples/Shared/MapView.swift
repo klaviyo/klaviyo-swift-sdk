@@ -10,197 +10,187 @@ struct MapView: View {
 
     var body: some View {
         NavigationView {
-            GeometryReader { _ in
-                ZStack {
-                    Map(coordinateRegion: $locationManager.region,
-                        showsUserLocation: true,
-                        userTrackingMode: .none,
-                        annotationItems: geofenceManager.geofenceAnnotations) { annotation in
-                            MapAnnotation(coordinate: annotation.coordinate) {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "mappin.circle.fill")
-                                        .foregroundColor(.red)
-                                        .font(.title2)
-                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-
-                                    VStack(spacing: 2) {
-                                        Text(annotation.title)
-                                            .font(.caption2)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.white)
-
-                                        Text("\(Int(annotation.radius))m")
-                                            .font(.caption2)
-                                            .foregroundColor(.white.opacity(0.8))
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.red)
-                                    .cornerRadius(8)
-                                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-                                }
-                            }
-                        }
-                        .overlay(
-                            // Add circular overlays for geofence radii
-                            ForEach(geofenceManager.geofenceAnnotations) { annotation in
-                                GeofenceCircleOverlay(
-                                    center: annotation.coordinate,
-                                    radius: annotation.radius,
-                                    region: locationManager.region
-                                )
-                            }
-                        )
-
-                    // Header
-                    VStack {
-                        HStack {
-                            Button("Close") {
-                                dismiss()
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(20)
-
-                            Spacer()
-
+            ZStack {
+                Map(coordinateRegion: $locationManager.region,
+                    showsUserLocation: true,
+                    userTrackingMode: .none,
+                    annotationItems: geofenceManager.geofenceAnnotations) { annotation in
+                        MapAnnotation(coordinate: annotation.coordinate) {
                             VStack(spacing: 4) {
-                                // Status indicator
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
-                                        .frame(width: 8, height: 8)
+                                Image(systemName: "mappin.circle.fill")
+                                    .foregroundColor(.red)
+                                    .font(.title2)
+                                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
 
-                                    Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
+                                VStack(spacing: 2) {
+                                    Text(annotation.title)
                                         .font(.caption2)
+                                        .fontWeight(.semibold)
                                         .foregroundColor(.white)
+
+                                    Text("\(Int(annotation.radius))m")
+                                        .font(.caption2)
+                                        .foregroundColor(.white.opacity(0.8))
                                 }
-
-                                HStack(spacing: 8) {
-                                    Button("Register") {
-                                        geofenceManager.registerGeofencing()
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.blue.opacity(0.7))
-                                    .cornerRadius(8)
-                                    .disabled(geofenceManager.isLoading)
-
-                                    Button("Stop") {
-                                        geofenceManager.unregisterGeofencing()
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.red.opacity(0.7))
-                                    .cornerRadius(8)
-                                    .disabled(geofenceManager.isLoading)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(20)
-
-                            Spacer()
-
-                            // Location status indicator
-                            VStack(spacing: 2) {
-                                Image(systemName: locationIconName)
-                                    .foregroundColor(locationIconColor)
-                                    .font(.title3)
-
-                                Text(locationStatusText)
-                                    .font(.caption2)
-                                    .foregroundColor(.white)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(20)
-                            .onTapGesture {
-                                locationManager.requestLocationPermission()
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.red)
+                                .cornerRadius(8)
+                                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
+                    }
+                    .overlay(
+                        // Add circular overlays for geofence radii
+                        ForEach(geofenceManager.geofenceAnnotations) { annotation in
+                            GeofenceCircleOverlay(
+                                center: annotation.coordinate,
+                                radius: annotation.radius,
+                                region: locationManager.region
+                            )
+                        }
+                    )
+
+                // Header
+                VStack {
+                    HStack {
+                        Button("Close") {
+                            dismiss()
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(20)
 
                         Spacer()
 
-                        // Loading indicator for geofences
-                        if geofenceManager.isLoading {
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
+                        VStack(spacing: 4) {
+                            // Status indicator
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
+                                    .frame(width: 8, height: 8)
 
-                                    Text("Loading geofences...")
-                                        .font(.caption)
-                                        .foregroundColor(.white)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(20)
-                                .padding(.bottom, 100)
+                                Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
+                                    .font(.caption2)
+                                    .foregroundColor(.white)
                             }
+
+                            HStack(spacing: 8) {
+                                Button("Register") {
+                                    geofenceManager.registerGeofencing()
+                                }
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.7))
+                                .cornerRadius(8)
+                                .disabled(geofenceManager.isLoading)
+
+                                Button("Stop") {
+                                    geofenceManager.unregisterGeofencing()
+                                }
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.red.opacity(0.7))
+                                .cornerRadius(8)
+                                .disabled(geofenceManager.isLoading)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(20)
+
+                        Spacer()
+
+                        // Location status indicator
+                        VStack(spacing: 2) {
+                            Image(systemName: locationIconName)
+                                .foregroundColor(locationIconColor)
+                                .font(.title3)
+
+                            Text(locationStatusText)
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(20)
+                        .onTapGesture {
+                            locationManager.requestLocationPermission()
                         }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
 
-                    if locationManager.authorizationStatus == .denied {
-                        VStack(spacing: 20) {
-                            Image(systemName: "location.slash")
-                                .font(.system(size: 60))
-                                .foregroundColor(.red)
+                    Spacer()
 
-                            Text("Location Access Required")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
+                    // Loading indicator for geofences
+                    if geofenceManager.isLoading {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
 
-                            Text("Please enable location access in Settings to view your location on the map and receive location-based notifications.")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 20)
-
-                            Button("Open Settings") {
-                                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(settingsURL)
-                                }
+                                Text("Loading geofences...")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
                             }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(Color.blue)
-                            .cornerRadius(25)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(20)
+                            .padding(.bottom, 100)
                         }
-                        .padding(32)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(20)
-                        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-                        .padding(.horizontal, 40)
                     }
                 }
-            }
-            .navigationBarHidden(true)
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
-    }
 
-    private var geofenceOverlays: [GeofenceOverlay] {
-        // This would need to be calculated based on map scale
-        // For now, return empty array as overlays are complex in SwiftUI
-        []
+                if locationManager.authorizationStatus == .denied {
+                    VStack(spacing: 20) {
+                        Image(systemName: "location.slash")
+                            .font(.system(size: 60))
+                            .foregroundColor(.red)
+
+                        Text("Location Access Required")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+
+                        Text("Please enable location access in Settings to view your location on the map and receive location-based notifications.")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+
+                        Button("Open Settings") {
+                            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(settingsURL)
+                            }
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(25)
+                    }
+                    .padding(32)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                    .padding(.horizontal, 40)
+                }
+            }
+        }
     }
 
     private var locationIconName: String {

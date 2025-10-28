@@ -104,7 +104,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ZStack {
+        Group {
             if appState.isLoggedIn {
                 MenuView()
             } else {

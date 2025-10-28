@@ -20,7 +20,6 @@
 		7CC1C83C28D74DB60073197F /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83028D74DB60073197F /* User.swift */; };
 		7CC1C84128D74DB60073197F /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83528D74DB60073197F /* Cart.swift */; };
 		7CC1C84328D74DB60073197F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83728D74DB60073197F /* AppDelegate.swift */; };
-		7CC1C84628D74DB60073197F /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84428D74DB60073197F /* MapViewController.swift */; };
 		7CC1C84F28D74DB60073197F /* KLMuncheryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */; };
 		7CC1C85028D74DB60073197F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84928D74DB60073197F /* ContentView.swift */; };
 		7CC1C85128D74DB60073197F /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84A28D74DB60073197F /* LoginView.swift */; };
@@ -84,7 +83,6 @@
 		7CC1C83028D74DB60073197F /* User.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = User.swift; path = ../../Shared/User.swift; sourceTree = "<group>"; };
 		7CC1C83528D74DB60073197F /* Cart.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Cart.swift; path = ../../Shared/Cart.swift; sourceTree = "<group>"; };
 		7CC1C83728D74DB60073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
-		7CC1C84428D74DB60073197F /* MapViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapViewController.swift; path = ../../Shared/MapViewController.swift; sourceTree = "<group>"; };
 		7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KLMuncheryApp.swift; path = ../../Shared/KLMuncheryApp.swift; sourceTree = "<group>"; };
 		7CC1C84928D74DB60073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../../Shared/ContentView.swift; sourceTree = "<group>"; };
 		7CC1C84A28D74DB60073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = ../../Shared/LoginView.swift; sourceTree = "<group>"; };
@@ -177,7 +175,6 @@
 				7CC1C82C28D74DB60073197F /* Images.xcassets */,
 				7CC1C82E28D74DB60073197F /* MenuItem.swift */,
 				7CC1C83028D74DB60073197F /* User.swift */,
-				7CC1C84428D74DB60073197F /* MapViewController.swift */,
 				7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */,
 				7CC1C84928D74DB60073197F /* ContentView.swift */,
 				7CC1C84A28D74DB60073197F /* LoginView.swift */,
@@ -375,7 +372,6 @@
 				340590E429CCCD520015991E /* DeepLinking.swift in Sources */,
 				7CC1C84128D74DB60073197F /* Cart.swift in Sources */,
 				7CC1C83A28D74DB60073197F /* MenuItem.swift in Sources */,
-				7CC1C84628D74DB60073197F /* MapViewController.swift in Sources */,
 				7CC1C84F28D74DB60073197F /* KLMuncheryApp.swift in Sources */,
 				7CC1C85028D74DB60073197F /* ContentView.swift in Sources */,
 				7CC1C85128D74DB60073197F /* LoginView.swift in Sources */,
