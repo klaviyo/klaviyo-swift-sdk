@@ -241,7 +241,6 @@ struct GeofenceCircleOverlay: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let screenCenter = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
             let geofenceScreenPoint = coordinateToScreenPoint(
                 coordinate: center,
                 region: region,
@@ -328,7 +327,7 @@ class GeofenceManager: ObservableObject {
         isLoading = true
 
         DispatchQueue.main.async {
-            let monitoredRegions = KlaviyoSDK().getCurrentGeofences()
+            let monitoredRegions = CLLocationManager().monitoredRegions
 
             self.geofenceAnnotations = monitoredRegions.compactMap { region in
                 guard let circularRegion = region as? CLCircularRegion else { return nil }

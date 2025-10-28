@@ -260,8 +260,9 @@ struct EmptyCartView: View {
 
 // MARK: - Previews
 
+@available(iOS 17.0, *)
 #Preview("Checkout View") {
-    @State var cartItems: [MenuItem] = [
+    @Previewable @State var cartItems: [MenuItem] = [
         MenuItem(
             name: "Fish & Chips",
             id: 1,
