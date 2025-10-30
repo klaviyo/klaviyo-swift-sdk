@@ -29,45 +29,24 @@ internal struct GeofenceService: GeofenceServiceProvider {
 
     /// Fetches raw geofence data from the API
     private func fetchGeofenceData() async throws -> Data {
-        // TODO: uncomment this block when we can use the real endpoint
-//        let endpoint = KlaviyoEndpoint.fetchGeofences
-//        let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
-//        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
-//        let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
-//
-//        switch result {
-//        case let .success(data):
-//            if #available(iOS 14.0, *) {
-//                Logger.geoservices.info("Successfully fetched geofences")
-//            }
-//            return data
-//        case let .failure(error):
-//            if #available(iOS 14.0, *) {
-//                Logger.geoservices.error("Failed to fetch geofences")
-//            }
-//            throw error
-//        }
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+        let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
+        let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
 
-        // TODO: mocks request with proxyman map local, remove this block when we can use the real endpoint
-        guard let url = URL(string: "https://mock-api.com/geofences") else {
-            throw NSError(domain: "GeofenceService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        switch result {
+        case let .success(data):
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("Successfully fetched geofences")
+            }
+            return data
+        case let .failure(error):
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.error("Failed to fetch geofences")
+            }
+            throw error
         }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "GeofenceService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw NSError(domain: "GeofenceService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP error: \(httpResponse.statusCode)"])
-        }
-
-        return data
     }
 
     /// Parses raw geofence data and transforms it into Geofence objects with the companyId prepended to the id
