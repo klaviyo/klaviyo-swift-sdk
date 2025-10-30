@@ -180,7 +180,7 @@ final class KlaviyoEndpointTests: XCTestCase {
     func testFetchGeofencesEndpointUrlRequest() throws {
         // Given
         let apiKey = "test_api_key"
-        let endpoint = KlaviyoEndpoint.fetchGeofences
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
 
         // When
         let request = try endpoint.urlRequest()
