@@ -140,8 +140,8 @@ enum KlaviyoAction: Equatable {
 
     var requiresInitialization: Bool {
         switch self {
-        // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
+        // if event metric is opened push or geofence events we DON'T require initialization
+        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
@@ -504,11 +504,12 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             /*
-             if we receive an opened push event we want to flush the queue right away so that
+             if we receive an opened push event or geofence events we want to flush the queue right away so that
              we don't miss any user engagement events. In all other cases we will flush the queue
              using the flush intervals defined above in `StateManagementConstants`
              */
-            let baseEffect = event.metric.name == ._openedPush ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            let baseEffect = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
+                ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }

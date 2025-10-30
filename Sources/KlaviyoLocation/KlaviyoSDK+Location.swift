@@ -5,6 +5,7 @@
 //  Created by Isobelle Lim on 8/27/25.
 //
 
+import CoreLocation
 import Foundation
 import KlaviyoSwift
 
@@ -18,6 +19,12 @@ extension KlaviyoSDK {
                 KlaviyoLocationManager.shared.setupGeofencing()
             }
         }
+    }
+
+    /// To be called in didFinishLaunchingWithOptions to ensure geofence events that happen in a backgrounded/terminated state are processed.
+    public func monitorGeofencesFromBackground() {
+        let locationManager = CLLocationManager()
+        locationManager.delegate = KlaviyoLocationManager.shared
     }
 
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
