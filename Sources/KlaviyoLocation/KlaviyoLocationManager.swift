@@ -11,9 +11,10 @@ import Foundation
 import KlaviyoCore
 import KlaviyoSwift
 import OSLog
+import UIKit
 
 public class KlaviyoLocationManager: NSObject {
-    static let shared = KlaviyoLocationManager()
+    public static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
@@ -29,6 +30,7 @@ public class KlaviyoLocationManager: NSObject {
         super.init()
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
+        self.locationManager.startMonitoringSignificantLocationChanges()
         self.geofenceManager.setLocationManagerDelegate(self)
     }
 

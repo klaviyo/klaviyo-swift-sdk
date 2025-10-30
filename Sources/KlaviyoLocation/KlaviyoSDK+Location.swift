@@ -25,6 +25,7 @@ extension KlaviyoSDK {
     public func monitorGeofencesFromBackground() {
         let locationManager = CLLocationManager()
         locationManager.delegate = KlaviyoLocationManager.shared
+        locationManager.allowsBackgroundLocationUpdates = true
     }
 
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
