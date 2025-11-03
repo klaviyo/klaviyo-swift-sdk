@@ -38,12 +38,7 @@ public struct Event: Equatable {
 
         /// Returns true if this event is a geofence-related event
         public var isGeofenceEvent: Bool {
-            switch name {
-            case .locationEvent(.geofenceEnter), .locationEvent(.geofenceExit), .locationEvent(.geofenceDwell):
-                return true
-            default:
-                return false
-            }
+            if case .locationEvent = name { true } else { false }
         }
     }
 

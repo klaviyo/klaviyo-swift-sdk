@@ -17,7 +17,6 @@ public class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
-    private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
     internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -94,7 +93,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         guard let region = region as? CLCircularRegion,
               let klaviyoLocationId = region.klaviyoLocationId else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
+                Logger.geoservices.info("Received non-Klaviyo geofence notification. Skipping.")
             }
             return
         }
@@ -112,7 +111,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: enterEvent)
-                geofencePublisher.send("Entered \(klaviyoLocationId)")
             }
         }
     }
@@ -139,7 +137,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: exitEvent)
-                geofencePublisher.send("Exited \(klaviyoLocationId)")
             }
         }
     }
