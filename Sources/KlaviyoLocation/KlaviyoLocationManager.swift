@@ -13,7 +13,7 @@ import KlaviyoSwift
 import OSLog
 
 public class KlaviyoLocationManager: NSObject {
-    static let shared = KlaviyoLocationManager()
+    internal static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
@@ -25,6 +25,7 @@ public class KlaviyoLocationManager: NSObject {
         super.init()
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
+        self.locationManager.startMonitoringSignificantLocationChanges()
         self.geofenceManager.setLocationManagerDelegate(self)
     }
 
@@ -55,11 +56,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         if #available(iOS 14.0, *) {
             Logger.geoservices.error("Core Location services error: \(error.localizedDescription)")
         }
-    }
-
-    @available(iOS 14.0, *)
-    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
     }
 
     @available(iOS, deprecated: 14.0)
