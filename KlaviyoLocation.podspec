@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoLocation"
-  s.version          = "0.1.0"
+  s.version          = "5.1.0"
   s.summary          = "Location services and geofencing for the Klaviyo SDK"
   s.description      = <<-DESC
                         Use KlaviyoLocation to enable location-based tracking and geofencing capabilities in your iOS applications.
