@@ -58,6 +58,11 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         }
     }
 
+    @available(iOS 14.0, *)
+    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
+    }
+
     @available(iOS, deprecated: 14.0)
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         handleCLAuthorizationStatusChange(manager, status)

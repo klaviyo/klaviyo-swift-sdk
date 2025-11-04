@@ -7,6 +7,7 @@
 
 import CoreLocation
 import KlaviyoCore
+import KlaviyoSwift
 import OSLog
 
 internal class KlaviyoGeofenceManager {
@@ -37,6 +38,13 @@ internal class KlaviyoGeofenceManager {
         }
 
         Task {
+            guard let _ = try? await KlaviyoInternal.fetchAPIKey() else {
+                if #available(iOS 14.0, *) {
+                    Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
+                }
+                return
+            }
+
             await updateGeofences()
         }
     }
