@@ -99,7 +99,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             return
         }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId)\"")
+            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId, privacy: .public)\"")
         }
 
         let enterEvent = Event(
@@ -125,7 +125,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             return
         }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId)\"")
+            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId, privacy: .public)\"")
         }
 
         let exitEvent = Event(

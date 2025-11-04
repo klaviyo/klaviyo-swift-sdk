@@ -43,7 +43,7 @@ internal struct GeofenceService: GeofenceServiceProvider {
             return data
         case let .failure(error):
             if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Failed to fetch geofences; error: \(error)")
+                Logger.geoservices.error("Failed to fetch geofences; error: \(error, privacy: .public)")
             }
             throw error
         }
