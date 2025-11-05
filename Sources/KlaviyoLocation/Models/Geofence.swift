@@ -12,7 +12,7 @@ import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
 public struct Geofence: Equatable, Hashable, Codable {
-    /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
+    /// The geofence ID is a combination of the company ID, location ID, and optional dwell time from Klaviyo, separated by colons
     public let id: String
 
     /// Longitude of the geofence center
@@ -24,20 +24,29 @@ public struct Geofence: Equatable, Hashable, Codable {
     /// Radius of the geofence in meters
     public let radius: Double
 
-    /// Company ID to which this geofence belongs, extracted from the geofence ID.
+    /// Company ID to which this geofence belongs, extracted from the geofence ID
     public var companyId: String {
         id.split(separator: ":").first.map(String.init) ?? ""
     }
 
-    /// Location UUID to which this geofence belongs, extracted from the geofence ID.
+    /// Location UUID to which this geofence belongs, extracted from the geofence ID
     public var locationId: String {
-        let components = id.split(separator: ":", maxSplits: 1)
-        return components.count > 1 ? String(components[1]) : ""
+        let components = id.split(separator: ":")
+        return components.count >= 2 ? String(components[1]) : ""
+    }
+
+    /// Optional dwell time in seconds representing the time spent in a geofence, extracted from the geofence ID
+    public var dwell: Int? {
+        let components = id.split(separator: ":")
+        guard components.count >= 3 else { return nil }
+        let dwellString = String(components[2])
+        guard !dwellString.isEmpty else { return nil }
+        return Int(dwellString)
     }
 
     /// Creates a new geofence
     /// - Parameters:
-    ///   - id: Unique identifier for the geofence in format "{companyId}:{UUID}" where companyId is 6 alphanumeric characters
+    ///   - id: Unique identifier for the geofence in format "{companyId}:{UUID}" or "{companyId}:{UUID}:{dwell}" where companyId is 6 alphanumeric characters
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
@@ -55,24 +64,31 @@ public struct Geofence: Equatable, Hashable, Codable {
         self.radius = radius
     }
 
-    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
-    /// where companyId is exactly 6 alphanumeric characters and UUID follows standard format
+    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}:{dwell} or {companyId}:{UUID}:
+    /// where companyId is exactly 6 alphanumeric characters, UUID follows standard format, and dwell is optional
     /// - Parameter id: The ID to validate
     /// - Throws: `GeofenceError.invalidIdFormat` if the format is invalid
     private static func validateIdFormat(_ id: String) throws {
-        let pattern = "^[a-zA-Z0-9]{6}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        let pattern = "^[a-zA-Z0-9]{6}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9]*$"
         guard id.range(of: pattern, options: .regularExpression) != nil else {
-            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}', got: '\(id)'")
+            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}:{dwell}' or '{companyId}:{geofenceUUID}:', got: '\(id)'")
         }
     }
 
     /// Converts this geofence to a Core Location circular region
+    /// The identifier will be in format "{companyId}:{geofenceId}:{dwell}" or "{companyId}:{geofenceId}:" if no dwell
     /// - Returns: A CLCircularRegion instance
     public func toCLCircularRegion() -> CLCircularRegion {
+        let identifier: String
+        if let dwell = dwell {
+            identifier = "\(companyId):\(locationId):\(dwell)"
+        } else {
+            identifier = "\(companyId):\(locationId):"
+        }
         let region = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
             radius: radius,
-            identifier: id
+            identifier: identifier
         )
         return region
     }
@@ -91,6 +107,14 @@ extension CLCircularRegion {
     internal var klaviyoLocationId: String? {
         do {
             return try toKlaviyoGeofence().locationId
+        } catch {
+            return nil
+        }
+    }
+
+    internal var klaviyoDwell: Int? {
+        do {
+            return try toKlaviyoGeofence().dwell
         } catch {
             return nil
         }

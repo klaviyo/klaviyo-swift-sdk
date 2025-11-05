@@ -55,8 +55,9 @@ internal struct GeofenceService: GeofenceServiceProvider {
             let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
             let companyId = try await KlaviyoInternal.fetchAPIKey()
             let geofences = try response.data.map { rawGeofence in
-                try Geofence(
-                    id: "\(companyId):\(rawGeofence.id)",
+                let dwellString = rawGeofence.attributes.dwell.map { String($0) } ?? ""
+                return try Geofence(
+                    id: "\(companyId):\(rawGeofence.id):\(dwellString)",
                     longitude: rawGeofence.attributes.longitude,
                     latitude: rawGeofence.attributes.latitude,
                     radius: rawGeofence.attributes.radius
@@ -86,5 +87,6 @@ private struct GeofenceJSON: Codable {
         let latitude: Double
         let longitude: Double
         let radius: Double
+        let dwell: Int?
     }
 }

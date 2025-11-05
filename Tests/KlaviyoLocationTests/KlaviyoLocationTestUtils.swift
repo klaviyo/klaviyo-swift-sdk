@@ -149,6 +149,67 @@ enum KlaviyoLocationTestUtils {
         return jsonString.data(using: .utf8)!
     }
 
+    /// Creates test geofence data with dwell values in the JSON API format
+    static func createTestGeofenceDataWithDwell() -> Data {
+        let jsonString = """
+        {
+            "data": [
+                {
+                    "type": "geofence",
+                    "id": "8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+                    "attributes": {
+                        "latitude": 40.7128,
+                        "longitude": -74.006,
+                        "radius": 100,
+                        "dwell": 300
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "a84011cf-93ef-4e78-b047-c0ce4ea258e4",
+                    "attributes": {
+                        "latitude": 40.6892,
+                        "longitude": -74.0445,
+                        "radius": 200,
+                        "dwell": 600
+                    }
+                }
+            ]
+        }
+        """
+        return jsonString.data(using: .utf8)!
+    }
+
+    /// Creates test geofence data with mixed dwell values (some nil, some with values) in the JSON API format
+    static func createTestGeofenceDataWithMixedDwell() -> Data {
+        let jsonString = """
+        {
+            "data": [
+                {
+                    "type": "geofence",
+                    "id": "8db4effa-44f1-45e6-a88d-8e7d50516a0f",
+                    "attributes": {
+                        "latitude": 40.7128,
+                        "longitude": -74.006,
+                        "radius": 100
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "a84011cf-93ef-4e78-b047-c0ce4ea258e4",
+                    "attributes": {
+                        "latitude": 40.6892,
+                        "longitude": -74.0445,
+                        "radius": 200,
+                        "dwell": 600
+                    }
+                }
+            ]
+        }
+        """
+        return jsonString.data(using: .utf8)!
+    }
+
     /// Creates a test KlaviyoState with a specific API key
     static func createTestState(apiKey: String) -> KlaviyoState {
         var testState = KlaviyoState.test
