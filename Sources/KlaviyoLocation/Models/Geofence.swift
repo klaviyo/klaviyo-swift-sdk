@@ -38,10 +38,7 @@ public struct Geofence: Equatable, Hashable, Codable {
     /// Optional dwell time in seconds representing the time spent in a geofence, extracted from the geofence ID
     public var dwell: Int? {
         let components = id.split(separator: ":")
-        guard components.count >= 3 else { return nil }
-        let dwellString = String(components[2])
-        guard !dwellString.isEmpty else { return nil }
-        return Int(dwellString)
+        return components.count == 3 ? Int(components[2]) : nil
     }
 
     /// Creates a new geofence
