@@ -74,16 +74,24 @@ public func removeFile(at url: URL) -> Bool {
 /// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
 func loadPlist(named name: String) -> [String: AnyObject]? {
     let plistPath: String? = {
+        // Try loading from main bundle first
         if let path = Bundle.main.path(forResource: name, ofType: "plist") {
-            // Try loading from main bundle first
             return path
-        } else if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
-                  let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
-            // If not found in main bundle, try loading from React Native framework bundle
-            return path
-        } else {
+        }
+
+        // Fast check - if not React Native, skip expensive bundle lookup
+        // This prevents a 500ms-1.5s hang on app startup for non-RN apps
+        guard NSClassFromString("RCTBridge") != nil else {
             return nil
         }
+
+        // Only do expensive bundle lookup if we're in a React Native environment
+        if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
+           let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
+            return path
+        }
+
+        return nil
     }()
 
     if let plistPath,
