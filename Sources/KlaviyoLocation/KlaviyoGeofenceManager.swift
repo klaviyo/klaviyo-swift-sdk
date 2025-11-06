@@ -80,6 +80,7 @@ internal class KlaviyoGeofenceManager {
         let regionsToAdd = remoteGeofences.subtracting(activeGeofences)
 
         await MainActor.run {
+            locationManagerDelegate?.updateDwellSettings(remoteGeofences)
             for region in regionsToAdd {
                 if #available(iOS 14.0, *) {
                     Logger.geoservices.info("Start monitoring for region \(region.id)")
