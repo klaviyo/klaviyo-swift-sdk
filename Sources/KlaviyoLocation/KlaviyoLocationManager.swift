@@ -26,7 +26,6 @@ public class KlaviyoLocationManager: NSObject {
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
         self.locationManager.startMonitoringSignificantLocationChanges()
-        self.geofenceManager.setLocationManagerDelegate(self)
     }
 
     deinit {

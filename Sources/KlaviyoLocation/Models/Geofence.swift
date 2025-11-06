@@ -11,26 +11,26 @@ import KlaviyoCore
 import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
-public struct Geofence: Equatable, Hashable, Codable {
+internal struct Geofence: Equatable, Hashable, Codable {
     /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
-    public let id: String
+    internal let id: String
 
     /// Longitude of the geofence center
-    public let longitude: Double
+    internal let longitude: Double
 
     /// Latitude of the geofence center
-    public let latitude: Double
+    internal let latitude: Double
 
     /// Radius of the geofence in meters
-    public let radius: Double
+    internal let radius: Double
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
-    public var companyId: String {
+    internal var companyId: String {
         id.split(separator: ":").first.map(String.init) ?? ""
     }
 
     /// Location UUID to which this geofence belongs, extracted from the geofence ID.
-    public var locationId: String {
+    internal var locationId: String {
         let components = id.split(separator: ":", maxSplits: 1)
         return components.count > 1 ? String(components[1]) : ""
     }
@@ -42,7 +42,7 @@ public struct Geofence: Equatable, Hashable, Codable {
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
     /// - Throws: `GeofenceError.invalidIdFormat` if the ID doesn't match the expected format
-    public init(
+    internal init(
         id: String,
         longitude: Double,
         latitude: Double,
@@ -65,34 +65,9 @@ public struct Geofence: Equatable, Hashable, Codable {
             throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}', got: '\(id)'")
         }
     }
-
-    /// Converts this geofence to a Core Location circular region
-    /// - Returns: A CLCircularRegion instance
-    public func toCLCircularRegion() -> CLCircularRegion {
-        let region = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-            radius: radius,
-            identifier: id
-        )
-        return region
-    }
 }
 
 /// Errors that can occur when working with geofences
-public enum GeofenceError: Error {
+internal enum GeofenceError: Error {
     case invalidIdFormat(String)
-}
-
-extension CLCircularRegion {
-    internal func toKlaviyoGeofence() throws -> Geofence {
-        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
-    }
-
-    internal var klaviyoLocationId: String? {
-        do {
-            return try toKlaviyoGeofence().locationId
-        } catch {
-            return nil
-        }
-    }
 }

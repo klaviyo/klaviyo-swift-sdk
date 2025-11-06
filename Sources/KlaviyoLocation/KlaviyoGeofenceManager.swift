@@ -12,14 +12,9 @@ import OSLog
 
 internal class KlaviyoGeofenceManager {
     private let locationManager: LocationManagerProtocol
-    private weak var locationManagerDelegate: KlaviyoLocationManager?
 
     internal init(locationManager: LocationManagerProtocol) {
         self.locationManager = locationManager
-    }
-
-    internal func setLocationManagerDelegate(_ delegate: KlaviyoLocationManager) {
-        locationManagerDelegate = delegate
     }
 
     internal func setupGeofencing() {
@@ -95,6 +90,35 @@ internal class KlaviyoGeofenceManager {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
+        }
+    }
+}
+
+// MARK: Data Type Conversions
+
+extension Geofence {
+    /// Converts this geofence to a Core Location circular region
+    /// - Returns: A CLCircularRegion instance
+    internal func toCLCircularRegion() -> CLCircularRegion {
+        let region = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            radius: radius,
+            identifier: id
+        )
+        return region
+    }
+}
+
+extension CLCircularRegion {
+    internal func toKlaviyoGeofence() throws -> Geofence {
+        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
+    }
+
+    internal var klaviyoLocationId: String? {
+        do {
+            return try toKlaviyoGeofence().locationId
+        } catch {
+            return nil
         }
     }
 }
