@@ -149,8 +149,8 @@ enum KlaviyoLocationTestUtils {
         return jsonString.data(using: .utf8)!
     }
 
-    /// Creates test geofence data with dwell values in the JSON API format
-    static func createTestGeofenceDataWithDwell() -> Data {
+    /// Creates test geofence data with duration values in the JSON API format
+    static func createTestGeofenceDataWithDuration() -> Data {
         let jsonString = """
         {
             "data": [
@@ -161,7 +161,7 @@ enum KlaviyoLocationTestUtils {
                         "latitude": 40.7128,
                         "longitude": -74.006,
                         "radius": 100,
-                        "dwell": 300
+                        "duration": 300
                     }
                 },
                 {
@@ -171,7 +171,7 @@ enum KlaviyoLocationTestUtils {
                         "latitude": 40.6892,
                         "longitude": -74.0445,
                         "radius": 200,
-                        "dwell": 600
+                        "duration": 600
                     }
                 }
             ]
@@ -180,8 +180,8 @@ enum KlaviyoLocationTestUtils {
         return jsonString.data(using: .utf8)!
     }
 
-    /// Creates test geofence data with mixed dwell values (some nil, some with values) in the JSON API format
-    static func createTestGeofenceDataWithMixedDwell() -> Data {
+    /// Creates test geofence data with mixed duration values (some nil, some with values) in the JSON API format
+    static func createTestGeofenceDataWithMixedDuration() -> Data {
         let jsonString = """
         {
             "data": [
@@ -201,7 +201,7 @@ enum KlaviyoLocationTestUtils {
                         "latitude": 40.6892,
                         "longitude": -74.0445,
                         "radius": 200,
-                        "dwell": 600
+                        "duration": 600
                     }
                 }
             ]

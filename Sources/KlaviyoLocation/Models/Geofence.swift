@@ -12,7 +12,7 @@ import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
 public struct Geofence: Equatable, Hashable, Codable {
-    /// The geofence ID is a combination of the company ID, location ID, and optional dwell time from Klaviyo, separated by colons
+    /// The geofence ID is a combination of the company ID, location ID, and optional duration time from Klaviyo, separated by colons
     public let id: String
 
     /// Longitude of the geofence center
@@ -35,15 +35,15 @@ public struct Geofence: Equatable, Hashable, Codable {
         return components.count >= 2 ? String(components[1]) : ""
     }
 
-    /// Optional dwell time in seconds representing the time spent in a geofence, extracted from the geofence ID
-    public var dwell: Int? {
+    /// Optional duration time in seconds representing the time spent in a geofence to trigger a dwell event, extracted from the geofence ID
+    public var duration: Int? {
         let components = id.split(separator: ":")
         return components.count == 3 ? Int(components[2]) : nil
     }
 
     /// Creates a new geofence
     /// - Parameters:
-    ///   - id: Unique identifier for the geofence in format "{companyId}:{UUID}" or "{companyId}:{UUID}:{dwell}" where companyId is 6 alphanumeric characters
+    ///   - id: Unique identifier for the geofence in format "{companyId}:{UUID}" or "{companyId}:{UUID}:{duration}" where companyId is 6 alphanumeric characters
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
@@ -61,24 +61,24 @@ public struct Geofence: Equatable, Hashable, Codable {
         self.radius = radius
     }
 
-    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}:{dwell} or {companyId}:{UUID}:
-    /// where companyId is exactly 6 alphanumeric characters, UUID follows standard format, and dwell is optional
+    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}:{duration} or {companyId}:{UUID}:
+    /// where companyId is exactly 6 alphanumeric characters, UUID follows standard format, and duration is optional
     /// - Parameter id: The ID to validate
     /// - Throws: `GeofenceError.invalidIdFormat` if the format is invalid
     private static func validateIdFormat(_ id: String) throws {
         let pattern = "^[a-zA-Z0-9]{6}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9]*$"
         guard id.range(of: pattern, options: .regularExpression) != nil else {
-            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}:{dwell}' or '{companyId}:{geofenceUUID}:', got: '\(id)'")
+            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}:{duration}' or '{companyId}:{geofenceUUID}:', got: '\(id)'")
         }
     }
 
     /// Converts this geofence to a Core Location circular region
-    /// The identifier will be in format "{companyId}:{geofenceId}:{dwell}" or "{companyId}:{geofenceId}:" if no dwell
+    /// The identifier will be in format "{companyId}:{geofenceId}:{duration}" or "{companyId}:{geofenceId}:" if no duration
     /// - Returns: A CLCircularRegion instance
     public func toCLCircularRegion() -> CLCircularRegion {
         let identifier: String
-        if let dwell = dwell {
-            identifier = "\(companyId):\(locationId):\(dwell)"
+        if let duration {
+            identifier = "\(companyId):\(locationId):\(duration)"
         } else {
             identifier = "\(companyId):\(locationId):"
         }
@@ -109,9 +109,9 @@ extension CLCircularRegion {
         }
     }
 
-    internal var klaviyoDwell: Int? {
+    internal var klaviyoDuration: Int? {
         do {
-            return try toKlaviyoGeofence().dwell
+            return try toKlaviyoGeofence().duration
         } catch {
             return nil
         }
