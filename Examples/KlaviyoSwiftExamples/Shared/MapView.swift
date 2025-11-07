@@ -100,11 +100,11 @@ struct MapView: View {
                     .controlSize(.small)
                     .disabled(geofenceManager.isLoading)
                     .padding(.horizontal, 20)
-                    Button("Stop") {
+
+                    Button("Stop", systemImage: "stop.fill") {
                         geofenceManager.unregisterGeofencing()
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .tint(.red)
                     .disabled(geofenceManager.isLoading)
                 }
             }
