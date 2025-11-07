@@ -69,27 +69,25 @@ public func removeFile(at url: URL) -> Bool {
     return false
 }
 
-/// load any plist from app main bundle or React Native framework bundle
+/// Load plist from main application bundle
 /// - Parameter name: the name of the plist
-/// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
-func loadPlist(named name: String) -> [String: AnyObject]? {
-    let plistPath: String? = {
-        if let path = Bundle.main.path(forResource: name, ofType: "plist") {
-            // Try loading from main bundle first
-            return path
-        } else if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
-                  let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
-            // If not found in main bundle, try loading from React Native framework bundle
-            return path
-        } else {
-            return nil
-        }
-    }()
-
-    if let plistPath,
-       let dict = NSDictionary(contentsOfFile: plistPath) as? [String: AnyObject] {
-        return dict
-    } else {
+/// - Returns: the contents of the plist or nil if not found
+package func loadPlist(named name: String) -> [String: AnyObject]? {
+    guard let path = Bundle.main.path(forResource: name, ofType: "plist"),
+          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
         return nil
     }
+    return dict
+}
+
+/// Load plist from React Native SDK bundle (for dynamic linking scenarios)
+/// - Parameter name: the name of the plist
+/// - Returns: the contents of the plist or nil if not found
+package func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
+    guard let bundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
+          let path = bundle.path(forResource: name, ofType: "plist"),
+          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
+        return nil
+    }
+    return dict
 }
