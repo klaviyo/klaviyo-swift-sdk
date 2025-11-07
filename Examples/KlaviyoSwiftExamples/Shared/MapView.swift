@@ -66,6 +66,34 @@ struct MapView: View {
                     }
                 }
 
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .subtitle) {
+                        HStack {
+                            Circle()
+                                .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
+                                .frame(width: 8, height: 8)
+
+                            Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
+                    }
+                } else {
+                    ToolbarItem(placement: .principal) {
+                        HStack {
+                            Circle()
+                                .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
+                                .frame(width: 8, height: 8)
+
+                            Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { locationManager.requestLocationPermission() }) {
                         VStack(spacing: 2) {
@@ -82,18 +110,6 @@ struct MapView: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .bottomBar) {
-                    HStack {
-                        Circle()
-                            .fill(geofenceMonitoringLabel.color)
-                            .frame(width: 8, height: 8)
-
-                        Text(geofenceMonitoringLabel.title)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal)
-                    .fixedSize(horizontal: true, vertical: false)
-
                     Spacer()
 
                     Button("Register") {
