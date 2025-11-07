@@ -29,6 +29,7 @@ struct MapView: View {
                             )
                         }
                     )
+                    .ignoresSafeArea()
 
                 // Loading indicator for geofences
                 if geofenceManager.isLoading {
@@ -107,6 +108,8 @@ struct MapView: View {
                     .disabled(geofenceManager.isLoading)
                 }
             }
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.visible, for: .bottomBar)
         }
     }
 
