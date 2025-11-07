@@ -68,11 +68,11 @@ struct MapView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { locationManager.requestLocationPermission() }) {
                         VStack(spacing: 2) {
-                            Image(systemName: locationIconName)
-                                .foregroundColor(locationIconColor)
+                            Image(systemName: locationStatusLabel.systemImage)
+                                .foregroundColor(locationStatusLabel.color)
                                 .frame(width: 24, height: 24)
 
-                            Text(locationStatusText)
+                            Text(locationStatusLabel.actionText)
                                 .font(.caption2)
                                 .foregroundColor(.primary)
                         }
@@ -113,48 +113,50 @@ struct MapView: View {
         }
     }
 
-    private var locationIconName: String {
+    private var locationStatusLabel: (status: String, actionText: String, systemImage: String, color: Color) {
         switch locationManager.authorizationStatus {
         case .notDetermined:
-            return "location.slash"
-        case .denied, .restricted:
-            return "location.slash"
+            return (
+                status: "Not determined",
+                actionText: "Tap to enable",
+                systemImage: "location.slash",
+                color: .orange
+            )
+        case .denied:
+            return (
+                status: "Denied",
+                actionText: "Go to settings",
+                systemImage: "location.slash",
+                color: .red
+            )
+        case .restricted:
+            return (
+                status: "Restricted",
+                actionText: "Go to settings",
+                systemImage: "location.slash",
+                color: .red
+            )
         case .authorizedWhenInUse:
-            return "location"
+            return (
+                status: "Authorized when in use",
+                actionText: "Tap for Always",
+                systemImage: "location",
+                color: .yellow
+            )
         case .authorizedAlways:
-            return "location.fill"
+            return (
+                status: "Authorized always",
+                actionText: "Enabled",
+                systemImage: "location.fill",
+                color: .green
+            )
         @unknown default:
-            return "location.slash"
-        }
-    }
-
-    private var locationIconColor: Color {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            return .orange
-        case .denied, .restricted:
-            return .red
-        case .authorizedWhenInUse:
-            return .yellow
-        case .authorizedAlways:
-            return .green
-        @unknown default:
-            return .red
-        }
-    }
-
-    private var locationStatusText: String {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            return "Tap to enable"
-        case .denied, .restricted:
-            return "Settings"
-        case .authorizedWhenInUse:
-            return "Tap for Always"
-        case .authorizedAlways:
-            return "Enabled"
-        @unknown default:
-            return "Unknown"
+            return (
+                status: "Unknown",
+                actionText: "Unknown",
+                systemImage: "location.slash",
+                color: .red
+            )
         }
     }
 }
