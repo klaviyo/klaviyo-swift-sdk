@@ -9,7 +9,7 @@ struct MapView: View {
     @StateObject private var geofenceManager = GeofenceManager()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Map(coordinateRegion: $locationManager.region,
                     showsUserLocation: true,
