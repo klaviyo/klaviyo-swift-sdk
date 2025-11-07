@@ -188,5 +188,6 @@ final class KlaviyoEndpointTests: XCTestCase {
         // Then
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.url?.path, "/client/geofences")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
     }
 }
