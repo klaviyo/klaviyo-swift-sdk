@@ -17,6 +17,7 @@ class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
+    private var apiKeyCancellable: AnyCancellable?
 
     init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -26,9 +27,11 @@ class KlaviyoLocationManager: NSObject {
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
         self.locationManager.startMonitoringSignificantLocationChanges()
+        startObservingAPIKeyChanges()
     }
 
     deinit {
+        stopObservingAPIKeyChanges()
         locationManager.delegate = nil
         locationManager.stopUpdatingLocation()
         locationManager.stopMonitoringSignificantLocationChanges()
@@ -45,6 +48,33 @@ class KlaviyoLocationManager: NSObject {
     @MainActor
     func destroyGeofencing() {
         geofenceManager.destroyGeofencing()
+    }
+
+    // MARK: - API Key Observation
+
+    private func startObservingAPIKeyChanges() {
+        guard apiKeyCancellable == nil else { return }
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .sink { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case let .success(apiKey):
+                    if #available(iOS 14.0, *) {
+                        Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
+                    }
+                    geofenceManager.destroyGeofencing()
+                    geofenceManager.setupGeofencing()
+                case .failure:
+                    break
+                }
+            }
+    }
+
+    private func stopObservingAPIKeyChanges() {
+        apiKeyCancellable?.cancel()
+        apiKeyCancellable = nil
     }
 }
 
