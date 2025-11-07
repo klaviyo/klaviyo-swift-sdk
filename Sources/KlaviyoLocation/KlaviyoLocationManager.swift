@@ -12,13 +12,13 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-public class KlaviyoLocationManager: NSObject {
-    internal static let shared = KlaviyoLocationManager()
+class KlaviyoLocationManager: NSObject {
+    static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
 
-    internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
+    init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
         self.geofenceManager = geofenceManager ?? KlaviyoGeofenceManager(locationManager: self.locationManager)
 
@@ -36,14 +36,14 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    internal func setupGeofencing() {
+    func setupGeofencing() {
         if environment.getLocationAuthorizationStatus() == .authorizedAlways {
             geofenceManager.setupGeofencing()
         }
     }
 
     @MainActor
-    internal func destroyGeofencing() {
+    func destroyGeofencing() {
         geofenceManager.destroyGeofencing()
     }
 }

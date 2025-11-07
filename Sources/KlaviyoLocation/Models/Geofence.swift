@@ -11,26 +11,26 @@ import KlaviyoCore
 import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
-internal struct Geofence: Equatable, Hashable, Codable {
+struct Geofence: Equatable, Hashable, Codable {
     /// The geofence ID is a combination of the company ID and location ID from Klaviyo, separated by a colon.
-    internal let id: String
+    let id: String
 
     /// Longitude of the geofence center
-    internal let longitude: Double
+    let longitude: Double
 
     /// Latitude of the geofence center
-    internal let latitude: Double
+    let latitude: Double
 
     /// Radius of the geofence in meters
-    internal let radius: Double
+    let radius: Double
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
-    internal var companyId: String {
+    var companyId: String {
         id.split(separator: ":").first.map(String.init) ?? ""
     }
 
     /// Location UUID to which this geofence belongs, extracted from the geofence ID.
-    internal var locationId: String {
+    var locationId: String {
         let components = id.split(separator: ":", maxSplits: 1)
         return components.count > 1 ? String(components[1]) : ""
     }
@@ -42,7 +42,7 @@ internal struct Geofence: Equatable, Hashable, Codable {
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
     /// - Throws: `GeofenceError.invalidIdFormat` if the ID doesn't match the expected format
-    internal init(
+    init(
         id: String,
         longitude: Double,
         latitude: Double,
@@ -68,6 +68,6 @@ internal struct Geofence: Equatable, Hashable, Codable {
 }
 
 /// Errors that can occur when working with geofences
-internal enum GeofenceError: Error {
+enum GeofenceError: Error {
     case invalidIdFormat(String)
 }
