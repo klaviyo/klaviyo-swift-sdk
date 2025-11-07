@@ -3,6 +3,7 @@ import MapKit
 import SwiftUI
 @_spi(KlaviyoPrivate) import KlaviyoSwift
 @_spi(KlaviyoPrivate) import KlaviyoLocation
+
 struct MapView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locationManager = LocationManager()
@@ -371,6 +372,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         switch authorizationStatus {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
+
         case .authorizedWhenInUse:
             locationManager.requestAlwaysAuthorization()
 
