@@ -72,7 +72,7 @@ public func removeFile(at url: URL) -> Bool {
 /// Load plist from main application bundle
 /// - Parameter name: the name of the plist
 /// - Returns: the contents of the plist or nil if not found
-func loadPlist(named name: String) -> [String: AnyObject]? {
+package func loadPlist(named name: String) -> [String: AnyObject]? {
     guard let path = Bundle.main.path(forResource: name, ofType: "plist"),
           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
         return nil
@@ -83,7 +83,7 @@ func loadPlist(named name: String) -> [String: AnyObject]? {
 /// Load plist from React Native SDK bundle (for dynamic linking scenarios)
 /// - Parameter name: the name of the plist
 /// - Returns: the contents of the plist or nil if not found
-func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
+package func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
     guard let bundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
           let path = bundle.path(forResource: name, ofType: "plist"),
           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
