@@ -66,69 +66,56 @@ struct MapView: View {
                     }
                 }
 
-                if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .subtitle) {
-                        HStack {
-                            Circle()
-                                .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
-                                .frame(width: 8, height: 8)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Section("Location Permissions") {
+                            Label(locationStatusLabel.status, systemImage: locationStatusLabel.systemImage)
+                                .foregroundStyle(locationStatusLabel.color, locationStatusLabel.color)
 
-                            Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button(locationStatusLabel.actionText) {
+                                locationManager.requestLocationPermission()
+                            }
                         }
-                        .fixedSize(horizontal: true, vertical: false)
-                    }
-                } else {
-                    ToolbarItem(placement: .principal) {
-                        HStack {
-                            Circle()
-                                .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
-                                .frame(width: 8, height: 8)
 
-                            Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        Section("Geofence Monitoring") {
+                            Button {} label: {
+                                Label(geofenceMonitoringLabel.title, systemImage: geofenceMonitoringLabel.systemImage)
+                                if locationManager.authorizationStatus != .authorizedAlways {
+                                    Text("Location permission must be \"Authorized Always\"")
+                                }
+                            }
+                            .disabled(true)
+
+                            Button {
+                                geofenceManager.registerGeofencing()
+                            } label: {
+                                Text("Register")
+                                Text("Begin monitoring for geofence events")
+                                Image(systemName: "play")
+                            }
+                            .disabled(geofenceManager.isLoading)
+
+                            Button {
+                                geofenceManager.unregisterGeofencing()
+                            } label: {
+                                Text("Unregister")
+                                Text("Stop monitoring for geofence events")
+                                Image(systemName: "stop")
+                            }
+                            .disabled(geofenceManager.isLoading)
                         }
-                        .fixedSize(horizontal: true, vertical: false)
-                    }
-                }
+                    } label: {
+                        HStack {
+                            Image(systemName: geofenceMonitoringLabel.systemImage)
+                                .foregroundColor(geofenceMonitoringLabel.color)
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { locationManager.requestLocationPermission() }) {
-                        VStack(spacing: 2) {
                             Image(systemName: locationStatusLabel.systemImage)
                                 .foregroundColor(locationStatusLabel.color)
-                                .frame(width: 24, height: 24)
-
-                            Text(locationStatusLabel.actionText)
-                                .font(.caption2)
-                                .foregroundColor(.primary)
                         }
                     }
-                }
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Spacer()
-
-                    Button("Register") {
-                        geofenceManager.registerGeofencing()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(geofenceManager.isLoading)
-                    .padding(.horizontal, 20)
-
-                    Button("Stop", systemImage: "stop.fill") {
-                        geofenceManager.unregisterGeofencing()
-                    }
-                    .tint(.red)
-                    .disabled(geofenceManager.isLoading)
                 }
             }
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(.visible, for: .bottomBar)
         }
     }
 
