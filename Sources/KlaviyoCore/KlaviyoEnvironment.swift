@@ -162,7 +162,24 @@ public struct KlaviyoEnvironment {
             .eraseToAnyPublisher()
     }
 
-    private static let rnSDKConfig: [String: AnyObject] = loadPlist(named: "klaviyo-sdk-configuration") ?? [:]
+    private static let rnSDKConfig: [String: AnyObject] = {
+        // Only check for RN config if React Native is present
+        guard NSClassFromString("RCTBridge") != nil else {
+            return [:]
+        }
+
+        // Try main bundle first (static linking - most common for RN apps)
+        if let config = loadPlist(named: "klaviyo-sdk-configuration") {
+            return config
+        }
+
+        // Fallback to RN SDK bundle (dynamic linking - less common)
+        if let config = loadPlistFromReactNativeBundle(named: "klaviyo-sdk-configuration") {
+            return config
+        }
+
+        return [:]
+    }()
 
     private static func getSDKName() -> String {
         if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {

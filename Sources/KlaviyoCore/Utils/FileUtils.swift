@@ -69,35 +69,25 @@ public func removeFile(at url: URL) -> Bool {
     return false
 }
 
-/// load any plist from app main bundle or React Native framework bundle
+/// Load plist from main application bundle
 /// - Parameter name: the name of the plist
-/// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
+/// - Returns: the contents of the plist or nil if not found
 func loadPlist(named name: String) -> [String: AnyObject]? {
-    let plistPath: String? = {
-        // Try loading from main bundle first
-        if let path = Bundle.main.path(forResource: name, ofType: "plist") {
-            return path
-        }
-
-        // Fast check - if not React Native, skip expensive bundle lookup
-        // This prevents a 500ms-1.5s hang on app startup for non-RN apps
-        guard NSClassFromString("RCTBridge") != nil else {
-            return nil
-        }
-
-        // If RCTBridge is present, look for the RN SDK bundle
-        if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
-           let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
-            return path
-        }
-
-        return nil
-    }()
-
-    if let plistPath,
-       let dict = NSDictionary(contentsOfFile: plistPath) as? [String: AnyObject] {
-        return dict
-    } else {
+    guard let path = Bundle.main.path(forResource: name, ofType: "plist"),
+          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
         return nil
     }
+    return dict
+}
+
+/// Load plist from React Native SDK bundle (for dynamic linking scenarios)
+/// - Parameter name: the name of the plist
+/// - Returns: the contents of the plist or nil if not found
+func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
+    guard let bundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
+          let path = bundle.path(forResource: name, ofType: "plist"),
+          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
+        return nil
+    }
+    return dict
 }

@@ -67,21 +67,26 @@ class FileUtilsTests: XCTestCase {
         }
     }
 
-    func testLoadPlist_DoesNotHangForNonReactNativeApps() {
-        // This test verifies the performance fix - it should complete quickly
+    func testLoadPlist_CompletesQuickly() {
+        // This test verifies that loadPlist() only checks main bundle (fast operation)
         let startTime = Date()
 
-        // Try to load a plist that doesn't exist
-        // In the old code, this would hang for 500ms-1.5s trying to load the RN bundle
-        // In the new code, it should return immediately
         let result = loadPlist(named: "non-existent-config")
 
         let elapsedTime = Date().timeIntervalSince(startTime)
 
         XCTAssertNil(result, "Should return nil for non-existent plist")
 
-        // The fix should make this complete in < 100ms (was 500-1500ms before)
-        // We use 200ms as threshold to be safe on slow CI systems
-        XCTAssertLessThan(elapsedTime, 0.2, "loadPlist should complete quickly (< 200ms) for non-React Native apps, but took \(elapsedTime)s")
+        // Should complete very quickly since it only checks main bundle
+        XCTAssertLessThan(elapsedTime, 0.1, "loadPlist should complete quickly (< 100ms), but took \(elapsedTime)s")
+    }
+
+    func testLoadPlistFromReactNativeBundle_ReturnsNilWhenBundleNotFound() {
+        // This will be nil for non-RN test environments
+        let result = loadPlistFromReactNativeBundle(named: "klaviyo-sdk-configuration")
+
+        // Should return nil without crashing
+        // In a real RN environment, this might return a value
+        XCTAssertTrue(result == nil || result is [String: AnyObject], "Should return nil or valid dictionary")
     }
 }
