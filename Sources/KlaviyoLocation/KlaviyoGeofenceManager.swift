@@ -10,14 +10,14 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-internal class KlaviyoGeofenceManager {
+class KlaviyoGeofenceManager {
     private let locationManager: LocationManagerProtocol
 
-    internal init(locationManager: LocationManagerProtocol) {
+    init(locationManager: LocationManagerProtocol) {
         self.locationManager = locationManager
     }
 
-    internal func setupGeofencing() {
+    func setupGeofencing() {
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing is not supported on this device")
@@ -44,7 +44,7 @@ internal class KlaviyoGeofenceManager {
         }
     }
 
-    internal func destroyGeofencing() {
+    func destroyGeofencing() {
         if #available(iOS 14.0, *) {
             if !locationManager.monitoredRegions.isEmpty {
                 Logger.geoservices.info("Stop monitoring for all regions")
@@ -99,7 +99,7 @@ internal class KlaviyoGeofenceManager {
 extension Geofence {
     /// Converts this geofence to a Core Location circular region
     /// - Returns: A CLCircularRegion instance
-    internal func toCLCircularRegion() -> CLCircularRegion {
+    func toCLCircularRegion() -> CLCircularRegion {
         let region = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
             radius: radius,
@@ -110,11 +110,11 @@ extension Geofence {
 }
 
 extension CLCircularRegion {
-    internal func toKlaviyoGeofence() throws -> Geofence {
+    func toKlaviyoGeofence() throws -> Geofence {
         try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
 
-    internal var klaviyoLocationId: String? {
+    var klaviyoLocationId: String? {
         do {
             return try toKlaviyoGeofence().locationId
         } catch {

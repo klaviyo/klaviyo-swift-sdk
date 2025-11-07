@@ -10,12 +10,12 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-internal protocol GeofenceServiceProvider {
+protocol GeofenceServiceProvider {
     func fetchGeofences() async -> Set<Geofence>
 }
 
-internal struct GeofenceService: GeofenceServiceProvider {
-    internal func fetchGeofences() async -> Set<Geofence> {
+struct GeofenceService: GeofenceServiceProvider {
+    func fetchGeofences() async -> Set<Geofence> {
         do {
             let data = try await fetchGeofenceData()
             return try await parseGeofences(from: data)
@@ -50,7 +50,7 @@ internal struct GeofenceService: GeofenceServiceProvider {
     }
 
     /// Parses raw geofence data and transforms it into Geofence objects with the companyId prepended to the id
-    internal func parseGeofences(from data: Data) async throws -> Set<Geofence> {
+    func parseGeofences(from data: Data) async throws -> Set<Geofence> {
         do {
             let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
             let companyId = try await KlaviyoInternal.fetchAPIKey()
