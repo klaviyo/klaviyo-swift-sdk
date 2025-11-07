@@ -66,7 +66,7 @@ struct MapView: View {
                     }
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .bottomBar) {
                     Menu {
                         Section("Location Permissions") {
                             Label(locationStatusLabel.status, systemImage: locationStatusLabel.systemImage)
@@ -106,16 +106,38 @@ struct MapView: View {
                         }
                     } label: {
                         HStack {
-                            Image(systemName: geofenceMonitoringLabel.systemImage)
-                                .foregroundColor(geofenceMonitoringLabel.color)
+                            HStack {
+                                Image(systemName: locationStatusLabel.systemImage)
+                                    .foregroundColor(locationStatusLabel.color)
 
-                            Image(systemName: locationStatusLabel.systemImage)
-                                .foregroundColor(locationStatusLabel.color)
+                                VStack(alignment: .leading) {
+                                    Text("Location Permissions")
+                                        .font(.caption2.bold())
+                                    Text(locationStatusLabel.status)
+                                        .font(.caption)
+                                }
+                            }
+
+                            Spacer(minLength: 24)
+
+                            HStack {
+                                Image(systemName: geofenceMonitoringLabel.systemImage)
+                                    .foregroundColor(geofenceMonitoringLabel.color)
+
+                                VStack(alignment: .leading) {
+                                    Text("Geofence Monitoring")
+                                        .font(.caption2.bold())
+                                    Text(geofenceMonitoringLabel.title)
+                                        .font(.caption)
+                                }
+                            }
                         }
                     }
+                    .menuOrder(.fixed)
                 }
             }
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.visible, for: .bottomBar)
         }
     }
 
