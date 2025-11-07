@@ -107,6 +107,9 @@ enum KlaviyoAction: Equatable {
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
 
+    /// when there is a geofence event to be sent to klaviyo it's added to the queue
+    case enqueueGeofenceEvent(Event, String)
+
     /// when there is an aggregate event to be sent to klaviyo it's added to the queue
     case enqueueAggregateEvent(Data)
 
@@ -141,13 +144,13 @@ enum KlaviyoAction: Equatable {
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push or geofence events we DON'T require initialization
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
+        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted, .enqueueGeofenceEvent:
             return false
         }
     }
@@ -514,7 +517,28 @@ struct KlaviyoReducer: ReducerProtocol {
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
             ])
+        case var .enqueueGeofenceEvent(event, apiKey):
+            let payload = CreateEventPayload(
+                data: CreateEventPayload.Event(
+                    name: event.metric.name.value,
+                    properties: event.properties,
+                    email: event.identifiers?.email,
+                    phoneNumber: event.identifiers?.phoneNumber,
+                    externalId: event.identifiers?.externalId,
+                    value: event.value,
+                    time: event.time,
+                    uniqueId: event.uniqueId,
+                    pushToken: state.pushTokenData?.pushToken
+                ))
 
+            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
+
+            state.enqueueRequest(request: request)
+            return .merge([
+                EffectTask<KlaviyoAction>.task { .flushQueue },
+                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+            ])
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey

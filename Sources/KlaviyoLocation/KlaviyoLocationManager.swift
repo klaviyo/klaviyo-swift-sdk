@@ -91,12 +91,16 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
+              let klaviyoGeofence = try? region.toKlaviyoGeofence() else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("Received non-Klaviyo geofence notification. Skipping.")
             }
             return
         }
+
+        let klaviyoLocationId = klaviyoGeofence.locationId
+        let companyId = klaviyoGeofence.companyId
+
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId, privacy: .public)\"")
         }
@@ -110,19 +114,23 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                KlaviyoInternal.create(event: enterEvent)
+                KlaviyoInternal.createGeofencing(event: enterEvent, apiKey: companyId)
             }
         }
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
+              let klaviyoGeofence = try? region.toKlaviyoGeofence() else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
             }
             return
         }
+
+        let klaviyoLocationId = klaviyoGeofence.locationId
+        let companyId = klaviyoGeofence.companyId
+
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId, privacy: .public)\"")
         }
@@ -136,7 +144,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         Task {
             await MainActor.run {
-                KlaviyoInternal.create(event: exitEvent)
+                KlaviyoInternal.createGeofencing(event: exitEvent, apiKey: companyId)
             }
         }
     }
