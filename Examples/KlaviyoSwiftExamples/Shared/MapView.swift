@@ -82,15 +82,17 @@ struct MapView: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .bottomBar) {
-                    HStack(spacing: 4) {
+                    HStack {
                         Circle()
-                            .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
+                            .fill(geofenceMonitoringLabel.color)
                             .frame(width: 8, height: 8)
 
-                        Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
+                        Text(geofenceMonitoringLabel.title)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal)
+                    .fixedSize(horizontal: true, vertical: false)
 
                     Spacer()
 
@@ -158,6 +160,14 @@ struct MapView: View {
                 systemImage: "location.slash",
                 color: .red
             )
+        }
+    }
+
+    private var geofenceMonitoringLabel: (title: String, systemImage: String, color: Color) {
+        if geofenceManager.isMonitoring {
+            return ("Montitoring Active", "mappin.and.ellipse", Color.green)
+        } else {
+            return ("Not Monitoring", "mappin.slash", Color.gray)
         }
     }
 }
