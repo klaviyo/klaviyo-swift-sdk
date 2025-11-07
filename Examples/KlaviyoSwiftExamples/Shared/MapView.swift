@@ -60,7 +60,7 @@ struct MapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
+                    Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
                 }
