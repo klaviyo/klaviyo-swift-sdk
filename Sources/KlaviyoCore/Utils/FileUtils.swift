@@ -71,10 +71,6 @@ public func removeFile(at url: URL) -> Bool {
 
 /// load any plist from app main bundle or React Native framework bundle
 /// - Parameter name: the name of the plist
-// Cache for React Native bundle to avoid repeated expensive lookups
-// nil = not yet checked, .some(nil) = checked and not found, .some(Bundle) = found
-private var cachedReactNativeBundle: Bundle??
-
 /// - Returns: the contents of the plist in `[String: AnyObject]` or nil if not found
 func loadPlist(named name: String) -> [String: AnyObject]? {
     let plistPath: String? = {
@@ -89,12 +85,8 @@ func loadPlist(named name: String) -> [String: AnyObject]? {
             return nil
         }
 
-        // Only do expensive bundle lookup once, then cache the result
-        if cachedReactNativeBundle == nil {
-            cachedReactNativeBundle = .some(Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"))
-        }
-
-        if let reactNativeBundle = cachedReactNativeBundle!,
+        // If RCTBridge is present, look for the RN SDK bundle
+        if let reactNativeBundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
            let path = reactNativeBundle.path(forResource: name, ofType: "plist") {
             return path
         }
