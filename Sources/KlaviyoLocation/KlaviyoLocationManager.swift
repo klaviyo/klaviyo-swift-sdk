@@ -66,12 +66,11 @@ class KlaviyoLocationManager: NSObject {
 
         let activeGeofences: Set<Geofence> = Set(
             locationManager.monitoredRegions.compactMap { region in
-                guard let circularRegion = region as? CLCircularRegion else { return nil }
-                do {
-                    return try circularRegion.toKlaviyoGeofence()
-                } catch {
+                guard let circularRegion = region as? CLCircularRegion,
+                      let geofence = try? circularRegion.toKlaviyoGeofence() else {
                     return nil
                 }
+                return geofence
             }
         )
 
@@ -80,16 +79,10 @@ class KlaviyoLocationManager: NSObject {
 
         await MainActor.run {
             for region in regionsToAdd {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("Start monitoring for region \(region.id)")
-                }
                 locationManager.startMonitoring(for: region.toCLCircularRegion())
             }
 
             for region in regionsToRemove {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("Stop monitoring for region \(region.id)")
-                }
                 if let clRegion = locationManager.monitoredRegions.first(where: { $0.identifier == region.id }) {
                     locationManager.stopMonitoring(for: clRegion)
                 }
