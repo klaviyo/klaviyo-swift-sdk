@@ -26,6 +26,7 @@ class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
         self.locationManager.startMonitoringSignificantLocationChanges()
     }
 
+    // Q: why do we need this?
     deinit {
         locationManager.delegate = nil
         locationManager.stopUpdatingLocation()
@@ -35,6 +36,7 @@ class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
 
     @MainActor
     func startGeofenceMonitoring() {
+        // Q: why does this need to be in the environment/KlaviyoCore?
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
@@ -50,6 +52,7 @@ class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
         }
 
         Task {
+            // Q: why do we need this. I know you explained in the PR but I don't think I follow.
             guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
                 if #available(iOS 14.0, *) {
                     Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")

@@ -27,7 +27,6 @@ struct GeofenceService: GeofenceServiceProvider {
         }
     }
 
-    /// Fetches raw geofence data from the API
     private func fetchGeofenceData(apiKey: String) async throws -> Data {
         let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
         let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
@@ -48,26 +47,16 @@ struct GeofenceService: GeofenceServiceProvider {
         }
     }
 
-    /// Parses raw geofence data and transforms it into Geofence objects with the companyId prepended to the id
     func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
-        do {
-            let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
-            let geofences = try response.data.map { rawGeofence in
-                try Geofence(
-                    id: "\(companyId):\(rawGeofence.id)",
-                    longitude: rawGeofence.attributes.longitude,
-                    latitude: rawGeofence.attributes.latitude,
-                    radius: rawGeofence.attributes.radius
-                )
-            }
-
-            return Set(geofences)
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Failed to decode geofences from response: \(error)")
-            }
-            throw error
-        }
+        let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
+        return try Set(response.data.map { rawGeofence in
+            try Geofence(
+                id: "\(companyId):\(rawGeofence.id)",
+                longitude: rawGeofence.attributes.longitude,
+                latitude: rawGeofence.attributes.latitude,
+                radius: rawGeofence.attributes.radius
+            )
+        })
     }
 }
 

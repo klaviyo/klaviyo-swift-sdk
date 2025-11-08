@@ -55,6 +55,7 @@ struct Geofence: Equatable, Hashable, Codable {
         self.radius = radius
     }
 
+    // Q - why do we need this?
     /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
     /// where companyId is exactly 6 alphanumeric characters and UUID follows standard format
     /// - Parameter id: The ID to validate

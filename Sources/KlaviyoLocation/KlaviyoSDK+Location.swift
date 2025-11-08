@@ -21,6 +21,10 @@ extension KlaviyoSDK {
         }
     }
 
+    // Q: have some questions about this?
+    // what code in the manager init does this actually need?
+    // if we know what can we just call that instead?
+    // I still don't think I fully understand why this is needed?
     /// To be called in didFinishLaunchingWithOptions to ensure geofence events that happen in a backgrounded/terminated state are processed.
     public func monitorGeofencesFromBackground() {
         _ = KlaviyoLocationManager.shared
