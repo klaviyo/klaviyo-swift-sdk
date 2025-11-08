@@ -16,7 +16,7 @@ extension KlaviyoSDK {
     public func registerGeofencing() {
         Task {
             await MainActor.run {
-                KlaviyoLocationManager.shared.setupGeofencing()
+                KlaviyoLocationManager.shared.startGeofenceMonitoring()
             }
         }
     }
@@ -31,7 +31,7 @@ extension KlaviyoSDK {
     public func unregisterGeofencing() {
         Task {
             await MainActor.run {
-                KlaviyoLocationManager.shared.destroyGeofencing()
+                KlaviyoLocationManager.shared.stopGeofenceMonitoring()
             }
         }
     }

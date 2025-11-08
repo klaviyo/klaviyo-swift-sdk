@@ -38,14 +38,14 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         switch status {
         case .authorizedAlways:
             Task {
-                await setupGeofencing()
+                await startGeofenceMonitoring()
             }
 
         case .authorizedWhenInUse, .restricted, .denied, .notDetermined:
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing not supported on permission level: \(status.description)")
             }
-            destroyGeofencing()
+            stopGeofenceMonitoring()
 
         default:
             break

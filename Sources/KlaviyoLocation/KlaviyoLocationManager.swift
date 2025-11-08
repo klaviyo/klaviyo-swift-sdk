@@ -30,11 +30,11 @@ class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
         locationManager.delegate = nil
         locationManager.stopUpdatingLocation()
         locationManager.stopMonitoringSignificantLocationChanges()
-        destroyGeofencing()
+        stopGeofenceMonitoring()
     }
 
     @MainActor
-    func setupGeofencing() {
+    func startGeofenceMonitoring() {
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
@@ -96,7 +96,7 @@ class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
         return Set(geofences)
     }
 
-    func destroyGeofencing() {
+    func stopGeofenceMonitoring() {
         let regions = locationManager.monitoredRegions
         guard !regions.isEmpty else { return }
 
