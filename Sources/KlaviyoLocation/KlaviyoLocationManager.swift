@@ -61,28 +61,15 @@ class KlaviyoLocationManager: NSObject {
         }
     }
 
-    func destroyGeofencing() {
-        if #available(iOS 14.0, *) {
-            if !locationManager.monitoredRegions.isEmpty {
-                Logger.geoservices.info("Stop monitoring for all regions")
-            }
-        }
-        for region in locationManager.monitoredRegions {
-            locationManager.stopMonitoring(for: region)
-        }
-    }
-
     private func syncGeofences(apiKey: String) async {
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
+
         let activeGeofences: Set<Geofence> = Set(
             locationManager.monitoredRegions.compactMap { region in
                 guard let circularRegion = region as? CLCircularRegion else { return nil }
                 do {
                     return try circularRegion.toKlaviyoGeofence()
                 } catch {
-                    if #available(iOS 14.0, *) {
-                        Logger.geoservices.error("Failed to convert CLCircularRegion to Geofence: \(error)")
-                    }
                     return nil
                 }
             }
@@ -107,6 +94,17 @@ class KlaviyoLocationManager: NSObject {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
+        }
+    }
+
+    func destroyGeofencing() {
+        if #available(iOS 14.0, *) {
+            if !locationManager.monitoredRegions.isEmpty {
+                Logger.geoservices.info("Stop monitoring for all regions")
+            }
+        }
+        for region in locationManager.monitoredRegions {
+            locationManager.stopMonitoring(for: region)
         }
     }
 }
