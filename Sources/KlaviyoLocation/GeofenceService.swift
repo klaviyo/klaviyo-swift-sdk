@@ -71,6 +71,8 @@ struct GeofenceService: GeofenceServiceProvider {
     }
 }
 
+// MARK: - API Response Models
+
 private struct GeofenceJSONResponse: Codable {
     let data: [GeofenceJSON]
 }
