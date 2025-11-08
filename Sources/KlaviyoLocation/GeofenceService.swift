@@ -11,14 +11,14 @@ import KlaviyoSwift
 import OSLog
 
 protocol GeofenceServiceProvider {
-    func fetchGeofences() async -> Set<Geofence>
+    func fetchGeofences(apiKey: String) async -> Set<Geofence>
 }
 
 struct GeofenceService: GeofenceServiceProvider {
-    func fetchGeofences() async -> Set<Geofence> {
+    func fetchGeofences(apiKey: String) async -> Set<Geofence> {
         do {
-            let data = try await fetchGeofenceData()
-            return try await parseGeofences(from: data)
+            let data = try await fetchGeofenceData(apiKey: apiKey)
+            return try parseGeofences(from: data, companyId: apiKey)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.error("Error fetching geofences: \(error)")
@@ -28,8 +28,7 @@ struct GeofenceService: GeofenceServiceProvider {
     }
 
     /// Fetches raw geofence data from the API
-    private func fetchGeofenceData() async throws -> Data {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+    private func fetchGeofenceData(apiKey: String) async throws -> Data {
         let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
         let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
         let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
@@ -50,10 +49,9 @@ struct GeofenceService: GeofenceServiceProvider {
     }
 
     /// Parses raw geofence data and transforms it into Geofence objects with the companyId prepended to the id
-    func parseGeofences(from data: Data) async throws -> Set<Geofence> {
+    func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
         do {
             let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
-            let companyId = try await KlaviyoInternal.fetchAPIKey()
             let geofences = try response.data.map { rawGeofence in
                 try Geofence(
                     id: "\(companyId):\(rawGeofence.id)",

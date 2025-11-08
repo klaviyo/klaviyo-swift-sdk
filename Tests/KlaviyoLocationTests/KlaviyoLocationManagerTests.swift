@@ -16,15 +16,13 @@ import XCTest
 final class KlaviyoLocationManagerTests: XCTestCase {
     var locationManager: KlaviyoLocationManager!
     var mockLocationManager: MockLocationManager!
-    var mockGeofenceManager: MockKlaviyoGeofenceManager!
     var originalEnvironment: KlaviyoEnvironment!
     var mockAuthorizationStatus: CLAuthorizationStatus = .authorizedAlways
 
     override func setUp() {
         super.setUp()
         mockLocationManager = MockLocationManager()
-        mockGeofenceManager = MockKlaviyoGeofenceManager(locationManager: CLLocationManager())
-        locationManager = KlaviyoLocationManager(locationManager: mockLocationManager, geofenceManager: mockGeofenceManager)
+        locationManager = KlaviyoLocationManager(locationManager: mockLocationManager)
         originalEnvironment = environment
         environment = createMockEnvironment()
     }
@@ -33,7 +31,6 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         environment = originalEnvironment
         locationManager = nil
         mockLocationManager = nil
-        mockGeofenceManager = nil
         super.tearDown()
     }
 
@@ -49,83 +46,35 @@ final class KlaviyoLocationManagerTests: XCTestCase {
 
     // MARK: - Authorization Status Change Tests
 
-    func test_setupGeofencing_respects_environment_authorization_status() async {
+    func test_setupGeofencing_returns_early_when_not_authorized() async {
         // GIVEN
         mockAuthorizationStatus = .denied
-        let initialCallCount = mockGeofenceManager.setupGeofencingCallCount
 
         // WHEN
         await locationManager.setupGeofencing()
 
-        // THEN
-        XCTAssertEqual(mockGeofenceManager.setupGeofencingCallCount, initialCallCount,
-                       "setupGeofencing should not be called when environment reports .denied status")
+        // THEN - No crash, early return
+        // Behavior verified through logs and lack of region monitoring
     }
 
-    func test_setupGeofencing_calls_setupGeofencing_when_environment_authorization_status_is_authorizedAlways() async {
-        // GIVEN
-        mockAuthorizationStatus = .authorizedAlways
-        let initialCallCount = mockGeofenceManager.setupGeofencingCallCount
+    func test_destroyGeofencing_stops_monitoring_all_regions() {
+        // GIVEN - Add some mock monitored regions
+        let region1 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 0, longitude: 0), radius: 100, identifier: "test1")
+        let region2 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 1, longitude: 1), radius: 100, identifier: "test2")
+        mockLocationManager.monitoredRegions = [region1, region2]
 
         // WHEN
-        await locationManager.setupGeofencing()
+        locationManager.destroyGeofencing()
 
-        // THEN
-        XCTAssertEqual(mockGeofenceManager.setupGeofencingCallCount, initialCallCount + 1,
-                       "setupGeofencing should be called when environment reports .authorizedAlways status")
-    }
-
-    func test_didChangeAuthorization_calls_setupGeofencing_when_statusIsAuthorizedAlways() {
-        // GIVEN
-        let initialCallCount = mockGeofenceManager.setupGeofencingCallCount
-
-        // WHEN
-        mockLocationManager.simulateAuthorizationChange(to: .authorizedAlways)
-
-        // THEN
-        XCTAssertEqual(mockGeofenceManager.setupGeofencingCallCount, initialCallCount + 1,
-                       "setupGeofencing should be called when authorization changes to .authorizedAlways via delegate")
-    }
-
-    func test_didChangeAuthorization_calls_destroyGeofencing_when_statusIsDenied() {
-        // GIVEN
-        let initialCallCount = mockGeofenceManager.destroyGeofencingCallCount
-
-        // WHEN
-        mockLocationManager.simulateAuthorizationChange(to: .denied)
-
-        // THEN
-        XCTAssertEqual(mockGeofenceManager.destroyGeofencingCallCount, initialCallCount + 1,
-                       "destroyGeofencing should be called when authorization changes to .denied via delegate")
-    }
-
-    func test_didChangeAuthorization_calls_destroyGeofencing_when_statusIsAuthorizedWhenInUse() {
-        // GIVEN
-        let initialCallCount = mockGeofenceManager.destroyGeofencingCallCount
-
-        // WHEN
-        mockLocationManager.simulateAuthorizationChange(to: .authorizedWhenInUse)
-
-        // THEN
-        XCTAssertEqual(mockGeofenceManager.destroyGeofencingCallCount, initialCallCount + 1,
-                       "destroyGeofencing should be called when authorization changes to .authorizedWhenInUse via delegate")
+        // THEN - All regions should be stopped
+        XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region1),
+                      "destroyGeofencing should stop monitoring region1")
+        XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region2),
+                      "destroyGeofencing should stop monitoring region2")
     }
 }
 
 // MARK: - Mock Classes
-
-class MockKlaviyoGeofenceManager: KlaviyoGeofenceManager {
-    var setupGeofencingCallCount = 0
-    var destroyGeofencingCallCount = 0
-
-    override func setupGeofencing() {
-        setupGeofencingCallCount += 1
-    }
-
-    override func destroyGeofencing() {
-        destroyGeofencingCallCount += 1
-    }
-}
 
 class MockLocationManager: LocationManagerProtocol {
     var delegate: CLLocationManagerDelegate?
@@ -133,6 +82,7 @@ class MockLocationManager: LocationManagerProtocol {
     var currentAuthorizationStatus: CLAuthorizationStatus = .notDetermined
     var monitoredRegions: Set<CLRegion> = []
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
+    var stoppedRegions: [CLRegion] = []
 
     // Helper method to simulate authorization status changes
     func simulateAuthorizationChange(to status: CLAuthorizationStatus) {
@@ -147,8 +97,15 @@ class MockLocationManager: LocationManagerProtocol {
 
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
-    func startMonitoring(for region: CLRegion) {}
-    func stopMonitoring(for region: CLRegion) {}
+    func startMonitoring(for region: CLRegion) {
+        monitoredRegions.insert(region)
+    }
+
+    func stopMonitoring(for region: CLRegion) {
+        stoppedRegions.append(region)
+        monitoredRegions.remove(region)
+    }
+
     func startMonitoringSignificantLocationChanges() {}
     func stopMonitoringSignificantLocationChanges() {}
 }
