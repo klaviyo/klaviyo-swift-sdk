@@ -22,15 +22,15 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @available(iOS 14.0, *)
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
+        handleAuthorizationChange(manager, locationManager.currentAuthorizationStatus)
     }
 
     @available(iOS, deprecated: 14.0)
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        handleCLAuthorizationStatusChange(manager, status)
+        handleAuthorizationChange(manager, status)
     }
 
-    private func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
+    private func handleAuthorizationChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("Core Location authorization status changed. New status: \(status.description)")
         }
