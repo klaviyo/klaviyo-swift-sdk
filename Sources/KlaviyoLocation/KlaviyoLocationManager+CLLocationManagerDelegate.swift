@@ -46,9 +46,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
                 Logger.geoservices.warning("Geofencing not supported on permission level: \(status.description)")
             }
             stopGeofenceMonitoring()
-
-        default:
-            break
         }
     }
 
