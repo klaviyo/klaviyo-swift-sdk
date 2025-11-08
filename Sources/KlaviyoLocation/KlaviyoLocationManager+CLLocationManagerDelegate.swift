@@ -52,53 +52,32 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     // MARK: Geofencing
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Received non-Klaviyo geofence notification. Skipping.")
-            }
-            return
-        }
-        if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId, privacy: .public)\"")
-        }
-
-        let enterEvent = Event(
-            name: .locationEvent(.geofenceEnter),
-            properties: [
-                "geofence_id": klaviyoLocationId
-            ]
-        )
-
-        Task {
-            await MainActor.run {
-                KlaviyoInternal.create(event: enterEvent)
-            }
-        }
+        handleGeofenceEvent(region: region, eventType: .geofenceEnter)
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        handleGeofenceEvent(region: region, eventType: .geofenceExit)
+    }
+
+    private func handleGeofenceEvent(region: CLRegion, eventType: LocationEventType) {
         guard let region = region as? CLCircularRegion,
               let klaviyoLocationId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
-            }
             return
         }
+
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId, privacy: .public)\"")
+            let action = eventType == .geofenceEnter ? "entered" : "exited"
+            Logger.geoservices.info("🌎 User \(action) region \"\(klaviyoLocationId, privacy: .public)\"")
         }
 
-        let exitEvent = Event(
-            name: .locationEvent(.geofenceExit),
-            properties: [
-                "geofence_id": klaviyoLocationId
-            ]
+        let event = Event(
+            name: .locationEvent(eventType),
+            properties: ["geofence_id": klaviyoLocationId]
         )
 
         Task {
             await MainActor.run {
-                KlaviyoInternal.create(event: exitEvent)
+                KlaviyoInternal.create(event: event)
             }
         }
     }
