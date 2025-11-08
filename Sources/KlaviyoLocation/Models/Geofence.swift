@@ -71,3 +71,32 @@ struct Geofence: Equatable, Hashable, Codable {
 enum GeofenceError: Error {
     case invalidIdFormat(String)
 }
+
+// MARK: - Data Type Conversions
+
+extension Geofence {
+    /// Converts this geofence to a Core Location circular region
+    /// - Returns: A CLCircularRegion instance
+    func toCLCircularRegion() -> CLCircularRegion {
+        let region = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            radius: radius,
+            identifier: id
+        )
+        return region
+    }
+}
+
+extension CLCircularRegion {
+    func toKlaviyoGeofence() throws -> Geofence {
+        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
+    }
+
+    var klaviyoLocationId: String? {
+        do {
+            return try toKlaviyoGeofence().locationId
+        } catch {
+            return nil
+        }
+    }
+}

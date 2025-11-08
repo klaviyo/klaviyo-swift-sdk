@@ -83,6 +83,7 @@ class MockLocationManager: LocationManagerProtocol {
     var monitoredRegions: Set<CLRegion> = []
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
     var stoppedRegions: [CLRegion] = []
+    var mockIsMonitoringAvailable: Bool = true
 
     // Helper method to simulate authorization status changes
     func simulateAuthorizationChange(to status: CLAuthorizationStatus) {
@@ -104,6 +105,10 @@ class MockLocationManager: LocationManagerProtocol {
     func stopMonitoring(for region: CLRegion) {
         stoppedRegions.append(region)
         monitoredRegions.remove(region)
+    }
+
+    func isMonitoringAvailable(for regionClass: AnyClass) -> Bool {
+        mockIsMonitoringAvailable
     }
 
     func startMonitoringSignificantLocationChanges() {}

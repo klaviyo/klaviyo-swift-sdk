@@ -42,7 +42,7 @@ class KlaviyoLocationManager: NSObject {
             return
         }
 
-        guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+        guard locationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing is not supported on this device")
             }
@@ -57,7 +57,7 @@ class KlaviyoLocationManager: NSObject {
                 return
             }
 
-            await updateGeofences(apiKey: apiKey)
+            await syncGeofences(apiKey: apiKey)
         }
     }
 
@@ -72,7 +72,7 @@ class KlaviyoLocationManager: NSObject {
         }
     }
 
-    private func updateGeofences(apiKey: String) async {
+    private func syncGeofences(apiKey: String) async {
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
         let activeGeofences: Set<Geofence> = Set(
             locationManager.monitoredRegions.compactMap { region in
@@ -203,35 +203,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             await MainActor.run {
                 KlaviyoInternal.create(event: exitEvent)
             }
-        }
-    }
-}
-
-// MARK: - Data Type Conversions
-
-extension Geofence {
-    /// Converts this geofence to a Core Location circular region
-    /// - Returns: A CLCircularRegion instance
-    func toCLCircularRegion() -> CLCircularRegion {
-        let region = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-            radius: radius,
-            identifier: id
-        )
-        return region
-    }
-}
-
-extension CLCircularRegion {
-    func toKlaviyoGeofence() throws -> Geofence {
-        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
-    }
-
-    var klaviyoLocationId: String? {
-        do {
-            return try toKlaviyoGeofence().locationId
-        } catch {
-            return nil
         }
     }
 }

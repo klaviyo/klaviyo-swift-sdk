@@ -19,6 +19,7 @@ protocol LocationManagerProtocol {
     func stopMonitoringSignificantLocationChanges()
     func startMonitoring(for region: CLRegion)
     func stopMonitoring(for region: CLRegion)
+    func isMonitoringAvailable(for regionClass: AnyClass) -> Bool
     var monitoredRegions: Set<CLRegion> { get }
 }
 
@@ -31,5 +32,9 @@ extension CLLocationManager: LocationManagerProtocol {
         } else {
             return CLLocationManager.authorizationStatus()
         }
+    }
+
+    func isMonitoringAvailable(for regionClass: AnyClass) -> Bool {
+        CLLocationManager.isMonitoringAvailable(for: regionClass)
     }
 }
