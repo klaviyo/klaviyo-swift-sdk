@@ -63,16 +63,7 @@ class KlaviyoLocationManager: NSObject {
 
     private func syncGeofences(apiKey: String) async {
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
-
-        let activeGeofences: Set<Geofence> = Set(
-            locationManager.monitoredRegions.compactMap { region in
-                guard let circularRegion = region as? CLCircularRegion,
-                      let geofence = try? circularRegion.toKlaviyoGeofence() else {
-                    return nil
-                }
-                return geofence
-            }
-        )
+        let activeGeofences = getActiveGeofences()
 
         let regionsToRemove = activeGeofences.subtracting(remoteGeofences)
         let regionsToAdd = remoteGeofences.subtracting(activeGeofences)
@@ -88,6 +79,17 @@ class KlaviyoLocationManager: NSObject {
                 }
             }
         }
+    }
+
+    private func getActiveGeofences() -> Set<Geofence> {
+        let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
+            guard let circularRegion = region as? CLCircularRegion,
+                  let geofence = try? circularRegion.toKlaviyoGeofence() else {
+                return nil
+            }
+            return geofence
+        }
+        return Set(geofences)
     }
 
     func destroyGeofencing() {
