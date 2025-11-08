@@ -65,16 +65,20 @@ class KlaviyoLocationManager: NSObject {
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
         let activeGeofences = getActiveGeofences()
 
-        let regionsToRemove = activeGeofences.subtracting(remoteGeofences)
-        let regionsToAdd = remoteGeofences.subtracting(activeGeofences)
+        let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
+        let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
 
         await MainActor.run {
-            for region in regionsToAdd {
-                locationManager.startMonitoring(for: region.toCLCircularRegion())
+            for geofence in geofencesToAdd {
+                locationManager.startMonitoring(for: geofence.toCLCircularRegion())
             }
 
-            for region in regionsToRemove {
-                if let clRegion = locationManager.monitoredRegions.first(where: { $0.identifier == region.id }) {
+            let regionsByIdentifier = Dictionary(
+                uniqueKeysWithValues: locationManager.monitoredRegions.map { ($0.identifier, $0) }
+            )
+
+            for geofence in geofencesToRemove {
+                if let clRegion = regionsByIdentifier[geofence.id] {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
@@ -93,14 +97,14 @@ class KlaviyoLocationManager: NSObject {
     }
 
     func destroyGeofencing() {
+        let regions = locationManager.monitoredRegions
+        guard !regions.isEmpty else { return }
+
         if #available(iOS 14.0, *) {
-            if !locationManager.monitoredRegions.isEmpty {
-                Logger.geoservices.info("Stop monitoring for all regions")
-            }
+            Logger.geoservices.info("Stopping monitoring for \(regions.count) region(s)")
         }
-        for region in locationManager.monitoredRegions {
-            locationManager.stopMonitoring(for: region)
-        }
+
+        regions.forEach(locationManager.stopMonitoring)
     }
 }
 
