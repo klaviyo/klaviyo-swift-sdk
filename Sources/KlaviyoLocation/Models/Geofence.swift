@@ -41,35 +41,17 @@ struct Geofence: Equatable, Hashable, Codable {
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
-    /// - Throws: `GeofenceError.invalidIdFormat` if the ID doesn't match the expected format
     init(
         id: String,
         longitude: Double,
         latitude: Double,
         radius: Double
     ) throws {
-        try Self.validateIdFormat(id)
         self.id = id
         self.longitude = longitude
         self.latitude = latitude
         self.radius = radius
     }
-
-    /// Validates that the geofence ID follows the expected format: {companyId}:{UUID}
-    /// where companyId is exactly 6 alphanumeric characters and UUID follows standard format
-    /// - Parameter id: The ID to validate
-    /// - Throws: `GeofenceError.invalidIdFormat` if the format is invalid
-    private static func validateIdFormat(_ id: String) throws {
-        let pattern = "^[a-zA-Z0-9]{6}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-        guard id.range(of: pattern, options: .regularExpression) != nil else {
-            throw GeofenceError.invalidIdFormat("ID must be in format '{companyId}:{geofenceUUID}', got: '\(id)'")
-        }
-    }
-}
-
-/// Errors that can occur when working with geofences
-enum GeofenceError: Error {
-    case invalidIdFormat(String)
 }
 
 // MARK: - Data Type Conversions
