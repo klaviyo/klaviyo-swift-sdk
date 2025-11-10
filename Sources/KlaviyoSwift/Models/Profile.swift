@@ -9,7 +9,7 @@ import AnyCodable
 import Foundation
 import KlaviyoCore
 
-public struct Profile: Equatable {
+public struct Profile: Equatable, Codable {
     public enum ProfileKey: Equatable, Hashable, Codable {
         case firstName
         case lastName
@@ -27,7 +27,7 @@ public struct Profile: Equatable {
         case custom(customKey: String)
     }
 
-    public struct Location: Equatable {
+    public struct Location: Equatable, Codable {
         public var address1: String?
         public var address2: String?
         public var city: String?
