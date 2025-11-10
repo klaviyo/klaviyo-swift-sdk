@@ -19,7 +19,7 @@ struct CheckoutView: View {
     @State private var localCartItems: [CartItem] = []
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 if localCartItems.isEmpty {
                     EmptyCartView {
@@ -115,7 +115,6 @@ struct CheckoutView: View {
             .navigationTitle("Items in your Cart")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
             loadCartItems()
         }
