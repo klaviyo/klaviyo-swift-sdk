@@ -23,7 +23,7 @@ extension KlaviyoSDK {
 
     /// To be called in didFinishLaunchingWithOptions to ensure geofence events that happen in a backgrounded/terminated state are processed.
     public func monitorGeofencesFromBackground() {
-        _ = KlaviyoLocationManager.shared
+        KlaviyoLocationManager.shared.monitorGeofencesFromBackground()
     }
 
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.

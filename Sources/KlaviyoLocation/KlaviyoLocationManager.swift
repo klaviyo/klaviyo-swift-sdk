@@ -21,9 +21,7 @@ class KlaviyoLocationManager: NSObject {
         self.locationManager = locationManager ?? CLLocationManager()
 
         super.init()
-        self.locationManager.delegate = self
-        self.locationManager.allowsBackgroundLocationUpdates = true
-        self.locationManager.startMonitoringSignificantLocationChanges()
+        monitorGeofencesFromBackground()
     }
 
     deinit {
@@ -31,6 +29,12 @@ class KlaviyoLocationManager: NSObject {
         locationManager.stopUpdatingLocation()
         locationManager.stopMonitoringSignificantLocationChanges()
         stopGeofenceMonitoring()
+    }
+
+    func monitorGeofencesFromBackground() {
+        locationManager.delegate = self
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.startMonitoringSignificantLocationChanges()
     }
 
     @MainActor
