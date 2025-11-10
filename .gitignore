@@ -40,3 +40,6 @@ Carthage/Build
 
 # SwiftPM
 .swiftpm
+
+# AI agent local configuration files
+.claude/
