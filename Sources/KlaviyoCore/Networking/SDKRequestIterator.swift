@@ -48,6 +48,7 @@ public struct SDKRequest: Identifiable, Equatable {
         case unregisterToken(token: String, info: ProfileInfo)
         case resolveDestinationURL(trackingLink: URL)
         case logTrackingLinkClicked(trackingLink: URL, clickTime: Date)
+        case fetchGeofences
 
         fileprivate static func fromEndpoint(request: KlaviyoRequest) -> RequestType {
             switch request.endpoint {
@@ -84,6 +85,8 @@ public struct SDKRequest: Identifiable, Equatable {
                 return .resolveDestinationURL(trackingLink: trackingLink)
             case let .logTrackingLinkClicked(trackingLink, clickTime, _):
                 return .logTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
+            case .fetchGeofences:
+                return .fetchGeofences
             }
         }
     }

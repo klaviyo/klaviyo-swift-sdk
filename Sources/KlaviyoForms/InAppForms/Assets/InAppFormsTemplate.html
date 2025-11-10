@@ -13,6 +13,17 @@
                         }
                     }));
                 };
+                window.dispatchProfileEvent = function(metric, uuid, time, value, properties) {
+                    document.head.dispatchEvent(new CustomEvent('profileEvent', {
+                        detail: {
+                            metric: metric,
+                            unique_id: uuid,
+                            time: time,
+                            value: value,
+                            properties: properties
+                        }
+                    }));
+                };
             </script>
             <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css"/>
 </head>

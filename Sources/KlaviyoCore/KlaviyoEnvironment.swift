@@ -6,6 +6,7 @@
 //
 
 import Combine
+import CoreLocation
 import Foundation
 import UIKit
 
@@ -22,6 +23,7 @@ public struct KlaviyoEnvironment {
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
+        getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
@@ -42,7 +44,7 @@ public struct KlaviyoEnvironment {
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
         formsDataEnvironment: @escaping () -> FormEnvironment?,
-        openURL: @escaping (URL) async -> Void
+        linkHandler: DeepLinkHandler
     ) {
         self.archiverClient = archiverClient
         self.fileClient = fileClient
@@ -53,6 +55,7 @@ public struct KlaviyoEnvironment {
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
         self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
+        self.getLocationAuthorizationStatus = getLocationAuthorizationStatus
         self.startReachability = startReachability
         self.stopReachability = stopReachability
         self.reachabilityStatus = reachabilityStatus
@@ -73,7 +76,7 @@ public struct KlaviyoEnvironment {
         sdkName = SDKName
         sdkVersion = SDKVersion
         self.formsDataEnvironment = formsDataEnvironment
-        self.openURL = openURL
+        self.linkHandler = linkHandler
     }
 
     static let productionHost: URLComponents = {
@@ -116,6 +119,7 @@ public struct KlaviyoEnvironment {
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
     public var getBadgeAutoClearingSetting: () async -> Bool
+    public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
@@ -138,7 +142,7 @@ public struct KlaviyoEnvironment {
     public var klaviyoAPI: KlaviyoAPI
     public var timer: (Double) -> AnyPublisher<Date, Never>
     public var formsDataEnvironment: () -> FormEnvironment?
-    public var openURL: (URL) async -> Void
+    public var linkHandler: DeepLinkHandler
 
     public var sdkName: () -> String
     public var sdkVersion: () -> String
@@ -198,6 +202,13 @@ public struct KlaviyoEnvironment {
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },
+        getLocationAuthorizationStatus: {
+            if #available(iOS 14.0, *) {
+                return CLLocationManager().authorizationStatus
+            } else {
+                return CLLocationManager.authorizationStatus()
+            }
+        },
         startReachability: {
             try reachabilityService?.startNotifier()
         },
@@ -232,12 +243,13 @@ public struct KlaviyoEnvironment {
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
         formsDataEnvironment: { nil },
-        openURL: { url in
-            await MainActor.run {
-                UIApplication.shared.open(url)
-            }
-        }
+        linkHandler: DeepLinkHandler()
     )
+
+    /// Returns `true` if the SDK is currently running in a React Native host app.
+    package static var isReactNative: Bool {
+        NSClassFromString("RCTBridge") != nil
+    }
 }
 
 public var networkSession: NetworkSession!

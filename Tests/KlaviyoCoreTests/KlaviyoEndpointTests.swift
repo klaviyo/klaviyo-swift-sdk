@@ -109,9 +109,16 @@ final class KlaviyoEndpointTests: XCTestCase {
         if let profileData = try? environment.encodeJSON(profileInfo),
            let profileDataString = String(data: profileData, encoding: .utf8),
            let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-Profile-Info"] {
+            // Decode Base64 header value back to JSON string
+            guard let decodedData = Data(base64Encoded: headerValue),
+                  let decodedJsonString = String(data: decodedData, encoding: .utf8) else {
+                XCTFail("Failed to decode Base64 header value")
+                return
+            }
+
             // Compare JSON objects instead of string representations to avoid order issues
             let profileJson = try JSONSerialization.jsonObject(with: Data(profileDataString.utf8), options: []) as! [String: Any]
-            let headerJson = try JSONSerialization.jsonObject(with: Data(headerValue.utf8), options: []) as! [String: Any]
+            let headerJson = try JSONSerialization.jsonObject(with: Data(decodedJsonString.utf8), options: []) as! [String: Any]
 
             // Compare the type
             XCTAssertEqual(profileJson["type"] as? String, headerJson["type"] as? String)
@@ -168,5 +175,19 @@ final class KlaviyoEndpointTests: XCTestCase {
                 XCTFail("Expected internalError")
             }
         }
+    }
+
+    func testFetchGeofencesEndpointUrlRequest() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/client/geofences")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
     }
 }

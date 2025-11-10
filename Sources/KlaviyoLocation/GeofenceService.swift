@@ -6,76 +6,85 @@
 //
 
 import CoreLocation
+import KlaviyoCore
+import KlaviyoSwift
+import OSLog
 
-public protocol GeofenceServiceProvider {
-    // TODO: Use our own data structure for geofences in future.
-    func fetchGeofences() async -> Set<CLRegion>
+protocol GeofenceServiceProvider {
+    func fetchGeofences() async -> Set<Geofence>
 }
 
-public struct GeofenceService: GeofenceServiceProvider {
-    public init() {}
+struct GeofenceService: GeofenceServiceProvider {
+    func fetchGeofences() async -> Set<Geofence> {
+        do {
+            let data = try await fetchGeofenceData()
+            return try await parseGeofences(from: data)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.error("Error fetching geofences: \(error)")
+            }
+            return Set<Geofence>()
+        }
+    }
 
-    public func fetchGeofences() async -> Set<CLRegion> {
-        // TODO: fetch from back-end
-        // TODO: fetch from local storage
+    /// Fetches raw geofence data from the API
+    private func fetchGeofenceData() async throws -> Data {
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+        let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
+        let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
 
-        // FIXME: remove temporary data and replace with live data
-        var newRegions = Set<CLCircularRegion>()
+        switch result {
+        case let .success(data):
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("Successfully fetched geofences")
+            }
+            return data
+        case let .failure(error):
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.error("Failed to fetch geofences; error: \(error, privacy: .public)")
+            }
+            throw error
+        }
+    }
 
-        let region1 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 37.33204742438631, longitude: -122.03026995144546),
-            radius: 100, // Radius in Meter
-            identifier: "One Infinite Loop" // unique identifier
-        )
-        region1.notifyOnEntry = true
-        region1.notifyOnExit = true
-        newRegions.insert(region1)
+    /// Parses raw geofence data and transforms it into Geofence objects with the companyId prepended to the id
+    func parseGeofences(from data: Data) async throws -> Set<Geofence> {
+        do {
+            let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
+            let companyId = try await KlaviyoInternal.fetchAPIKey()
+            let geofences = try response.data.map { rawGeofence in
+                try Geofence(
+                    id: "\(companyId):\(rawGeofence.id)",
+                    longitude: rawGeofence.attributes.longitude,
+                    latitude: rawGeofence.attributes.latitude,
+                    radius: rawGeofence.attributes.radius
+                )
+            }
 
-        let region2 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 40.74859487385327, longitude: -73.98563220742138),
-            radius: 100,
-            identifier: "Empire State Building"
-        )
-        region2.notifyOnEntry = true
-        region2.notifyOnExit = true
-        newRegions.insert(region2)
+            return Set(geofences)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.error("Failed to decode geofences from response: \(error)")
+            }
+            throw error
+        }
+    }
+}
 
-        let region3 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 42.3586000204366, longitude: -71.05831575152477),
-            radius: 10,
-            identifier: "Tatte"
-        )
-        region3.notifyOnEntry = true
-        region3.notifyOnExit = false
-        newRegions.insert(region3)
+private struct GeofenceJSONResponse: Codable {
+    let data: [GeofenceJSON]
+}
 
-        let region4 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 42.39377283506793, longitude: -71.11933974002551),
-            radius: 10,
-            identifier: "George Dilboy VFW"
-        )
-        region4.notifyOnEntry = true
-        region4.notifyOnExit = true
-        newRegions.insert(region4)
+private struct GeofenceJSON: Codable {
+    let type: String
+    let id: String
+    let attributes: Attributes
 
-        let region5 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 42.39545953282365, longitude: -71.12336490695512),
-            radius: 50,
-            identifier: "Day Street Parking Lot"
-        )
-        region5.notifyOnEntry = true
-        region5.notifyOnExit = true
-        newRegions.insert(region5)
-
-        let region6 = CLCircularRegion(
-            center: CLLocationCoordinate2D(latitude: 42.29742802785763, longitude: -71.11579719578968),
-            radius: 1000,
-            identifier: "Forest Hills"
-        )
-        region6.notifyOnEntry = true
-        region6.notifyOnExit = true
-        newRegions.insert(region6)
-
-        return newRegions
+    struct Attributes: Codable {
+        let latitude: Double
+        let longitude: Double
+        let radius: Double
     }
 }

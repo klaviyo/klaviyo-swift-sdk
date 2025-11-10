@@ -157,8 +157,20 @@ public struct KlaviyoSDK {
         }
     }
 
-    public func handleUniversalTrackingLink(_ url: URL) {
+    /// Handles a Klaviyo universal tracking link URL by resolving it to a destination URL asynchronously and invoking the registered Deep Link Handler or invoking the AppDelegate or SceneDelegate's link handling logic.
+    ///
+    /// - Parameter url: the Klaviyo universal tracking link URL.
+    /// - Returns: `true` if the URL is a valid Klaviyo universal tracking link; `false` otherwise.
+    public func handleUniversalTrackingLink(_ url: URL) -> Bool {
+        if !url.isUniversalTrackingUrl {
+            if #available(iOS 14.0, *) {
+                Logger.navigation.log("URL '\(url)' is not a Klaviyo universal tracking URL and will not be handled by the Klaviyo SDK")
+            }
+            return false
+        }
+
         dispatchOnMainThread(action: .trackingLinkReceived(url))
+        return true
     }
 
     /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
@@ -168,12 +180,22 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance for chaining.
     @discardableResult
     public func registerDeepLinkHandler(_ handler: @escaping (URL) -> Void) -> KlaviyoSDK {
-        environment.openURL = { url in
-            await MainActor.run {
-                handler(url)
-            }
-        }
+        environment.linkHandler.registerCustomHandler(handler)
         return self
+    }
+
+    /// Unregisters any custom deep link handler that was previously registered, reverting the SDK to using a fallback deep link handler implementation.
+    ///
+    /// - Note: For stability and future-proofing, we recommend always having a deep link handler registered
+    @discardableResult
+    public func unregisterDeepLinkHandler() -> KlaviyoSDK {
+        environment.linkHandler.unregisterCustomHandler()
+        return self
+    }
+
+    /// Returns true if a custom deep link handler is currently registered.
+    public var isDeepLinkHandlerRegistered: Bool {
+        environment.linkHandler.hasCustomHandler
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
@@ -226,5 +248,14 @@ public struct KlaviyoSDK {
             completionHandler()
         }
         return true
+    }
+}
+
+// MARK: - Private Helpers
+
+extension URL {
+    /// Determines whether the provided URL is a Klaviyo universal tracking URL.
+    fileprivate var isUniversalTrackingUrl: Bool {
+        ["http", "https"].contains(scheme?.lowercased()) && path.hasPrefix("/u/")
     }
 }

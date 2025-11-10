@@ -135,16 +135,19 @@ enum KlaviyoAction: Equatable {
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
 
+    /// indicates that deep link processing has completed
+    case deepLinkProcessingCompleted
+
     var requiresInitialization: Bool {
         switch self {
-        // if event metric is opened push we DON'T require initilization in all other event metric cases we DO.
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
+        // if event metric is opened push or geofence events we DON'T require initialization
+        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -501,11 +504,16 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             /*
-             if we receive an opened push event we want to flush the queue right away so that
+             if we receive an opened push event or geofence events we want to flush the queue right away so that
              we don't miss any user engagement events. In all other cases we will flush the queue
              using the flush intervals defined above in `StateManagementConstants`
              */
-            return event.metric.name == ._openedPush ? .task { .flushQueue } : .none
+            let baseEffect = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
+                ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            return .merge([
+                baseEffect,
+                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+            ])
 
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
@@ -682,9 +690,23 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .openDeepLink(url):
-            return .run { _ in
-                await environment.openURL(url)
+            guard !state.isProcessingDeepLink else {
+                if #available(iOS 14.0, *) {
+                    Logger.navigation.log("Already processing a deep link; skipping.")
+                }
+                return .none
             }
+
+            state.isProcessingDeepLink = true
+
+            return .run { send in
+                await environment.linkHandler.openURL(url)
+                await send(.deepLinkProcessingCompleted)
+            }
+
+        case .deepLinkProcessingCompleted:
+            state.isProcessingDeepLink = false
+            return .none
         }
     }
 }
