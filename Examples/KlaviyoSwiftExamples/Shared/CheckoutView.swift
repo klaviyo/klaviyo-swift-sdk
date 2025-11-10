@@ -20,13 +20,13 @@ struct CheckoutView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
+            VStack {
                 if localCartItems.isEmpty {
                     EmptyCartView {
                         dismiss()
                     }
                 } else {
-                    VStack(spacing: 0) {
+                    VStack {
                         // Header
                         HStack {
                             Text("Items in Your Cart")
@@ -56,10 +56,9 @@ struct CheckoutView: View {
                                             updateQuantity(for: cartItem, to: newQuantity)
                                         }
                                     )
-                                    .padding(.horizontal, 16)
                                 }
                             }
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, 16)
                         }
 
                         // Order Total
@@ -103,11 +102,18 @@ struct CheckoutView: View {
                             .padding(.horizontal, 20)
                         }
                         .padding(.bottom, 20)
-                        .background(Color(.systemBackground))
                     }
                 }
             }
-            .navigationBarHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close", systemImage: "xmark") {
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle("Items in your Cart")
+            .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {

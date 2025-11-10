@@ -8,60 +8,43 @@ struct MenuView: View {
     @State private var showingCheckout = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(menuItems, id: \.id) { item in
                         MenuItemRow(item: item, onAddToCart: { item in
                             appState.addToCart(item)
                         })
-                        .padding(.horizontal, 16)
                     }
                 }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
             .navigationTitle("Select Your Items")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: logout) {
-                        Image("Log Out")
-                            .resizable()
-                            .frame(width: 20, height: 20)
+                    Button("Log Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                        logout()
                     }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCheckout = true }) {
-                        ZStack {
-                            Image(appState.cartItems.isEmpty ? "emptyCart" : "FullCart")
-                                .resizable()
-                                .frame(width: 30, height: 30)
-
-                            if !appState.cartItems.isEmpty {
-                                Text("\(appState.cartItems.count)")
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .frame(width: 16, height: 16)
-                                    .background(Color.orange)
-                                    .clipShape(Circle())
-                                    .offset(x: 8, y: -8)
-                            }
-                        }
+                        Image(appState.cartItems.isEmpty ? "emptyCart" : "FullCart")
                     }
+                    .badge(appState.cartItems.count)
+                    .id("cart-\(appState.cartItems.count)")
                 }
             }
             .toolbar {
                 ToolbarItemGroup(placement: .bottomBar) {
-                    Button(action: { showingMap = true }) {
-                        Label("Map", systemImage: "map")
-                            .font(.caption)
+                    Button("Map", systemImage: "map") {
+                        showingMap = true
                     }
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .center) {
                         Text("Zipcode: \(appState.userZipcode)")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -70,11 +53,13 @@ struct MenuView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal)
+                    .fixedSize(horizontal: true, vertical: false)
 
-                    Button(action: addEmail) {
-                        Image("Email")
-                            .resizable()
-                            .frame(width: 20, height: 20)
+                    Spacer()
+
+                    Button("Add Email", systemImage: "envelope") {
+                        addEmail()
                     }
                 }
             }
@@ -171,7 +156,37 @@ struct MenuItemRow: View {
     }
 }
 
+// MARK: - Previews
+
+@available(iOS 17.0, *)
 #Preview {
+    @Previewable @State var appState: AppState = {
+        let appState = AppState()
+        appState.userZipcode = "02111"
+        appState.userEmail = "john@tester.com"
+        appState.cartItems = [
+            MenuItem(name: "", id: 1, description: ""),
+            MenuItem(name: "", id: 2, description: "")
+        ]
+
+        return appState
+    }()
+
     MenuView()
-        .environmentObject(AppState())
+        .environmentObject(appState)
+}
+
+@available(iOS 17.0, *)
+#Preview("Empty Cart") {
+    @Previewable @State var appState: AppState = {
+        let appState = AppState()
+        appState.userZipcode = "02111"
+        appState.userEmail = "john@tester.com"
+        appState.cartItems = []
+
+        return appState
+    }()
+
+    MenuView()
+        .environmentObject(appState)
 }
