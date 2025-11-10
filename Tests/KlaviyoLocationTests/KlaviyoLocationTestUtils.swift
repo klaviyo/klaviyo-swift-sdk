@@ -5,10 +5,10 @@
 //  Created by Isobelle Lim on 1/27/25.
 //
 
+@testable import KlaviyoCore
 import Combine
 import CoreLocation
 import Foundation
-import KlaviyoCore
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 // MARK: - Test Constants
@@ -51,7 +51,7 @@ extension KlaviyoEnvironment {
             SDKName: { "klaviyo-swift-sdk" },
             SDKVersion: { "1.0.0" },
             formsDataEnvironment: { nil },
-            openURL: { _ in }
+            linkHandler: DeepLinkHandler()
         )
     }
 }

@@ -7,16 +7,17 @@
 
 import CoreLocation
 import KlaviyoCore
+import KlaviyoSwift
 import OSLog
 
-internal class KlaviyoGeofenceManager {
+class KlaviyoGeofenceManager {
     private let locationManager: LocationManagerProtocol
 
-    internal init(locationManager: LocationManagerProtocol) {
+    init(locationManager: LocationManagerProtocol) {
         self.locationManager = locationManager
     }
 
-    internal func setupGeofencing() {
+    func setupGeofencing() {
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing is not supported on this device")
@@ -32,11 +33,18 @@ internal class KlaviyoGeofenceManager {
         }
 
         Task {
+            guard let _ = try? await KlaviyoInternal.fetchAPIKey() else {
+                if #available(iOS 14.0, *) {
+                    Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
+                }
+                return
+            }
+
             await updateGeofences()
         }
     }
 
-    internal func destroyGeofencing() {
+    func destroyGeofencing() {
         if #available(iOS 14.0, *) {
             if !locationManager.monitoredRegions.isEmpty {
                 Logger.geoservices.info("Stop monitoring for all regions")
@@ -82,6 +90,35 @@ internal class KlaviyoGeofenceManager {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
+        }
+    }
+}
+
+// MARK: Data Type Conversions
+
+extension Geofence {
+    /// Converts this geofence to a Core Location circular region
+    /// - Returns: A CLCircularRegion instance
+    func toCLCircularRegion() -> CLCircularRegion {
+        let region = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            radius: radius,
+            identifier: id
+        )
+        return region
+    }
+}
+
+extension CLCircularRegion {
+    func toKlaviyoGeofence() throws -> Geofence {
+        try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
+    }
+
+    var klaviyoLocationId: String? {
+        do {
+            return try toKlaviyoGeofence().locationId
+        } catch {
+            return nil
         }
     }
 }

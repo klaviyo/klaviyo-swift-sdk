@@ -12,20 +12,20 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-public class KlaviyoLocationManager: NSObject {
+class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
     private let geofenceManager: KlaviyoGeofenceManager
-    private let geofencePublisher: PassthroughSubject<String, Never> = .init()
 
-    internal init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
+    init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
         self.geofenceManager = geofenceManager ?? KlaviyoGeofenceManager(locationManager: self.locationManager)
 
         super.init()
         self.locationManager.delegate = self
         self.locationManager.allowsBackgroundLocationUpdates = true
+        self.locationManager.startMonitoringSignificantLocationChanges()
     }
 
     deinit {
@@ -36,14 +36,14 @@ public class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    internal func setupGeofencing() {
+    func setupGeofencing() {
         if environment.getLocationAuthorizationStatus() == .authorizedAlways {
             geofenceManager.setupGeofencing()
         }
     }
 
     @MainActor
-    internal func destroyGeofencing() {
+    func destroyGeofencing() {
         geofenceManager.destroyGeofencing()
     }
 }
@@ -90,43 +90,53 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     // MARK: Geofencing
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion else { return }
+        guard let region = region as? CLCircularRegion,
+              let klaviyoLocationId = region.klaviyoLocationId else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("Received non-Klaviyo geofence notification. Skipping.")
+            }
+            return
+        }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(region.identifier)\"")
+            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId, privacy: .public)\"")
         }
 
         let enterEvent = Event(
-            name: .locationEvent(.enteredBoundary),
+            name: .locationEvent(.geofenceEnter),
             properties: [
-                "boundaryIdentifier": region.identifier
+                "geofence_id": klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: enterEvent)
-                geofencePublisher.send("Entered \(region.identifier)")
             }
         }
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion else { return }
+        guard let region = region as? CLCircularRegion,
+              let klaviyoLocationId = region.klaviyoLocationId else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
+            }
+            return
+        }
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(region.identifier)\"")
+            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId, privacy: .public)\"")
         }
 
         let exitEvent = Event(
-            name: .locationEvent(.exitedBoundary),
+            name: .locationEvent(.geofenceExit),
             properties: [
-                "boundaryIdentifier": region.identifier
+                "geofence_id": klaviyoLocationId
             ]
         )
 
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: exitEvent)
-                geofencePublisher.send("Exited \(region.identifier)")
             }
         }
     }
