@@ -3,13 +3,14 @@ import MapKit
 import SwiftUI
 @_spi(KlaviyoPrivate) import KlaviyoSwift
 @_spi(KlaviyoPrivate) import KlaviyoLocation
+
 struct MapView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locationManager = LocationManager()
     @StateObject private var geofenceManager = GeofenceManager()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Map(coordinateRegion: $locationManager.region,
                     showsUserLocation: true,
@@ -29,6 +30,7 @@ struct MapView: View {
                             )
                         }
                     )
+                    .ignoresSafeArea()
 
                 // Loading indicator for geofences
                 if geofenceManager.isLoading {
@@ -59,99 +61,138 @@ struct MapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
+                    Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { locationManager.requestLocationPermission() }) {
-                        VStack(spacing: 2) {
-                            Image(systemName: locationIconName)
-                                .foregroundColor(locationIconColor)
-                                .frame(width: 24, height: 24)
+                ToolbarItem(placement: .bottomBar) {
+                    Menu {
+                        Section("Location Permissions") {
+                            Label(locationStatusLabel.status, systemImage: locationStatusLabel.systemImage)
+                                .foregroundStyle(locationStatusLabel.color, locationStatusLabel.color)
 
-                            Text(locationStatusText)
-                                .font(.caption2)
-                                .foregroundColor(.primary)
+                            Button(locationStatusLabel.actionText) {
+                                locationManager.requestLocationPermission()
+                            }
+                        }
+
+                        Section("Geofence Monitoring") {
+                            Button {} label: {
+                                Label(geofenceMonitoringLabel.title, systemImage: geofenceMonitoringLabel.systemImage)
+                                if locationManager.authorizationStatus != .authorizedAlways {
+                                    Text("Location permission must be \"Authorized Always\"")
+                                }
+                            }
+                            .disabled(true)
+
+                            Button {
+                                geofenceManager.registerGeofencing()
+                            } label: {
+                                Text("Register")
+                                Text("Begin monitoring for geofence events")
+                                Image(systemName: "play")
+                            }
+                            .disabled(geofenceManager.isLoading)
+
+                            Button {
+                                geofenceManager.unregisterGeofencing()
+                            } label: {
+                                Text("Unregister")
+                                Text("Stop monitoring for geofence events")
+                                Image(systemName: "stop")
+                            }
+                            .disabled(geofenceManager.isLoading)
+                        }
+                    } label: {
+                        HStack {
+                            HStack {
+                                Image(systemName: locationStatusLabel.systemImage)
+                                    .foregroundColor(locationStatusLabel.color)
+
+                                VStack(alignment: .leading) {
+                                    Text("Location Permissions")
+                                        .font(.caption2.bold())
+                                    Text(locationStatusLabel.status)
+                                        .font(.caption)
+                                }
+                            }
+
+                            Spacer(minLength: 24)
+
+                            HStack {
+                                Image(systemName: geofenceMonitoringLabel.systemImage)
+                                    .foregroundColor(geofenceMonitoringLabel.color)
+
+                                VStack(alignment: .leading) {
+                                    Text("Geofence Monitoring")
+                                        .font(.caption2.bold())
+                                    Text(geofenceMonitoringLabel.title)
+                                        .font(.caption)
+                                }
+                            }
                         }
                     }
+                    .menuOrder(.fixed)
                 }
             }
-            .toolbar {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(geofenceManager.isMonitoring ? Color.green : Color.gray)
-                            .frame(width: 8, height: 8)
-
-                        Text(geofenceManager.isMonitoring ? "Monitoring Active" : "Not Monitoring")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    Button("Register") {
-                        geofenceManager.registerGeofencing()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(geofenceManager.isLoading)
-                    .padding(.horizontal, 20)
-                    Button("Stop") {
-                        geofenceManager.unregisterGeofencing()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(geofenceManager.isLoading)
-                }
-            }
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.visible, for: .bottomBar)
         }
     }
 
-    private var locationIconName: String {
+    private var locationStatusLabel: (status: String, actionText: String, systemImage: String, color: Color) {
         switch locationManager.authorizationStatus {
         case .notDetermined:
-            return "location.slash"
-        case .denied, .restricted:
-            return "location.slash"
+            return (
+                status: "Not determined",
+                actionText: "Tap to enable",
+                systemImage: "location.slash",
+                color: .orange
+            )
+        case .denied:
+            return (
+                status: "Denied",
+                actionText: "Go to settings",
+                systemImage: "location.slash",
+                color: .red
+            )
+        case .restricted:
+            return (
+                status: "Restricted",
+                actionText: "Go to settings",
+                systemImage: "location.slash",
+                color: .red
+            )
         case .authorizedWhenInUse:
-            return "location"
+            return (
+                status: "Authorized when in use",
+                actionText: "Tap for Always",
+                systemImage: "location",
+                color: .yellow
+            )
         case .authorizedAlways:
-            return "location.fill"
+            return (
+                status: "Authorized always",
+                actionText: "Enabled",
+                systemImage: "location.fill",
+                color: .green
+            )
         @unknown default:
-            return "location.slash"
+            return (
+                status: "Unknown",
+                actionText: "Unknown",
+                systemImage: "location.slash",
+                color: .red
+            )
         }
     }
 
-    private var locationIconColor: Color {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            return .orange
-        case .denied, .restricted:
-            return .red
-        case .authorizedWhenInUse:
-            return .yellow
-        case .authorizedAlways:
-            return .green
-        @unknown default:
-            return .red
-        }
-    }
-
-    private var locationStatusText: String {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            return "Tap to enable"
-        case .denied, .restricted:
-            return "Settings"
-        case .authorizedWhenInUse:
-            return "Tap for Always"
-        case .authorizedAlways:
-            return "Enabled"
-        @unknown default:
-            return "Unknown"
+    private var geofenceMonitoringLabel: (title: String, systemImage: String, color: Color) {
+        if geofenceManager.isMonitoring {
+            return ("Montitoring Active", "mappin.and.ellipse", Color.green)
+        } else {
+            return ("Not Monitoring", "mappin.slash", Color.gray)
         }
     }
 }
@@ -366,6 +407,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         switch authorizationStatus {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
+
         case .authorizedWhenInUse:
             locationManager.requestAlwaysAuthorization()
 
