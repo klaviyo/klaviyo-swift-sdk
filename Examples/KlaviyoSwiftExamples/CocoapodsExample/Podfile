@@ -4,6 +4,7 @@ use_frameworks!
 target 'CocoapodsExample' do
   pod 'KlaviyoSwift', '4.2.0'
   pod 'KlaviyoForms', '4.2.0'
+  pod 'KlaviyoLocation', :path => '../../../'
 end
 
 target 'NotificationServiceExtension' do

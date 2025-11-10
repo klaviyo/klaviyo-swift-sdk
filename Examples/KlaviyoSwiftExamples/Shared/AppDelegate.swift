@@ -10,9 +10,9 @@ import KlaviyoForms
 // STEP1: Importing klaviyo SDK modules into your app code
 // `KlaviyoSwift` is for analytics and push notifications and `KlaviyoForms` is for presenting marketing in app forms/messages
 import KlaviyoSwift
+import SwiftUI
 import UIKit
 
-@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Private members
 
@@ -32,10 +32,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = getFirstViewController
-        window?.makeKeyAndVisible()
-
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
             .initialize(with: "ABC123")
@@ -110,7 +106,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Access custom key-value pairs from the top level
         if let customData = userInfo["key_value_pairs"] as? [String: String] {
             // Process your custom key-value pairs here
-            for (key, value) in kvPairs {
+            for (key, value) in customData {
                 print("Key: \(key), Value: \(value)")
             }
         } else {
@@ -151,30 +147,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     // MARK: private methods
-
-    private var getFirstViewController: UIViewController {
-        let mainStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        if let zip = zip,
-           let email = email {
-            guard let menuVC = mainStoryboard.instantiateViewController(withIdentifier: "menuVC") as? MenuPageViewController
-            else {
-                fatalError("missing menu vc in storyboard or storyboard identifier not matching")
-            }
-            menuVC.email = email
-            menuVC.zip = zip
-
-            return menuVC
-
-        } else {
-            // show login page
-            guard let firstVC = mainStoryboard.instantiateViewController(withIdentifier: "loginVC") as? ViewController
-            else {
-                fatalError("missing login vc in storyboard or storyboard identifier not matching")
-            }
-
-            return firstVC
-        }
-    }
 
     private func handle(_ deepLink: DeepLinking, with url: String) {
         switch deepLink {
