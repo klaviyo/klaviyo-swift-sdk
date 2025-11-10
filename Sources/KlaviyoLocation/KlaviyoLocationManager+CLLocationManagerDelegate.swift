@@ -22,7 +22,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @available(iOS 14.0, *)
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleAuthorizationChange(manager, locationManager.currentAuthorizationStatus)
+        handleAuthorizationChange(manager, manager.currentAuthorizationStatus)
     }
 
     @available(iOS, deprecated: 14.0)
@@ -59,7 +59,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         handleGeofenceEvent(region: region, eventType: .geofenceExit)
     }
 
-    private func handleGeofenceEvent(region: CLRegion, eventType: LocationEventType) {
+    private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) {
         guard let region = region as? CLCircularRegion,
               let klaviyoLocationId = region.klaviyoLocationId else {
             return

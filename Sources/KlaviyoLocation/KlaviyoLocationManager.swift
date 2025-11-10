@@ -12,7 +12,7 @@ import KlaviyoCore
 import KlaviyoSwift
 import OSLog
 
-class KlaviyoLocationManager: NSObject, CLLocationManagerDelegate {
+class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
