@@ -89,6 +89,10 @@ class IAFPresentationManager {
 
     private func initializeFormWithAPIKey() async throws {
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
+
+        // Initialize NetworkingClient for Forms event queueing
+        NetworkingClient.configure(apiKey: apiKey)
+
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
@@ -308,6 +312,9 @@ class IAFPresentationManager {
             for await event in eventsStream {
                 switch event {
                 case .foregrounded:
+                    // Resume NetworkingClient processing
+                    NetworkingClient.shared?.resume()
+
                     try await self.handleLifecycleEvent("foreground")
                     if self.lastBackgrounded != nil {
                         if isSessionExpired {
@@ -329,6 +336,9 @@ class IAFPresentationManager {
                 case .backgrounded:
                     self.lastBackgrounded = Date()
                     try? await self.handleLifecycleEvent("background")
+
+                    // Pause NetworkingClient and persist queue
+                    NetworkingClient.shared?.pause()
                 }
             }
         }

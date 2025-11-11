@@ -256,10 +256,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
+                // Build event payload with current profile data
+                let eventData = CreateEventPayload.Event(
+                    name: metricName,
+                    properties: jsonEventData,
+                    email: profileData?.email,
+                    phoneNumber: profileData?.phoneNumber,
+                    externalId: profileData?.externalId,
+                    anonymousId: profileData?.anonymousId
+                )
+                let eventPayload = CreateEventPayload(data: eventData)
+                let request = KlaviyoRequest(endpoint: .createEvent(eventPayload: eventPayload))
+                NetworkingClient.shared?.enqueue(request, priority: .normal)
             }
         case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
+            // Enqueue aggregate event via NetworkingClient
+            let request = KlaviyoRequest(endpoint: .aggregateEvent(aggregateEventPayload: data))
+            NetworkingClient.shared?.enqueue(request, priority: .normal)
         case let .openDeepLink(url):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url, privacy: .public)")
