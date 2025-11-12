@@ -27,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          ref: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref }}
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -40,11 +40,11 @@ jobs:
 
       - name: Validate podspecs
         run: |
-          echo "Validating all podspecs..."
+          echo "Validating all podspecs in dependency order..."
           pod lib lint KlaviyoCore.podspec --allow-warnings
-          pod lib lint KlaviyoForms.podspec --allow-warnings
           pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
           pod lib lint KlaviyoSwift.podspec --allow-warnings
+          pod lib lint KlaviyoForms.podspec --allow-warnings
           echo "✅ All podspecs are valid"
 
       - name: Publish to CocoaPods Trunk
@@ -84,11 +84,11 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms"
+                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms"
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Release:* <${{ github.event.release.html_url }}|View Release>\n*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
+                  text: "${{ github.event.release.html_url && format('*Release:* <{0}|View Release>\n', github.event.release.html_url) || '' }}*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
 
       - name: Send Slack notification on failure
         if: failure()
