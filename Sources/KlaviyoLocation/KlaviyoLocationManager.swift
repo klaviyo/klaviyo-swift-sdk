@@ -28,7 +28,9 @@ class KlaviyoLocationManager: NSObject {
         locationManager.delegate = nil
         locationManager.stopUpdatingLocation()
         locationManager.stopMonitoringSignificantLocationChanges()
-        stopGeofenceMonitoring()
+        Task { @MainActor in
+            stopGeofenceMonitoring()
+        }
     }
 
     func monitorGeofencesFromBackground() {
@@ -67,7 +69,7 @@ class KlaviyoLocationManager: NSObject {
 
     private func syncGeofences(apiKey: String) async {
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
-        let activeGeofences = getActiveGeofences()
+        let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
@@ -89,6 +91,7 @@ class KlaviyoLocationManager: NSObject {
         }
     }
 
+    @MainActor
     private func getActiveGeofences() -> Set<Geofence> {
         let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
             guard let circularRegion = region as? CLCircularRegion,
@@ -100,6 +103,7 @@ class KlaviyoLocationManager: NSObject {
         return Set(geofences)
     }
 
+    @MainActor
     func stopGeofenceMonitoring() {
         let regions = locationManager.monitoredRegions
         guard !regions.isEmpty else { return }

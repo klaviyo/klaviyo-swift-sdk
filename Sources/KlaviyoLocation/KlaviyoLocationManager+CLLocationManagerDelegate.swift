@@ -45,7 +45,9 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing not supported on permission level: \(status.description)")
             }
-            stopGeofenceMonitoring()
+            Task {
+                await stopGeofenceMonitoring()
+            }
         }
     }
 

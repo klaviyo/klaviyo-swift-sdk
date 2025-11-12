@@ -57,14 +57,14 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         // Behavior verified through logs and lack of region monitoring
     }
 
-    func test_stopGeofenceMonitoring_stops_monitoring_all_regions() {
+    func test_stopGeofenceMonitoring_stops_monitoring_all_regions() async {
         // GIVEN - Add some mock monitored regions
         let region1 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 0, longitude: 0), radius: 100, identifier: "test1")
         let region2 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 1, longitude: 1), radius: 100, identifier: "test2")
         mockLocationManager.monitoredRegions = [region1, region2]
 
         // WHEN
-        locationManager.stopGeofenceMonitoring()
+        await locationManager.stopGeofenceMonitoring()
 
         // THEN - All regions should be stopped
         XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region1),
