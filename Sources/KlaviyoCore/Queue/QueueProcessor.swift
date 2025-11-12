@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Actor responsible for processing queued requests
 actor QueueProcessor {
@@ -156,6 +157,10 @@ actor QueueProcessor {
     /// - Parameter queuedRequest: The request to execute
     /// - Returns: Result of the execution
     private func execute(_ queuedRequest: QueuedRequest) async -> Result<Data, KlaviyoAPIError> {
+        if #available(iOS 14.0, *) {
+            Logger.queue.info("📤 Sending request [\(queuedRequest.request.id)] (attempt \(queuedRequest.retryCount + 1))")
+        }
+
         let attemptInfo: RequestAttemptInfo
         do {
             attemptInfo = try RequestAttemptInfo(
@@ -174,6 +179,9 @@ actor QueueProcessor {
 
     /// Handle successful request execution
     private func handleSuccess(_ queuedRequest: QueuedRequest) async {
+        if #available(iOS 14.0, *) {
+            Logger.queue.info("✅ Request [\(queuedRequest.request.id)] succeeded")
+        }
         await queue.complete(queuedRequest.id)
     }
 

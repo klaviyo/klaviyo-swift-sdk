@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Public API for network operations and request queueing
 public class NetworkingClient {
@@ -79,7 +80,14 @@ public class NetworkingClient {
     ///   - priority: Queue priority (default: .normal)
     public func enqueue(_ request: KlaviyoRequest, priority: RequestPriority = .normal) {
         Task {
+            if #available(iOS 14.0, *) {
+                Logger.queue.info("📥 Enqueuing request [\(request.id)] with \(priority == .immediate ? "immediate" : "normal") priority")
+            }
             await queue.enqueue(request, priority: priority)
+            let count = await queue.count
+            if #available(iOS 14.0, *) {
+                Logger.queue.info("📊 Queue now has \(count) request(s)")
+            }
             // Persist queue state
             let (immediate, normal) = await queue.allRequests()
             try? persistence.save(immediate: immediate, normal: normal)
@@ -98,6 +106,9 @@ public class NetworkingClient {
     /// Queue remains intact and persisted
     public func pause() {
         Task {
+            if #available(iOS 14.0, *) {
+                Logger.queue.info("⏸️ Pausing queue processing")
+            }
             await processor.pause()
             // Persist current state
             let (immediate, normal) = await queue.allRequests()
@@ -108,6 +119,9 @@ public class NetworkingClient {
     /// Resume processing after pause
     public func resume() {
         Task {
+            if #available(iOS 14.0, *) {
+                Logger.queue.info("▶️ Resuming queue processing")
+            }
             await processor.resume()
         }
     }
@@ -115,13 +129,23 @@ public class NetworkingClient {
     /// Stop processing completely
     public func stop() {
         Task {
+            if #available(iOS 14.0, *) {
+                Logger.queue.info("⏹️ Stopping queue processing")
+            }
             await processor.stop()
         }
     }
 
     /// Flush queue immediately - process all pending requests
     public func flush() async {
+        if #available(iOS 14.0, *) {
+            let count = await queue.count
+            Logger.queue.info("🚀 Flushing queue (\(count) request(s))...")
+        }
         await processor.flush()
+        if #available(iOS 14.0, *) {
+            Logger.queue.info("✅ Flush complete")
+        }
     }
 
     // MARK: - State Access (for debugging/testing)

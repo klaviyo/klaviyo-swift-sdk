@@ -28,4 +28,7 @@ extension Logger {
 
     /// Logger for app navigation and deep linking events
     static let navigation = Logger(category: "Linking and Navigation")
+
+    /// Logger for queue operations
+    static let queue = Logger(category: "Queue")
 }
