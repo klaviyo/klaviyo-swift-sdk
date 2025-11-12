@@ -38,7 +38,7 @@ public class NetworkingClient {
         self.configuration = configuration
         queue = RequestQueue(configuration: configuration)
         persistence = QueuePersistence(apiKey: apiKey)
-        api = environment.apiClient()
+        api = environment.klaviyoAPI
         processor = QueueProcessor(
             queue: queue,
             persistence: persistence,

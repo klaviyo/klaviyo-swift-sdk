@@ -9,7 +9,7 @@
 import Foundation
 import OSLog
 
-public enum KlaviyoEndpoint: Equatable, Codable {
+public enum KlaviyoEndpoint: Equatable, Codable, Sendable {
     case createProfile(_ apiKey: String, _ payload: CreateProfilePayload)
     case createEvent(_ apiKey: String, _ payload: CreateEventPayload)
     case registerPushToken(_ apiKey: String, _ payload: PushTokenPayload)

@@ -30,13 +30,13 @@ struct QueuePersistence {
     /// JSON encoder
     let encoder: (Encodable) throws -> Data
     /// JSON decoder
-    let decoder: (Data) -> Decodable?
+    let decoder: (Data) -> PersistedQueueState?
 
     init(
         fileClient: FileClient = environment.fileClient,
         apiKey: String,
-        encoder: @escaping (Encodable) throws -> Data = { try environment.encoder.encode($0) },
-        decoder: @escaping (Data) -> Decodable? = { try? environment.decoder.decode(PersistedQueueState.self, from: $0) }
+        encoder: @escaping (Encodable) throws -> Data = environment.encodeJSON,
+        decoder: @escaping (Data) -> PersistedQueueState? = { try? environment.decoder.decode($0) }
     ) {
         self.fileClient = fileClient
         self.apiKey = apiKey
@@ -82,7 +82,7 @@ struct QueuePersistence {
         }
 
         // Decode
-        guard let state = decoder(data) as? PersistedQueueState else {
+        guard let state = decoder(data) else {
             environment.logger.error("Failed to decode queue state. Removing corrupt file.")
             try? fileClient.removeItem(url.path)
             return (immediate: [], normal: [])
@@ -90,13 +90,13 @@ struct QueuePersistence {
 
         // Validate API key matches
         guard state.apiKey == apiKey else {
-            environment.logger.warning("Queue file API key mismatch. Expected '\(apiKey)', found '\(state.apiKey)'. Ignoring file.")
+            environment.logger.error("Queue file API key mismatch. Expected '\(apiKey)', found '\(state.apiKey)'. Ignoring file.")
             return (immediate: [], normal: [])
         }
 
         // Validate version (for future migrations)
         if state.version != PersistedQueueState.currentVersion {
-            environment.logger.warning("Queue file version mismatch. Expected '\(PersistedQueueState.currentVersion)', found '\(state.version)'. Attempting to load anyway.")
+            environment.logger.error("Queue file version mismatch. Expected '\(PersistedQueueState.currentVersion)', found '\(state.version)'. Attempting to load anyway.")
         }
 
         return (immediate: state.immediate, normal: state.normal)

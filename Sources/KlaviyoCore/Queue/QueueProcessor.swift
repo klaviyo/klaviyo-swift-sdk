@@ -39,7 +39,7 @@ actor QueueProcessor {
     init(
         queue: RequestQueue,
         persistence: QueuePersistence,
-        api: KlaviyoAPI = environment.apiClient(),
+        api: KlaviyoAPI = environment.klaviyoAPI,
         configuration: QueueConfiguration = .default
     ) {
         self.queue = queue
@@ -196,7 +196,7 @@ actor QueueProcessor {
             if (400..<500).contains(statusCode) {
                 // Client error - drop request
                 (shouldRetry, updatedRequest) = (false, nil)
-                environment.logger.warning("Dropping request \(queuedRequest.id) due to client error: \(statusCode)")
+                environment.logger.error("Dropping request \(queuedRequest.id) due to client error: \(statusCode)")
                 // TODO: Parse response and handle invalid fields (email/phone)
             } else {
                 // Server error - retry
@@ -225,7 +225,7 @@ actor QueueProcessor {
 
         // Check if max retries exceeded
         guard newRetryCount <= configuration.maxRetries else {
-            environment.logger.warning("Dropping request \(queuedRequest.id) - max retries (\(configuration.maxRetries)) exceeded")
+            environment.logger.error("Dropping request \(queuedRequest.id) - max retries (\(configuration.maxRetries)) exceeded")
             return (false, nil)
         }
 
@@ -244,7 +244,7 @@ actor QueueProcessor {
 
         // Check if max retries exceeded
         guard newRetryCount <= configuration.maxRetries else {
-            environment.logger.warning("Dropping request \(queuedRequest.id) - max retries (\(configuration.maxRetries)) exceeded")
+            environment.logger.error("Dropping request \(queuedRequest.id) - max retries (\(configuration.maxRetries)) exceeded")
             return (false, nil)
         }
 
@@ -257,7 +257,7 @@ actor QueueProcessor {
             .withIncrementedRetry()
             .withBackoff(until: backoffUntil)
 
-        environment.logger.info("Rate limited request \(queuedRequest.id) - backing off for \(cappedBackoff)s until \(backoffUntil)")
+        environment.logger.error("Rate limited request \(queuedRequest.id) - backing off for \(cappedBackoff)s until \(backoffUntil)")
 
         return (true, updated)
     }

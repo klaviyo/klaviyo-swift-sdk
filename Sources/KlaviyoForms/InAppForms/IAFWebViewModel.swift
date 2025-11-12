@@ -266,12 +266,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     anonymousId: profileData?.anonymousId
                 )
                 let eventPayload = CreateEventPayload(data: eventData)
-                let request = KlaviyoRequest(endpoint: .createEvent(eventPayload: eventPayload))
+                let request = KlaviyoRequest(endpoint: .createEvent(apiKey, eventPayload))
                 NetworkingClient.shared?.enqueue(request, priority: .normal)
             }
         case let .trackAggregateEvent(data):
             // Enqueue aggregate event via NetworkingClient
-            let request = KlaviyoRequest(endpoint: .aggregateEvent(aggregateEventPayload: data))
+            let request = KlaviyoRequest(endpoint: .aggregateEvent(apiKey, data))
             NetworkingClient.shared?.enqueue(request, priority: .normal)
         case let .openDeepLink(url):
             if #available(iOS 14.0, *) {

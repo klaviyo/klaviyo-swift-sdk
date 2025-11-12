@@ -11,7 +11,7 @@ import Foundation
 ///
 /// This struct encapsulates all the information needed to make a request to Klaviyo's API,
 /// including the endpoint to call and a unique identifier for tracking the request.
-public struct KlaviyoRequest: Identifiable, Equatable, Codable {
+public struct KlaviyoRequest: Identifiable, Equatable, Codable, Sendable {
     /// A unique identifier for the request.
     public let id: String
 
