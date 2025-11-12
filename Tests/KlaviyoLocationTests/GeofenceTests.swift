@@ -107,7 +107,7 @@ final class GeofenceTests: XCTestCase {
         let geofenceService = GeofenceService()
 
         // When
-        let geofences = try await geofenceService.parseGeofences(from: testData)
+        let geofences = try await geofenceService.parseGeofences(from: testData, companyId: "ABC123")
 
         // Then
         XCTAssertEqual(geofences.count, 2)
@@ -124,22 +124,5 @@ final class GeofenceTests: XCTestCase {
         XCTAssertEqual(secondGeofence.latitude, 40.6892)
         XCTAssertEqual(secondGeofence.longitude, -74.0445)
         XCTAssertEqual(secondGeofence.radius, 200)
-    }
-
-    // MARK: - ID Validation Tests
-
-    func testInvalidIdFormatMissingCompanyId() {
-        XCTAssertThrowsError(try Geofence(
-            id: "8db4effa-44f1-45e6-a88d-8e7d50516a0f",
-            longitude: -74.006,
-            latitude: 40.7128,
-            radius: 100.0
-        )) { error in
-            if case .invalidIdFormat = error as? GeofenceError {
-                // Test passes if we get the expected error type
-            } else {
-                XCTFail("Expected GeofenceError.invalidIdFormat, got: \(error)")
-            }
-        }
     }
 }

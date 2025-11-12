@@ -16,133 +16,93 @@ class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
-    private let geofenceManager: KlaviyoGeofenceManager
 
-    init(locationManager: LocationManagerProtocol? = nil, geofenceManager: KlaviyoGeofenceManager? = nil) {
+    init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
-        self.geofenceManager = geofenceManager ?? KlaviyoGeofenceManager(locationManager: self.locationManager)
 
         super.init()
-        self.locationManager.delegate = self
-        self.locationManager.allowsBackgroundLocationUpdates = true
-        self.locationManager.startMonitoringSignificantLocationChanges()
+        monitorGeofencesFromBackground()
     }
 
-    deinit {
-        locationManager.delegate = nil
-        locationManager.stopUpdatingLocation()
-        locationManager.stopMonitoringSignificantLocationChanges()
-        geofenceManager.destroyGeofencing()
+    func monitorGeofencesFromBackground() {
+        locationManager.delegate = self
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.startMonitoringSignificantLocationChanges()
     }
 
     @MainActor
-    func setupGeofencing() {
-        if environment.getLocationAuthorizationStatus() == .authorizedAlways {
-            geofenceManager.setupGeofencing()
-        }
-    }
-
-    @MainActor
-    func destroyGeofencing() {
-        geofenceManager.destroyGeofencing()
-    }
-
-    @MainActor
-    internal func getCurrentGeofences() -> Set<CLRegion> {
-        locationManager.monitoredRegions
-    }
-}
-
-extension KlaviyoLocationManager: CLLocationManagerDelegate {
-    // MARK: Authorization
-
-    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        if #available(iOS 14.0, *) {
-            Logger.geoservices.error("Core Location services error: \(error.localizedDescription)")
-        }
-    }
-
-    @available(iOS 14.0, *)
-    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleCLAuthorizationStatusChange(manager, locationManager.currentAuthorizationStatus)
-    }
-
-    @available(iOS, deprecated: 14.0)
-    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        handleCLAuthorizationStatusChange(manager, status)
-    }
-
-    private func handleCLAuthorizationStatusChange(_ manager: CLLocationManager, _ status: CLAuthorizationStatus) {
-        if #available(iOS 14.0, *) {
-            Logger.geoservices.info("Core Location authorization status changed. New status: \(status.description)")
-        }
-
-        switch status {
-        case .authorizedAlways:
-            geofenceManager.setupGeofencing()
-
-        case .authorizedWhenInUse, .restricted, .denied, .notDetermined:
+    func startGeofenceMonitoring() {
+        guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("Geofencing not supported on permission level: \(status.description)")
-            }
-            geofenceManager.destroyGeofencing()
-
-        default:
-            break
-        }
-    }
-
-    // MARK: Geofencing
-
-    public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Received non-Klaviyo geofence notification. Skipping.")
+                Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
             }
             return
         }
-        if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User entered region \"\(klaviyoLocationId, privacy: .public)\"")
+
+        guard locationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("Geofencing is not supported on this device")
+            }
+            return
         }
 
-        let enterEvent = Event(
-            name: .locationEvent(.geofenceEnter),
-            properties: [
-                "geofence_id": klaviyoLocationId
-            ]
-        )
-
         Task {
-            await MainActor.run {
-                KlaviyoInternal.create(event: enterEvent)
+            guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
+                if #available(iOS 14.0, *) {
+                    Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
+                }
+                return
+            }
+
+            await syncGeofences(apiKey: apiKey)
+        }
+    }
+
+    private func syncGeofences(apiKey: String) async {
+        let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
+        let activeGeofences = await getActiveGeofences()
+
+        let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
+        let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
+
+        await MainActor.run {
+            for geofence in geofencesToAdd {
+                locationManager.startMonitoring(for: geofence.toCLCircularRegion())
+            }
+
+            let regionsByIdentifier = Dictionary(
+                uniqueKeysWithValues: locationManager.monitoredRegions.map { ($0.identifier, $0) }
+            )
+
+            for geofence in geofencesToRemove {
+                if let clRegion = regionsByIdentifier[geofence.id] {
+                    locationManager.stopMonitoring(for: clRegion)
+                }
             }
         }
     }
 
-    public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("Received non-Klaviyo geofence notification. Skipping.")
+    @MainActor
+    private func getActiveGeofences() -> Set<Geofence> {
+        let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
+            guard let circularRegion = region as? CLCircularRegion,
+                  let geofence = try? circularRegion.toKlaviyoGeofence() else {
+                return nil
             }
-            return
+            return geofence
         }
+        return Set(geofences)
+    }
+
+    @MainActor
+    func stopGeofenceMonitoring() {
+        let regions = locationManager.monitoredRegions
+        guard !regions.isEmpty else { return }
+
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("🌎 User exited region \"\(klaviyoLocationId, privacy: .public)\"")
+            Logger.geoservices.info("Stopping monitoring for \(regions.count) region(s)")
         }
 
-        let exitEvent = Event(
-            name: .locationEvent(.geofenceExit),
-            properties: [
-                "geofence_id": klaviyoLocationId
-            ]
-        )
-
-        Task {
-            await MainActor.run {
-                KlaviyoInternal.create(event: exitEvent)
-            }
-        }
+        regions.forEach(locationManager.stopMonitoring)
     }
 }

@@ -14,25 +14,21 @@ extension KlaviyoSDK {
     /// App will begin listening for geofence events (enter, exit, dwell) according to the geofences configured in your Klaviyo account.
     @MainActor
     public func registerGeofencing() {
-        Task {
-            await MainActor.run {
-                KlaviyoLocationManager.shared.setupGeofencing()
-            }
+        Task { @MainActor in
+            KlaviyoLocationManager.shared.startGeofenceMonitoring()
         }
     }
 
     /// To be called in didFinishLaunchingWithOptions to ensure geofence events that happen in a backgrounded/terminated state are processed.
     public func monitorGeofencesFromBackground() {
-        _ = KlaviyoLocationManager.shared
+        KlaviyoLocationManager.shared.monitorGeofencesFromBackground()
     }
 
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
     @MainActor
     public func unregisterGeofencing() {
-        Task {
-            await MainActor.run {
-                KlaviyoLocationManager.shared.destroyGeofencing()
-            }
+        Task { @MainActor in
+            KlaviyoLocationManager.shared.stopGeofenceMonitoring()
         }
     }
 
@@ -43,8 +39,10 @@ extension KlaviyoSDK {
     @MainActor
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
-    public func getCurrentGeofences() -> Set<CLRegion> {
-        KlaviyoLocationManager.shared.getCurrentGeofences()
+    public func getCurrentGeofences() -> Set<CLCircularRegion> {
+//        Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
+        Set<CLCircularRegion>()
+        // TODO: implement and preferably make it specific to Klaviyo geofences
     }
 
     // TODO: add documentation
