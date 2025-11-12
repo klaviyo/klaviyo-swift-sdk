@@ -43,8 +43,8 @@ jobs:
           echo "Validating all podspecs in dependency order..."
           pod lib lint KlaviyoCore.podspec --allow-warnings
           pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
-          pod lib lint KlaviyoSwift.podspec --allow-warnings
-          pod lib lint KlaviyoForms.podspec --allow-warnings
+          pod lib lint KlaviyoSwift.podspec --allow-warnings --include-podspecs='*.podspec'
+          pod lib lint KlaviyoForms.podspec --allow-warnings --include-podspecs='*.podspec'
           echo "✅ All podspecs are valid"
 
       - name: Publish to CocoaPods Trunk
