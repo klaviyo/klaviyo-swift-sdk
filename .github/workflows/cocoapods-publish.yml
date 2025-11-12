@@ -53,15 +53,19 @@ jobs:
         run: |
           echo "Publishing podspecs to CocoaPods trunk..."
 
-          # Publish in dependency order
+          # Publish in dependency order with delays for CDN propagation
           echo "📦 Publishing KlaviyoCore..."
           pod trunk push KlaviyoCore.podspec --allow-warnings
+          echo "⏳ Waiting 60s for CocoaPods CDN propagation..."
+          sleep 60
 
           echo "📦 Publishing KlaviyoSwiftExtension..."
           pod trunk push KlaviyoSwiftExtension.podspec --allow-warnings
 
           echo "📦 Publishing KlaviyoSwift..."
           pod trunk push KlaviyoSwift.podspec --allow-warnings
+          echo "⏳ Waiting 60s for CocoaPods CDN propagation..."
+          sleep 60
 
           echo "📦 Publishing KlaviyoForms..."
           pod trunk push KlaviyoForms.podspec --allow-warnings
