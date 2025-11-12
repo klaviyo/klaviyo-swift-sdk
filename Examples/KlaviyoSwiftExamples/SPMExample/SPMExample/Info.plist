@@ -40,11 +40,7 @@
 	<array>
 		<string>remote-notification</string>
 		<string>location</string>
-<<<<<<< HEAD
         <string>fetch</string>
-=======
-    <string>fetch</string>
->>>>>>> feat/geofencing
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access to show your current location on the delivery map and help you find nearby delivery zones.</string>
