@@ -23,6 +23,7 @@ class MenuPageViewController: UIViewController {
     @IBOutlet private var zipcode: UILabel!
     @IBOutlet private var tableView: UITableView!
     @IBOutlet private var logOutButton: UIButton!
+    @IBOutlet private var mapButton: UIButton!
 
     private let cart: Cart = .init()
 
@@ -271,6 +272,13 @@ class MenuPageViewController: UIViewController {
     @IBAction
     func unwindToMenuPageViewController(_ segue: UIStoryboardSegue) {
         print("Successfully unwound. Items in cart: \(cart.cartItems.count)")
+    }
+
+    @IBAction
+    func showMap(_ sender: UIButton) {
+        let mapViewController = MapViewController()
+        let navigationController = UINavigationController(rootViewController: mapViewController)
+        present(navigationController, animated: true, completion: nil)
     }
 
     // MARK: private methods
