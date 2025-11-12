@@ -32,13 +32,17 @@ extension KlaviyoSDK {
         }
     }
 
-    // TODO: add documentation
+    /// Returns the current geofence regions being monitored by Klaviyo SDK
+    ///
+    /// This method is for internal use only and should not be used in production applications.
+    /// It provides the same functionality as ``CLLocationManager.monitoredRegions``
     @MainActor
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
-    public func getCurrentGeofences() -> [Any] {
-        // TODO: implement getter
-        []
+    public func getCurrentGeofences() -> Set<CLCircularRegion> {
+//        Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
+        Set<CLCircularRegion>()
+        // TODO: implement and preferably make it specific to Klaviyo geofences
     }
 
     // TODO: add documentation
