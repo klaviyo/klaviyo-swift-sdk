@@ -1,0 +1,113 @@
+# Automatically publish to CocoaPods when a GitHub release is published
+#
+# This workflow publishes all four podspecs in dependency order:
+# 1. KlaviyoCore (foundation, no dependencies)
+# 2. KlaviyoForms (depends on KlaviyoSwift)
+# 3. KlaviyoSwiftExtension (standalone, no dependencies)
+# 4. KlaviyoSwift (depends on KlaviyoCore)
+
+name: Publish to CocoaPods
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 5.1.1)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    name: Publish Podspecs to CocoaPods Trunk
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Validate podspecs
+        run: |
+          echo "Validating all podspecs..."
+          pod lib lint KlaviyoCore.podspec --allow-warnings
+          pod lib lint KlaviyoForms.podspec --allow-warnings
+          pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
+          pod lib lint KlaviyoSwift.podspec --allow-warnings
+          echo "✅ All podspecs are valid"
+
+      - name: Publish to CocoaPods Trunk
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          echo "Publishing podspecs to CocoaPods trunk..."
+
+          # Publish in dependency order
+          echo "📦 Publishing KlaviyoCore..."
+          pod trunk push KlaviyoCore.podspec --allow-warnings
+
+          echo "📦 Publishing KlaviyoSwiftExtension..."
+          pod trunk push KlaviyoSwiftExtension.podspec --allow-warnings
+
+          echo "📦 Publishing KlaviyoSwift..."
+          pod trunk push KlaviyoSwift.podspec --allow-warnings
+
+          echo "📦 Publishing KlaviyoForms..."
+          pod trunk push KlaviyoForms.podspec --allow-warnings
+
+          echo "✅ All podspecs published successfully"
+
+      - name: Send Slack notification on success
+        if: success()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "✅ CocoaPods Release Published"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "✅ *CocoaPods Release Published*"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Release:* <${{ github.event.release.html_url }}|View Release>\n*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
+
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "❌ CocoaPods Release Failed"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "❌ *CocoaPods Release Failed*"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Error:* Failed to publish one or more podspecs to CocoaPods trunk"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
