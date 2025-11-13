@@ -51,21 +51,54 @@ jobs:
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
-          echo "Publishing podspecs to CocoaPods trunk..."
+          # Function to wait for a pod to be available in CocoaPods trunk
+          wait_for_pod_availability() {
+            local pod_name=$1
+            local version=$2
+            local max_attempts=18  # 18 attempts * 10s = 3 minutes max
+            local attempt=1
 
-          # Publish in dependency order with delays for CDN propagation
+            echo "⏳ Waiting for $pod_name $version to be available in CocoaPods trunk..."
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "  Attempt $attempt/$max_attempts: Checking availability..."
+
+              # Update local repo to get latest specs
+              pod repo update trunk > /dev/null 2>&1 || true
+
+              # Check if the specific version is available
+              if pod spec cat "$pod_name" 2>/dev/null | grep -q "\"version\": \"$version\""; then
+                echo "  ✅ $pod_name $version is now available!"
+                return 0
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "  ⏳ Not available yet, waiting 10 seconds..."
+                sleep 10
+              fi
+
+              attempt=$((attempt + 1))
+            done
+
+            echo "  ❌ Timeout: $pod_name $version not available after 3 minutes"
+            return 1
+          }
+
+          # Extract version from release tag or input
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          echo "Publishing podspecs version $VERSION to CocoaPods trunk..."
+
+          # Publish in dependency order with polling for CDN propagation
           echo "📦 Publishing KlaviyoCore..."
           pod trunk push KlaviyoCore.podspec --allow-warnings
-          echo "⏳ Waiting 60s for CocoaPods CDN propagation..."
-          sleep 60
+          wait_for_pod_availability "KlaviyoCore" "$VERSION"
 
           echo "📦 Publishing KlaviyoSwiftExtension..."
           pod trunk push KlaviyoSwiftExtension.podspec --allow-warnings
 
           echo "📦 Publishing KlaviyoSwift..."
           pod trunk push KlaviyoSwift.podspec --allow-warnings
-          echo "⏳ Waiting 60s for CocoaPods CDN propagation..."
-          sleep 60
+          wait_for_pod_availability "KlaviyoSwift" "$VERSION"
 
           echo "📦 Publishing KlaviyoForms..."
           pod trunk push KlaviyoForms.podspec --allow-warnings
