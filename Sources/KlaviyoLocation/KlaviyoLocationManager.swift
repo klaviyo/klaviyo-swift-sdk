@@ -17,6 +17,7 @@ class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerProtocol
     private var apiKeyCancellable: AnyCancellable?
+    private var lifecycleCancellable: AnyCancellable?
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -25,6 +26,7 @@ class KlaviyoLocationManager: NSObject {
         monitorGeofencesFromBackground()
         Task { @MainActor in
             startObservingAPIKeyChanges()
+            startObservingLifecycleChanges()
         }
     }
 
@@ -127,6 +129,24 @@ class KlaviyoLocationManager: NSObject {
                     }
                     startGeofenceMonitoring()
                 case .failure:
+                    break
+                }
+            }
+    }
+
+    // MARK: - Lifecycle Observation
+
+    @MainActor
+    private func startObservingLifecycleChanges() {
+        guard lifecycleCancellable == nil else { return }
+        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                guard let self else { return }
+                switch event {
+                case .foregrounded:
+                    startGeofenceMonitoring()
+                default:
                     break
                 }
             }
