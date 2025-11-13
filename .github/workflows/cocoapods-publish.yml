@@ -86,8 +86,9 @@ jobs:
             return 1
           }
 
-          # Extract version from release tag or input
+          # Extract version from release tag or input and strip 'v' prefix if present
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"  # Remove leading 'v' if present
           echo "Publishing podspecs version $VERSION to CocoaPods trunk..."
 
           # Publish in dependency order with polling for CDN propagation
