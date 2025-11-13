@@ -51,6 +51,8 @@ jobs:
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
+          set -e  # Exit immediately if any command fails
+
           # Function to wait for a pod to be available in CocoaPods trunk
           wait_for_pod_availability() {
             local pod_name=$1
