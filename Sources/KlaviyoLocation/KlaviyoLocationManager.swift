@@ -55,7 +55,7 @@ class KlaviyoLocationManager: NSObject {
         await syncGeofences()
     }
 
-    private func syncGeofences() async {
+    func syncGeofences() async {
         guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")

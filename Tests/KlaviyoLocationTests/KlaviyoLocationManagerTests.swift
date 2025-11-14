@@ -111,39 +111,37 @@ final class KlaviyoLocationManagerTests: XCTestCase {
     }
 
     func test_startGeofenceMonitoring_called_when_app_foregrounded() async {
-        // GIVEN
+        // GIVEN - Start monitoring to set up lifecycle subscription
         mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertFalse(locationManager.wasStartGeofenceMonitoringCalled,
-                       "startGeofenceMonitoring should not be called initially")
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 1,
+                       "syncGeofences should be called once when setting up")
 
         // WHEN - App is foregrounded
         mockLifecycleEvents.send(.foregrounded)
         try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
-        // THEN - startGeofenceMonitoring should be called
-        XCTAssertTrue(locationManager.wasStartGeofenceMonitoringCalled,
-                      "startGeofenceMonitoring should be called when app is foregrounded")
-        XCTAssertEqual(locationManager.startGeofenceMonitoringCallCount, 1,
-                       "startGeofenceMonitoring should be called exactly once")
+        // THEN - syncGeofences should be called again
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
+                       "syncGeofences should be called once after foreground")
     }
 
-    func test_startGeofenceMonitoring_called_when_new_api_key() async {
-        // GIVEN
+    func test_startGeofenceMonitoring_called_when_receiving_new_api_key() async {
+        // GIVEN - Initialize with an initial API key
         mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertFalse(locationManager.wasStartGeofenceMonitoringCalled,
-                       "startGeofenceMonitoring should not be called initially")
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 1,
+                       "syncGeofences should be called once when setting up")
 
-        // WHEN - New API key is received
+        // WHEN - New API key is received (different from initial)
         mockApiKeyPublisher.send("new-key")
         try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
-        // THEN - startGeofenceMonitoring should be called
-        XCTAssertTrue(locationManager.wasStartGeofenceMonitoringCalled,
-                      "startGeofenceMonitoring should be called when new API key is received")
-        XCTAssertEqual(locationManager.startGeofenceMonitoringCallCount, 1,
-                       "startGeofenceMonitoring should be called exactly once")
+        // THEN - syncGeofences should be called again
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
+                       "syncGeofences should be called once after foreground")
     }
 }
 
@@ -178,10 +176,10 @@ private final class MockLocationManager: LocationManagerProtocol {
 }
 
 private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
-    var startGeofenceMonitoringCallCount: Int = 0
+    var syncGeofencesCallCount: Int = 0
     var stopGeofenceMonitoringCallCount: Int = 0
-    var wasStartGeofenceMonitoringCalled: Bool {
-        startGeofenceMonitoringCallCount > 0
+    var wasSyncGeofencesCalled: Bool {
+        syncGeofencesCallCount > 0
     }
 
     var wasStopGeofenceMonitoringCalled: Bool {
@@ -192,10 +190,9 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
         super.init(locationManager: locationManager ?? MockLocationManager())
     }
 
-    @MainActor
-    override func startGeofenceMonitoring() {
-        startGeofenceMonitoringCallCount += 1
-        super.startGeofenceMonitoring()
+    override func syncGeofences() async {
+        syncGeofencesCallCount += 1
+        await super.syncGeofences()
     }
 
     @MainActor
@@ -205,7 +202,7 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
     }
 
     func reset() {
-        startGeofenceMonitoringCallCount = 0
+        syncGeofencesCallCount = 0
         stopGeofenceMonitoringCallCount = 0
     }
 }
