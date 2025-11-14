@@ -18,6 +18,7 @@ class KlaviyoLocationManager: NSObject {
     private var locationManager: LocationManagerProtocol
     private var apiKeyCancellable: AnyCancellable?
     private var lifecycleCancellable: AnyCancellable?
+    internal let cooldownTracker = GeofenceCooldownTracker()
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -51,6 +52,7 @@ class KlaviyoLocationManager: NSObject {
             }
             return
         }
+        cooldownTracker.clean()
 
         Task {
             guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
