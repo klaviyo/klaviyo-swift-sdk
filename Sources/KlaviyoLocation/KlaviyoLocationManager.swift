@@ -46,6 +46,7 @@ class KlaviyoLocationManager: NSObject {
             }
             return
         }
+        cooldownTracker.clean()
 
         Task {
             guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {

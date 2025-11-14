@@ -59,6 +59,11 @@ class GeofenceCooldownTracker {
         saveCooldownMap(cooldownMap)
     }
 
+    /// Cleans up the cooldown map to expire old keys, to be triggered when startGeofencingMonitoring is called
+    func clean() {
+        saveCooldownMap(loadCooldownMap())
+    }
+
     /// Generate a unique key for a geofence and transition combination
     private func getCooldownMapKey(geofenceId: String, transition: Event.EventName.LocationEvent) -> String {
         "\(geofenceId):\(transition)"

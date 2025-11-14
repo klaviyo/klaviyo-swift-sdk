@@ -200,7 +200,7 @@ final class GeofenceCooldownTrackerTests: XCTestCase {
 
     // MARK: - Stale Entry Cleanup Tests
 
-    func test_loadCooldownMapCleansUpStaleEntriesAutomatically() {
+    func test_saveCooldownMapFiltersStaleEntries() {
         // GIVEN - Store map with both recent and stale entries
         let geofence1 = "geofence-1"
         let geofence2 = "geofence-2"
@@ -214,14 +214,11 @@ final class GeofenceCooldownTrackerTests: XCTestCase {
 
         setCooldownData(cooldownData)
 
-        // WHEN - Trigger a load by calling isAllowed (which calls loadCooldownMap internally)
+        // WHEN - Record a new transition (this triggers saveCooldownMap which filters stale entries)
         mockDate = Date(timeIntervalSince1970: baseTime)
-        _ = tracker.isAllowed(geofenceId: geofence1, transition: .geofenceEnter)
-
-        // Record a new transition to trigger save
         tracker.recordTransition(geofenceId: geofence1, transition: .geofenceEnter)
 
-        // THEN - Verify stale entry was removed
+        // THEN - Verify stale entry was removed during save
         let storedData = getCooldownData()
         XCTAssertNotNil(storedData, "Cooldown data should exist")
 
@@ -229,7 +226,7 @@ final class GeofenceCooldownTrackerTests: XCTestCase {
         XCTAssertNotNil(storedData?["\(geofence1):geofenceEnter"], "Recent entry for geofence1 should exist")
         XCTAssertNotNil(storedData?["\(geofence3):geofenceExit"], "Recent entry for geofence3 should exist")
 
-        // Stale entry should be gone (filtered out during load)
+        // Stale entry should be gone (filtered out during save)
         XCTAssertNil(storedData?["\(geofence2):geofenceEnter"], "Stale entry for geofence2 should be removed")
     }
 
