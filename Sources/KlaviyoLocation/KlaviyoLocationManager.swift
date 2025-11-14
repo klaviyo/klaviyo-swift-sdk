@@ -16,7 +16,10 @@ class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
+    private var apiKeyCancellable: AnyCancellable?
+    private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
+    private var fetchInProgress = false
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -32,7 +35,7 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    func startGeofenceMonitoring() {
+    func startGeofenceMonitoring() async {
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
@@ -48,20 +51,22 @@ class KlaviyoLocationManager: NSObject {
         }
         cooldownTracker.clean()
 
-        Task {
-            guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
-                }
-                return
-            }
+        await syncGeofences()
 
-            await syncGeofences(apiKey: apiKey)
-        }
+        startObservingAPIKeyChanges()
+        startObservingLifecycleChanges()
     }
 
-    private func syncGeofences(apiKey: String) async {
+    func syncGeofences() async {
+        guard !fetchInProgress else { return }
+        guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
+            }
+            return
+        }
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
+        fetchInProgress = false
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
@@ -98,6 +103,8 @@ class KlaviyoLocationManager: NSObject {
 
     @MainActor
     func stopGeofenceMonitoring() {
+        stopObservingAPIKeyChanges()
+        stopObservingLifecycleChanges()
         let regions = locationManager.monitoredRegions
         guard !regions.isEmpty else { return }
 
@@ -106,5 +113,60 @@ class KlaviyoLocationManager: NSObject {
         }
 
         regions.forEach(locationManager.stopMonitoring)
+    }
+
+    // MARK: - API Key Observation
+
+    @MainActor
+    private func startObservingAPIKeyChanges() {
+        guard apiKeyCancellable == nil else { return }
+        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .sink { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case let .success(apiKey):
+                    if #available(iOS 14.0, *) {
+                        Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
+                    }
+                    Task {
+                        await self.syncGeofences()
+                    }
+                case .failure:
+                    break
+                }
+            }
+    }
+
+    private func stopObservingAPIKeyChanges() {
+        apiKeyCancellable?.cancel()
+        apiKeyCancellable = nil
+    }
+
+    // MARK: - Lifecycle Observation
+
+    @MainActor
+    private func startObservingLifecycleChanges() {
+        guard lifecycleCancellable == nil else { return }
+        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                guard let self else { return }
+                switch event {
+                case .foregrounded:
+                    Task {
+                        await self.syncGeofences()
+                    }
+                default:
+                    break
+                }
+            }
+    }
+
+    private func stopObservingLifecycleChanges() {
+        lifecycleCancellable?.cancel()
+        lifecycleCancellable = nil
     }
 }
