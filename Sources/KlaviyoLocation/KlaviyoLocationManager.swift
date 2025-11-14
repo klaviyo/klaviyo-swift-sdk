@@ -25,10 +25,6 @@ class KlaviyoLocationManager: NSObject {
 
         super.init()
         monitorGeofencesFromBackground()
-        Task { @MainActor in
-            startObservingAPIKeyChanges()
-            startObservingLifecycleChanges()
-        }
     }
 
     func monitorGeofencesFromBackground() {
@@ -53,6 +49,9 @@ class KlaviyoLocationManager: NSObject {
             return
         }
         cooldownTracker.clean()
+
+        startObservingAPIKeyChanges()
+        startObservingLifecycleChanges()
 
         Task {
             guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
@@ -112,6 +111,9 @@ class KlaviyoLocationManager: NSObject {
         }
 
         regions.forEach(locationManager.stopMonitoring)
+
+        stopObservingAPIKeyChanges()
+        stopObservingLifecycleChanges()
     }
 
     // MARK: - API Key Observation
@@ -136,6 +138,11 @@ class KlaviyoLocationManager: NSObject {
             }
     }
 
+    private func stopObservingAPIKeyChanges() {
+        apiKeyCancellable?.cancel()
+        apiKeyCancellable = nil
+    }
+
     // MARK: - Lifecycle Observation
 
     @MainActor
@@ -154,8 +161,8 @@ class KlaviyoLocationManager: NSObject {
             }
     }
 
-    private func stopObservingAPIKeyChanges() {
-        apiKeyCancellable?.cancel()
-        apiKeyCancellable = nil
+    private func stopObservingLifecycleChanges() {
+        lifecycleCancellable?.cancel()
+        lifecycleCancellable = nil
     }
 }
