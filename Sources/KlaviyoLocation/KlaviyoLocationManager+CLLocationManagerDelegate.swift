@@ -67,10 +67,22 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             return
         }
 
+        // Check cooldown period before processing event
+        guard cooldownTracker.isAllowed(geofenceId: klaviyoLocationId, transition: eventType) else {
+            if #available(iOS 14.0, *) {
+                let action = eventType == .geofenceEnter ? "entered" : "exited"
+                Logger.geoservices.info("🌎 User \(action) region \"\(klaviyoLocationId, privacy: .public)\" (cooldown active, skipping)")
+            }
+            return
+        }
+
         if #available(iOS 14.0, *) {
             let action = eventType == .geofenceEnter ? "entered" : "exited"
             Logger.geoservices.info("🌎 User \(action) region \"\(klaviyoLocationId, privacy: .public)\"")
         }
+
+        // Record the transition to start cooldown period
+        cooldownTracker.recordTransition(geofenceId: klaviyoLocationId, transition: eventType)
 
         let event = Event(
             name: .locationEvent(eventType),

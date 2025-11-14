@@ -16,6 +16,7 @@ class KlaviyoLocationManager: NSObject {
     static let shared = KlaviyoLocationManager()
 
     private var locationManager: LocationManagerProtocol
+    internal let cooldownTracker = GeofenceCooldownTracker()
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
