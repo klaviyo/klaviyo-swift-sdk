@@ -34,7 +34,7 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    func startGeofenceMonitoring() {
+    func startGeofenceMonitoring() async {
         guard environment.getLocationAuthorizationStatus() == .authorizedAlways else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
@@ -49,23 +49,19 @@ class KlaviyoLocationManager: NSObject {
             return
         }
         cooldownTracker.clean()
-
         startObservingAPIKeyChanges()
         startObservingLifecycleChanges()
 
-        Task {
-            guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
-                }
-                return
-            }
-
-            await syncGeofences(apiKey: apiKey)
-        }
+        await syncGeofences()
     }
 
-    private func syncGeofences(apiKey: String) async {
+    private func syncGeofences() async {
+        guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
+            }
+            return
+        }
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
         let activeGeofences = await getActiveGeofences()
 
@@ -103,6 +99,8 @@ class KlaviyoLocationManager: NSObject {
 
     @MainActor
     func stopGeofenceMonitoring() {
+        stopObservingAPIKeyChanges()
+        stopObservingLifecycleChanges()
         let regions = locationManager.monitoredRegions
         guard !regions.isEmpty else { return }
 
@@ -111,9 +109,6 @@ class KlaviyoLocationManager: NSObject {
         }
 
         regions.forEach(locationManager.stopMonitoring)
-
-        stopObservingAPIKeyChanges()
-        stopObservingLifecycleChanges()
     }
 
     // MARK: - API Key Observation
@@ -131,7 +126,9 @@ class KlaviyoLocationManager: NSObject {
                     if #available(iOS 14.0, *) {
                         Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
                     }
-                    startGeofenceMonitoring()
+                    Task {
+                        await self.syncGeofences()
+                    }
                 case .failure:
                     break
                 }
@@ -154,7 +151,9 @@ class KlaviyoLocationManager: NSObject {
                 guard let self else { return }
                 switch event {
                 case .foregrounded:
-                    startGeofenceMonitoring()
+                    Task {
+                        await self.syncGeofences()
+                    }
                 default:
                     break
                 }
