@@ -141,7 +141,7 @@ enum KlaviyoAction: Equatable {
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push or geofence events we DON'T require initialization
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush:
+        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
@@ -501,15 +501,19 @@ struct KlaviyoReducer: ReducerProtocol {
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
             let request = KlaviyoRequest(endpoint: endpoint)
 
-            state.enqueueRequest(request: request)
-
             /*
-             if we receive an opened push event or geofence events we want to flush the queue right away so that
-             we don't miss any user engagement events. In all other cases we will flush the queue
-             using the flush intervals defined above in `StateManagementConstants`
+             if we receive an opened push event or geofence event we want to enqueue it at the front and
+             flush the queue right away so that we don't miss any user engagement events. In all other
+             cases we will flush the queue using the flush intervals defined above in `StateManagementConstants`
              */
-            let baseEffect = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
-                ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
+            if shouldPrioritize {
+                state.queue.insert(request, at: 0)
+            } else {
+                state.enqueueRequest(request: request)
+            }
+
+            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
