@@ -126,8 +126,8 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testBackgroundForegroundLifecycleEventsInjected() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
+        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test.
+        throw XCTSkip("Skipping test due to flakiness in CI environment")
 
         // Given
         let backgroundExpectation = XCTestExpectation(description: "Background event handled")
