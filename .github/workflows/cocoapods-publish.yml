@@ -57,7 +57,7 @@ jobs:
           wait_for_pod_availability() {
             local pod_name=$1
             local version=$2
-            local max_attempts=18  # 18 attempts * 10s = 3 minutes max
+            local max_attempts=30  # 30 attempts * 1min = 30 minutes max
             local attempt=1
 
             echo "⏳ Waiting for $pod_name $version to be available in CocoaPods trunk..."
@@ -75,14 +75,14 @@ jobs:
               fi
 
               if [ $attempt -lt $max_attempts ]; then
-                echo "  ⏳ Not available yet, waiting 10 seconds..."
-                sleep 10
+                echo "  ⏳ Not available yet, waiting 1 minute..."
+                sleep 60
               fi
 
               attempt=$((attempt + 1))
             done
 
-            echo "  ❌ Timeout: $pod_name $version not available after 3 minutes"
+            echo "  ❌ Timeout: $pod_name $version not available after 30 minutes"
             return 1
           }
 
