@@ -19,6 +19,7 @@ class KlaviyoLocationManager: NSObject {
     private var apiKeyCancellable: AnyCancellable?
     private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
+    private var fetchInProgress = false
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -49,13 +50,15 @@ class KlaviyoLocationManager: NSObject {
             return
         }
         cooldownTracker.clean()
-        startObservingAPIKeyChanges()
-        startObservingLifecycleChanges()
 
         await syncGeofences()
+
+        startObservingAPIKeyChanges()
+        startObservingLifecycleChanges()
     }
 
     func syncGeofences() async {
+        guard !fetchInProgress else { return }
         guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
@@ -63,6 +66,7 @@ class KlaviyoLocationManager: NSObject {
             return
         }
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
+        fetchInProgress = false
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
@@ -117,6 +121,7 @@ class KlaviyoLocationManager: NSObject {
     private func startObservingAPIKeyChanges() {
         guard apiKeyCancellable == nil else { return }
         apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+            .dropFirst()
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] result in
