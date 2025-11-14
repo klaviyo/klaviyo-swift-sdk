@@ -2,10 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>klaviyo_app_group</key>
-	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER).shared</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.klaviyo.SPMExample</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string></string>
+		<key>UIImageName</key>
+		<string></string>
+	</dict>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>klaviyo_app_group</key>
+	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER).shared</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -26,6 +39,16 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>location</string>
+        <string>fetch</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to show your current location on the delivery map and help you find nearby delivery zones.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to monitor geofences and provide location-based notifications even when the app is in the background.</string>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
 </dict>
 </plist>
