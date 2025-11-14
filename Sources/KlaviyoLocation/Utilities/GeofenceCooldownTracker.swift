@@ -64,42 +64,41 @@ internal class GeofenceCooldownTracker {
         "\(geofenceId):\(transition)"
     }
 
-    /// Load the cooldown map from UserDefaults, cleaning up stale entries
+    /// Load the cooldown map from UserDefaults
     private func loadCooldownMap() -> [String: TimeInterval] {
         guard let data = UserDefaults.standard.data(forKey: Self.geofenceCooldownsKey),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return [:]
         }
 
+        var map: [String: TimeInterval] = [:]
+
+        // Convert JSON to TimeInterval dictionary
+        for (key, value) in json {
+            if let timestamp = value as? TimeInterval {
+                map[key] = timestamp
+            } else if let timestampDouble = value as? Double {
+                map[key] = timestampDouble
+            }
+        }
+
+        return map
+    }
+
+    /// Save the cooldown map to UserDefaults, filtering out stale entries before saving
+    private func saveCooldownMap(_ map: [String: TimeInterval]) {
         let currentTime = environment.date().timeIntervalSince1970
         var cleanedMap: [String: TimeInterval] = [:]
 
         // Filter out stale entries (older than cooldown period)
-        for (key, value) in json {
-            if let timestamp = value as? TimeInterval {
-                let age = currentTime - timestamp
-                if age < Self.geofenceTransitionCooldown {
-                    cleanedMap[key] = timestamp
-                }
-            } else if let timestampDouble = value as? Double {
-                let age = currentTime - timestampDouble
-                if age < Self.geofenceTransitionCooldown {
-                    cleanedMap[key] = timestampDouble
-                }
+        for (key, timestamp) in map {
+            let age = currentTime - timestamp
+            if age < Self.geofenceTransitionCooldown {
+                cleanedMap[key] = timestamp
             }
         }
 
-        // Save cleaned map if entries were removed
-        if cleanedMap.count != json.count {
-            saveCooldownMap(cleanedMap)
-        }
-
-        return cleanedMap
-    }
-
-    /// Save the cooldown map to UserDefaults
-    private func saveCooldownMap(_ map: [String: TimeInterval]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: map) else {
+        guard let data = try? JSONSerialization.data(withJSONObject: cleanedMap) else {
             return
         }
         UserDefaults.standard.set(data, forKey: Self.geofenceCooldownsKey)
