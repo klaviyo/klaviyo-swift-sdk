@@ -222,14 +222,6 @@ package enum KlaviyoInternal {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
-    /// Create and send a geofence event.
-    ///
-    /// - Parameter event: the event to be tracked in Klaviyo
-    /// - Parameter apiKey: the extracted companyId from the geofenceId
-    package static func createGeofencing(event: Event, apiKey: String) {
-        dispatchOnMainThread(action: .enqueueGeofenceEvent(event, apiKey))
-    }
-
     // MARK: - Deep link handling
 
     /// Handles a deep link according to the handler configured in `klaviyoSwiftEnvironment`
