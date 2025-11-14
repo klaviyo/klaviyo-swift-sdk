@@ -15,7 +15,7 @@ import KlaviyoSwift
 /// This tracker enforces a cooldown period per geofence and transition
 /// type to filter out noise while allowing legitimate events. Cooldown data
 /// is stored in UserDefaults with automatic cleanup of stale entries.
-internal class GeofenceCooldownTracker {
+class GeofenceCooldownTracker {
     /// Key for storing geofence transition cooldown timestamps as a dictionary
     private static let geofenceCooldownsKey = "geofence_cooldowns"
 
