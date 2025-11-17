@@ -17,7 +17,6 @@ class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerProtocol
     private var apiKeyCancellable: AnyCancellable?
-    private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
 
     init(locationManager: LocationManagerProtocol? = nil) {
@@ -53,7 +52,6 @@ class KlaviyoLocationManager: NSObject {
         await syncGeofences()
 
         startObservingAPIKeyChanges()
-        startObservingLifecycleChanges()
     }
 
     func syncGeofences() async {
@@ -101,7 +99,6 @@ class KlaviyoLocationManager: NSObject {
     @MainActor
     func stopGeofenceMonitoring() {
         stopObservingAPIKeyChanges()
-        stopObservingLifecycleChanges()
         let regions = locationManager.monitoredRegions
         guard !regions.isEmpty else { return }
 
@@ -140,30 +137,5 @@ class KlaviyoLocationManager: NSObject {
     private func stopObservingAPIKeyChanges() {
         apiKeyCancellable?.cancel()
         apiKeyCancellable = nil
-    }
-
-    // MARK: - Lifecycle Observation
-
-    @MainActor
-    private func startObservingLifecycleChanges() {
-        guard lifecycleCancellable == nil else { return }
-        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                guard let self else { return }
-                switch event {
-                case .foregrounded:
-                    Task {
-                        await self.syncGeofences()
-                    }
-                default:
-                    break
-                }
-            }
-    }
-
-    private func stopObservingLifecycleChanges() {
-        lifecycleCancellable?.cancel()
-        lifecycleCancellable = nil
     }
 }

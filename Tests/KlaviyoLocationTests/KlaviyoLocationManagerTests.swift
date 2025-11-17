@@ -20,23 +20,17 @@ final class KlaviyoLocationManagerTests: XCTestCase {
     fileprivate var mockLocationManager: MockLocationManager!
     var mockAuthorizationStatus: CLAuthorizationStatus = .authorizedAlways
 
-    var mockLifecycleEvents: PassthroughSubject<LifeCycleEvents, Never>!
     var mockApiKeyPublisher: PassthroughSubject<String?, Never>!
     var cancellables: Set<AnyCancellable> = []
-    var lifecycleSubscription: AnyCancellable?
 
     override func setUp() {
         super.setUp()
 
         mockLocationManager = MockLocationManager()
-        mockLifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
 
         // Set up environment with mock authorization status BEFORE creating location manager
         environment = createMockEnvironment()
-        environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
-            self.mockLifecycleEvents.eraseToAnyPublisher()
-        })
 
         // Set up state publisher BEFORE creating location manager
         let initialState = KlaviyoState(queue: [])
@@ -59,11 +53,8 @@ final class KlaviyoLocationManagerTests: XCTestCase {
     }
 
     override func tearDown() {
-        lifecycleSubscription?.cancel()
-        lifecycleSubscription = nil
         locationManager = nil
         mockLocationManager = nil
-        mockLifecycleEvents = nil
         mockApiKeyPublisher = nil
         cancellables.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
@@ -108,23 +99,6 @@ final class KlaviyoLocationManagerTests: XCTestCase {
                       "stopGeofenceMonitoring should stop monitoring region1")
         XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region2),
                       "stopGeofenceMonitoring should stop monitoring region2")
-    }
-
-    func test_startGeofenceMonitoring_called_when_app_foregrounded() async {
-        // GIVEN - Start monitoring to set up lifecycle subscription
-        mockAuthorizationStatus = .authorizedAlways
-        await locationManager.startGeofenceMonitoring()
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        XCTAssertEqual(locationManager.syncGeofencesCallCount, 1,
-                       "syncGeofences should be called once when setting up")
-
-        // WHEN - App is foregrounded
-        mockLifecycleEvents.send(.foregrounded)
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // THEN - syncGeofences should be called again
-        XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
-                       "syncGeofences should be called once after foreground")
     }
 
     func test_startGeofenceMonitoring_called_when_receiving_new_api_key() async {

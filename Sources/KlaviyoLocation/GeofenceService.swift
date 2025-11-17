@@ -35,9 +35,6 @@ struct GeofenceService: GeofenceServiceProvider {
 
         switch result {
         case let .success(data):
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.info("Successfully fetched geofences")
-            }
             return data
         case let .failure(error):
             if #available(iOS 14.0, *) {
