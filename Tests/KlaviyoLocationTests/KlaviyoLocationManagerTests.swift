@@ -9,39 +9,67 @@
 import CoreLocation
 import Foundation
 import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
+import Combine
 import XCTest
 
 // MARK: - Test Class
 
 final class KlaviyoLocationManagerTests: XCTestCase {
-    var locationManager: KlaviyoLocationManager!
-    var mockLocationManager: MockLocationManager!
-    var originalEnvironment: KlaviyoEnvironment!
+    fileprivate var locationManager: MockKlaviyoLocationManager!
+    fileprivate var mockLocationManager: MockLocationManager!
     var mockAuthorizationStatus: CLAuthorizationStatus = .authorizedAlways
+
+    var mockApiKeyPublisher: PassthroughSubject<String?, Never>!
+    var cancellables: Set<AnyCancellable> = []
 
     override func setUp() {
         super.setUp()
+
         mockLocationManager = MockLocationManager()
-        locationManager = KlaviyoLocationManager(locationManager: mockLocationManager)
-        originalEnvironment = environment
+        mockApiKeyPublisher = PassthroughSubject<String?, Never>()
+
+        // Set up environment with mock authorization status BEFORE creating location manager
         environment = createMockEnvironment()
+
+        // Set up state publisher BEFORE creating location manager
+        let initialState = KlaviyoState(queue: [])
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+
+        mockApiKeyPublisher
+            .compactMap { $0 }
+            .sink { apiKey in
+                _ = testStore.send(.initialize(apiKey))
+            }
+            .store(in: &cancellables)
+
+        klaviyoSwiftEnvironment.statePublisher = {
+            testStore.state.eraseToAnyPublisher()
+        }
+
+        // Create location manager AFTER setting up environment and state publisher
+        locationManager = MockKlaviyoLocationManager(locationManager: mockLocationManager)
+        locationManager.reset()
     }
 
     override func tearDown() {
-        environment = originalEnvironment
         locationManager = nil
         mockLocationManager = nil
+        mockApiKeyPublisher = nil
+        cancellables.removeAll()
+        KlaviyoInternal.resetAPIKeySubject()
+
         super.tearDown()
     }
 
     // MARK: - Helper Methods
 
     private func createMockEnvironment() -> KlaviyoEnvironment {
-        var mockEnvironment = originalEnvironment
-        mockEnvironment?.getLocationAuthorizationStatus = { [weak self] in
+        var mockEnvironment = KlaviyoEnvironment.test()
+        mockEnvironment.getLocationAuthorizationStatus = { [weak self] in
             self?.mockAuthorizationStatus ?? .authorizedAlways
         }
-        return mockEnvironment!
+        return mockEnvironment
     }
 
     // MARK: - Authorization Status Change Tests
@@ -72,11 +100,28 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region2),
                       "stopGeofenceMonitoring should stop monitoring region2")
     }
+
+    func test_startGeofenceMonitoring_called_when_receiving_new_api_key() async {
+        // GIVEN - Initialize with an initial API key
+        mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 1,
+                       "syncGeofences should be called once when setting up")
+
+        // WHEN - New API key is received (different from initial)
+        mockApiKeyPublisher.send("new-key")
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+
+        // THEN - syncGeofences should be called again
+        XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
+                       "syncGeofences should be called once after foreground")
+    }
 }
 
 // MARK: - Mock Classes
 
-class MockLocationManager: LocationManagerProtocol {
+private final class MockLocationManager: LocationManagerProtocol {
     var delegate: CLLocationManagerDelegate?
     var allowsBackgroundLocationUpdates: Bool = false
     var currentAuthorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -84,17 +129,6 @@ class MockLocationManager: LocationManagerProtocol {
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
     var stoppedRegions: [CLRegion] = []
     var mockIsMonitoringAvailable: Bool = true
-
-    // Helper method to simulate authorization status changes
-    func simulateAuthorizationChange(to status: CLAuthorizationStatus) {
-        currentAuthorizationStatus = status
-        let mockCLLocationManager = CLLocationManager()
-        if #available(iOS 14.0, *) {
-            delegate?.locationManagerDidChangeAuthorization?(mockCLLocationManager)
-        } else {
-            delegate?.locationManager?(mockCLLocationManager, didChangeAuthorization: status)
-        }
-    }
 
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
@@ -113,4 +147,36 @@ class MockLocationManager: LocationManagerProtocol {
 
     func startMonitoringSignificantLocationChanges() {}
     func stopMonitoringSignificantLocationChanges() {}
+}
+
+private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
+    var syncGeofencesCallCount: Int = 0
+    var stopGeofenceMonitoringCallCount: Int = 0
+    var wasSyncGeofencesCalled: Bool {
+        syncGeofencesCallCount > 0
+    }
+
+    var wasStopGeofenceMonitoringCalled: Bool {
+        stopGeofenceMonitoringCallCount > 0
+    }
+
+    override init(locationManager: LocationManagerProtocol? = nil) {
+        super.init(locationManager: locationManager ?? MockLocationManager())
+    }
+
+    override func syncGeofences() async {
+        syncGeofencesCallCount += 1
+        await super.syncGeofences()
+    }
+
+    @MainActor
+    override func stopGeofenceMonitoring() {
+        stopGeofenceMonitoringCallCount += 1
+        super.stopGeofenceMonitoring()
+    }
+
+    func reset() {
+        syncGeofencesCallCount = 0
+        stopGeofenceMonitoringCallCount = 0
+    }
 }
