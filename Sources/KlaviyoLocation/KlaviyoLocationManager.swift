@@ -62,7 +62,7 @@ class KlaviyoLocationManager: NSObject {
             return
         }
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
-        let activeGeofences = await getActiveGeofences()
+        let activeGeofences = await getActiveGeofences(apiKey)
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
@@ -72,12 +72,19 @@ class KlaviyoLocationManager: NSObject {
                 locationManager.startMonitoring(for: geofence.toCLCircularRegion())
             }
 
-            let regionsByIdentifier = Dictionary(
-                uniqueKeysWithValues: locationManager.monitoredRegions.map { ($0.identifier, $0) }
+            let klaviyoRegionsByIdentifier = Dictionary(
+                uniqueKeysWithValues: locationManager.monitoredRegions
+                    .compactMap { region -> (String, CLCircularRegion)? in
+                        guard let circularRegion = region as? CLCircularRegion,
+                              circularRegion.isKlaviyoGeofence(apiKey) else {
+                            return nil
+                        }
+                        return (circularRegion.identifier, circularRegion)
+                    }
             )
 
             for geofence in geofencesToRemove {
-                if let clRegion = regionsByIdentifier[geofence.id] {
+                if let clRegion = klaviyoRegionsByIdentifier[geofence.id] {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
@@ -85,9 +92,10 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    func getActiveGeofences() -> Set<Geofence> {
+    private func getActiveGeofences(_ apiKey: String) -> Set<Geofence> {
         let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
             guard let circularRegion = region as? CLCircularRegion,
+                  circularRegion.isKlaviyoGeofence(apiKey),
                   let geofence = try? circularRegion.toKlaviyoGeofence() else {
                 return nil
             }
@@ -97,16 +105,30 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    func stopGeofenceMonitoring() {
-        stopObservingAPIKeyChanges()
-        let regions = locationManager.monitoredRegions
-        guard !regions.isEmpty else { return }
+    func getCurrentGeofences() async -> Set<Geofence> {
+        guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else { return [] }
+        return getActiveGeofences(apiKey)
+    }
 
-        if #available(iOS 14.0, *) {
-            Logger.geoservices.info("Stopping monitoring for \(regions.count) region(s)")
+    @MainActor
+    func stopGeofenceMonitoring() async {
+        guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else { return }
+        stopObservingAPIKeyChanges()
+        let klaviyoRegions = locationManager.monitoredRegions.compactMap { region -> CLCircularRegion? in
+            guard let circularRegion = region as? CLCircularRegion,
+                  circularRegion.isKlaviyoGeofence(apiKey) else {
+                return nil
+            }
+            return circularRegion
         }
 
-        regions.forEach(locationManager.stopMonitoring)
+        guard !klaviyoRegions.isEmpty else { return }
+
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("Stopping monitoring for \(klaviyoRegions.count) Klaviyo geofence(s)")
+        }
+
+        klaviyoRegions.forEach(locationManager.stopMonitoring)
     }
 
     // MARK: - API Key Observation

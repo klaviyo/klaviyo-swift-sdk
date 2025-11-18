@@ -70,6 +70,12 @@ extension Geofence {
 }
 
 extension CLCircularRegion {
+    /// Checks if this region is a valid Klaviyo geofence
+    /// - Returns: `true` if the region identifier matches the Klaviyo geofence format
+    func isKlaviyoGeofence(_ apiKey: String) -> Bool {
+        identifier.hasPrefix(apiKey)
+    }
+
     func toKlaviyoGeofence() throws -> Geofence {
         try Geofence(id: identifier, longitude: center.longitude, latitude: center.latitude, radius: radius)
     }
