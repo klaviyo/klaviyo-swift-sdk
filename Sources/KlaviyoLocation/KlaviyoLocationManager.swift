@@ -85,7 +85,7 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    private func getActiveGeofences() -> Set<Geofence> {
+    func getActiveGeofences() -> Set<Geofence> {
         let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
             guard let circularRegion = region as? CLCircularRegion,
                   let geofence = try? circularRegion.toKlaviyoGeofence() else {

@@ -24,8 +24,8 @@ extension KlaviyoSDK {
 
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
     @MainActor
-    public func unregisterGeofencing() async {
-        await KlaviyoLocationManager.shared.stopGeofenceMonitoring()
+    public func unregisterGeofencing() {
+        KlaviyoLocationManager.shared.stopGeofenceMonitoring()
     }
 
     /// Returns the current geofence regions being monitored by Klaviyo SDK
@@ -36,9 +36,7 @@ extension KlaviyoSDK {
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
     public func getCurrentGeofences() -> Set<CLCircularRegion> {
-//        Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
-        Set<CLCircularRegion>()
-        // TODO: implement and preferably make it specific to Klaviyo geofences
+        Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
     }
 
     // TODO: add documentation
