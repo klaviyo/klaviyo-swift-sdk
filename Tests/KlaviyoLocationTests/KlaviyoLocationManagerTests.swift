@@ -94,12 +94,12 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         let region1 = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
             radius: 100,
-            identifier: "\(apiKey):8db4effa-44f1-45e6-a88d-8e7d50516a0f"
+            identifier: "_k:\(apiKey):8db4effa-44f1-45e6-a88d-8e7d50516a0f"
         )
         let region2 = CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: 1, longitude: 1),
             radius: 100,
-            identifier: "\(apiKey):a84011cf-93ef-4e78-b047-c0ce4ea258e4"
+            identifier: "_k:\(apiKey):a84011cf-93ef-4e78-b047-c0ce4ea258e4"
         )
         // Add a non-Klaviyo region that should NOT be stopped
         let nonKlaviyoRegion = CLCircularRegion(
