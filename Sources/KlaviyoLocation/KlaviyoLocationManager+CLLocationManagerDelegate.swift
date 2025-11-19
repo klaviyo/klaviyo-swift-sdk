@@ -84,7 +84,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         let event = Event(
             name: .locationEvent(eventType),
-            properties: ["geofence_id": klaviyoLocationId]
+            properties: ["$geofence_id": klaviyoLocationId]
         )
 
         Task {
