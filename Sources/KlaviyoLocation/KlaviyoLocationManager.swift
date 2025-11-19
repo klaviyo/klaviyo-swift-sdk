@@ -100,13 +100,9 @@ class KlaviyoLocationManager: NSObject {
     @MainActor
     func stopGeofenceMonitoring() async {
         stopObservingAPIKeyChanges()
-        let klaviyoRegions = locationManager.monitoredRegions.compactMap { region -> CLCircularRegion? in
-            guard let circularRegion = region as? CLCircularRegion,
-                  circularRegion.isKlaviyoGeofence else {
-                return nil
-            }
-            return circularRegion
-        }
+        let klaviyoRegions = locationManager.monitoredRegions
+            .compactMap { $0 as? CLCircularRegion }
+            .filter(\.isKlaviyoGeofence)
 
         guard !klaviyoRegions.isEmpty else { return }
 

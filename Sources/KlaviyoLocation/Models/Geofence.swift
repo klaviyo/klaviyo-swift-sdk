@@ -27,7 +27,7 @@ struct Geofence: Equatable, Hashable, Codable {
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     var companyId: String {
         let components = id.split(separator: ":")
-        guard components.count >= 3, components[0] == "_k" else { return "" }
+        guard components.count == 3, components[0] == "_k" else { return "" }
         return String(components[1])
     }
 
