@@ -26,20 +26,20 @@ private enum KlaviyoBadgeConfig {
 public enum KlaviyoExtensionSDK {
     /// Call this method when you receive a rich push notification in the notification service extension.
     /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
-    /// This method mainly does two things - downloads the media attached in the payload and then attaches it to the push notification.
+    /// This method mainly does two things - downloads the media (images or videos) attached in the payload and then attaches it to the push notification.
     ///
     /// NOTE that there is no guarantee that the content handler will be called with in the time stipulated by iOS to download the rich media successfully.
-    /// In the case where the download does not complete, iOS will automatically present the notification as received from APNS without the attached image
+    /// In the case where the download does not complete, iOS will automatically present the notification as received from APNS without the attached media
     ///
     /// - Parameters:
     ///   - request: the request received in the delegate `didReceive(_:withContentHandler:)`
     ///   - bestAttemptContent: this is also received in `didReceive(_:withContentHandler:)` and is the best attempt at mutating the APNS payload before attaching it to the push notification
-    ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the image is downloaded and attached.
+    ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the media is downloaded and attached.
     public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg"
+        fallbackMediaType: String = "jpg"
     ) {
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
@@ -76,32 +76,32 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent.badge = newBadgeValue as? NSNumber
     }
 
-    /// sets up the rich media for a rich push, parameters given by `handleNotificationServiceDidReceivedRequest(:)`
+    /// sets up the rich media (images or videos) for a rich push, parameters given by `handleNotificationServiceDidReceivedRequest(:)`
     /// - Parameters:
     ///   - bestAttemptContent: the best attempt at mutating the APNS payload before attaching it to the push notification
     ///   - contentHandler: the closure that needs to be called before the time iOS provides for us to mutate the content
     private static func handleRichMedia(
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void,
-        fallbackMediaType: String = "jpeg"
+        fallbackMediaType: String = "jpg"
     ) {
         // 1a. get the rich media url from the push notification payload
-        guard let imageURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
+        guard let mediaURLString = bestAttemptContent.userInfo["rich-media"] as? String else {
             contentHandler(bestAttemptContent)
             return
         }
 
         // 1b.falling back to .png in case the media type isn't sent from the server.
-        let imageTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? fallbackMediaType
+        let mediaTypeString = bestAttemptContent.userInfo["rich-media-type"] as? String ?? fallbackMediaType
 
         // 2. once we have the url lets download the media from the server
-        downloadMedia(for: imageURLString) { localFileURL in
+        downloadMedia(for: mediaURLString) { localFileURL in
             guard let localFileURL = localFileURL else {
                 contentHandler(bestAttemptContent)
                 return
             }
 
-            let localFilePathWithTypeString = "\(localFileURL.path).\(imageTypeString)"
+            let localFilePathWithTypeString = "\(localFileURL.path).\(mediaTypeString)"
 
             // 3. once we have the local file URL we will create an attachment
             createAttachment(
@@ -132,18 +132,18 @@ public enum KlaviyoExtensionSDK {
     /// downloads the media from the provided URL and writes to disk and provides a URL to the data on disk
     /// - Parameters:
     ///   - urlString: the URL from where the media needs to be downloaded
-    ///   - completion: closure that would be called when the image has finished downloading and the URL to the data on disk is available.
+    ///   - completion: closure that would be called when the media has finished downloading and the URL to the data on disk is available.
     ///                 note that in the case of failure the closure will still be called but with `nil`.
     private static func downloadMedia(
         for urlString: String,
         completion: @escaping (URL?) -> Void
     ) {
-        guard let imageURL = URL(string: urlString) else {
+        guard let mediaURL = URL(string: urlString) else {
             completion(nil)
             return
         }
 
-        URLSession.shared.downloadTask(with: imageURL) { file, _, error in
+        URLSession.shared.downloadTask(with: mediaURL) { file, _, error in
             if let error = error {
                 print("error when downloading push media = \(error.localizedDescription)")
                 completion(nil)
