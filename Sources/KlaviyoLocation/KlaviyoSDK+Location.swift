@@ -35,10 +35,8 @@ extension KlaviyoSDK {
     @MainActor
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
-    public func getCurrentGeofences() -> Set<CLCircularRegion> {
-//        Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
-        Set<CLCircularRegion>()
-        // TODO: implement and preferably make it specific to Klaviyo geofences
+    public func getCurrentGeofences() async -> Set<CLCircularRegion> {
+        await Set(KlaviyoLocationManager.shared.getActiveGeofences().map { $0.toCLCircularRegion() })
     }
 
     // TODO: add documentation

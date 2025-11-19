@@ -85,20 +85,40 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         // Behavior verified through logs and lack of region monitoring
     }
 
-    func test_stopGeofenceMonitoring_stops_monitoring_all_regions() async {
-        // GIVEN - Add some mock monitored regions
-        let region1 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 0, longitude: 0), radius: 100, identifier: "test1")
-        let region2 = CLCircularRegion(center: CLLocationCoordinate2D(latitude: 1, longitude: 1), radius: 100, identifier: "test2")
-        mockLocationManager.monitoredRegions = [region1, region2]
+    func test_stopGeofenceMonitoring_stops_monitoring_all_klaviyo_regions() async {
+        // GIVEN - Set up test environment with API key
+        let apiKey = "ABC123"
+        KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
+
+        // Create regions with Klaviyo-formatted identifiers (must start with API key)
+        let region1 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+            radius: 100,
+            identifier: "_k:\(apiKey):8db4effa-44f1-45e6-a88d-8e7d50516a0f"
+        )
+        let region2 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 1, longitude: 1),
+            radius: 100,
+            identifier: "_k:\(apiKey):a84011cf-93ef-4e78-b047-c0ce4ea258e4"
+        )
+        // Add a non-Klaviyo region that should NOT be stopped
+        let nonKlaviyoRegion = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 2, longitude: 2),
+            radius: 100,
+            identifier: "other-source:some-uuid"
+        )
+        mockLocationManager.monitoredRegions = [region1, region2, nonKlaviyoRegion]
 
         // WHEN
         await locationManager.stopGeofenceMonitoring()
 
-        // THEN - All regions should be stopped
+        // THEN - Only Klaviyo regions should be stopped
         XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region1),
                       "stopGeofenceMonitoring should stop monitoring region1")
         XCTAssertTrue(mockLocationManager.stoppedRegions.contains(region2),
                       "stopGeofenceMonitoring should stop monitoring region2")
+        XCTAssertFalse(mockLocationManager.stoppedRegions.contains(nonKlaviyoRegion),
+                       "stopGeofenceMonitoring should NOT stop monitoring non-Klaviyo regions")
     }
 
     func test_startGeofenceMonitoring_called_when_receiving_new_api_key() async {
@@ -170,9 +190,9 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
     }
 
     @MainActor
-    override func stopGeofenceMonitoring() {
+    override func stopGeofenceMonitoring() async {
         stopGeofenceMonitoringCallCount += 1
-        super.stopGeofenceMonitoring()
+        await super.stopGeofenceMonitoring()
     }
 
     func reset() {

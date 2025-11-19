@@ -85,9 +85,10 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    private func getActiveGeofences() -> Set<Geofence> {
+    func getActiveGeofences() async -> Set<Geofence> {
         let geofences = locationManager.monitoredRegions.compactMap { region -> Geofence? in
             guard let circularRegion = region as? CLCircularRegion,
+                  circularRegion.isKlaviyoGeofence,
                   let geofence = try? circularRegion.toKlaviyoGeofence() else {
                 return nil
             }
@@ -97,16 +98,19 @@ class KlaviyoLocationManager: NSObject {
     }
 
     @MainActor
-    func stopGeofenceMonitoring() {
+    func stopGeofenceMonitoring() async {
         stopObservingAPIKeyChanges()
-        let regions = locationManager.monitoredRegions
-        guard !regions.isEmpty else { return }
+        let klaviyoRegions = locationManager.monitoredRegions
+            .compactMap { $0 as? CLCircularRegion }
+            .filter(\.isKlaviyoGeofence)
+
+        guard !klaviyoRegions.isEmpty else { return }
 
         if #available(iOS 14.0, *) {
-            Logger.geoservices.info("Stopping monitoring for \(regions.count) region(s)")
+            Logger.geoservices.info("Stopping monitoring for \(klaviyoRegions.count) Klaviyo geofence(s)")
         }
 
-        regions.forEach(locationManager.stopMonitoring)
+        klaviyoRegions.forEach(locationManager.stopMonitoring)
     }
 
     // MARK: - API Key Observation
