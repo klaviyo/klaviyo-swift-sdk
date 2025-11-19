@@ -61,12 +61,18 @@ class KlaviyoLocationManager: NSObject {
             }
             return
         }
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("Fetching geofences from remote")
+        }
         let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
 
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("Adding \(geofencesToAdd.count) geofences, removing \(geofencesToRemove.count) geofences")
+        }
         await MainActor.run {
             for geofence in geofencesToAdd {
                 locationManager.startMonitoring(for: geofence.toCLCircularRegion())
