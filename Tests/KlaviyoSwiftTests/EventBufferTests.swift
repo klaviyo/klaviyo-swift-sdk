@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 10/7/25.
 //
 
-@testable import KlaviyoLocation
 @testable import KlaviyoSwift
 import Foundation
 import XCTest
@@ -269,17 +268,5 @@ class EventBufferTests: XCTestCase {
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events.first?.metric.name.value, "$opened_push")
         XCTAssertEqual(events.first?.properties["message_id"] as? String, "abc123")
-    }
-
-    func testBufferWithLocationEvent() {
-        let openedPushEvent = Event(name: .locationEvent(.geofenceEnter))
-
-        // When
-        eventBuffer.buffer(openedPushEvent)
-        let events = eventBuffer.getRecentEvents()
-
-        // Then
-        XCTAssertEqual(events.count, 1)
-        XCTAssertEqual(events.first?.metric.name.value, "$geofence_enter")
     }
 }

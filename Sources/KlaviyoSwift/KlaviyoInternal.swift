@@ -189,6 +189,12 @@ package enum KlaviyoInternal {
         profileEventCancellable = nil
     }
 
+    /// Clears the event buffer to ensure clean state between tests.
+    /// This prevents events from previous tests from being replayed in new tests.
+    package static func clearEventBuffer() {
+        eventBuffer.clear()
+    }
+
     /// Enriches an event with metadata (device info, SDK info, etc.)
     /// - Parameter event: The event to enrich
     /// - Returns: A new Event with metadata appended to properties
@@ -219,6 +225,19 @@ package enum KlaviyoInternal {
     ///
     /// - Parameter event: the event to be tracked in Klaviyo
     package static func create(event: Event) {
+        dispatchOnMainThread(action: .enqueueEvent(event))
+    }
+
+    // MARK: - Geofence Event
+
+    /// Send a geofence event to Klaviyo.
+    /// If the SDK is not yet initialized, it will automatically initialize using the API key extracted from the geofence.
+    ///
+    /// - Parameters:
+    ///   - apiKey: The API key (company ID) extracted from the geofence event
+    ///   - event: The geofence event to be sent
+    package static func createGeofenceEvent(event: Event, for apiKey: String) {
+        dispatchOnMainThread(action: .initialize(apiKey))
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 

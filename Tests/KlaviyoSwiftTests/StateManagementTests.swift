@@ -701,4 +701,66 @@ class StateManagementTests: XCTestCase {
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setBadgeCount(0))
     }
+
+    @MainActor
+    func testPrioritizedEventsAreInsertedAtFrontOfQueue() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+
+        // Add some existing requests to the queue
+        let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
+        initialState.queue = [existingRequest1, existingRequest2]
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Test geofence event is inserted at front
+        let geofenceEvent = Event(
+            name: .locationEvent(.geofenceEnter),
+            properties: ["$geofence_id": "test-location-id"]
+        )
+
+        var geofenceRequest: KlaviyoRequest?
+        await store.send(.enqueueEvent(geofenceEvent)) {
+            // Geofence event is prioritized, so it should be inserted at index 0
+            geofenceRequest = try KlaviyoRequest(
+                endpoint: .createEvent(
+                    XCTUnwrap($0.apiKey),
+                    CreateEventPayload(
+                        data: CreateEventPayload.Event(
+                            name: geofenceEvent.metric.name.value,
+                            properties: geofenceEvent.properties,
+                            phoneNumber: $0.phoneNumber,
+                            anonymousId: initialState.anonymousId!,
+                            time: geofenceEvent.time,
+                            pushToken: $0.pushTokenData?.pushToken
+                        )
+                    )
+                )
+            )
+            $0.queue.insert(geofenceRequest!, at: 0)
+        }
+
+        var actualGeofenceRequest: KlaviyoRequest?
+        await store.receive(.flushQueue) {
+            $0.flushing = true
+            $0.requestsInFlight = $0.queue
+            $0.queue = []
+            XCTAssertEqual($0.requestsInFlight.count, 3, "Should have 3 requests in flight")
+            actualGeofenceRequest = $0.requestsInFlight[0]
+            if case let .createEvent(_, payload) = actualGeofenceRequest!.endpoint {
+                XCTAssertEqual(payload.data.attributes.metric.data.attributes.name, "$geofence_enter", "First request in flight should be geofence event")
+            } else {
+                XCTFail("First request in flight should be geofence event")
+            }
+            XCTAssertEqual($0.requestsInFlight[1].id, existingRequest1.id, "Second request should be existing request 1")
+            XCTAssertEqual($0.requestsInFlight[2].id, existingRequest2.id, "Third request should be existing request 2")
+        }
+        await store.receive(.sendRequest)
+        await store.receive(.deQueueCompletedResults(actualGeofenceRequest!)) {
+            $0.requestsInFlight.removeAll { $0.id == actualGeofenceRequest!.id }
+            $0.retryState = .retry(1)
+            $0.flushing = false
+        }
+    }
 }
