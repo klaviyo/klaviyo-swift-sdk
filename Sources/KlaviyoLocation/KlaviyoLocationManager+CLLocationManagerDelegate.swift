@@ -63,7 +63,8 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) {
         guard let region = region as? CLCircularRegion,
-              let klaviyoGeofence = try? region.toKlaviyoGeofence() else {
+              let klaviyoGeofence = try? region.toKlaviyoGeofence(),
+              !klaviyoGeofence.companyId.isEmpty else {
             return
         }
         let klaviyoLocationId = klaviyoGeofence.locationId
