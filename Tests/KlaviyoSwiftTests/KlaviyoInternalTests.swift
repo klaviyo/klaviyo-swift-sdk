@@ -24,6 +24,8 @@ final class KlaviyoInternalTests: XCTestCase {
         cancellables.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
+        KlaviyoInternal.resetEventSubject()
+        KlaviyoInternal.clearEventBuffer()
     }
 
     // MARK: - Profile Data Tests
@@ -708,5 +710,68 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(properties["test_prop"] as? String, "test_value")
         XCTAssertNotNil(properties["Device ID"], "Buffered event should include metadata")
         XCTAssertNotNil(properties["SDK Name"], "Buffered event should include metadata")
+    }
+
+    // MARK: - Geofence Event Tests
+
+    @MainActor
+    func testCreateGeofenceEvent_initializesSDKAndSendsEventWhenUninitialized() async throws {
+        // Given: SDK is uninitialized
+        let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        klaviyoSwiftEnvironment.send = { action in
+            _ = testStore.send(action)
+            return nil
+        }
+        klaviyoSwiftEnvironment.state = { testStore.state.value }
+        klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
+
+        // When: Create geofence event
+        let geofenceEvent = Event(
+            name: .locationEvent(.geofenceEnter),
+            properties: ["$geofence_id": "test-location-id"]
+        )
+        let apiKey = "TEST123"
+        KlaviyoInternal.createGeofenceEvent(event: geofenceEvent, for: apiKey)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Then: Verify SDK is initialized and event is in pending requests
+        let currentState = testStore.state.value
+        XCTAssertEqual(currentState.initalizationState, .initialized, "SDK should be initialized")
+        XCTAssertEqual(currentState.apiKey, apiKey, "API key should be set")
+    }
+
+    @MainActor
+    func testCreateGeofenceEvent_flushesQueueWhenQueueHasItems() async throws {
+        // Given: SDK is initialized with items in the queue
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+
+        // Add some existing requests to the queue
+        let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
+        initialState.queue = [existingRequest1, existingRequest2]
+
+        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        klaviyoSwiftEnvironment.send = { action in
+            _ = testStore.send(action)
+            return nil
+        }
+        klaviyoSwiftEnvironment.state = { testStore.state.value }
+        klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
+
+        // When: Create a geofence event
+        let geofenceEvent = Event(
+            name: .locationEvent(.geofenceEnter),
+            properties: ["$geofence_id": "test-location-id"]
+        )
+        let apiKey = initialState.apiKey!
+        KlaviyoInternal.createGeofenceEvent(event: geofenceEvent, for: apiKey)
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Then: Verify queue is flushed (items moved to requestsInFlight and queue is empty)
+        XCTAssertTrue(testStore.state.value.queue.isEmpty, "Queue should be empty after a geofence event forces a flush")
     }
 }

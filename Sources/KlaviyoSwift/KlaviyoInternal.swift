@@ -189,6 +189,12 @@ package enum KlaviyoInternal {
         profileEventCancellable = nil
     }
 
+    /// Clears the event buffer to ensure clean state between tests.
+    /// This prevents events from previous tests from being replayed in new tests.
+    package static func clearEventBuffer() {
+        eventBuffer.clear()
+    }
+
     /// Enriches an event with metadata (device info, SDK info, etc.)
     /// - Parameter event: The event to enrich
     /// - Returns: A new Event with metadata appended to properties
