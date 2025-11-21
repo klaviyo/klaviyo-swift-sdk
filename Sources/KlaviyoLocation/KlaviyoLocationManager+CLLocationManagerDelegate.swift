@@ -63,9 +63,10 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) {
         guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
+              let klaviyoGeofence = try? region.toKlaviyoGeofence() else {
             return
         }
+        let klaviyoLocationId = klaviyoGeofence.locationId
 
         // Check cooldown period before processing event
         guard cooldownTracker.isAllowed(geofenceId: klaviyoLocationId, transition: eventType) else {
@@ -87,10 +88,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             properties: ["$geofence_id": klaviyoLocationId]
         )
 
-        Task {
-            await MainActor.run {
-                KlaviyoInternal.create(event: event)
-            }
-        }
+        KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
     }
 }
