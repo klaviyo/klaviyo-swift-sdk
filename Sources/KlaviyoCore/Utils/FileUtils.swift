@@ -33,7 +33,16 @@ public struct FileClient {
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! }
+        libraryDirectory: {
+            // If klaviyo_app_group is configured in Info.plist, use the shared container
+            // This ensures push tokens and state can be accessed by both the main app and notification service extension
+            if let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
+               let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
+                return sharedContainer
+            }
+            // Fall back to the app's private library directory
+            return FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+        }
     )
 }
 
