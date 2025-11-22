@@ -9,6 +9,15 @@ import Foundation
 import OSLog
 import UserNotifications
 
+/// Configuration option for registering push notification categories
+public enum CategoryRegistrationOption {
+    /// Automatically register all predefined Klaviyo categories
+    case automatic
+
+    /// Manually register specific categories
+    case manual(KlaviyoPushCategory...)
+}
+
 extension KlaviyoSDK {
     /// Registers Klaviyo's predefined push notification categories with action buttons.
     ///
@@ -21,17 +30,14 @@ extension KlaviyoSDK {
     ///
     /// ## Example Usage
     ///
-    /// Register all predefined categories:
+    /// Register all predefined categories automatically:
     /// ```swift
-    /// KlaviyoSDK().registerPushCategories(Set(KlaviyoPushCategory.allCases))
+    /// KlaviyoSDK().registerPushCategories(.automatic)
     /// ```
     ///
-    /// Register specific categories:
+    /// Register specific categories manually:
     /// ```swift
-    /// KlaviyoSDK().registerPushCategories([
-    ///     .acceptDecline,
-    ///     .yesNo
-    /// ])
+    /// KlaviyoSDK().registerPushCategories(.manual(.acceptDecline, .yesNo))
     /// ```
     ///
     /// ## APNs Payload
@@ -62,8 +68,17 @@ extension KlaviyoSDK {
     /// - Opens URLs/deep links from the action metadata
     /// - Maintains backwards compatibility with regular push taps
     ///
-    /// - Parameter categories: Set of Klaviyo push categories to register
-    public func registerPushCategories(_ categories: Set<KlaviyoPushCategory>) {
+    /// - Parameter option: Registration option - either automatic (all categories) or manual (specific categories)
+    public func registerPushCategories(_ option: CategoryRegistrationOption) {
+        let categories: Set<KlaviyoPushCategory>
+
+        switch option {
+        case .automatic:
+            categories = Set(KlaviyoPushCategory.allCases)
+        case let .manual(selectedCategories):
+            categories = Set(selectedCategories)
+        }
+
         // Create UNNotificationCategory instances from Klaviyo categories
         let klaviyoCategories = Set(categories.map { $0.createNotificationCategory() })
 
