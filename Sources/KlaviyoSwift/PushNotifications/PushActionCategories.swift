@@ -1,8 +1,8 @@
 //
 //  PushActionCategories.swift
-//  KlaviyoSwift
 //
-//  Created by Klaviyo SDK
+//
+//  Created by Ajay Subramanya on 11/21/24.
 //
 
 import Foundation
