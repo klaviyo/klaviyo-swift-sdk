@@ -8,7 +8,7 @@
 import Foundation
 import UserNotifications
 
-extension Klaviyo {
+extension KlaviyoSDK {
     /// Registers Klaviyo's predefined push notification categories with action buttons.
     ///
     /// This method follows the same pattern as Braze - developers must explicitly register
@@ -22,12 +22,12 @@ extension Klaviyo {
     ///
     /// Register all predefined categories:
     /// ```swift
-    /// Klaviyo.shared.registerPushCategories(Set(KlaviyoPushCategory.allCases))
+    /// KlaviyoSDK().registerPushCategories(Set(KlaviyoPushCategory.allCases))
     /// ```
     ///
     /// Register specific categories:
     /// ```swift
-    /// Klaviyo.shared.registerPushCategories([
+    /// KlaviyoSDK().registerPushCategories([
     ///     .acceptDecline,
     ///     .yesNo
     /// ])
