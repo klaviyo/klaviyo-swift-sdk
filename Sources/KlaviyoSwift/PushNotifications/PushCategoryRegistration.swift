@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import UserNotifications
 
 extension KlaviyoSDK {
@@ -76,7 +77,9 @@ extension KlaviyoSDK {
             // Register the merged set
             UNUserNotificationCenter.current().setNotificationCategories(mergedCategories)
 
-            environment.logger.info("Registered \(categories.count) Klaviyo push categories")
+            if #available(iOS 14.0, *) {
+                Logger.notifications.info("Registered \(categories.count) Klaviyo push categories")
+            }
         }
     }
 
@@ -93,9 +96,11 @@ extension KlaviyoSDK {
             if !existing.contains(where: { $0.identifier == newCategory.identifier }) {
                 merged.insert(newCategory)
             } else {
-                environment.logger.debug(
-                    "Category '\(newCategory.identifier)' already exists, skipping"
-                )
+                if #available(iOS 14.0, *) {
+                    Logger.notifications.debug(
+                        "Category '\(newCategory.identifier)' already exists, skipping"
+                    )
+                }
             }
         }
 
