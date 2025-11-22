@@ -199,6 +199,11 @@ public struct KlaviyoSDK {
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
+    ///
+    /// This method handles both regular push notification taps and action button taps.
+    /// For action buttons, it automatically tracks the button interaction and handles
+    /// action-specific deep links if provided in the payload.
+    ///
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
@@ -210,14 +215,36 @@ public struct KlaviyoSDK {
             return false
         }
 
-        create(event: Event(name: ._openedPush, properties: properties))
-        if let url = notificationResponse.klaviyoDeepLinkURL {
-            dispatchOnMainThread(action: .openDeepLink(url))
+        // Check if this is an action button tap
+        if notificationResponse.isActionButtonTap {
+            handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
+        } else {
+            // Regular notification tap - existing behavior
+            create(event: Event(name: ._openedPush, properties: properties))
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                dispatchOnMainThread(action: .openDeepLink(url))
+            }
         }
+
         Task { @MainActor in
             completionHandler()
         }
         return true
+    }
+
+    /// Handles action button taps from push notifications.
+    private func handleActionButtonTap(notificationResponse: UNNotificationResponse, properties: [String: Any]) {
+        // Create event properties with action identifier
+        var actionProperties = properties
+        actionProperties["action_id"] = notificationResponse.actionIdentifier
+
+        // Track action button event
+        create(event: Event(name: ._openedPushAction, properties: actionProperties))
+
+        // Handle action-specific deep link if present
+        if let actionURL = notificationResponse.actionButtonURL {
+            dispatchOnMainThread(action: .openDeepLink(actionURL))
+        }
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.

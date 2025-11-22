@@ -20,6 +20,10 @@ public struct Event: Equatable {
         internal static var _openedPush: EventName {
             EventName.customEvent("_openedPush")
         }
+
+        internal static var _openedPushAction: EventName {
+            EventName.customEvent("_openedPushAction")
+        }
     }
 
     public struct Metric: Equatable {
@@ -91,6 +95,7 @@ extension Event.EventName {
     public var value: String {
         switch self {
         case ._openedPush: return "$opened_push"
+        case ._openedPushAction: return "$opened_push_action"
         case .openedAppMetric: return "Opened App"
         case .viewedProductMetric: return "Viewed Product"
         case .addedToCartMetric: return "Added to Cart"
