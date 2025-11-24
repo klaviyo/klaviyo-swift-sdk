@@ -17,6 +17,7 @@ class KlaviyoLocationManager: NSObject {
 
     private var locationManager: LocationManagerProtocol
     private var apiKeyCancellable: AnyCancellable?
+    private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
 
     init(locationManager: LocationManagerProtocol? = nil) {
@@ -29,7 +30,6 @@ class KlaviyoLocationManager: NSObject {
     func monitorGeofencesFromBackground() {
         locationManager.delegate = self
         locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.startMonitoringSignificantLocationChanges()
     }
 
     @MainActor
@@ -52,6 +52,7 @@ class KlaviyoLocationManager: NSObject {
         await syncGeofences()
 
         startObservingAPIKeyChanges()
+        startObservingAppLifecycle()
     }
 
     func syncGeofences() async {
@@ -100,9 +101,11 @@ class KlaviyoLocationManager: NSObject {
     @MainActor
     func stopGeofenceMonitoring() async {
         stopObservingAPIKeyChanges()
+        stopObservingAppLifecycle()
         let klaviyoRegions = locationManager.monitoredRegions
             .compactMap { $0 as? CLCircularRegion }
             .filter(\.isKlaviyoGeofence)
+        locationManager.stopMonitoringSignificantLocationChanges()
 
         guard !klaviyoRegions.isEmpty else { return }
 
@@ -141,5 +144,30 @@ class KlaviyoLocationManager: NSObject {
     private func stopObservingAPIKeyChanges() {
         apiKeyCancellable?.cancel()
         apiKeyCancellable = nil
+    }
+
+    // MARK: - App Lifecycle Observation
+
+    private func startObservingAppLifecycle() {
+        guard lifecycleCancellable == nil else { return }
+
+        lifecycleCancellable = environment.appLifeCycle.lifeCycleEvents()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                guard let self else { return }
+                switch event {
+                case .terminated:
+                    self.locationManager.startMonitoringSignificantLocationChanges()
+                case .foregrounded, .backgrounded:
+                    self.locationManager.stopMonitoringSignificantLocationChanges()
+                default:
+                    break
+                }
+            }
+    }
+
+    private func stopObservingAppLifecycle() {
+        lifecycleCancellable?.cancel()
+        lifecycleCancellable = nil
     }
 }
