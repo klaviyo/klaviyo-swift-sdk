@@ -103,6 +103,7 @@ class KlaviyoLocationManager: NSObject {
         let klaviyoRegions = locationManager.monitoredRegions
             .compactMap { $0 as? CLCircularRegion }
             .filter(\.isKlaviyoGeofence)
+        locationManager.stopMonitoringSignificantLocationChanges()
 
         guard !klaviyoRegions.isEmpty else { return }
 
