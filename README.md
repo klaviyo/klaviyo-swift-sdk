@@ -39,6 +39,9 @@
   - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Geofencing](#geofencing)
+  - [Prerequisites](#prerequisites-2)
+  - [Setup](#setup-2)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -723,6 +726,90 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+## Geofencing
+
+[Geofencing](https://help.klaviyo.com/hc/en-us/articles/360023213971) allows you to trigger events when users enter or exit geographic regions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events.
+
+### Prerequisites
+
+* Import the `KlaviyoLocation` module and add it to your app target.
+* Configure location permissions and background modes in your app's `Info.plist`.
+* Request "Always" location authorization from users (required for geofencing to work in the background).
+
+### Setup
+
+#### Step 1: Configure Info.plist
+
+Add the following keys to your app's `Info.plist`:
+
+1. **Location Usage Descriptions** (required):
+   - `NSLocationWhenInUseUsageDescription`: A user-facing string explaining why your app needs location access when the app is in use.
+   - `NSLocationAlwaysAndWhenInUseUsageDescription`: A user-facing string explaining why your app needs "Always" location access for geofencing.
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access to show your current location and help you find nearby locations.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app needs location access to monitor geofences and provide location-based notifications even when the app is in the background.</string>
+```
+
+2. **Background Modes** (required):
+   - Add `location` to the `UIBackgroundModes` array to enable background location updates.
+
+```xml
+<key>UIBackgroundModes</key>
+<array>
+    <string>location</string>
+</array>
+```
+
+#### Step 2: Enable Background Monitoring
+
+Call `monitorGeofencesFromBackground()` in your app delegate's `application(_:didFinishLaunchingWithOptions:)` method. This ensures geofence events that occur when the app is backgrounded or terminated are processed.
+
+```swift
+import KlaviyoSwift
+
+func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+
+    // Enable background geofence monitoring
+    KlaviyoSDK().monitorGeofencesFromBackground()
+
+    return true
+}
+```
+
+#### Step 3: Register for Geofencing
+
+Call `registerGeofencing()` as early as possible in your app's lifecycle, ideally after initializing the SDK. This method will:
+- Request "Always" location authorization if not already granted
+- Begin monitoring geofences configured in your Klaviyo account
+- Start tracking geofence enter and exit events
+
+```swift
+import KlaviyoSwift
+
+// Register for geofencing (recommended to call as early as possible)
+Task {
+    await KlaviyoSDK().registerGeofencing()
+}
+```
+
+> ⚠️ **Important**: Geofencing requires "Always" location authorization. The SDK will only begin monitoring geofences once the user grants "Always" permission. If the user only grants "When In Use" permission, geofencing will not be active.
+
+> ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
+
+#### Unregistering from Geofencing
+
+If you need to stop monitoring geofences, you can call `unregisterGeofencing()`:
+
+```swift
+Task {
+    await KlaviyoSDK().unregisterGeofencing()
+}
+```
 
 ## Additional Details
 
