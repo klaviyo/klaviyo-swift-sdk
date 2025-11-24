@@ -232,13 +232,22 @@ package enum KlaviyoInternal {
 
     /// Send a geofence event to Klaviyo.
     /// If the SDK is not yet initialized, it will automatically initialize using the API key extracted from the geofence.
+    /// If the SDK is already initialized with a different API key, the event will be ignored.
     ///
     /// - Parameters:
     ///   - apiKey: The API key (company ID) extracted from the geofence event
     ///   - event: The geofence event to be sent
-    package static func createGeofenceEvent(event: Event, for apiKey: String) {
-        dispatchOnMainThread(action: .initialize(apiKey))
-        dispatchOnMainThread(action: .enqueueEvent(event))
+    @MainActor
+    package static func createGeofenceEvent(event: Event, for apiKey: String) async {
+        if let storedApiKey = try? await fetchAPIKey() {
+            guard storedApiKey == apiKey else {
+                return
+            }
+            dispatchOnMainThread(action: .enqueueEvent(event))
+        } else {
+            dispatchOnMainThread(action: .initialize(apiKey))
+            dispatchOnMainThread(action: .enqueueEvent(event))
+        }
     }
 
     // MARK: - Deep link handling
