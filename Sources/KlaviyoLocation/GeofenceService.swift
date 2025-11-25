@@ -46,14 +46,31 @@ struct GeofenceService: GeofenceServiceProvider {
 
     func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
         let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
-        return try Set(response.data.map { rawGeofence in
-            try Geofence(
-                id: "_k:\(companyId):\(rawGeofence.id)",
-                longitude: rawGeofence.attributes.longitude,
-                latitude: rawGeofence.attributes.latitude,
-                radius: rawGeofence.attributes.radius
-            )
-        })
+        var geofences: Set<Geofence> = []
+        var failedCount = 0
+
+        for rawGeofence in response.data {
+            do {
+                let geofence = try Geofence(
+                    id: "_k:\(companyId):\(rawGeofence.id)",
+                    longitude: rawGeofence.attributes.longitude,
+                    latitude: rawGeofence.attributes.latitude,
+                    radius: rawGeofence.attributes.radius
+                )
+                geofences.insert(geofence)
+            } catch {
+                failedCount += 1
+                if #available(iOS 14.0, *) {
+                    Logger.geoservices.warning("⚠️ Failed to parse geofence \(rawGeofence.id): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        if failedCount > 0, #available(iOS 14.0, *) {
+            Logger.geoservices.warning("⚠️ Failed to parse \(failedCount) of \(response.data.count) geofences. Continuing with \(geofences.count) successfully parsed geofences.")
+        }
+
+        return geofences
     }
 }
 
