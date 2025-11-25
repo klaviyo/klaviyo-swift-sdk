@@ -48,24 +48,33 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             Task {
                 await stopGeofenceMonitoring()
             }
+        @unknown default:
+            return
         }
     }
 
     // MARK: Geofencing
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        handleGeofenceEvent(region: region, eventType: .geofenceEnter)
+        Task { @MainActor in
+            await handleGeofenceEvent(region: region, eventType: .geofenceEnter)
+        }
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        handleGeofenceEvent(region: region, eventType: .geofenceExit)
+        Task { @MainActor in
+            await handleGeofenceEvent(region: region, eventType: .geofenceExit)
+        }
     }
 
-    private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) {
+    @MainActor
+    private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) async {
         guard let region = region as? CLCircularRegion,
-              let klaviyoLocationId = region.klaviyoLocationId else {
+              let klaviyoGeofence = try? region.toKlaviyoGeofence(),
+              !klaviyoGeofence.companyId.isEmpty else {
             return
         }
+        let klaviyoLocationId = klaviyoGeofence.locationId
 
         // Check cooldown period before processing event
         guard cooldownTracker.isAllowed(geofenceId: klaviyoLocationId, transition: eventType) else {
@@ -87,10 +96,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             properties: ["$geofence_id": klaviyoLocationId]
         )
 
-        Task {
-            await MainActor.run {
-                KlaviyoInternal.create(event: event)
-            }
-        }
+        await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
     }
 }
