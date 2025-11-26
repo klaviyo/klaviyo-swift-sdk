@@ -20,6 +20,9 @@ class KlaviyoLocationManager: NSObject {
     private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
 
+    var geofenceDwellSettings: [String: Int] = [:]
+    var dwellTimers: [String: Timer] = [:]
+
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
 
@@ -69,6 +72,7 @@ class KlaviyoLocationManager: NSObject {
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
 
         await MainActor.run {
+            updateDwellSettings(remoteGeofences)
             for geofence in geofencesToAdd {
                 locationManager.startMonitoring(for: geofence.toCLCircularRegion())
             }
@@ -114,6 +118,11 @@ class KlaviyoLocationManager: NSObject {
         }
 
         klaviyoRegions.forEach(locationManager.stopMonitoring)
+        for timer in dwellTimers.values {
+            timer.invalidate()
+        }
+        dwellTimers.removeAll()
+        geofenceDwellSettings.removeAll()
     }
 
     // MARK: - API Key Observation
@@ -139,6 +148,13 @@ class KlaviyoLocationManager: NSObject {
                     break
                 }
             }
+    }
+
+    private func updateDwellSettings(_ geofences: Set<Geofence>) {
+        geofenceDwellSettings.removeAll()
+        for geofence in geofences {
+            geofenceDwellSettings[geofence.locationId] = geofence.duration
+        }
     }
 
     private func stopObservingAPIKeyChanges() {

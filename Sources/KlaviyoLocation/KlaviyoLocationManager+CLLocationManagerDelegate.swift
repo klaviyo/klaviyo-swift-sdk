@@ -97,5 +97,73 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         )
 
         await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
+        if eventType == .geofenceEnter {
+            startDwellTimer(for: klaviyoLocationId)
+        } else {
+            cancelDwellTimer(for: klaviyoLocationId)
+        }
+    }
+}
+
+extension KlaviyoLocationManager {
+    // MARK: Dwell Timer Management
+
+    private func startDwellTimer(for klaviyoLocationId: String) {
+        cancelDwellTimer(for: klaviyoLocationId)
+        guard let dwellSeconds = geofenceDwellSettings[klaviyoLocationId] else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.log("Dwell settings have not been specified for region \(klaviyoLocationId). Aborting dwell timer creation.")
+            }
+            return
+        }
+
+        let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(dwellSeconds), repeats: false) { [weak self] _ in
+            self?.handleDwellTimerFired(for: klaviyoLocationId)
+        }
+        dwellTimers[klaviyoLocationId] = timer
+
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("🕐 Started dwell timer for region \(klaviyoLocationId) with \(dwellSeconds) seconds")
+        }
+    }
+
+    private func cancelDwellTimer(for klaviyoLocationId: String) {
+        if let timer = dwellTimers[klaviyoLocationId] {
+            timer.invalidate()
+            dwellTimers.removeValue(forKey: klaviyoLocationId)
+
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("🕐 Cancelled dwell timer for region \(klaviyoLocationId)")
+            }
+        } else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("🕐 Attempted to cancel dwell timer for region \(klaviyoLocationId, privacy: .public), but no dwell timer was found for that region")
+            }
+        }
+    }
+
+    private func handleDwellTimerFired(for klaviyoLocationId: String) {
+        dwellTimers.removeValue(forKey: klaviyoLocationId)
+        guard let dwellDuration = geofenceDwellSettings[klaviyoLocationId] else {
+            return
+        }
+
+        let dwellEvent = Event(
+            name: .locationEvent(.geofenceDwell),
+            properties: [
+                "$geofence_id": klaviyoLocationId,
+                "$geofence_dwell_duration": dwellDuration
+            ]
+        )
+
+        Task {
+            await MainActor.run {
+                KlaviyoInternal.create(event: dwellEvent)
+            }
+        }
+
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("🕐 Dwell event fired for region \(klaviyoLocationId)")
+        }
     }
 }
