@@ -48,7 +48,7 @@ struct GeofenceService: GeofenceServiceProvider {
         let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
         return try Set(response.data.map { rawGeofence in
             try Geofence(
-                id: "_k:\(companyId):\(rawGeofence.id)",
+                id: "_k:\(companyId):\(rawGeofence.id):\(rawGeofence.attributes.duration.map { String($0) } ?? "")",
                 longitude: rawGeofence.attributes.longitude,
                 latitude: rawGeofence.attributes.latitude,
                 radius: rawGeofence.attributes.radius
@@ -72,5 +72,6 @@ private struct GeofenceJSON: Codable {
         let latitude: Double
         let longitude: Double
         let radius: Double
+        let duration: Int?
     }
 }

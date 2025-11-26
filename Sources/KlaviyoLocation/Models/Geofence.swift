@@ -12,7 +12,7 @@ import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
 struct Geofence: Equatable, Hashable, Codable {
-    /// The geofence ID in the format "_k:{companyId}:{UUID}" with a "_k" prefix, company ID, and location ID from Klaviyo, separated by colons.
+    /// The geofence ID in the format "_k:{companyId}:{UUID}:{duration}" with a "_k" prefix, company ID, location ID, and optional duration from Klaviyo, separated by colons.
     let id: String
 
     /// Longitude of the geofence center
@@ -26,21 +26,31 @@ struct Geofence: Equatable, Hashable, Codable {
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     var companyId: String {
-        let components = id.split(separator: ":")
-        guard components.count == 3, components[0] == "_k" else { return "" }
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return "" }
         return String(components[1])
     }
 
     /// Location UUID to which this geofence belongs, extracted from the geofence ID.
     var locationId: String {
-        let components = id.split(separator: ":", maxSplits: 2)
-        guard components.count == 3, components[0] == "_k" else { return "" }
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return "" }
         return String(components[2])
+    }
+
+    /// Optional duration for this geofence to record a dwell event
+    var duration: Int? {
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return nil }
+        let durationString = String(components[3])
+        // Return nil if duration component is empty
+        guard !durationString.isEmpty else { return nil }
+        return Int(durationString)
     }
 
     /// Creates a new geofence
     /// - Parameters:
-    ///   - id: Unique identifier for the geofence in format "_k:{companyId}:{UUID}" where companyId is 6 alphanumeric characters
+    ///   - id: Unique identifier for the geofence in format "_k:{companyId}:{UUID}:{duration}" where duration is optional
     ///   - longitude: Longitude coordinate of the geofence center
     ///   - latitude: Latitude coordinate of the geofence center
     ///   - radius: Radius of the geofence in meters
