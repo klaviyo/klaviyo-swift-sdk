@@ -53,40 +53,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     // MARK: Geofencing
 
-    public func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
-        guard let region = region as? CLCircularRegion,
-              region.isKlaviyoGeofence else {
-            return
-        }
-
-        guard let clError = error as? CLError else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("❌ Klaviyo geofence monitoring failed: \(error.localizedDescription, privacy: .public)")
-            }
-            return
-        }
-
-        switch clError.code {
-        case .regionMonitoringFailure:
-            if #available(iOS 14.0, *) {
-                let currentCount = manager.monitoredRegions.count
-                Logger.geoservices.error("❌ Klaviyo geofence monitoring failed. Currently monitoring \(currentCount) regions. iOS limit is 20 regions per app.")
-            }
-        case .regionMonitoringDenied, .denied:
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("❌ Klaviyo geofence monitoring denied - insufficient permissions")
-            }
-        case .regionMonitoringResponseDelayed, .regionMonitoringSetupDelayed:
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("⚠️ Klaviyo geofence monitoring delayed")
-            }
-        default:
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("❌ Klaviyo geofence monitoring failed: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-    }
-
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         handleGeofenceEvent(region: region, eventType: .geofenceEnter)
     }
@@ -124,6 +90,40 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
         Task {
             await MainActor.run {
                 KlaviyoInternal.create(event: event)
+            }
+        }
+    }
+
+    public func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        guard let region = region as? CLCircularRegion,
+              region.isKlaviyoGeofence else {
+            return
+        }
+
+        guard let clError = error as? CLError else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.error("❌ Klaviyo geofence monitoring failed: \(error.localizedDescription, privacy: .public)")
+            }
+            return
+        }
+
+        switch clError.code {
+        case .regionMonitoringFailure:
+            if #available(iOS 14.0, *) {
+                let currentCount = manager.monitoredRegions.count
+                Logger.geoservices.error("❌ Klaviyo geofence monitoring failed. Currently monitoring \(currentCount) regions. iOS limit is 20 regions per app.")
+            }
+        case .regionMonitoringDenied, .denied:
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("⚠️ Klaviyo geofence monitoring denied - insufficient permissions")
+            }
+        case .regionMonitoringResponseDelayed, .regionMonitoringSetupDelayed:
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("⚠️ Klaviyo geofence monitoring delayed")
+            }
+        default:
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("⚠️ Klaviyo geofence monitoring failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
