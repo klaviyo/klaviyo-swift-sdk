@@ -96,6 +96,6 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             properties: ["$geofence_id": klaviyoLocationId]
         )
 
-        await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
+        await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId, anonymousId: klaviyoGeofence.anonymousId)
     }
 }
