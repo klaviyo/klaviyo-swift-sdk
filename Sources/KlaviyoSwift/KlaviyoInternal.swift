@@ -23,11 +23,19 @@ package enum KlaviyoInternal {
         case failure(SDKError)
     }
 
+    package enum AnonymousIdResult: Equatable {
+        case success(String?)
+        case failure(SDKError)
+    }
+
     private static var profileDataCancellable: Cancellable?
     private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
 
     private static var apiKeyCancellable: Cancellable?
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
+
+    private static var anonymousIdCancellable: Cancellable?
+    private static let anonymousIdSubject = CurrentValueSubject<AnonymousIdResult, Never>(.failure(.notInitialized))
 
     private static let profileEventSubject = PassthroughSubject<Event, Never>()
     private static var profileEventCancellable: Cancellable?
@@ -135,6 +143,48 @@ package enum KlaviyoInternal {
                     switch result {
                     case let .success(profileData):
                         continuation.resume(returning: profileData)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
+                    }
+                    cancellable?.cancel()
+                }
+        }
+    }
+
+    // MARK: - Anonymous ID methods
+
+    // Setup the anonymous ID subject to receive updates from the state publisher
+    private static func setupAnonymousIdSubject() {
+        // Only set up the subscription if it hasn't already been set up
+        guard anonymousIdCancellable == nil else { return }
+
+        anonymousIdCancellable = klaviyoSwiftEnvironment.statePublisher()
+            .map { state -> AnonymousIdResult in
+                guard state.initalizationState == .initialized else {
+                    return .failure(.notInitialized)
+                }
+
+                return .success(state.anonymousId)
+            }
+            .removeDuplicates()
+            .subscribe(anonymousIdSubject)
+    }
+
+    /// Fetches the anonymous ID once.
+    ///
+    /// - Returns: The current anonymous ID, if available (may be nil)
+    /// - Throws: `SDKError.notInitialized` if the SDK is not initialized
+    package static func getAnonymousId() async throws -> String? {
+        setupAnonymousIdSubject()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = anonymousIdSubject
+                .first()
+                .sink { result in
+                    switch result {
+                    case let .success(anonymousId):
+                        continuation.resume(returning: anonymousId)
                     case let .failure(error):
                         continuation.resume(throwing: error)
                     }
