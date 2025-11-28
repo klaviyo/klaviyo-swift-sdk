@@ -26,16 +26,22 @@ struct Geofence: Equatable, Hashable, Codable {
 
     /// Company ID to which this geofence belongs, extracted from the geofence ID.
     var companyId: String {
-        let components = id.split(separator: ":")
-        guard components.count == 3, components[0] == "_k" else { return "" }
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return "" }
         return String(components[1])
     }
 
     /// Location UUID to which this geofence belongs, extracted from the geofence ID.
     var locationId: String {
-        let components = id.split(separator: ":", maxSplits: 2)
-        guard components.count == 3, components[0] == "_k" else { return "" }
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return "" }
         return String(components[2])
+    }
+
+    var anonymousId: String {
+        let components = id.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 4, components[0] == "_k" else { return "" }
+        return String(components[3])
     }
 
     /// Creates a new geofence
