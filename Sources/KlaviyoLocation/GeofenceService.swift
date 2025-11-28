@@ -18,7 +18,7 @@ struct GeofenceService: GeofenceServiceProvider {
     func fetchGeofences(apiKey: String) async -> Set<Geofence> {
         do {
             let data = try await fetchGeofenceData(apiKey: apiKey)
-            return try parseGeofences(from: data, companyId: apiKey)
+            return try await parseGeofences(from: data, companyId: apiKey)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.error("Error fetching geofences: \(error)")
@@ -44,11 +44,12 @@ struct GeofenceService: GeofenceServiceProvider {
         }
     }
 
-    func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
+    func parseGeofences(from data: Data, companyId: String) async throws -> Set<Geofence> {
         let response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
+        let anonymousId = try await KlaviyoInternal.getAnonymousId() ?? ""
         return try Set(response.data.map { rawGeofence in
             try Geofence(
-                id: "_k:\(companyId):\(rawGeofence.id)",
+                id: "_k:\(companyId):\(rawGeofence.id):\(anonymousId)",
                 longitude: rawGeofence.attributes.longitude,
                 latitude: rawGeofence.attributes.latitude,
                 radius: rawGeofence.attributes.radius
