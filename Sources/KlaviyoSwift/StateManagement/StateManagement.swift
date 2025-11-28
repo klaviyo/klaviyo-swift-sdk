@@ -110,6 +110,9 @@ enum KlaviyoAction: Equatable {
     /// when there is an aggregate event to be sent to klaviyo it's added to the queue
     case enqueueAggregateEvent(Data)
 
+    /// when there is a geofence event to be sent to klaviyo it's immediately sent
+    case enqueueGeofenceEvent(Event, String, String)
+
     /// when there is an profile to be sent to klaviyo it's added to the queue
     case enqueueProfile(Profile)
 
@@ -147,7 +150,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .enqueueGeofenceEvent, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -472,7 +475,76 @@ struct KlaviyoReducer: ReducerProtocol {
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []
             return .none
+        case var .enqueueGeofenceEvent(event, apiKey, anonymousId):
+            // If SDK is not initialized, send directly without queue
+            guard case .initialized = state.initalizationState else {
+                let payload = CreateEventPayload(
+                    data: CreateEventPayload.Event(
+                        name: event.metric.name.value,
+                        properties: event.properties,
+                        email: event.identifiers?.email,
+                        phoneNumber: event.identifiers?.phoneNumber,
+                        externalId: event.identifiers?.externalId,
+                        anonymousId: anonymousId,
+                        value: event.value,
+                        time: event.time,
+                        uniqueId: event.uniqueId,
+                        pushToken: nil
+                    ))
 
+                let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+                let request = KlaviyoRequest(endpoint: endpoint)
+
+                // Send directly using the API and publish event
+                return .merge([
+                    .run { _ in
+                        do {
+                            let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1) // have to manually configure retry logic here
+                            let result = await environment.klaviyoAPI.send(request, attemptInfo)
+
+                            switch result {
+                            case let .failure(error):
+                                environment.logger.error("Failed to send geofence event directly: \(error.localizedDescription)")
+                            default:
+                                break
+                            }
+                        } catch {
+                            environment.logger.error("Error creating request attempt info: \(error.localizedDescription)")
+                        }
+                    },
+                    .fireAndForget { KlaviyoInternal.publishEvent(event) }
+                ])
+            }
+
+            // Verify API key matches (if SDK was already initialized)
+            if state.apiKey != apiKey {
+                return .none
+            }
+
+            event = event.updateEventWithState(state: &state)
+
+            let payload = CreateEventPayload(
+                data: CreateEventPayload.Event(
+                    name: event.metric.name.value,
+                    properties: event.properties,
+                    email: event.identifiers?.email,
+                    phoneNumber: event.identifiers?.phoneNumber,
+                    externalId: event.identifiers?.externalId,
+                    anonymousId: anonymousId,
+                    value: event.value,
+                    time: event.time,
+                    uniqueId: event.uniqueId,
+                    pushToken: state.pushTokenData?.pushToken
+                ))
+
+            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint)
+
+            state.queue.insert(request, at: 0)
+            return .merge([
+                EffectTask<KlaviyoAction>.task { .flushQueue },
+                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+            ])
         case var .enqueueEvent(event):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey,
