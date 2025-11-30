@@ -218,6 +218,17 @@ struct KlaviyoReducer: ReducerProtocol {
             state = initialState
             state.initalizationState = .initialized
 
+            // Save profile data on initialization completion
+            // This ensures profile is available for feature modules immediately
+            let profileData = ProfileDataStore(
+                apiKey: state.apiKey,
+                anonymousId: state.anonymousId,
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId
+            )
+            ProfileDataStore.save(profileData)
+
             state.pendingRequests = []
 
             return .run { send in

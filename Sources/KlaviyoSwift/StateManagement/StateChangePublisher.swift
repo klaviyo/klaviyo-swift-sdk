@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 import UIKit
 
 @_spi(KlaviyoPrivate)
@@ -29,7 +30,21 @@ public struct StateChangePublisher {
     var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
         debouncedPublisher(createStatePublisher())
             .flatMap { state -> Empty<KlaviyoAction, Never> in
+                // Save full state to disk
                 saveKlaviyoState(state: state)
+
+                // Also save profile data to separate store (dual-write)
+                // This allows feature modules (KlaviyoLocation) to access profile
+                // without depending on KlaviyoSwift's state management
+                let profileData = ProfileDataStore(
+                    apiKey: state.apiKey,
+                    anonymousId: state.anonymousId,
+                    email: state.email,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId
+                )
+                ProfileDataStore.save(profileData)
+
                 return Empty<KlaviyoAction, Never>()
             }
             .eraseToAnyPublisher()
