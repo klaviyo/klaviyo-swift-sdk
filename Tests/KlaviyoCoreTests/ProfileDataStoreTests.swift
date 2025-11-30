@@ -2,7 +2,7 @@
 //  ProfileDataStoreTests.swift
 //  KlaviyoCoreTests
 //
-//  Created by Claude Code on 11/28/24.
+//  Created by Ajay Subramanya on 11/30/25.
 //
 
 import XCTest
