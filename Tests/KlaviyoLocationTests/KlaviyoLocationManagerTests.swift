@@ -21,6 +21,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
     var mockAuthorizationStatus: CLAuthorizationStatus = .authorizedAlways
 
     var mockApiKeyPublisher: PassthroughSubject<String?, Never>!
+    var mockLifecycleEvents: PassthroughSubject<LifeCycleEvents, Never>!
     var cancellables: Set<AnyCancellable> = []
 
     override func setUp() {
@@ -28,9 +29,13 @@ final class KlaviyoLocationManagerTests: XCTestCase {
 
         mockLocationManager = MockLocationManager()
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
+        mockLifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
 
         // Set up environment with mock authorization status BEFORE creating location manager
         environment = createMockEnvironment()
+        environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
+            self.mockLifecycleEvents.eraseToAnyPublisher()
+        })
 
         // Set up state publisher BEFORE creating location manager
         let initialState = KlaviyoState(queue: [])
@@ -56,8 +61,10 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         locationManager = nil
         mockLocationManager = nil
         mockApiKeyPublisher = nil
+        mockLifecycleEvents = nil
         cancellables.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
+        UserDefaults.standard.removeObject(forKey: "klaviyo_dwell_timers")
 
         super.tearDown()
     }
@@ -137,6 +144,73 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
                        "syncGeofences should be called once after foreground")
     }
+
+    // MARK: - Dwell Timer Lifecycle Tests
+
+    func test_foregroundEvent_callsCheckForExpiredDwellTimers() async {
+        // GIVEN
+        mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
+        locationManager.reset()
+
+        // WHEN - Send foreground event
+        mockLifecycleEvents.send(.foregrounded)
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+
+        // THEN - checkForExpiredDwellTimers should be called
+        XCTAssertGreaterThan(locationManager.checkForExpiredDwellTimersCallCount, 0,
+                             "checkForExpiredDwellTimers should be called on foreground event")
+    }
+
+    func test_backgroundEvent_callsCheckForExpiredDwellTimers() async {
+        // GIVEN
+        mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
+        locationManager.reset()
+
+        // WHEN - Send background event
+        mockLifecycleEvents.send(.backgrounded)
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+
+        // THEN - checkForExpiredDwellTimers should be called
+        XCTAssertGreaterThan(locationManager.checkForExpiredDwellTimersCallCount, 0,
+                             "checkForExpiredDwellTimers should be called on background event")
+    }
+
+    func test_foregroundEvent_processesExpiredTimers() async {
+        // GIVEN - Set up expired timer in persistence
+        let geofenceId = "test-geofence-1"
+        let baseTime: TimeInterval = 1_700_000_000
+        let startTime = baseTime - 70.0 // Started 70 seconds ago
+        let duration = 60 // 60 second duration (expired)
+
+        // Set up mock date
+        let mockDate = Date(timeIntervalSince1970: baseTime)
+        environment.date = { mockDate }
+
+        // Save expired timer
+        locationManager.dwellTimerTracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration)
+
+        // Verify timer exists before
+        let expiredBefore = locationManager.dwellTimerTracker.getExpiredTimers(activeTimerIds: [])
+        XCTAssertEqual(expiredBefore.count, 1, "Should have one expired timer before foreground")
+
+        mockAuthorizationStatus = .authorizedAlways
+        await locationManager.startGeofenceMonitoring()
+        locationManager.reset()
+
+        // WHEN - Send foreground event
+        mockLifecycleEvents.send(.foregrounded)
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+
+        // THEN - checkForExpiredDwellTimers should be called and timer should be processed
+        XCTAssertGreaterThan(locationManager.checkForExpiredDwellTimersCallCount, 0,
+                             "checkForExpiredDwellTimers should be called on foreground event")
+
+        // Verify timer was removed after processing
+        let expiredAfter = locationManager.dwellTimerTracker.getExpiredTimers(activeTimerIds: [])
+        XCTAssertEqual(expiredAfter.count, 0, "Expired timer should be removed after processing")
+    }
 }
 
 // MARK: - Mock Classes
@@ -172,6 +246,8 @@ private final class MockLocationManager: LocationManagerProtocol {
 private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
     var syncGeofencesCallCount: Int = 0
     var stopGeofenceMonitoringCallCount: Int = 0
+    var checkForExpiredDwellTimersCallCount: Int = 0
+
     var wasSyncGeofencesCalled: Bool {
         syncGeofencesCallCount > 0
     }
@@ -195,8 +271,15 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
         await super.stopGeofenceMonitoring()
     }
 
+    @MainActor
+    override func checkForExpiredDwellTimers() {
+        checkForExpiredDwellTimersCallCount += 1
+        super.checkForExpiredDwellTimers()
+    }
+
     func reset() {
         syncGeofencesCallCount = 0
         stopGeofenceMonitoringCallCount = 0
+        checkForExpiredDwellTimersCallCount = 0
     }
 }
