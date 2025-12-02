@@ -124,6 +124,7 @@ class KlaviyoLocationManager: NSObject {
             timer.invalidate()
         }
         currentDwellTimers.removeAll()
+        dwellTimerTracker.clearAllTimers()
     }
 
     // MARK: - API Key Observation

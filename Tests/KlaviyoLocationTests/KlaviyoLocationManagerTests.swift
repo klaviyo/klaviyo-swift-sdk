@@ -192,7 +192,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         locationManager.dwellTimerTracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration)
 
         // Verify timer exists before
-        let expiredBefore = locationManager.dwellTimerTracker.getExpiredTimers(activeTimerIds: [])
+        let expiredBefore = locationManager.dwellTimerTracker.getExpiredTimers()
         XCTAssertEqual(expiredBefore.count, 1, "Should have one expired timer before foreground")
 
         mockAuthorizationStatus = .authorizedAlways
@@ -208,7 +208,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
                              "checkForExpiredDwellTimers should be called on foreground event")
 
         // Verify timer was removed after processing
-        let expiredAfter = locationManager.dwellTimerTracker.getExpiredTimers(activeTimerIds: [])
+        let expiredAfter = locationManager.dwellTimerTracker.getExpiredTimers()
         XCTAssertEqual(expiredAfter.count, 0, "Expired timer should be removed after processing")
     }
 }

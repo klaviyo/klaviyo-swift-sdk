@@ -52,6 +52,12 @@ class DwellTimerTracker {
         UserDefaults.standard.set(data, forKey: Self.dwellTimersKey)
     }
 
+    /// Clear all persisted dwell timer data from UserDefaults
+    /// Called when geofence monitoring is stopped to prevent stale events
+    func clearAllTimers() {
+        UserDefaults.standard.removeObject(forKey: Self.dwellTimersKey)
+    }
+
     /// Load all persisted dwell timers from UserDefaults
     ///
     /// - Returns: Dictionary mapping geofence IDs to their timer data
@@ -63,41 +69,27 @@ class DwellTimerTracker {
         return timerMap
     }
 
-    /// Check for expired timers and returns them
+    /// Check for expired timers, remove them from persistence, and return them
     ///
-    /// - Parameter activeTimerIds: Set of geofence IDs that currently have active in-memory timers
     /// - Returns: Array of expired timer information (geofence ID and duration)
-    func getExpiredTimers(activeTimerIds: Set<String>) -> [(geofenceId: String, duration: Int)] {
+    func getExpiredTimers() -> [(geofenceId: String, duration: Int)] {
         let timerMap = loadTimers()
         guard !timerMap.isEmpty else { return [] }
 
         let currentTime = environment.date().timeIntervalSince1970
         var expiredTimers: [(geofenceId: String, duration: Int)] = []
-        var timersToRemove: [String] = []
 
         for (geofenceId, timerData) in timerMap {
-            // If timer exists in memory, it's already active - remove from persistence to avoid duplication
-            if activeTimerIds.contains(geofenceId) {
-                timersToRemove.append(geofenceId)
-                continue
-            }
-
-            let age = currentTime - timerData.startTime
-
             // Check if timer expired (elapsed >= duration)
-            if age >= TimeInterval(timerData.duration) {
-                timersToRemove.append(geofenceId)
+            if currentTime - timerData.startTime >= TimeInterval(timerData.duration) {
                 expiredTimers.append((geofenceId: geofenceId, duration: timerData.duration))
+                // Remove expired timer from persistence
+                removeTimer(geofenceId: geofenceId)
 
                 if #available(iOS 14.0, *) {
                     Logger.geoservices.info("🕐 Found expired dwell timer for region \(geofenceId) (expired while app was terminated)")
                 }
             }
-        }
-
-        // Clean up all timers that need to be removed
-        for geofenceId in timersToRemove {
-            removeTimer(geofenceId: geofenceId)
         }
 
         return expiredTimers

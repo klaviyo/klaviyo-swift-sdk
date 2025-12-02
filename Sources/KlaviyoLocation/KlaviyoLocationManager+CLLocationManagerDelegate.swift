@@ -175,7 +175,7 @@ extension KlaviyoLocationManager {
     @MainActor
     @objc
     func checkForExpiredDwellTimers() {
-        let expiredTimers = dwellTimerTracker.getExpiredTimers(activeTimerIds: Set(currentDwellTimers.keys))
+        let expiredTimers = dwellTimerTracker.getExpiredTimers()
 
         // Fire dwell events for expired timers
         for (geofenceId, duration) in expiredTimers {
