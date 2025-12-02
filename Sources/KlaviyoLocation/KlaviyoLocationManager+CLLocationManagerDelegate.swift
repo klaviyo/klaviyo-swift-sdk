@@ -105,9 +105,9 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
     }
 }
 
-extension KlaviyoLocationManager {
-    // MARK: Dwell Timer Management
+// MARK: Dwell Timer Management
 
+extension KlaviyoLocationManager {
     private func startDwellTimer(for klaviyoLocationId: String) {
         cancelDwellTimer(for: klaviyoLocationId)
         guard let dwellSeconds = geofenceDwellSettings[klaviyoLocationId] else {
@@ -164,6 +164,34 @@ extension KlaviyoLocationManager {
 
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("🕐 Dwell event fired for region \(klaviyoLocationId)")
+        }
+    }
+
+    /// Check for expired timers and fire dwell events for them
+    /// Called on app launch/foreground as a best-effort recovery mechanism
+    @MainActor
+    func checkExpiredDwellTimers() {
+        let expiredTimers = dwellTimerTracker.checkExpiredTimers(activeTimerIds: Set(dwellTimers.keys))
+
+        // Fire dwell events for expired timers
+        for (geofenceId, duration) in expiredTimers {
+            let dwellEvent = Event(
+                name: .locationEvent(.geofenceDwell),
+                properties: [
+                    "$geofence_id": geofenceId,
+                    "$geofence_dwell_duration": duration
+                ]
+            )
+
+            Task {
+                await MainActor.run {
+                    KlaviyoInternal.create(event: dwellEvent)
+                }
+            }
+
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.info("🕐 Fired expired dwell event for region \(geofenceId) (expired while app was terminated)")
+            }
         }
     }
 }
