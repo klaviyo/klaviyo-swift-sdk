@@ -177,6 +177,9 @@ class KlaviyoLocationManager: NSObject {
                     self.locationManager.startMonitoringSignificantLocationChanges()
                 case .foregrounded, .backgrounded:
                     self.locationManager.stopMonitoringSignificantLocationChanges()
+                    Task { @MainActor in
+                        await self.checkExpiredDwellTimers()
+                    }
                 default:
                     break
                 }

@@ -69,6 +69,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @MainActor
     private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) async {
+        await checkExpiredDwellTimers()
         guard let region = region as? CLCircularRegion,
               let klaviyoGeofence = try? region.toKlaviyoGeofence(),
               !klaviyoGeofence.companyId.isEmpty else {
