@@ -28,20 +28,64 @@ struct GeofenceService: GeofenceServiceProvider {
     }
 
     private func fetchGeofenceData(apiKey: String) async throws -> Data {
-        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
-        let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
-        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
-        let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+        // MARK: - Mock JSON Response (Real fetch code commented out below)
 
-        switch result {
-        case let .success(data):
-            return data
-        case let .failure(error):
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Failed to fetch geofences; error: \(error, privacy: .public)")
-            }
-            throw error
+        let mockJSONString = """
+        {
+            "data": [
+                {
+                    "type": "geofence",
+                    "id": "geofence-1",
+                    "attributes": {
+                        "latitude": 37.7749,
+                        "longitude": -122.4194,
+                        "radius": 100.0,
+                        "duration": 60
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "geofence-2",
+                    "attributes": {
+                        "latitude": 40.7128,
+                        "longitude": -74.0060,
+                        "radius": 150.0,
+                        "duration": 120
+                    }
+                },
+                {
+                    "type": "geofence",
+                    "id": "geofence-3",
+                    "attributes": {
+                        "latitude": 34.0522,
+                        "longitude": -118.2437,
+                        "radius": 200.0,
+                        "duration": null
+                    }
+                }
+            ]
         }
+        """
+        return mockJSONString.data(using: .utf8)!
+
+        // MARK: - Real fetch code (commented out for testing)
+
+        /*
+         let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+         let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
+         let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
+         let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
+
+         switch result {
+         case let .success(data):
+             return data
+         case let .failure(error):
+             if #available(iOS 14.0, *) {
+                 Logger.geoservices.error("Failed to fetch geofences; error: \(error, privacy: .public)")
+             }
+             throw error
+         }
+         */
     }
 
     func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
