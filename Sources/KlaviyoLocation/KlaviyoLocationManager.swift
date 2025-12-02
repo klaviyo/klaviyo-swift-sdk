@@ -19,6 +19,7 @@ class KlaviyoLocationManager: NSObject {
     private var apiKeyCancellable: AnyCancellable?
     private var lifecycleCancellable: AnyCancellable?
     internal let cooldownTracker = GeofenceCooldownTracker()
+    internal let dwellTimerTracker = DwellTimerTracker()
 
     var geofenceDwellSettings: [String: Int] = [:]
     var dwellTimers: [String: Timer] = [:]
