@@ -21,8 +21,8 @@ class KlaviyoLocationManager: NSObject {
     internal let cooldownTracker = GeofenceCooldownTracker()
     internal let dwellTimerTracker = DwellTimerTracker()
 
-    var geofenceDwellSettings: [String: Int] = [:]
-    var dwellTimers: [String: Timer] = [:]
+    var activeGeofenceDurations: [String: Int] = [:]
+    var currentDwellTimers: [String: Timer] = [:]
 
     init(locationManager: LocationManagerProtocol? = nil) {
         self.locationManager = locationManager ?? CLLocationManager()
@@ -119,11 +119,11 @@ class KlaviyoLocationManager: NSObject {
         }
 
         klaviyoRegions.forEach(locationManager.stopMonitoring)
-        for timer in dwellTimers.values {
+        activeGeofenceDurations.removeAll()
+        for timer in currentDwellTimers.values {
             timer.invalidate()
         }
-        dwellTimers.removeAll()
-        geofenceDwellSettings.removeAll()
+        currentDwellTimers.removeAll()
     }
 
     // MARK: - API Key Observation
@@ -151,13 +151,6 @@ class KlaviyoLocationManager: NSObject {
             }
     }
 
-    private func updateDwellSettings(_ geofences: Set<Geofence>) {
-        geofenceDwellSettings.removeAll()
-        for geofence in geofences {
-            geofenceDwellSettings[geofence.locationId] = geofence.duration
-        }
-    }
-
     private func stopObservingAPIKeyChanges() {
         apiKeyCancellable?.cancel()
         apiKeyCancellable = nil
@@ -178,7 +171,7 @@ class KlaviyoLocationManager: NSObject {
                 case .foregrounded, .backgrounded:
                     self.locationManager.stopMonitoringSignificantLocationChanges()
                     Task { @MainActor in
-                        await self.checkExpiredDwellTimers()
+                        self.checkForExpiredDwellTimers()
                     }
                 default:
                     break
@@ -189,5 +182,14 @@ class KlaviyoLocationManager: NSObject {
     private func stopObservingAppLifecycle() {
         lifecycleCancellable?.cancel()
         lifecycleCancellable = nil
+    }
+
+    // MARK: - Dwell Settings Management
+
+    private func updateDwellSettings(_ geofences: Set<Geofence>) {
+        activeGeofenceDurations.removeAll()
+        for geofence in geofences {
+            activeGeofenceDurations[geofence.locationId] = geofence.duration
+        }
     }
 }

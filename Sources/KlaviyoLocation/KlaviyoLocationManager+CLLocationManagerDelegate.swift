@@ -69,7 +69,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     @MainActor
     private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) async {
-        await checkExpiredDwellTimers()
+        checkForExpiredDwellTimers()
         guard let region = region as? CLCircularRegion,
               let klaviyoGeofence = try? region.toKlaviyoGeofence(),
               !klaviyoGeofence.companyId.isEmpty else {
@@ -111,17 +111,14 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 extension KlaviyoLocationManager {
     private func startDwellTimer(for klaviyoLocationId: String) {
         cancelDwellTimer(for: klaviyoLocationId)
-        guard let dwellSeconds = geofenceDwellSettings[klaviyoLocationId] else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.log("Dwell settings have not been specified for region \(klaviyoLocationId). Aborting dwell timer creation.")
-            }
+        guard let dwellSeconds = activeGeofenceDurations[klaviyoLocationId] else {
             return
         }
 
         let timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(dwellSeconds), repeats: false) { [weak self] _ in
             self?.handleDwellTimerFired(for: klaviyoLocationId)
         }
-        dwellTimers[klaviyoLocationId] = timer
+        currentDwellTimers[klaviyoLocationId] = timer
 
         // Persist timer start time and duration for recovery if app terminates
         dwellTimerTracker.saveTimer(geofenceId: klaviyoLocationId, startTime: environment.date().timeIntervalSince1970, duration: dwellSeconds)
@@ -132,26 +129,25 @@ extension KlaviyoLocationManager {
     }
 
     private func cancelDwellTimer(for klaviyoLocationId: String) {
-        if let timer = dwellTimers[klaviyoLocationId] {
+        // remove tracking it from the persisted tracker
+        dwellTimerTracker.removeTimer(geofenceId: klaviyoLocationId)
+
+        if let timer = currentDwellTimers[klaviyoLocationId] {
             timer.invalidate()
-            dwellTimers.removeValue(forKey: klaviyoLocationId)
+            currentDwellTimers.removeValue(forKey: klaviyoLocationId)
 
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("🕐 Cancelled dwell timer for region \(klaviyoLocationId)")
             }
-        } else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.info("🕐 Attempted to cancel dwell timer for region \(klaviyoLocationId, privacy: .public), but no dwell timer was found for that region")
-            }
         }
-
-        dwellTimerTracker.removeTimer(geofenceId: klaviyoLocationId)
     }
 
     private func handleDwellTimerFired(for klaviyoLocationId: String) {
-        dwellTimers.removeValue(forKey: klaviyoLocationId)
+        // remove tracking in both memory and persisted tracker since it fired
+        currentDwellTimers.removeValue(forKey: klaviyoLocationId)
         dwellTimerTracker.removeTimer(geofenceId: klaviyoLocationId)
-        guard let dwellDuration = geofenceDwellSettings[klaviyoLocationId] else {
+
+        guard let dwellDuration = activeGeofenceDurations[klaviyoLocationId] else {
             return
         }
 
@@ -177,8 +173,8 @@ extension KlaviyoLocationManager {
     /// Check for expired timers and fire dwell events for them
     /// Called on app launch/foreground as a best-effort recovery mechanism
     @MainActor
-    func checkExpiredDwellTimers() {
-        let expiredTimers = dwellTimerTracker.checkExpiredTimers(activeTimerIds: Set(dwellTimers.keys))
+    func checkForExpiredDwellTimers() {
+        let expiredTimers = dwellTimerTracker.getExpiredTimers(activeTimerIds: Set(currentDwellTimers.keys))
 
         // Fire dwell events for expired timers
         for (geofenceId, duration) in expiredTimers {

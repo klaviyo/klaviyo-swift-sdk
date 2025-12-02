@@ -63,11 +63,11 @@ class DwellTimerTracker {
         return timerMap
     }
 
-    /// Check for expired timers and return information about them
+    /// Check for expired timers and returns them
     ///
     /// - Parameter activeTimerIds: Set of geofence IDs that currently have active in-memory timers
     /// - Returns: Array of expired timer information (geofence ID and duration)
-    func checkExpiredTimers(activeTimerIds: Set<String>) -> [(geofenceId: String, duration: Int)] {
+    func getExpiredTimers(activeTimerIds: Set<String>) -> [(geofenceId: String, duration: Int)] {
         let timerMap = loadTimers()
         guard !timerMap.isEmpty else { return [] }
 
