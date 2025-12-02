@@ -122,6 +122,9 @@ extension KlaviyoLocationManager {
         }
         dwellTimers[klaviyoLocationId] = timer
 
+        // Persist timer start time and duration for recovery if app terminates
+        dwellTimerTracker.saveTimer(geofenceId: klaviyoLocationId, startTime: environment.date().timeIntervalSince1970, duration: dwellSeconds)
+
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("🕐 Started dwell timer for region \(klaviyoLocationId) with \(dwellSeconds) seconds")
         }
@@ -140,10 +143,13 @@ extension KlaviyoLocationManager {
                 Logger.geoservices.info("🕐 Attempted to cancel dwell timer for region \(klaviyoLocationId, privacy: .public), but no dwell timer was found for that region")
             }
         }
+
+        dwellTimerTracker.removeTimer(geofenceId: klaviyoLocationId)
     }
 
     private func handleDwellTimerFired(for klaviyoLocationId: String) {
         dwellTimers.removeValue(forKey: klaviyoLocationId)
+        dwellTimerTracker.removeTimer(geofenceId: klaviyoLocationId)
         guard let dwellDuration = geofenceDwellSettings[klaviyoLocationId] else {
             return
         }
