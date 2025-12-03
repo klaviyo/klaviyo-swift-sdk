@@ -177,6 +177,12 @@ extension KlaviyoLocationManager {
 
         // Fire dwell events for expired timers
         for (geofenceId, duration, companyId) in expiredTimers {
+            // Invalidate any corresponding in-memory timer to prevent duplicate events
+            if let timer = currentDwellTimers[geofenceId] {
+                timer.invalidate()
+                currentDwellTimers.removeValue(forKey: geofenceId)
+            }
+
             let dwellEvent = Event(
                 name: .locationEvent(.geofenceDwell),
                 properties: [
