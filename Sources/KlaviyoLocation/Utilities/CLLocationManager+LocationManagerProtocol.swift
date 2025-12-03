@@ -10,6 +10,7 @@ import CoreLocation
 // MARK: - Location Manager Protocol
 
 protocol LocationManagerProtocol {
+    var location: CLLocation? { get }
     var delegate: CLLocationManagerDelegate? { get set }
     var allowsBackgroundLocationUpdates: Bool { get set }
     var currentAuthorizationStatus: CLAuthorizationStatus { get }

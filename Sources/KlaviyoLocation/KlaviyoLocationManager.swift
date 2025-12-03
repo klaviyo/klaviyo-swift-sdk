@@ -62,7 +62,15 @@ class KlaviyoLocationManager: NSObject {
             }
             return
         }
-        let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey)
+
+        guard let location = locationManager.location else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("Unable to get current location, skipping geofence refresh")
+            }
+            return
+        }
+
+        let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey, latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
