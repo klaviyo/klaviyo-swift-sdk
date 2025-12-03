@@ -15,6 +15,7 @@ final class DwellTimerTrackerTests: XCTestCase {
     var tracker: DwellTimerTracker!
     var mockDate: Date!
     let baseTime: TimeInterval = 1_700_000_000 // Fixed base time for testing
+    let testCompanyId = "test-company-id"
 
     override func setUp() {
         super.setUp()
@@ -56,7 +57,7 @@ final class DwellTimerTrackerTests: XCTestCase {
         let duration = 60
 
         // WHEN
-        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration, companyId: testCompanyId)
 
         // THEN - Timer should be persisted
         let expiredTimers = tracker.getExpiredTimers()
@@ -66,7 +67,7 @@ final class DwellTimerTrackerTests: XCTestCase {
     func test_removeTimer_removesPersistedData() {
         // GIVEN - Save a timer
         let geofenceId = "test-geofence-1"
-        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Remove the timer
         tracker.removeTimer(geofenceId: geofenceId)
@@ -79,10 +80,10 @@ final class DwellTimerTrackerTests: XCTestCase {
     func test_saveTimer_overwritesExistingTimer() {
         // GIVEN - Save a timer with initial duration
         let geofenceId = "test-geofence-1"
-        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Save again with different duration
-        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 120)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime, duration: 120, companyId: testCompanyId)
 
         // THEN - Should have the new duration
         // Advance time by 70 seconds (more than 60, less than 120)
@@ -97,7 +98,7 @@ final class DwellTimerTrackerTests: XCTestCase {
         // GIVEN - Save a timer that started 70 seconds ago with 60 second duration
         let geofenceId = "test-geofence-1"
         let startTime = baseTime - 70.0
-        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers (current time is baseTime, 70s later)
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -107,13 +108,14 @@ final class DwellTimerTrackerTests: XCTestCase {
         XCTAssertEqual(expiredTimers.count, 1, "Should find one expired timer")
         XCTAssertEqual(expiredTimers[0].geofenceId, geofenceId, "Expired timer should match geofence ID")
         XCTAssertEqual(expiredTimers[0].duration, 60, "Expired timer should have correct duration")
+        XCTAssertEqual(expiredTimers[0].companyId, testCompanyId, "Expired timer should have correct company ID")
     }
 
     func test_getExpiredTimers_returnsEmptyWhenNoExpiredTimers() {
         // GIVEN - Save a timer that started 30 seconds ago with 60 second duration
         let geofenceId = "test-geofence-1"
         let startTime = baseTime - 30.0
-        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers (current time is baseTime, only 30s later)
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -127,7 +129,7 @@ final class DwellTimerTrackerTests: XCTestCase {
         // GIVEN - Save a timer that started exactly 60 seconds ago with 60 second duration
         let geofenceId = "test-geofence-1"
         let startTime = baseTime - 60.0
-        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers (current time is baseTime, exactly 60s later)
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -143,9 +145,9 @@ final class DwellTimerTrackerTests: XCTestCase {
         let geofence2 = "geofence-2" // Not expired (started 30s ago, 60s duration)
         let geofence3 = "geofence-3" // Expired (started 120s ago, 90s duration)
 
-        tracker.saveTimer(geofenceId: geofence1, startTime: baseTime - 70.0, duration: 60)
-        tracker.saveTimer(geofenceId: geofence2, startTime: baseTime - 30.0, duration: 60)
-        tracker.saveTimer(geofenceId: geofence3, startTime: baseTime - 120.0, duration: 90)
+        tracker.saveTimer(geofenceId: geofence1, startTime: baseTime - 70.0, duration: 60, companyId: testCompanyId)
+        tracker.saveTimer(geofenceId: geofence2, startTime: baseTime - 30.0, duration: 60, companyId: testCompanyId)
+        tracker.saveTimer(geofenceId: geofence3, startTime: baseTime - 120.0, duration: 90, companyId: testCompanyId)
 
         // WHEN - Check for expired timers
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -164,7 +166,7 @@ final class DwellTimerTrackerTests: XCTestCase {
     func test_getExpiredTimers_doesNotRemoveActiveTimersFromPersistence() {
         // GIVEN - Save a timer that's not expired yet
         let geofenceId = "test-geofence-1"
-        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime - 30.0, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime - 30.0, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers (timer is not expired, so won't be returned)
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -191,8 +193,8 @@ final class DwellTimerTrackerTests: XCTestCase {
         let geofence1 = "geofence-1"
         let geofence2 = "geofence-2"
 
-        tracker.saveTimer(geofenceId: geofence1, startTime: baseTime - 70.0, duration: 60)
-        tracker.saveTimer(geofenceId: geofence2, startTime: baseTime - 70.0, duration: 60)
+        tracker.saveTimer(geofenceId: geofence1, startTime: baseTime - 70.0, duration: 60, companyId: testCompanyId)
+        tracker.saveTimer(geofenceId: geofence2, startTime: baseTime - 70.0, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -210,7 +212,7 @@ final class DwellTimerTrackerTests: XCTestCase {
     func test_getExpiredTimers_removesExpiredTimersFromPersistence() {
         // GIVEN - Save an expired timer
         let geofenceId = "test-geofence-1"
-        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime - 70.0, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: baseTime - 70.0, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check for expired timers
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -237,7 +239,7 @@ final class DwellTimerTrackerTests: XCTestCase {
         // GIVEN - Save a timer
         let geofenceId = "test-geofence-1"
         let startTime = baseTime
-        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60)
+        tracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: 60, companyId: testCompanyId)
 
         // WHEN - Check immediately (should not be expired)
         mockDate = Date(timeIntervalSince1970: baseTime)
@@ -255,6 +257,7 @@ final class DwellTimerTrackerTests: XCTestCase {
         XCTAssertEqual(expiredTimers.count, 1, "Timer should be expired after 60 seconds")
         XCTAssertEqual(expiredTimers[0].geofenceId, geofenceId, "Expired timer should match")
         XCTAssertEqual(expiredTimers[0].duration, 60, "Expired timer should have correct duration")
+        XCTAssertEqual(expiredTimers[0].companyId, testCompanyId, "Expired timer should have correct company ID")
 
         // WHEN - Check again (should be removed)
         expiredTimers = tracker.getExpiredTimers()

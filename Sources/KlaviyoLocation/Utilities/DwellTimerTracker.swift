@@ -21,6 +21,7 @@ class DwellTimerTracker {
     private struct DwellTimerData: Codable {
         let startTime: TimeInterval
         let duration: Int
+        let companyId: String
     }
 
     /// Save dwell timer data to UserDefaults
@@ -29,9 +30,10 @@ class DwellTimerTracker {
     ///   - geofenceId: The geofence location ID
     ///   - startTime: The timestamp when the timer started
     ///   - duration: The duration of the timer in seconds
-    func saveTimer(geofenceId: String, startTime: TimeInterval, duration: Int) {
+    ///   - companyId: The company ID associated with this geofence
+    func saveTimer(geofenceId: String, startTime: TimeInterval, duration: Int, companyId: String) {
         var timerMap = loadTimers()
-        timerMap[geofenceId] = DwellTimerData(startTime: startTime, duration: duration)
+        timerMap[geofenceId] = DwellTimerData(startTime: startTime, duration: duration, companyId: companyId)
 
         guard let data = try? JSONEncoder().encode(timerMap) else {
             return
@@ -71,18 +73,18 @@ class DwellTimerTracker {
 
     /// Check for expired timers, remove them from persistence, and return them
     ///
-    /// - Returns: Array of expired timer information (geofence ID and duration)
-    func getExpiredTimers() -> [(geofenceId: String, duration: Int)] {
+    /// - Returns: Array of expired timer information (geofence ID, duration, and company ID)
+    func getExpiredTimers() -> [(geofenceId: String, duration: Int, companyId: String)] {
         let timerMap = loadTimers()
         guard !timerMap.isEmpty else { return [] }
 
         let currentTime = environment.date().timeIntervalSince1970
-        var expiredTimers: [(geofenceId: String, duration: Int)] = []
+        var expiredTimers: [(geofenceId: String, duration: Int, companyId: String)] = []
 
         for (geofenceId, timerData) in timerMap {
             // Check if timer expired (elapsed >= duration)
             if currentTime - timerData.startTime >= TimeInterval(timerData.duration) {
-                expiredTimers.append((geofenceId: geofenceId, duration: timerData.duration))
+                expiredTimers.append((geofenceId: geofenceId, duration: timerData.duration, companyId: timerData.companyId))
                 // Remove expired timer from persistence
                 removeTimer(geofenceId: geofenceId)
 

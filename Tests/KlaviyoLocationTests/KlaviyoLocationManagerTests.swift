@@ -189,7 +189,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         environment.date = { mockDate }
 
         // Save expired timer
-        locationManager.dwellTimerTracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration)
+        locationManager.dwellTimerTracker.saveTimer(geofenceId: geofenceId, startTime: startTime, duration: duration, companyId: "test-company-id")
 
         // Verify timer exists before
         let expiredBefore = locationManager.dwellTimerTracker.getExpiredTimers()
