@@ -29,18 +29,31 @@ final class IAFPresentationManagerTests: XCTestCase {
 
     private func isRunningInCI() -> Bool {
         let env = ProcessInfo.processInfo.environment
+
+        // List of common CI environment variables to check
         let ciVariables = [
             "TEST_RUNNER_GITHUB_CI",
             "GITHUB_ACTIONS",
             "GITHUB_CI",
             "CI"
         ]
+
+        // Check each variable - consider it CI if the variable exists and has a truthy value
         for variable in ciVariables {
-            if env[variable] == "true" {
-                print("CI detected via environment variable: \(variable)")
-                return true
+            if let value = env[variable], !value.isEmpty {
+                let isTruthy = value.lowercased() == "true" || value == "1" || value.lowercased() == "yes"
+                if isTruthy {
+                    return true
+                }
             }
         }
+
+        // Additional check: GITHUB_ACTIONS is always present in GitHub Actions
+        // If we're in GitHub Actions, we're definitely in CI
+        if env["GITHUB_ACTIONS"] != nil {
+            return true
+        }
+
         return false
     }
 
@@ -126,17 +139,17 @@ final class IAFPresentationManagerTests: XCTestCase {
     @MainActor
     func testBackgroundForegroundLifecycleEventsInjected() async throws {
         // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test.
-        throw XCTSkip("Skipping test due to flakiness in CI environment")
+        // running a WKWebView in a CI test environment. Skip this test when running in CI.
+        try XCTSkipIf(isRunningInCI(), "Skipping test in CI environment due to WKWebView instability")
 
         // Given
         let backgroundExpectation = XCTestExpectation(description: "Background event handled")
         let foregroundExpectation = XCTestExpectation(description: "Foreground event handled")
 
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds - increased from 0.1
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds - increased from 0.1
 
         // Setup expectations tracking
         var originalEvaluateCallback = mockViewController.evaluateJavaScriptCallback
@@ -151,10 +164,11 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         // When
         mockLifecycleEvents.send(.backgrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds - small delay between events
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
-        await fulfillment(of: [backgroundExpectation, foregroundExpectation], timeout: 3.0)
+        await fulfillment(of: [backgroundExpectation, foregroundExpectation], timeout: 5.0) // increased timeout from 3.0
         XCTAssertEqual(presentationManager.handledEvents, ["background", "foreground"], "Background and foreground event should be handled")
     }
 
