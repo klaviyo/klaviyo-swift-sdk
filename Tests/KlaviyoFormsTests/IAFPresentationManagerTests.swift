@@ -70,13 +70,6 @@ final class IAFPresentationManagerTests: XCTestCase {
             self.mockLifecycleEvents.eraseToAnyPublisher()
         })
 
-        // this unwrapping prevents a crash that sometimes happens because mockLifecycleEvents is nil
-        if let lifecycleEvents = mockLifecycleEvents {
-            environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
-                lifecycleEvents.eraseToAnyPublisher()
-            })
-        }
-
         let initialState = KlaviyoState(queue: [])
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -93,7 +86,7 @@ final class IAFPresentationManagerTests: XCTestCase {
 
         presentationManager = MockIAFPresentationManager(viewController: mockViewController)
         mockApiKeyPublisher.send("setup-key") // initialize SDK
-        try await Task.sleep(nanoseconds: 1_000_000_000) // wait for initialization to be completed
+        try await Task.sleep(nanoseconds: 200_000_000) // wait for initialization to be completed
     }
 
     override func tearDown() {
@@ -146,12 +139,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         let backgroundExpectation = XCTestExpectation(description: "Background event handled")
         let foregroundExpectation = XCTestExpectation(description: "Foreground event handled")
 
-        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds - increased from 0.1
-        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds - increased from 0.1
-
-        // Setup expectations tracking
+        // Setup expectations tracking BEFORE initialization to avoid race conditions
         var originalEvaluateCallback = mockViewController.evaluateJavaScriptCallback
         mockViewController.evaluateJavaScriptCallback = { script in
             if script.contains("dispatchLifecycleEvent('background')") {
@@ -162,13 +150,18 @@ final class IAFPresentationManagerTests: XCTestCase {
             return originalEvaluateCallback?(script) ?? true
         }
 
+        presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds - wait for webview to be ready
+
         // When
         mockLifecycleEvents.send(.backgrounded)
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds - small delay between events
+        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds - allow time for event processing
         mockLifecycleEvents.send(.foregrounded)
 
         // Then
-        await fulfillment(of: [backgroundExpectation, foregroundExpectation], timeout: 5.0) // increased timeout from 3.0
+        await fulfillment(of: [backgroundExpectation, foregroundExpectation], timeout: 5.0)
         XCTAssertEqual(presentationManager.handledEvents, ["background", "foreground"], "Background and foreground event should be handled")
     }
 
