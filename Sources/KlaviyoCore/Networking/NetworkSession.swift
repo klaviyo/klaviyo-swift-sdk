@@ -12,7 +12,6 @@ public func createEmphemeralSession(protocolClasses: [AnyClass] = URLProtocolOve
     configuration.httpAdditionalHeaders = [
         "Accept-Encoding": NetworkSession.acceptedEncodings,
         "User-Agent": NetworkSession.defaultUserAgent,
-        "revision": NetworkSession.currentApiRevision,
         "content-type": NetworkSession.applicationJson,
         "accept": NetworkSession.applicationJson,
         "X-Klaviyo-Mobile": NetworkSession.mobileHeader
@@ -28,7 +27,6 @@ public struct NetworkSession {
         self.data = data
     }
 
-    fileprivate static let currentApiRevision = "2025-10-15.pre"
     fileprivate static let applicationJson = "application/json"
     fileprivate static let acceptedEncodings = ["br", "gzip", "deflate"]
     fileprivate static let mobileHeader = "1"

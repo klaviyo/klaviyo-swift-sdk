@@ -43,6 +43,7 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     public func urlRequest(attemptInfo: RequestAttemptInfo) throws -> URLRequest {
         var request = try endpoint.urlRequest()
         request.setValue("\(attemptInfo.attemptNumber)/\(attemptInfo.maxAttempts)", forHTTPHeaderField: "X-Klaviyo-Attempt-Count")
+        request.setValue(endpoint.revision, forHTTPHeaderField: "revision")
         return request
     }
 }

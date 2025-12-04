@@ -119,6 +119,15 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         }
     }
 
+    var revision: String {
+        switch self {
+        case .fetchGeofences:
+            return "2025-10-15.pre"
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .resolveDestinationURL, .logTrackingLinkClicked:
+            return "2025-07-15"
+        }
+    }
+
     func body() throws -> Data? {
         switch self {
         case let .createProfile(_, payload):
