@@ -348,19 +348,38 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Rich Push
+#### Rich Push (Images & Videos)
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.  Once the steps
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images and videos to push notification messages.  Once the steps
 in the [Installation](#installation) section are complete, you should have a notification service extension in your
 project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
+
+##### Supported Media Formats
+
+**Images:**
+- PNG
+- JPG/JPEG
+- GIF
+
+**Videos:**
+- MP4
+- MPEG
+
+##### File Size Limits
+
+<!-- TODO: Verify these size limits -->
+- **Images:** 10MB maximum recommended
+- **Videos:** 16MB maximum recommended
 
 ##### Testing rich push notifications
 
 * To test rich push notifications, you will need three things:
   * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
-* A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
+* A push notification payload that resembles what Klaviyo would send to you. See the following examples:
+
+**Image example:**
 
 ```json
 {
@@ -375,9 +394,104 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
   "rich-media-type": "jpg"
 }
 ```
+
+**Video example:**
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "Video Push Notification",
+      "body": "Check out this video content"
+    },
+    "mutable-content": 1
+  },
+  "rich-media": "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
+  "rich-media-type": "mp4"
+}
+```
+
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
 
+>  ℹ️ Note: Video push notifications can be tricky to test in the simulator. For best results, test on a real device.
+
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
+
+##### Detailed Testing Instructions
+
+###### Using Apple Push Notification Console
+
+1. Navigate to the [Apple Push Notification Console](https://developer.apple.com/notifications/push-notifications-console/)
+2. Sign in with your Apple Developer account
+3. Select your app's bundle identifier
+4. Enter your device's push token (obtained from `didRegisterForRemoteNotificationsWithDeviceToken`)
+5. Paste your JSON payload (image or video example from above)
+6. Click "Send notification"
+
+###### Finding Your Device Push Token
+
+To get your device's push token for testing:
+
+1. Open your app's `AppDelegate.swift`
+2. Locate the `didRegisterForRemoteNotificationsWithDeviceToken` method
+3. Add a print statement to log the token:
+
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+    print("Device Push Token: \(tokenString)")
+    // ... rest of your code
+}
+```
+
+4. Run your app on a real device and check the console for the printed token
+
+###### Testing on Real Devices vs Simulator
+
+While image push notifications generally work in both simulators and real devices, **video push notifications can be tricky to test in the simulator**. For reliable testing of video content:
+
+- Always test video notifications on a physical iOS device
+- Ensure the device has a stable internet connection to download the video
+- Verify the video URL is publicly accessible
+
+##### Troubleshooting Rich Push Notifications
+
+###### Common Video Issues
+
+**Video not appearing in notification:**
+- Verify the video format is supported (MP4 or MPEG only)
+- Check that the video file size is under 16MB
+- Ensure the video URL is publicly accessible (not behind authentication)
+- Test on a real device instead of simulator
+- Verify the `mutable-content` flag is set to `1` in your payload
+- Check that the `rich-media-type` matches your video format (e.g., "mp4" for MP4 files)
+
+**Video download timeout:**
+- Reduce video file size - larger videos may timeout during the notification service extension's limited execution time
+- Check network connectivity on the device
+- Verify the video URL responds quickly
+
+###### Common Image Issues
+
+**Image not appearing in notification:**
+- Verify the image format is supported (PNG, JPG/JPEG, or GIF)
+- Check that the image file size is under 10MB
+- Ensure the image URL is publicly accessible
+- Verify the `mutable-content` flag is set to `1` in your payload
+- Check that the `rich-media-type` matches your image format (e.g., "jpg" for JPEG files)
+
+**Image appears pixelated or low quality:**
+- Use higher resolution images (recommended minimum 1024px wide)
+- Avoid over-compressing images
+- Use appropriate image formats (PNG for graphics, JPG for photos)
+
+###### General Debugging Tips
+
+- Check the Xcode console for error messages from the Notification Service Extension
+- Verify your Notification Service Extension is properly configured and targets are set correctly
+- Ensure the `KlaviyoSwiftExtension` is properly integrated in your notification service
+- Test with simple image URLs first before moving to video content
+- Use the Apple Push Notification Console for controlled testing before production
 
 #### Badge Count
 >  ℹ️ Setting or incrementing the badge count is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
