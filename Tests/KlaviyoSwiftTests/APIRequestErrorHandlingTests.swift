@@ -27,7 +27,8 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
+        // Use 400 (client error) which should dequeue without retry
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_RETURN_DATA)) }
 
         _ = await store.send(.sendRequest)
 
@@ -385,6 +386,141 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
+        }
+    }
+
+    // MARK: - 5XX Server Error Retry Tests (CHNL-26495)
+
+    @MainActor
+    func testRetryOn500InternalServerError() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+        }
+    }
+
+    @MainActor
+    func testRetryOn502BadGateway() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+        }
+    }
+
+    @MainActor
+    func testRetryOn503ServiceUnavailable() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+        }
+    }
+
+    @MainActor
+    func testRetryOn504GatewayTimeout() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+        }
+    }
+
+    @MainActor
+    func testRetryOn599EdgeCase5XX() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+        }
+    }
+
+    @MainActor
+    func testRetryOn5XXWithExistingBackoff() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryState = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 1)
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 4)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
+        }
+    }
+
+    @MainActor
+    func testNoRetryOn4XXClientErrors() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // 404 should dequeue without retry (client error, not server error)
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(404, TEST_RETURN_DATA)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.flushing = false
+            $0.requestsInFlight = []
         }
     }
 }
