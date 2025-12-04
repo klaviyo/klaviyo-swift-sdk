@@ -163,16 +163,12 @@ final class IAFPresentationManagerTests: XCTestCase {
 
     @MainActor
     func testForegroundEvent_WithinSession_KeepsViewControllerAlive() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
-
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         presentationManager.destroyWebviewCalled = false
         presentationManager.createFormWebViewAndListenCalled = false
 
@@ -180,6 +176,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
         mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds - allow time for processing
 
         // Then
         XCTAssertFalse(presentationManager.destroyWebviewCalled, "Web view should not be destroyed when foregrounding within session")
@@ -188,16 +185,12 @@ final class IAFPresentationManagerTests: XCTestCase {
 
     @MainActor
     func testForegroundEvent_InNewSession_DestroysViewController() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
-
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 2))
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
         // Wait for initial setup creating webview to complete and reset flags
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         presentationManager.destroyWebviewCalled = false
         presentationManager.createFormWebViewAndListenCalled = false
 
@@ -345,18 +338,14 @@ final class IAFPresentationManagerTests: XCTestCase {
     }
 
     @MainActor
-
     func testInfiniteSessionTimeoutDurationNeverResets() async throws {
-        // This test has been flaky when running on CI. It seems to have something to do with instability when
-        // running a WKWebView in a CI test environment. Until we find a fix for this, we'll skip running this test on CI.
-        try XCTSkipIf(isRunningInCI(), "Skipping test in Github CI environment")
-
         // Given
         presentationManager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: .infinity))
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
         mockApiKeyPublisher.send("test-api-key") // force view controller to be triggered
 
         // Wait for initial setup to complete and reset flags
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         presentationManager.destroyWebviewCalled = false
         presentationManager.createFormWebViewAndListenCalled = false
         let expectation = XCTestExpectation(description: "Form is not recreated after session timeout")
@@ -366,6 +355,7 @@ final class IAFPresentationManagerTests: XCTestCase {
         mockLifecycleEvents.send(.backgrounded)
         try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
         mockLifecycleEvents.send(.foregrounded)
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds - allow time for processing
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)
