@@ -610,8 +610,7 @@ For detailed instructions and code examples for the UIKit approach, please refer
 
 ### Handling Universal Links
 
->  ℹ️ Support for Deep Linking from Email is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
->  Full trackable universal links support is available in SDK version 5.1.0 and higher.
+>  ℹ️ Full trackable universal links support is available in SDK version 5.1.0 and higher.
 
 Klaviyo supports embedding [universal links](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app) with click tracking in emails. To ensure universal links are properly tracked as profile events *and* your app opens and processes the links correctly, you need to configure your app to handle them. At a high level, the process works like this:
 
