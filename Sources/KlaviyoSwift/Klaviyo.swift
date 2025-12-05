@@ -210,10 +210,17 @@ public struct KlaviyoSDK {
             return false
         }
 
-        create(event: Event(name: ._openedPush, properties: properties))
-        if let url = notificationResponse.klaviyoDeepLinkURL {
-            dispatchOnMainThread(action: .openDeepLink(url))
+        // Detect if this is an action button tap
+        if notificationResponse.isActionButtonTap {
+            handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
+        } else {
+            // Regular notification body tap
+            create(event: Event(name: ._openedPush, properties: properties))
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                dispatchOnMainThread(action: .openDeepLink(url))
+            }
         }
+
         Task { @MainActor in
             completionHandler()
         }
@@ -248,6 +255,40 @@ public struct KlaviyoSDK {
             completionHandler()
         }
         return true
+    }
+
+    /// Handles action button tap events.
+    ///
+    /// This method:
+    /// - Tracks a `$opened_push_action` event with the action ID and label
+    /// - Handles action-specific deep links (or falls back to default notification URL)
+    ///
+    /// - Parameters:
+    ///   - notificationResponse: The notification response containing action info
+    ///   - properties: The Klaviyo notification properties
+    private func handleActionButtonTap(
+        notificationResponse: UNNotificationResponse,
+        properties: [String: Any]
+    ) {
+        // Create event properties with action metadata
+        var actionProperties = properties
+        if let actionId = notificationResponse.actionButtonId {
+            actionProperties["action_id"] = actionId
+        }
+        if let label = notificationResponse.actionButtonLabel {
+            actionProperties["action_label"] = label
+        }
+
+        // Track action button event
+        create(event: Event(name: ._openedPushAction, properties: actionProperties))
+
+        // Handle action-specific deep link (if provided)
+        if let actionURL = notificationResponse.actionButtonURL {
+            dispatchOnMainThread(action: .openDeepLink(actionURL))
+        } else if let defaultURL = notificationResponse.klaviyoDeepLinkURL {
+            // Fallback to default notification URL
+            dispatchOnMainThread(action: .openDeepLink(defaultURL))
+        }
     }
 }
 

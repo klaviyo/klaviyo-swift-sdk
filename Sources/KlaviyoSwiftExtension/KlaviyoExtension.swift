@@ -43,6 +43,8 @@ public enum KlaviyoExtensionSDK {
     ) {
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
+        // handle dynamic action buttons
+        handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         // handle rich media setup
         handleRichMedia(bestAttemptContent: bestAttemptContent, contentHandler: contentHandler, fallbackMediaType: fallbackMediaType)
     }
@@ -126,6 +128,8 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
+        // Still try to register action buttons before timeout
+        handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         contentHandler(bestAttemptContent)
     }
 
@@ -195,5 +199,46 @@ public enum KlaviyoExtensionSDK {
         }
 
         completion(attachment)
+    }
+
+    /// Handles dynamic action button registration from push notification payload
+    /// - Parameters:
+    ///   - request: the notification request
+    ///   - bestAttemptContent: the best attempt at mutating the APNS payload before attaching it to the push notification
+    private static func handleActionButtons(
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent
+    ) {
+        // Respect developer-set categories (don't override non-Klaviyo categories)
+        if let existingCategory = request.content.categoryIdentifier,
+           !existingCategory.isEmpty,
+           !existingCategory.hasPrefix("com.klaviyo.") {
+            return
+        }
+
+        // Parse action buttons from payload
+        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(
+            from: bestAttemptContent.userInfo
+        ) else {
+            return
+        }
+
+        // Get notification ID for unique category
+        guard let body = bestAttemptContent.userInfo["body"] as? [String: Any],
+              let notificationId = body["_k"] as? String else {
+            return
+        }
+
+        // Create actions
+        let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
+
+        // Register category dynamically
+        let categoryId = KlaviyoCategoryController.shared.registerCategory(
+            notificationId: notificationId,
+            actions: actions
+        )
+
+        // Set category on notification content
+        bestAttemptContent.categoryIdentifier = categoryId
     }
 }

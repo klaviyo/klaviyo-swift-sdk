@@ -76,4 +76,92 @@ extension UNNotificationResponse {
 
         return url
     }
+
+    // MARK: - Action Button Support
+
+    /// Detects if the user tapped an action button (vs tapping the notification body).
+    ///
+    /// Returns `true` if the user tapped an action button, `false` if they tapped
+    /// the notification body or dismissed it.
+    var isActionButtonTap: Bool {
+        actionIdentifier != UNNotificationDefaultActionIdentifier &&
+        actionIdentifier != UNNotificationDismissActionIdentifier
+    }
+
+    /// Returns the action button ID that was tapped (if any).
+    ///
+    /// This returns the button's identifier string (e.g., "com.klaviyo.action.shop")
+    /// if the user tapped an action button, or nil otherwise.
+    var actionButtonId: String? {
+        guard isActionButtonTap else { return nil }
+        return actionIdentifier
+    }
+
+    /// Returns the action-specific deep link URL from the payload.
+    ///
+    /// This method checks both dynamic and predefined button formats:
+    /// - Dynamic format: `body.action_buttons[].url`
+    /// - Predefined format: `body.actions[action_id].url`
+    ///
+    /// Returns nil if no action-specific URL is found.
+    var actionButtonURL: URL? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Check dynamic format first: body.action_buttons[].url
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let urlString = button["url"] as? String,
+                   let url = URL(string: urlString) {
+                    return url
+                }
+            }
+        }
+
+        // Fallback to predefined format: body.actions[action_id].url
+        if let body = properties["body"] as? [String: Any],
+           let actions = body["actions"] as? [String: Any],
+           let actionData = actions[actionIdentifier] as? [String: Any],
+           let urlString = actionData["url"] as? String,
+           let url = URL(string: urlString) {
+            return url
+        }
+
+        return nil
+    }
+
+    /// Returns the button label text (for analytics).
+    ///
+    /// This is only available for dynamic action buttons that include a label
+    /// in the payload. Predefined categories don't include custom labels.
+    ///
+    /// Returns nil if no label is found or if using predefined categories.
+    var actionButtonLabel: String? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Dynamic format: body.action_buttons[].label
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let label = button["label"] as? String {
+                    return label
+                }
+            }
+        }
+
+        // Predefined categories don't have custom labels
+        return nil
+    }
 }
