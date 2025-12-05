@@ -120,11 +120,10 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     }
 
     var revision: String {
-        switch self {
-        case .fetchGeofences:
+        if case .fetchGeofences = self {
             return "2025-10-15.pre"
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .resolveDestinationURL, .logTrackingLinkClicked:
-            return "2025-07-15"
+        } else {
+            return "2025-10-15"
         }
     }
 
