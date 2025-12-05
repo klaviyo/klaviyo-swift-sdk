@@ -1,0 +1,20 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Order Shipped",
+      "body": "Your order is on its way"
+    },
+    "category": "com.klaviyo.category.viewDismiss",
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_predefined_007",
+    "url": "klaviyo://orders/12345",
+    "actions": {
+      "com.klaviyo.action.view": {
+        "url": "klaviyo://orders/12345/track"
+      },
+      "com.klaviyo.action.dismiss": {}
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "aps": {
+    "alert": {
+      "title": "¡Venta Relámpago!",
+      "body": "50% de descuento en todo"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_localization_009",
+    "url": "klaviyo://home",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.shop",
+        "label": "Comprar Ahora",
+        "url": "klaviyo://sale",
+        "icon": "cart.fill"
+      },
+      {
+        "id": "com.klaviyo.test.later",
+        "label": "Recordar Después",
+        "url": "klaviyo://reminders"
+      }
+    ]
+  }
+}

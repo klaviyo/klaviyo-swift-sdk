@@ -1,0 +1,15 @@
+{
+  "aps": {
+    "alert": "Missing mutable-content flag",
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_invalid_010",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.action",
+        "label": "Test Button"
+      }
+    ]
+  }
+}

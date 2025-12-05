@@ -1,0 +1,27 @@
+{
+  "aps": {
+    "alert": {
+      "title": "⚡ Flash Sale!",
+      "body": "50% off everything - 2 hours only!"
+    },
+    "mutable-content": 1,
+    "sound": "default",
+    "badge": 1
+  },
+  "body": {
+    "_k": "test_flash_sale_001",
+    "url": "klaviyo://home",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.shop",
+        "label": "Shop Now",
+        "url": "klaviyo://sale/flash"
+      },
+      {
+        "id": "com.klaviyo.test.later",
+        "label": "Remind Later",
+        "url": "klaviyo://reminders"
+      }
+    ]
+  }
+}

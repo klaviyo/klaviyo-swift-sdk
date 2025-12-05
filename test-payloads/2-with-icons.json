@@ -1,0 +1,28 @@
+{
+  "aps": {
+    "alert": {
+      "title": "📦 Package Delivered",
+      "body": "Your order #12345 was delivered today"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_order_delivered_002",
+    "url": "klaviyo://orders/12345",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.track",
+        "label": "View Details",
+        "url": "klaviyo://orders/12345/tracking",
+        "icon": "shippingbox.fill"
+      },
+      {
+        "id": "com.klaviyo.test.support",
+        "label": "Contact Support",
+        "url": "klaviyo://support",
+        "icon": "message.fill"
+      }
+    ]
+  }
+}

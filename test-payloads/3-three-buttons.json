@@ -1,0 +1,32 @@
+{
+  "aps": {
+    "alert": {
+      "title": "New Arrivals Just for You",
+      "body": "Check out our latest collection"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_new_arrivals_003",
+    "url": "klaviyo://home",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.view",
+        "label": "Browse All",
+        "url": "klaviyo://new-arrivals",
+        "icon": "eye.fill"
+      },
+      {
+        "id": "com.klaviyo.test.favorites",
+        "label": "Favorites",
+        "url": "klaviyo://favorites",
+        "icon": "heart.fill"
+      },
+      {
+        "id": "com.klaviyo.test.dismiss",
+        "label": "Not Now"
+      }
+    ]
+  }
+}

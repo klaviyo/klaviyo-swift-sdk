@@ -1,0 +1,28 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Good News! 🎉",
+      "body": "The Nike Air Max you wanted is back in stock"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": "test_back_in_stock_006",
+    "url": "klaviyo://product/nike-air-max-123",
+    "action_buttons": [
+      {
+        "id": "com.klaviyo.test.buy",
+        "label": "Buy Now",
+        "url": "klaviyo://product/nike-air-max-123/quick-buy",
+        "icon": "cart.fill.badge.plus"
+      },
+      {
+        "id": "com.klaviyo.test.view",
+        "label": "View Product",
+        "url": "klaviyo://product/nike-air-max-123",
+        "icon": "eye.fill"
+      }
+    ]
+  }
+}
