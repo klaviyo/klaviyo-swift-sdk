@@ -210,9 +210,8 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent
     ) {
         // Respect developer-set categories (don't override non-Klaviyo categories)
-        if let existingCategory = request.content.categoryIdentifier,
-           !existingCategory.isEmpty,
-           !existingCategory.hasPrefix("com.klaviyo.") {
+        let existingCategory = request.content.categoryIdentifier
+        if !existingCategory.isEmpty && !existingCategory.hasPrefix("com.klaviyo.") {
             return
         }
 

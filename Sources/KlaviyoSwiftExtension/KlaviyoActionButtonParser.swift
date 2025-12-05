@@ -126,9 +126,8 @@ class KlaviyoActionButtonParser {
 
     /// Creates a UNNotificationAction with an icon (iOS 15+).
     ///
-    /// Uses NSInvocation reflection to call iOS 15+ icon APIs dynamically,
-    /// similar to OneSignal's approach. This allows the SDK to run on older
-    /// iOS versions while supporting icons when available.
+    /// Uses runtime type checking to support iOS 15+ icon APIs while maintaining
+    /// backwards compatibility with older iOS versions.
     ///
     /// - Parameters:
     ///   - id: The action identifier
@@ -141,78 +140,44 @@ class KlaviyoActionButtonParser {
         label: String,
         icon: String
     ) -> UNNotificationAction {
-        // Attempt to create icon using UNNotificationActionIcon.iconWithSystemImageName:
-        guard let iconClass = NSClassFromString("UNNotificationActionIcon") else {
-            return createFallbackAction(id: id, label: label)
-        }
-
-        // Get the iconWithSystemImageName: selector
+        // Use runtime type checking for iOS 15+ APIs
+        // UNNotificationActionIcon.iconWithSystemImageName: is available in iOS 15+
         let iconSelector = NSSelectorFromString("iconWithSystemImageName:")
-        guard iconClass.responds(to: iconSelector) else {
+
+        guard let iconClass = NSClassFromString("UNNotificationActionIcon"),
+              let iconMethod = class_getClassMethod(iconClass, iconSelector) else {
             return createFallbackAction(id: id, label: label)
         }
 
-        // Create the icon instance using performSelector
-        guard let iconObject = iconClass.perform(iconSelector, with: icon)?.takeUnretainedValue() else {
-            return createFallbackAction(id: id, label: label)
-        }
+        // Call the class method using typedPerform
+        typealias IconCreator = @convention(c) (AnyClass, Selector, NSString) -> AnyObject
+        let implementation = method_getImplementation(iconMethod)
+        let function = unsafeBitCast(implementation, to: IconCreator.self)
+        let iconObject = function(iconClass, iconSelector, icon as NSString)
 
-        // Get the actionWithIdentifier:title:options:icon: selector
-        let actionClass: AnyClass = UNNotificationAction.self
+        // Now create the action with icon
+        // UNNotificationAction.actionWithIdentifier:title:options:icon: is available in iOS 15+
         let actionSelector = NSSelectorFromString("actionWithIdentifier:title:options:icon:")
-        guard actionClass.responds(to: actionSelector) else {
+
+        guard let actionMethod = class_getClassMethod(UNNotificationAction.self, actionSelector) else {
             return createFallbackAction(id: id, label: label)
         }
 
-        // Create NSMethodSignature
-        guard let method = class_getClassMethod(actionClass, actionSelector),
-              let signature = method_getTypeEncoding(method) else {
-            return createFallbackAction(id: id, label: label)
-        }
+        // Call the action creation method
+        typealias ActionCreator = @convention(c) (AnyClass, Selector, NSString, NSString, UInt, AnyObject) -> UNNotificationAction
+        let actionImplementation = method_getImplementation(actionMethod)
+        let actionFunction = unsafeBitCast(actionImplementation, to: ActionCreator.self)
 
-        // Create NSInvocation (using reflection to avoid direct API usage)
-        let invocationClass = NSClassFromString("NSInvocation")
-        let invocationSelector = NSSelectorFromString("invocationWithMethodSignature:")
+        let action = actionFunction(
+            UNNotificationAction.self,
+            actionSelector,
+            id as NSString,
+            label as NSString,
+            UNNotificationActionOptions.foreground.rawValue,
+            iconObject
+        )
 
-        guard let invocationClass = invocationClass,
-              let signatureObject = NSMethodSignature(cString: signature) else {
-            return createFallbackAction(id: id, label: label)
-        }
-
-        guard let invocation = invocationClass.perform(invocationSelector, with: signatureObject)?.takeUnretainedValue() as? NSObject else {
-            return createFallbackAction(id: id, label: label)
-        }
-
-        // Set up the invocation
-        invocation.setValue(actionSelector, forKey: "selector")
-        invocation.setValue(actionClass, forKey: "target")
-
-        // Set arguments (indexes 0 and 1 are self and _cmd)
-        var idArg: NSString = id as NSString
-        var labelArg: NSString = label as NSString
-        var optionsArg: UNNotificationActionOptions = .foreground
-        var iconArg = iconObject
-
-        withUnsafePointer(to: &idArg) { invocation.setArgument($0, at: 2) }
-        withUnsafePointer(to: &labelArg) { invocation.setArgument($0, at: 3) }
-        withUnsafePointer(to: &optionsArg) { invocation.setArgument($0, at: 4) }
-        withUnsafePointer(to: &iconArg) { invocation.setArgument($0, at: 5) }
-
-        // Invoke
-        invocation.perform(NSSelectorFromString("invoke"))
-
-        // Get return value
-        var returnValue: Unmanaged<AnyObject>?
-        withUnsafeMutablePointer(to: &returnValue) { pointer in
-            invocation.perform(NSSelectorFromString("getReturnValue:"), with: pointer)
-        }
-
-        if let action = returnValue?.takeUnretainedValue() as? UNNotificationAction {
-            return action
-        }
-
-        // Fallback if reflection fails
-        return createFallbackAction(id: id, label: label)
+        return action
     }
 
     /// Creates a standard action without icon (fallback).
