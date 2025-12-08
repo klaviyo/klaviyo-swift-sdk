@@ -781,11 +781,12 @@ Call `registerGeofencing()` as early as possible in your app's lifecycle, ideall
 
 ```swift
 import KlaviyoSwift
+import KlaviyoLocation
 
 // Register for geofencing (recommended to call as early as possible)
-Task {
-    await KlaviyoSDK().registerGeofencing()
-}
+KlaviyoSDK()
+      .initialize("YOUR_KLAVIYO_PUBLIC_API_KEY")
+      .registerGeofencing()
 ```
 
 > ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
@@ -797,9 +798,10 @@ Task {
 If you need to stop monitoring geofences, you can call `unregisterGeofencing()`:
 
 ```swift
-Task {
-    await KlaviyoSDK().unregisterGeofencing()
-}
+import KlaviyoSwift
+import KlaviyoLocation
+
+KlaviyoSDK().unregisterGeofencing()
 ```
 
 ## Additional Details
