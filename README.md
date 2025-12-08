@@ -42,6 +42,7 @@
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
   - [Setup](#setup-2)
+  - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -766,25 +767,11 @@ Add the following keys to your app's `Info.plist`:
 </array>
 ```
 
-Note: Adding the location usage keys and location background mode to your `Info.plist` will require additional justification when submitting to the App Store. Refer to the guidelines outlined by [Apple](https://developer.apple.com/app-store/review/guidelines/#software-requirements) in sections 2.5.4 and 5.1.5.
+Note: Adding the location usage keys and location background mode to your `Info.plist` will require additional justification when submitting to the App Store. Refer to the [guidelines](https://developer.apple.com/app-store/review/guidelines/#software-requirements) outlined by Apple in sections 2.5.4 and 5.1.5.
 
-#### Step 2: Enable Background Monitoring
+#### Step 2: Request Location Authorization
 
-Call `monitorGeofencesFromBackground()` in your app delegate's `application(_:didFinishLaunchingWithOptions:)` method. This ensures geofence events that occur when the app is backgrounded or terminated are processed.
-
-```swift
-import KlaviyoSwift
-import KlaviyoLocation
-
-func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-
-    // Enable background geofence monitoring
-    KlaviyoSDK().monitorGeofencesFromBackground()
-
-    return true
-}
-```
+Request location authorization according to [Apple's guidelines](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestalwaysauthorization()#Request-Always-Authorization-After-Getting-When-In-Use). Apple recommends first requesting "When In Use" authorization, and then later requesting "Always" authorization. We highly suggest following Apple's best practices for requesting location permissions, and you can see an example of how this call is set up [here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/97b53ac6d314035a1c8cf639565d9b0ab7e83add/Examples/KlaviyoSwiftExamples/Shared/MapView.swift#L406).
 
 #### Step 3: Register for Geofencing
 
@@ -801,7 +788,7 @@ Task {
 }
 ```
 
-> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Preicse" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
+> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
 
 > ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
 
