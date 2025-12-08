@@ -7,6 +7,7 @@
 //
 
 import KlaviyoForms
+import KlaviyoLocation
 // STEP1: Importing klaviyo SDK modules into your app code
 // `KlaviyoSwift` is for analytics and push notifications and `KlaviyoForms` is for presenting marketing in app forms/messages
 import KlaviyoSwift
@@ -36,6 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         KlaviyoSDK()
             .initialize(with: "ABC123")
             .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
+            .registerGeofencing()
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
