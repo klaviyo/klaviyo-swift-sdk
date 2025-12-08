@@ -14,7 +14,7 @@ extension KlaviyoSDK {
     /// App will begin listening for geofence events (enter, exit, dwell) according to the geofences configured in your Klaviyo account.
     /// This method returns immediately and performs the registration asynchronously in the background.
     public func registerGeofencing() {
-        Task { @MainActor in
+        Task {
             await KlaviyoLocationManager.shared.startGeofenceMonitoring()
         }
     }
@@ -22,7 +22,7 @@ extension KlaviyoSDK {
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
     /// This method returns immediately and performs the unregistration asynchronously in the background.
     public func unregisterGeofencing() {
-        Task { @MainActor in
+        Task {
             await KlaviyoLocationManager.shared.stopGeofenceMonitoring()
         }
     }
