@@ -12,6 +12,8 @@ import CoreLocation
 protocol LocationManagerProtocol {
     var delegate: CLLocationManagerDelegate? { get set }
     var allowsBackgroundLocationUpdates: Bool { get set }
+    @available(iOS 14.0, *)
+    var currentAccuracyAuthorization: CLAccuracyAuthorization { get }
     var currentAuthorizationStatus: CLAuthorizationStatus { get }
     func startUpdatingLocation()
     func stopUpdatingLocation()
@@ -32,6 +34,11 @@ extension CLLocationManager: LocationManagerProtocol {
         } else {
             return CLLocationManager.authorizationStatus()
         }
+    }
+
+    @available(iOS 14.0, *)
+    var currentAccuracyAuthorization: CLAccuracyAuthorization {
+        accuracyAuthorization
     }
 
     func isMonitoringAvailable(for regionClass: AnyClass) -> Bool {

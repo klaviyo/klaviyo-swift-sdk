@@ -40,7 +40,16 @@ class KlaviyoLocationManager: NSObject {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("App does not have 'authorizedAlways' permission to access the user's location")
             }
+            await stopGeofenceMonitoring()
             return
+        }
+
+        if #available(iOS 14.0, *) {
+            guard locationManager.currentAccuracyAuthorization == .fullAccuracy else {
+                Logger.geoservices.warning("App does not have full accuracy permission to access the user's location")
+                await stopGeofenceMonitoring()
+                return
+            }
         }
 
         guard locationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
