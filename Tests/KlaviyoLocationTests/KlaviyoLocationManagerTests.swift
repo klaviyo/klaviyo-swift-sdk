@@ -322,6 +322,7 @@ private final class MockLocationManager: LocationManagerProtocol {
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
     var stoppedRegions: [CLRegion] = []
     var mockIsMonitoringAvailable: Bool = true
+    var mockAccuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy
 
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
@@ -340,6 +341,11 @@ private final class MockLocationManager: LocationManagerProtocol {
 
     func startMonitoringSignificantLocationChanges() {}
     func stopMonitoringSignificantLocationChanges() {}
+
+    @available(iOS 14.0, *)
+    var currentAccuracyAuthorization: CLAccuracyAuthorization {
+        mockAccuracyAuthorization
+    }
 }
 
 private final class MockKlaviyoLocationManager: KlaviyoLocationManager {

@@ -43,6 +43,13 @@ class KlaviyoLocationManager: NSObject {
             return
         }
 
+        if #available(iOS 14.0, *) {
+            guard locationManager.currentAccuracyAuthorization == .fullAccuracy else {
+                Logger.geoservices.warning("App does not have full accuracy permission to access the user's location")
+                return
+            }
+        }
+
         guard locationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.warning("Geofencing is not supported on this device")
