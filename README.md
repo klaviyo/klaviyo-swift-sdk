@@ -729,13 +729,15 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 ## Geofencing
 
-[Geofencing](https://help.klaviyo.com/hc/en-us/articles/360023213971) allows you to trigger events when users enter or exit geographic regions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events.
+>  ℹ️ Support for Geofencing is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
+
+Geofencing allows you to trigger events when users enter or exit geographic regions if users have granted the necessary permissions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events.
 
 ### Prerequisites
 
 * Import the `KlaviyoLocation` module and add it to your app target.
 * Configure location permissions and background modes in your app's `Info.plist`.
-* Request "Always" location authorization from users (required for geofencing to work in the background).
+* Request "Always" location authorization from users.
 
 ### Setup
 
@@ -751,7 +753,7 @@ Add the following keys to your app's `Info.plist`:
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>This app needs location access to show your current location and help you find nearby locations.</string>
 <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>This app needs location access to monitor geofences and provide location-based notifications even when the app is in the background.</string>
+<string>This app needs location access to monitor geofences and provide location-based notifications when the app is in the background.</string>
 ```
 
 2. **Background Modes** (required):
@@ -764,12 +766,15 @@ Add the following keys to your app's `Info.plist`:
 </array>
 ```
 
+Note: Adding the location usage keys and location background mode to your `Info.plist` will require additional justification when submitting to the App Store. Refer to the guidelines outlined by [Apple](https://developer.apple.com/app-store/review/guidelines/#software-requirements) in sections 2.5.4 and 5.1.5.
+
 #### Step 2: Enable Background Monitoring
 
 Call `monitorGeofencesFromBackground()` in your app delegate's `application(_:didFinishLaunchingWithOptions:)` method. This ensures geofence events that occur when the app is backgrounded or terminated are processed.
 
 ```swift
 import KlaviyoSwift
+import KlaviyoLocation
 
 func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
     KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
@@ -784,7 +789,6 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 #### Step 3: Register for Geofencing
 
 Call `registerGeofencing()` as early as possible in your app's lifecycle, ideally after initializing the SDK. This method will:
-- Request "Always" location authorization if not already granted
 - Begin monitoring geofences configured in your Klaviyo account
 - Start tracking geofence enter and exit events
 
@@ -797,7 +801,7 @@ Task {
 }
 ```
 
-> ⚠️ **Important**: Geofencing requires "Always" location authorization. The SDK will only begin monitoring geofences once the user grants "Always" permission. If the user only grants "When In Use" permission, geofencing will not be active.
+> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Preicse" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
 
 > ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
 
