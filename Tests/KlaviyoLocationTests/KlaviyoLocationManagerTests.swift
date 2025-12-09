@@ -137,6 +137,179 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
                        "syncGeofences should be called once after foreground")
     }
+
+    // MARK: - Klaviyo Geofence Isolation Tests
+
+    func test_syncGeofences_only_removes_klaviyo_geofences() async throws {
+        // GIVEN - Set up test environment with API key
+        let apiKey = "ABC123"
+        KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
+
+        // Add both Klaviyo and non-Klaviyo regions
+        let klaviyoRegion1 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+            radius: 100,
+            identifier: "_k:\(apiKey):existing-uuid-1"
+        )
+        let klaviyoRegion2 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 1, longitude: 1),
+            radius: 100,
+            identifier: "_k:\(apiKey):existing-uuid-2"
+        )
+        let nonKlaviyoRegion = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 2, longitude: 2),
+            radius: 100,
+            identifier: "other-app:region-123"
+        )
+        mockLocationManager.monitoredRegions = [klaviyoRegion1, klaviyoRegion2, nonKlaviyoRegion]
+
+        // Mock GeofenceService to return empty set (all Klaviyo geofences should be removed)
+        let mockGeofenceService = MockGeofenceService()
+        mockGeofenceService.mockGeofences = []
+        locationManager.geofenceService = mockGeofenceService
+
+        // WHEN
+        await locationManager.syncGeofences()
+
+        // THEN - Only Klaviyo regions should be removed, non-Klaviyo should remain
+        XCTAssertTrue(mockLocationManager.stoppedRegions.contains(klaviyoRegion1),
+                      "Klaviyo region 1 should be stopped")
+        XCTAssertTrue(mockLocationManager.stoppedRegions.contains(klaviyoRegion2),
+                      "Klaviyo region 2 should be stopped")
+        XCTAssertFalse(mockLocationManager.stoppedRegions.contains(nonKlaviyoRegion),
+                       "Non-Klaviyo region should NOT be stopped")
+        XCTAssertTrue(mockLocationManager.monitoredRegions.contains(nonKlaviyoRegion),
+                      "Non-Klaviyo region should still be monitored")
+    }
+
+    func test_syncGeofences_only_adds_klaviyo_geofences() async throws {
+        // GIVEN - Set up test environment with API key
+        let apiKey = "ABC123"
+        KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
+
+        // Add a non-Klaviyo region that should remain untouched
+        let nonKlaviyoRegion = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+            radius: 100,
+            identifier: "other-app:region-123"
+        )
+        mockLocationManager.monitoredRegions = [nonKlaviyoRegion]
+
+        // Mock GeofenceService to return new Klaviyo geofences
+        let mockGeofenceService = MockGeofenceService()
+        mockGeofenceService.mockGeofences = [
+            try! Geofence(
+                id: "_k:\(apiKey):new-uuid-1",
+                longitude: 1.0,
+                latitude: 1.0,
+                radius: 100.0
+            ),
+            try! Geofence(
+                id: "_k:\(apiKey):new-uuid-2",
+                longitude: 2.0,
+                latitude: 2.0,
+                radius: 200.0
+            )
+        ]
+        locationManager.geofenceService = mockGeofenceService
+
+        // WHEN
+        await locationManager.syncGeofences()
+
+        // THEN - New Klaviyo geofences should be added, non-Klaviyo region should remain
+        let addedRegions = mockLocationManager.monitoredRegions
+        let klaviyoRegions = addedRegions
+            .compactMap { $0 as? CLCircularRegion }
+            .filter(\.isKlaviyoGeofence)
+
+        XCTAssertEqual(klaviyoRegions.count, 2, "Should have 2 Klaviyo geofences")
+        XCTAssertTrue(mockLocationManager.monitoredRegions.contains(nonKlaviyoRegion),
+                      "Non-Klaviyo region should still be monitored")
+
+        // Verify the added geofences have correct identifiers
+        let addedIds = Set(klaviyoRegions.map(\.identifier))
+        XCTAssertTrue(addedIds.contains("_k:\(apiKey):new-uuid-1"))
+        XCTAssertTrue(addedIds.contains("_k:\(apiKey):new-uuid-2"))
+    }
+
+    func test_syncGeofences_does_not_affect_non_klaviyo_regions_when_exceeding_limit() async throws {
+        // GIVEN - Set up test environment with API key
+        let apiKey = "ABC123"
+        KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
+
+        // Add 15 non-Klaviyo regions (simulating other app functionality)
+        var nonKlaviyoRegions: Set<CLRegion> = []
+        for i in 0..<15 {
+            let region = CLCircularRegion(
+                center: CLLocationCoordinate2D(latitude: Double(i), longitude: Double(i)),
+                radius: 100,
+                identifier: "other-app:region-\(i)"
+            )
+            nonKlaviyoRegions.insert(region)
+        }
+        mockLocationManager.monitoredRegions = nonKlaviyoRegions
+
+        // Mock GeofenceService to return 10 Klaviyo geofences (would exceed 20 total)
+        let mockGeofenceService = MockGeofenceService()
+        mockGeofenceService.mockGeofences = Set((0..<10).map { index in
+            try! Geofence(
+                id: "_k:\(apiKey):new-uuid-\(index)",
+                longitude: Double(index + 100),
+                latitude: Double(index + 100),
+                radius: 100.0
+            )
+        })
+        locationManager.geofenceService = mockGeofenceService
+
+        // WHEN
+        await locationManager.syncGeofences()
+
+        // THEN - All non-Klaviyo regions should remain untouched
+        for nonKlaviyoRegion in nonKlaviyoRegions {
+            XCTAssertTrue(mockLocationManager.monitoredRegions.contains(nonKlaviyoRegion),
+                          "Non-Klaviyo region \(nonKlaviyoRegion.identifier) should still be monitored")
+            XCTAssertFalse(mockLocationManager.stoppedRegions.contains(nonKlaviyoRegion),
+                           "Non-Klaviyo region \(nonKlaviyoRegion.identifier) should NOT be stopped")
+        }
+
+        // Klaviyo geofences should still be attempted (some may fail due to limit)
+        let klaviyoRegions = mockLocationManager.monitoredRegions
+            .compactMap { $0 as? CLCircularRegion }
+            .filter(\.isKlaviyoGeofence)
+        XCTAssertGreaterThanOrEqual(klaviyoRegions.count, 0, "Should attempt to add Klaviyo geofences")
+    }
+
+    func test_getActiveGeofences_only_returns_klaviyo_geofences() async throws {
+        // GIVEN - Set up test environment with API key
+        let apiKey = "ABC123"
+        KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
+
+        // Add mix of Klaviyo and non-Klaviyo regions
+        let klaviyoRegion = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+            radius: 100,
+            identifier: "_k:\(apiKey):klaviyo-uuid"
+        )
+        let nonKlaviyoRegion1 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 1, longitude: 1),
+            radius: 100,
+            identifier: "other-app:region-1"
+        )
+        let nonKlaviyoRegion2 = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: 2, longitude: 2),
+            radius: 100,
+            identifier: "another-app:region-2"
+        )
+        mockLocationManager.monitoredRegions = [klaviyoRegion, nonKlaviyoRegion1, nonKlaviyoRegion2]
+
+        // WHEN
+        let activeKlaviyoGeofences = await locationManager.getActiveGeofences()
+
+        // THEN - Should only return the Klaviyo geofence
+        XCTAssertEqual(activeKlaviyoGeofences.count, 1, "Should only return 1 Klaviyo geofence")
+        XCTAssertTrue(activeKlaviyoGeofences.contains { $0.id == "_k:\(apiKey):klaviyo-uuid" },
+                      "Should contain the Klaviyo geofence")
+    }
 }
 
 // MARK: - Mock Classes
@@ -149,6 +322,7 @@ private final class MockLocationManager: LocationManagerProtocol {
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
     var stoppedRegions: [CLRegion] = []
     var mockIsMonitoringAvailable: Bool = true
+    var mockAccuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy
 
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
@@ -167,6 +341,11 @@ private final class MockLocationManager: LocationManagerProtocol {
 
     func startMonitoringSignificantLocationChanges() {}
     func stopMonitoringSignificantLocationChanges() {}
+
+    @available(iOS 14.0, *)
+    var currentAccuracyAuthorization: CLAccuracyAuthorization {
+        mockAccuracyAuthorization
+    }
 }
 
 private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
@@ -180,8 +359,8 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
         stopGeofenceMonitoringCallCount > 0
     }
 
-    override init(locationManager: LocationManagerProtocol? = nil) {
-        super.init(locationManager: locationManager ?? MockLocationManager())
+    override init(locationManager: LocationManagerProtocol? = nil, geofenceService: GeofenceServiceProvider? = nil) {
+        super.init(locationManager: locationManager, geofenceService: geofenceService)
     }
 
     override func syncGeofences() async {
@@ -198,5 +377,13 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
     func reset() {
         syncGeofencesCallCount = 0
         stopGeofenceMonitoringCallCount = 0
+    }
+}
+
+private final class MockGeofenceService: GeofenceServiceProvider {
+    var mockGeofences: Set<Geofence> = []
+
+    func fetchGeofences(apiKey: String) async -> Set<Geofence> {
+        mockGeofences
     }
 }

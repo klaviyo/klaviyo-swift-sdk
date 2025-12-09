@@ -190,4 +190,46 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertEqual(request.url?.path, "/client/geofences")
         XCTAssertEqual(request.url?.query, "company_id=test_api_key")
     }
+
+    func testRevisionHeaderForGeofenceEndpoint() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
+        let request = KlaviyoRequest(endpoint: endpoint)
+
+        // When
+        let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
+
+        // Then
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15.pre")
+    }
+
+    func testRevisionHeaderForNonGeofenceEndpoints() throws {
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
+
+        // Test createProfile
+        let profileEndpoint = KlaviyoEndpoint.createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test))
+        let profileRequest = KlaviyoRequest(endpoint: profileEndpoint)
+        let profileUrlRequest = try profileRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(profileUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+
+        // Test createEvent (including geofence events use standard revision)
+        let eventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "test_event")))
+        let eventRequest = KlaviyoRequest(endpoint: eventEndpoint)
+        let eventUrlRequest = try eventRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(eventUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+
+        // Test geofence event also uses standard revision
+        let geofenceEventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "$geofence_enter")))
+        let geofenceEventRequest = KlaviyoRequest(endpoint: geofenceEventEndpoint)
+        let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+
+        // Test fetchGeofences (should use different revision)
+        let geofenceEndpoint = KlaviyoEndpoint.fetchGeofences("test_api_key")
+        let geofenceRequest = KlaviyoRequest(endpoint: geofenceEndpoint)
+        let geofenceUrlRequest = try geofenceRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(geofenceUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15.pre")
+    }
 }

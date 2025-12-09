@@ -34,12 +34,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // STEP2: Setup Klaviyo SDK with api key
-        Task {
-            KlaviyoSDK()
-                .initialize(with: "ABC123")
-                .registerForInAppForms() // STEP2A: register for in app forms (currently only one form is supported in a session)
-                .registerGeofencing()
-        }
+        KlaviyoSDK()
+            .initialize(with: "ABC123")
+            .registerForInAppForms() // STEP2A: register for in app forms
+            .registerGeofencing() // STEP2B: register for in geofencing
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))

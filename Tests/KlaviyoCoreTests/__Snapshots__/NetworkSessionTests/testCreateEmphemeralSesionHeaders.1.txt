@@ -1,5 +1,5 @@
 ▿ Optional<Dictionary<AnyHashable, Any>>
-  ▿ some: 6 key/value pairs
+  ▿ some: 5 key/value pairs
     ▿ (2 elements)
       - key: "Accept-Encoding"
       ▿ value: 3 elements
@@ -18,6 +18,3 @@
     ▿ (2 elements)
       - key: "content-type"
       - value: "application/json"
-    ▿ (2 elements)
-      - key: "revision"
-      - value: "2025-10-15.pre"
