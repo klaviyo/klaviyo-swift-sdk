@@ -16,8 +16,8 @@ import UserNotifications
 /// tasks such as downloading media (images or videos) and attaching it to the notification before it's displayed to the user.
 ///
 /// Supported media formats:
-/// - Images: PNG, JPG/JPEG, GIF (up to 10MB recommended)
-/// - Videos: MP4, MPEG (up to 16MB recommended)
+/// - Images: PNG, JPG/JPEG, GIF
+/// - Videos: MP4, MPEG
 ///
 /// There is a limited time before which `didReceiveNotificationRequest`  needs to wrap up it's operations
 /// else the notification is displayed as received.
