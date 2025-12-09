@@ -26,12 +26,8 @@ class KlaviyoLocationManager: NSObject {
         self.geofenceService = geofenceService ?? GeofenceService()
 
         super.init()
-        monitorGeofencesFromBackground()
-    }
-
-    func monitorGeofencesFromBackground() {
-        locationManager.delegate = self
-        locationManager.allowsBackgroundLocationUpdates = true
+        self.locationManager.delegate = self
+        self.locationManager.allowsBackgroundLocationUpdates = true
     }
 
     @MainActor
