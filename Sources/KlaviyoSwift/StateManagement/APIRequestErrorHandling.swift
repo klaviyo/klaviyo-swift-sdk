@@ -127,6 +127,28 @@ func handleRequestError(
             )
         )
 
+    case let .serverError(statusCode, retryAfter):
+        environment.logger.error("A server error occurred with status code: \(statusCode)")
+        var requestRetryCount = 0
+        var totalRetryCount = 0
+        switch retryState {
+        case let .retry(count):
+            requestRetryCount = count + 1
+            totalRetryCount = requestRetryCount
+
+        case let .retryWithBackoff(requestCount, totalCount, _):
+            requestRetryCount = requestCount + 1
+            totalRetryCount = totalCount + 1
+        }
+
+        return .requestFailed(
+            request, .retryWithBackoff(
+                requestCount: requestRetryCount,
+                totalRetryCount: totalRetryCount,
+                currentBackoff: retryAfter
+            )
+        )
+
     case .missingOrInvalidResponse:
         runtimeWarn("Missing or invalid response from api.")
         return .deQueueCompletedResults(request)

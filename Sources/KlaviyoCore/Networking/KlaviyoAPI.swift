@@ -40,7 +40,7 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        if httpResponse.statusCode == 429 || (500...599).contains(httpResponse.statusCode) {
+        if httpResponse.statusCode == 429 || httpResponse.statusCode == 503 {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {
@@ -52,6 +52,15 @@ public struct KlaviyoAPI {
 
             requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
             return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
+        }
+
+        if (501...599).contains(httpResponse.statusCode) {
+            let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
+            let jitter = environment.randomInt()
+            let nextBackOffWithJitter = exponentialBackOff + jitter
+
+            requestHandler(request, urlRequest, .error(.httpError(statusCode: httpResponse.statusCode, duration: duration)))
+            return .failure(KlaviyoAPIError.serverError(statusCode: httpResponse.statusCode, backOff: nextBackOffWithJitter))
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {

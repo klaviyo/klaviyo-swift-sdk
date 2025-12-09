@@ -392,21 +392,20 @@ class APIRequestErrorHandlingTests: XCTestCase {
     // MARK: - 5XX Server Error Retry Tests (CHNL-26495)
 
     @MainActor
-    func testRetryOn500InternalServerError() async throws {
+    func testNoRetryOn500InternalServerError() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+        // 500 should dequeue without retry (not retryable per API team guidance)
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(500, TEST_RETURN_DATA)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
             $0.requestsInFlight = []
-            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
     }
 
@@ -417,7 +416,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 502, backOff: 2)) }
 
         _ = await store.send(.sendRequest)
 
@@ -455,7 +454,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 504, backOff: 2)) }
 
         _ = await store.send(.sendRequest)
 
@@ -474,7 +473,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 599, backOff: 2)) }
 
         _ = await store.send(.sendRequest)
 
@@ -494,7 +493,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 4)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 502, backOff: 4)) }
 
         _ = await store.send(.sendRequest)
 
