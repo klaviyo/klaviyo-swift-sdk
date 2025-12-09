@@ -40,7 +40,7 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        if httpResponse.statusCode == 429 || httpResponse.statusCode == 503 {
+        if httpResponse.statusCode == 429 {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {

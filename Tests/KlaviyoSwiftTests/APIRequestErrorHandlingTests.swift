@@ -435,7 +435,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 2)) }
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 503, backOff: 2)) }
 
         _ = await store.send(.sendRequest)
 
