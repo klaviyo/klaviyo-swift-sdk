@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoForms"
-  s.version          = "5.1.0"
+  s.version          = "5.2.0-alpha.1"
   s.summary          = "Klaviyo forms is a new way to engage with your app users"
   s.description      = <<-DESC
                         Use Klaviyo forms to include in app forms in your app and engage user with marketing content
@@ -19,5 +19,5 @@ Pod::Spec.new do |s|
     ]
   }
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift -package-name KlaviyoCore' }
-  s.dependency     'KlaviyoSwift', '~> 5.1.0'
+  s.dependency     'KlaviyoSwift', '~> 5.2.0-alpha.1'
 end
