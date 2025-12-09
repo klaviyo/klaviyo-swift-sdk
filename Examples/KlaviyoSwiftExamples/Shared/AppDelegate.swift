@@ -37,7 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         KlaviyoSDK()
             .initialize(with: "ABC123")
             .registerForInAppForms() // STEP2A: register for in app forms
-            .registerGeofencing()
+            .registerGeofencing() // STEP2B: register for in geofencing
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
