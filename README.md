@@ -732,7 +732,9 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 >  ℹ️ Support for Geofencing is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
 
-Geofencing allows you to trigger events when users enter or exit geographic regions if users have granted the necessary permissions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events.
+Geofencing allows you to trigger events when users enter or exit geographic regions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events. The SDK automatically handles geofence synchronization with your Klaviyo account—when you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
+
+> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
 
 ### Prerequisites
 
@@ -788,10 +790,6 @@ KlaviyoSDK()
       .initialize("YOUR_KLAVIYO_PUBLIC_API_KEY")
       .registerGeofencing()
 ```
-
-> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
-
-> ℹ️ **Note**: The SDK automatically handles geofence synchronization with your Klaviyo account. When you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
 
 #### Unregistering from Geofencing
 
