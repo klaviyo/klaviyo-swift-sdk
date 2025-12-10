@@ -13,11 +13,6 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.7'
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoLocation/**/*.swift'
-  s.resource_bundles = {
-    'KlaviyoLocationResources' => [
-      'Sources/KlaviyoLocation/Assets/*.{json}'
-    ]
-  }
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoLocation -package-name KlaviyoSwift -package-name KlaviyoCore' }
   s.dependency       'KlaviyoSwift'
   s.frameworks       = 'CoreLocation'
