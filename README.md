@@ -87,14 +87,14 @@ Once integrated, your marketing team will be able to better understand your app 
       <details>
       <summary>Swift Package Manager [Recommended]</summary>
 
-      KlaviyoSwift and KlaviyoForms are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+      `KlaviyoSwift`, `KlaviyoForms`, and `KlaviyoLocation` are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
       1. Open your project and navigate to your project’s settings.
       2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
       3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
       4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
       5. Click **Add Package**.
-      6. On the next prompt, assign the package product `KlaviyoSwift` and `KlaviyoForms` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift`, `KlaviyoForms`, and `KlaviyoLocation` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
       </details>
 
@@ -732,13 +732,14 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 >  ℹ️ Support for Geofencing is currently available for early access to select Klaviyo customers. Please contact your CSM to be enrolled.
 
+>  Full trackable universal links support is available in SDK version 5.2.0-alpha.1 and higher.
+
 Geofencing allows you to trigger events when users enter or exit geographic regions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events. The SDK automatically handles geofence synchronization with your Klaviyo account—when you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
 
 > ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
 
 ### Prerequisites
 
-* Import the `KlaviyoLocation` module and add it to your app target.
 * Configure location permissions and background modes in your app's `Info.plist`.
 * Request "Always" location authorization from users.
 
@@ -749,8 +750,8 @@ Geofencing allows you to trigger events when users enter or exit geographic regi
 Add the following keys to your app's `Info.plist`:
 
 1. **Location Usage Descriptions** (required):
-   - `NSLocationWhenInUseUsageDescription`: A user-facing string explaining why your app needs location access when the app is in use.
-   - `NSLocationAlwaysAndWhenInUseUsageDescription`: A user-facing string explaining why your app needs "Always" location access for geofencing.
+   - `NSLocationWhenInUseUsageDescription`: Your location helps the app offer location-based features and notifications while you’re using it.
+   - `NSLocationAlwaysAndWhenInUseUsageDescription`: This app uses your location in the background to detect when you enter or leave specific areas and send you relevant notifications.
 
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
@@ -790,6 +791,8 @@ KlaviyoSDK()
       .initialize("YOUR_KLAVIYO_PUBLIC_API_KEY")
       .registerGeofencing()
 ```
+
+We **highly recommend** registering for geofencing in `didFinishLaunchingWithOptions` to ensure all enter/exit events are delivered to Klaviyo no matter the app state (backgrounded, terminated).
 
 #### Unregistering from Geofencing
 
