@@ -14,6 +14,6 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoLocation/**/*.swift'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoLocation -package-name KlaviyoSwift -package-name KlaviyoCore' }
-  s.dependency       'KlaviyoSwift'
+  s.dependency       'KlaviyoSwift', '~> 5.2.0-alpha.1'
   s.frameworks       = 'CoreLocation'
 end
