@@ -783,13 +783,20 @@ Call `registerGeofencing()` as early as possible in your app's lifecycle, ideall
 - Start tracking geofence enter and exit events
 
 ```swift
+// AppDelegate
+
 import KlaviyoSwift
 import KlaviyoLocation
 
-// Register for geofencing (recommended to call as early as possible)
-KlaviyoSDK()
-      .initialize("YOUR_KLAVIYO_PUBLIC_API_KEY")
-      .registerGeofencing()
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        KlaviyoSDK()
+            .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+            .registerGeofencing()
+        return true
+    }
+}
 ```
 
 We **highly recommend** registering for geofencing in `didFinishLaunchingWithOptions` to ensure all enter/exit events are delivered to Klaviyo no matter the app state (backgrounded, terminated).
