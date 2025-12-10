@@ -87,7 +87,9 @@ struct MapView: View {
                             .disabled(true)
 
                             Button {
-                                geofenceManager.registerGeofencing()
+                                Task {
+                                    await geofenceManager.registerGeofencing()
+                                }
                             } label: {
                                 Text("Register")
                                 Text("Begin monitoring for geofence events")
@@ -96,7 +98,9 @@ struct MapView: View {
                             .disabled(geofenceManager.isLoading)
 
                             Button {
-                                geofenceManager.unregisterGeofencing()
+                                Task {
+                                    await geofenceManager.unregisterGeofencing()
+                                }
                             } label: {
                                 Text("Unregister")
                                 Text("Stop monitoring for geofence events")
@@ -341,11 +345,11 @@ class GeofenceManager: ObservableObject {
     @Published var isMonitoring: Bool = false
 
     @MainActor
-    func registerGeofencing() {
+    func registerGeofencing() async {
         isLoading = true
 
         // Register geofencing with Klaviyo SDK
-        KlaviyoSDK().registerGeofencing()
+        await KlaviyoSDK().registerGeofencing()
 
         // Wait a moment for the system to process the registration
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -354,9 +358,9 @@ class GeofenceManager: ObservableObject {
     }
 
     @MainActor
-    func unregisterGeofencing() {
+    func unregisterGeofencing() async {
         isLoading = true
-        KlaviyoSDK().unregisterGeofencing()
+        await KlaviyoSDK().unregisterGeofencing()
 
         // Wait a moment for the system to process the unregistration
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
