@@ -77,7 +77,8 @@ class KlaviyoLocationManager: NSObject {
             return
         }
 
-        let remoteGeofences = await GeofenceService().fetchGeofences(apiKey: apiKey, latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        let (latitude, longitude) = transformCoordinates(location.coordinate)
+        let remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
@@ -198,5 +199,25 @@ class KlaviyoLocationManager: NSObject {
     private func stopObservingAppLifecycle() {
         lifecycleCancellable?.cancel()
         lifecycleCancellable = nil
+    }
+
+    // MARK: - Coordinate Transformation
+
+    /// Transforms coordinates by rounding to the nearest 0.145 degrees (~10 mile precision)
+    /// and clamping to valid coordinate ranges.
+    ///
+    /// - Parameter coordinate: The original coordinate to transform
+    /// - Returns: A tuple containing the transformed (latitude, longitude) coordinates
+    private func transformCoordinates(_ coordinate: CLLocationCoordinate2D) -> (latitude: Double, longitude: Double) {
+        // Round coordinates to nearest 0.145 degrees (~10 mile precision)
+        let coordinatePrecision = 0.145
+        let roundedLatitude = round(coordinate.latitude / coordinatePrecision) * coordinatePrecision
+        let roundedLongitude = round(coordinate.longitude / coordinatePrecision) * coordinatePrecision
+
+        // Clamp coordinates to valid ranges
+        let clampedLatitude = max(-90.0, min(90.0, roundedLatitude))
+        let clampedLongitude = max(-180.0, min(180.0, roundedLongitude))
+
+        return (latitude: clampedLatitude, longitude: clampedLongitude)
     }
 }

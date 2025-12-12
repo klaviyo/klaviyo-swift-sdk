@@ -218,7 +218,9 @@ final class KlaviyoEndpointTests: XCTestCase {
     func testRevisionHeaderForGeofenceEndpoint() throws {
         // Given
         let apiKey = "test_api_key"
-        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+        let latitude = 37.7749
+        let longitude = -122.4194
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
         let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
         let request = KlaviyoRequest(endpoint: endpoint)
 
@@ -249,11 +251,5 @@ final class KlaviyoEndpointTests: XCTestCase {
         let geofenceEventRequest = KlaviyoRequest(endpoint: geofenceEventEndpoint)
         let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
         XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
-
-        // Test fetchGeofences (should use different revision)
-        let geofenceEndpoint = KlaviyoEndpoint.fetchGeofences("test_api_key")
-        let geofenceRequest = KlaviyoRequest(endpoint: geofenceEndpoint)
-        let geofenceUrlRequest = try geofenceRequest.urlRequest(attemptInfo: attemptInfo)
-        XCTAssertEqual(geofenceUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15.pre")
     }
 }
