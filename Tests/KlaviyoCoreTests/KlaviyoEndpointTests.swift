@@ -215,6 +215,23 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertTrue(queryItems.contains("longitude=-122.4194"))
     }
 
+    func testFetchGeofencesEndpointUrlRequestWithNilCoordinates() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: nil, longitude: nil)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/client/geofences")
+        let queryItems = request.url?.query?.components(separatedBy: "&").sorted() ?? []
+        XCTAssertTrue(queryItems.contains("company_id=test_api_key"))
+        XCTAssertFalse(queryItems.contains { $0.contains("latitude") })
+        XCTAssertFalse(queryItems.contains { $0.contains("longitude") })
+    }
+
     func testRevisionHeaderForGeofenceEndpoint() throws {
         // Given
         let apiKey = "test_api_key"

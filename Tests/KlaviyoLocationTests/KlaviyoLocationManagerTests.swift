@@ -385,7 +385,7 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
 private final class MockGeofenceService: GeofenceServiceProvider {
     var mockGeofences: Set<Geofence> = []
 
-    func fetchGeofences(apiKey: String, latitude: Double, longitude: Double) async -> Set<KlaviyoLocation.Geofence> {
+    func fetchGeofences(apiKey: String, latitude: Double?, longitude: Double?) async -> Set<KlaviyoLocation.Geofence> {
         mockGeofences
     }
 }

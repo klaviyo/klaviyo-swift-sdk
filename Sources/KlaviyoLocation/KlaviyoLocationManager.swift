@@ -70,14 +70,7 @@ class KlaviyoLocationManager: NSObject {
             return
         }
 
-        guard let location = locationManager.location else {
-            if #available(iOS 14.0, *) {
-                Logger.geoservices.warning("Unable to get current location, skipping geofence refresh")
-            }
-            return
-        }
-
-        let (latitude, longitude) = transformCoordinates(location.coordinate)
+        let (latitude, longitude) = transformCoordinates(locationManager.location?.coordinate)
         let remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
         let activeGeofences = await getActiveGeofences()
 
@@ -208,7 +201,8 @@ class KlaviyoLocationManager: NSObject {
     ///
     /// - Parameter coordinate: The original coordinate to transform
     /// - Returns: A tuple containing the transformed (latitude, longitude) coordinates
-    private func transformCoordinates(_ coordinate: CLLocationCoordinate2D) -> (latitude: Double, longitude: Double) {
+    private func transformCoordinates(_ coordinate: CLLocationCoordinate2D?) -> (latitude: Double?, longitude: Double?) {
+        guard let coordinate else { return (nil, nil) }
         // Round coordinates to nearest 0.145 degrees (~10 mile precision)
         let coordinatePrecision = 0.145
         let roundedLatitude = round(coordinate.latitude / coordinatePrecision) * coordinatePrecision

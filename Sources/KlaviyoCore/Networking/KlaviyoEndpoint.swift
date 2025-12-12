@@ -17,7 +17,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
     case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
     case logTrackingLinkClicked(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
-    case fetchGeofences(_ apiKey: String, latitude: Double, longitude: Double)
+    case fetchGeofences(_ apiKey: String, latitude: Double?, longitude: Double?)
 
     private enum HeaderKey {
         static let profileInfo = "X-Klaviyo-Profile-Info"
@@ -53,11 +53,14 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
         case let .fetchGeofences(apiKey, latitude, longitude):
-            return [
-                URLQueryItem(name: "company_id", value: apiKey),
-                URLQueryItem(name: "latitude", value: String(latitude)),
-                URLQueryItem(name: "longitude", value: String(longitude))
-            ]
+            var items = [URLQueryItem(name: "company_id", value: apiKey)]
+            if let latitude {
+                items.append(URLQueryItem(name: "latitude", value: String(latitude)))
+            }
+            if let longitude {
+                items.append(URLQueryItem(name: "longitude", value: String(longitude)))
+            }
+            return items
         case .resolveDestinationURL, .logTrackingLinkClicked:
             return []
         }
