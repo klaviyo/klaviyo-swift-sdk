@@ -124,6 +124,14 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         }
     }
 
+    var revision: String {
+        if case .fetchGeofences = self {
+            return "2025-10-15.pre"
+        } else {
+            return "2025-10-15"
+        }
+    }
+
     func body() throws -> Data? {
         switch self {
         case let .createProfile(_, payload):
