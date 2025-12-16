@@ -71,7 +71,19 @@ class KlaviyoLocationManager: NSObject {
         }
 
         let (latitude, longitude) = transformCoordinates(locationManager.location?.coordinate)
-        let remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
+        var remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
+
+        // Filter to nearest geofences if location is available
+        if let latitude, let longitude {
+            let nearestGeofences = GeofenceDistanceCalculator.filterToNearest(
+                geofences: remoteGeofences,
+                userLatitude: latitude,
+                userLongitude: longitude,
+                limit: 20
+            )
+            remoteGeofences = Set(nearestGeofences)
+        }
+
         let activeGeofences = await getActiveGeofences()
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
