@@ -70,6 +70,15 @@ class KlaviyoLocationManager: NSObject {
             return
         }
 
+        // Calculate available spots for geofences based on iOS limit
+        let activeGeofences = await getActiveGeofences()
+        let currentKlaviyoGeofenceCount = activeGeofences.count
+        let availableSpots = max(currentKlaviyoGeofenceCount, 20 - locationManager.monitoredRegions.count - currentKlaviyoGeofenceCount)
+
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("📊 Available spots for geofences: \(availableSpots)")
+        }
+
         let (latitude, longitude) = transformCoordinates(locationManager.location?.coordinate)
         var remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
 
@@ -79,27 +88,18 @@ class KlaviyoLocationManager: NSObject {
                 geofences: remoteGeofences,
                 userLatitude: locationManager.location?.coordinate.latitude ?? latitude,
                 userLongitude: locationManager.location?.coordinate.longitude ?? longitude,
-                limit: 20
+                limit: availableSpots
             )
             remoteGeofences = Set(nearestGeofences)
         }
 
-        let activeGeofences = await getActiveGeofences()
-
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.warning("⚠️ Adding \(geofencesToAdd.count) and removing \(geofencesToRemove.count) geofences")
+        }
 
         await MainActor.run {
-            // Warn if we're exceeding the limit, but still attempt to add all geofences
-            let currentTotalRegionCount = locationManager.monitoredRegions.count
-            let totalRegionsAfterUpdate = currentTotalRegionCount - geofencesToRemove.count + geofencesToAdd.count
-            let maxRegions = 20
-            if totalRegionsAfterUpdate > maxRegions {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.warning("⚠️ Attempting to monitor \(totalRegionsAfterUpdate) regions, but iOS limit is \(maxRegions). Some regions may fail to monitor.")
-                }
-            }
-
             // Only look up Klaviyo geofences to ensure we never affect non-Klaviyo regions
             let regionsByIdentifier = Dictionary(
                 uniqueKeysWithValues: locationManager.monitoredRegions
@@ -112,8 +112,6 @@ class KlaviyoLocationManager: NSObject {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
-
-            // Attempt to add all geofences, iOS will reject those beyond the limit
             for geofence in geofencesToAdd {
                 locationManager.startMonitoring(for: geofence.toCLCircularRegion())
             }
