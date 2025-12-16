@@ -77,8 +77,8 @@ class KlaviyoLocationManager: NSObject {
         if let latitude, let longitude {
             let nearestGeofences = GeofenceDistanceCalculator.filterToNearest(
                 geofences: remoteGeofences,
-                userLatitude: latitude,
-                userLongitude: longitude,
+                userLatitude: locationManager.location?.coordinate.latitude ?? latitude,
+                userLongitude: locationManager.location?.coordinate.longitude ?? longitude,
                 limit: 20
             )
             remoteGeofences = Set(nearestGeofences)
