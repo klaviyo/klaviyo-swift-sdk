@@ -199,8 +199,10 @@ class KlaviyoLocationManager: NSObject {
     /// Transforms coordinates by rounding to the nearest 0.145 degrees (~10 mile precision)
     /// and clamping to valid coordinate ranges.
     ///
+    /// The result is truncated to 3 decimal places to avoid long repeating decimals.
+    ///
     /// - Parameter coordinate: The original coordinate to transform
-    /// - Returns: A tuple containing the transformed (latitude, longitude) coordinates
+    /// - Returns: A tuple containing the transformed (latitude, longitude) coordinates truncated to 3 decimal places
     private func transformCoordinates(_ coordinate: CLLocationCoordinate2D?) -> (latitude: Double?, longitude: Double?) {
         guard let coordinate else { return (nil, nil) }
         // Round coordinates to nearest 0.145 degrees (~10 mile precision)
@@ -208,9 +210,13 @@ class KlaviyoLocationManager: NSObject {
         let roundedLatitude = round(coordinate.latitude / coordinatePrecision) * coordinatePrecision
         let roundedLongitude = round(coordinate.longitude / coordinatePrecision) * coordinatePrecision
 
+        // Truncate to 3 decimal places to avoid long repeating decimals
+        let truncatedLatitude = trunc(roundedLatitude * 1000) / 1000
+        let truncatedLongitude = trunc(roundedLongitude * 1000) / 1000
+
         // Clamp coordinates to valid ranges
-        let clampedLatitude = max(-90.0, min(90.0, roundedLatitude))
-        let clampedLongitude = max(-180.0, min(180.0, roundedLongitude))
+        let clampedLatitude = max(-90.0, min(90.0, truncatedLatitude))
+        let clampedLongitude = max(-180.0, min(180.0, truncatedLongitude))
 
         return (latitude: clampedLatitude, longitude: clampedLongitude)
     }
