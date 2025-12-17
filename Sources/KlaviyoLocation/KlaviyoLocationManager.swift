@@ -72,8 +72,7 @@ class KlaviyoLocationManager: NSObject {
 
         // Calculate available spots for geofences based on iOS limit
         let activeGeofences = await getActiveGeofences()
-        let currentKlaviyoGeofenceCount = activeGeofences.count
-        let availableSpots = max(currentKlaviyoGeofenceCount, 20 - locationManager.monitoredRegions.count - currentKlaviyoGeofenceCount)
+        let availableSpots = 20 - locationManager.monitoredRegions.count + activeGeofences.count
 
         if #available(iOS 14.0, *) {
             Logger.geoservices.info("📊 Available spots for geofences: \(availableSpots)")
