@@ -56,6 +56,14 @@ swiftlint --fix --strict
 swiftformat .
 ```
 
+### Commits & Pull Requests
+If prompted to commit, push, or open pull requests:
+
+- Keep commit messages concise
+- Open pull requests in **draft** mode first unless otherwise directed
+- Use the PR template at `.github/pull_request_template.md`
+- Include a brief changelog and test plan with reproducible steps
+
 ## Architecture Overview
 
 The SDK uses [The Composable Architecture](https://www.pointfree.co/collections/composable-architecture) framework. It is
