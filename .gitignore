@@ -43,3 +43,6 @@ Carthage/Build
 
 # AI agent local configuration files
 .claude/
+
+# AI agent local configuration files
+.idea/
