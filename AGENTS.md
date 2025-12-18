@@ -79,6 +79,7 @@ The SDK uses XCTest for unit testing with the following structure:
 - Test both happy paths and error cases
 - Use XCTestExpectation for async testing
 - Prefer verifying side effects and state changes over exact implementation details
+- A common test pattern employs the the TCA Snapshot testing framework. It is good practice to double check that generated snapshots match expectations based on code changes.
 
 ### Code Style
 
