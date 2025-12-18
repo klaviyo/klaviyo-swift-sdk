@@ -140,11 +140,6 @@ public class DeepLinkHandler {
                 }
                 return false
             }
-
-            if #available(iOS 14.0, *) {
-                Logger.navigation.warning("Could not find a valid delegate method to handle the user activity.")
-            }
-            return false
         } else {
             // Fallback for single-scene devices like iPhone.
             guard let scene = UIApplication.shared.connectedScenes.first,
