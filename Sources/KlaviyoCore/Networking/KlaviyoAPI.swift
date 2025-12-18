@@ -54,7 +54,7 @@ public struct KlaviyoAPI {
             return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
         }
 
-        if (501...599).contains(httpResponse.statusCode) {
+        if [500, 502, 503, 504].contains(httpResponse.statusCode) {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = exponentialBackOff + jitter
