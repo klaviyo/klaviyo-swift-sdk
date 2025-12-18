@@ -18,7 +18,7 @@ This is the Swift SDK for Klaviyo, a marketing automation platform. The SDK is d
 allowing developers to integrate various features including analytics, push notifications, in-app messaging (forms),
 and extension support (app clips, watch kits, etc.).
 
-The SDK uses Swift Package Manager for distribution and supports multiple platforms including iOS,
+The SDK uses both Swift Package Manager and Cocoapods for distribution and supports multiple platforms including iOS,
 tvOS, macOS, watchOS, and visionOS.
 
 ## Common Commands
