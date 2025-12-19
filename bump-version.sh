@@ -74,15 +74,20 @@ echo "Updating test files..."
 # NetworkSessionTests.swift
 sed -i '' "s/klaviyo-swift\/$currentVersion/klaviyo-swift\/$newVersion/g" "Tests/KlaviyoCoreTests/NetworkSessionTests.swift"
 
-# 4. Update test snapshots (dynamically find files containing version)
+# 4. Update test snapshots
 echo "Updating test snapshots..."
-snapshotCount=0
 
-find Tests -path "*__Snapshots__*" -type f \( -name "*.json" -o -name "*.txt" \) | while read -r snapshot; do
-  if grep -q "$currentVersion" "$snapshot" 2>/dev/null; then
+for snapshot in \
+  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testEventPayload.1.json" \
+  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testKlaviyoRequest.1.json" \
+  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testTokenPayload.1.json" \
+  "Tests/KlaviyoCoreTests/__Snapshots__/NetworkSessionTests/testCreateEmphemeralSesionHeaders.1.txt" \
+  "Tests/KlaviyoCoreTests/__Snapshots__/NetworkSessionTests/testDefaultUserAgent.1.txt" \
+  "Tests/KlaviyoSwiftTests/__Snapshots__/EncodableTests/testKlaviyoState.1.json" \
+  "Tests/KlaviyoSwiftTests/__Snapshots__/KlaviyoStateTests/testValidStateFileExists.1.txt"
+do
+  if [[ -f "$snapshot" ]]; then
     sed -i '' "s/$currentVersion/$newVersion/g" "$snapshot"
-    echo "  Updated: $snapshot"
-    snapshotCount=$((snapshotCount + 1))
   fi
 done
 
