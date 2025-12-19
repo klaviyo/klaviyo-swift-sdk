@@ -107,5 +107,18 @@ if [[ -f "README.md" ]]; then
   sed -i '' "s/SDK version $currentVersion/SDK version $newVersion/g" "README.md"
 fi
 
+# 7. Update example app project marketing versions
+echo "Updating example app project versions..."
+
+COCOAPODS_PROJECT="Examples/KlaviyoSwiftExamples/CocoapodsExample/CocoapodsExample.xcodeproj/project.pbxproj"
+if [[ -f "$COCOAPODS_PROJECT" ]]; then
+  sed -i '' "s/MARKETING_VERSION = $currentVersion;/MARKETING_VERSION = $newVersion;/g" "$COCOAPODS_PROJECT"
+fi
+
+SPM_PROJECT="Examples/KlaviyoSwiftExamples/SPMExample/SPMExample.xcodeproj/project.pbxproj"
+if [[ -f "$SPM_PROJECT" ]]; then
+  sed -i '' "s/MARKETING_VERSION = $currentVersion;/MARKETING_VERSION = $newVersion;/g" "$SPM_PROJECT"
+fi
+
 echo ""
 echo "✅ Version bumped from $currentVersion to $newVersion"
