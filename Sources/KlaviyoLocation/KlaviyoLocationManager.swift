@@ -69,23 +69,35 @@ class KlaviyoLocationManager: NSObject {
             }
             return
         }
-        let remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey)
+
+        // Calculate available spots for geofences based on iOS limit
         let activeGeofences = await getActiveGeofences()
+        let availableSpots = 20 - locationManager.monitoredRegions.count + activeGeofences.count
+
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.info("📊 Available spots for geofences: \(availableSpots)")
+        }
+
+        let (latitude, longitude) = transformCoordinates(locationManager.location?.coordinate)
+        var remoteGeofences = await geofenceService.fetchGeofences(apiKey: apiKey, latitude: latitude, longitude: longitude)
+
+        // Filter to nearest geofences if location is available
+        if let latitude, let longitude {
+            remoteGeofences = GeofenceDistanceCalculator.filterToNearest(
+                geofences: remoteGeofences,
+                userLatitude: locationManager.location?.coordinate.latitude ?? latitude,
+                userLongitude: locationManager.location?.coordinate.longitude ?? longitude,
+                limit: availableSpots
+            )
+        }
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
+        if #available(iOS 14.0, *) {
+            Logger.geoservices.log("⚠️ Adding \(geofencesToAdd.count) and removing \(geofencesToRemove.count) geofences")
+        }
 
         await MainActor.run {
-            // Warn if we're exceeding the limit, but still attempt to add all geofences
-            let currentTotalRegionCount = locationManager.monitoredRegions.count
-            let totalRegionsAfterUpdate = currentTotalRegionCount - geofencesToRemove.count + geofencesToAdd.count
-            let maxRegions = 20
-            if totalRegionsAfterUpdate > maxRegions {
-                if #available(iOS 14.0, *) {
-                    Logger.geoservices.warning("⚠️ Attempting to monitor \(totalRegionsAfterUpdate) regions, but iOS limit is \(maxRegions). Some regions may fail to monitor.")
-                }
-            }
-
             // Only look up Klaviyo geofences to ensure we never affect non-Klaviyo regions
             let regionsByIdentifier = Dictionary(
                 uniqueKeysWithValues: locationManager.monitoredRegions
@@ -98,8 +110,6 @@ class KlaviyoLocationManager: NSObject {
                     locationManager.stopMonitoring(for: clRegion)
                 }
             }
-
-            // Attempt to add all geofences, iOS will reject those beyond the limit
             for geofence in geofencesToAdd {
                 locationManager.startMonitoring(for: geofence.toCLCircularRegion())
             }
@@ -190,5 +200,32 @@ class KlaviyoLocationManager: NSObject {
     private func stopObservingAppLifecycle() {
         lifecycleCancellable?.cancel()
         lifecycleCancellable = nil
+    }
+
+    // MARK: - Coordinate Transformation
+
+    /// Transforms coordinates by rounding to the nearest 0.145 degrees (~10 mile precision)
+    /// and clamping to valid coordinate ranges.
+    ///
+    /// The result is truncated to 3 decimal places to avoid long repeating decimals.
+    ///
+    /// - Parameter coordinate: The original coordinate to transform
+    /// - Returns: A tuple containing the transformed (latitude, longitude) coordinates truncated to 3 decimal places
+    private func transformCoordinates(_ coordinate: CLLocationCoordinate2D?) -> (latitude: Double?, longitude: Double?) {
+        guard let coordinate else { return (nil, nil) }
+        // Round coordinates to nearest 0.145 degrees (~10 mile precision)
+        let coordinatePrecision = 0.145
+        let roundedLatitude = round(coordinate.latitude / coordinatePrecision) * coordinatePrecision
+        let roundedLongitude = round(coordinate.longitude / coordinatePrecision) * coordinatePrecision
+
+        // Truncate to 3 decimal places to avoid long repeating decimals
+        let truncatedLatitude = trunc(roundedLatitude * 1000) / 1000
+        let truncatedLongitude = trunc(roundedLongitude * 1000) / 1000
+
+        // Clamp coordinates to valid ranges
+        let clampedLatitude = max(-90.0, min(90.0, truncatedLatitude))
+        let clampedLongitude = max(-180.0, min(180.0, truncatedLongitude))
+
+        return (latitude: clampedLatitude, longitude: clampedLongitude)
     }
 }
