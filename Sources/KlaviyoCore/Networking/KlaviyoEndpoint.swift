@@ -22,12 +22,20 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     private enum HeaderKey {
         static let profileInfo = "X-Klaviyo-Profile-Info"
         static let clickEventTimestamp = "X-Klaviyo-Click-Event-Timestamp"
+        static let apiFilters = "X-Klaviyo-API-Filters"
     }
 
     public var headers: [String: String] {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .fetchGeofences:
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return [:]
+        case let .fetchGeofences(_, latitude, longitude):
+            var dict = [String: String]()
+            if let latitude, let longitude {
+                let filterString = "and(equals(lat,\(latitude)),equals(lng,\(longitude)))"
+                dict[HeaderKey.apiFilters] = filterString
+            }
+            return dict
         case let .resolveDestinationURL(_, profileInfo):
             var dict = [String: String]()
             if let profileInfoString = try? profileInfo.asJSONString() {
@@ -52,15 +60,11 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
-        case let .fetchGeofences(apiKey, latitude, longitude):
-            var items = [URLQueryItem(name: "company_id", value: apiKey)]
-            if let latitude {
-                items.append(URLQueryItem(name: "latitude", value: String(latitude)))
-            }
-            if let longitude {
-                items.append(URLQueryItem(name: "longitude", value: String(longitude)))
-            }
-            return items
+        case let .fetchGeofences(apiKey, _, _):
+            return [
+                URLQueryItem(name: "company_id", value: apiKey),
+                URLQueryItem(name: "page[size]", value: "30")
+            ]
         case .resolveDestinationURL, .logTrackingLinkClicked:
             return []
         }
