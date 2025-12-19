@@ -27,6 +27,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         super.setUp()
 
         mockLocationManager = MockLocationManager()
+        mockLocationManager.location = CLLocation(latitude: 0, longitude: 0)
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
 
         // Set up environment with mock authorization status BEFORE creating location manager
@@ -315,6 +316,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
 // MARK: - Mock Classes
 
 private final class MockLocationManager: LocationManagerProtocol {
+    var location: CLLocation?
     var delegate: CLLocationManagerDelegate?
     var allowsBackgroundLocationUpdates: Bool = false
     var currentAuthorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -383,7 +385,7 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
 private final class MockGeofenceService: GeofenceServiceProvider {
     var mockGeofences: Set<Geofence> = []
 
-    func fetchGeofences(apiKey: String) async -> Set<Geofence> {
+    func fetchGeofences(apiKey: String, latitude: Double?, longitude: Double?) async -> Set<KlaviyoLocation.Geofence> {
         mockGeofences
     }
 }

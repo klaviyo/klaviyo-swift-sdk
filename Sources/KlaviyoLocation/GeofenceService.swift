@@ -11,13 +11,13 @@ import KlaviyoSwift
 import OSLog
 
 protocol GeofenceServiceProvider {
-    func fetchGeofences(apiKey: String) async -> Set<Geofence>
+    func fetchGeofences(apiKey: String, latitude: Double?, longitude: Double?) async -> Set<Geofence>
 }
 
 struct GeofenceService: GeofenceServiceProvider {
-    func fetchGeofences(apiKey: String) async -> Set<Geofence> {
+    func fetchGeofences(apiKey: String, latitude: Double?, longitude: Double?) async -> Set<Geofence> {
         do {
-            let data = try await fetchGeofenceData(apiKey: apiKey)
+            let data = try await fetchGeofenceData(apiKey: apiKey, latitude: latitude, longitude: longitude)
             return try parseGeofences(from: data, companyId: apiKey)
         } catch {
             if #available(iOS 14.0, *) {
@@ -27,8 +27,8 @@ struct GeofenceService: GeofenceServiceProvider {
         }
     }
 
-    private func fetchGeofenceData(apiKey: String) async throws -> Data {
-        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey)
+    private func fetchGeofenceData(apiKey: String, latitude: Double?, longitude: Double?) async throws -> Data {
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
         let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
         let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
         let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
