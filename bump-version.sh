@@ -66,24 +66,12 @@ sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$ne
 sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoLocation.podspec"
 sed -i '' "s/'KlaviyoSwift', '~> $currentVersion'/'KlaviyoSwift', '~> $newVersion'/" "KlaviyoLocation.podspec"
 
-# 3. Update example app Podfile
-EXAMPLE_PODFILE="Examples/KlaviyoSwiftExamples/CocoapodsExample/Podfile"
-if [[ -f "$EXAMPLE_PODFILE" ]]; then
-  echo "Updating $EXAMPLE_PODFILE..."
-  # Update version-pinned pod references
-  sed -i '' "s/'KlaviyoSwift', '$currentVersion'/'KlaviyoSwift', '$newVersion'/g" "$EXAMPLE_PODFILE"
-  sed -i '' "s/'KlaviyoForms', '$currentVersion'/'KlaviyoForms', '$newVersion'/g" "$EXAMPLE_PODFILE"
-  sed -i '' "s/'KlaviyoSwiftExtension', '$currentVersion'/'KlaviyoSwiftExtension', '$newVersion'/g" "$EXAMPLE_PODFILE"
-  sed -i '' "s/'KlaviyoLocation', '$currentVersion'/'KlaviyoLocation', '$newVersion'/g" "$EXAMPLE_PODFILE"
-fi
-
-# 4. Update test files with hardcoded versions
+# 3. Update test files/snapshots with hardcoded versions
 echo "Updating test files..."
 
 # NetworkSessionTests.swift
 sed -i '' "s/klaviyo-swift\/$currentVersion/klaviyo-swift\/$newVersion/g" "Tests/KlaviyoCoreTests/NetworkSessionTests.swift"
 
-# 5. Update test snapshots
 echo "Updating test snapshots..."
 
 for snapshot in \
@@ -100,14 +88,18 @@ do
   fi
 done
 
-# 6. Update README.md version references
-echo "Updating README.md..."
-if [[ -f "README.md" ]]; then
-  # Update specific version references (e.g., "SDK version X.Y.Z")
-  sed -i '' "s/SDK version $currentVersion/SDK version $newVersion/g" "README.md"
+# 4. Update example app Podfile
+EXAMPLE_PODFILE="Examples/KlaviyoSwiftExamples/CocoapodsExample/Podfile"
+if [[ -f "$EXAMPLE_PODFILE" ]]; then
+  echo "Updating $EXAMPLE_PODFILE..."
+  # Update version-pinned pod references
+  sed -i '' "s/'KlaviyoSwift', '$currentVersion'/'KlaviyoSwift', '$newVersion'/g" "$EXAMPLE_PODFILE"
+  sed -i '' "s/'KlaviyoForms', '$currentVersion'/'KlaviyoForms', '$newVersion'/g" "$EXAMPLE_PODFILE"
+  sed -i '' "s/'KlaviyoSwiftExtension', '$currentVersion'/'KlaviyoSwiftExtension', '$newVersion'/g" "$EXAMPLE_PODFILE"
+  sed -i '' "s/'KlaviyoLocation', '$currentVersion'/'KlaviyoLocation', '$newVersion'/g" "$EXAMPLE_PODFILE"
 fi
 
-# 7. Update example app project marketing versions
+# 5. Update example app project marketing versions
 echo "Updating example app project versions..."
 
 COCOAPODS_PROJECT="Examples/KlaviyoSwiftExamples/CocoapodsExample/CocoapodsExample.xcodeproj/project.pbxproj"
