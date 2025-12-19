@@ -93,4 +93,13 @@ final class EventBuffer {
             return recentEvents
         }
     }
+
+    /// Clears all events from the buffer.
+    /// This is useful for testing to ensure clean state between tests.
+    func clear() {
+        queue.async(flags: .barrier) { [weak self] in
+            guard let self else { return }
+            self.buffer.removeAll()
+        }
+    }
 }
