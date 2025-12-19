@@ -10,7 +10,7 @@ import Foundation
 import KlaviyoCore
 
 public struct Event: Equatable {
-    public enum EventName: Equatable {
+    public enum EventName: Equatable, Hashable {
         case openedAppMetric
         case viewedProductMetric
         case addedToCartMetric

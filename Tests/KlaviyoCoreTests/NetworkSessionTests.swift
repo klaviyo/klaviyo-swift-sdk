@@ -98,6 +98,7 @@ class NetworkSessionTests: XCTestCase {
 
             // Verify the result is default
             XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.2.0-alpha.1")
+
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
         } catch {
