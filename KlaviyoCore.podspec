@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoCore"
-  s.version          = "5.2.0-alpha.1"
+  s.version          = "5.2.0"
   s.summary          = "Core functionalities for the Klaviyo SDK"
   s.description      = <<-DESC
                         Core functionalities and utilities for the Klaviyo SDK.

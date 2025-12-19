@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoLocation"
-  s.version          = "5.2.0-alpha.1"
+  s.version          = "5.2.0"
   s.summary          = "Location services and geofencing for the Klaviyo SDK"
   s.description      = <<-DESC
                         Use KlaviyoLocation to enable location-based tracking and geofencing capabilities in your iOS applications.
@@ -14,6 +14,6 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoLocation/**/*.swift'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoLocation -package-name KlaviyoSwift -package-name KlaviyoCore' }
-  s.dependency       'KlaviyoSwift', '~> 5.2.0-alpha.1'
+  s.dependency       'KlaviyoSwift', '~> 5.2.0'
   s.frameworks       = 'CoreLocation'
 end
