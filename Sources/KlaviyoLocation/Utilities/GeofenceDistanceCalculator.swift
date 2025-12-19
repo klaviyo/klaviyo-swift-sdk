@@ -33,12 +33,12 @@ enum GeofenceDistanceCalculator {
         let deltaLatRad = (coordinate2.latitude - coordinate1.latitude) * .pi / 180.0
         let deltaLonRad = (coordinate2.longitude - coordinate1.longitude) * .pi / 180.0
 
-        let a = sin(deltaLatRad / 2.0) * sin(deltaLatRad / 2.0) +
+        let haversineValue = sin(deltaLatRad / 2.0) * sin(deltaLatRad / 2.0) +
             cos(lat1Rad) * cos(lat2Rad) *
             sin(deltaLonRad / 2.0) * sin(deltaLonRad / 2.0)
 
-        let c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
-        let distance = earthRadiusMeters * c
+        let angularDistanceRadians = 2.0 * atan2(sqrt(haversineValue), sqrt(1.0 - haversineValue))
+        let distance = earthRadiusMeters * angularDistanceRadians
 
         return distance
     }
@@ -60,23 +60,23 @@ enum GeofenceDistanceCalculator {
         return distance(from: coordinate, to: geofenceCoordinate)
     }
 
-    /// Filter a collection of geofences to the nearest N fences based on distance from a given location.
+    /// Filter a set of geofences to the nearest N fences based on distance from a given location.
     ///
     /// Calculates distance from the user location to each geofence center using the Haversine formula,
     /// sorts by distance, and returns the nearest ones up to the specified limit.
     ///
     /// - Parameters:
-    ///   - geofences: Collection of geofences to filter
+    ///   - geofences: Set of geofences to filter
     ///   - userLatitude: User's current latitude
     ///   - userLongitude: User's current longitude
     ///   - limit: Maximum number of geofences to return (default 20)
-    /// - Returns: Array of nearest geofences, sorted by distance (closest first)
+    /// - Returns: Set of nearest geofences
     static func filterToNearest(
-        geofences: some Collection<Geofence>,
+        geofences: Set<Geofence>,
         userLatitude: Double,
         userLongitude: Double,
         limit: Int = 20
-    ) -> [Geofence] {
+    ) -> Set<Geofence> {
         let userCoordinate = CLLocationCoordinate2D(
             latitude: userLatitude,
             longitude: userLongitude
@@ -89,9 +89,9 @@ enum GeofenceDistanceCalculator {
         }
 
         // Sort by distance (closest first) and take the first N
-        return geofencesWithDistance
+        return Set(geofencesWithDistance
             .sorted { $0.distance < $1.distance }
             .prefix(limit)
-            .map(\.geofence)
+            .map(\.geofence))
     }
 }

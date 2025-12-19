@@ -83,19 +83,18 @@ class KlaviyoLocationManager: NSObject {
 
         // Filter to nearest geofences if location is available
         if let latitude, let longitude {
-            let nearestGeofences = GeofenceDistanceCalculator.filterToNearest(
+            remoteGeofences = GeofenceDistanceCalculator.filterToNearest(
                 geofences: remoteGeofences,
                 userLatitude: locationManager.location?.coordinate.latitude ?? latitude,
                 userLongitude: locationManager.location?.coordinate.longitude ?? longitude,
                 limit: availableSpots
             )
-            remoteGeofences = Set(nearestGeofences)
         }
 
         let geofencesToRemove = activeGeofences.subtracting(remoteGeofences)
         let geofencesToAdd = remoteGeofences.subtracting(activeGeofences)
         if #available(iOS 14.0, *) {
-            Logger.geoservices.warning("⚠️ Adding \(geofencesToAdd.count) and removing \(geofencesToRemove.count) geofences")
+            Logger.geoservices.log("⚠️ Adding \(geofencesToAdd.count) and removing \(geofencesToRemove.count) geofences")
         }
 
         await MainActor.run {

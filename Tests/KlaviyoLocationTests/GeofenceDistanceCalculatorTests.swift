@@ -31,7 +31,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let bostonGeofence = try createGeofence(id: "boston-1", latitude: 42.3601, longitude: -71.0589)
         let nycGeofence = try createGeofence(id: "nyc-1", latitude: 40.7128, longitude: -74.0060)
 
-        let geofences = [bostonGeofence, nycGeofence]
+        let geofences = Set([bostonGeofence, nycGeofence])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -43,8 +43,8 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // Then: Boston geofence should be first (closest)
         XCTAssertEqual(result.count, 2)
-        XCTAssertEqual(result[0].locationId, "boston-1")
-        XCTAssertEqual(result[1].locationId, "nyc-1")
+        XCTAssertTrue(result.contains { $0.locationId == "boston-1" })
+        XCTAssertTrue(result.contains { $0.locationId == "nyc-1" })
     }
 
     func testFilterToNearest_RespectsLimit() throws {
@@ -52,13 +52,13 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLat = 42.3601
         let userLon = -71.0589
 
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "loc-1", latitude: 42.3601, longitude: -71.0589), // Closest
             createGeofence(id: "loc-2", latitude: 42.3650, longitude: -71.0520), // Second closest
             createGeofence(id: "loc-3", latitude: 42.3700, longitude: -71.0550), // Third
             createGeofence(id: "loc-4", latitude: 42.3750, longitude: -71.0600), // Fourth
             createGeofence(id: "loc-5", latitude: 40.7128, longitude: -74.0060) // Farthest (NYC)
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -70,8 +70,8 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // Then: Should only return 2 geofences
         XCTAssertEqual(result.count, 2)
-        XCTAssertEqual(result[0].locationId, "loc-1")
-        XCTAssertEqual(result[1].locationId, "loc-2")
+        XCTAssertTrue(result.contains { $0.locationId == "loc-1" })
+        XCTAssertTrue(result.contains { $0.locationId == "loc-2" })
     }
 
     func testFilterToNearest_ReturnsAllWhenLimitExceedsCount() throws {
@@ -79,11 +79,11 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLat = 42.3601
         let userLon = -71.0589
 
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "loc-1", latitude: 42.3601, longitude: -71.0589),
             createGeofence(id: "loc-2", latitude: 42.3650, longitude: -71.0520),
             createGeofence(id: "loc-3", latitude: 42.3700, longitude: -71.0550)
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -104,11 +104,11 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLat = 42.3601
         let userLon = -71.0589
 
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "far", latitude: 40.7128, longitude: -74.0060), // NYC - farthest
             createGeofence(id: "close", latitude: 42.3601, longitude: -71.0589), // Same location - closest
             createGeofence(id: "medium", latitude: 42.3650, longitude: -71.0520) // Nearby - medium
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -118,10 +118,11 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
             limit: 3
         )
 
-        // Then: Should be sorted closest to farthest
-        XCTAssertEqual(result[0].locationId, "close")
-        XCTAssertEqual(result[1].locationId, "medium")
-        XCTAssertEqual(result[2].locationId, "far")
+        // Then: Should contain all geofences
+        XCTAssertEqual(result.count, 3)
+        XCTAssertTrue(result.contains { $0.locationId == "close" })
+        XCTAssertTrue(result.contains { $0.locationId == "medium" })
+        XCTAssertTrue(result.contains { $0.locationId == "far" })
     }
 
     func testFilterToNearest_HandlesEqualDistances() throws {
@@ -130,10 +131,10 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLon = -71.0589
 
         // Two geofences at same distance (symmetrical positions)
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "north", latitude: 42.3701, longitude: -71.0589), // 0.01° north
             createGeofence(id: "south", latitude: 42.3501, longitude: -71.0589) // 0.01° south
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -153,7 +154,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
     func testFilterToNearest_EmptyCollection() {
         // Given: Empty collection
-        let geofences: [Geofence] = []
+        let geofences: Set<Geofence> = []
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -163,7 +164,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
             limit: 20
         )
 
-        // Then: Should return empty array
+        // Then: Should return empty set
         XCTAssertEqual(result.count, 0)
     }
 
@@ -175,7 +176,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
-            geofences: [geofence],
+            geofences: Set([geofence]),
             userLatitude: userLat,
             userLongitude: userLon,
             limit: 20
@@ -183,7 +184,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // Then: Should return the single geofence
         XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result[0].locationId, "single")
+        XCTAssertTrue(result.contains { $0.locationId == "single" })
     }
 
     func testFilterToNearest_DefaultLimit() throws {
@@ -191,9 +192,9 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLat = 42.3601
         let userLon = -71.0589
 
-        var geofences: [Geofence] = []
+        var geofences: Set<Geofence> = []
         for i in 0..<25 {
-            try geofences.append(createGeofence(
+            try geofences.insert(createGeofence(
                 id: "loc-\(i)",
                 latitude: 42.3601 + Double(i) * 0.001,
                 longitude: -71.0589 + Double(i) * 0.001
@@ -222,7 +223,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
-            geofences: [geofence],
+            geofences: Set([geofence]),
             userLatitude: userLat,
             userLongitude: userLon,
             limit: 1
@@ -230,7 +231,7 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // Then: Should return the geofence
         XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result[0].locationId, "same")
+        XCTAssertTrue(result.contains { $0.locationId == "same" })
     }
 
     func testFilterToNearest_DistanceCalculation_BostonToNYC() throws {
@@ -246,16 +247,16 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
-            geofences: [bostonGeofence, nycGeofence],
+            geofences: Set([bostonGeofence, nycGeofence]),
             userLatitude: userLat,
             userLongitude: userLon,
             limit: 2
         )
 
-        // Then: Boston should be first (much closer)
+        // Then: Both geofences should be included
         XCTAssertEqual(result.count, 2)
-        XCTAssertEqual(result[0].locationId, "boston")
-        XCTAssertEqual(result[1].locationId, "nyc")
+        XCTAssertTrue(result.contains { $0.locationId == "boston" })
+        XCTAssertTrue(result.contains { $0.locationId == "nyc" })
     }
 
     // MARK: - Real-World Scenario Tests
@@ -265,13 +266,13 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
         let userLat = 42.3601 // Downtown Boston
         let userLon = -71.0589
 
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "downtown", latitude: 42.3601, longitude: -71.0589), // Same location
             createGeofence(id: "north-end", latitude: 42.3650, longitude: -71.0550), // ~0.5km away
             createGeofence(id: "back-bay", latitude: 42.3470, longitude: -71.0820), // ~2km away
             createGeofence(id: "cambridge", latitude: 42.3736, longitude: -71.1189), // ~5km away
             createGeofence(id: "nyc", latitude: 40.7128, longitude: -74.0060) // ~306km away
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -281,21 +282,21 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
             limit: 5
         )
 
-        // Then: Should be sorted by distance
+        // Then: Should contain all geofences
         XCTAssertEqual(result.count, 5)
-        XCTAssertEqual(result[0].locationId, "downtown")
-        XCTAssertEqual(result[1].locationId, "north-end")
-        XCTAssertEqual(result[2].locationId, "back-bay")
-        XCTAssertEqual(result[3].locationId, "cambridge")
-        XCTAssertEqual(result[4].locationId, "nyc")
+        XCTAssertTrue(result.contains { $0.locationId == "downtown" })
+        XCTAssertTrue(result.contains { $0.locationId == "north-end" })
+        XCTAssertTrue(result.contains { $0.locationId == "back-bay" })
+        XCTAssertTrue(result.contains { $0.locationId == "cambridge" })
+        XCTAssertTrue(result.contains { $0.locationId == "nyc" })
     }
 
     func testFilterToNearest_DifferentUserLocations() throws {
         // Given: Same geofences, different user locations
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "boston", latitude: 42.3601, longitude: -71.0589),
             createGeofence(id: "nyc", latitude: 40.7128, longitude: -74.0060)
-        ]
+        ])
 
         // When: User in Boston
         let resultFromBoston = GeofenceDistanceCalculator.filterToNearest(
@@ -313,21 +314,23 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
             limit: 2
         )
 
-        // Then: Results should be different based on user location
-        XCTAssertEqual(resultFromBoston[0].locationId, "boston")
-        XCTAssertEqual(resultFromBoston[1].locationId, "nyc")
+        // Then: Both results should contain both geofences
+        XCTAssertEqual(resultFromBoston.count, 2)
+        XCTAssertTrue(resultFromBoston.contains { $0.locationId == "boston" })
+        XCTAssertTrue(resultFromBoston.contains { $0.locationId == "nyc" })
 
-        XCTAssertEqual(resultFromNYC[0].locationId, "nyc")
-        XCTAssertEqual(resultFromNYC[1].locationId, "boston")
+        XCTAssertEqual(resultFromNYC.count, 2)
+        XCTAssertTrue(resultFromNYC.contains { $0.locationId == "nyc" })
+        XCTAssertTrue(resultFromNYC.contains { $0.locationId == "boston" })
     }
 
     // MARK: - Limit Edge Cases
 
     func testFilterToNearest_ZeroLimit() throws {
         // Given: Geofences with limit of 0
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "loc-1", latitude: 42.3601, longitude: -71.0589)
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -337,16 +340,16 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
             limit: 0
         )
 
-        // Then: Should return empty array
+        // Then: Should return empty set
         XCTAssertEqual(result.count, 0)
     }
 
     func testFilterToNearest_LimitOne() throws {
         // Given: Multiple geofences, limit of 1
-        let geofences = try [
+        let geofences = try Set([
             createGeofence(id: "close", latitude: 42.3601, longitude: -71.0589),
             createGeofence(id: "far", latitude: 40.7128, longitude: -74.0060)
-        ]
+        ])
 
         // When
         let result = GeofenceDistanceCalculator.filterToNearest(
@@ -358,6 +361,6 @@ final class GeofenceDistanceCalculatorTests: XCTestCase {
 
         // Then: Should return only the closest one
         XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result[0].locationId, "close")
+        XCTAssertTrue(result.contains { $0.locationId == "close" })
     }
 }
