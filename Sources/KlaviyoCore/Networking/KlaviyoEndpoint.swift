@@ -30,25 +30,25 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return [:]
         case let .fetchGeofences(_, latitude, longitude):
-            var dict = [String: String]()
+            var headers = [String: String]()
             if let latitude, let longitude {
                 let filterString = "and(equals(lat,\(latitude)),equals(lng,\(longitude)))"
-                dict[HeaderKey.apiFilters] = filterString
+                headers[HeaderKey.apiFilters] = filterString
             }
-            return dict
+            return headers
         case let .resolveDestinationURL(_, profileInfo):
-            var dict = [String: String]()
+            var headers = [String: String]()
             if let profileInfoString = try? profileInfo.asJSONString() {
-                dict[HeaderKey.profileInfo] = profileInfoString
+                headers[HeaderKey.profileInfo] = profileInfoString
             }
-            return dict
+            return headers
         case let .logTrackingLinkClicked(_, timestamp, profileInfo):
-            var dict = [String: String]()
+            var headers = [String: String]()
             if let profileInfoString = try? profileInfo.asJSONString() {
-                dict[HeaderKey.profileInfo] = profileInfoString
+                headers[HeaderKey.profileInfo] = profileInfoString
             }
-            dict[HeaderKey.clickEventTimestamp] = String(Int(timestamp.timeIntervalSince1970))
-            return dict
+            headers[HeaderKey.clickEventTimestamp] = String(Int(timestamp.timeIntervalSince1970))
+            return headers
         }
     }
 
