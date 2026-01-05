@@ -40,18 +40,26 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        if httpResponse.statusCode == 429 || httpResponse.statusCode == 503 {
+        // Consolidated retryable error handling (429 rate limit + 5xx server errors)
+        if [429, 500, 502, 503, 504].contains(httpResponse.statusCode) {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
+            // Check Retry-After header for any retryable error (expected for 429, future-proofing for 5xx)
             if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {
                 nextBackoff = Int(retryAfter) ?? exponentialBackOff
             }
-
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = nextBackoff + jitter
 
-            requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
-            return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
+            if httpResponse.statusCode == 429 {
+                requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
+                return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
+            } else {
+                let status = httpResponse.statusCode
+                let httpError = RequestStatus.error(.httpError(statusCode: status, duration: duration))
+                requestHandler(request, urlRequest, httpError)
+                return .failure(.serverError(statusCode: status, backOff: nextBackOffWithJitter))
+            }
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
