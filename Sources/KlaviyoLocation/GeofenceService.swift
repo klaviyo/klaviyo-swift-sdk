@@ -45,13 +45,12 @@ struct GeofenceService: GeofenceServiceProvider {
     }
 
     func parseGeofences(from data: Data, companyId: String) throws -> Set<Geofence> {
-        let decoder = JSONDecoder()
         let response: GeofenceJSONResponse
         do {
-            response = try decoder.decode(GeofenceJSONResponse.self, from: data)
+            response = try JSONDecoder().decode(GeofenceJSONResponse.self, from: data)
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.geoservices.error("Failed to decode geofence response structure: \(error.localizedDescription, privacy: .public)")
+                Logger.geoservices.warning("Failed to decode geofences: \(error.localizedDescription, privacy: .public)")
             }
             return Set<Geofence>()
         }
