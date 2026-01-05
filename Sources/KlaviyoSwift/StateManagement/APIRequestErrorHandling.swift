@@ -106,7 +106,10 @@ func handleRequestError(
         environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
 
-    case let .rateLimitError(retryAfter):
+    case let .rateLimitError(backOff), let .serverError(_, backOff):
+        if case let .serverError(statusCode, _) = error {
+            environment.logger.error("A server error occurred with status code: \(statusCode)")
+        }
         var requestRetryCount = 0
         var totalRetryCount = 0
         switch retryState {
@@ -123,29 +126,7 @@ func handleRequestError(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
-                currentBackoff: retryAfter
-            )
-        )
-
-    case let .serverError(statusCode, retryAfter):
-        environment.logger.error("A server error occurred with status code: \(statusCode)")
-        var requestRetryCount = 0
-        var totalRetryCount = 0
-        switch retryState {
-        case let .retry(count):
-            requestRetryCount = count + 1
-            totalRetryCount = requestRetryCount
-
-        case let .retryWithBackoff(requestCount, totalCount, _):
-            requestRetryCount = requestCount + 1
-            totalRetryCount = totalCount + 1
-        }
-
-        return .requestFailed(
-            request, .retryWithBackoff(
-                requestCount: requestRetryCount,
-                totalRetryCount: totalRetryCount,
-                currentBackoff: retryAfter
+                currentBackoff: backOff
             )
         )
 
