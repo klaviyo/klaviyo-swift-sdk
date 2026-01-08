@@ -418,7 +418,7 @@ Silent push notifications (also known as background pushes) allow your app to re
 
 To handle silent push notifications in your app, you'll need to implement the appropriate delegate methods yourself. Here's an example of how to handle silent push notifications:
 
-```
+```swift
 func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
   // Access custom key-value pairs from the top level
   if let customData = userInfo["key_value_pairs"] as? [String: String] {
