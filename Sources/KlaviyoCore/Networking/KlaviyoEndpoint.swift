@@ -133,7 +133,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
 
     var revision: String {
         if case .fetchGeofences = self {
-            return "2025-10-15.pre"
+            return "2026-01-15.pre"
         } else {
             return "2025-10-15"
         }

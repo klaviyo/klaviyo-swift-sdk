@@ -259,7 +259,7 @@ final class KlaviyoEndpointTests: XCTestCase {
         let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
 
         // Then
-        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15.pre")
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15.pre")
     }
 
     func testRevisionHeaderForNonGeofenceEndpoints() throws {
