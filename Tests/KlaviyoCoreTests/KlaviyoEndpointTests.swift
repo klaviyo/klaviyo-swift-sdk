@@ -259,7 +259,7 @@ final class KlaviyoEndpointTests: XCTestCase {
         let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
 
         // Then
-        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15.pre")
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15.pre")
     }
 
     func testRevisionHeaderForNonGeofenceEndpoints() throws {
@@ -269,18 +269,18 @@ final class KlaviyoEndpointTests: XCTestCase {
         let profileEndpoint = KlaviyoEndpoint.createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test))
         let profileRequest = KlaviyoRequest(endpoint: profileEndpoint)
         let profileUrlRequest = try profileRequest.urlRequest(attemptInfo: attemptInfo)
-        XCTAssertEqual(profileUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+        XCTAssertEqual(profileUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
 
         // Test createEvent (including geofence events use standard revision)
         let eventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "test_event")))
         let eventRequest = KlaviyoRequest(endpoint: eventEndpoint)
         let eventUrlRequest = try eventRequest.urlRequest(attemptInfo: attemptInfo)
-        XCTAssertEqual(eventUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+        XCTAssertEqual(eventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
 
         // Test geofence event also uses standard revision
         let geofenceEventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "$geofence_enter")))
         let geofenceEventRequest = KlaviyoRequest(endpoint: geofenceEventEndpoint)
         let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
-        XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2025-10-15")
+        XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
     }
 }
