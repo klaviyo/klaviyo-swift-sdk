@@ -352,11 +352,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Rich Push (Images & Videos)
+#### Rich Push
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
-[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images (png, jpg, gif) and videos (mpeg, mp4) to push notification messages.  Once the steps
+[Rich Push](https://help.klaviyo.com/hc/en-us/articles/16917302437275) is the ability to add images to push notification messages.  Once the steps
 in the [Installation](#installation) section are complete, you should have a notification service extension in your
 project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
 
@@ -364,9 +364,7 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 
 * To test rich push notifications, you will need three things:
   * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
-* A push notification payload that resembles what Klaviyo would send to you. See the following examples:
-
-**Image example:**
+* A push notification payload that resembles what Klaviyo would send to you. The below payload should work as long as the image is valid:
 
 ```json
 {
@@ -381,23 +379,6 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
   "rich-media-type": "jpg"
 }
 ```
-
-**Video example:**
-
-```json
-{
-  "aps": {
-    "alert": {
-      "title": "Video Push Notification",
-      "body": "Check out this video content"
-    },
-    "mutable-content": 1
-  },
-  "rich-media": "https://example.com/videos/mp4/your_video.mp4",
-  "rich-media-type": "mp4"
-}
-```
-
   * A real device's push notification token. This can be printed out to the console from the `didRegisterForRemoteNotificationsWithDeviceToken` method in `AppDelegate`.
 
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
