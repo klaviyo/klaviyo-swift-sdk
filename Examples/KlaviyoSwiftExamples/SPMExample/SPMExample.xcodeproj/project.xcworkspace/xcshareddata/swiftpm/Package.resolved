@@ -1,5 +1,5 @@
 {
-  "originHash" : "9a1d253a68cf626e25ddfa9525423d3298f141234130ed94a07d5d5fd0253ef7",
+  "originHash" : "ffa14680c0b10fb2f89153da350356947e1d9e14418bb636482ec174ecf2c3ea",
   "pins" : [
     {
       "identity" : "anycodable",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "862808b2070cd908cb04f9aafe7de83d35f81b05",
         "version" : "0.6.7"
-      }
-    },
-    {
-      "identity" : "klaviyo-swift-sdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/klaviyo/klaviyo-swift-sdk",
-      "state" : {
-        "revision" : "6f7370f94a51c02ae881b06e0fb981528d5b8721",
-        "version" : "4.2.0"
       }
     }
   ],

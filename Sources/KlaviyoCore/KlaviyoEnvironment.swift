@@ -6,6 +6,7 @@
 //
 
 import Combine
+import CoreLocation
 import Foundation
 import UIKit
 
@@ -22,6 +23,7 @@ public struct KlaviyoEnvironment {
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
+        getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
@@ -53,6 +55,7 @@ public struct KlaviyoEnvironment {
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
         self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
+        self.getLocationAuthorizationStatus = getLocationAuthorizationStatus
         self.startReachability = startReachability
         self.stopReachability = stopReachability
         self.reachabilityStatus = reachabilityStatus
@@ -116,6 +119,7 @@ public struct KlaviyoEnvironment {
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
     public var getBadgeAutoClearingSetting: () async -> Bool
+    public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
     public var startReachability: () throws -> Void
     public var stopReachability: () -> Void
@@ -214,6 +218,13 @@ public struct KlaviyoEnvironment {
         },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
+        },
+        getLocationAuthorizationStatus: {
+            if #available(iOS 14.0, *) {
+                return CLLocationManager().authorizationStatus
+            } else {
+                return CLLocationManager.authorizationStatus()
+            }
         },
         startReachability: {
             try reachabilityService?.startNotifier()
