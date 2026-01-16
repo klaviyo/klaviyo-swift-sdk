@@ -7,6 +7,7 @@
 
 @testable import KlaviyoCore
 import Combine
+import CoreLocation
 import Foundation
 
 enum FakeFileError: Error {
@@ -88,6 +89,7 @@ extension KlaviyoEnvironment {
             getNotificationSettings: { .authorized },
             getBackgroundSetting: { .available },
             getBadgeAutoClearingSetting: { true },
+            getLocationAuthorizationStatus: { .authorizedAlways },
             startReachability: {},
             stopReachability: {},
             reachabilityStatus: { nil },

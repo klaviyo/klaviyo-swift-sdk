@@ -15,10 +15,17 @@ public struct Event: Equatable {
         case viewedProductMetric
         case addedToCartMetric
         case startedCheckoutMetric
+        case locationEvent(LocationEvent)
         case customEvent(String)
 
         internal static var _openedPush: EventName {
             EventName.customEvent("_openedPush")
+        }
+
+        public enum LocationEvent: Equatable {
+            case geofenceEnter
+            case geofenceExit
+            case geofenceDwell
         }
     }
 
@@ -27,6 +34,11 @@ public struct Event: Equatable {
 
         public init(name: EventName) {
             self.name = name
+        }
+
+        /// Returns true if this event is a geofence-related event
+        public var isGeofenceEvent: Bool {
+            if case .locationEvent = name { true } else { false }
         }
     }
 
@@ -95,6 +107,15 @@ extension Event.EventName {
         case .viewedProductMetric: return "Viewed Product"
         case .addedToCartMetric: return "Added to Cart"
         case .startedCheckoutMetric: return "Started Checkout"
+        case let .locationEvent(type):
+            switch type {
+            case .geofenceEnter:
+                return "$geofence_enter"
+            case .geofenceExit:
+                return "$geofence_exit"
+            case .geofenceDwell:
+                return "$geofence_dwell"
+            }
         case let .customEvent(value): return "\(value)"
         }
     }

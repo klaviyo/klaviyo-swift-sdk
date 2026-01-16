@@ -39,6 +39,10 @@
   - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+- [Geofencing](#geofencing)
+  - [Prerequisites](#prerequisites-2)
+  - [Setup](#setup-2)
+  - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
   - [SDK Data Transfer](#sdk-data-transfer)
@@ -83,14 +87,14 @@ Once integrated, your marketing team will be able to better understand your app 
       <details>
       <summary>Swift Package Manager [Recommended]</summary>
 
-      KlaviyoSwift and KlaviyoForms are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
+      `KlaviyoSwift`, `KlaviyoForms`, and `KlaviyoLocation` are available via [Swift Package Manager](https://swift.org/package-manager). Follow the steps below to install.
 
       1. Open your project and navigate to your project’s settings.
       2. Select the **Package Dependencies** tab and click on the **add** button below the packages list.
       3. Enter the URL of the Swift SDK repository `https://github.com/klaviyo/klaviyo-swift-sdk` in the text field. This should bring up the package on the screen.
       4. For the dependency rule dropdown select - **Up to Next Major Version** and leave the pre-filled versions as is.
       5. Click **Add Package**.
-      6. On the next prompt, assign the package product `KlaviyoSwift` and `KlaviyoForms` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
+      6. On the next prompt, assign the package product `KlaviyoSwift`, `KlaviyoForms`, and `KlaviyoLocation` to your app target and `KlaviyoSwiftExtension` to the notification service extension target (if one was created) and click **Add Package**.
 
       </details>
 
@@ -722,6 +726,88 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+## Geofencing
+
+>  Geofencing support is available in SDK version 5.2.0 and higher.
+
+[Geofencing](https://help.klaviyo.com/hc/en-us/articles/45194892526747) allows you to trigger events when users enter or exit geographic regions. The Klaviyo SDK monitors geofences configured in your Klaviyo account and automatically tracks geofence enter and exit events. The SDK automatically handles geofence synchronization with your Klaviyo account—when you add, update, or remove geofences in Klaviyo, the SDK will automatically sync these changes on the next app launch or when the API key changes.
+
+> ⚠️ **Important**: Geofencing requires "Always" location authorization and "Precise" accuracy. The SDK will only begin monitoring geofences once the user grants these permissions. By default, if the user grants location authorization, it will be with "Precise" accuracy unless the user changes it otherwise. If the user only grants or at any point downgrades to "When In Use" permission, geofencing will not be active.
+
+### Prerequisites
+
+* Configure location permissions and background modes in your app's `Info.plist`.
+* Request "Always" location authorization from users.
+
+### Setup
+
+#### Step 1: Configure Info.plist
+
+Add the following keys to your app's `Info.plist`:
+
+1. **Location Usage Descriptions** (required):
+   - `NSLocationWhenInUseUsageDescription`: Your location helps the app offer location-based features and notifications while you’re using it.
+   - `NSLocationAlwaysAndWhenInUseUsageDescription`: This app uses your location in the background to detect when you enter or leave specific areas and send you relevant notifications.
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access to show your current location and help you find nearby locations.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app needs location access to monitor geofences and provide location-based notifications when the app is in the background.</string>
+```
+
+2. **Background Modes** (required):
+   - Add `location` to the `UIBackgroundModes` array to enable background location updates.
+
+```xml
+<key>UIBackgroundModes</key>
+<array>
+    <string>location</string>
+</array>
+```
+
+Note: Adding the location usage keys and location background mode to your `Info.plist` will require additional justification when submitting to the App Store. Refer to the [guidelines](https://developer.apple.com/app-store/review/guidelines/#software-requirements) outlined by Apple in sections 2.5.4 and 5.1.5.
+
+#### Step 2: Request Location Authorization
+
+Request location authorization according to [Apple's guidelines](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestalwaysauthorization()#Request-Always-Authorization-After-Getting-When-In-Use). Apple recommends first requesting "When In Use" authorization, and then later requesting "Always" authorization. We highly suggest following Apple's best practices for requesting location permissions, and you can see an example of how this call is set up [here](https://github.com/klaviyo/klaviyo-swift-sdk/blob/97b53ac6d314035a1c8cf639565d9b0ab7e83add/Examples/KlaviyoSwiftExamples/Shared/MapView.swift#L406).
+
+#### Step 3: Register for Geofencing
+
+Call `registerGeofencing()` as early as possible in your app's lifecycle, ideally after initializing the SDK. This method will:
+- Begin monitoring geofences configured in your Klaviyo account
+- Start tracking geofence enter and exit events
+
+```swift
+// AppDelegate
+
+import KlaviyoSwift
+import KlaviyoLocation
+
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        KlaviyoSDK()
+            .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+            .registerGeofencing()
+        return true
+    }
+}
+```
+
+We **highly recommend** registering for geofencing in `didFinishLaunchingWithOptions` to ensure all enter/exit events are delivered to Klaviyo no matter the app state (backgrounded, terminated).
+
+#### Unregistering from Geofencing
+
+If you need to stop monitoring geofences, you can call `unregisterGeofencing()`:
+
+```swift
+import KlaviyoSwift
+import KlaviyoLocation
+
+KlaviyoSDK().unregisterGeofencing()
+```
 
 ## Additional Details
 
