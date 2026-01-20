@@ -1,4 +1,4 @@
 ▿ KlaviyoAPIError
-  ▿ httpError: (2 elements)
-    - .0: 500
-    - .1: 0 bytes
+  ▿ serverError: (2 elements)
+    - statusCode: 500
+    - backOff: 2

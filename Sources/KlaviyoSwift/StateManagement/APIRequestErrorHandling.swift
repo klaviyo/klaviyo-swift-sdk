@@ -17,7 +17,7 @@ extension KlaviyoEndpoint {
         switch self {
         case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent, .logTrackingLinkClicked:
             return 50
-        case .resolveDestinationURL:
+        case .resolveDestinationURL, .fetchGeofences:
             return 1
         }
     }
@@ -106,7 +106,10 @@ func handleRequestError(
         environment.emitDeveloperWarning("Invalid data supplied for request. Skipping.")
         return .deQueueCompletedResults(request)
 
-    case let .rateLimitError(retryAfter):
+    case let .rateLimitError(backOff), let .serverError(_, backOff):
+        if case let .serverError(statusCode, _) = error {
+            environment.logger.error("A server error occurred with status code: \(statusCode)")
+        }
         var requestRetryCount = 0
         var totalRetryCount = 0
         switch retryState {
@@ -123,7 +126,7 @@ func handleRequestError(
             request, .retryWithBackoff(
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
-                currentBackoff: retryAfter
+                currentBackoff: backOff
             )
         )
 
