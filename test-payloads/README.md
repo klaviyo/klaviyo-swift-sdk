@@ -5,7 +5,7 @@ This directory contains ready-to-use JSON payload files for testing dynamic push
 ## Quick Start
 
 ```bash
-cd /Users/ajay.subramanya/Klaviyo/Repos/apns-cli
+cd /Klaviyo/Repos/apns-cli
 
 # Send a test notification
 apns-cli send \
@@ -21,16 +21,10 @@ apns-cli send \
 
 | File | Description | Buttons | Features |
 |------|-------------|---------|----------|
-| `1-basic-two-buttons.json` | Flash sale notification | Shop Now, Remind Later | Basic 2-button layout |
-| `2-with-icons.json` | Order delivered | View Details, Contact Support | SF Symbols icons (iOS 15+) |
-| `3-three-buttons.json` | New arrivals | Browse All, Favorites, Not Now | 3-button layout |
-| `4-single-button.json` | Cart reminder | Complete Purchase | Single CTA |
-| `5-abandoned-cart.json` | Cart recovery | Checkout, Keep Shopping | E-commerce scenario |
-| `6-back-in-stock.json` | Product availability | Buy Now, View Product | Stock alert |
-| `7-predefined-fallback.json` | Order shipped | View, Dismiss | Predefined categories (no mutable-content) |
-| `8-hybrid.json` | Special offer | Claim Offer, No Thanks | Both dynamic + predefined |
-| `9-localization-spanish.json` | Spanish language | Comprar Ahora, Recordar Después | Localization example |
-| `10-error-case.json` | Invalid payload | Test Button | Missing mutable-content (should fallback) |
+| `1-basic-two-buttons.json` | Flash sale notification | Go to Settings, Go to Sign Up Forms | Basic 2-button layout |
+| `2-three-mixed-buttons.json` | New arrivals | Go to Forms, Go to Push, Nothing | 3-button layout with mixed actions |
+| `3-deep-linked-push-single-button.json` | Single button with deep link | See Forms | Single CTA with deep link |
+| `4-error-case.json` | Invalid payload | Test Button | Missing mutable-content (should fallback) |
 
 ## Test Script
 
@@ -71,8 +65,9 @@ chmod +x send-test.sh
 
 # Send specific test
 ./send-test.sh test-payloads/1-basic-two-buttons.json
-./send-test.sh test-payloads/2-with-icons.json
-./send-test.sh test-payloads/5-abandoned-cart.json
+./send-test.sh test-payloads/2-three-mixed-buttons.json
+./send-test.sh test-payloads/3-deep-linked-push-single-button.json
+./send-test.sh test-payloads/4-error-case.json
 ```
 
 ## Verification Checklist
@@ -83,7 +78,6 @@ After sending a payload:
 - [ ] Notification appears in notification center
 - [ ] Long-press or swipe shows action buttons
 - [ ] Button labels are correct
-- [ ] Icons appear (iOS 15+) or gracefully absent
 - [ ] 2-button order is reversed (confirmatory action on right)
 
 ### Functional
@@ -95,30 +89,13 @@ After sending a payload:
 - [ ] `$opened_push` event tracked (body tap)
 - [ ] `$opened_push_action` event tracked (button tap)
 - [ ] Event contains `action_id` property
-- [ ] Event contains `action_label` property (dynamic buttons only)
+- [ ] Event contains `action_label` property
 
 ## Customization
 
 To test with your own URLs, edit any JSON file and replace:
-- `klaviyo://` with your app's URL scheme
+- `klaviyotest://` with your app's URL scheme
 - Button labels with your desired text
-- Icons with SF Symbol names from [SF Symbols](https://developer.apple.com/sf-symbols/)
-
-## Common SF Symbols for E-commerce
-
-| Icon Name | Symbol | Use Case |
-|-----------|--------|----------|
-| `cart.fill` | 🛒 | Shopping, cart |
-| `creditcard.fill` | 💳 | Checkout, payment |
-| `shippingbox.fill` | 📦 | Shipping, delivery |
-| `gift.fill` | 🎁 | Offers, promotions |
-| `heart.fill` | ❤️ | Favorites, wishlist |
-| `star.fill` | ⭐ | Featured items |
-| `eye.fill` | 👁 | View, browse |
-| `bell.fill` | 🔔 | Reminders, alerts |
-| `message.fill` | 💬 | Support, chat |
-| `tag.fill` | 🏷 | Deals, discounts |
-| `bag.fill` | 👜 | Products, shop |
 
 ## Troubleshooting
 

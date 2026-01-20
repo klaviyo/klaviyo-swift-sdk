@@ -108,7 +108,7 @@ class KlaviyoCategoryController {
     /// - Parameter notificationId: The notification's unique identifier
     /// - Returns: A category identifier string
     func generateCategoryId(notificationId: String) -> String {
-        return categoryPrefix + notificationId
+        categoryPrefix + notificationId
     }
 
     // MARK: - Private Methods

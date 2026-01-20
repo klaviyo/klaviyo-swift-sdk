@@ -9,23 +9,20 @@
   },
   "body": {
     "_k": "test_new_arrivals_003",
-    "url": "klaviyo://home",
     "action_buttons": [
       {
         "id": "com.klaviyo.test.view",
-        "label": "Browse All",
-        "url": "klaviyo://new-arrivals",
-        "icon": "eye.fill"
+        "label": "Go to Forms",
+        "url": "klaviyotest://forms"
       },
       {
         "id": "com.klaviyo.test.favorites",
-        "label": "Favorites",
-        "url": "klaviyo://favorites",
-        "icon": "heart.fill"
+        "label": "Go to Push",
+        "url": "klaviyotest://push"
       },
       {
         "id": "com.klaviyo.test.dismiss",
-        "label": "Not Now"
+        "label": "Nothing"
       }
     ]
   }
