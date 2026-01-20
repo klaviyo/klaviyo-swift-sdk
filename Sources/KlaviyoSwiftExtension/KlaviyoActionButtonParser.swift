@@ -10,11 +10,13 @@
 //
 
 import Foundation
+import KlaviyoSwift
 import UserNotifications
 
 /// Represents a parsed action button definition from a push notification payload.
 struct ActionButtonDefinition {
     let id: String
+    let action: ActionType
     let label: String
     let url: String?
 }
@@ -28,6 +30,7 @@ struct ActionButtonDefinition {
 ///     "action_buttons": [
 ///       {
 ///         "id": "com.klaviyo.action.shop",
+///         "action": "deep_link",
 ///         "label": "Shop Now",
 ///         "url": "myapp://sale"
 ///       }
@@ -55,14 +58,21 @@ enum KlaviyoActionButtonParser {
 
         for buttonData in actionButtonsArray {
             guard let id = buttonData["id"] as? String,
-                  let label = buttonData["label"] as? String else {
+                  let label = buttonData["label"] as? String,
+                  let actionString = buttonData["action"] as? String,
+                  let action = ActionType(rawValue: actionString) else {
                 continue // Skip invalid button definitions
             }
 
             let url = buttonData["url"] as? String
 
+            guard action == .openApp || url == nil else {
+                continue // openApp actions should not have an attached url
+            }
+
             definitions.append(ActionButtonDefinition(
                 id: id,
+                action: action,
                 label: label,
                 url: url
             ))
