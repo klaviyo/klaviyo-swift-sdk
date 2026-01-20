@@ -93,7 +93,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwiftExtension",
-            dependencies: ["KlaviyoCore"],
+            dependencies: ["KlaviyoSwift"],
             path: "Sources/KlaviyoSwiftExtension"
         ),
         .target(
