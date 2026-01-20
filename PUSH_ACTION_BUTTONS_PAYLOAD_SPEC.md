@@ -4,18 +4,15 @@ This document specifies the APNs payload format for dynamic push action buttons 
 
 ## Overview
 
-The Klaviyo iOS SDK supports two approaches for push notification action buttons:
+The Klaviyo iOS SDK supports dynamic action buttons for push notifications, providing fully customizable button labels and actions per notification.
 
-1. **Dynamic Action Buttons** (Recommended) - Fully customizable button labels and actions per notification
-2. **Predefined Categories** (Fallback) - 4 fixed button combinations for backwards compatibility
-
-## Dynamic Action Buttons (Primary Format)
+## Dynamic Action Buttons
 
 ### Requirements
 
 - **`mutable-content: 1`** must be set in the `aps` dictionary
 - Notification Service Extension (NSE) must be implemented
-- iOS 10.0+ required (iOS 15+ for button icons)
+- iOS 10.0+ required
 
 ### Payload Structure
 
@@ -37,8 +34,7 @@ The Klaviyo iOS SDK supports two approaches for push notification action buttons
       {
         "id": "com.klaviyo.action.shop",
         "label": "Shop Now",
-        "url": "myapp://sale/flash",
-        "icon": "cart.fill"
+        "url": "myapp://sale/flash"
       },
       {
         "id": "com.klaviyo.action.later",
@@ -117,19 +113,6 @@ Each object in `action_buttons` array has these fields:
   - `"https://example.com/cart"`
   - `"myapp://reminders/create"`
 
-#### `icon`
-- **Type**: String
-- **Required**: No
-- **Purpose**: SF Symbol name for button icon (iOS 15+ only)
-- **Format**: Valid SF Symbol name
-- **Availability**: iOS 15.0+. Ignored on older iOS versions.
-- **Examples**:
-  - `"cart.fill"` - Shopping cart
-  - `"heart.fill"` - Favorite/like
-  - `"bell.fill"` - Reminder
-  - `"eye.fill"` - View
-- **Resources**: [SF Symbols Browser](https://developer.apple.com/sf-symbols/)
-
 ### Button Ordering
 
 **iOS Convention (Applied Automatically by SDK):**
@@ -138,59 +121,6 @@ Each object in `action_buttons` array has these fields:
 - **1 or 3+ buttons**: Original order preserved
 
 **Recommendation:** Send buttons in logical order; SDK handles iOS conventions.
-
----
-
-## Predefined Categories (Fallback Format)
-
-For pushes without NSE or `mutable-content`, use predefined categories.
-
-### Available Categories
-
-| Category ID | Button 1 | Button 2 | Use Case |
-|-------------|----------|----------|----------|
-| `com.klaviyo.category.acceptDecline` | Accept | Decline | Invitations, requests |
-| `com.klaviyo.category.yesNo` | Yes | No | Simple questions |
-| `com.klaviyo.category.confirmCancel` | Confirm | Cancel | Confirmations |
-| `com.klaviyo.category.viewDismiss` | View | Dismiss | Content, updates |
-
-### Payload Structure
-
-```json
-{
-  "aps": {
-    "alert": "Your order has shipped!",
-    "category": "com.klaviyo.category.viewDismiss",
-    "sound": "default",
-    "badge": 1
-  },
-  "body": {
-    "_k": "unique_notification_id",
-    "url": "myapp://orders",
-    "actions": {
-      "com.klaviyo.action.view": {
-        "url": "myapp://orders/12345"
-      },
-      "com.klaviyo.action.dismiss": {}
-    }
-  }
-}
-```
-
-### Field Specifications
-
-#### `aps.category`
-- **Type**: String
-- **Required**: Yes (for predefined categories)
-- **Values**: One of the category IDs above
-- **Note**: Apps must call `KlaviyoSDK().registerPushCategories(.automatic)` at launch
-
-#### `body.actions`
-- **Type**: Object (dictionary)
-- **Required**: No
-- **Purpose**: Per-button deep link URLs
-- **Keys**: Action identifiers (e.g., `"com.klaviyo.action.view"`)
-- **Values**: Objects with optional `url` field
 
 ---
 
@@ -232,7 +162,7 @@ For pushes without NSE or `mutable-content`, use predefined categories.
 
 **Additional Properties**:
 - `action_id`: The button's identifier
-- `action_label`: The button's label text (dynamic buttons only)
+- `action_label`: The button's label text
 
 ---
 
@@ -284,28 +214,6 @@ For pushes without NSE or `mutable-content`, use predefined categories.
 }
 ```
 
-### Predefined Categories
-
-✅ **Valid:**
-```json
-{
-  "aps": {
-    "alert": "...",
-    "category": "com.klaviyo.category.viewDismiss"
-  },
-  "body": { "_k": "notif123" }
-}
-```
-
-❌ **Invalid - Unknown category:**
-```json
-{
-  "aps": {
-    "category": "unknown.category"  // ← Not registered
-  }
-}
-```
-
 ---
 
 ## Examples by Use Case
@@ -329,8 +237,7 @@ For pushes without NSE or `mutable-content`, use predefined categories.
       {
         "id": "com.klaviyo.action.shop",
         "label": "Shop Now",
-        "url": "klaviyo://sale/flash",
-        "icon": "cart.fill"
+        "url": "klaviyo://sale/flash"
       },
       {
         "id": "com.klaviyo.action.remind",
@@ -360,8 +267,7 @@ For pushes without NSE or `mutable-content`, use predefined categories.
       {
         "id": "com.klaviyo.action.checkout",
         "label": "Complete Purchase",
-        "url": "klaviyo://checkout",
-        "icon": "creditcard.fill"
+        "url": "klaviyo://checkout"
       },
       {
         "id": "com.klaviyo.action.browse",
@@ -391,8 +297,7 @@ For pushes without NSE or `mutable-content`, use predefined categories.
       {
         "id": "com.klaviyo.action.track",
         "label": "View Details",
-        "url": "klaviyo://orders/12345/tracking",
-        "icon": "shippingbox.fill"
+        "url": "klaviyo://orders/12345/tracking"
       },
       {
         "id": "com.klaviyo.action.support",
@@ -422,8 +327,7 @@ For pushes without NSE or `mutable-content`, use predefined categories.
       {
         "id": "com.klaviyo.action.buy",
         "label": "Buy Now",
-        "url": "klaviyo://product/abc123/quick-buy",
-        "icon": "cart.fill"
+        "url": "klaviyo://product/abc123/quick-buy"
       },
       {
         "id": "com.klaviyo.action.view",
@@ -471,8 +375,7 @@ apns-cli send \
       {
         "id": "com.klaviyo.test.action1",
         "label": "Action 1",
-        "url": "klaviyo://test/action1",
-        "icon": "star.fill"
+        "url": "klaviyo://test/action1"
       },
       {
         "id": "com.klaviyo.test.action2",
@@ -528,64 +431,12 @@ apns-cli send \
 
 - **Server-side**: Send localized button labels based on user's locale
 - **A/B Testing**: Test different button labels for engagement
-- **Icon Consistency**: Use same icons across locales for visual consistency
 
 ### Category IDs
 
 - **Dynamic**: Auto-generated as `com.klaviyo.dynamic.<notification_id>`
 - **Namespace**: Always use `com.klaviyo.*` prefix
 - **Avoid Conflicts**: Don't use `com.klaviyo.*` for custom app categories
-
----
-
-## Migration from Predefined to Dynamic
-
-### Step 1: Update Backend
-Add support for `action_buttons` array in payload
-
-### Step 2: Enable mutable-content
-Set `"mutable-content": 1` in all pushes with action buttons
-
-### Step 3: Gradual Rollout
-- Continue sending predefined category as fallback
-- New pushes use dynamic format
-- Monitor `$opened_push_action` events for adoption
-
-### Example Migration Payload
-
-```json
-{
-  "aps": {
-    "alert": "Order shipped!",
-    "category": "com.klaviyo.category.viewDismiss",  // Fallback
-    "mutable-content": 1  // New
-  },
-  "body": {
-    "_k": "order_123",
-    "url": "klaviyo://orders/123",
-    "action_buttons": [  // New
-      {
-        "id": "com.klaviyo.action.view",
-        "label": "Track Order",
-        "url": "klaviyo://orders/123/track"
-      },
-      {
-        "id": "com.klaviyo.action.dismiss",
-        "label": "Dismiss"
-      }
-    ],
-    "actions": {  // Fallback
-      "com.klaviyo.action.view": {
-        "url": "klaviyo://orders/123"
-      }
-    }
-  }
-}
-```
-
-**Behavior**:
-- iOS with NSE: Uses dynamic `action_buttons` (custom labels)
-- iOS without NSE: Falls back to predefined `category` (fixed labels)
 
 ---
 
@@ -614,13 +465,6 @@ Set `"mutable-content": 1` in all pushes with action buttons
 2. ✅ Universal links configured (if using https://)
 3. ✅ App implements deep link handling via `action: .openDeepLink(url)`
 4. ✅ Button `url` field is valid URL string
-
-### Icons Not Showing
-
-**Check**:
-1. ✅ Device is iOS 15.0 or later
-2. ✅ Icon name is valid SF Symbol (check [SF Symbols app](https://developer.apple.com/sf-symbols/))
-3. ✅ `icon` field contains symbol name only (e.g., `"cart.fill"`, not `"SFSymbol.cart.fill"`)
 
 ---
 
