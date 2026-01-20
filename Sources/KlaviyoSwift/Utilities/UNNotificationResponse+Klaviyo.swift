@@ -151,4 +151,31 @@ extension UNNotificationResponse {
 
         return nil
     }
+
+    /// Returns the action type for the tapped button.
+    ///
+    /// This method checks the dynamic button format: `body.action_buttons[].action`
+    ///
+    /// Returns nil if no action type is found or if the action is invalid.
+    var actionButtonType: ActionType? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Check dynamic format: body.action_buttons[].action
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let actionString = button["action"] as? String {
+                    return ActionType(rawValue: actionString)
+                }
+            }
+        }
+
+        return nil
+    }
 }
