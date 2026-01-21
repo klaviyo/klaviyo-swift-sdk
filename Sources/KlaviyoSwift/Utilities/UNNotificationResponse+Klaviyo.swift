@@ -85,7 +85,7 @@ extension UNNotificationResponse {
     /// the notification body or dismissed it.
     var isActionButtonTap: Bool {
         actionIdentifier != UNNotificationDefaultActionIdentifier &&
-        actionIdentifier != UNNotificationDismissActionIdentifier
+            actionIdentifier != UNNotificationDismissActionIdentifier
     }
 
     /// Returns the action button ID that was tapped (if any).
@@ -99,9 +99,7 @@ extension UNNotificationResponse {
 
     /// Returns the action-specific deep link URL from the payload.
     ///
-    /// This method checks both dynamic and predefined button formats:
-    /// - Dynamic format: `body.action_buttons[].url`
-    /// - Predefined format: `body.actions[action_id].url`
+    /// This method checks the dynamic button format: `body.action_buttons[].url`
     ///
     /// Returns nil if no action-specific URL is found.
     var actionButtonURL: URL? {
@@ -111,7 +109,7 @@ extension UNNotificationResponse {
             return nil
         }
 
-        // Check dynamic format first: body.action_buttons[].url
+        // Check dynamic format: body.action_buttons[].url
         if let body = properties["body"] as? [String: Any],
            let actionButtons = body["action_buttons"] as? [[String: Any]] {
             for button in actionButtons {
@@ -124,24 +122,14 @@ extension UNNotificationResponse {
             }
         }
 
-        // Fallback to predefined format: body.actions[action_id].url
-        if let body = properties["body"] as? [String: Any],
-           let actions = body["actions"] as? [String: Any],
-           let actionData = actions[actionIdentifier] as? [String: Any],
-           let urlString = actionData["url"] as? String,
-           let url = URL(string: urlString) {
-            return url
-        }
-
         return nil
     }
 
     /// Returns the button label text (for analytics).
     ///
-    /// This is only available for dynamic action buttons that include a label
-    /// in the payload. Predefined categories don't include custom labels.
+    /// This is available for dynamic action buttons that include a label in the payload.
     ///
-    /// Returns nil if no label is found or if using predefined categories.
+    /// Returns nil if no label is found.
     var actionButtonLabel: String? {
         guard isActionButtonTap,
               isKlaviyoNotification,
@@ -161,7 +149,6 @@ extension UNNotificationResponse {
             }
         }
 
-        // Predefined categories don't have custom labels
         return nil
     }
 }

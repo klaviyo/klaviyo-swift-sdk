@@ -10,17 +10,16 @@
   },
   "body": {
     "_k": "test_flash_sale_001",
-    "url": "klaviyo://home",
     "action_buttons": [
       {
         "id": "com.klaviyo.test.shop",
-        "label": "Shop Now",
-        "url": "klaviyo://sale/flash"
+        "label": "Go to Settings",
+        "url": "klaviyotest://settings"
       },
       {
         "id": "com.klaviyo.test.later",
-        "label": "Remind Later",
-        "url": "klaviyo://reminders"
+        "label": "Go to Sign Up Forms",
+        "url": "klaviyotest://forms"
       }
     ]
   }

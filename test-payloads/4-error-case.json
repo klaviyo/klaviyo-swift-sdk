@@ -4,7 +4,7 @@
     "sound": "default"
   },
   "body": {
-    "_k": "test_invalid_010",
+    "_k": "test_invalid_008",
     "action_buttons": [
       {
         "id": "com.klaviyo.test.action",

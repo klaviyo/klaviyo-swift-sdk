@@ -2,20 +2,19 @@
   "aps": {
     "alert": {
       "title": "Don't Miss Out!",
-      "body": "Your cart items are selling fast"
+      "body": "Go to Settings"
     },
     "mutable-content": 1,
     "sound": "default"
   },
+  "url": "klaviyotest://settings",
   "body": {
     "_k": "test_single_button_004",
-    "url": "klaviyo://cart",
     "action_buttons": [
       {
         "id": "com.klaviyo.test.checkout",
-        "label": "Complete Purchase",
-        "url": "klaviyo://checkout",
-        "icon": "creditcard.fill"
+        "label": "See Forms",
+        "url": "klaviyotest://forms"
       }
     ]
   }
