@@ -303,4 +303,179 @@ class KlaviyoSDKTests: XCTestCase {
         let freshSDK = KlaviyoSDK()
         XCTAssertFalse(freshSDK.isDeepLinkHandlerRegistered, "New SDK instance should have no handler registered")
     }
+
+    // MARK: - Push Action Button Tests
+
+    func testHandleActionButtonTap_DeepLinkWithAllProperties() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionURL = try XCTUnwrap(URL(string: "myapp://products/123"))
+        let actionId = "com.klaviyo.test.shop"
+        let buttonLabel = "Shop Now"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_notification_001",
+                "message_id": "msg_123",
+                "campaign_id": "camp_456",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "deep_link",
+                        "url": actionURL.absoluteString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled, "Should handle Klaviyo notification with action button")
+
+        // Verify event was created
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Should create $opened_push event")
+
+        // Verify event properties
+        if case let .enqueueEvent(event) = eventAction! {
+            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
+            XCTAssertEqual(event.properties["Button Action"] as? String, "Deep link", "Should include Button Action with correct value")
+            XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString, "Should include Button Link")
+
+            // Verify standard push notification properties are preserved
+            let body = event.properties["body"] as? [String: Any]
+            XCTAssertNotNil(body, "Should preserve body dictionary")
+            XCTAssertEqual(body?["_k"] as? String, "test_notification_001", "Should preserve _k property")
+        }
+    }
+
+    func testHandleActionButtonTap_OpenAppWithoutURL() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionId = "com.klaviyo.test.open"
+        let buttonLabel = "Open App"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_notification_002",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_app"
+                        // No URL for openApp
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        // Verify event was created
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Should create $opened_push event")
+
+        // Verify event properties
+        if case let .enqueueEvent(event) = eventAction! {
+            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
+            XCTAssertEqual(event.properties["Button Action"] as? String, "Open App", "Should include Button Action with correct value")
+            XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for openApp action")
+        }
+    }
+
+    func testHandleActionButtonTap_NotTriggeredOnBodyTap() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionId = "com.klaviyo.test.button"
+        let buttonLabel = "Tap Me"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_notification_004",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_app"
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        // Tap notification body (default action identifier)
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: UNNotificationDefaultActionIdentifier
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        // Verify event was created (for body tap)
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Should create $opened_push event for body tap")
+
+        // Verify button properties are NOT included for body tap
+        if case let .enqueueEvent(event) = eventAction! {
+            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertNil(event.properties["Button Label"], "Should NOT include Button Label for body tap")
+            XCTAssertNil(event.properties["Button Action"], "Should NOT include Button Action for body tap")
+            XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
+        }
+    }
 }
