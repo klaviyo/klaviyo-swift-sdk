@@ -22,10 +22,6 @@ public struct Event: Equatable {
             EventName.customEvent("_openedPush")
         }
 
-        internal static var _openedPushAction: EventName {
-            EventName.customEvent("_openedPushAction")
-        }
-
         public enum LocationEvent: Equatable {
             case geofenceEnter
             case geofenceExit
@@ -107,7 +103,6 @@ extension Event.EventName {
     public var value: String {
         switch self {
         case ._openedPush: return "$opened_push"
-        case ._openedPushAction: return "$opened_push_action"
         case .openedAppMetric: return "Opened App"
         case .viewedProductMetric: return "Viewed Product"
         case .addedToCartMetric: return "Added to Cart"
