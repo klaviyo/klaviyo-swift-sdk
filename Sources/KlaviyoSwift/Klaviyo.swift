@@ -260,7 +260,7 @@ public struct KlaviyoSDK {
     /// Handles action button tap events.
     ///
     /// This method:
-    /// - Tracks a `$opened_push_action` event with the action ID and label
+    /// - Tracks a `$opened_push` event with button properties (Button Label, Button Action, Button Link)
     /// - Handles action-specific deep links (or falls back to default notification URL)
     ///
     /// - Parameters:
@@ -272,22 +272,21 @@ public struct KlaviyoSDK {
     ) {
         // Create event properties with action metadata
         var actionProperties = properties
-        if let actionId = notificationResponse.actionButtonId {
-            actionProperties["action_id"] = actionId
-        }
         if let label = notificationResponse.actionButtonLabel {
-            actionProperties["action_label"] = label
+            actionProperties["Button Label"] = label
+        }
+
+        if let actionType = notificationResponse.actionButtonType {
+            actionProperties["Button Action"] = actionType.displayName()
+        }
+
+        if let url = notificationResponse.actionButtonURL, notificationResponse.actionButtonType == .deepLink {
+            actionProperties["Button Link"] = url.absoluteString
+            dispatchOnMainThread(action: .openDeepLink(url))
         }
 
         // Track action button event
         create(event: Event(name: ._openedPush, properties: actionProperties))
-
-        // Handle action-specific deep link (if provided)
-        guard notificationResponse.actionButtonType == .deepLink,
-              let actionURL = notificationResponse.actionButtonURL else {
-            return
-        }
-        dispatchOnMainThread(action: .openDeepLink(actionURL))
     }
 }
 
