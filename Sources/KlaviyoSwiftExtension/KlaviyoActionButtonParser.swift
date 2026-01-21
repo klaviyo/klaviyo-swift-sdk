@@ -66,7 +66,7 @@ enum KlaviyoActionButtonParser {
 
             let url = buttonData["url"] as? String
 
-            guard action == .openApp || url == nil else {
+            if action == .openApp && url != nil {
                 continue // openApp actions should not have an attached url
             }
 
