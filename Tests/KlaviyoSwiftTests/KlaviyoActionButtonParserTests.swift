@@ -216,6 +216,34 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid", "Should return only valid button")
     }
 
+    func testParseActionButtons_SkipsDeepLinkWithoutURL() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_notification_001",
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.deeplink_without_url",
+                        "label": "Deep Link",
+                        "action": "deep_link"
+                        // Missing URL - deepLink should have URL
+                    ],
+                    [
+                        "id": "com.klaviyo.test.valid",
+                        "label": "Valid Button",
+                        "action": "open_app"
+                        // No URL for openApp is valid
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertNotNil(result, "Should return valid buttons")
+        XCTAssertEqual(result?.count, 1, "Should skip deepLink button without URL")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid", "Should return only valid button")
+    }
+
     // MARK: - Valid Button Tests
 
     func testParseActionButtons_ParsesValidButtons() {

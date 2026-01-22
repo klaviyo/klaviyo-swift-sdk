@@ -66,8 +66,9 @@ enum KlaviyoActionButtonParser {
 
             let url = buttonData["url"] as? String
 
-            if action == .openApp && url != nil {
-                continue // openApp actions should not have an attached url
+            // Validate action-url combinations
+            guard isValidActionURLCombination(action: action, url: url) else {
+                continue
             }
 
             definitions.append(ActionButtonDefinition(
@@ -106,6 +107,24 @@ enum KlaviyoActionButtonParser {
     }
 
     // MARK: - Private Methods
+
+    /// Validates that an action type has the correct URL configuration.
+    ///
+    /// - `.openApp` actions should not have a URL
+    /// - `.deepLink` actions must have a URL
+    ///
+    /// - Parameters:
+    ///   - action: The action type to validate
+    ///   - url: The optional URL string
+    /// - Returns: `true` if the combination is valid, `false` otherwise
+    private static func isValidActionURLCombination(action: ActionType, url: String?) -> Bool {
+        switch action {
+        case .openApp:
+            return url == nil
+        case .deepLink:
+            return url != nil
+        }
+    }
 
     /// Creates a single UNNotificationAction from a button definition.
     ///
