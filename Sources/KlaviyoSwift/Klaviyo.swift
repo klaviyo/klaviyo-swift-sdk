@@ -280,7 +280,7 @@ public struct KlaviyoSDK {
         }
 
         // Track action button event
-        create(event: Event(name: ._openedPushAction, properties: actionProperties))
+        create(event: Event(name: ._openedPush, properties: actionProperties))
 
         guard notificationResponse.actionButtonType == .deepLink else {
             return
