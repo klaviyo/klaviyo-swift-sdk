@@ -282,14 +282,12 @@ public struct KlaviyoSDK {
         // Track action button event
         create(event: Event(name: ._openedPush, properties: actionProperties))
 
-        guard notificationResponse.actionButtonType == .deepLink else {
+        // Handle action-specific deep link (if provided)
+        guard notificationResponse.actionButtonType == .deepLink,
+              let actionURL = notificationResponse.actionButtonURL else {
             return
         }
-
-        // Handle action-specific deep link (if provided)
-        if let actionURL = notificationResponse.actionButtonURL {
-            dispatchOnMainThread(action: .openDeepLink(actionURL))
-        }
+        dispatchOnMainThread(action: .openDeepLink(actionURL))
     }
 }
 
