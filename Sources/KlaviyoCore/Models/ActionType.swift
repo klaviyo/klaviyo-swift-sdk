@@ -3,10 +3,7 @@
 //
 //  Klaviyo Swift SDK
 //
-//  Created for Klaviyo
-//
-//  Copyright (c) 2025 Klaviyo
-//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
+//  Created by Belle Lim on 1/22/26.
 //
 
 import Foundation

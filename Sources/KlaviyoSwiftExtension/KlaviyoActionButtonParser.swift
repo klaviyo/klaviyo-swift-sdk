@@ -10,7 +10,7 @@
 //
 
 import Foundation
-import KlaviyoSwift
+import KlaviyoCore
 import UserNotifications
 
 /// Represents a parsed action button definition from a push notification payload.
