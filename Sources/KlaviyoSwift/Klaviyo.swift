@@ -289,9 +289,6 @@ public struct KlaviyoSDK {
         // Handle action-specific deep link (if provided)
         if let actionURL = notificationResponse.actionButtonURL {
             dispatchOnMainThread(action: .openDeepLink(actionURL))
-        } else if let defaultURL = notificationResponse.klaviyoDeepLinkURL {
-            // Fallback to default notification URL
-            dispatchOnMainThread(action: .openDeepLink(defaultURL))
         }
     }
 }
