@@ -59,7 +59,6 @@ let package = Package(
             name: "KlaviyoSwiftTests",
             dependencies: [
                 "KlaviyoSwift",
-                "KlaviyoSwiftExtension",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths"),
@@ -96,6 +95,13 @@ let package = Package(
             name: "KlaviyoSwiftExtension",
             dependencies: ["KlaviyoCore"],
             path: "Sources/KlaviyoSwiftExtension"
+        ),
+        .testTarget(
+            name: "KlaviyoSwiftExtensionTests",
+            dependencies: [
+                "KlaviyoSwiftExtension",
+                "KlaviyoCore"
+            ]
         ),
         .target(
             name: "KlaviyoLocation",
