@@ -16,7 +16,7 @@ public enum ActionType: String, Equatable {
     public func displayName() -> String {
         switch self {
         case .openApp: return "Open App"
-        case .deepLink: return "Deep link"
+        case .deepLink: return "Deep Link"
         }
     }
 }

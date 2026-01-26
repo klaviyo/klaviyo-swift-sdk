@@ -359,7 +359,7 @@ class KlaviyoSDKTests: XCTestCase {
         if case let .enqueueEvent(event) = eventAction! {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
             XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
-            XCTAssertEqual(event.properties["Button Action"] as? String, "Deep link", "Should include Button Action with correct value")
+            XCTAssertEqual(event.properties["Button Action"] as? String, "Deep Link", "Should include Button Action with correct value")
             XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString, "Should include Button Link")
 
             // Verify standard push notification properties are preserved
