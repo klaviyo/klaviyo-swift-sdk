@@ -283,12 +283,11 @@ public struct KlaviyoSDK {
         create(event: Event(name: ._openedPush, properties: actionProperties))
 
         // Handle action-specific deep link (if provided)
-        if let actionURL = notificationResponse.actionButtonURL {
-            dispatchOnMainThread(action: .openDeepLink(actionURL))
-        } else if let defaultURL = notificationResponse.klaviyoDeepLinkURL {
-            // Fallback to default notification URL
-            dispatchOnMainThread(action: .openDeepLink(defaultURL))
+        guard notificationResponse.actionButtonType == .deepLink,
+              let actionURL = notificationResponse.actionButtonURL else {
+            return
         }
+        dispatchOnMainThread(action: .openDeepLink(actionURL))
     }
 }
 
