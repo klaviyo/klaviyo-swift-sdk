@@ -57,6 +57,11 @@ class InAppWindowManager {
         setupObservers()
     }
 
+    /// Returns true if the window manager has an active window.
+    var hasActiveWindow: Bool {
+        window != nil && window?.isHidden == false
+    }
+
     /// Dismisses and removes the window.
     func dismiss() {
         removeObservers()
