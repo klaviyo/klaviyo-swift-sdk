@@ -12,4 +12,11 @@ import Foundation
 public enum ActionType: String, Equatable {
     case openApp = "open_app"
     case deepLink = "deep_link"
+
+    public func displayName() -> String {
+        switch self {
+        case .openApp: return "Open App"
+        case .deepLink: return "Deep Link"
+        }
+    }
 }
