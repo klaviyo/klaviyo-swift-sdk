@@ -67,8 +67,4 @@ struct FormLayout: Codable {
     var effectiveMargin: Margins {
         margin ?? .zero
     }
-
-    var isFullscreen: Bool {
-        position == .fullscreen
-    }
 }
