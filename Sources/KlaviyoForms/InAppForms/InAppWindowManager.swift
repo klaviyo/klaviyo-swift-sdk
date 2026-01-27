@@ -12,9 +12,13 @@ import UIKit
 /// Manages the UIWindow lifecycle for flexible/banner in-app forms.
 @MainActor
 class InAppWindowManager {
+    static let shared = InAppWindowManager()
+
     private var window: UIWindow?
     private var windowScene: UIWindowScene?
     private var currentLayout: FormLayout?
+
+    private init() {}
 
     /// Presents the view controller in a window configured according to the layout.
     func present(viewController: KlaviyoWebViewController, layout: FormLayout) {
@@ -26,7 +30,6 @@ class InAppWindowManager {
             let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             // Prefer the active foreground scene
             windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-            return
         }
 
         // Create the window
