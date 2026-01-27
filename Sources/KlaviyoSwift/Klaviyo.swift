@@ -210,10 +210,17 @@ public struct KlaviyoSDK {
             return false
         }
 
-        create(event: Event(name: ._openedPush, properties: properties))
-        if let url = notificationResponse.klaviyoDeepLinkURL {
-            dispatchOnMainThread(action: .openDeepLink(url))
+        // Detect if this is an action button tap
+        if notificationResponse.isActionButtonTap {
+            handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
+        } else {
+            // Regular notification body tap
+            create(event: Event(name: ._openedPush, properties: properties))
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                dispatchOnMainThread(action: .openDeepLink(url))
+            }
         }
+
         Task { @MainActor in
             completionHandler()
         }
@@ -248,6 +255,38 @@ public struct KlaviyoSDK {
             completionHandler()
         }
         return true
+    }
+
+    /// Handles action button tap events.
+    ///
+    /// This method:
+    /// - Tracks a `$opened_push` event with button properties (Button Label, Button Action, Button Link)
+    /// - Handles action-specific deep links (or falls back to default notification URL)
+    ///
+    /// - Parameters:
+    ///   - notificationResponse: The notification response containing action info
+    ///   - properties: The Klaviyo notification properties
+    private func handleActionButtonTap(
+        notificationResponse: UNNotificationResponse,
+        properties: [String: Any]
+    ) {
+        // Create event properties with action metadata
+        var actionProperties = properties
+        if let label = notificationResponse.actionButtonLabel {
+            actionProperties["Button Label"] = label
+        }
+
+        if let actionType = notificationResponse.actionButtonType {
+            actionProperties["Button Action"] = actionType.displayName()
+        }
+
+        if let url = notificationResponse.actionButtonURL, notificationResponse.actionButtonType == .deepLink {
+            actionProperties["Button Link"] = url.absoluteString
+            dispatchOnMainThread(action: .openDeepLink(url))
+        }
+
+        // Track action button event
+        create(event: Event(name: ._openedPush, properties: actionProperties))
     }
 }
 
