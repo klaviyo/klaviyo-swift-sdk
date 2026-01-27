@@ -247,7 +247,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present)
+            // MOCK PARSED KLAVIYOJS RESPONSE HERE
+//                formLifecycleContinuation.yield(.present)
+            formLifecycleContinuation.yield(.presentWithLayout(FormLayout(position: .bottomRight, width: Dimension(value: 200, unit: .fixed), height: Dimension(value: 200, unit: .fixed),
+                                                                          margin: Margins(top: Dimension(value: 0, unit: .fixed), bottom: Dimension(value: 0, unit: .fixed), left: Dimension(value: 0, unit: .fixed), right: Dimension(value: 0, unit: .fixed)))))
         case .formDisappeared:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
