@@ -33,13 +33,13 @@ class InAppWindowManager {
         }
 
         // Create the window
-        if #available(iOS 13.0, *), let windowScene = windowScene {
+        if #available(iOS 13.0, *), let windowScene {
             window = UIWindow(windowScene: windowScene)
         } else {
             window = UIWindow(frame: UIScreen.main.bounds)
         }
 
-        guard let window = window else { return }
+        guard let window else { return }
 
         // Configure the window
         window.rootViewController = viewController
@@ -76,19 +76,18 @@ class InAppWindowManager {
     // MARK: - Private Methods
 
     private func updateWindowFrame() {
-        guard let window = window,
-              let layout = currentLayout else { return }
+        guard let window, let currentLayout else { return }
 
         let screenBounds = getScreenBounds()
-        if #available(iOS 13.0, *), let windowScene = windowScene {
+        if #available(iOS 13.0, *), let windowScene {
             window.windowScene = windowScene
         }
 
-        window.frame = calculateFrame(for: layout, in: screenBounds)
+        window.frame = calculateFrame(for: currentLayout, in: screenBounds)
     }
 
     private func getScreenBounds() -> CGRect {
-        if #available(iOS 13.0, *), let windowScene = windowScene {
+        if #available(iOS 13.0, *), let windowScene {
             return windowScene.coordinateSpace.bounds
         } else {
             return UIScreen.main.bounds
@@ -154,14 +153,14 @@ class InAppWindowManager {
 
     @objc
     private func handleKeyboardChange(_ notification: Notification) {
-        guard let window = window,
-              let layout = currentLayout,
+        guard let window,
+              let currentLayout,
               let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
             return
         }
 
         // Only adjust for bottom-anchored forms when keyboard appears
-        guard layout.position == .bottom || layout.position == .bottomLeft || layout.position == .bottomRight else {
+        guard currentLayout.position == .bottom || currentLayout.position == .bottomLeft || currentLayout.position == .bottomRight else {
             return
         }
 
@@ -172,6 +171,6 @@ class InAppWindowManager {
             screenBounds.size.height -= keyboardFrame.height
         }
 
-        window.frame = calculateFrame(for: layout, in: screenBounds)
+        window.frame = calculateFrame(for: currentLayout, in: screenBounds)
     }
 }
