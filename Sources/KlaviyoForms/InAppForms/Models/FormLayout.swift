@@ -60,11 +60,30 @@ struct Margins: Codable {
 /// Layout configuration for flexible/banner forms.
 struct FormLayout: Codable {
     let position: FormPosition
-    let width: Dimension
-    let height: Dimension
+    let width: Dimension?
+    let height: Dimension?
     let margin: Margins?
 
+    /// Effective width, defaults to 100% if nil (for fullscreen).
+    var effectiveWidth: Dimension {
+        width ?? Dimension(value: 100, unit: .percent)
+    }
+
+    /// Effective height, defaults to 100% if nil (for fullscreen).
+    var effectiveHeight: Dimension {
+        height ?? Dimension(value: 100, unit: .percent)
+    }
+
+    /// Effective margin, defaults to zero if nil.
     var effectiveMargin: Margins {
         margin ?? .zero
+    }
+
+    /// Creates a fullscreen layout (width, height, and margin are optional).
+    init(position: FormPosition, width: Dimension? = nil, height: Dimension? = nil, margin: Margins? = nil) {
+        self.position = position
+        self.width = width
+        self.height = height
+        self.margin = margin
     }
 }

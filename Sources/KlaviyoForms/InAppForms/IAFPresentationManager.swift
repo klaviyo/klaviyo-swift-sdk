@@ -153,8 +153,6 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case .present:
-            presentForm(layout: nil)
         case let .presentWithLayout(layout):
             presentForm(layout: layout)
         case .dismiss:

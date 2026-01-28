@@ -6,7 +6,6 @@
 //
 
 enum IAFLifecycleEvent {
-    case present
     case presentWithLayout(FormLayout)
     case dismiss
     case abort
