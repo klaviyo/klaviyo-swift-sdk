@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import OSLog
 import UIKit
 
 /// Manages the UIWindow lifecycle for flexible/banner in-app forms.
@@ -25,14 +24,11 @@ class InAppWindowManager {
         dismiss()
         currentLayout = layout
 
-        // Get or create a window scene
         if #available(iOS 13.0, *) {
             let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            // Prefer the active foreground scene
             windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
         }
 
-        // Create the window
         if #available(iOS 13.0, *), let windowScene {
             window = UIWindow(windowScene: windowScene)
         } else {
@@ -40,32 +36,28 @@ class InAppWindowManager {
         }
 
         guard let window else { return }
-
-        // Configure the window
         window.rootViewController = viewController
         window.backgroundColor = .clear
         window.clipsToBounds = true
+        window.windowLevel = .normal + 1
         window.isHidden = false
         window.makeKeyAndVisible()
 
         // Set window level to appear above normal windows but below alerts
         window.windowLevel = .normal + 1
 
-        // Calculate and set frame based on layout
         updateWindowFrame()
-
-        // Set up observers for orientation and keyboard changes
         setupObservers()
     }
 
     /// Returns true if the window manager has an active window.
     var hasActiveWindow: Bool {
-        window != nil && window?.isHidden == false
+        window?.isHidden == false
     }
 
     /// Dismisses and removes the window.
     func dismiss() {
-        removeObservers()
+        NotificationCenter.default.removeObserver(self)
         window?.isHidden = true
         window?.rootViewController = nil
         window = nil
@@ -77,13 +69,7 @@ class InAppWindowManager {
 
     private func updateWindowFrame() {
         guard let window, let currentLayout else { return }
-
-        let screenBounds = getScreenBounds()
-        if #available(iOS 13.0, *), let windowScene {
-            window.windowScene = windowScene
-        }
-
-        window.frame = calculateFrame(for: currentLayout, in: screenBounds)
+        window.frame = calculateFrame(for: currentLayout, in: getScreenBounds())
     }
 
     private func getScreenBounds() -> CGRect {
@@ -94,8 +80,11 @@ class InAppWindowManager {
         }
     }
 
-    /// Calculates the frame for a given layout within screen bounds.
     private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
+        guard layout.position != .fullscreen else {
+            return screenBounds
+        }
+
         let margin = layout.effectiveMargin
         let screenWidth = screenBounds.width
         let screenHeight = screenBounds.height
@@ -108,46 +97,42 @@ class InAppWindowManager {
         let marginLeft = margin.left.toPoints(relativeTo: screenWidth)
         let marginRight = margin.right.toPoints(relativeTo: screenWidth)
 
-        let origin: CGPoint
+        let x: CGFloat
+        let y: CGFloat
+
         switch layout.position {
+        case .top, .topLeft:
+            x = marginLeft
+            y = marginTop
+        case .topRight:
+            x = screenWidth - width - marginRight
+            y = marginTop
+        case .bottom, .bottomLeft:
+            x = marginLeft
+            y = screenHeight - height - marginBottom
+        case .bottomRight:
+            x = screenWidth - width - marginRight
+            y = screenHeight - height - marginBottom
+        case .center:
+            x = (screenWidth - width) / 2
+            y = (screenHeight - height) / 2
         case .fullscreen:
             return screenBounds
-        case .top:
-            origin = CGPoint(x: marginLeft, y: marginTop)
-        case .bottom:
-            origin = CGPoint(x: marginLeft, y: screenHeight - height - marginBottom)
-        case .topLeft:
-            origin = CGPoint(x: marginLeft, y: marginTop)
-        case .topRight:
-            origin = CGPoint(x: screenWidth - width - marginRight, y: marginTop)
-        case .bottomLeft:
-            origin = CGPoint(x: marginLeft, y: screenHeight - height - marginBottom)
-        case .bottomRight:
-            origin = CGPoint(x: screenWidth - width - marginRight, y: screenHeight - height - marginBottom)
-        case .center:
-            origin = CGPoint(x: (screenWidth - width) / 2, y: (screenHeight - height) / 2)
         }
 
-        return CGRect(origin: origin, size: CGSize(width: width, height: height))
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 
     private func setupObservers() {
-        // Orientation change
         NotificationCenter.default.addObserver(self, selector: #selector(handleOrientationChange), name: UIDevice.orientationDidChangeNotification, object: nil)
-
-        // Keyboard show/hide
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
-    private func removeObservers() {
-        NotificationCenter.default.removeObserver(self)
-    }
-
     @objc
     private func handleOrientationChange() {
-        DispatchQueue.main.async { [weak self] in
-            self?.updateWindowFrame()
+        DispatchQueue.main.async { [self] in
+            updateWindowFrame()
         }
     }
 
@@ -155,22 +140,20 @@ class InAppWindowManager {
     private func handleKeyboardChange(_ notification: Notification) {
         guard let window,
               let currentLayout,
-              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
-            return
-        }
-
-        // Only adjust for bottom-anchored forms when keyboard appears
-        guard currentLayout.position == .bottom || currentLayout.position == .bottomLeft || currentLayout.position == .bottomRight else {
+              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              isBottomAnchored(currentLayout.position) else {
             return
         }
 
         var screenBounds = getScreenBounds()
-
-        // Adjust available bounds to account for keyboard
         if notification.name == UIResponder.keyboardWillShowNotification {
             screenBounds.size.height -= keyboardFrame.height
         }
 
         window.frame = calculateFrame(for: currentLayout, in: screenBounds)
+    }
+
+    private func isBottomAnchored(_ position: FormPosition) -> Bool {
+        position == .bottom || position == .bottomLeft || position == .bottomRight
     }
 }
