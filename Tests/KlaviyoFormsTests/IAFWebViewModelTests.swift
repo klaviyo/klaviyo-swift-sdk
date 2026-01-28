@@ -184,7 +184,7 @@ final class IAFWebViewModelTests: XCTestCase {
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
-                if case .present = event {
+                if case .presentWithLayout = event {
                     expectation.fulfill()
                     break
                 }
