@@ -43,9 +43,6 @@ class InAppWindowManager {
         window.isHidden = false
         window.makeKeyAndVisible()
 
-        // Set window level to appear above normal windows but below alerts
-        window.windowLevel = .normal + 1
-
         updateWindowFrame()
         setupObservers()
     }
