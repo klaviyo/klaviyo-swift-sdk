@@ -44,6 +44,7 @@ class InAppWindowManager {
         // Configure the window
         window.rootViewController = viewController
         window.backgroundColor = .clear
+        window.clipsToBounds = true
         window.isHidden = false
         window.makeKeyAndVisible()
 
@@ -146,7 +147,9 @@ class InAppWindowManager {
 
     @objc
     private func handleOrientationChange() {
-        updateWindowFrame()
+        DispatchQueue.main.async { [weak self] in
+            self?.updateWindowFrame()
+        }
     }
 
     @objc
