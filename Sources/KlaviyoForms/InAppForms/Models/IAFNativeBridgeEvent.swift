@@ -11,7 +11,7 @@ import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear
+    case formWillAppear(Data)
     case formDisappeared
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
@@ -51,7 +51,9 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            self = .formWillAppear
+            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
+            let data = try JSONEncoder().encode(decodedData)
+            self = .formWillAppear(data)
         case .formDisappeared:
             self = .formDisappeared
         case .trackProfileEvent:
@@ -120,7 +122,7 @@ extension IAFNativeBridgeEvent {
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // events that JS is permitted to sending
         [
-            .formWillAppear,
+            .formWillAppear(Data()),
             .formDisappeared,
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
@@ -135,7 +137,7 @@ extension IAFNativeBridgeEvent {
     private var version: Int {
         switch self {
         case .formsDataLoaded: return 1
-        case .formWillAppear: return 1
+        case .formWillAppear: return 2
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1

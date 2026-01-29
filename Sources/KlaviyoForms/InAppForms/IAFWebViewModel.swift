@@ -243,20 +243,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case .formWillAppear:
+        case let .formWillAppear(data):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            // MOCK PARSED KLAVIYOJS RESPONSE HERE
-            let sampleLayout = FormLayout(position: .bottomRight,
-                                          width: Dimension(value: 200, unit: .fixed),
-                                          height: Dimension(value: 200, unit: .fixed),
-                                          margin: Margins(top: Dimension(value: 0, unit: .fixed),
-                                                          bottom: Dimension(value: 0, unit: .fixed),
-                                                          left: Dimension(value: 0, unit: .fixed),
-                                                          right: Dimension(value: 0, unit: .fixed)))
 
-            formLifecycleContinuation.yield(.presentWithLayout(sampleLayout))
+            do {
+                let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: data)
+                formLifecycleContinuation.yield(.presentWithLayout(payload.layout))
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Failed to parse formWillAppear payload: \(error.localizedDescription)")
+                }
+                formLifecycleContinuation.yield(.presentWithLayout(FormLayout(position: .fullscreen)))
+            }
 
         case .formDisappeared:
             if #available(iOS 14.0, *) {
@@ -306,4 +306,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         }
     }
+}
+
+// MARK: - FormWillAppearPayload
+
+private struct FormWillAppearPayload: Codable {
+    let formId: String
+    let layout: FormLayout
 }
