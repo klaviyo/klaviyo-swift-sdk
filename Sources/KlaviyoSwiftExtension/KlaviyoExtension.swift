@@ -217,15 +217,7 @@ public enum KlaviyoExtensionSDK {
         }
 
         // Parse action buttons from payload
-        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(
-            from: bestAttemptContent.userInfo
-        ) else {
-            return
-        }
-
-        // Get notification ID for unique category
-        guard let body = bestAttemptContent.userInfo["body"] as? [String: Any],
-              let notificationId = body["_k"] as? String else {
+        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(from: bestAttemptContent.userInfo) else {
             return
         }
 
@@ -233,12 +225,9 @@ public enum KlaviyoExtensionSDK {
         let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
 
         // Register category dynamically
-        let categoryId = KlaviyoCategoryController.shared.registerCategory(
-            notificationId: notificationId,
-            actions: actions
-        )
+        KlaviyoCategoryController.shared.registerCategory(actions: actions)
 
         // Set category on notification content
-        bestAttemptContent.categoryIdentifier = categoryId
+        bestAttemptContent.categoryIdentifier = KlaviyoCategoryController.categoryIdentifier
     }
 }
