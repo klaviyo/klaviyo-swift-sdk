@@ -1,9 +1,8 @@
 //
 //  ActionType.swift
 //
-//  Klaviyo Swift SDK
 //
-//  Created by Belle Lim on 1/22/26.
+//  Created by Belle Lim on 1/20/26.
 //
 
 import Foundation
