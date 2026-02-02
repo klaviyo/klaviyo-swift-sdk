@@ -19,7 +19,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsButtonWithMissingId() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         // Missing "id"
@@ -47,7 +47,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsButtonWithMissingLabel() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.missing_label",
@@ -75,7 +75,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsButtonWithMissingAction() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.missing_action",
@@ -103,7 +103,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsButtonWithInvalidAction() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.invalid_action",
@@ -131,7 +131,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsMultipleInvalidButtons() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         // Missing id
@@ -168,7 +168,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_ReturnsNilWhenAllButtonsInvalid() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         // Missing id
@@ -191,7 +191,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsOpenAppWithURL() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.openapp_with_url",
@@ -219,7 +219,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_SkipsDeepLinkWithoutURL() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.deeplink_without_url",
@@ -249,7 +249,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
     func testParseActionButtons_ParsesValidButtons() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
-                "_k": "test_notification_001",
+                "_k": {},
                 "action_buttons": [
                     [
                         "id": "com.klaviyo.test.button1",
