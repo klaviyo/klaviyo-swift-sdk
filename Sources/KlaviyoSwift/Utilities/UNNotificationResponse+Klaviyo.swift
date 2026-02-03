@@ -20,13 +20,7 @@ extension UNNotificationResponse {
     /// A notification is considered a Klaviyo notification if it contains
     /// a "body" dictionary with a "_k" key in its userInfo.
     public var isKlaviyoNotification: Bool {
-        if let properties = notification.request.content.userInfo as? [String: Any],
-           let body = properties["body"] as? [String: Any],
-           let _ = body["_k"] {
-            return true
-        } else {
-            return false
-        }
+        notification.request.content.userInfo.isKlaviyoNotification()
     }
 
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.

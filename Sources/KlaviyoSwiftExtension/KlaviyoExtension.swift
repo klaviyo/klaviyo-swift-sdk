@@ -209,35 +209,30 @@ public enum KlaviyoExtensionSDK {
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent
     ) {
-        // Respect developer-set categories (don't override non-Klaviyo categories)
+        // Respect developer-set categories for non-Klaviyo notifications
+        // Only process and set up action buttons for Klaviyo notifications
         let existingCategory = request.content.categoryIdentifier
-        if !existingCategory.isEmpty && !existingCategory.hasPrefix("com.klaviyo.") {
+        guard bestAttemptContent.userInfo.isKlaviyoNotification() && existingCategory.isEmpty else {
             return
         }
 
         // Parse action buttons from payload
-        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(
-            from: bestAttemptContent.userInfo
-        ) else {
-            return
-        }
-
-        // Get notification ID for unique category
-        guard let body = bestAttemptContent.userInfo["body"] as? [String: Any],
-              let notificationId = body["_k"] as? String else {
+        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(from: bestAttemptContent.userInfo) else {
             return
         }
 
         // Create actions
         let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
 
-        // Register category dynamically
-        let categoryId = KlaviyoCategoryController.shared.registerCategory(
-            notificationId: notificationId,
-            actions: actions
-        )
+        // Generate unique category identifier for this notification
+        let baseIdentifier = "com.klaviyo.button."
+        let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
+        let categoryIdentifier = "\(baseIdentifier)\(uniqueSuffix)"
+
+        // Register category dynamically with unique identifier
+        KlaviyoCategoryController.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
 
         // Set category on notification content
-        bestAttemptContent.categoryIdentifier = categoryId
+        bestAttemptContent.categoryIdentifier = categoryIdentifier
     }
 }

@@ -31,3 +31,20 @@ extension Dictionary where Key == String, Value == Any {
         return merging(metadata) { _, new in new }
     }
 }
+
+extension Dictionary where Key == AnyHashable {
+    /// Determines if a notification payload originated from Klaviyo.
+    ///
+    /// A notification is considered a Klaviyo notification if it contains
+    /// a "body" dictionary with a "_k" key in its userInfo.
+    ///
+    /// - Returns: `true` if the notification is from Klaviyo, `false` otherwise
+    public func isKlaviyoNotification() -> Bool {
+        guard let properties = self as? [String: Any],
+              let body = properties["body"] as? [String: Any],
+              body["_k"] != nil else {
+            return false
+        }
+        return true
+    }
+}
