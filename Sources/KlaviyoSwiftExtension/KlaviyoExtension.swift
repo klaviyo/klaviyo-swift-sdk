@@ -224,10 +224,15 @@ public enum KlaviyoExtensionSDK {
         // Create actions
         let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
 
-        // Register category dynamically
-        KlaviyoCategoryController.shared.registerCategory(actions: actions)
+        // Generate unique category identifier for this notification
+        let baseIdentifier = "com.klaviyo.button."
+        let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
+        let categoryIdentifier = "\(baseIdentifier)\(uniqueSuffix)"
+
+        // Register category dynamically with unique identifier
+        KlaviyoCategoryController.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
 
         // Set category on notification content
-        bestAttemptContent.categoryIdentifier = KlaviyoCategoryController.categoryIdentifier
+        bestAttemptContent.categoryIdentifier = categoryIdentifier
     }
 }
