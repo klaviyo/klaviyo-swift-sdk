@@ -276,6 +276,10 @@ public struct KlaviyoSDK {
             actionProperties["Button Label"] = label
         }
 
+        if let buttonId = notificationResponse.actionButtonId {
+            actionProperties["Button ID"] = buttonId
+        }
+
         if let actionType = notificationResponse.actionButtonType {
             actionProperties["Button Action"] = actionType.displayName()
         }
