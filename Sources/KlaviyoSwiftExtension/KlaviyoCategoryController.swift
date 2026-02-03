@@ -11,56 +11,74 @@ import UserNotifications
 /// Manages the registration of the Klaviyo action button notification category.
 ///
 /// This controller handles:
-/// - Registering the single "KLAVIYO_ACTION_BUTTON" category with dynamic actions
-/// - Preserving existing categories (including developer-set ones) when updating our category
+/// - Registering unique categories per notification with dynamic actions
+/// - Preserving existing categories (including developer-set ones) when adding new categories
 class KlaviyoCategoryController {
     static let shared = KlaviyoCategoryController()
 
-    /// The category identifier used for all Klaviyo notifications with action buttons
-    static let categoryIdentifier = "KLAVIYO_ACTION_BUTTON"
+    /// Serial queue to ensure thread-safe category registration
+    private let queue = DispatchQueue(label: "com.klaviyo.category.registration", qos: .userInitiated)
 
     private init() {}
 
     // MARK: - Public Methods
 
-    /// Registers the Klaviyo action button notification category with the given actions.
+    /// Registers a Klaviyo action button notification category with the given actions.
+    ///
+    /// Each notification should use a unique category identifier to prevent race conditions
+    /// where multiple notifications with different buttons overwrite each other's category.
+    /// This is a risk when either multiple notifications arrive simultaneously or multiple
+    /// notifications with action buttons sit in the Notification Center and are opened later.
     ///
     /// This method:
-    /// 1. Creates a UNNotificationCategory with the provided actions
+    /// 1. Creates a UNNotificationCategory with the provided actions and identifier
     /// 2. Merges with existing categories, preserving all other registered categories
     ///
-    /// - Parameter actions: Array of notification actions to include in the category
-    func registerCategory(actions: [UNNotificationAction]) {
-        // Create the category
-        let category = UNNotificationCategory(
-            identifier: Self.categoryIdentifier,
-            actions: actions,
-            intentIdentifiers: [],
-            options: .customDismissAction
-        )
+    /// - Parameters:
+    ///   - categoryIdentifier: Unique identifier for this notification's category
+    ///   - actions: Array of notification actions to include in the category
+    func registerCategory(categoryIdentifier: String, actions: [UNNotificationAction]) {
+        // Use serial queue to ensure thread-safe registration when multiple notifications arrive simultaneously
+        queue.sync {
+            // Create the category
+            let category = UNNotificationCategory(
+                identifier: categoryIdentifier,
+                actions: actions,
+                intentIdentifiers: [],
+                options: .customDismissAction
+            )
 
-        // Get existing categories
-        let semaphore = DispatchSemaphore(value: 0)
-        var existingCategories: Set<UNNotificationCategory> = []
+            // Get existing categories
+            let semaphore = DispatchSemaphore(value: 0)
+            var existingCategories: Set<UNNotificationCategory> = []
+            var fetchTimedOut = false
 
-        UNUserNotificationCenter.current().getNotificationCategories { categories in
-            existingCategories = categories
-            semaphore.signal()
-        }
+            UNUserNotificationCenter.current().getNotificationCategories { categories in
+                existingCategories = categories
+                semaphore.signal()
+            }
 
-        // Wait for categories to be fetched (NSE has tight time constraints)
-        _ = semaphore.wait(timeout: .now() + 1.0)
+            // Wait for categories to be fetched (NSE has tight time constraints)
+            let result = semaphore.wait(timeout: .now() + 1.0)
+            if result == .timedOut {
+                fetchTimedOut = true
+            }
 
-        // Merge categories
-        let mergedCategories = mergeCategories(existing: existingCategories, new: category)
+            // If fetch timed out, proceed with empty set to avoid blocking
+            // The category will still be registered, but we won't preserve existing ones
+            // This is acceptable since NSE has tight time constraints
+            let mergedCategories: Set<UNNotificationCategory>
+            if fetchTimedOut {
+                // If we timed out, just register the new category
+                // This is a trade-off: we might lose some existing categories, but we avoid blocking
+                mergedCategories = [category]
+            } else {
+                // Merge categories normally
+                mergedCategories = self.mergeCategories(existing: existingCategories, new: category)
+            }
 
-        // Register the merged set
-        UNUserNotificationCenter.current().setNotificationCategories(mergedCategories)
-
-        // Force iOS to refresh its internal category cache
-        // This is necessary because iOS caches categories and may not recognize new ones immediately
-        UNUserNotificationCenter.current().getNotificationCategories { _ in
-            // No-op, just forcing the refresh
+            // Register the merged set
+            UNUserNotificationCenter.current().setNotificationCategories(mergedCategories)
         }
     }
 
