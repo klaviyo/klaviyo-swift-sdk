@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import UserNotifications
 
 /// Manages the registration of the Klaviyo action button notification category.
@@ -71,6 +72,9 @@ class KlaviyoCategoryController {
             if fetchTimedOut {
                 // If we timed out, just register the new category
                 // This is a trade-off: we might lose some existing categories, but we avoid blocking
+                if #available(iOS 14.0, *) {
+                    Logger.actionButtons.warning("Could not retrieve existing categories. Prioritizing and setting the incoming category. Existing categories may be lost.")
+                }
                 mergedCategories = [category]
             } else {
                 // Merge categories normally

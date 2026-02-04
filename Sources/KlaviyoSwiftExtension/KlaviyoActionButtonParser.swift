@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoCore
+import OSLog
 import UserNotifications
 
 /// Represents a parsed action button definition from a push notification payload.
@@ -46,6 +47,9 @@ enum KlaviyoActionButtonParser {
         guard let body = userInfo["body"] as? [String: Any],
               let actionButtonsArray = body["action_buttons"] as? [[String: Any]],
               !actionButtonsArray.isEmpty else {
+            if #available(iOS 14.0, *) {
+                Logger.actionButtons.info("No action buttons found in notification payload")
+            }
             return nil
         }
 
@@ -57,6 +61,9 @@ enum KlaviyoActionButtonParser {
                   let label = buttonData["label"] as? String,
                   let actionString = buttonData["action"] as? String,
                   let action = ActionType(rawValue: actionString) else {
+                if #available(iOS 14.0, *) {
+                    Logger.actionButtons.warning("Button data is missing or malformed. Missing an id, label, and/or action. Skipping button: \(buttonData.description)")
+                }
                 continue // Skip invalid button definitions
             }
 
@@ -64,6 +71,9 @@ enum KlaviyoActionButtonParser {
 
             // Validate action-url combinations
             guard isValidActionURLCombination(action: action, url: url) else {
+                if #available(iOS 14.0, *) {
+                    Logger.actionButtons.warning("Button url is incompatible with its action. Skipping button: \(buttonData.description)")
+                }
                 continue
             }
 
@@ -80,10 +90,6 @@ enum KlaviyoActionButtonParser {
 
     /// Creates an array of UNNotificationAction instances from button definitions.
     ///
-    /// Button reversal logic (iOS convention):
-    /// - 2 buttons: Reversed (confirmatory action on right)
-    /// - 1 or 3+ buttons: Original order
-    ///
     /// - Parameter definitions: Array of parsed button definitions
     /// - Returns: Array of UNNotificationAction instances
     static func createActions(from definitions: [ActionButtonDefinition]) -> [UNNotificationAction] {
@@ -92,11 +98,6 @@ enum KlaviyoActionButtonParser {
         for definition in definitions {
             let action = createAction(from: definition)
             actions.append(action)
-        }
-
-        // Apply iOS button reversal convention for 2-button layouts
-        if actions.count == 2 {
-            return actions.reversed()
         }
 
         return actions

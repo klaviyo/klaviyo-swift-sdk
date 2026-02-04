@@ -5,6 +5,7 @@
 //  Created by Ajay Subramanya on 6/23/23.
 //
 import Foundation
+import OSLog
 import UserNotifications
 
 private enum KlaviyoBadgeConfig {
@@ -149,7 +150,9 @@ public enum KlaviyoExtensionSDK {
 
         URLSession.shared.downloadTask(with: mediaURL) { file, _, error in
             if let error = error {
-                print("error when downloading push media = \(error.localizedDescription)")
+                if #available(iOS 14.0, *) {
+                    Logger.richMedia.error("Error when downloading push media: \(error.localizedDescription)")
+                }
                 completion(nil)
                 return
             }
