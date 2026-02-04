@@ -209,3 +209,17 @@ extension ProfilePayload {
         anonymousId: "foo"
     )
 }
+
+extension CreateSubscriptionPayload {
+    static let test = CreateSubscriptionPayload(
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"),
+        listId: "test-list-id",
+        channels: nil
+    )
+
+    static let testWithChannels = CreateSubscriptionPayload(
+        profile: ProfilePayload(properties: [:], anonymousId: "anon-id"),
+        listId: "test-list-id",
+        channels: SubscriptionChannels.marketing(email: true, sms: true)
+    )
+}

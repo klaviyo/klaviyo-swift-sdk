@@ -283,4 +283,61 @@ final class KlaviyoEndpointTests: XCTestCase {
         let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
         XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
     }
+
+    // MARK: - Create Subscription Tests
+
+    func testCreateSubscriptionEndpointUrlRequest() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+    }
+
+    func testCreateSubscriptionEndpointWithChannels() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.testWithChannels
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+
+        // Verify body contains subscription channels
+        if let body = request.httpBody {
+            let json = try JSONSerialization.jsonObject(with: body, options: []) as! [String: Any]
+            let data = json["data"] as! [String: Any]
+            let attributes = data["attributes"] as! [String: Any]
+            XCTAssertNotNil(attributes["subscriptions"])
+        }
+    }
+
+    func testCreateSubscriptionEndpointRevision() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
+        let request = KlaviyoRequest(endpoint: endpoint)
+
+        // When
+        let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
+
+        // Then
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+    }
 }
