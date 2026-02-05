@@ -4,13 +4,11 @@
   <img alt="Klaviyo" src="assets/klaviyo-primary-logo-charcoal-large.png">
 </picture>
 
-Drive engagement with [Klaviyo](https://www.klaviyo.com/products/mobile-app-marketing) mobile app marketing
+# Klaviyo Swift SDK ![SPM version](https://img.shields.io/github/v/release/klaviyo/klaviyo-swift-sdk) [![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 
 ![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
-![SPM version](https://img.shields.io/github/v/release/klaviyo/klaviyo-swift-sdk)
 [![Version](https://img.shields.io/cocoapods/v/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
-[![License](https://img.shields.io/cocoapods/l/KlaviyoSwift.svg?style=flat)](http://cocoapods.org/pods/KlaviyoSwift)
 ![Minimum deployment version](https://img.shields.io/badge/minimum_iOS_deployment_target-iOS13-brightgreen)
 
 ## Contents
