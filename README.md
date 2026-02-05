@@ -4,7 +4,9 @@
   <img alt="Klaviyo" src="assets/klaviyo-primary-logo-charcoal-large.png">
 </picture>
 
-# Drive engagement with mobile app marketing
+<p align="center">
+  Drive engagement with mobile app marketing
+</p>
 
 ![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
