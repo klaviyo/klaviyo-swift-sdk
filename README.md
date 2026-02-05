@@ -1,4 +1,10 @@
-# klaviyo-swift-sdk
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/klaviyo-primary-logo-charcoal-large.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/klaviyo-primary-logo-charcoal-large.png">
+  <img alt="Klaviyo" src="assets/klaviyo-primary-logo-charcoal-large.png">
+</picture>
+
+# Drive engagement with mobile app marketing
 
 ![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
