@@ -1,5 +1,5 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/klaviyo-primary-logo-white-large.png">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/klaviyo-primary-logo-charcoal-large.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/klaviyo-primary-logo-charcoal-large.png">
   <img alt="Klaviyo" src="assets/klaviyo-primary-logo-charcoal-large.png">
 </picture>
