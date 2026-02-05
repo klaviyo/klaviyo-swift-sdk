@@ -14,8 +14,8 @@ import UserNotifications
 /// This controller handles:
 /// - Registering unique categories per notification with dynamic actions
 /// - Preserving existing categories (including developer-set ones) when adding new categories
-class KlaviyoCategoryController {
-    static let shared = KlaviyoCategoryController()
+public class KlaviyoCategoryController {
+    public static let shared = KlaviyoCategoryController()
 
     /// Serial queue to ensure thread-safe category registration
     private let queue = DispatchQueue(label: "com.klaviyo.category.registration", qos: .userInitiated)
@@ -38,7 +38,7 @@ class KlaviyoCategoryController {
     /// - Parameters:
     ///   - categoryIdentifier: Unique identifier for this notification's category
     ///   - actions: Array of notification actions to include in the category
-    func registerCategory(categoryIdentifier: String, actions: [UNNotificationAction]) {
+    public func registerCategory(categoryIdentifier: String, actions: [UNNotificationAction]) {
         // Use serial queue to ensure thread-safe registration when multiple notifications arrive simultaneously
         queue.sync {
             // Create the category
