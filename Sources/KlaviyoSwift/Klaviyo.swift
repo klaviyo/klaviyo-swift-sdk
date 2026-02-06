@@ -214,7 +214,7 @@ public struct KlaviyoSDK {
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
-            return false
+            return true
         }
 
         // Detect if this is an action button tap
