@@ -210,6 +210,13 @@ public struct KlaviyoSDK {
             return false
         }
 
+        // Prune the category if the push with action buttons was dismissed from the Notification Center
+        guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
+            KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+            return false
+        }
+
         // Detect if this is an action button tap
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
