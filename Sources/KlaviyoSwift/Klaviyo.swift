@@ -230,9 +230,7 @@ public struct KlaviyoSDK {
 
         // Prune the category after all event handling and deep link handling is complete
         let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
-        if categoryIdentifier.hasPrefix("com.klaviyo.button.") {
-            KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
-        }
+        KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
 
         Task { @MainActor in
             completionHandler()

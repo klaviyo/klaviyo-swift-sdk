@@ -17,6 +17,9 @@ import UserNotifications
 public class KlaviyoCategoryController {
     public static let shared = KlaviyoCategoryController()
 
+    /// Prefix used for all Klaviyo notification category identifiers
+    public static let categoryIdentifierPrefix = "com.klaviyo.button."
+
     /// Serial queue to ensure thread-safe category registration
     private let queue = DispatchQueue(label: "com.klaviyo.category.registration", qos: .userInitiated)
 

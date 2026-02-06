@@ -230,9 +230,8 @@ public enum KlaviyoExtensionSDK {
         let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
 
         // Generate unique category identifier for this notification
-        let baseIdentifier = "com.klaviyo.button."
         let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
-        let categoryIdentifier = "\(baseIdentifier)\(uniqueSuffix)"
+        let categoryIdentifier = "\(KlaviyoCategoryController.categoryIdentifierPrefix)\(uniqueSuffix)"
 
         // Register category dynamically with unique identifier
         KlaviyoCategoryController.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
