@@ -79,36 +79,62 @@ public class KlaviyoCategoryController {
         }
     }
 
-    /// Removes a notification category from the registered categories.
+    /// Removes a notification category from the registered categories and prunes any other stale categories.
     ///
     /// This method:
     /// 1. Fetches all currently registered categories
     /// 2. Removes the category with the matching identifier
-    /// 3. Updates the registered categories, preserving all other categories
+    /// 3. Checks for and removes any other stale Klaviyo categories that are no longer in the Notification Center
+    /// 4. Updates the registered categories, preserving all other categories
     ///
     /// - Parameter categoryIdentifier: The identifier of the category to remove
     public func pruneCategory(categoryIdentifier: String) {
-        // Use serial queue to ensure thread-safe category removal
         queue.sync {
-            // Get existing categories
-            let (existingCategories, fetchTimedOut) = fetchExistingCategories()
-
-            // If fetch timed out, we can't safely remove the category
-            // since we don't know what categories exist
-            if fetchTimedOut {
+            let (existingCategories, categoriesFetchTimedOut) = fetchExistingCategories()
+            if categoriesFetchTimedOut {
                 if #available(iOS 14.0, *) {
                     Logger.actionButtons.warning("Could not retrieve existing categories. Cannot safely prune category '\(categoryIdentifier)'.")
                 }
                 return
             }
 
-            // Filter out the category to remove
-            let prunedCategories = existingCategories.filter { $0.identifier != categoryIdentifier }
-            if #available(iOS 14.0, *) {
-                Logger.actionButtons.info("Removed category '\(categoryIdentifier)'. (Total left: \(prunedCategories.count))")
+            // First, remove the category we know is no longer being used
+            var updatedCategories = existingCategories.filter { $0.identifier != categoryIdentifier }
+
+            // Then check for all notifications in Notification Center for any other stale categories that are no longer displayed
+            let (deliveredNotifications, notificationsFetchTimedOut) = fetchDeliveredNotifications()
+
+            if !notificationsFetchTimedOut {
+                // Extract Klaviyo category identifiers from displayed notifications
+                let displayedCategoryIdentifiers = Set(deliveredNotifications.compactMap { notification in
+                    let notificationCategoryId = notification.request.content.categoryIdentifier
+                    return notificationCategoryId.hasPrefix(Self.categoryIdentifierPrefix) ? notificationCategoryId : nil
+                })
+
+                // Find Klaviyo categories that are no longer referenced by any notification in the Notification Center
+                let klaviyoCategories = updatedCategories.filter { $0.identifier.hasPrefix(Self.categoryIdentifierPrefix) }
+                let staleCategories = klaviyoCategories.filter { !displayedCategoryIdentifiers.contains($0.identifier) }
+
+                if !staleCategories.isEmpty {
+                    let staleCategoryIdentifiers = Set(staleCategories.map(\.identifier))
+                    updatedCategories = updatedCategories.filter { !staleCategoryIdentifiers.contains($0.identifier) }
+
+                    if #available(iOS 14.0, *) {
+                        Logger.actionButtons.info("Removed category '\(categoryIdentifier)' and \(staleCategories.count) stale category/categories. (Total remaining: \(updatedCategories.count))")
+                    }
+                } else {
+                    if #available(iOS 14.0, *) {
+                        Logger.actionButtons.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
+                    }
+                }
+            } else {
+                // If we can't fetch delivered notifications, still remove the specific category
+                if #available(iOS 14.0, *) {
+                    Logger.actionButtons.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
+                }
             }
 
-            UNUserNotificationCenter.current().setNotificationCategories(prunedCategories)
+            UNUserNotificationCenter.current().setNotificationCategories(updatedCategories)
         }
     }
 
@@ -134,6 +160,27 @@ public class KlaviyoCategoryController {
         }
 
         return (existingCategories, fetchTimedOut)
+    }
+
+    /// Fetches delivered notifications from the Notification Center with timeout handling.
+    ///
+    /// - Returns: A tuple containing the array of delivered notifications and a boolean indicating if the fetch timed out
+    private func fetchDeliveredNotifications() -> ([UNNotification], Bool) {
+        let semaphore = DispatchSemaphore(value: 0)
+        var deliveredNotifications: [UNNotification] = []
+        var fetchTimedOut = false
+
+        UNUserNotificationCenter.current().getDeliveredNotifications { notifications in
+            deliveredNotifications = notifications
+            semaphore.signal()
+        }
+
+        let result = semaphore.wait(timeout: .now() + 1.0)
+        if result == .timedOut {
+            fetchTimedOut = true
+        }
+
+        return (deliveredNotifications, fetchTimedOut)
     }
 
     /// Merges a new category with existing categories.
