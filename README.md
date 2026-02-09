@@ -422,6 +422,12 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 #### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
+### Action Buttons
+
+>  ℹ️ Push Action Buttons is supported in SDK version [4.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.3.0) and higher
+
+Klaviyo supports the ability to add custom buttons to push notification messages from the campaign editor. These buttons can show custom text and can deep link or open your app when tapped. If a button is tapped, the open push event includes the corresponding button information. No additional setup is needed to support push action buttons. Push notifications can include a maximum of 3 valid buttons.
+
 ## Deep Linking
 
 Klaviyo [Deep Links](https://help.klaviyo.com/hc/en-us/articles/14750403974043) allow you to navigate to a particular page within your app in response to the user opening a push notification, tapping an In-App Form link, or by tapping a universal link from outside of the app. The Klaviyo Swift SDK supports deep linking using either URL schemes or universal links.
