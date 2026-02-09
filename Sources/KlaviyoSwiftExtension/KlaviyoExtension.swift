@@ -231,10 +231,10 @@ public enum KlaviyoExtensionSDK {
 
         // Generate unique category identifier for this notification
         let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
-        let categoryIdentifier = "\(KlaviyoCategoryController.categoryIdentifierPrefix)\(uniqueSuffix)"
+        let categoryIdentifier = "\(KlaviyoCategoryManager.categoryIdentifierPrefix)\(uniqueSuffix)"
 
         // Register category dynamically with unique identifier
-        KlaviyoCategoryController.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
+        KlaviyoCategoryManager.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
 
         // Set category on notification content
         bestAttemptContent.categoryIdentifier = categoryIdentifier

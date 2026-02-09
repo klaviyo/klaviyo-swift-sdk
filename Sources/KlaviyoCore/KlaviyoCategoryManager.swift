@@ -1,5 +1,5 @@
 //
-//  KlaviyoCategoryController.swift
+//  KlaviyoCategoryManager.swift
 //
 //
 //  Created by Belle Lim on 1/20/26.
@@ -11,11 +11,11 @@ import UserNotifications
 
 /// Manages the registration of the Klaviyo action button notification category.
 ///
-/// This controller handles:
+/// This manager handles:
 /// - Registering unique categories per notification with dynamic actions
 /// - Preserving existing categories (including developer-set ones) when adding new categories
-public class KlaviyoCategoryController {
-    public static let shared = KlaviyoCategoryController()
+public class KlaviyoCategoryManager {
+    public static let shared = KlaviyoCategoryManager()
 
     /// Prefix used for all Klaviyo notification category identifiers
     public static let categoryIdentifierPrefix = "com.klaviyo.button."
@@ -63,7 +63,7 @@ public class KlaviyoCategoryController {
                 // If we timed out, just register the new category
                 // This is a trade-off: we might lose some existing categories, but we avoid blocking
                 if #available(iOS 14.0, *) {
-                    Logger.actionButtons.warning("Could not retrieve existing categories. Prioritizing and setting the incoming category. Existing categories may be lost.")
+                    Logger.notifications.warning("Could not retrieve existing categories. Prioritizing and setting the incoming category. Existing categories may be lost.")
                 }
                 mergedCategories = [category]
             } else {
@@ -73,7 +73,7 @@ public class KlaviyoCategoryController {
 
             // Register the merged set
             if #available(iOS 14.0, *) {
-                Logger.actionButtons.warning("Registered new notification category '\(categoryIdentifier)'. Total categories: \(mergedCategories.count)")
+                Logger.notifications.warning("Registered new notification category '\(categoryIdentifier)'. Total categories: \(mergedCategories.count)")
             }
             UNUserNotificationCenter.current().setNotificationCategories(mergedCategories)
         }
@@ -93,7 +93,7 @@ public class KlaviyoCategoryController {
             let (existingCategories, categoriesFetchTimedOut) = fetchExistingCategories()
             if categoriesFetchTimedOut {
                 if #available(iOS 14.0, *) {
-                    Logger.actionButtons.warning("Could not retrieve existing categories. Cannot safely prune category '\(categoryIdentifier)'.")
+                    Logger.notifications.warning("Could not retrieve existing categories. Cannot safely prune category '\(categoryIdentifier)'.")
                 }
                 return
             }
@@ -120,17 +120,17 @@ public class KlaviyoCategoryController {
                     updatedCategories = updatedCategories.filter { !staleCategoryIdentifiers.contains($0.identifier) }
 
                     if #available(iOS 14.0, *) {
-                        Logger.actionButtons.info("Removed category '\(categoryIdentifier)' and \(staleCategories.count) stale category/categories. (Total remaining: \(updatedCategories.count))")
+                        Logger.notifications.info("Removed category '\(categoryIdentifier)' and \(staleCategories.count) stale category/categories. (Total remaining: \(updatedCategories.count))")
                     }
                 } else {
                     if #available(iOS 14.0, *) {
-                        Logger.actionButtons.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
+                        Logger.notifications.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
                     }
                 }
             } else {
                 // If we can't fetch delivered notifications, still remove the specific category
                 if #available(iOS 14.0, *) {
-                    Logger.actionButtons.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
+                    Logger.notifications.info("Removed category '\(categoryIdentifier)'. (Total left: \(updatedCategories.count))")
                 }
             }
 

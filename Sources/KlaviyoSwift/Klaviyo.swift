@@ -213,7 +213,7 @@ public struct KlaviyoSDK {
         // Prune the category if the push with action buttons was dismissed from the Notification Center
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
-            KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+            KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
             return true
         }
 
@@ -230,7 +230,7 @@ public struct KlaviyoSDK {
 
         // Prune the category after all event handling and deep link handling is complete
         let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
-        KlaviyoCategoryController.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+        KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
 
         Task { @MainActor in
             completionHandler()
