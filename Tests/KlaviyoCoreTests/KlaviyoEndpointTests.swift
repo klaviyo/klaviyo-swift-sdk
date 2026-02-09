@@ -176,4 +176,111 @@ final class KlaviyoEndpointTests: XCTestCase {
             }
         }
     }
+
+    func testFetchGeofencesEndpointUrlRequest() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let latitude = 37.7749
+        let longitude = -122.4194
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/client/geofences")
+        let queryItems = request.url?.query?.components(separatedBy: "&").sorted() ?? []
+        XCTAssertTrue(queryItems.contains("company_id=test_api_key"))
+        XCTAssertTrue(queryItems.contains("page%5Bsize%5D=30"))
+        XCTAssertFalse(queryItems.contains { $0.contains("latitude") })
+        XCTAssertFalse(queryItems.contains { $0.contains("longitude") })
+
+        // Check header
+        let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-API-Filters"]
+        XCTAssertEqual(headerValue, "and(equals(lat,37.7749),equals(lng,-122.4194))")
+    }
+
+    func testFetchGeofencesEndpointUrlRequestWithLatLon() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let latitude = 42.33
+        let longitude = -71.05
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/client/geofences")
+        let queryItems = request.url?.query?.components(separatedBy: "&").sorted() ?? []
+        XCTAssertTrue(queryItems.contains("company_id=test_api_key"))
+        XCTAssertTrue(queryItems.contains("page%5Bsize%5D=30"))
+        XCTAssertFalse(queryItems.contains { $0.contains("latitude") })
+        XCTAssertFalse(queryItems.contains { $0.contains("longitude") })
+
+        // Check header
+        let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-API-Filters"]
+        XCTAssertEqual(headerValue, "and(equals(lat,42.33),equals(lng,-71.05))")
+    }
+
+    func testFetchGeofencesEndpointUrlRequestWithNilCoordinates() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: nil, longitude: nil)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/client/geofences")
+        let queryItems = request.url?.query?.components(separatedBy: "&").sorted() ?? []
+        XCTAssertTrue(queryItems.contains("company_id=test_api_key"))
+        XCTAssertTrue(queryItems.contains("page%5Bsize%5D=30"))
+        XCTAssertFalse(queryItems.contains { $0.contains("latitude") })
+        XCTAssertFalse(queryItems.contains { $0.contains("longitude") })
+
+        // Check that header is not present when coordinates are nil
+        XCTAssertNil(request.allHTTPHeaderFields?["X-Klaviyo-API-Filters"])
+    }
+
+    func testRevisionHeaderForGeofenceEndpoint() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let latitude = 37.7749
+        let longitude = -122.4194
+        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 1)
+        let request = KlaviyoRequest(endpoint: endpoint)
+
+        // When
+        let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
+
+        // Then
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15.pre")
+    }
+
+    func testRevisionHeaderForNonGeofenceEndpoints() throws {
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
+
+        // Test createProfile
+        let profileEndpoint = KlaviyoEndpoint.createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test))
+        let profileRequest = KlaviyoRequest(endpoint: profileEndpoint)
+        let profileUrlRequest = try profileRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(profileUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+
+        // Test createEvent (including geofence events use standard revision)
+        let eventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "test_event")))
+        let eventRequest = KlaviyoRequest(endpoint: eventEndpoint)
+        let eventUrlRequest = try eventRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(eventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+
+        // Test geofence event also uses standard revision
+        let geofenceEventEndpoint = KlaviyoEndpoint.createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "$geofence_enter")))
+        let geofenceEventRequest = KlaviyoRequest(endpoint: geofenceEventEndpoint)
+        let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
+        XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+    }
 }

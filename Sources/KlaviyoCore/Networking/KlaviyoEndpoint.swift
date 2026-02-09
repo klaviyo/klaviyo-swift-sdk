@@ -17,29 +17,38 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     case aggregateEvent(_ apiKey: String, _ payload: AggregateEventPayload)
     case resolveDestinationURL(trackingLink: URL, profileInfo: ProfilePayload)
     case logTrackingLinkClicked(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
+    case fetchGeofences(_ apiKey: String, latitude: Double?, longitude: Double?)
 
     private enum HeaderKey {
         static let profileInfo = "X-Klaviyo-Profile-Info"
         static let clickEventTimestamp = "X-Klaviyo-Click-Event-Timestamp"
+        static let apiFilters = "X-Klaviyo-API-Filters"
     }
 
     public var headers: [String: String] {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return [:]
+        case let .fetchGeofences(_, latitude, longitude):
+            var headers = [String: String]()
+            if let latitude, let longitude {
+                let filterString = "and(equals(lat,\(latitude)),equals(lng,\(longitude)))"
+                headers[HeaderKey.apiFilters] = filterString
+            }
+            return headers
         case let .resolveDestinationURL(_, profileInfo):
-            var dict = [String: String]()
+            var headers = [String: String]()
             if let profileInfoString = try? profileInfo.asJSONString() {
-                dict[HeaderKey.profileInfo] = profileInfoString
+                headers[HeaderKey.profileInfo] = profileInfoString
             }
-            return dict
+            return headers
         case let .logTrackingLinkClicked(_, timestamp, profileInfo):
-            var dict = [String: String]()
+            var headers = [String: String]()
             if let profileInfoString = try? profileInfo.asJSONString() {
-                dict[HeaderKey.profileInfo] = profileInfoString
+                headers[HeaderKey.profileInfo] = profileInfoString
             }
-            dict[HeaderKey.clickEventTimestamp] = String(Int(timestamp.timeIntervalSince1970))
-            return dict
+            headers[HeaderKey.clickEventTimestamp] = String(Int(timestamp.timeIntervalSince1970))
+            return headers
         }
     }
 
@@ -51,6 +60,11 @@ public enum KlaviyoEndpoint: Equatable, Codable {
              let .unregisterPushToken(apiKey, _),
              let .aggregateEvent(apiKey, _):
             return [URLQueryItem(name: "company_id", value: apiKey)]
+        case let .fetchGeofences(apiKey, _, _):
+            return [
+                URLQueryItem(name: "company_id", value: apiKey),
+                URLQueryItem(name: "page[size]", value: "30")
+            ]
         case .resolveDestinationURL, .logTrackingLinkClicked:
             return []
         }
@@ -60,14 +74,14 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         switch self {
         case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
             return .post
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return .get
         }
     }
 
     public func baseURL() throws -> URL {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent, .fetchGeofences:
             guard environment.apiURL().scheme != nil,
                   environment.apiURL().host != nil,
                   let url = environment.apiURL().url else {
@@ -112,6 +126,16 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return "/onsite/track-analytics"
         case let .resolveDestinationURL(trackingLink, _), let .logTrackingLinkClicked(trackingLink, _, _):
             return trackingLink.path
+        case .fetchGeofences:
+            return "/client/geofences"
+        }
+    }
+
+    var revision: String {
+        if case .fetchGeofences = self {
+            return "2026-01-15.pre"
+        } else {
+            return "2026-01-15"
         }
     }
 
@@ -127,7 +151,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
             return try environment.encodeJSON(payload)
         case let .aggregateEvent(_, payload):
             return payload
-        case .resolveDestinationURL, .logTrackingLinkClicked:
+        case .resolveDestinationURL, .logTrackingLinkClicked, .fetchGeofences:
             return nil
         }
     }

@@ -20,22 +20,27 @@ extension KlaviyoSDK {
     ///
     /// - Note: a public API key is required, so ``KlaviyoSDK().initialize(with:)`` must be called first. If the API key changes, the session will be re-initialized automatically with the new key.
     @MainActor
-    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) {
+    @discardableResult
+    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
             }
         }
+        return self
     }
 
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
-    public func unregisterFromInAppForms() {
+    @discardableResult
+    public func unregisterFromInAppForms() -> KlaviyoSDK {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.destroyWebviewAndListeners()
             }
         }
+
+        return self
     }
 
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
