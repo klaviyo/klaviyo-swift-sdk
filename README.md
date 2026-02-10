@@ -425,9 +425,9 @@ Klaviyo messages can also include key-value pairs (custom data) for both standar
 
 #### Push Action Buttons
 
->  ℹ️ Push Action Buttons is supported in SDK version [4.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.3.0) and higher
+>  ℹ️ Push Action Buttons is supported in SDK version [5.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.3.0) and higher
 
-Klaviyo supports the ability to add [custom push action buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) to push notification messages from the campaign editor. These buttons can show custom text and can deep link or open your app when tapped. If a button is tapped, the open push event includes the corresponding button information. No additional setup is needed to support push action buttons. Push notifications can include a maximum of 3 valid buttons.
+Klaviyo supports the ability to add [custom push action buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) to push notification messages. These buttons can show custom text and can deep link or open your app when tapped. If a button is tapped, the open push event includes the corresponding button information. No additional setup is needed to support push action buttons. Push notifications can include a maximum of 3 valid buttons.
 
 To test push action buttons, use Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications) and send a payload with this format to resemble what the SDK would receive from Klaviyo.
 
