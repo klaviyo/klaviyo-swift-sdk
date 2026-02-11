@@ -4,7 +4,9 @@
 //
 //  Created by Ajay Subramanya on 6/23/23.
 //
+
 import Foundation
+import KlaviyoCore
 import OSLog
 import UserNotifications
 
@@ -228,12 +230,11 @@ public enum KlaviyoExtensionSDK {
         let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
 
         // Generate unique category identifier for this notification
-        let baseIdentifier = "com.klaviyo.button."
         let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
-        let categoryIdentifier = "\(baseIdentifier)\(uniqueSuffix)"
+        let categoryIdentifier = "\(KlaviyoCategoryManager.categoryIdentifierPrefix)\(uniqueSuffix)"
 
         // Register category dynamically with unique identifier
-        KlaviyoCategoryController.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
+        KlaviyoCategoryManager.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
 
         // Set category on notification content
         bestAttemptContent.categoryIdentifier = categoryIdentifier
