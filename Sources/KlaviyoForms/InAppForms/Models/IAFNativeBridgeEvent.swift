@@ -63,8 +63,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .openDeepLink:
-            let url = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(url.ios)
+            let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
+            // Use a placeholder URL if none provided (e.g., empty string from form)
+            let url = payload.ios ?? URL(string: "about:blank")!
+            self = .openDeepLink(url)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -84,7 +86,28 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
 extension IAFNativeBridgeEvent {
     struct DeepLinkEventPayload: Codable {
-        let ios: URL
+        let ios: URL?
+
+        enum CodingKeys: String, CodingKey {
+            case ios
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let urlString = try container.decode(String.self, forKey: .ios)
+
+            // Handle empty string or invalid URL gracefully
+            if urlString.isEmpty {
+                self.ios = nil
+            } else {
+                self.ios = URL(string: urlString)
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(ios?.absoluteString ?? "", forKey: .ios)
+        }
     }
 
     struct AbortPayload: Codable {
