@@ -17,6 +17,42 @@ class IAFPresentationManager {
 
     static let shared = IAFPresentationManager()
 
+    // MARK: - Form Lifecycle Handler
+
+    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent) -> Void)?
+
+    package func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.log("Registering form lifecycle handler")
+        }
+        formLifecycleHandler = handler
+    }
+
+    package func unregisterFormLifecycleHandler() {
+        if #available(iOS 14.0, *) {
+            if formLifecycleHandler != nil {
+                Logger.webViewLogger.log("Unregistering form lifecycle handler")
+            }
+        }
+        formLifecycleHandler = nil
+    }
+
+    package var hasFormLifecycleHandler: Bool {
+        formLifecycleHandler != nil
+    }
+
+    package func invokeLifecycleHandler(for event: FormLifecycleEvent) {
+        guard let handler = formLifecycleHandler else { return }
+
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.rawValue, privacy: .public)")
+        }
+
+        handler(event)
+    }
+
+    // MARK: - Properties & Initializer
+
     private var companyObserver: CompanyObserver?
     private var companyEventsTask: Task<Void, Never>?
     private var isInitializingOrInitialized = false
@@ -375,6 +411,7 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
+                invokeLifecycleHandler(for: .formShown)
                 topController.present(viewController, animated: false, completion: nil)
             }
         }
@@ -382,6 +419,7 @@ class IAFPresentationManager {
 
     func dismissForm() {
         guard let viewController else { return }
+        invokeLifecycleHandler(for: .formDismissed)
         viewController.dismiss(animated: false)
     }
 
