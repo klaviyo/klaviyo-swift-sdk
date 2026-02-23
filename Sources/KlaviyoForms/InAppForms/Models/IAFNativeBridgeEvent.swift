@@ -93,18 +93,8 @@ extension IAFNativeBridgeEvent {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let urlString = try container.decode(String.self, forKey: .ios)
-
             // Handle empty string or invalid URL gracefully
-            if urlString.isEmpty {
-                self.ios = nil
-            } else {
-                self.ios = URL(string: urlString)
-            }
-        }
-
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(ios?.absoluteString ?? "", forKey: .ios)
+            self.ios = urlString.isEmpty ? nil : URL(string: urlString)
         }
     }
 
