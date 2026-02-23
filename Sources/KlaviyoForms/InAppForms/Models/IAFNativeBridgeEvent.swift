@@ -92,9 +92,13 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let urlString = try container.decode(String.self, forKey: .ios)
-            // Handle empty string or invalid URL gracefully
-            ios = urlString.isEmpty ? nil : URL(string: urlString)
+            // Handle missing, null, or empty string gracefully
+            guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
+                  !urlString.isEmpty else {
+                ios = nil
+                return
+            }
+            ios = URL(string: urlString)
         }
     }
 

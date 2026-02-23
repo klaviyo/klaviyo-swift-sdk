@@ -428,6 +428,12 @@ class IAFPresentationManager {
     func destroyWebView() {
         guard let viewController else { return }
 
+        // Invoke lifecycle handler if form was visible
+        // This covers timeout-based and programmatic dismissals
+        if viewController.presentingViewController != nil {
+            invokeLifecycleHandler(for: .formDismissed)
+        }
+
         viewController.dismiss(animated: false, completion: nil)
 
         self.viewController = nil

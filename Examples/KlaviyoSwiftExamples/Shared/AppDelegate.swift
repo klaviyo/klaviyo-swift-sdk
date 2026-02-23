@@ -35,7 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
-            .initialize(with: "Xr5bFG")
+            .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
             .registerFormLifecycleHandler { event in
