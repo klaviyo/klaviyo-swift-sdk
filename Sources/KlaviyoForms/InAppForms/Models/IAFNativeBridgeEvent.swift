@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(URL)
+    case openDeepLink(URL?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -64,9 +64,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .trackAggregateEvent(data)
         case .openDeepLink:
             let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            // Use a placeholder URL if none provided (e.g., empty string from form)
-            let url = payload.ios ?? URL(string: "about:blank")!
-            self = .openDeepLink(url)
+            self = .openDeepLink(payload.ios)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)

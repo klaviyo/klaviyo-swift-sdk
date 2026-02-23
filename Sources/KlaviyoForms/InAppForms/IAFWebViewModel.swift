@@ -275,11 +275,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url, privacy: .public)")
+                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // Only attempt to open valid URLs (not placeholder or about:blank)
-            guard url.scheme != "about" && !url.absoluteString.isEmpty else {
+            // Only attempt to open valid URLs (skip if nil or empty)
+            guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
                 }
