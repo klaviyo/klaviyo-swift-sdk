@@ -229,13 +229,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .klaviyoNativeBridge:
             guard let jsonString = message.body as? String else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Message body is not a string: \(type(of: message.body))")
+                    Logger.webViewLogger.warning("Message body is not a string: \(type(of: message.body), privacy: .public)")
                 }
                 return
             }
 
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON, privacy: .public)")
+                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON)")
             }
 
             do {
@@ -244,8 +244,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to decode JSON: \(error, privacy: .public)")
-                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON, privacy: .public)")
+                    Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
+                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON)")
                 }
             }
         }
