@@ -776,14 +776,6 @@ The handler is called on the main thread and will receive events for all form in
 KlaviyoSDK().unregisterFormLifecycleHandler()
 ```
 
-You can check if a handler is currently registered:
-
-```swift
-if KlaviyoSDK().isFormLifecycleHandlerRegistered {
-    print("Form lifecycle handler is active")
-}
-```
-
 **Note:** The handler is optional and does not affect normal form functionality. Forms will continue to display and track analytics in Klaviyo regardless of whether a handler is registered.
 
 ## Geofencing

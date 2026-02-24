@@ -85,12 +85,6 @@ extension KlaviyoSDK {
         return self
     }
 
-    /// Returns `true` if a form lifecycle handler is currently registered.
-    @MainActor
-    public var isFormLifecycleHandlerRegistered: Bool {
-        IAFPresentationManager.shared.hasFormLifecycleHandler
-    }
-
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
     ///
     /// This method is for internal use only and should not be used in production applications.

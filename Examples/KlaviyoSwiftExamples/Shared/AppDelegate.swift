@@ -73,13 +73,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 }
             }
 
-        // Verify handler registration
-        if KlaviyoSDK().isFormLifecycleHandlerRegistered {
-            print("✅ Form lifecycle handler successfully registered")
-        } else {
-            print("❌ Form lifecycle handler registration failed")
-        }
-
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
 

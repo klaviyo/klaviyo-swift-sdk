@@ -37,10 +37,6 @@ class IAFPresentationManager {
         formLifecycleHandler = nil
     }
 
-    package var hasFormLifecycleHandler: Bool {
-        formLifecycleHandler != nil
-    }
-
     package func invokeLifecycleHandler(for event: FormLifecycleEvent) {
         guard let handler = formLifecycleHandler else { return }
 

@@ -43,10 +43,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // When
         presentationManager.registerFormLifecycleHandler(handler)
 
-        // Then
-        XCTAssertTrue(presentationManager.hasFormLifecycleHandler, "Handler should be registered")
-
-        // Verify handler works
+        // Then - verify handler works
         presentationManager.invokeLifecycleHandler(for: .formShown)
         XCTAssertEqual(capturedEvent, .formShown, "Handler should be invoked with correct event")
     }
@@ -59,15 +56,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
             handlerInvoked = true
         }
         presentationManager.registerFormLifecycleHandler(handler)
-        XCTAssertTrue(presentationManager.hasFormLifecycleHandler, "Handler should be registered initially")
 
         // When
         presentationManager.unregisterFormLifecycleHandler()
 
-        // Then
-        XCTAssertFalse(presentationManager.hasFormLifecycleHandler, "Handler should be unregistered")
-
-        // Verify handler is not invoked after unregistration
+        // Then - verify handler is not invoked after unregistration
         presentationManager.invokeLifecycleHandler(for: .formShown)
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
@@ -185,7 +178,6 @@ final class FormLifecycleHandlerTests: XCTestCase {
     @MainActor
     func testInvokeWithoutHandler() {
         // Given - No handler registered
-        XCTAssertFalse(presentationManager.hasFormLifecycleHandler, "No handler should be registered")
 
         // When/Then - Should not crash
         presentationManager.invokeLifecycleHandler(for: .formShown)
@@ -234,7 +226,6 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Then
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(receivedEvent, .formShown, "Public API should register handler correctly")
-        XCTAssertTrue(KlaviyoSDK().isFormLifecycleHandlerRegistered, "Public API should report handler as registered")
     }
 
     @MainActor
@@ -244,13 +235,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         KlaviyoSDK().registerFormLifecycleHandler { _ in
             handlerInvoked = true
         }
-        XCTAssertTrue(KlaviyoSDK().isFormLifecycleHandlerRegistered, "Handler should be registered initially")
 
         // When
         KlaviyoSDK().unregisterFormLifecycleHandler()
 
         // Then
-        XCTAssertFalse(KlaviyoSDK().isFormLifecycleHandlerRegistered, "Handler should be unregistered")
         presentationManager.invokeLifecycleHandler(for: .formShown)
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
@@ -263,14 +252,12 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(sdk, "registerFormLifecycleHandler should return KlaviyoSDK instance")
-        XCTAssertTrue(sdk.isFormLifecycleHandlerRegistered, "Handler should be registered")
 
         // When
         let unregisteredSDK = sdk.unregisterFormLifecycleHandler()
 
         // Then
         XCTAssertNotNil(unregisteredSDK, "unregisterFormLifecycleHandler should return KlaviyoSDK instance")
-        XCTAssertFalse(unregisteredSDK.isFormLifecycleHandlerRegistered, "Handler should be unregistered")
     }
 
     // MARK: - Event Enum Tests
