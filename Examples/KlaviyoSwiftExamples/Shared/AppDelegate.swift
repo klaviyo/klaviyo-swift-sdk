@@ -38,17 +38,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
-            .registerFormLifecycleHandler { event in
+            .registerFormLifecycleHandler { event, formId in
                 // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
                 // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
 
                 switch event {
                 case .formShown:
-                    print("🎨 [Form Lifecycle] Form Shown")
+                    print("🎨 [Form Lifecycle] Form Shown: \(formId ?? "unknown")")
                 case .formDismissed:
-                    print("👋 [Form Lifecycle] Form Dismissed")
+                    print("👋 [Form Lifecycle] Form Dismissed: \(formId ?? "unknown")")
                 case .formCTAClicked:
-                    print("🖱️  [Form Lifecycle] Form CTA Clicked")
+                    print("🖱️  [Form Lifecycle] Form CTA Clicked: \(formId ?? "unknown")")
                 }
             }
 

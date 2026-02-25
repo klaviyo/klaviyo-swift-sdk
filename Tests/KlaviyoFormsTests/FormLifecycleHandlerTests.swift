@@ -36,7 +36,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testRegisterHandler() {
         // Given
         var capturedEvent: FormLifecycleEvent?
-        let handler: (FormLifecycleEvent) -> Void = { event in
+        let handler: (FormLifecycleEvent, String?) -> Void = { event, _ in
             capturedEvent = event
         }
 
@@ -52,7 +52,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testUnregisterHandler() {
         // Given
         var handlerInvoked = false
-        let handler: (FormLifecycleEvent) -> Void = { _ in
+        let handler: (FormLifecycleEvent, String?) -> Void = { _, _ in
             handlerInvoked = true
         }
         presentationManager.registerFormLifecycleHandler(handler)
@@ -71,11 +71,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         var firstHandlerInvoked = false
         var secondHandlerInvoked = false
 
-        let firstHandler: (FormLifecycleEvent) -> Void = { _ in
+        let firstHandler: (FormLifecycleEvent, String?) -> Void = { _, _ in
             firstHandlerInvoked = true
         }
 
-        let secondHandler: (FormLifecycleEvent) -> Void = { _ in
+        let secondHandler: (FormLifecycleEvent, String?) -> Void = { _, _ in
             secondHandlerInvoked = true
         }
 
@@ -96,9 +96,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Given
         let expectation = expectation(description: "Handler called for formShown")
         var receivedEvent: FormLifecycleEvent?
+        var receivedFormId: String?
 
-        presentationManager.registerFormLifecycleHandler { event in
+        presentationManager.registerFormLifecycleHandler { event, formId in
             receivedEvent = event
+            receivedFormId = formId
             expectation.fulfill()
         }
 
@@ -108,6 +110,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Then
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(receivedEvent, .formShown, "Handler should receive formShown event")
+        XCTAssertNil(receivedFormId, "formId should be nil when no form is active")
     }
 
     @MainActor
@@ -116,7 +119,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         let expectation = expectation(description: "Handler called for formDismissed")
         var receivedEvent: FormLifecycleEvent?
 
-        presentationManager.registerFormLifecycleHandler { event in
+        presentationManager.registerFormLifecycleHandler { event, _ in
             receivedEvent = event
             expectation.fulfill()
         }
@@ -135,7 +138,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         let expectation = expectation(description: "Handler called for formCTAClicked")
         var receivedEvent: FormLifecycleEvent?
 
-        presentationManager.registerFormLifecycleHandler { event in
+        presentationManager.registerFormLifecycleHandler { event, _ in
             receivedEvent = event
             expectation.fulfill()
         }
@@ -155,7 +158,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         expectation.expectedFulfillmentCount = 3
         var receivedEvents: [FormLifecycleEvent] = []
 
-        presentationManager.registerFormLifecycleHandler { event in
+        presentationManager.registerFormLifecycleHandler { event, _ in
             receivedEvents.append(event)
             expectation.fulfill()
         }
@@ -194,7 +197,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         let expectation = expectation(description: "Handler called on main thread")
         var isMainThread = false
 
-        presentationManager.registerFormLifecycleHandler { _ in
+        presentationManager.registerFormLifecycleHandler { _, _ in
             isMainThread = Thread.isMainThread
             expectation.fulfill()
         }
@@ -216,7 +219,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         var receivedEvent: FormLifecycleEvent?
 
         // When
-        KlaviyoSDK().registerFormLifecycleHandler { event in
+        KlaviyoSDK().registerFormLifecycleHandler { event, _ in
             receivedEvent = event
             expectation.fulfill()
         }
@@ -232,7 +235,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testPublicAPIUnregistration() {
         // Given
         var handlerInvoked = false
-        KlaviyoSDK().registerFormLifecycleHandler { _ in
+        KlaviyoSDK().registerFormLifecycleHandler { _, _ in
             handlerInvoked = true
         }
 
@@ -248,7 +251,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testPublicAPIChaining() {
         // Given/When
         let sdk = KlaviyoSDK()
-            .registerFormLifecycleHandler { _ in }
+            .registerFormLifecycleHandler { _, _ in }
 
         // Then
         XCTAssertNotNil(sdk, "registerFormLifecycleHandler should return KlaviyoSDK instance")

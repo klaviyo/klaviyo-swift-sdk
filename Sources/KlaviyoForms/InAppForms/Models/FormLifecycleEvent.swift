@@ -14,14 +14,14 @@ import Foundation
 ///
 /// Example usage:
 /// ```swift
-/// KlaviyoSDK().registerFormLifecycleHandler { event in
+/// KlaviyoSDK().registerFormLifecycleHandler { event, formId in
 ///     switch event {
 ///     case .formShown:
-///         Analytics.track("Form Shown")
+///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
 ///     case .formDismissed:
-///         Analytics.track("Form Dismissed")
+///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
 ///     case .formCTAClicked:
-///         Analytics.track("Form CTA Clicked")
+///         Analytics.track("Form CTA Clicked", properties: ["formId": formId ?? ""])
 ///     }
 /// }
 /// ```

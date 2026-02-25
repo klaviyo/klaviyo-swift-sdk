@@ -54,23 +54,23 @@ extension KlaviyoSDK {
     ///
     /// Example usage:
     /// ```swift
-    /// KlaviyoSDK().registerFormLifecycleHandler { event in
+    /// KlaviyoSDK().registerFormLifecycleHandler { event, formId in
     ///     switch event {
     ///     case .formShown:
-    ///         Analytics.track("Form Shown")
+    ///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
     ///     case .formDismissed:
-    ///         Analytics.track("Form Dismissed")
+    ///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
     ///     case .formCTAClicked:
-    ///         Analytics.track("Form CTA Clicked")
+    ///         Analytics.track("Form CTA Clicked", properties: ["formId": formId ?? ""])
     ///     }
     /// }
     /// ```
     ///
-    /// - Parameter handler: A closure receiving the lifecycle event.
+    /// - Parameter handler: A closure receiving the lifecycle event and the ID of the form that triggered it.
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> KlaviyoSDK {
+    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, String?) -> Void) -> KlaviyoSDK {
         IAFPresentationManager.shared.registerFormLifecycleHandler(handler)
         return self
     }
