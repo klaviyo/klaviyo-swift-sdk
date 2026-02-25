@@ -83,7 +83,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct DeepLinkEventPayload: Codable {
+    struct DeepLinkEventPayload: Decodable {
         let ios: URL?
 
         enum CodingKeys: String, CodingKey {
@@ -98,7 +98,7 @@ extension IAFNativeBridgeEvent {
         }
     }
 
-    struct AbortPayload: Codable {
+    struct AbortPayload: Decodable {
         let reason: String
     }
 }
