@@ -34,7 +34,7 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    private var currentFormId: String?
+    private var currentFormContext = FormContext(formId: nil)
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -60,9 +60,9 @@ class IAFPresentationManager {
 
     // MARK: - Form Lifecycle Handler
 
-    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent, String?) -> Void)?
+    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent, FormContext) -> Void)?
 
-    func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, String?) -> Void) {
+    func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, FormContext) -> Void) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.log("Registering form lifecycle handler")
         }
@@ -85,7 +85,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.rawValue, privacy: .public)")
         }
 
-        handler(event, currentFormId)
+        handler(event, currentFormContext)
     }
 
     // MARK: - Initialization & Setup
@@ -186,7 +186,7 @@ class IAFPresentationManager {
             }
             startProfileObservation()
         case let .present(formId):
-            currentFormId = formId
+            currentFormContext = FormContext(formId: formId)
             presentForm()
         case .dismiss:
             dismissForm()

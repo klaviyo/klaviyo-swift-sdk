@@ -36,7 +36,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testRegisterHandler() {
         // Given
         var capturedEvent: FormLifecycleEvent?
-        let handler: (FormLifecycleEvent, String?) -> Void = { event, _ in
+        let handler: (FormLifecycleEvent, FormContext) -> Void = { event, _ in
             capturedEvent = event
         }
 
@@ -52,7 +52,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     func testUnregisterHandler() {
         // Given
         var handlerInvoked = false
-        let handler: (FormLifecycleEvent, String?) -> Void = { _, _ in
+        let handler: (FormLifecycleEvent, FormContext) -> Void = { _, _ in
             handlerInvoked = true
         }
         presentationManager.registerFormLifecycleHandler(handler)
@@ -71,11 +71,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         var firstHandlerInvoked = false
         var secondHandlerInvoked = false
 
-        let firstHandler: (FormLifecycleEvent, String?) -> Void = { _, _ in
+        let firstHandler: (FormLifecycleEvent, FormContext) -> Void = { _, _ in
             firstHandlerInvoked = true
         }
 
-        let secondHandler: (FormLifecycleEvent, String?) -> Void = { _, _ in
+        let secondHandler: (FormLifecycleEvent, FormContext) -> Void = { _, _ in
             secondHandlerInvoked = true
         }
 
@@ -96,11 +96,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Given
         let expectation = expectation(description: "Handler called for formShown")
         var receivedEvent: FormLifecycleEvent?
-        var receivedFormId: String?
+        var receivedFormContext: FormContext?
 
-        presentationManager.registerFormLifecycleHandler { event, formId in
+        presentationManager.registerFormLifecycleHandler { event, context in
             receivedEvent = event
-            receivedFormId = formId
+            receivedFormContext = context
             expectation.fulfill()
         }
 
@@ -110,7 +110,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Then
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(receivedEvent, .formShown, "Handler should receive formShown event")
-        XCTAssertNil(receivedFormId, "formId should be nil when no form is active")
+        XCTAssertNil(receivedFormContext?.formId, "formId should be nil when no form is active")
     }
 
     @MainActor
