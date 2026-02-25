@@ -39,37 +39,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
             .registerFormLifecycleHandler { event in
-                // STEP2C: Register for form lifecycle events to track form interactions
+                // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
                 // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
-
-                // Verify we're on main thread
-                assert(Thread.isMainThread, "Handler should be called on main thread")
 
                 switch event {
                 case .formShown:
                     print("🎨 [Form Lifecycle] Form Shown")
-                    print("   └─ Thread: \(Thread.isMainThread ? "Main ✓" : "Background ✗")")
-
-                    // Example: Send to analytics platform
-                    // Amplitude.instance().logEvent("Klaviyo Form Shown")
-                    // Mixpanel.mainInstance().track("Klaviyo Form Shown")
-                    print("   └─ [Analytics Mock] Would track: 'Klaviyo Form Shown'")
-
                 case .formDismissed:
                     print("👋 [Form Lifecycle] Form Dismissed")
-                    print("   └─ Thread: \(Thread.isMainThread ? "Main ✓" : "Background ✗")")
-
-                    // Example: Send to analytics platform
-                    // Amplitude.instance().logEvent("Klaviyo Form Dismissed")
-                    print("   └─ [Analytics Mock] Would track: 'Klaviyo Form Dismissed'")
-
                 case .formCTAClicked:
                     print("🖱️  [Form Lifecycle] Form CTA Clicked")
-                    print("   └─ Thread: \(Thread.isMainThread ? "Main ✓" : "Background ✗")")
-
-                    // Example: Send to analytics platform
-                    // Amplitude.instance().logEvent("Klaviyo Form CTA Clicked")
-                    print("   └─ [Analytics Mock] Would track: 'Klaviyo Form CTA Clicked'")
                 }
             }
 

@@ -220,7 +220,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Unknown message handler: \(message.name)")
+                Logger.webViewLogger.warning("Unknown message handler: \(message.name, privacy: .public)")
             }
             return
         }
