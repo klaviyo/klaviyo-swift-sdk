@@ -166,19 +166,14 @@ public struct KlaviyoEnvironment {
             .eraseToAnyPublisher()
     }
 
-    private static let rnSDKConfig: [String: AnyObject] = {
-        // Only check for RN config if React Native is present
-        guard NSClassFromString("RCTBridge") != nil else {
-            return [:]
-        }
-
-        // Try main bundle first (static linking - most common for RN apps)
+    private static let wrapperSDKConfig: [String: AnyObject] = {
+        // Try main bundle first (covers static linking, the most common case)
         if let config = loadPlist(named: "klaviyo-sdk-configuration") {
             return config
         }
 
-        // Fallback to RN SDK bundle (dynamic linking - less common)
-        if let config = loadPlistFromReactNativeBundle(named: "klaviyo-sdk-configuration") {
+        // Fallback: search all loaded bundles (covers dynamic linking)
+        if let config = loadPlistFromAnyBundle(named: "klaviyo-sdk-configuration") {
             return config
         }
 
@@ -186,14 +181,14 @@ public struct KlaviyoEnvironment {
     }()
 
     private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
+        if let sdkName = wrapperSDKConfig["klaviyo_sdk_name"] as? String {
             return sdkName
         }
         return __klaviyoSwiftName
     }
 
     private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
+        if let sdkVersion = wrapperSDKConfig["klaviyo_sdk_version"] as? String {
             return sdkVersion
         }
         return __klaviyoSwiftVersion
@@ -263,9 +258,9 @@ public struct KlaviyoEnvironment {
         linkHandler: DeepLinkHandler()
     )
 
-    /// Returns `true` if the SDK is currently running in a React Native host app.
-    package static var isReactNative: Bool {
-        NSClassFromString("RCTBridge") != nil
+    /// Returns `true` if the SDK is running inside a wrapper SDK (e.g. React Native, Flutter).
+    package static var isWrapperSDK: Bool {
+        !wrapperSDKConfig.isEmpty
     }
 }
 
