@@ -22,7 +22,7 @@
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
     - [Tracking Open Events](#tracking-open-events)
-    - [Rich Push](#rich-push)
+    - [Rich Push](#rich-push-images--videos)
       - [Testing rich push notifications](#testing-rich-push-notifications)
     - [Badge Count](#badge-count)
       - [Autoclearing](#autoclearing)
