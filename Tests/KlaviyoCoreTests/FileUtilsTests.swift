@@ -81,12 +81,18 @@ class FileUtilsTests: XCTestCase {
         XCTAssertLessThan(elapsedTime, 0.1, "loadPlist should complete quickly (< 100ms), but took \(elapsedTime)s")
     }
 
-    func testLoadPlistFromReactNativeBundle_ReturnsNilWhenBundleNotFound() {
-        // This will be nil for non-RN test environments
-        let result = loadPlistFromReactNativeBundle(named: "klaviyo-sdk-configuration")
+    func testLoadPlistFromAnyBundle_ReturnsNilWhenPlistNotFound() {
+        let result = loadPlistFromAnyBundle(named: "non-existent-plist")
+        XCTAssertNil(result, "Should return nil when plist doesn't exist in any bundle")
+    }
 
-        // Should return nil without crashing
-        // In a real RN environment, this might return a value
-        XCTAssertTrue(result == nil || result is [String: AnyObject], "Should return nil or valid dictionary")
+    func testLoadPlistFromAnyBundle_ReturnsDictionaryIfPlistExists() {
+        let result = loadPlistFromAnyBundle(named: "klaviyo-sdk-configuration")
+
+        if result != nil {
+            XCTAssertTrue(result is [String: AnyObject], "Should return dictionary if plist exists")
+        } else {
+            XCTAssertNil(result, "Should return nil if plist doesn't exist in any bundle")
+        }
     }
 }

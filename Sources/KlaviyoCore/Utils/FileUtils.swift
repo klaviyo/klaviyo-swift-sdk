@@ -80,14 +80,15 @@ package func loadPlist(named name: String) -> [String: AnyObject]? {
     return dict
 }
 
-/// Load plist from React Native SDK bundle (for dynamic linking scenarios)
+/// Load plist by searching all loaded bundles (for dynamic linking scenarios)
 /// - Parameter name: the name of the plist
 /// - Returns: the contents of the plist or nil if not found
-package func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
-    guard let bundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
-          let path = bundle.path(forResource: name, ofType: "plist"),
-          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
-        return nil
+package func loadPlistFromAnyBundle(named name: String) -> [String: AnyObject]? {
+    for bundle in Bundle.allBundles + Bundle.allFrameworks {
+        if let path = bundle.path(forResource: name, ofType: "plist"),
+           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] {
+            return dict
+        }
     }
-    return dict
+    return nil
 }
