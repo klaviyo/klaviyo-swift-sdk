@@ -220,7 +220,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Unknown message handler: \(message.name)")
+                Logger.webViewLogger.warning("Unknown message handler: \(message.name, privacy: .public)")
             }
             return
         }
@@ -256,11 +256,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case .formWillAppear:
+        case let .formWillAppear(formId):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present)
+            formLifecycleContinuation.yield(.present(formId))
         case .formDisappeared:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
@@ -277,6 +277,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
+
+            // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCTAClicked)
 
             // Only attempt to open valid URLs (skip if nil or empty)
             guard let url = url, !url.absoluteString.isEmpty else {

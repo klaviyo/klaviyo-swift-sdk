@@ -33,6 +33,8 @@ class IAFPresentationManager {
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
+    private var hasInvokedDismissed = false
+    private var currentFormContext = FormContext(formId: nil)
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -55,6 +57,36 @@ class IAFPresentationManager {
         self.viewController = viewController
     }
     #endif
+
+    // MARK: - Form Lifecycle Handler
+
+    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent, FormContext) -> Void)?
+
+    func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, FormContext) -> Void) {
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.log("Registering form lifecycle handler")
+        }
+        formLifecycleHandler = handler
+    }
+
+    func unregisterFormLifecycleHandler() {
+        if #available(iOS 14.0, *) {
+            if formLifecycleHandler != nil {
+                Logger.webViewLogger.log("Unregistering form lifecycle handler")
+            }
+        }
+        formLifecycleHandler = nil
+    }
+
+    func invokeLifecycleHandler(for event: FormLifecycleEvent) {
+        guard let handler = formLifecycleHandler else { return }
+
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.rawValue, privacy: .public)")
+        }
+
+        handler(event, currentFormContext)
+    }
 
     // MARK: - Initialization & Setup
 
@@ -153,7 +185,8 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case .present:
+        case let .present(formId):
+            currentFormContext = FormContext(formId: formId)
             presentForm()
         case .dismiss:
             dismissForm()
@@ -375,6 +408,8 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
+                hasInvokedDismissed = false
+                invokeLifecycleHandler(for: .formShown)
                 topController.present(viewController, animated: false, completion: nil)
             }
         }
@@ -382,6 +417,10 @@ class IAFPresentationManager {
 
     func dismissForm() {
         guard let viewController else { return }
+        if !hasInvokedDismissed {
+            invokeLifecycleHandler(for: .formDismissed)
+            hasInvokedDismissed = true
+        }
         viewController.dismiss(animated: false)
     }
 
@@ -389,6 +428,13 @@ class IAFPresentationManager {
 
     func destroyWebView() {
         guard let viewController else { return }
+
+        // Invoke lifecycle handler if form was visible
+        // This covers timeout-based and programmatic dismissals
+        if viewController.presentingViewController != nil && !hasInvokedDismissed {
+            invokeLifecycleHandler(for: .formDismissed)
+            hasInvokedDismissed = true
+        }
 
         viewController.dismiss(animated: false, completion: nil)
 

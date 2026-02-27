@@ -35,9 +35,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
-            .initialize(with: "ABC123")
+            .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
+            .registerFormLifecycleHandler { event, context in
+                // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
+                // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
+
+                switch event {
+                case .formShown:
+                    print("🎨 [Form Lifecycle] Form Shown: \(context.formId ?? "unknown")")
+                case .formDismissed:
+                    print("👋 [Form Lifecycle] Form Dismissed: \(context.formId ?? "unknown")")
+                case .formCTAClicked:
+                    print("🖱️  [Form Lifecycle] Form CTA Clicked: \(context.formId ?? "unknown")")
+                }
+            }
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
