@@ -746,6 +746,38 @@ KlaviyoSDK().unregisterFromInAppForms()
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
+### Monitoring Form Lifecycle Events
+
+> ℹ️ Form lifecycle events are available in SDK version 5.x.0 and higher
+
+You can register a handler to track when forms are shown, dismissed, or when users tap call-to-action buttons. This is useful for sending form engagement data to third-party analytics platforms like Amplitude, Segment, or Mixpanel.
+
+```swift
+import KlaviyoForms
+
+KlaviyoSDK().registerFormLifecycleHandler { event in
+    switch event {
+    case .formShown:
+        // Track when a form is displayed
+        Analytics.track("Klaviyo Form Shown")
+    case .formDismissed:
+        // Track when a form is dismissed (user, timeout, or programmatic)
+        Analytics.track("Klaviyo Form Dismissed")
+    case .formCTAClicked:
+        // Track when a user taps a call-to-action button
+        Analytics.track("Klaviyo Form CTA Clicked")
+    }
+}
+```
+
+The handler is called on the main thread and will receive events for all form interactions. To unregister the handler:
+
+```swift
+KlaviyoSDK().unregisterFormLifecycleHandler()
+```
+
+**Note:** The handler is optional and does not affect normal form functionality. Forms will continue to display and track analytics in Klaviyo regardless of whether a handler is registered.
+
 ## Geofencing
 
 >  Geofencing support is available in SDK version 5.2.0 and higher.
