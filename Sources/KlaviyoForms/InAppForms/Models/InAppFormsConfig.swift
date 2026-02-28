@@ -6,6 +6,7 @@
 //
 import Foundation
 import OSLog
+import UIKit
 
 /// Configuration for In-App Forms functionality.
 ///
@@ -17,10 +18,12 @@ public struct InAppFormsConfig {
 
     /// Creates a new In-App Forms configuration.
     ///
-    /// - Parameter sessionTimeoutDuration: Duration (in seconds) of user inactivity after which the form session is terminated.
-    ///   Defaults to 1 hour, must be non-negative.
-    ///   Use 0 to timeout as soon as the app is backgrounded.
-    ///   To disable session timeout altogether, use ``TimeInterval.infinity``.
+    /// - Parameters:
+    ///   - sessionTimeoutDuration: Duration (in seconds) of user inactivity after which the form session is terminated.
+    ///     Defaults to 1 hour, must be non-negative.
+    ///     Use 0 to timeout as soon as the app is backgrounded.
+    ///     To disable session timeout altogether, use ``TimeInterval.infinity``.
+    ///     Use `.resizableWindow()` to present forms in their own resizable window.
     public init(sessionTimeoutDuration: TimeInterval = 3600) {
         if sessionTimeoutDuration < 0 {
             if #available(iOS 14.0, *) {
