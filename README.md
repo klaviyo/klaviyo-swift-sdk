@@ -29,6 +29,7 @@
       - [Handling Other Badging Sources](#handling-other-badging-sources)
     - [Silent Push Notifications](#silent-push-notifications)
     - [Custom Data](#custom-data)
+    - [Push Action Buttons](#push-action-buttons)
 - [Deep Linking](#deep-linking)
   - [Adding link-handling logic](#adding-link-handling-logic)
   - [Handling URL Schemes](#handling-url-schemes)
@@ -440,6 +441,43 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 
 #### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
+
+#### Push Action Buttons
+
+>  ℹ️ Push Action Buttons is supported in SDK version [5.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.3.0) and higher
+
+Klaviyo supports the ability to add [custom push action buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) to push notification messages. These buttons can show custom text and can deep link or open your app when tapped. If a button is tapped, the open push event includes the corresponding button information. No additional setup is needed to support push action buttons. Push notifications can include a maximum of 3 valid buttons.
+
+To test push action buttons, use Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications) and send a payload with this format to resemble what the SDK would receive from Klaviyo.
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "New Arrivals Just for You",
+      "body": "Check out our latest collection"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": { },
+    "action_buttons": [
+      {
+        "id": "someId",
+        "label": "Go to Settings",
+        "action": "deep_link",
+        "url": "klaviyotest://settings"
+      },
+      {
+        "id": "someOtherId",
+        "label": "Open App",
+        "action": "open_app"
+      }
+    ]
+  }
+}
+```
 
 ## Deep Linking
 
