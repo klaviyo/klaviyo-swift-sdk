@@ -755,17 +755,26 @@ You can register a handler to track when forms are shown, dismissed, or when use
 ```swift
 import KlaviyoForms
 
-KlaviyoSDK().registerFormLifecycleHandler { event in
+KlaviyoSDK().registerFormLifecycleHandler { event, context in
     switch event {
     case .formShown:
         // Track when a form is displayed
-        Analytics.track("Klaviyo Form Shown")
+        Analytics.track("Klaviyo Form Shown", properties: [
+            "formId": context.formId ?? "",
+            "formName": context.formName ?? ""
+        ])
     case .formDismissed:
         // Track when a form is dismissed (user, timeout, or programmatic)
-        Analytics.track("Klaviyo Form Dismissed")
+        Analytics.track("Klaviyo Form Dismissed", properties: [
+            "formId": context.formId ?? "",
+            "formName": context.formName ?? ""
+        ])
     case .formCTAClicked:
         // Track when a user taps a call-to-action button
-        Analytics.track("Klaviyo Form CTA Clicked")
+        Analytics.track("Klaviyo Form CTA Clicked", properties: [
+            "formId": context.formId ?? "",
+            "formName": context.formName ?? ""
+        ])
     }
 }
 ```
