@@ -34,7 +34,7 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    private var currentFormContext = FormContext(formId: nil)
+    private var currentFormContext = FormContext(formId: nil, formName: nil)
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -185,8 +185,8 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case let .present(formId):
-            currentFormContext = FormContext(formId: formId)
+        case let .present(formId, formName):
+            currentFormContext = FormContext(formId: formId, formName: formName)
             presentForm()
         case .dismiss:
             dismissForm()

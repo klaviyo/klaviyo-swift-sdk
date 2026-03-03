@@ -25,6 +25,8 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
     @MainActor
     override func tearDown() async throws {
+        // Reset the shared form context to avoid test pollution
+        presentationManager.handleFormEvent(.present(formId: nil, formName: nil))
         presentationManager.unregisterFormLifecycleHandler()
         presentationManager = nil
         try await super.tearDown()
@@ -111,6 +113,31 @@ final class FormLifecycleHandlerTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(receivedEvent, .formShown, "Handler should receive formShown event")
         XCTAssertNil(receivedFormContext?.formId, "formId should be nil when no form is active")
+        XCTAssertNil(receivedFormContext?.formName, "formName should be nil when no form is active")
+    }
+
+    @MainActor
+    func testFormNameFlowsThroughToContext() {
+        // Given
+        let expectation = expectation(description: "Handler called with formName in context")
+        var receivedFormContext: FormContext?
+
+        presentationManager.registerFormLifecycleHandler { event, context in
+            if event == .formShown {
+                receivedFormContext = context
+                expectation.fulfill()
+            }
+        }
+
+        // When - simulate a present event with formName to set the context,
+        // then directly invoke formShown to verify context was captured
+        presentationManager.handleFormEvent(.present(formId: "form123", formName: "Test Form"))
+        presentationManager.invokeLifecycleHandler(for: .formShown)
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedFormContext?.formId, "form123", "formId should match")
+        XCTAssertEqual(receivedFormContext?.formName, "Test Form", "formName should match")
     }
 
     @MainActor

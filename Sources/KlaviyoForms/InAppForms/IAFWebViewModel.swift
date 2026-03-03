@@ -256,11 +256,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(formId):
+        case let .formWillAppear(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present(formId))
+            formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
         case .formDisappeared:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")

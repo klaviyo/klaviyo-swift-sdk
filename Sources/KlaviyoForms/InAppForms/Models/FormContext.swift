@@ -14,7 +14,11 @@ public struct FormContext: Sendable {
     /// The unique identifier of the form.
     public let formId: String?
 
-    init(formId: String?) {
+    /// The display name of the form.
+    public let formName: String?
+
+    init(formId: String?, formName: String?) {
         self.formId = formId
+        self.formName = formName
     }
 }

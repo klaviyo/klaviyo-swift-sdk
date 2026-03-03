@@ -6,7 +6,7 @@
 //
 
 enum IAFLifecycleEvent {
-    case present(String?)
+    case present(formId: String?, formName: String?)
     case dismiss
     case abort
     case handShook

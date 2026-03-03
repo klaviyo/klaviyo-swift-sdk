@@ -45,10 +45,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 switch event {
                 case .formShown:
                     print("🎨 [Form Lifecycle] Form Shown: \(context.formId ?? "unknown")")
+                    print("   Form Name: \(context.formName ?? "unknown")")
                 case .formDismissed:
                     print("👋 [Form Lifecycle] Form Dismissed: \(context.formId ?? "unknown")")
+                    print("   Form Name: \(context.formName ?? "unknown")")
                 case .formCTAClicked:
                     print("🖱️  [Form Lifecycle] Form CTA Clicked: \(context.formId ?? "unknown")")
+                    print("   Form Name: \(context.formName ?? "unknown")")
                 }
             }
 
