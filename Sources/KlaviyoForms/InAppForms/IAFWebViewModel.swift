@@ -219,12 +219,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Unknown message handler: \(message.name)")
+            }
             return
         }
 
         switch handler {
         case .klaviyoNativeBridge:
-            guard let jsonString = message.body as? String else { return }
+            guard let jsonString = message.body as? String else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Message body is not a string: \(type(of: message.body), privacy: .public)")
+                }
+                return
+            }
+
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON)")
+            }
 
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
@@ -233,6 +245,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
+                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON)")
                 }
             }
         }
@@ -262,8 +275,17 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url, privacy: .public)")
+                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
+
+            // Only attempt to open valid URLs (skip if nil or empty)
+            guard let url = url, !url.absoluteString.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
+                }
+                return
+            }
+
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
@@ -271,7 +293,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 KlaviyoInternal.handleDeepLink(url: url)
             } else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL’s scheme, or b) you haven’t declared the URL’s scheme in your Info.plist file")
+                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
                 }
             }
         case let .abort(reason):

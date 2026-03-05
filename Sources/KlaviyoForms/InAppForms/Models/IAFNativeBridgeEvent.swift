@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(URL)
+    case openDeepLink(URL?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -63,8 +63,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .openDeepLink:
-            let url = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(url.ios)
+            let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
+            self = .openDeepLink(payload.ios)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -83,11 +83,22 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct DeepLinkEventPayload: Codable {
-        let ios: URL
+    struct DeepLinkEventPayload: Decodable {
+        let ios: URL?
+
+        enum CodingKeys: String, CodingKey {
+            case ios
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let urlString = try container.decode(String.self, forKey: .ios)
+            // Handle empty string or invalid URL gracefully
+            ios = urlString.isEmpty ? nil : URL(string: urlString)
+        }
     }
 
-    struct AbortPayload: Codable {
+    struct AbortPayload: Decodable {
         let reason: String
     }
 }
