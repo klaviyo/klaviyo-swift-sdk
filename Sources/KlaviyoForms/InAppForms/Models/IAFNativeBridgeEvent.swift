@@ -11,7 +11,7 @@ import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear
+    case formWillAppear(formId: String?, formName: String?)
     case formDisappeared
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
@@ -51,7 +51,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            self = .formWillAppear
+            let payload = try? container.decode(FormWillAppearPayload.self, forKey: .data)
+            self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
         case .formDisappeared:
             self = .formDisappeared
         case .trackProfileEvent:
@@ -83,6 +84,11 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
+    struct FormWillAppearPayload: Decodable {
+        let formId: String?
+        let formName: String?
+    }
+
     struct DeepLinkEventPayload: Decodable {
         let ios: URL?
 
@@ -92,9 +98,13 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let urlString = try container.decode(String.self, forKey: .ios)
-            // Handle empty string or invalid URL gracefully
-            ios = urlString.isEmpty ? nil : URL(string: urlString)
+            // Handle missing, null, or empty string gracefully
+            guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
+                  !urlString.isEmpty else {
+                ios = nil
+                return
+            }
+            ios = URL(string: urlString)
         }
     }
 
@@ -131,7 +141,7 @@ extension IAFNativeBridgeEvent {
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // events that JS is permitted to sending
         [
-            .formWillAppear,
+            .formWillAppear(formId: nil, formName: nil),
             .formDisappeared,
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
