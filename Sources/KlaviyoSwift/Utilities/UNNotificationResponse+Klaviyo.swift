@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UserNotifications
 
@@ -19,13 +20,7 @@ extension UNNotificationResponse {
     /// A notification is considered a Klaviyo notification if it contains
     /// a "body" dictionary with a "_k" key in its userInfo.
     public var isKlaviyoNotification: Bool {
-        if let properties = notification.request.content.userInfo as? [String: Any],
-           let body = properties["body"] as? [String: Any],
-           let _ = body["_k"] {
-            return true
-        } else {
-            return false
-        }
+        notification.request.content.userInfo.isKlaviyoNotification()
     }
 
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.
@@ -75,5 +70,107 @@ extension UNNotificationResponse {
         }
 
         return url
+    }
+
+    // MARK: - Action Button Support
+
+    /// Detects if the user tapped an action button (vs tapping the notification body).
+    ///
+    /// Returns `true` if the user tapped an action button, `false` if they tapped
+    /// the notification body or dismissed it.
+    var isActionButtonTap: Bool {
+        actionIdentifier != UNNotificationDefaultActionIdentifier &&
+            actionIdentifier != UNNotificationDismissActionIdentifier
+    }
+
+    /// Returns the action button ID that was tapped (if any).
+    ///
+    /// This returns the button's identifier string (e.g., "com.klaviyo.action.shop")
+    /// if the user tapped an action button, or nil otherwise.
+    var actionButtonId: String? {
+        guard isActionButtonTap else { return nil }
+        return actionIdentifier
+    }
+
+    /// Returns the action-specific deep link URL from the payload.
+    ///
+    /// This method checks the dynamic button format: `body.action_buttons[].url`
+    ///
+    /// Returns nil if no action-specific URL is found.
+    var actionButtonURL: URL? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Check dynamic format: body.action_buttons[].url
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let urlString = button["url"] as? String,
+                   let url = URL(string: urlString) {
+                    return url
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Returns the button label text (for analytics).
+    ///
+    /// This is available for dynamic action buttons that include a label in the payload.
+    ///
+    /// Returns nil if no label is found.
+    var actionButtonLabel: String? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Dynamic format: body.action_buttons[].label
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let label = button["label"] as? String {
+                    return label
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Returns the action type for the tapped button.
+    ///
+    /// This method checks the dynamic button format: `body.action_buttons[].action`
+    ///
+    /// Returns nil if no action type is found or if the action is invalid.
+    var actionButtonType: ActionType? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties else {
+            return nil
+        }
+
+        // Check dynamic format: body.action_buttons[].action
+        if let body = properties["body"] as? [String: Any],
+           let actionButtons = body["action_buttons"] as? [[String: Any]] {
+            for button in actionButtons {
+                if let id = button["id"] as? String,
+                   id == actionIdentifier,
+                   let actionString = button["action"] as? String {
+                    return ActionType(rawValue: actionString)
+                }
+            }
+        }
+
+        return nil
     }
 }

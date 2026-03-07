@@ -4,7 +4,10 @@
 //
 //  Created by Ajay Subramanya on 6/23/23.
 //
+
 import Foundation
+import KlaviyoCore
+import OSLog
 import UserNotifications
 
 private enum KlaviyoBadgeConfig {
@@ -43,6 +46,8 @@ public enum KlaviyoExtensionSDK {
     ) {
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
+        // handle dynamic action buttons
+        handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         // handle rich media setup
         handleRichMedia(bestAttemptContent: bestAttemptContent, contentHandler: contentHandler, fallbackMediaType: fallbackMediaType)
     }
@@ -126,6 +131,8 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
+        // Still try to register action buttons before timeout
+        handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         contentHandler(bestAttemptContent)
     }
 
@@ -145,7 +152,9 @@ public enum KlaviyoExtensionSDK {
 
         URLSession.shared.downloadTask(with: mediaURL) { file, _, error in
             if let error = error {
-                print("error when downloading push media = \(error.localizedDescription)")
+                if #available(iOS 14.0, *) {
+                    Logger.richMedia.error("Error when downloading push media: \(error.localizedDescription)")
+                }
                 completion(nil)
                 return
             }
@@ -195,5 +204,39 @@ public enum KlaviyoExtensionSDK {
         }
 
         completion(attachment)
+    }
+
+    /// Handles dynamic action button registration from push notification payload
+    /// - Parameters:
+    ///   - request: the notification request
+    ///   - bestAttemptContent: the best attempt at mutating the APNS payload before attaching it to the push notification
+    private static func handleActionButtons(
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent
+    ) {
+        // Respect developer-set categories for non-Klaviyo notifications
+        // Only process and set up action buttons for Klaviyo notifications
+        let existingCategory = request.content.categoryIdentifier
+        guard bestAttemptContent.userInfo.isKlaviyoNotification() && existingCategory.isEmpty else {
+            return
+        }
+
+        // Parse action buttons from payload
+        guard let buttonDefs = KlaviyoActionButtonParser.parseActionButtons(from: bestAttemptContent.userInfo) else {
+            return
+        }
+
+        // Create actions
+        let actions = KlaviyoActionButtonParser.createActions(from: buttonDefs)
+
+        // Generate unique category identifier for this notification
+        let uniqueSuffix = request.identifier.isEmpty ? UUID().uuidString : request.identifier
+        let categoryIdentifier = "\(KlaviyoCategoryManager.categoryIdentifierPrefix)\(uniqueSuffix)"
+
+        // Register category dynamically with unique identifier
+        KlaviyoCategoryManager.shared.registerCategory(categoryIdentifier: categoryIdentifier, actions: actions)
+
+        // Set category on notification content
+        bestAttemptContent.categoryIdentifier = categoryIdentifier
     }
 }
