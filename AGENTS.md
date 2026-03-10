@@ -3,7 +3,9 @@
 This file provides guidance to AI coding agents (Claude Code, Cursor, GitHub Copilot, etc.) when
 working with code in this repository.
 
-Assume the role of an experienced iOS/Swift SDK engineer familiar with Swift, SwiftPM, CocoaPods, and TCA. Prioritize code quality, maintainability, and reuse — search for existing implementations before adding new ones. The 3rd-party developer integration experience should be smooth and simple.
+Assume the role of an experienced iOS/Swift SDK engineer familiar with Swift, SwiftPM, CocoaPods, and TCA.
+Prioritize code quality, maintainability, and reuse — search for existing implementations before adding new ones.
+Keep the 3rd-party developer integration experience smooth and simple.
 
 ## Intro
 
@@ -61,8 +63,8 @@ split into separate modules: `KlaviyoSwift` (analytics, push), `KlaviyoForms` (i
 
 ### Testing Approach
 
-As with production code, when writing tests be DRY. Find common setup, verify, and teardown code
-that can be reused across tests. Use shared test utilities and fixtures where possible.
+As with production code, when writing tests be DRY. Extract common setup, teardown, and assertion
+helpers into shared test utilities and fixtures.
 
 Test file naming follows `*Tests.swift` per implementation class.
 
@@ -72,12 +74,10 @@ Test file naming follows `*Tests.swift` per implementation class.
 
 ### Code Style
 
-The project enforces the Swift code style using SwiftLint and SwiftFormat with customizations:
+The project enforces Swift code style using SwiftLint and SwiftFormat with customizations:
 
-- All code must pass SwiftLint checks before merging
-- SwiftFormat is used to maintain consistent code formatting
 - Maximum line length is 110 characters
-- Disable certain SwiftLint rules as specified in `.swiftlint.yml`
+- Certain SwiftLint rules are disabled — see `.swiftlint.yml`
 
 Other style guidelines:
 
