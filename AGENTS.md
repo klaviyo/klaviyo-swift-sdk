@@ -57,7 +57,7 @@ If prompted to commit, push, or open pull requests:
 ## Architecture Overview
 
 The SDK uses [The Composable Architecture](https://www.pointfree.co/collections/composable-architecture) framework. It is
-split into separate modules for distinct features such as Analytics, In-App Forms, and Location.
+split into separate modules: `KlaviyoSwift` (analytics, push), `KlaviyoForms` (in-app messaging), `KlaviyoLocation` (geofencing), `KlaviyoSwiftExtension` (rich push, badge count), `KlaviyoUI` (UI components), and `KlaviyoCore` (shared internals).
 
 ### Testing Approach
 
@@ -66,6 +66,7 @@ that can be reused across tests. Use shared test utilities and fixtures where po
 
 Test file naming follows `*Tests.swift` per implementation class.
 
+- Use TCA's `TestStore` for reducer and effect testing.
 - Prefer verifying side effects and state changes over exact implementation details
 - A common test pattern uses `SnapshotTesting` (`pointfreeco/swift-snapshot-testing`). Verify generated snapshots match expectations after code changes.
 
