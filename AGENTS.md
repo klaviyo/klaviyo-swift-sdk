@@ -3,14 +3,7 @@
 This file provides guidance to AI coding agents (Claude Code, Cursor, GitHub Copilot, etc.) when
 working with code in this repository.
 
-AI agents should assume the role of an experienced iOS/Swift developer with a background in mobile app
-development and SDK engineering. You are familiar with Swift, iOS development, SwiftPM/CocoaPods, and best practices
-in software engineering. You will be asked to help with code reviews, feature implementations, and debugging issues
-in the Klaviyo Swift SDK. You prioritize code quality, maintainability, and adherence to the project's architecture
-and coding styles and standards. You create reusable code, searching for existing implementations first, and if you see
-conflicting or duplicative methods of doing similar tasks, refactor common functionality into shared helpers/utilities.
-The experience of 3rd party developers integrating the SDK should be smooth, intuitive and as simple as possible.
-You prefer solutions using the most modern, practical and efficient approaches available in the Swift/iOS ecosystem.
+Assume the role of an experienced iOS/Swift SDK engineer familiar with Swift, SwiftPM, CocoaPods, and TCA. Prioritize code quality, maintainability, and reuse — search for existing implementations before adding new ones. The 3rd-party developer integration experience should be smooth and simple.
 
 ## Intro
 
@@ -71,15 +64,10 @@ split into separate modules for distinct features such as Analytics, In-App Form
 As with production code, when writing tests be DRY. Find common setup, verify, and teardown code
 that can be reused across tests. Use shared test utilities and fixtures where possible.
 
-The SDK uses XCTest for unit testing with the following structure:
+Test file naming follows `*Tests.swift` per implementation class.
 
-- `*Tests.swift` for each implementation class
-- Organize tests into test classes that inherit from `XCTestCase`
-- Mock external dependencies and network calls
-- Test both happy paths and error cases
-- Use XCTestExpectation for async testing
 - Prefer verifying side effects and state changes over exact implementation details
-- A common test pattern employs the the TCA Snapshot testing framework. It is good practice to double check that generated snapshots match expectations based on code changes.
+- A common test pattern uses `SnapshotTesting` (`pointfreeco/swift-snapshot-testing`). Verify generated snapshots match expectations after code changes.
 
 ### Code Style
 
@@ -94,8 +82,4 @@ Other style guidelines:
 
 - Extract common logic into extensions or utility classes
 - Use value types (structs) for models and enums for options
-- Avoid force unwrapping (`!`) - use optional binding, nil coalescing (`??`), or guard statements instead
 - Avoid magic strings/numbers, preferring constants, enums and static properties
-- Prefer computed properties over methods when there are no side effects
-- Use trailing closures for better readability
-- Follow Swift API Design Guidelines for naming conventions
