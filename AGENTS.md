@@ -9,7 +9,7 @@ Assume the role of an experienced iOS/Swift SDK engineer familiar with Swift, Sw
 
 This is the Swift SDK for Klaviyo, a marketing automation platform. The SDK is designed to be modular,
 allowing developers to integrate various features including analytics, push notifications, in-app messaging (forms),
-and extension support (app clips, watch kits, etc.).
+and extension support (for rich push and badge count).
 
 ## Common Commands
 
