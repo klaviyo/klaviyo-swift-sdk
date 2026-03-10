@@ -48,6 +48,10 @@ swiftlint --fix --strict
 swiftformat .
 ```
 
+### Branching
+
+Branch format: `<initials>/<ticket-id>/<short-description>` (e.g. `ab/MAGE-123/fix-push-token`).
+
 ### Commits & Pull Requests
 If prompted to commit, push, or open pull requests:
 
