@@ -47,7 +47,6 @@ final class Box<Wrapped> {
   }
 }
 
-@_transparent
 @usableFromInline
 @inline(__always)
 func runtimeWarn(
