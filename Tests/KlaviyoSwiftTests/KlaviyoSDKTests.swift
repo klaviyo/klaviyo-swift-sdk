@@ -303,4 +303,32 @@ class KlaviyoSDKTests: XCTestCase {
         let freshSDK = KlaviyoSDK()
         XCTAssertFalse(freshSDK.isDeepLinkHandlerRegistered, "New SDK instance should have no handler registered")
     }
+
+    // MARK: - Logging Toggle Tests
+
+    func testLoggingEnabledByDefault() {
+        XCTAssertTrue(klaviyo.isLoggingEnabled, "Logging should be enabled by default")
+    }
+
+    func testSetLoggingDisabled() {
+        klaviyo.setLoggingEnabled(false)
+        XCTAssertFalse(klaviyo.isLoggingEnabled, "Logging should be disabled after setLoggingEnabled(false)")
+        // Restore
+        klaviyo.setLoggingEnabled(true)
+    }
+
+    func testSetLoggingReEnabled() {
+        klaviyo.setLoggingEnabled(false)
+        XCTAssertFalse(klaviyo.isLoggingEnabled)
+
+        klaviyo.setLoggingEnabled(true)
+        XCTAssertTrue(klaviyo.isLoggingEnabled, "Logging should be re-enabled after setLoggingEnabled(true)")
+    }
+
+    func testSetLoggingEnabledIsChainable() {
+        let result = klaviyo.setLoggingEnabled(false)
+        XCTAssertNotNil(result, "setLoggingEnabled should return a KlaviyoSDK instance for chaining")
+        // Restore
+        klaviyo.setLoggingEnabled(true)
+    }
 }
