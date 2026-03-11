@@ -26,6 +26,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
+        klaviyo.setLoggingEnabled(true)
     }
 
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
@@ -313,8 +314,6 @@ class KlaviyoSDKTests: XCTestCase {
     func testSetLoggingDisabled() {
         klaviyo.setLoggingEnabled(false)
         XCTAssertFalse(klaviyo.isLoggingEnabled, "Logging should be disabled after setLoggingEnabled(false)")
-        // Restore
-        klaviyo.setLoggingEnabled(true)
     }
 
     func testSetLoggingReEnabled() {
@@ -328,7 +327,5 @@ class KlaviyoSDKTests: XCTestCase {
     func testSetLoggingEnabledIsChainable() {
         let result = klaviyo.setLoggingEnabled(false)
         XCTAssertNotNil(result, "setLoggingEnabled should return a KlaviyoSDK instance for chaining")
-        // Restore
-        klaviyo.setLoggingEnabled(true)
     }
 }

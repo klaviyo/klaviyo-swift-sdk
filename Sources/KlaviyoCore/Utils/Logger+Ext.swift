@@ -14,8 +14,8 @@ import OSLog
 ///
 /// When logging is disabled, all `Logger` instances across every module
 /// return `Logger(OSLog.disabled)`, which the OS optimises to a no-op.
-public final class KlaviyoLogConfig: @unchecked Sendable {
-    public static let shared = KlaviyoLogConfig()
+package final class KlaviyoLogConfig: @unchecked Sendable {
+    package static let shared = KlaviyoLogConfig()
 
     private let lock = NSLock()
     private var _isLoggingEnabled: Bool = true
@@ -23,7 +23,7 @@ public final class KlaviyoLogConfig: @unchecked Sendable {
     private init() {}
 
     /// Whether logging is currently enabled across all Klaviyo SDK modules.
-    public var isLoggingEnabled: Bool {
+    package var isLoggingEnabled: Bool {
         get {
             lock.lock()
             defer { lock.unlock() }
