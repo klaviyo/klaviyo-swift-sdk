@@ -1,10 +1,11 @@
 # Automatically publish to CocoaPods when a GitHub release is published
 #
-# This workflow publishes all four podspecs in dependency order:
+# This workflow publishes all five podspecs in dependency order:
 # 1. KlaviyoCore (foundation, no dependencies)
-# 2. KlaviyoForms (depends on KlaviyoSwift)
-# 3. KlaviyoSwiftExtension (standalone, no dependencies)
-# 4. KlaviyoSwift (depends on KlaviyoCore)
+# 2. KlaviyoSwiftExtension (standalone, no dependencies)
+# 3. KlaviyoSwift (depends on KlaviyoCore)
+# 4. KlaviyoForms (depends on KlaviyoSwift)
+# 5. KlaviyoLocation (depends on KlaviyoSwift)
 
 name: Publish to CocoaPods
 
@@ -45,6 +46,7 @@ jobs:
           pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
           pod lib lint KlaviyoSwift.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoForms.podspec --allow-warnings --include-podspecs='*.podspec'
+          pod lib lint KlaviyoLocation.podspec --allow-warnings --include-podspecs='*.podspec'
           echo "✅ All podspecs are valid"
 
       - name: Publish to CocoaPods Trunk
@@ -106,6 +108,9 @@ jobs:
           echo "📦 Publishing KlaviyoForms..."
           pod trunk push KlaviyoForms.podspec --allow-warnings
 
+          echo "📦 Publishing KlaviyoLocation..."
+          pod trunk push KlaviyoLocation.podspec --allow-warnings
+
           echo "✅ All podspecs published successfully"
 
       - name: Send Slack notification on success
@@ -124,7 +129,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms"
+                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms\n• KlaviyoLocation"
               - type: "section"
                 text:
                   type: "mrkdwn"
