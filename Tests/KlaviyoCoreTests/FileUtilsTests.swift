@@ -95,4 +95,38 @@ class FileUtilsTests: XCTestCase {
             XCTAssertNil(result, "Should return nil if plist doesn't exist in any bundle")
         }
     }
+
+    // MARK: - SDK Name / Version Performance Tests
+
+    func testSDKNameResolution_CompletesQuickly() {
+        // Verifies that SDK name resolution does not trigger an expensive bundle scan
+        // in a non-wrapper-SDK environment (no React Native or Flutter present).
+        // Regression test for https://github.com/klaviyo/klaviyo-swift-sdk/issues/524
+        let startTime = Date()
+
+        _ = KlaviyoEnvironment.production.sdkName()
+
+        let elapsedTime = Date().timeIntervalSince(startTime)
+
+        XCTAssertLessThan(
+            elapsedTime, 0.1,
+            "SDK name resolution should complete quickly (< 100ms) in non-wrapper apps, but took \(elapsedTime)s"
+        )
+    }
+
+    func testSDKVersionResolution_CompletesQuickly() {
+        // Verifies that SDK version resolution does not trigger an expensive bundle scan
+        // in a non-wrapper-SDK environment (no React Native or Flutter present).
+        // Regression test for https://github.com/klaviyo/klaviyo-swift-sdk/issues/524
+        let startTime = Date()
+
+        _ = KlaviyoEnvironment.production.sdkVersion()
+
+        let elapsedTime = Date().timeIntervalSince(startTime)
+
+        XCTAssertLessThan(
+            elapsedTime, 0.1,
+            "SDK version resolution should complete quickly (< 100ms) in non-wrapper apps, but took \(elapsedTime)s"
+        )
+    }
 }
