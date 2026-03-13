@@ -11,6 +11,7 @@ import KlaviyoLocation
 // STEP1: Importing klaviyo SDK modules into your app code
 // `KlaviyoSwift` is for analytics and push notifications and `KlaviyoForms` is for presenting marketing in app forms/messages
 import KlaviyoSwift
+import SafariServices
 import SwiftUI
 import UIKit
 
@@ -38,6 +39,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
+            .registerDeepLinkHandler { [weak self] url in
+                // STEP2D: [OPTIONAL] Handle URLs opened from in-app form CTAs.
+                // This is the recommended way to intercept deep links triggered by the Klaviyo SDK
+                // (e.g. a website URL in a form's CTA button).
+                // Reuses the same routing logic as push notification deep links.
+                self?.handleURL(url)
+            }
             .registerFormLifecycleHandler { event, context in
                 // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
                 // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
@@ -144,27 +152,57 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
-        guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true),
-              let host = components.host
-        else {
-            print("Invalid deeplinking URL")
-            return false
-        }
-
-        print("components: \(components.debugDescription)")
-
-        // Create the deep link
-        guard let deeplink = DeepLinking(rawValue: host) else {
-            print("Deeplink not found: \(host)")
-            return false
-        }
-
-        handle(deeplink, with: url.description)
-
+        handleURL(url)
         return true
     }
 
     // MARK: private methods
+
+    // Single entry point for all deep link routing — used by both push and in-app form CTAs.
+    private func handleURL(_ url: URL) {
+        // Handle https:// website URLs — choose in-app or external browser as needed
+        if url.scheme == "https" || url.scheme == "http" {
+            openInAppBrowser(url: url) // opens inside the app via SFSafariViewController
+            // openExternalBrowser(url: url) // opens in the Safari app (user leaves the app)
+            return
+        }
+
+        guard let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true),
+              let host = components.host
+        else {
+            print("Invalid deeplinking URL")
+            return
+        }
+
+        print("components: \(components.debugDescription)")
+
+        guard let deeplink = DeepLinking(rawValue: host) else {
+            print("Deeplink not found: \(host)")
+            return
+        }
+
+        handle(deeplink, with: url.description)
+    }
+
+    // Opens the URL inside the app using SFSafariViewController (user stays in your app)
+    private func openInAppBrowser(url: URL) {
+        guard let rootViewController = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })?
+            .windows.first(where: { $0.isKeyWindow })?
+            .rootViewController
+        else { return }
+
+        let safariViewController = SFSafariViewController(url: url)
+        rootViewController.dismiss(animated: true) {
+            rootViewController.present(safariViewController, animated: true)
+        }
+    }
+
+    // Opens the URL in the system Safari app (user leaves your app)
+    private func openExternalBrowser(url: URL) {
+        UIApplication.shared.open(url)
+    }
 
     private func handle(_ deepLink: DeepLinking, with url: String) {
         switch deepLink {
