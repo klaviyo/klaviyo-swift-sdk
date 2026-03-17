@@ -235,7 +235,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
 
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON)")
+                Logger.webViewLogger.debug("Received native bridge message: \(jsonString)")
             }
 
             do {
@@ -245,7 +245,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
-                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON)")
                 }
             }
         }
