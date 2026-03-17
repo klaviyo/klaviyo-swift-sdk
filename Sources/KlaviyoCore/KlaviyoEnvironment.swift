@@ -172,6 +172,14 @@ public struct KlaviyoEnvironment {
             return config
         }
 
+        // Only search all loaded bundles if a known wrapper SDK runtime is detected.
+        // This avoids an expensive Bundle.allBundles + Bundle.allFrameworks scan
+        // that causes a multi-second hang in pure native Swift apps.
+        // See: https://github.com/klaviyo/klaviyo-swift-sdk/issues/524
+        guard isKnownWrapperSDKPresent() else {
+            return [:]
+        }
+
         // Fallback: search all loaded bundles (covers dynamic linking)
         if let config = loadPlistFromAnyBundle(named: "klaviyo-sdk-configuration") {
             return config
@@ -179,6 +187,16 @@ public struct KlaviyoEnvironment {
 
         return [:]
     }()
+
+    /// Fast check for known wrapper SDK runtimes via class presence (< 1ms).
+    /// Add new wrapper SDK class names here as they are supported.
+    private static func isKnownWrapperSDKPresent() -> Bool {
+        // React Native
+        if NSClassFromString("RCTBridge") != nil { return true }
+        // Flutter
+        if NSClassFromString("FlutterEngine") != nil { return true }
+        return false
+    }
 
     private static func getSDKName() -> String {
         if let sdkName = wrapperSDKConfig["klaviyo_sdk_name"] as? String {
