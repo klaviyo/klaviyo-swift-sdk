@@ -79,16 +79,3 @@ package func loadPlist(named name: String) -> [String: AnyObject]? {
     }
     return dict
 }
-
-/// Load plist by searching all loaded bundles (for dynamic linking scenarios)
-/// - Parameter name: the name of the plist
-/// - Returns: the contents of the plist or nil if not found
-package func loadPlistFromAnyBundle(named name: String) -> [String: AnyObject]? {
-    for bundle in Bundle.allBundles + Bundle.allFrameworks {
-        if let path = bundle.path(forResource: name, ofType: "plist"),
-           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] {
-            return dict
-        }
-    }
-    return nil
-}
