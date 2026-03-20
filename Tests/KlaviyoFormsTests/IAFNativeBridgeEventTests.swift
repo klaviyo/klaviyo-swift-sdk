@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+        [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":2},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -73,6 +73,33 @@ struct IAFNativeBridgeEventTests {
           "type": "openDeepLink",
           "data": {
             "ios": "klaviyotest://settings",
+            "android": "klaviyotest://settings",
+            "formId": "form456",
+            "formName": "CTA Form"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openDeepLink(url, formId, formName) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            return
+        }
+
+        let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
+        #expect(url == expectedUrl)
+        #expect(formId == "form456")
+        #expect(formName == "CTA Form")
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkWithoutFormContext() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
             "android": "klaviyotest://settings"
           }
         }
@@ -80,13 +107,15 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url) = event else {
+        guard case let .openDeepLink(url, formId, formName) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
 
         let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
         #expect(url == expectedUrl)
+        #expect(formId == nil)
+        #expect(formName == nil)
     }
 
     @Test
@@ -138,14 +167,39 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "formDisappeared",
           "data": {
-            "formId": "abc123"
+            "formId": "abc123",
+            "formName": "Test Form"
           }
         }
         """
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        #expect(event == .formDisappeared)
+        guard case let .formDisappeared(formId, formName) = event else {
+            Issue.record("event type should be .formDisappeared but was '.\(event)'")
+            return
+        }
+        #expect(formId == "abc123")
+        #expect(formName == "Test Form")
+    }
+
+    @Test
+    func testDecodeFormDisappearedWithoutPayload() async throws {
+        let json = """
+        {
+          "type": "formDisappeared",
+          "data": {}
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .formDisappeared(formId, formName) = event else {
+            Issue.record("event type should be .formDisappeared but was '.\(event)'")
+            return
+        }
+        #expect(formId == nil)
+        #expect(formName == nil)
     }
 
     @Test

@@ -150,7 +150,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":2},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -222,24 +222,31 @@ final class IAFWebViewModelTests: XCTestCase {
     func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
+        var receivedFormId: String?
+        var receivedFormName: String?
 
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
-                if case .dismiss = event {
+                if case let .dismiss(formId, formName) = event {
+                    receivedFormId = formId
+                    receivedFormName = formName
                     expectation.fulfill()
                     break
                 }
             }
         }
 
-        // When - simulate a form disappeared script message
+        // When - simulate a form disappeared script message with formId and formName
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
             body: """
             {
               "type": "formDisappeared",
-              "data": {}
+              "data": {
+                "formId": "dismiss123",
+                "formName": "Dismiss Form"
+              }
             }
             """
         )
@@ -248,6 +255,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
+        XCTAssertEqual(receivedFormId, "dismiss123")
+        XCTAssertEqual(receivedFormName, "Dismiss Form")
         lifecycleTask.cancel()
     }
 

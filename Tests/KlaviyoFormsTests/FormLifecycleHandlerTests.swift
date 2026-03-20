@@ -25,8 +25,6 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
     @MainActor
     override func tearDown() async throws {
-        // Reset the shared form context to avoid test pollution
-        presentationManager.handleFormEvent(.present(formId: nil, formName: nil))
         presentationManager.unregisterFormLifecycleHandler()
         presentationManager = nil
         try await super.tearDown()
@@ -46,7 +44,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         presentationManager.registerFormLifecycleHandler(handler)
 
         // Then - verify handler works
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
         XCTAssertEqual(capturedEvent, .formShown, "Handler should be invoked with correct event")
     }
 
@@ -63,7 +61,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         presentationManager.unregisterFormLifecycleHandler()
 
         // Then - verify handler is not invoked after unregistration
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
 
@@ -84,7 +82,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // When
         presentationManager.registerFormLifecycleHandler(firstHandler)
         presentationManager.registerFormLifecycleHandler(secondHandler)
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
 
         // Then
         XCTAssertFalse(firstHandlerInvoked, "First handler should be replaced")
@@ -107,7 +105,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -129,10 +127,9 @@ final class FormLifecycleHandlerTests: XCTestCase {
             }
         }
 
-        // When - simulate a present event with formName to set the context,
-        // then directly invoke formShown to verify context was captured
-        presentationManager.handleFormEvent(.present(formId: "form123", formName: "Test Form"))
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        // When - invoke formShown with explicit context
+        let context = FormContext(formId: "form123", formName: "Test Form")
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: context)
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -152,7 +149,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formDismissed)
+        presentationManager.invokeLifecycleHandler(for: .formDismissed, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -171,7 +168,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formCTAClicked)
+        presentationManager.invokeLifecycleHandler(for: .formCTAClicked, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -191,9 +188,9 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown)
-        presentationManager.invokeLifecycleHandler(for: .formCTAClicked)
-        presentationManager.invokeLifecycleHandler(for: .formDismissed)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formCTAClicked, context: FormContext(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formDismissed, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -210,9 +207,9 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Given - No handler registered
 
         // When/Then - Should not crash
-        presentationManager.invokeLifecycleHandler(for: .formShown)
-        presentationManager.invokeLifecycleHandler(for: .formDismissed)
-        presentationManager.invokeLifecycleHandler(for: .formCTAClicked)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formDismissed, context: FormContext(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formCTAClicked, context: FormContext(formId: nil, formName: nil))
 
         // Test passes if no crash occurs
         XCTAssertTrue(true, "Invoking without handler should not crash")
@@ -230,7 +227,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -251,7 +248,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
             expectation.fulfill()
         }
 
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -270,7 +267,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         KlaviyoSDK().unregisterFormLifecycleHandler()
 
         // Then
-        presentationManager.invokeLifecycleHandler(for: .formShown)
+        presentationManager.invokeLifecycleHandler(for: .formShown, context: FormContext(formId: nil, formName: nil))
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
 

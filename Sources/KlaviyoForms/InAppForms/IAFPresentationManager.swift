@@ -34,7 +34,6 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    private var currentFormContext = FormContext(formId: nil, formName: nil)
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -78,14 +77,14 @@ class IAFPresentationManager {
         formLifecycleHandler = nil
     }
 
-    func invokeLifecycleHandler(for event: FormLifecycleEvent) {
+    func invokeLifecycleHandler(for event: FormLifecycleEvent, context: FormContext) {
         guard let handler = formLifecycleHandler else { return }
 
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.rawValue, privacy: .public)")
         }
 
-        handler(event, currentFormContext)
+        handler(event, context)
     }
 
     // MARK: - Initialization & Setup
@@ -186,10 +185,9 @@ class IAFPresentationManager {
             }
             startProfileObservation()
         case let .present(formId, formName):
-            currentFormContext = FormContext(formId: formId, formName: formName)
-            presentForm()
-        case .dismiss:
-            dismissForm()
+            presentForm(formId: formId, formName: formName)
+        case let .dismiss(formId, formName):
+            dismissForm(context: FormContext(formId: formId, formName: formName))
         case .abort:
             destroyWebviewAndListeners()
         }
@@ -375,7 +373,7 @@ class IAFPresentationManager {
 
     // MARK: - View Lifecycle
 
-    private func presentForm() {
+    private func presentForm(formId: String? = nil, formName: String? = nil) {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
@@ -400,7 +398,7 @@ class IAFPresentationManager {
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 try? Task.checkCancellation()
-                self.presentForm()
+                self.presentForm(formId: formId, formName: formName)
             }
         } else {
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
@@ -409,16 +407,17 @@ class IAFPresentationManager {
                 }
             } else {
                 hasInvokedDismissed = false
-                invokeLifecycleHandler(for: .formShown)
+                let context = FormContext(formId: formId, formName: formName)
+                invokeLifecycleHandler(for: .formShown, context: context)
                 topController.present(viewController, animated: false, completion: nil)
             }
         }
     }
 
-    func dismissForm() {
+    func dismissForm(context: FormContext = FormContext(formId: nil, formName: nil)) {
         guard let viewController else { return }
         if !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed)
+            invokeLifecycleHandler(for: .formDismissed, context: context)
             hasInvokedDismissed = true
         }
         viewController.dismiss(animated: false)
@@ -432,7 +431,8 @@ class IAFPresentationManager {
         // Invoke lifecycle handler if form was visible
         // This covers timeout-based and programmatic dismissals
         if viewController.presentingViewController != nil && !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed)
+            let context = FormContext(formId: nil, formName: nil)
+            invokeLifecycleHandler(for: .formDismissed, context: context)
             hasInvokedDismissed = true
         }
 
