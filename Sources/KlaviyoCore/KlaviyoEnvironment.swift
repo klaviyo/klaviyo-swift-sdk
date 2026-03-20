@@ -167,10 +167,22 @@ public struct KlaviyoEnvironment {
     }
 
     private static let wrapperSDKConfig: [String: AnyObject] = {
-        // Try main bundle first (covers static linking, the most common case)
+        // Try main bundle first (covers static library linking — most common CocoaPods default)
         if let config = loadPlist(named: "klaviyo-sdk-configuration") {
             return config
         }
+
+        // Under use_frameworks! (static or dynamic), CocoaPods nests s.resources into
+        // a <pod_name>.bundle inside the host bundle rather than copying them flat.
+        // Try each known wrapper SDK bundle name directly — no full bundle scan.
+        for bundleName in ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"] {
+            if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+               let bundle = Bundle(url: bundleURL),
+               let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                return config
+            }
+        }
+
         return [:]
     }()
 
