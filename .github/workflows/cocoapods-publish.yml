@@ -98,7 +98,7 @@ jobs:
           publish_pod() {
             local podspec=$1
             local pod_name=$2
-            if pod spec cat "$pod_name@$VERSION" > /dev/null 2>&1; then
+            if pod trunk info "$pod_name" 2>/dev/null | grep -qe "- $VERSION ("; then
               echo "⏭️  $pod_name $VERSION already published, skipping"
             else
               echo "📦 Publishing $pod_name..."
