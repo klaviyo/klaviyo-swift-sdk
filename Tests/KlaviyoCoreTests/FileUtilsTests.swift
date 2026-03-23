@@ -106,6 +106,38 @@ class FileUtilsTests: XCTestCase {
         XCTAssertEqual(result?["klaviyo_sdk_version"] as? String, "2.2.0")
     }
 
+    // MARK: - CocoaPods framework directory naming
+
+    // CocoaPods replaces hyphens with underscores in framework/module directory names (C99 identifiers
+    // cannot contain hyphens). Paths 3 & 4 of wrapperSDKConfig must use the underscore form when
+    // constructing .framework paths, or Bundle(url:) will return nil and the wrapper goes undetected.
+
+    func testFrameworkDirectoryNamesHaveNoHyphens() {
+        for bundleName in KlaviyoEnvironment.knownWrapperBundleNames {
+            let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+            XCTAssertFalse(
+                frameworkDirName.contains("-"),
+                "Framework directory name '\(frameworkDirName)' derived from '\(bundleName)' must not contain hyphens"
+            )
+        }
+    }
+
+    func testKnownBundleNamesProduceExpectedFrameworkDirectoryNames() {
+        let expected: [String: String] = [
+            "klaviyo-react-native-sdk": "klaviyo_react_native_sdk",
+            "klaviyo_flutter_sdk": "klaviyo_flutter_sdk"
+        ]
+
+        for bundleName in KlaviyoEnvironment.knownWrapperBundleNames {
+            let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+            XCTAssertEqual(
+                frameworkDirName,
+                expected[bundleName],
+                "Unexpected framework directory name for bundle '\(bundleName)'"
+            )
+        }
+    }
+
     // MARK: - Performance regression guard
 
     /// Guards against re-introducing a Bundle.allBundles scan, which caused a 3+ second hang.

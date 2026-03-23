@@ -167,7 +167,7 @@ public struct KlaviyoEnvironment {
     }
 
     // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
-    private static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
+    package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
 
     private static let wrapperSDKConfig: [String: AnyObject] = {
         // Path 1: static library (no use_frameworks!) — resources copied flat into Bundle.main.
@@ -191,7 +191,9 @@ public struct KlaviyoEnvironment {
         // With s.resource_bundles it sits inside a named .bundle within the framework (path 4).
         if let frameworksURL = Bundle.main.privateFrameworksURL {
             for bundleName in knownWrapperBundleNames {
-                let frameworkURL = frameworksURL.appendingPathComponent("\(bundleName).framework")
+                // CocoaPods converts hyphens to underscores in framework/module directory names.
+                let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+                let frameworkURL = frameworksURL.appendingPathComponent("\(frameworkDirName).framework")
 
                 // Path 3: s.resources — plist is at the root of the framework bundle.
                 if let bundle = Bundle(url: frameworkURL),
