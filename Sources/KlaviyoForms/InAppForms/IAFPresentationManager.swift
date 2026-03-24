@@ -34,6 +34,7 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
+    private var currentFormContext: FormContext?
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -408,8 +409,10 @@ class IAFPresentationManager {
             } else {
                 hasInvokedDismissed = false
                 let context = FormContext(formId: formId, formName: formName)
+                currentFormContext = context
                 topController.present(viewController, animated: false) { [weak self] in
-                    self?.invokeLifecycleHandler(for: .formShown, context: context)
+                    guard let self, !self.hasInvokedDismissed else { return }
+                    self.invokeLifecycleHandler(for: .formShown, context: context)
                 }
             }
         }
@@ -432,13 +435,14 @@ class IAFPresentationManager {
         // Invoke lifecycle handler if form was visible
         // This covers timeout-based and programmatic dismissals
         if viewController.presentingViewController != nil && !hasInvokedDismissed {
-            let context = FormContext(formId: nil, formName: nil)
+            let context = currentFormContext ?? FormContext(formId: nil, formName: nil)
             invokeLifecycleHandler(for: .formDismissed, context: context)
             hasInvokedDismissed = true
         }
 
         viewController.dismiss(animated: false, completion: nil)
 
+        currentFormContext = nil
         self.viewController = nil
         viewModel = nil
     }
