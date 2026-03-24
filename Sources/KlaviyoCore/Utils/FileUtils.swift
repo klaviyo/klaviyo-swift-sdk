@@ -79,5 +79,5 @@ package func loadPlist(named name: String, in bundle: Bundle = .main) -> [String
           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
         return nil
     }
-    return dict
+    return nil
 }
