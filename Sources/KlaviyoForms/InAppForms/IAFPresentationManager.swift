@@ -34,7 +34,7 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    var currentFormContext: FormContext?
+    private(set) var currentFormContext: FormContext?
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
