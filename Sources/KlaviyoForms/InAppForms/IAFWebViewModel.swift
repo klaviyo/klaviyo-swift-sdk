@@ -273,13 +273,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
-        case let .openDeepLink(url, formId, formName):
+        case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
             // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
-            let ctaContext = FormContext(formId: formId, formName: formName)
+            let ctaContext = FormContext(formId: formId, formName: formName, deepLinkUrl: url, buttonLabel: buttonLabel)
             IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCTAClicked, context: ctaContext)
 
             // Only attempt to open valid URLs (skip if nil or empty)

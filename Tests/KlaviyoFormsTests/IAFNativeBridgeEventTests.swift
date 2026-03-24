@@ -82,7 +82,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -91,6 +91,36 @@ struct IAFNativeBridgeEventTests {
         #expect(url == expectedUrl)
         #expect(formId == "form456")
         #expect(formName == "CTA Form")
+        #expect(buttonLabel == nil)
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkWithButtonLabel() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "android": "klaviyotest://settings",
+            "formId": "form456",
+            "formName": "CTA Form",
+            "buttonLabel": "Shop Now"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            return
+        }
+
+        let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
+        #expect(url == expectedUrl)
+        #expect(formId == "form456")
+        #expect(formName == "CTA Form")
+        #expect(buttonLabel == "Shop Now")
     }
 
     @Test
@@ -107,7 +137,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -116,6 +146,7 @@ struct IAFNativeBridgeEventTests {
         #expect(url == expectedUrl)
         #expect(formId == nil)
         #expect(formName == nil)
+        #expect(buttonLabel == nil)
     }
 
     @Test

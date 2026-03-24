@@ -16,4 +16,17 @@ public struct FormContext: Sendable {
 
     /// The display name of the form.
     public let formName: String?
+
+    /// The deep link URL that was opened. Only populated for ``FormLifecycleEvent/formCTAClicked`` events.
+    public let deepLinkUrl: URL?
+
+    /// The label text of the button that was tapped. Only populated for ``FormLifecycleEvent/formCTAClicked`` events.
+    public let buttonLabel: String?
+
+    public init(formId: String?, formName: String?, deepLinkUrl: URL? = nil, buttonLabel: String? = nil) {
+        self.formId = formId
+        self.formName = formName
+        self.deepLinkUrl = deepLinkUrl
+        self.buttonLabel = buttonLabel
+    }
 }
