@@ -51,10 +51,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let payload = try? container.decode(FormWillAppearPayload.self, forKey: .data)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
         case .formDisappeared:
-            let payload = try? container.decode(FormDisappearedPayload.self, forKey: .data)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
@@ -85,12 +85,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct FormWillAppearPayload: Decodable {
-        let formId: String?
-        let formName: String?
-    }
-
-    struct FormDisappearedPayload: Decodable {
+    struct FormContextPayload: Decodable {
         let formId: String?
         let formName: String?
     }

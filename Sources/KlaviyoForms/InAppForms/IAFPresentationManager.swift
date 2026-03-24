@@ -420,8 +420,13 @@ class IAFPresentationManager {
 
     func dismissForm(context: FormContext = FormContext(formId: nil, formName: nil)) {
         guard let viewController else { return }
+        // Fall back to the context captured at present time if the bridge sends nil identifiers
+        // (e.g. fender rollback or companion PR not yet deployed)
+        let effectiveContext = (context.formId != nil || context.formName != nil)
+            ? context
+            : (currentFormContext ?? context)
         if !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed, context: context)
+            invokeLifecycleHandler(for: .formDismissed, context: effectiveContext)
             hasInvokedDismissed = true
         }
         viewController.dismiss(animated: false)
