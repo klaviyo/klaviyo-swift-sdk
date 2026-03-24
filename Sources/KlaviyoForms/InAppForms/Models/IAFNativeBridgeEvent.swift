@@ -105,19 +105,16 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            formId = try container.decodeIfPresent(String.self, forKey: .formId)
+            formName = try container.decodeIfPresent(String.self, forKey: .formName)
+            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
             // Handle missing, null, or empty string gracefully
             guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
                   !urlString.isEmpty else {
                 ios = nil
-                formId = try container.decodeIfPresent(String.self, forKey: .formId)
-                formName = try container.decodeIfPresent(String.self, forKey: .formName)
-                buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
                 return
             }
             ios = URL(string: urlString)
-            formId = try container.decodeIfPresent(String.self, forKey: .formId)
-            formName = try container.decodeIfPresent(String.self, forKey: .formName)
-            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
         }
     }
 
