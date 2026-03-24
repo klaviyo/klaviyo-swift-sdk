@@ -408,8 +408,9 @@ class IAFPresentationManager {
             } else {
                 hasInvokedDismissed = false
                 let context = FormContext(formId: formId, formName: formName)
-                invokeLifecycleHandler(for: .formShown, context: context)
-                topController.present(viewController, animated: false, completion: nil)
+                topController.present(viewController, animated: false) { [weak self] in
+                    self?.invokeLifecycleHandler(for: .formShown, context: context)
+                }
             }
         }
     }
