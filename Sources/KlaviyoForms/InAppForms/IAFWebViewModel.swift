@@ -280,11 +280,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
             // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
             // Fall back to stored context if fender omits formId/formName (rollback / companion PR not yet deployed)
-            let storedContext = IAFPresentationManager.shared.currentFormContext
-            let effectiveFormId = formId ?? storedContext?.formId
-            let effectiveFormName = formName ?? storedContext?.formName
-            let ctaContext = FormContext(formId: effectiveFormId, formName: effectiveFormName, deepLinkUrl: url, buttonLabel: buttonLabel)
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCTAClicked, context: ctaContext)
+            let manager = IAFPresentationManager.shared
+            let effectiveFormId = formId ?? manager.currentFormId
+            let effectiveFormName = formName ?? manager.currentFormName
+            manager.invokeLifecycleHandler(for: .formCtaClicked(
+                formId: effectiveFormId,
+                formName: effectiveFormName,
+                buttonLabel: buttonLabel,
+                deepLinkUrl: url
+            ))
 
             // Only attempt to open valid URLs (skip if nil or empty)
             guard let url = url, !url.absoluteString.isEmpty else {
