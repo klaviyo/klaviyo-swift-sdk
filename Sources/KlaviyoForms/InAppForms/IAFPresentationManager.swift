@@ -396,6 +396,8 @@ class IAFPresentationManager {
             }
 
             // We'll recursively call `presentForm()` after a short delay.
+            // Cancel any in-flight delayed task before starting a new one.
+            delayedPresentationTask?.cancel()
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 try? Task.checkCancellation()
