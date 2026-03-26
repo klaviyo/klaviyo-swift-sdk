@@ -166,15 +166,48 @@ public struct KlaviyoEnvironment {
             .eraseToAnyPublisher()
     }
 
+    // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
+    package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
+
     private static let wrapperSDKConfig: [String: AnyObject] = {
-        // Try main bundle first (covers static linking, the most common case)
+        // Path 1: static library (no use_frameworks!) — resources copied flat into Bundle.main.
+        // Also covers use_frameworks! :linkage => :static with s.resources.
         if let config = loadPlist(named: "klaviyo-sdk-configuration") {
             return config
         }
 
-        // Fallback: search all loaded bundles (covers dynamic linking)
-        if let config = loadPlistFromAnyBundle(named: "klaviyo-sdk-configuration") {
-            return config
+        // Path 2: use_frameworks! :linkage => :static with s.resource_bundles — CocoaPods copies the
+        // named .bundle into Bundle.main alongside the app's own resources.
+        for bundleName in knownWrapperBundleNames {
+            if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+               let bundle = Bundle(url: bundleURL),
+               let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                return config
+            }
+        }
+
+        // Paths 3 & 4: use_frameworks! (dynamic) — the wrapper pod is a .framework in Frameworks/.
+        // With s.resources the plist sits directly in the framework bundle (path 3).
+        // With s.resource_bundles it sits inside a named .bundle within the framework (path 4).
+        if let frameworksURL = Bundle.main.privateFrameworksURL {
+            for bundleName in knownWrapperBundleNames {
+                // CocoaPods converts hyphens to underscores in framework/module directory names.
+                let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+                let frameworkURL = frameworksURL.appendingPathComponent("\(frameworkDirName).framework")
+
+                // Path 3: s.resources — plist is at the root of the framework bundle.
+                if let bundle = Bundle(url: frameworkURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+
+                // Path 4: s.resource_bundles — plist is inside a nested .bundle within the framework.
+                let nestedBundleURL = frameworkURL.appendingPathComponent("\(bundleName).bundle")
+                if let bundle = Bundle(url: nestedBundleURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+            }
         }
 
         return [:]
