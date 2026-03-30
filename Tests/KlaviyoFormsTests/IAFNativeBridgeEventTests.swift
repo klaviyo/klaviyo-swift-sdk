@@ -13,6 +13,11 @@ import Foundation
 import Testing
 
 struct IAFNativeBridgeEventTests {
+    private struct FormWillAppearPayload: Decodable {
+        let formId: String?
+        let formName: String?
+    }
+
     @Test
     func testHandshakeCreated() async throws {
         struct TestableHandshakeData: Codable, Equatable {
@@ -107,7 +112,7 @@ struct IAFNativeBridgeEventTests {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        let payload = try JSONDecoder().decode(IAFNativeBridgeEvent.FormWillAppearPayload.self, from: payloadData)
+        let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: payloadData)
         #expect(payload.formId == "abc123")
         #expect(payload.formName == "Test Form")
     }
@@ -129,7 +134,7 @@ struct IAFNativeBridgeEventTests {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        let payload = try JSONDecoder().decode(IAFNativeBridgeEvent.FormWillAppearPayload.self, from: payloadData)
+        let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: payloadData)
         #expect(payload.formId == "abc123")
         #expect(payload.formName == nil)
     }

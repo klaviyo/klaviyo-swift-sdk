@@ -385,6 +385,10 @@ class IAFPresentationManager {
 
         if let layout, layout.position != .fullscreen {
             // Flexible form: use window manager
+            delayedPresentationTask?.cancel()
+            delayedPresentationTask = nil
+            hasInvokedDismissed = false
+            invokeLifecycleHandler(for: .formShown)
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
         } else {
             // Fullscreen form: use modal presentation
@@ -433,13 +437,7 @@ class IAFPresentationManager {
             hasInvokedDismissed = true
         }
 
-        if InAppWindowManager.shared.hasActiveWindow {
-            // Flexible form: dismiss window
-            InAppWindowManager.shared.dismiss()
-        } else {
-            // Fullscreen form: dismiss modal
-            viewController.dismiss(animated: false)
-        }
+        performDismiss(viewController: viewController)
     }
 
     // MARK: - Cleanup & Destruction
@@ -454,6 +452,13 @@ class IAFPresentationManager {
             hasInvokedDismissed = true
         }
 
+        performDismiss(viewController: viewController)
+
+        self.viewController = nil
+        viewModel = nil
+    }
+
+    private func performDismiss(viewController: KlaviyoWebViewController) {
         if InAppWindowManager.shared.hasActiveWindow {
             // Flexible form: dismiss window
             InAppWindowManager.shared.dismiss()
@@ -461,9 +466,6 @@ class IAFPresentationManager {
             // Fullscreen form: dismiss modal
             viewController.dismiss(animated: false, completion: nil)
         }
-
-        self.viewController = nil
-        viewModel = nil
     }
 
     func destroyWebviewAndListeners() {

@@ -128,9 +128,7 @@ class InAppWindowManager {
 
     @objc
     private func handleOrientationChange() {
-        DispatchQueue.main.async { [self] in
-            updateWindowFrame()
-        }
+        updateWindowFrame()
     }
 
     @objc

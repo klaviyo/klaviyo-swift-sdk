@@ -85,11 +85,6 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct FormWillAppearPayload: Decodable {
-        let formId: String?
-        let formName: String?
-    }
-
     struct DeepLinkEventPayload: Decodable {
         let ios: URL?
 
