@@ -176,7 +176,7 @@ class IAFPresentationManager {
 
     func handleFormEvent(_ event: IAFLifecycleEvent) {
         if #available(iOS 14.0, *) {
-//            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
+            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
         }
         switch event {
         case .handShook:

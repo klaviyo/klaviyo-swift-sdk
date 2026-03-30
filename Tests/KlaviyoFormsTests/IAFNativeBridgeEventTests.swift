@@ -103,12 +103,13 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(payloadData) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        #expect(formId == "abc123")
-        #expect(formName == "Test Form")
+        let payload = try JSONDecoder().decode(IAFNativeBridgeEvent.FormWillAppearPayload.self, from: payloadData)
+        #expect(payload.formId == "abc123")
+        #expect(payload.formName == "Test Form")
     }
 
     @Test
@@ -124,12 +125,13 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(payloadData) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        #expect(formId == "abc123")
-        #expect(formName == nil)
+        let payload = try JSONDecoder().decode(IAFNativeBridgeEvent.FormWillAppearPayload.self, from: payloadData)
+        #expect(payload.formId == "abc123")
+        #expect(payload.formName == nil)
     }
 
     @Test

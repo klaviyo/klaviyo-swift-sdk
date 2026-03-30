@@ -26,7 +26,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     @MainActor
     override func tearDown() async throws {
         // Reset the shared form context to avoid test pollution
-        presentationManager.handleFormEvent(.present(formId: nil, formName: nil))
+        presentationManager.handleFormEvent(.present(formId: nil, formName: nil, withLayout: FormLayout(position: .fullscreen)))
         presentationManager.unregisterFormLifecycleHandler()
         presentationManager = nil
         try await super.tearDown()
@@ -131,7 +131,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
         // When - simulate a present event with formName to set the context,
         // then directly invoke formShown to verify context was captured
-        presentationManager.handleFormEvent(.present(formId: "form123", formName: "Test Form"))
+        presentationManager.handleFormEvent(.present(formId: "form123", formName: "Test Form", withLayout: FormLayout(position: .fullscreen)))
         presentationManager.invokeLifecycleHandler(for: .formShown)
 
         // Then
