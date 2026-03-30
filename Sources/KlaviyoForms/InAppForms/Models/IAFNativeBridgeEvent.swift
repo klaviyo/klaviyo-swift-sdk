@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(URL)
+    case openDeepLink(URL?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -65,8 +65,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .openDeepLink:
-            let url = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(url.ios)
+            let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
+            self = .openDeepLink(payload.ios)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -85,11 +85,31 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct DeepLinkEventPayload: Codable {
-        let ios: URL
+    struct FormWillAppearPayload: Decodable {
+        let formId: String?
+        let formName: String?
     }
 
-    struct AbortPayload: Codable {
+    struct DeepLinkEventPayload: Decodable {
+        let ios: URL?
+
+        enum CodingKeys: String, CodingKey {
+            case ios
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            // Handle missing, null, or empty string gracefully
+            guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
+                  !urlString.isEmpty else {
+                ios = nil
+                return
+            }
+            ios = URL(string: urlString)
+        }
+    }
+
+    struct AbortPayload: Decodable {
         let reason: String
     }
 }
@@ -137,7 +157,7 @@ extension IAFNativeBridgeEvent {
     private var version: Int {
         switch self {
         case .formsDataLoaded: return 1
-        case .formWillAppear: return 2
+        case .formWillAppear: return 1
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1

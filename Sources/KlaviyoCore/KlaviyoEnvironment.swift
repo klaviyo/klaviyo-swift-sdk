@@ -166,34 +166,62 @@ public struct KlaviyoEnvironment {
             .eraseToAnyPublisher()
     }
 
-    private static let rnSDKConfig: [String: AnyObject] = {
-        // Only check for RN config if React Native is present
-        guard NSClassFromString("RCTBridge") != nil else {
-            return [:]
-        }
+    // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
+    package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
 
-        // Try main bundle first (static linking - most common for RN apps)
+    private static let wrapperSDKConfig: [String: AnyObject] = {
+        // Path 1: static library (no use_frameworks!) — resources copied flat into Bundle.main.
+        // Also covers use_frameworks! :linkage => :static with s.resources.
         if let config = loadPlist(named: "klaviyo-sdk-configuration") {
             return config
         }
 
-        // Fallback to RN SDK bundle (dynamic linking - less common)
-        if let config = loadPlistFromReactNativeBundle(named: "klaviyo-sdk-configuration") {
-            return config
+        // Path 2: use_frameworks! :linkage => :static with s.resource_bundles — CocoaPods copies the
+        // named .bundle into Bundle.main alongside the app's own resources.
+        for bundleName in knownWrapperBundleNames {
+            if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+               let bundle = Bundle(url: bundleURL),
+               let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                return config
+            }
+        }
+
+        // Paths 3 & 4: use_frameworks! (dynamic) — the wrapper pod is a .framework in Frameworks/.
+        // With s.resources the plist sits directly in the framework bundle (path 3).
+        // With s.resource_bundles it sits inside a named .bundle within the framework (path 4).
+        if let frameworksURL = Bundle.main.privateFrameworksURL {
+            for bundleName in knownWrapperBundleNames {
+                // CocoaPods converts hyphens to underscores in framework/module directory names.
+                let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+                let frameworkURL = frameworksURL.appendingPathComponent("\(frameworkDirName).framework")
+
+                // Path 3: s.resources — plist is at the root of the framework bundle.
+                if let bundle = Bundle(url: frameworkURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+
+                // Path 4: s.resource_bundles — plist is inside a nested .bundle within the framework.
+                let nestedBundleURL = frameworkURL.appendingPathComponent("\(bundleName).bundle")
+                if let bundle = Bundle(url: nestedBundleURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+            }
         }
 
         return [:]
     }()
 
     private static func getSDKName() -> String {
-        if let sdkName = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_name"] as? String {
+        if let sdkName = wrapperSDKConfig["klaviyo_sdk_name"] as? String {
             return sdkName
         }
         return __klaviyoSwiftName
     }
 
     private static func getSDKVersion() -> String {
-        if let sdkVersion = KlaviyoEnvironment.rnSDKConfig["klaviyo_sdk_version"] as? String {
+        if let sdkVersion = wrapperSDKConfig["klaviyo_sdk_version"] as? String {
             return sdkVersion
         }
         return __klaviyoSwiftVersion
@@ -263,9 +291,9 @@ public struct KlaviyoEnvironment {
         linkHandler: DeepLinkHandler()
     )
 
-    /// Returns `true` if the SDK is currently running in a React Native host app.
-    package static var isReactNative: Bool {
-        NSClassFromString("RCTBridge") != nil
+    /// Returns `true` if the SDK is running inside a wrapper SDK (e.g. React Native, Flutter).
+    package static var isWrapperSDK: Bool {
+        !wrapperSDKConfig.isEmpty
     }
 }
 

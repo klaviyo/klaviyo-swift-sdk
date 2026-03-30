@@ -58,7 +58,7 @@ public class DeepLinkHandler {
                 customDeepLinkHandler(url)
             }
         } else {
-            if !KlaviyoEnvironment.isReactNative {
+            if !KlaviyoEnvironment.isWrapperSDK {
                 if #available(iOS 14.0, *) {
                     Logger.navigation.info("A deep link handler has not been registered.\nHandling URL: '\(url.absoluteString, privacy: .public)' using fallback deep link handler")
                 }
@@ -74,7 +74,7 @@ public class DeepLinkHandler {
 
     @MainActor
     private static func openWithFallbackHandler(url: URL) async {
-        if !KlaviyoEnvironment.isReactNative {
+        if !KlaviyoEnvironment.isWrapperSDK {
             if #available(iOS 14.0, *) {
                 Logger.navigation.warning("""
                 Attempting to handle universal link via a fallback mechanism.

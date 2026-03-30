@@ -6,8 +6,17 @@
 //
 
 enum IAFLifecycleEvent {
-    case presentWithLayout(FormLayout)
+    case present(formId: String?, formName: String?, withLayout: FormLayout)
     case dismiss
     case abort
     case handShook
+
+    var rawValue: String {
+        switch self {
+        case .present: return "present"
+        case .dismiss: return "dismiss"
+        case .abort: return "abort"
+        case .handShook: return "handShook"
+        }
+    }
 }

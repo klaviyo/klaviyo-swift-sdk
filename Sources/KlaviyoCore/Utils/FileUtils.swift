@@ -69,23 +69,13 @@ public func removeFile(at url: URL) -> Bool {
     return false
 }
 
-/// Load plist from main application bundle
-/// - Parameter name: the name of the plist
+/// Load plist from the given bundle, or the main application bundle if none is specified.
+/// - Parameters:
+///   - name: the name of the plist
+///   - bundle: the bundle to search; defaults to `Bundle.main`
 /// - Returns: the contents of the plist or nil if not found
-package func loadPlist(named name: String) -> [String: AnyObject]? {
-    guard let path = Bundle.main.path(forResource: name, ofType: "plist"),
-          let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
-        return nil
-    }
-    return dict
-}
-
-/// Load plist from React Native SDK bundle (for dynamic linking scenarios)
-/// - Parameter name: the name of the plist
-/// - Returns: the contents of the plist or nil if not found
-package func loadPlistFromReactNativeBundle(named name: String) -> [String: AnyObject]? {
-    guard let bundle = Bundle(identifier: "org.cocoapods.klaviyo-react-native-sdk"),
-          let path = bundle.path(forResource: name, ofType: "plist"),
+package func loadPlist(named name: String, in bundle: Bundle = .main) -> [String: AnyObject]? {
+    guard let path = bundle.path(forResource: name, ofType: "plist"),
           let dict = NSDictionary(contentsOfFile: path) as? [String: AnyObject] else {
         return nil
     }
