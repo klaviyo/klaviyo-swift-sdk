@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head data-native-bridge-name="KlaviyoNativeBridge" data-klaviyo-local-tracking="1">
+<head data-sdk-name="SDK_NAME"
+      data-sdk-version="SDK_VERSION"
+      data-native-bridge-name="KlaviyoNativeBridge"
+      data-native-bridge-handshake='BRIDGE_HANDSHAKE'
+      data-forms-data-environment="FORMS_ENVIRONMENT"
+      data-klaviyo-local-tracking="1"
+      data-klaviyo-profile="PROFILE_DATA"
+>
     <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
             <title>Klaviyo In-App Form Template</title>
@@ -24,8 +31,21 @@
                         }
                     }));
                 };
+                window.closeForm = function(formId) {
+                    document.head.dispatchEvent(
+                        new CustomEvent('closeForm', { detail: { formId: formId } })
+                    );
+                    return true;
+                };
+                window.setSafeArea = function(left, top, right, bottom) {
+                    document.documentElement.style.setProperty('--safe-area-inset-left', left + 'px');
+                    document.documentElement.style.setProperty('--safe-area-inset-top', top + 'px');
+                    document.documentElement.style.setProperty('--safe-area-inset-right', right + 'px');
+                    document.documentElement.style.setProperty('--safe-area-inset-bottom', bottom + 'px');
+                };
             </script>
             <link rel="stylesheet" type="text/css" href="https://static-forms.klaviyo.com/fonts/api/v1/in-app-web-fonts/websafe_fonts.css"/>
+            KLAVIYO_JS_SCRIPT
 </head>
 <body></body>
 </html>

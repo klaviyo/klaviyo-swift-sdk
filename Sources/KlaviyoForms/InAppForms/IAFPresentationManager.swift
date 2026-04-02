@@ -39,6 +39,13 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
 
+    /// A transparent staging window that keeps the WKWebView in the visible window hierarchy
+    /// during loading. iOS freezes WKWebView rendering (and `requestAnimationFrame` callbacks)
+    /// when the webview isn't in a visible window. KlaviyoJS's flyout dimension measurement
+    /// uses `requestAnimationFrame`, so without this the form dimensions are never reported
+    /// and `formWillAppear` is never sent.
+    private var stagingWindow: UIWindow?
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -138,6 +145,40 @@ class IAFPresentationManager {
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
+
+        attachStagingWindow()
+    }
+
+    /// Attaches the view controller to a transparent off-screen window so the WKWebView's
+    /// rendering pipeline stays active during loading (preventing iOS from freezing the process).
+    private func attachStagingWindow() {
+        guard let viewController else { return }
+
+        let window: UIWindow
+        if #available(iOS 13.0, *) {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+            if let scene {
+                window = UIWindow(windowScene: scene)
+            } else {
+                window = UIWindow(frame: UIScreen.main.bounds)
+            }
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
+        }
+
+        window.rootViewController = viewController
+        window.backgroundColor = .clear
+        window.isUserInteractionEnabled = false
+        window.windowLevel = .normal - 1
+        window.isHidden = false
+        stagingWindow = window
+    }
+
+    private func removeStagingWindow() {
+        stagingWindow?.rootViewController = nil
+        stagingWindow?.isHidden = true
+        stagingWindow = nil
     }
 
     // MARK: - Form Lifecycle Listener Setup
@@ -383,6 +424,9 @@ class IAFPresentationManager {
             return
         }
 
+        // Remove staging window before presenting in the actual window/modal
+        removeStagingWindow()
+
         if let layout, layout.position != .fullscreen {
             // Flexible form: use window manager
             delayedPresentationTask?.cancel()
@@ -390,6 +434,7 @@ class IAFPresentationManager {
             hasInvokedDismissed = false
             invokeLifecycleHandler(for: .formShown)
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
+            updateSafeAreaInsets()
         } else {
             // Fullscreen form: use modal presentation
             presentFormAsModal(viewController: viewController)
@@ -440,9 +485,60 @@ class IAFPresentationManager {
         performDismiss(viewController: viewController)
     }
 
+    /// Tells KlaviyoJS to close the form, then dismisses the native presentation.
+    /// Matches Android's `closeFormAndDismiss()` in KlaviyoPresentationManager.
+    func closeFormAndDismiss() {
+        guard let viewController else { return }
+
+        let formId = currentFormContext.formId ?? ""
+        Task { @MainActor in
+            do {
+                _ = try await viewController.evaluateJavaScript("window.closeForm('\(formId)')")
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("JS closeForm evaluation succeeded")
+                }
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("JS closeForm evaluation failed: \(error.localizedDescription)")
+                }
+            }
+            self.dismissForm()
+        }
+    }
+
+    // MARK: - Safe Area
+
+    /// Sends device safe area insets to KlaviyoJS for proper form positioning.
+    /// Matches Android's `setSafeArea()` in KlaviyoJsBridge.
+    private func updateSafeAreaInsets() {
+        guard let viewController else { return }
+
+        let insets: UIEdgeInsets
+        if #available(iOS 11.0, *) {
+            insets = viewController.view.safeAreaInsets
+        } else {
+            insets = .zero
+        }
+
+        let script = "window.setSafeArea(\(insets.left), \(insets.top), \(insets.right), \(insets.bottom))"
+        Task { @MainActor in
+            do {
+                _ = try await viewController.evaluateJavaScript(script)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("JS setSafeArea evaluation succeeded")
+                }
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("JS setSafeArea evaluation failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     // MARK: - Cleanup & Destruction
 
     func destroyWebView() {
+        removeStagingWindow()
         guard let viewController else { return }
 
         // Invoke lifecycle handler if form was visible
