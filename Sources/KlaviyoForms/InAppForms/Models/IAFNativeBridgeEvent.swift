@@ -5,16 +5,15 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
-import AnyCodable
 import Foundation
 import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear(Data)
+    case formWillAppear(FormWillAppearPayload)
     case formDisappeared
-    case trackProfileEvent(Data)
-    case trackAggregateEvent(Data)
+    case trackProfileEvent(TrackProfileEventPayload)
+    case trackAggregateEvent(TrackAggregateEventPayload)
     case openDeepLink(URL?)
     case abort(String)
     case handShook
@@ -51,19 +50,13 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
-            let data = try JSONEncoder().encode(decodedData)
-            self = .formWillAppear(data)
+            self = try .formWillAppear(container.decode(FormWillAppearPayload.self, forKey: .data))
         case .formDisappeared:
             self = .formDisappeared
         case .trackProfileEvent:
-            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
-            let data = try JSONEncoder().encode(decodedData)
-            self = .trackProfileEvent(data)
+            self = try .trackProfileEvent(container.decode(TrackProfileEventPayload.self, forKey: .data))
         case .trackAggregateEvent:
-            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
-            let data = try JSONEncoder().encode(decodedData)
-            self = .trackAggregateEvent(data)
+            self = try .trackAggregateEvent(container.decode(TrackAggregateEventPayload.self, forKey: .data))
         case .openDeepLink:
             let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
             self = .openDeepLink(payload.ios)
@@ -85,6 +78,126 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
+    struct FormWillAppearPayload: Codable, Equatable {
+        let formId: String?
+        let formName: String?
+        let layout: FormLayout?
+    }
+
+    struct TrackProfileEventPayload: Codable, Equatable {
+        let metric: String
+        let properties: Properties
+
+        struct Properties: Codable, Equatable {
+            let formId: String?
+            let formVersionId: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case formId = "form_id"
+                case formVersionId = "form_version_id"
+            }
+        }
+
+        var eventProperties: [String: Any] {
+            var properties: [String: Any] = [:]
+            properties["form_id"] = self.properties.formId
+            properties["form_version_id"] = self.properties.formVersionId
+
+            [
+                "metric": metric,
+                "properties": properties
+            ]
+        }
+    }
+
+    struct TrackAggregateEventPayload: Codable, Equatable {
+        let metricGroup: String
+        let events: [TrackedEvent]
+
+        enum CodingKeys: String, CodingKey {
+            case metricGroup = "metric_group"
+            case events
+        }
+
+        struct TrackedEvent: Codable, Equatable {
+            let metric: String?
+            let logToStatsd: Bool?
+            let logToS3: Bool?
+            let logToMetricsService: Bool?
+            let metricServiceEventName: String?
+            let eventDetails: EventDetails?
+
+            enum CodingKeys: String, CodingKey {
+                case metric
+                case logToStatsd = "log_to_statsd"
+                case logToS3 = "log_to_s3"
+                case logToMetricsService = "log_to_metrics_service"
+                case metricServiceEventName = "metric_service_event_name"
+                case eventDetails = "event_details"
+            }
+        }
+
+        struct EventDetails: Codable, Equatable {
+            let formVersionCId: String?
+            let isClient: Bool?
+            let submittedFields: SubmittedFields?
+            let stepName: String?
+            let stepNumber: Int?
+            let actionType: String?
+            let formId: String?
+            let formVersionId: Int?
+            let formType: String?
+            let deviceType: String?
+            let hostname: String?
+            let href: String?
+            let pageURL: String?
+            let firstReferrer: String?
+            let referrer: String?
+            let cid: String?
+
+            enum CodingKeys: String, CodingKey {
+                case formVersionCId = "form_version_c_id"
+                case isClient = "is_client"
+                case submittedFields = "submitted_fields"
+                case stepName = "step_name"
+                case stepNumber = "step_number"
+                case actionType = "action_type"
+                case formId = "form_id"
+                case formVersionId = "form_version_id"
+                case formType = "form_type"
+                case deviceType = "device_type"
+                case hostname
+                case href
+                case pageURL = "page_url"
+                case firstReferrer = "first_referrer"
+                case referrer
+                case cid
+            }
+        }
+
+        struct SubmittedFields: Codable, Equatable {
+            let source: String?
+            let email: String?
+            let consentMethod: String?
+            let consentFormId: String?
+            let consentFormVersion: Int?
+            let sentIdentifiers: [String: String]?
+            let smsConsent: Bool?
+            let stepName: String?
+
+            enum CodingKeys: String, CodingKey {
+                case source = "$source"
+                case email = "$email"
+                case consentMethod = "$consent_method"
+                case consentFormId = "$consent_form_id"
+                case consentFormVersion = "$consent_form_version"
+                case sentIdentifiers = "sent_identifiers"
+                case smsConsent = "sms_consent"
+                case stepName = "$step_name"
+            }
+        }
+    }
+
     struct DeepLinkEventPayload: Decodable {
         let ios: URL?
 
@@ -137,10 +250,55 @@ extension IAFNativeBridgeEvent {
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // events that JS is permitted to sending
         [
-            .formWillAppear(Data()),
+            .formWillAppear(FormWillAppearPayload(formId: nil, formName: nil, layout: nil)),
             .formDisappeared,
-            .trackProfileEvent(Data()),
-            .trackAggregateEvent(Data()),
+            .trackProfileEvent(
+                TrackProfileEventPayload(
+                    metric: "",
+                    properties: .init(formId: "", formVersionId: 0)
+                )
+            ),
+            .trackAggregateEvent(
+                TrackAggregateEventPayload(
+                    metricGroup: "",
+                    events: [
+                        .init(
+                            metric: "",
+                            logToStatsd: false,
+                            logToS3: false,
+                            logToMetricsService: false,
+                            metricServiceEventName: "",
+                            eventDetails: .init(
+                                formVersionCId: "",
+                                isClient: false,
+                                submittedFields: .init(
+                                    source: "",
+                                    email: "",
+                                    consentMethod: "",
+                                    consentFormId: "",
+                                    consentFormVersion: 0,
+                                    sentIdentifiers: [:],
+                                    smsConsent: false,
+                                    stepName: ""
+                                ),
+                                stepName: "",
+                                stepNumber: 0,
+                                actionType: "",
+                                formId: "",
+                                formVersionId: 0,
+                                formType: "",
+                                deviceType: "",
+                                hostname: "",
+                                href: "",
+                                pageURL: "",
+                                firstReferrer: "",
+                                referrer: "",
+                                cid: ""
+                            )
+                        )
+                    ]
+                )
+            ),
             .openDeepLink(URL(string: "https://example.com")!),
             .abort(""),
             .lifecycleEvent,
