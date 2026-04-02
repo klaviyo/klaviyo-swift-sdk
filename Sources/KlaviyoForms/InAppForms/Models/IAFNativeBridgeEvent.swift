@@ -116,12 +116,9 @@ extension IAFNativeBridgeEvent {
             var version: Int
         }
 
-        var handshakeArray = handshakeEvents.map { event -> HandshakeData in
+        let handshakeArray = handshakeEvents.map { event -> HandshakeData in
             HandshakeData(type: event.name, version: event.version)
         }
-
-        // JS bridge functions (native → JS) that KlaviyoJS expects in the handshake
-        handshakeArray.append(HandshakeData(type: "closeForm", version: 1))
 
         do {
             let encoder = JSONEncoder()
