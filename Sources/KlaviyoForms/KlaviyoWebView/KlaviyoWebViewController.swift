@@ -99,13 +99,8 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     private func loadUrl() {
         configureLoadScripts()
-        if let htmlContent = viewModel.htmlContent {
-            let baseURL = viewModel.url.deletingLastPathComponent()
-            webView.loadHTMLString(htmlContent, baseURL: baseURL)
-        } else {
-            let request = URLRequest(url: viewModel.url)
-            webView.load(request)
-        }
+        let request = URLRequest(url: viewModel.url)
+        webView.load(request)
     }
 
     @MainActor
@@ -209,7 +204,6 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
-           url.scheme != "about",
            !(url.lastPathComponent == "InAppFormsTemplate.html") {
             let didOpenURL = await UIApplication.shared.open(url)
 

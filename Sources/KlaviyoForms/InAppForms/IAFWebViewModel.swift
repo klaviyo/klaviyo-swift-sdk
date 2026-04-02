@@ -22,7 +22,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var htmlContent: String?
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
@@ -34,6 +33,68 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
+
+    // MARK: - Scripts
+
+    @MainActor
+    private var klaviyoJsWKScript: WKUserScript? {
+        var apiURL = environment.cdnURL()
+        apiURL.path = "/onsite/js/klaviyo.js"
+        apiURL.queryItems = [
+            URLQueryItem(name: "company_id", value: apiKey),
+            URLQueryItem(name: "env", value: "in-app")
+        ]
+
+        if let assetSource {
+            let assetSourceQueryItem = URLQueryItem(name: "assetSource", value: assetSource)
+            apiURL.queryItems?.append(assetSourceQueryItem)
+        }
+
+        let klaviyoJsScript = """
+            var script = document.createElement('script');
+            script.id = 'klaviyoJS';
+            script.type = 'text/javascript';
+            script.src = '\(apiURL)';
+            document.head.appendChild(script)
+        """
+
+        return WKUserScript(source: klaviyoJsScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
+    private var sdkNameWKScript: WKUserScript {
+        let sdkName = environment.sdkName()
+        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
+    private var sdkVersionWKScript: WKUserScript {
+        let sdkVersion = environment.sdkVersion()
+        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
+    private var dataEnvironmentWKScript: WKUserScript? {
+        guard let formsEnv = environment.formsDataEnvironment()?.rawValue else { return nil }
+        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
+        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
+    private var handshakeWKScript: WKUserScript {
+        let handshakeStringified = IAFNativeBridgeEvent.handshake
+        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    @MainActor
+    private var profileAttributesWKScript: WKUserScript? {
+        guard let profileData else { return nil }
+        guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
+        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
 
     // MARK: - Initializer
 
@@ -48,56 +109,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         formLifecycleStream = stream
         formLifecycleContinuation = continuation
 
-        buildHtmlContent()
+        initializeLoadScripts()
         subscribeToProfileUpdates()
     }
 
-    // MARK: - Template Building
-
-    /// Builds the HTML content by reading the template and replacing placeholders with actual values.
-    /// This ensures all data attributes (handshake, SDK info, etc.) are present in the initial HTML
-    /// before KlaviyoJS loads, matching Android's template replacement approach.
     @MainActor
-    private func buildHtmlContent() {
-        guard let templateString = try? ResourceLoader.getResourceContents(
-            path: "InAppFormsTemplate",
-            type: "html"
-        ) else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Failed to read InAppFormsTemplate.html; falling back to URL loading")
-            }
-            return
+    func initializeLoadScripts() {
+        guard let klaviyoJsWKScript else { return }
+        loadScripts?.insert(klaviyoJsWKScript)
+        loadScripts?.insert(sdkNameWKScript)
+        loadScripts?.insert(sdkVersionWKScript)
+        loadScripts?.insert(handshakeWKScript)
+        if let profileAttributesWKScript {
+            loadScripts?.insert(profileAttributesWKScript)
         }
-
-        var apiURL = environment.cdnURL()
-        apiURL.path = "/onsite/js/klaviyo.js"
-        apiURL.queryItems = [
-            URLQueryItem(name: "company_id", value: apiKey),
-            URLQueryItem(name: "env", value: "in-app")
-        ]
-
-        if let assetSource {
-            apiURL.queryItems?.append(URLQueryItem(name: "assetSource", value: assetSource))
+        if let dataEnvironmentWKScript {
+            loadScripts?.insert(dataEnvironmentWKScript)
         }
-
-        let klaviyoJsScriptTag = "<script type=\"text/javascript\" src=\"\(apiURL)\"></script>"
-
-        let profileDataString: String
-        if let profileData, let encoded = try? profileData.toHtmlString() {
-            profileDataString = encoded
-        } else {
-            profileDataString = "{}"
-        }
-
-        let formsEnv = environment.formsDataEnvironment()?.rawValue ?? ""
-
-        htmlContent = templateString
-            .replacingOccurrences(of: "SDK_NAME", with: environment.sdkName())
-            .replacingOccurrences(of: "SDK_VERSION", with: environment.sdkVersion())
-            .replacingOccurrences(of: "BRIDGE_HANDSHAKE", with: IAFNativeBridgeEvent.handshake)
-            .replacingOccurrences(of: "FORMS_ENVIRONMENT", with: formsEnv)
-            .replacingOccurrences(of: "PROFILE_DATA", with: profileDataString)
-            .replacingOccurrences(of: "KLAVIYO_JS_SCRIPT", with: klaviyoJsScriptTag)
     }
 
     // MARK: - Loading
