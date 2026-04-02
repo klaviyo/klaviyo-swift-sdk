@@ -49,7 +49,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         formLifecycleContinuation = continuation
 
         buildHtmlContent()
-        initializeLoadScripts()
         subscribeToProfileUpdates()
     }
 
@@ -99,13 +98,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             .replacingOccurrences(of: "FORMS_ENVIRONMENT", with: formsEnv)
             .replacingOccurrences(of: "PROFILE_DATA", with: profileDataString)
             .replacingOccurrences(of: "KLAVIYO_JS_SCRIPT", with: klaviyoJsScriptTag)
-    }
-
-    @MainActor
-    func initializeLoadScripts() {
-        // All data attributes, JS bridge functions, and klaviyo.js are now embedded
-        // directly in the HTML template via buildHtmlContent(). No WKUserScripts needed
-        // for the initial load.
     }
 
     // MARK: - Loading

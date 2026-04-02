@@ -434,7 +434,6 @@ class IAFPresentationManager {
             hasInvokedDismissed = false
             invokeLifecycleHandler(for: .formShown)
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
-            updateSafeAreaInsets()
         } else {
             // Fullscreen form: use modal presentation
             presentFormAsModal(viewController: viewController)
@@ -483,56 +482,6 @@ class IAFPresentationManager {
         }
 
         performDismiss(viewController: viewController)
-    }
-
-    /// Tells KlaviyoJS to close the form, then dismisses the native presentation.
-    /// Matches Android's `closeFormAndDismiss()` in KlaviyoPresentationManager.
-    func closeFormAndDismiss() {
-        guard let viewController else { return }
-
-        let formId = currentFormContext.formId ?? ""
-        Task { @MainActor in
-            do {
-                _ = try await viewController.evaluateJavaScript("window.closeForm('\(formId)')")
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("JS closeForm evaluation succeeded")
-                }
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("JS closeForm evaluation failed: \(error.localizedDescription)")
-                }
-            }
-            self.dismissForm()
-        }
-    }
-
-    // MARK: - Safe Area
-
-    /// Sends device safe area insets to KlaviyoJS for proper form positioning.
-    /// Matches Android's `setSafeArea()` in KlaviyoJsBridge.
-    private func updateSafeAreaInsets() {
-        guard let viewController else { return }
-
-        let insets: UIEdgeInsets
-        if #available(iOS 11.0, *) {
-            insets = viewController.view.safeAreaInsets
-        } else {
-            insets = .zero
-        }
-
-        let script = "window.setSafeArea(\(insets.left), \(insets.top), \(insets.right), \(insets.bottom))"
-        Task { @MainActor in
-            do {
-                _ = try await viewController.evaluateJavaScript(script)
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("JS setSafeArea evaluation succeeded")
-                }
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("JS setSafeArea evaluation failed: \(error.localizedDescription)")
-                }
-            }
-        }
     }
 
     // MARK: - Cleanup & Destruction

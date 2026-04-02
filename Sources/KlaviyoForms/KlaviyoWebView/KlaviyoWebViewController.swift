@@ -80,12 +80,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     // MARK: - View loading
 
     override func loadView() {
-        // Use screen bounds as the initial frame so the WKWebView has a non-zero viewport
-        // before the view controller is presented. This is critical for FLYOUT forms: KlaviyoJS
-        // defers `formWillAppear` until `formDimensionsReady`, which measures `offsetWidth`/
-        // `offsetHeight` in the webview. Without a proper viewport, those values are zero
-        // and the dimensions event never fires.
-        view = UIView(frame: UIScreen.main.bounds)
+        view = UIView()
         view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(webView)
 
@@ -215,8 +210,7 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         if let url = navigationAction.request.url,
            url.scheme != "about",
-           !(url.lastPathComponent == "InAppFormsTemplate.html"),
-           !url.isFileURL {
+           !(url.lastPathComponent == "InAppFormsTemplate.html") {
             let didOpenURL = await UIApplication.shared.open(url)
 
             if #available(iOS 14.0, *) {
