@@ -39,13 +39,6 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
 
-    /// A transparent staging window that keeps the WKWebView in the visible window hierarchy
-    /// during loading. iOS freezes WKWebView rendering (and `requestAnimationFrame` callbacks)
-    /// when the webview isn't in a visible window. KlaviyoJS's flyout dimension measurement
-    /// uses `requestAnimationFrame`, so without this the form dimensions are never reported
-    /// and `formWillAppear` is never sent.
-    private var stagingWindow: UIWindow?
-
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -146,39 +139,9 @@ class IAFPresentationManager {
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
 
-        attachStagingWindow()
-    }
-
-    /// Attaches the view controller to a transparent off-screen window so the WKWebView's
-    /// rendering pipeline stays active during loading (preventing iOS from freezing the process).
-    private func attachStagingWindow() {
-        guard let viewController else { return }
-
-        let window: UIWindow
-        if #available(iOS 13.0, *) {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-            if let scene {
-                window = UIWindow(windowScene: scene)
-            } else {
-                window = UIWindow(frame: UIScreen.main.bounds)
-            }
-        } else {
-            window = UIWindow(frame: UIScreen.main.bounds)
+        if let viewController {
+            InAppWindowManager.shared.attachForLoading(viewController: viewController)
         }
-
-        window.rootViewController = viewController
-        window.backgroundColor = .clear
-        window.isUserInteractionEnabled = false
-        window.windowLevel = .normal - 1
-        window.isHidden = false
-        stagingWindow = window
-    }
-
-    private func removeStagingWindow() {
-        stagingWindow?.rootViewController = nil
-        stagingWindow?.isHidden = true
-        stagingWindow = nil
     }
 
     // MARK: - Form Lifecycle Listener Setup
@@ -424,8 +387,9 @@ class IAFPresentationManager {
             return
         }
 
-        // Remove staging window before presenting in the actual window/modal
-        removeStagingWindow()
+        // Dismiss the staging window used during loading; for floating forms,
+        // present() calls dismiss() internally, but fullscreen modals need this explicitly.
+        InAppWindowManager.shared.dismiss()
 
         if let layout, layout.position != .fullscreen {
             // Flexible form: use window manager
@@ -487,12 +451,13 @@ class IAFPresentationManager {
     // MARK: - Cleanup & Destruction
 
     func destroyWebView() {
-        removeStagingWindow()
         guard let viewController else { return }
 
-        // Invoke lifecycle handler if form was visible
-        // This covers timeout-based and programmatic dismissals
-        if (InAppWindowManager.shared.hasActiveWindow || viewController.presentingViewController != nil) && !hasInvokedDismissed {
+        // Invoke lifecycle handler if form was visible (not just staged for loading).
+        // presentingViewController indicates modal presentation; currentLayout indicates
+        // floating presentation. The staging window has neither.
+        let isFormVisible = viewController.presentingViewController != nil || currentFormContext.formId != nil
+        if isFormVisible && !hasInvokedDismissed {
             invokeLifecycleHandler(for: .formDismissed)
             hasInvokedDismissed = true
         }

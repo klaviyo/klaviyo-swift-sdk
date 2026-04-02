@@ -19,21 +19,27 @@ class InAppWindowManager {
 
     private init() {}
 
+    /// Hosts the view controller in a non-interactive window behind the app so the WKWebView's
+    /// rendering pipeline stays active during loading. iOS freezes `requestAnimationFrame` in
+    /// WKWebView when it is not in a visible window; KlaviyoJS's flyout dimension measurement
+    /// depends on `requestAnimationFrame`, so this prevents the form from stalling.
+    /// Call ``present(viewController:layout:)`` once the layout is known to replace this window.
+    func attachForLoading(viewController: KlaviyoWebViewController) {
+        dismiss()
+        createWindow()
+
+        guard let window else { return }
+        window.rootViewController = viewController
+        window.isUserInteractionEnabled = false
+        window.windowLevel = .normal - 1
+        window.isHidden = false
+    }
+
     /// Presents the view controller in a window configured according to the layout.
     func present(viewController: KlaviyoWebViewController, layout: FormLayout) {
         dismiss()
         currentLayout = layout
-
-        if #available(iOS 13.0, *) {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        }
-
-        if #available(iOS 13.0, *), let windowScene {
-            window = UIWindow(windowScene: windowScene)
-        } else {
-            window = UIWindow(frame: UIScreen.main.bounds)
-        }
+        createWindow()
 
         guard let window else { return }
         window.rootViewController = viewController
@@ -45,6 +51,21 @@ class InAppWindowManager {
 
         updateWindowFrame()
         setupObservers()
+    }
+
+    // MARK: - Private Methods
+
+    private func createWindow() {
+        if #available(iOS 13.0, *) {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        }
+
+        if #available(iOS 13.0, *), let windowScene {
+            window = UIWindow(windowScene: windowScene)
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
+        }
     }
 
     /// Returns true if the window manager has an active window.
@@ -61,8 +82,6 @@ class InAppWindowManager {
         windowScene = nil
         currentLayout = nil
     }
-
-    // MARK: - Private Methods
 
     private func updateWindowFrame() {
         guard let window, let currentLayout else { return }
