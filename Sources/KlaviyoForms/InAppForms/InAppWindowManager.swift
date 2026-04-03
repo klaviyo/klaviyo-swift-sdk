@@ -98,13 +98,19 @@ class InAppWindowManager {
         let y: CGFloat
 
         switch layout.position {
-        case .top, .topLeft:
+        case .top:
+            x = (screenWidth - width) / 2
+            y = marginTop
+        case .topLeft:
             x = marginLeft
             y = marginTop
         case .topRight:
             x = screenWidth - width - marginRight
             y = marginTop
-        case .bottom, .bottomLeft:
+        case .bottom:
+            x = (screenWidth - width) / 2
+            y = screenHeight - height - marginBottom
+        case .bottomLeft:
             x = marginLeft
             y = screenHeight - height - marginBottom
         case .bottomRight:
