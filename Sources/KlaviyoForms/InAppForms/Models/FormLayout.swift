@@ -42,19 +42,14 @@ struct Dimension: Codable {
     }
 }
 
-/// Margins from the anchor position.
+/// Margins from the anchor position, in points.
 struct Margins: Codable {
-    let top: Dimension
-    let bottom: Dimension
-    let left: Dimension
-    let right: Dimension
+    let top: CGFloat
+    let bottom: CGFloat
+    let left: CGFloat
+    let right: CGFloat
 
-    static let zero = Margins(
-        top: Dimension(value: 0, unit: .fixed),
-        bottom: Dimension(value: 0, unit: .fixed),
-        left: Dimension(value: 0, unit: .fixed),
-        right: Dimension(value: 0, unit: .fixed)
-    )
+    static let zero = Margins(top: 0, bottom: 0, left: 0, right: 0)
 }
 
 /// Layout configuration for flexible/banner forms.
