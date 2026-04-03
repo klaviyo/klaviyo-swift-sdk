@@ -91,6 +91,7 @@ extension KlaviyoSDK {
         return self
     }
 
+
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
     ///
     /// This method is for internal use only and should not be used in production applications.

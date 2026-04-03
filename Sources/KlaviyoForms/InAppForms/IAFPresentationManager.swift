@@ -34,8 +34,13 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    private(set) var currentFormId: String?
-    private(set) var currentFormName: String?
+
+    /// Stores the formId from the most recent presentForm call, used as a fallback
+    /// in dismissForm/destroyWebView when the bridge doesn't send context.
+    private var lastPresentedFormId: String?
+    /// Stores the formName from the most recent presentForm call, used as a fallback
+    /// in dismissForm/destroyWebView when the bridge doesn't send context.
+    private var lastPresentedFormName: String?
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -411,12 +416,10 @@ class IAFPresentationManager {
                 }
             } else {
                 hasInvokedDismissed = false
-                currentFormId = formId
-                currentFormName = formName
-                topController.present(viewController, animated: false) { [weak self] in
-                    guard let self, !self.hasInvokedDismissed else { return }
-                    self.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
-                }
+                lastPresentedFormId = formId
+                lastPresentedFormName = formName
+                invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
+                topController.present(viewController, animated: false, completion: nil)
             }
         }
     }
@@ -424,9 +427,8 @@ class IAFPresentationManager {
     func dismissForm(formId: String? = nil, formName: String? = nil) {
         guard let viewController else { return }
         // Fall back to the context captured at present time if the bridge sends nil identifiers
-        // (e.g. fender rollback or companion PR not yet deployed)
-        let effectiveFormId = formId ?? currentFormId
-        let effectiveFormName = formName ?? currentFormName
+        let effectiveFormId = formId ?? lastPresentedFormId
+        let effectiveFormName = formName ?? lastPresentedFormName
         if !hasInvokedDismissed {
             invokeLifecycleHandler(for: .formDismissed(formId: effectiveFormId, formName: effectiveFormName))
             hasInvokedDismissed = true
@@ -442,14 +444,14 @@ class IAFPresentationManager {
         // Invoke lifecycle handler if form was visible
         // This covers timeout-based and programmatic dismissals
         if viewController.presentingViewController != nil && !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed(formId: currentFormId, formName: currentFormName))
+            invokeLifecycleHandler(for: .formDismissed(formId: lastPresentedFormId, formName: lastPresentedFormName))
             hasInvokedDismissed = true
         }
 
         viewController.dismiss(animated: false, completion: nil)
 
-        currentFormId = nil
-        currentFormName = nil
+        lastPresentedFormId = nil
+        lastPresentedFormName = nil
         self.viewController = nil
         viewModel = nil
     }

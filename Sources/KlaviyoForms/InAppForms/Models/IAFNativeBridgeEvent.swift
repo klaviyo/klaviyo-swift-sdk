@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(URL?, formId: String?, formName: String?, buttonLabel: String?)
+    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -66,7 +66,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .trackAggregateEvent(data)
         case .openDeepLink:
             let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(payload.ios, formId: payload.formId, formName: payload.formName, buttonLabel: payload.buttonLabel)
+            self = .openDeepLink(url: payload.ios, formId: payload.formId, formName: payload.formName, buttonLabel: payload.buttonLabel)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -155,7 +155,7 @@ extension IAFNativeBridgeEvent {
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(URL(string: "https://example.com")!, formId: nil, formName: nil, buttonLabel: nil),
+            .openDeepLink(url: URL(string: "https://example.com")!, formId: nil, formName: nil, buttonLabel: nil),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
