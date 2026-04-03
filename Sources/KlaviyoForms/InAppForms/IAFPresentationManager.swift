@@ -34,7 +34,8 @@ class IAFPresentationManager {
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
     private var hasInvokedDismissed = false
-    private var currentFormContext = FormContext(formId: nil, formName: nil)
+    private(set) var currentFormId: String?
+    private(set) var currentFormName: String?
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -60,9 +61,9 @@ class IAFPresentationManager {
 
     // MARK: - Form Lifecycle Handler
 
-    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent, FormContext) -> Void)?
+    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent) -> Void)?
 
-    func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, FormContext) -> Void) {
+    func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.log("Registering form lifecycle handler")
         }
@@ -82,10 +83,10 @@ class IAFPresentationManager {
         guard let handler = formLifecycleHandler else { return }
 
         if #available(iOS 14.0, *) {
-            Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.rawValue, privacy: .public)")
+            Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.eventName, privacy: .public)")
         }
 
-        handler(event, currentFormContext)
+        handler(event)
     }
 
     // MARK: - Initialization & Setup
@@ -185,11 +186,10 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case let .present(formId, formName, layout):
-            currentFormContext = FormContext(formId: formId, formName: formName)
-            presentForm(layout: layout)
-        case .dismiss:
-            dismissForm()
+        case let .present(formId, formName, withLayout: layout):
+            presentForm(formId: formId, formName: formName, layout: layout)
+        case let .dismiss(formId, formName):
+            dismissForm(formId: formId, formName: formName)
         case .abort:
             destroyWebviewAndListeners()
         }
@@ -375,7 +375,7 @@ class IAFPresentationManager {
 
     // MARK: - View Lifecycle
 
-    private func presentForm(layout: FormLayout?) {
+    private func presentForm(formId: String? = nil, formName: String? = nil, layout: FormLayout?) {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
@@ -388,15 +388,15 @@ class IAFPresentationManager {
             delayedPresentationTask?.cancel()
             delayedPresentationTask = nil
             hasInvokedDismissed = false
-            invokeLifecycleHandler(for: .formShown)
+            invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
         } else {
             // Fullscreen form: use modal presentation
-            presentFormAsModal(viewController: viewController)
+            presentFormAsModal(viewController: viewController, formId: formId, formName: formName)
         }
     }
 
-    private func presentFormAsModal(viewController: KlaviyoWebViewController) {
+    private func presentFormAsModal(viewController: KlaviyoWebViewController, formId: String? = nil, formName: String? = nil) {
         guard let topController = UIApplication.shared.topMostViewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Unable to access topMostViewController; ignoring `presentForm()` request.")
@@ -411,10 +411,12 @@ class IAFPresentationManager {
             }
 
             // We'll recursively call `presentForm()` after a short delay.
+            // Cancel any in-flight delayed task before starting a new one.
+            delayedPresentationTask?.cancel()
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 try? Task.checkCancellation()
-                self.presentForm(layout: nil)
+                self.presentForm(formId: formId, formName: formName, layout: nil)
             }
         } else {
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
@@ -423,17 +425,24 @@ class IAFPresentationManager {
                 }
             } else {
                 hasInvokedDismissed = false
-                invokeLifecycleHandler(for: .formShown)
-                topController.present(viewController, animated: false, completion: nil)
+                currentFormId = formId
+                currentFormName = formName
+                topController.present(viewController, animated: false) { [weak self] in
+                    guard let self, !self.hasInvokedDismissed else { return }
+                    self.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
+                }
             }
         }
     }
 
-    func dismissForm() {
+    func dismissForm(formId: String? = nil, formName: String? = nil) {
         guard let viewController else { return }
-
+        // Fall back to the context captured at present time if the bridge sends nil identifiers
+        // (e.g. fender rollback or companion PR not yet deployed)
+        let effectiveFormId = formId ?? currentFormId
+        let effectiveFormName = formName ?? currentFormName
         if !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed)
+            invokeLifecycleHandler(for: .formDismissed(formId: effectiveFormId, formName: effectiveFormName))
             hasInvokedDismissed = true
         }
 
@@ -448,12 +457,14 @@ class IAFPresentationManager {
         // Invoke lifecycle handler if form was visible
         // This covers timeout-based and programmatic dismissals
         if (InAppWindowManager.shared.hasActiveWindow || viewController.presentingViewController != nil) && !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed)
+            invokeLifecycleHandler(for: .formDismissed(formId: currentFormId, formName: currentFormName))
             hasInvokedDismissed = true
         }
 
         performDismiss(viewController: viewController)
 
+        currentFormId = nil
+        currentFormName = nil
         self.viewController = nil
         viewModel = nil
     }
