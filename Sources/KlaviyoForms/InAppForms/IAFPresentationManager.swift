@@ -481,7 +481,21 @@ class IAFPresentationManager {
             hasInvokedDismissed = true
         }
 
-        performDismiss(viewController: viewController)
+        // Re-attach the staging window so WKWebView stays in the visible hierarchy
+        // between forms (keeps requestAnimationFrame active for the next formWillAppear).
+        // For flyouts, InAppWindowManager.dismiss() is synchronous so we can re-attach
+        // immediately. For modals, UIViewController.dismiss(animated:) is async — the VC
+        // still has presentingViewController != nil until viewDidDisappear fires, so if we
+        // tried to adopt it into the staging window immediately it would be inert. We
+        // defer re-attachment to the completion block instead.
+        if InAppWindowManager.shared.hasActiveWindow {
+            InAppWindowManager.shared.dismiss()
+            attachStagingWindow()
+        } else {
+            viewController.dismiss(animated: false) { [weak self] in
+                self?.attachStagingWindow()
+            }
+        }
     }
 
     // MARK: - Cleanup & Destruction
