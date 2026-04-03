@@ -167,7 +167,7 @@ extension IAFNativeBridgeEvent {
     private var version: Int {
         switch self {
         case .formsDataLoaded: return 1
-        case .formWillAppear: return 1
+        case .formWillAppear: return 2
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
