@@ -176,6 +176,15 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     // MARK: - Layout
 
+    /// Called by `InAppWindowManager` when presenting a flyout so it can update the window
+    /// frame in sync with the rotation transition coordinator animation.
+    var onSizeTransition: ((UIViewControllerTransitionCoordinator) -> Void)?
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        onSizeTransition?(coordinator)
+    }
+
     private func configureSubviewConstraints() {
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true

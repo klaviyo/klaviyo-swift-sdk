@@ -16,6 +16,7 @@ class InAppWindowManager {
     private var window: UIWindow?
     private var windowScene: UIWindowScene?
     private var currentLayout: FormLayout?
+    private weak var presentedViewController: KlaviyoWebViewController?
 
     private init() {}
 
@@ -43,6 +44,13 @@ class InAppWindowManager {
         window.isHidden = false
         window.makeKeyAndVisible()
 
+        presentedViewController = viewController
+        viewController.onSizeTransition = { [weak self] coordinator in
+            coordinator.animate(alongsideTransition: { [weak self] _ in
+                self?.updateWindowFrame()
+            })
+        }
+
         updateWindowFrame()
         setupObservers()
     }
@@ -55,6 +63,8 @@ class InAppWindowManager {
     /// Dismisses and removes the window.
     func dismiss() {
         NotificationCenter.default.removeObserver(self)
+        presentedViewController?.onSizeTransition = nil
+        presentedViewController = nil
         window?.isHidden = true
         window?.rootViewController = nil
         window = nil
@@ -121,34 +131,55 @@ class InAppWindowManager {
     }
 
     private func setupObservers() {
-        NotificationCenter.default.addObserver(self, selector: #selector(handleOrientationChange), name: UIDevice.orientationDidChangeNotification, object: nil)
+        // Orientation is handled via viewWillTransition(to:with:) on the presented VC,
+        // which provides the correct incoming size and a transition coordinator for animation.
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
-    }
-
-    @objc
-    private func handleOrientationChange() {
-        updateWindowFrame()
     }
 
     @objc
     private func handleKeyboardChange(_ notification: Notification) {
         guard let window,
               let currentLayout,
-              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
-              isBottomAnchored(currentLayout.position) else {
-            return
-        }
+              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        else { return }
 
-        var screenBounds = getScreenBounds()
-        if notification.name == UIResponder.keyboardWillShowNotification {
-            screenBounds.size.height -= keyboardFrame.height
-        }
+        let screenBounds = getScreenBounds()
+        let isShowing = notification.name == UIResponder.keyboardWillShowNotification
+        let keyboardHeight = isShowing ? keyboardFrame.height : 0
 
-        window.frame = calculateFrame(for: currentLayout, in: screenBounds)
+        let formHeight = currentLayout.effectiveHeight.toPoints(relativeTo: screenBounds.height)
+        let gap = formBottomEdgeGap(for: currentLayout, formHeight: formHeight, in: screenBounds)
+        let overlap = max(0, keyboardHeight - gap)
+
+        let newFrame = calculateFrame(for: currentLayout, in: screenBounds).offsetBy(dx: 0, dy: -overlap)
+
+        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+        let curveRaw = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 0
+
+        UIView.animate(
+            withDuration: duration,
+            delay: 0,
+            options: [UIView.AnimationOptions(rawValue: curveRaw << 16), .beginFromCurrentState]
+        ) {
+            window.frame = newFrame
+        }
     }
 
-    private func isBottomAnchored(_ position: FormPosition) -> Bool {
-        position == .bottom || position == .bottomLeft || position == .bottomRight
+    /// Returns the gap in points between the form's bottom edge and the screen bottom.
+    /// Used to calculate how much the keyboard actually overlaps the form.
+    private func formBottomEdgeGap(for layout: FormLayout, formHeight: CGFloat, in screenBounds: CGRect) -> CGFloat {
+        let margin = layout.effectiveMargin
+        let screenHeight = screenBounds.height
+        switch layout.position {
+        case .bottom, .bottomLeft, .bottomRight:
+            return CGFloat(margin.bottom)
+        case .top, .topLeft, .topRight:
+            return screenHeight - CGFloat(margin.top) - formHeight
+        case .center:
+            return (screenHeight - formHeight) / 2
+        case .fullscreen:
+            return 0
+        }
     }
 }
