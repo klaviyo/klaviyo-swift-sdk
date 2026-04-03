@@ -93,23 +93,31 @@ jobs:
           VERSION="${VERSION#v}"  # Remove leading 'v' if present
           echo "Publishing podspecs version $VERSION to CocoaPods trunk..."
 
+          # Publish a podspec only if the version isn't already on trunk.
+          # This makes the workflow safe to re-run after a partial failure.
+          publish_pod() {
+            local podspec=$1
+            local pod_name=$2
+            if pod trunk info "$pod_name" 2>/dev/null | grep -qe "- $VERSION ("; then
+              echo "⏭️  $pod_name $VERSION already published, skipping"
+            else
+              echo "📦 Publishing $pod_name..."
+              pod trunk push "$podspec" --allow-warnings
+            fi
+          }
+
           # Publish in dependency order with polling for CDN propagation
-          echo "📦 Publishing KlaviyoCore..."
-          pod trunk push KlaviyoCore.podspec --allow-warnings
+          publish_pod KlaviyoCore.podspec KlaviyoCore
           wait_for_pod_availability "KlaviyoCore" "$VERSION"
 
-          echo "📦 Publishing KlaviyoSwiftExtension..."
-          pod trunk push KlaviyoSwiftExtension.podspec --allow-warnings
+          publish_pod KlaviyoSwiftExtension.podspec KlaviyoSwiftExtension
 
-          echo "📦 Publishing KlaviyoSwift..."
-          pod trunk push KlaviyoSwift.podspec --allow-warnings
+          publish_pod KlaviyoSwift.podspec KlaviyoSwift
           wait_for_pod_availability "KlaviyoSwift" "$VERSION"
 
-          echo "📦 Publishing KlaviyoForms..."
-          pod trunk push KlaviyoForms.podspec --allow-warnings
+          publish_pod KlaviyoForms.podspec KlaviyoForms
 
-          echo "📦 Publishing KlaviyoLocation..."
-          pod trunk push KlaviyoLocation.podspec --allow-warnings
+          publish_pod KlaviyoLocation.podspec KlaviyoLocation
 
           echo "✅ All podspecs published successfully"
 

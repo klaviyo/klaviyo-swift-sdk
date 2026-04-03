@@ -46,31 +46,37 @@ extension KlaviyoSDK {
     /// Registers a handler to be called when form lifecycle events occur.
     ///
     /// The handler will be invoked when:
-    /// - A form is shown (``FormLifecycleEvent/formShown``)
-    /// - A form is dismissed (``FormLifecycleEvent/formDismissed``)
-    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCTAClicked``)
+    /// - A form is shown (``FormLifecycleEvent/formShown(formId:formName:)``)
+    /// - A form is dismissed (``FormLifecycleEvent/formDismissed(formId:formName:)``)
+    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
+    ///
+    /// Each event case carries contextual data including `formId`, `formName`, and
+    /// CTA-specific fields (`buttonLabel`, `deepLinkUrl`) where applicable.
     ///
     /// The handler is called on the main thread.
     ///
     /// Example usage:
     /// ```swift
-    /// KlaviyoSDK().registerFormLifecycleHandler { event, context in
+    /// KlaviyoSDK().registerFormLifecycleHandler { event in
     ///     switch event {
-    ///     case .formShown:
-    ///         Analytics.track("Form Shown", properties: ["formId": context.formId ?? ""])
-    ///     case .formDismissed:
-    ///         Analytics.track("Form Dismissed", properties: ["formId": context.formId ?? ""])
-    ///     case .formCTAClicked:
-    ///         Analytics.track("Form CTA Clicked", properties: ["formId": context.formId ?? ""])
+    ///     case .formShown(let formId, let formName):
+    ///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
+    ///     case .formDismissed(let formId, let formName):
+    ///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
+    ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
+    ///         Analytics.track("Form CTA Clicked", properties: [
+    ///             "formId": formId ?? "",
+    ///             "buttonLabel": buttonLabel ?? ""
+    ///         ])
     ///     }
     /// }
     /// ```
     ///
-    /// - Parameter handler: A closure receiving the lifecycle event and a ``FormContext`` with metadata about the form.
+    /// - Parameter handler: A closure receiving the ``FormLifecycleEvent`` with all contextual data.
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent, FormContext) -> Void) -> KlaviyoSDK {
+    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> KlaviyoSDK {
         IAFPresentationManager.shared.registerFormLifecycleHandler(handler)
         return self
     }
@@ -84,6 +90,7 @@ extension KlaviyoSDK {
         IAFPresentationManager.shared.unregisterFormLifecycleHandler()
         return self
     }
+
 
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
     ///

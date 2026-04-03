@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(url: URL?, formId: String?, formName: String?)
+    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -51,10 +51,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let payload = try? container.decode(FormWillAppearPayload.self, forKey: .data)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
         case .formDisappeared:
-            let payload = try? container.decode(FormDisappearedPayload.self, forKey: .data)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
@@ -66,7 +66,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .trackAggregateEvent(data)
         case .openDeepLink:
             let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(url: payload.ios, formId: payload.formId, formName: payload.formName)
+            self = .openDeepLink(url: payload.ios, formId: payload.formId, formName: payload.formName, buttonLabel: payload.buttonLabel)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -85,12 +85,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
-    struct FormWillAppearPayload: Decodable {
-        let formId: String?
-        let formName: String?
-    }
-
-    struct FormDisappearedPayload: Decodable {
+    struct FormContextPayload: Decodable {
         let formId: String?
         let formName: String?
     }
@@ -99,26 +94,27 @@ extension IAFNativeBridgeEvent {
         let ios: URL?
         let formId: String?
         let formName: String?
+        let buttonLabel: String?
 
         enum CodingKeys: String, CodingKey {
             case ios
             case formId
             case formName
+            case buttonLabel
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            formId = try container.decodeIfPresent(String.self, forKey: .formId)
+            formName = try container.decodeIfPresent(String.self, forKey: .formName)
+            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
             // Handle missing, null, or empty string gracefully
             guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
                   !urlString.isEmpty else {
                 ios = nil
-                formId = try container.decodeIfPresent(String.self, forKey: .formId)
-                formName = try container.decodeIfPresent(String.self, forKey: .formName)
                 return
             }
             ios = URL(string: urlString)
-            formId = try container.decodeIfPresent(String.self, forKey: .formId)
-            formName = try container.decodeIfPresent(String.self, forKey: .formName)
         }
     }
 
@@ -159,7 +155,7 @@ extension IAFNativeBridgeEvent {
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(url: URL(string: "https://example.com")!, formId: nil, formName: nil),
+            .openDeepLink(url: URL(string: "https://example.com")!, formId: nil, formName: nil, buttonLabel: nil),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
