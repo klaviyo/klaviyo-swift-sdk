@@ -55,30 +55,29 @@ struct Margins: Codable {
 /// Layout configuration for flexible/banner forms.
 struct FormLayout: Codable {
     let position: FormPosition
-    let width: Dimension?
-    let height: Dimension?
-    let margin: Margins?
+    let width: Dimension
+    let height: Dimension
+    let margin: Margins
 
-    /// Effective width, defaults to 100% if nil (for fullscreen).
-    var effectiveWidth: Dimension {
-        width ?? Dimension(value: 100, unit: .percent)
-    }
+    static let fullDimension = Dimension(value: 100, unit: .percent)
 
-    /// Effective height, defaults to 100% if nil (for fullscreen).
-    var effectiveHeight: Dimension {
-        height ?? Dimension(value: 100, unit: .percent)
-    }
-
-    /// Effective margin, defaults to zero if nil.
-    var effectiveMargin: Margins {
-        margin ?? .zero
-    }
-
-    /// Creates a fullscreen layout (width, height, and margin are optional).
-    init(position: FormPosition, width: Dimension? = nil, height: Dimension? = nil, margin: Margins? = nil) {
+    init(
+        position: FormPosition,
+        width: Dimension = fullDimension,
+        height: Dimension = fullDimension,
+        margin: Margins = .zero
+    ) {
         self.position = position
         self.width = width
         self.height = height
         self.margin = margin
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        position = try container.decode(FormPosition.self, forKey: .position)
+        width = try container.decodeIfPresent(Dimension.self, forKey: .width) ?? Self.fullDimension
+        height = try container.decodeIfPresent(Dimension.self, forKey: .height) ?? Self.fullDimension
+        margin = try container.decodeIfPresent(Margins.self, forKey: .margin) ?? .zero
     }
 }
