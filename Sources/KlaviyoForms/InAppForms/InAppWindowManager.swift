@@ -2,7 +2,7 @@
 //  InAppWindowManager.swift
 //  klaviyo-swift-sdk
 //
-//  Created by Auto on 1/22/26.
+//  Created by Isobelle Lim on 1/22/26.
 //
 
 import Foundation
@@ -26,12 +26,10 @@ class InAppWindowManager {
         self.viewController = viewController
         currentLayout = layout
 
-        if #available(iOS 13.0, *) {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
 
-        if #available(iOS 13.0, *), let windowScene {
+        if let windowScene {
             window = UIWindow(windowScene: windowScene)
         } else {
             window = UIWindow(frame: UIScreen.main.bounds)
@@ -72,7 +70,7 @@ class InAppWindowManager {
     }
 
     private func getScreenBounds() -> CGRect {
-        if #available(iOS 13.0, *), let windowScene {
+        if let windowScene {
             return windowScene.coordinateSpace.bounds
         } else {
             return UIScreen.main.bounds
@@ -84,12 +82,12 @@ class InAppWindowManager {
             return screenBounds
         }
 
-        let margin = layout.effectiveMargin
+        let margin = layout.margin
         let screenWidth = screenBounds.width
         let screenHeight = screenBounds.height
 
-        let width = layout.effectiveWidth.toPoints(relativeTo: screenWidth)
-        let height = layout.effectiveHeight.toPoints(relativeTo: screenHeight)
+        let width = layout.width.toPoints(relativeTo: screenWidth)
+        let height = layout.height.toPoints(relativeTo: screenHeight)
 
         let marginTop = margin.top
         let marginBottom = margin.bottom
@@ -100,13 +98,19 @@ class InAppWindowManager {
         let y: CGFloat
 
         switch layout.position {
-        case .top, .topLeft:
+        case .top:
+            x = (screenWidth - width) / 2
+            y = marginTop
+        case .topLeft:
             x = marginLeft
             y = marginTop
         case .topRight:
             x = screenWidth - width - marginRight
             y = marginTop
-        case .bottom, .bottomLeft:
+        case .bottom:
+            x = (screenWidth - width) / 2
+            y = screenHeight - height - marginBottom
+        case .bottomLeft:
             x = marginLeft
             y = screenHeight - height - marginBottom
         case .bottomRight:
