@@ -219,12 +219,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     func handleScriptMessage(_ message: WKScriptMessage) {
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Unknown message handler: \(message.name, privacy: .public)")
+            }
             return
         }
 
         switch handler {
         case .klaviyoNativeBridge:
-            guard let jsonString = message.body as? String else { return }
+            guard let jsonString = message.body as? String else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Message body is not a string: \(type(of: message.body), privacy: .public)")
+                }
+                return
+            }
+
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON)")
+            }
 
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
@@ -233,6 +245,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
+                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON)")
                 }
             }
         }
@@ -243,16 +256,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case .formWillAppear:
+        case let .formWillAppear(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present)
-        case .formDisappeared:
+            formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
+        case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.dismiss)
+            formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -260,10 +273,31 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
-        case let .openDeepLink(url):
+        case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url, privacy: .public)")
+                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
+
+            // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
+            // Fall back to stored context if fender omits formId/formName (rollback / companion PR not yet deployed)
+            let manager = IAFPresentationManager.shared
+            let effectiveFormId = formId ?? manager.currentFormId
+            let effectiveFormName = formName ?? manager.currentFormName
+            manager.invokeLifecycleHandler(for: .formCtaClicked(
+                formId: effectiveFormId,
+                formName: effectiveFormName,
+                buttonLabel: buttonLabel,
+                deepLinkUrl: url
+            ))
+
+            // Only attempt to open valid URLs (skip if nil or empty)
+            guard let url = url, !url.absoluteString.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
+                }
+                return
+            }
+
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
@@ -271,7 +305,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 KlaviyoInternal.handleDeepLink(url: url)
             } else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL’s scheme, or b) you haven’t declared the URL’s scheme in your Info.plist file")
+                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
                 }
             }
         case let .abort(reason):
