@@ -2,7 +2,7 @@
 //  InAppWindowManager.swift
 //  klaviyo-swift-sdk
 //
-//  Created by Auto on 1/22/26.
+//  Created by Isobelle Lim on 1/22/26.
 //
 
 import Foundation
@@ -24,12 +24,10 @@ class InAppWindowManager {
         dismiss()
         currentLayout = layout
 
-        if #available(iOS 13.0, *) {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
 
-        if #available(iOS 13.0, *), let windowScene {
+        if let windowScene {
             window = UIWindow(windowScene: windowScene)
         } else {
             window = UIWindow(frame: UIScreen.main.bounds)
@@ -70,7 +68,7 @@ class InAppWindowManager {
     }
 
     private func getScreenBounds() -> CGRect {
-        if #available(iOS 13.0, *), let windowScene {
+        if let windowScene {
             return windowScene.coordinateSpace.bounds
         } else {
             return UIScreen.main.bounds
