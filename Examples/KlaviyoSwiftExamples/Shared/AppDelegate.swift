@@ -54,6 +54,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     print("   Form Name: \(context.formName ?? "unknown")")
                 }
             }
+            .registerDeepLinkHandler { [weak self] url in
+                guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+                    return
+                }
+
+                switch (components.host, components.path) {
+                case ("www.google.com", "/"), ("www.google.com", ""):
+                    // Open in system browser
+                    UIApplication.shared.open(url)
+                case ("www.google.com", "/maps"):
+                    // Show an alert
+                    let alert = UIAlertController(title: "Maps", message: "Opening Google Maps", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    let keyWindow = UIApplication.shared.connectedScenes
+                        .compactMap { $0 as? UIWindowScene }
+                        .flatMap(\.windows)
+                        .first(where: \.isKeyWindow)
+                    keyWindow?.rootViewController?.present(alert, animated: true)
+                default:
+                    guard let host = components.host,
+                          let deeplink = DeepLinking(rawValue: host) else { return }
+                    self?.handle(deeplink, with: url.absoluteString)
+                }
+            }
 
         // EXAMPLE: of how to track an event
         KlaviyoSDK().create(event: .init(name: .customEvent("Opened kLM App")))
