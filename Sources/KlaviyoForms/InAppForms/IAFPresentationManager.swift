@@ -387,6 +387,8 @@ class IAFPresentationManager {
             // Flexible form: use window manager
             delayedPresentationTask?.cancel()
             delayedPresentationTask = nil
+            currentFormId = formId
+            currentFormName = formName
             hasInvokedDismissed = false
             invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
