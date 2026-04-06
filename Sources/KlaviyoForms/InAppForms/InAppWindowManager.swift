@@ -80,6 +80,10 @@ class InAppWindowManager {
             return screenBounds
         }
 
+        // Read safe area insets from the key window to avoid placing the form
+        // behind notches, Dynamic Island, or the home indicator.
+        let safeArea = windowScene?.windows.first?.safeAreaInsets ?? .zero
+
         let margin = layout.margin
         let screenWidth = screenBounds.width
         let screenHeight = screenBounds.height
@@ -87,8 +91,8 @@ class InAppWindowManager {
         let width = layout.width.toPoints(relativeTo: screenWidth)
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
-        let marginTop = margin.top
-        let marginBottom = margin.bottom
+        let marginTop = safeArea.top + margin.top
+        let marginBottom = safeArea.bottom + margin.bottom
         let marginLeft = margin.left
         let marginRight = margin.right
 
