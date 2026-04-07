@@ -91,7 +91,7 @@ struct IAFNativeBridgeEventTests {
         #expect(url == expectedUrl)
         #expect(formId == "form456")
         #expect(formName == "CTA Form")
-        #expect(buttonLabel == nil)
+        #expect(buttonLabel == "")
     }
 
     @Test
@@ -144,9 +144,9 @@ struct IAFNativeBridgeEventTests {
 
         let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
         #expect(url == expectedUrl)
-        #expect(formId == nil)
-        #expect(formName == nil)
-        #expect(buttonLabel == nil)
+        #expect(formId == "")
+        #expect(formName == "")
+        #expect(buttonLabel == "")
     }
 
     @Test
@@ -189,7 +189,7 @@ struct IAFNativeBridgeEventTests {
             return
         }
         #expect(formId == "abc123")
-        #expect(formName == nil)
+        #expect(formName == "")
     }
 
     @Test
@@ -229,8 +229,8 @@ struct IAFNativeBridgeEventTests {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
             return
         }
-        #expect(formId == nil)
-        #expect(formName == nil)
+        #expect(formId == "")
+        #expect(formName == "")
     }
 
     @Test

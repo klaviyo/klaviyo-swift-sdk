@@ -21,43 +21,47 @@ import Foundation
 /// KlaviyoSDK().registerFormLifecycleHandler { event in
 ///     switch event {
 ///     case .formShown(let formId, let formName):
-///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
+///         Analytics.track("Form Shown", properties: ["formId": formId])
 ///     case .formDismissed(let formId, let formName):
-///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
+///         Analytics.track("Form Dismissed", properties: ["formId": formId])
 ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
 ///         Analytics.track("Form CTA Clicked", properties: [
-///             "formId": formId ?? "",
-///             "buttonLabel": buttonLabel ?? ""
+///             "formId": formId,
+///             "buttonLabel": buttonLabel
 ///         ])
 ///     }
 /// }
 /// ```
 public enum FormLifecycleEvent: Equatable, Sendable {
-    /// Triggered when a form is about to be presented to the user.
+    /// Triggered when the JavaScript bridge reports a form will appear.
     ///
-    /// This event fires after all validation checks pass and immediately
-    /// before the form view controller is presented.
-    case formShown(formId: String?, formName: String?)
+    /// This event reflects the JS-side `formWillAppear` signal and fires
+    /// before native presentation validation (e.g. checking for a visible
+    /// view controller). In practice, it reliably indicates the form was
+    /// shown and matches the analytics data tracked by the webview.
+    case formShown(formId: String, formName: String)
 
-    /// Triggered when a form is dismissed, regardless of the reason.
+    /// Triggered when the JavaScript bridge reports a form has disappeared.
     ///
-    /// This event fires for all dismissal types including:
-    /// - User-initiated dismissals (tapping outside, close button)
-    /// - Timeout-based dismissals
-    /// - Programmatic dismissals
-    case formDismissed(formId: String?, formName: String?)
+    /// This event reflects the JS-side `formDisappeared` signal and fires
+    /// for user-initiated dismissals (e.g. tapping outside, close button).
+    /// It does **not** fire for scenarios where the webview is destroyed
+    /// before a form is ever shown, such as session timeouts or aborts.
+    case formDismissed(formId: String, formName: String)
 
-    /// Triggered when a user taps a call-to-action button in a form.
+    /// Triggered when a user taps a call-to-action button in a form
+    /// that has a deep link URL configured.
     ///
     /// This event fires before the deep link URL is processed, ensuring
-    /// the event is captured even if URL routing fails.
+    /// the event is captured even if URL routing fails. If no deep link
+    /// URL is configured for the CTA, this event is not emitted.
     ///
-    /// - `buttonLabel`: The label text of the tapped button, if provided by the form.
-    /// - `deepLinkUrl`: The deep link URL associated with the CTA, if configured.
-    case formCtaClicked(formId: String?, formName: String?, buttonLabel: String?, deepLinkUrl: URL?)
+    /// - `buttonLabel`: The label text of the tapped button.
+    /// - `deepLinkUrl`: The deep link URL associated with the CTA.
+    case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
     /// The unique identifier of the form that triggered this event.
-    public var formId: String? {
+    public var formId: String {
         switch self {
         case let .formShown(formId, _),
              let .formDismissed(formId, _),
@@ -67,7 +71,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     }
 
     /// The display name of the form that triggered this event.
-    public var formName: String? {
+    public var formName: String {
         switch self {
         case let .formShown(_, formName),
              let .formDismissed(_, formName),

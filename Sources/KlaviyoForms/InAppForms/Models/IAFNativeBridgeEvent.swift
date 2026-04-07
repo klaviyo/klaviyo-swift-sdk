@@ -11,11 +11,11 @@ import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear(formId: String?, formName: String?)
-    case formDisappeared(formId: String?, formName: String?)
+    case formWillAppear(formId: String, formName: String)
+    case formDisappeared(formId: String, formName: String)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
+    case openDeepLink(url: URL?, formId: String, formName: String, buttonLabel: String)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -52,10 +52,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .formsDataLoaded
         case .formWillAppear:
             let payload = try? container.decode(FormContextPayload.self, forKey: .data)
-            self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
+            self = .formWillAppear(formId: payload?.formId ?? "", formName: payload?.formName ?? "")
         case .formDisappeared:
             let payload = try? container.decode(FormContextPayload.self, forKey: .data)
-            self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
+            self = .formDisappeared(formId: payload?.formId ?? "", formName: payload?.formName ?? "")
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
@@ -92,9 +92,9 @@ extension IAFNativeBridgeEvent {
 
     struct DeepLinkEventPayload: Decodable {
         let ios: URL?
-        let formId: String?
-        let formName: String?
-        let buttonLabel: String?
+        let formId: String
+        let formName: String
+        let buttonLabel: String
 
         enum CodingKeys: String, CodingKey {
             case ios
@@ -105,9 +105,9 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            formId = try container.decodeIfPresent(String.self, forKey: .formId)
-            formName = try container.decodeIfPresent(String.self, forKey: .formName)
-            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
+            formId = try container.decodeIfPresent(String.self, forKey: .formId) ?? ""
+            formName = try container.decodeIfPresent(String.self, forKey: .formName) ?? ""
+            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel) ?? ""
             // Handle missing, null, or empty string gracefully
             guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
                   !urlString.isEmpty else {
@@ -151,11 +151,11 @@ extension IAFNativeBridgeEvent {
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // events that JS is permitted to sending
         [
-            .formWillAppear(formId: nil, formName: nil),
-            .formDisappeared(formId: nil, formName: nil),
+            .formWillAppear(formId: "", formName: ""),
+            .formDisappeared(formId: "", formName: ""),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(url: URL(string: "https://example.com")!, formId: nil, formName: nil, buttonLabel: nil),
+            .openDeepLink(url: URL(string: "https://example.com")!, formId: "", formName: "", buttonLabel: ""),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,

@@ -260,11 +260,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formDismissed(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -278,21 +280,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
+            // Only emit CTA lifecycle event and attempt deep link when URL is present
+            guard let url = url, !url.absoluteString.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("CTA clicked but no deep link URL configured — skipping lifecycle event")
+                }
+                return
+            }
+
             IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
                 formId: formId,
                 formName: formName,
                 buttonLabel: buttonLabel,
                 deepLinkUrl: url
             ))
-
-            // Only attempt to open valid URLs (skip if nil or empty)
-            guard let url = url, !url.absoluteString.isEmpty else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
-                }
-                return
-            }
 
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
