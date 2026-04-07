@@ -33,18 +33,20 @@ import Foundation
 /// }
 /// ```
 public enum FormLifecycleEvent: Equatable, Sendable {
-    /// Triggered when a form is about to be presented to the user.
+    /// Triggered when the JavaScript bridge reports a form will appear.
     ///
-    /// This event fires after all validation checks pass and immediately
-    /// before the form view controller is presented.
+    /// This event reflects the JS-side `formWillAppear` signal and fires
+    /// before native presentation validation (e.g. checking for a visible
+    /// view controller). In practice, it reliably indicates the form was
+    /// shown and matches the analytics data tracked by the webview.
     case formShown(formId: String, formName: String)
 
-    /// Triggered when a form is dismissed, regardless of the reason.
+    /// Triggered when the JavaScript bridge reports a form has disappeared.
     ///
-    /// This event fires for all dismissal types including:
-    /// - User-initiated dismissals (tapping outside, close button)
-    /// - Timeout-based dismissals
-    /// - Programmatic dismissals
+    /// This event reflects the JS-side `formDisappeared` signal and fires
+    /// for user-initiated dismissals (e.g. tapping outside, close button).
+    /// It does **not** fire for scenarios where the webview is destroyed
+    /// before a form is ever shown, such as session timeouts or aborts.
     case formDismissed(formId: String, formName: String)
 
     /// Triggered when a user taps a call-to-action button in a form.
