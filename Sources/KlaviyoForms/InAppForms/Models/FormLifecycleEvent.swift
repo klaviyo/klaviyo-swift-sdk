@@ -56,7 +56,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// the event is captured even if URL routing fails. If no deep link
     /// URL is configured for the CTA, this event is not emitted.
     ///
-    /// - `buttonLabel`: The label text of the tapped button, if provided by the form.
+    /// - `buttonLabel`: The label text of the tapped button.
     /// - `deepLinkUrl`: The deep link URL associated with the CTA.
     case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
