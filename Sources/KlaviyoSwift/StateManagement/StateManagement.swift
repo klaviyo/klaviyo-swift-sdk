@@ -541,7 +541,20 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let pushTokenData = state.pushTokenData
-            state.reset(preserveTokenData: false)
+            // Only reset if the incoming profile has different identifiers.
+            // Anonymous ID is the lowest-order identifier, so there's no reason
+            // to regenerate it when higher-order identifiers haven't changed.
+            // Resetting with the same identifiers causes unnecessary anonymous ID
+            // churn, which triggers spurious push-token API requests.
+            // Only compare identifiers that are provided (non-nil) in the incoming
+            // profile, since nil means "not specified" per updateStateWithProfile.
+            let identifiersChanged =
+                (profile.email != nil && profile.email != state.email)
+                || (profile.phoneNumber != nil && profile.phoneNumber != state.phoneNumber)
+                || (profile.externalId != nil && profile.externalId != state.externalId)
+            if identifiersChanged {
+                state.reset(preserveTokenData: false)
+            }
             state.updateStateWithProfile(profile: profile)
             guard let anonymousId = state.anonymousId,
                   let apiKey = state.apiKey
