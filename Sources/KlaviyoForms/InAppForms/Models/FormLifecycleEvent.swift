@@ -49,14 +49,16 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// before a form is ever shown, such as session timeouts or aborts.
     case formDismissed(formId: String, formName: String)
 
-    /// Triggered when a user taps a call-to-action button in a form.
+    /// Triggered when a user taps a call-to-action button in a form
+    /// that has a deep link URL configured.
     ///
     /// This event fires before the deep link URL is processed, ensuring
-    /// the event is captured even if URL routing fails.
+    /// the event is captured even if URL routing fails. If no deep link
+    /// URL is configured for the CTA, this event is not emitted.
     ///
     /// - `buttonLabel`: The label text of the tapped button, if provided by the form.
-    /// - `deepLinkUrl`: The deep link URL associated with the CTA, if configured.
-    case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL?)
+    /// - `deepLinkUrl`: The deep link URL associated with the CTA.
+    case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
     /// The unique identifier of the form that triggered this event.
     public var formId: String {

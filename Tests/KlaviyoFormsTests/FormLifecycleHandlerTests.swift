@@ -180,7 +180,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
             formId: "",
             formName: "",
             buttonLabel: "",
-            deepLinkUrl: nil
+            deepLinkUrl: URL(string: "myapp://test")!
         ))
 
         // Then
@@ -239,7 +239,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // When
         presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil)
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!)
         )
         presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
 
@@ -267,7 +267,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil)
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!)
         )
 
         // Test passes if no crash occurs
@@ -356,7 +356,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "abc", formName: "").formId, "abc")
         XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "def", formName: "").formId, "def")
         let ctaEvent = FormLifecycleEvent.formCtaClicked(
-            formId: "ghi", formName: "", buttonLabel: "", deepLinkUrl: nil
+            formId: "ghi", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
         )
         XCTAssertEqual(ctaEvent.formId, "ghi")
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formId, "")
@@ -366,7 +366,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "Form A").formName, "Form A")
         XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "", formName: "Form B").formName, "Form B")
         let ctaEventC = FormLifecycleEvent.formCtaClicked(
-            formId: "", formName: "Form C", buttonLabel: "", deepLinkUrl: nil
+            formId: "", formName: "Form C", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
         )
         XCTAssertEqual(ctaEventC.formName, "Form C")
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formName, "")
@@ -382,7 +382,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
             FormLifecycleEvent.formDismissed(formId: "", formName: "")
         )
         let ctaBuy = FormLifecycleEvent.formCtaClicked(
-            formId: "x", formName: "y", buttonLabel: "Buy", deepLinkUrl: nil
+            formId: "x", formName: "y", buttonLabel: "Buy", deepLinkUrl: URL(string: "myapp://test")!
         )
         XCTAssertEqual(ctaBuy, ctaBuy)
         XCTAssertNotEqual(
@@ -401,7 +401,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
             FormLifecycleEvent.formDismissed(formId: "", formName: "").eventName, "form_dismissed"
         )
         let ctaForEventName = FormLifecycleEvent.formCtaClicked(
-            formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil
+            formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
         )
         XCTAssertEqual(ctaForEventName.eventName, "form_cta_clicked")
     }
