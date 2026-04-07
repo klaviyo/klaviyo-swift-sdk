@@ -44,7 +44,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         presentationManager.registerFormLifecycleHandler(handler)
 
         // Then - verify handler works
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         if case .formShown = capturedEvent {
             // pass
         } else {
@@ -65,7 +65,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         presentationManager.unregisterFormLifecycleHandler()
 
         // Then - verify handler is not invoked after unregistration
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
 
@@ -86,7 +86,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // When
         presentationManager.registerFormLifecycleHandler(firstHandler)
         presentationManager.registerFormLifecycleHandler(secondHandler)
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
 
         // Then
         XCTAssertFalse(firstHandlerInvoked, "First handler should be replaced")
@@ -107,13 +107,13 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
         if case let .formShown(formId, formName) = receivedEvent {
-            XCTAssertNil(formId, "formId should be nil when no form is active")
-            XCTAssertNil(formName, "formName should be nil when no form is active")
+            XCTAssertEqual(formId, "", "formId should be empty string when no form context available")
+            XCTAssertEqual(formName, "", "formName should be empty string when no form context available")
         } else {
             XCTFail("Handler should receive formShown event, got \(String(describing: receivedEvent))")
         }
@@ -153,7 +153,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -177,9 +177,9 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
         // When
         presentationManager.invokeLifecycleHandler(for: .formCtaClicked(
-            formId: nil,
-            formName: nil,
-            buttonLabel: nil,
+            formId: "",
+            formName: "",
+            buttonLabel: "",
             deepLinkUrl: nil
         ))
 
@@ -237,11 +237,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: nil, formName: nil, buttonLabel: nil, deepLinkUrl: nil)
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil)
         )
-        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -264,10 +264,10 @@ final class FormLifecycleHandlerTests: XCTestCase {
         // Given - No handler registered
 
         // When/Then - Should not crash
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
-        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
+        presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: nil, formName: nil, buttonLabel: nil, deepLinkUrl: nil)
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil)
         )
 
         // Test passes if no crash occurs
@@ -286,7 +286,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -307,7 +307,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
             expectation.fulfill()
         }
 
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
 
         // Then
         wait(for: [expectation], timeout: 1.0)
@@ -330,7 +330,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
         KlaviyoSDK().unregisterFormLifecycleHandler()
 
         // Then
-        presentationManager.invokeLifecycleHandler(for: .formShown(formId: nil, formName: nil))
+        presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         XCTAssertFalse(handlerInvoked, "Handler should not be invoked after unregistration")
     }
 
@@ -353,23 +353,23 @@ final class FormLifecycleHandlerTests: XCTestCase {
     // MARK: - FormLifecycleEvent Computed Property Tests
 
     func testFormIdComputedProperty() {
-        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "abc", formName: nil).formId, "abc")
-        XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "def", formName: nil).formId, "def")
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "abc", formName: "").formId, "abc")
+        XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "def", formName: "").formId, "def")
         let ctaEvent = FormLifecycleEvent.formCtaClicked(
-            formId: "ghi", formName: nil, buttonLabel: nil, deepLinkUrl: nil
+            formId: "ghi", formName: "", buttonLabel: "", deepLinkUrl: nil
         )
         XCTAssertEqual(ctaEvent.formId, "ghi")
-        XCTAssertNil(FormLifecycleEvent.formShown(formId: nil, formName: nil).formId)
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formId, "")
     }
 
     func testFormNameComputedProperty() {
-        XCTAssertEqual(FormLifecycleEvent.formShown(formId: nil, formName: "Form A").formName, "Form A")
-        XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: nil, formName: "Form B").formName, "Form B")
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "Form A").formName, "Form A")
+        XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "", formName: "Form B").formName, "Form B")
         let ctaEventC = FormLifecycleEvent.formCtaClicked(
-            formId: nil, formName: "Form C", buttonLabel: nil, deepLinkUrl: nil
+            formId: "", formName: "Form C", buttonLabel: "", deepLinkUrl: nil
         )
         XCTAssertEqual(ctaEventC.formName, "Form C")
-        XCTAssertNil(FormLifecycleEvent.formShown(formId: nil, formName: nil).formName)
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formName, "")
     }
 
     func testFormLifecycleEventEquality() {
@@ -378,30 +378,30 @@ final class FormLifecycleHandlerTests: XCTestCase {
             FormLifecycleEvent.formShown(formId: "abc", formName: "Test")
         )
         XCTAssertEqual(
-            FormLifecycleEvent.formDismissed(formId: nil, formName: nil),
-            FormLifecycleEvent.formDismissed(formId: nil, formName: nil)
+            FormLifecycleEvent.formDismissed(formId: "", formName: ""),
+            FormLifecycleEvent.formDismissed(formId: "", formName: "")
         )
         let ctaBuy = FormLifecycleEvent.formCtaClicked(
             formId: "x", formName: "y", buttonLabel: "Buy", deepLinkUrl: nil
         )
         XCTAssertEqual(ctaBuy, ctaBuy)
         XCTAssertNotEqual(
-            FormLifecycleEvent.formShown(formId: "abc", formName: nil),
-            FormLifecycleEvent.formShown(formId: "xyz", formName: nil)
+            FormLifecycleEvent.formShown(formId: "abc", formName: ""),
+            FormLifecycleEvent.formShown(formId: "xyz", formName: "")
         )
         XCTAssertNotEqual(
-            FormLifecycleEvent.formShown(formId: nil, formName: nil),
-            FormLifecycleEvent.formDismissed(formId: nil, formName: nil)
+            FormLifecycleEvent.formShown(formId: "", formName: ""),
+            FormLifecycleEvent.formDismissed(formId: "", formName: "")
         )
     }
 
     func testEventNameProperty() {
-        XCTAssertEqual(FormLifecycleEvent.formShown(formId: nil, formName: nil).eventName, "form_shown")
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").eventName, "form_shown")
         XCTAssertEqual(
-            FormLifecycleEvent.formDismissed(formId: nil, formName: nil).eventName, "form_dismissed"
+            FormLifecycleEvent.formDismissed(formId: "", formName: "").eventName, "form_dismissed"
         )
         let ctaForEventName = FormLifecycleEvent.formCtaClicked(
-            formId: nil, formName: nil, buttonLabel: nil, deepLinkUrl: nil
+            formId: "", formName: "", buttonLabel: "", deepLinkUrl: nil
         )
         XCTAssertEqual(ctaForEventName.eventName, "form_cta_clicked")
     }

@@ -21,13 +21,13 @@ import Foundation
 /// KlaviyoSDK().registerFormLifecycleHandler { event in
 ///     switch event {
 ///     case .formShown(let formId, let formName):
-///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
+///         Analytics.track("Form Shown", properties: ["formId": formId])
 ///     case .formDismissed(let formId, let formName):
-///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
+///         Analytics.track("Form Dismissed", properties: ["formId": formId])
 ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
 ///         Analytics.track("Form CTA Clicked", properties: [
-///             "formId": formId ?? "",
-///             "buttonLabel": buttonLabel ?? ""
+///             "formId": formId,
+///             "buttonLabel": buttonLabel
 ///         ])
 ///     }
 /// }
@@ -37,7 +37,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     ///
     /// This event fires after all validation checks pass and immediately
     /// before the form view controller is presented.
-    case formShown(formId: String?, formName: String?)
+    case formShown(formId: String, formName: String)
 
     /// Triggered when a form is dismissed, regardless of the reason.
     ///
@@ -45,7 +45,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// - User-initiated dismissals (tapping outside, close button)
     /// - Timeout-based dismissals
     /// - Programmatic dismissals
-    case formDismissed(formId: String?, formName: String?)
+    case formDismissed(formId: String, formName: String)
 
     /// Triggered when a user taps a call-to-action button in a form.
     ///
@@ -54,10 +54,10 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     ///
     /// - `buttonLabel`: The label text of the tapped button, if provided by the form.
     /// - `deepLinkUrl`: The deep link URL associated with the CTA, if configured.
-    case formCtaClicked(formId: String?, formName: String?, buttonLabel: String?, deepLinkUrl: URL?)
+    case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL?)
 
     /// The unique identifier of the form that triggered this event.
-    public var formId: String? {
+    public var formId: String {
         switch self {
         case let .formShown(formId, _),
              let .formDismissed(formId, _),
@@ -67,7 +67,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     }
 
     /// The display name of the form that triggered this event.
-    public var formName: String? {
+    public var formName: String {
         switch self {
         case let .formShown(_, formName),
              let .formDismissed(_, formName),

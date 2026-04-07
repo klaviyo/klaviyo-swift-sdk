@@ -180,8 +180,8 @@ final class IAFWebViewModelTests: XCTestCase {
     func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
-        var receivedFormId: String?
-        var receivedFormName: String?
+        var receivedFormId = ""
+        var receivedFormName = ""
 
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {
@@ -222,8 +222,8 @@ final class IAFWebViewModelTests: XCTestCase {
     func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
-        var receivedFormId: String?
-        var receivedFormName: String?
+        var receivedFormId = ""
+        var receivedFormName = ""
 
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {

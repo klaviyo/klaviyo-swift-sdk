@@ -260,11 +260,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formDismissed(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
