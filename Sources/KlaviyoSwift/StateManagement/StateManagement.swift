@@ -550,8 +550,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // profile, since nil means "not specified" per updateStateWithProfile.
             let identifiersChanged =
                 (profile.email != nil && profile.email != state.email)
-                || (profile.phoneNumber != nil && profile.phoneNumber != state.phoneNumber)
-                || (profile.externalId != nil && profile.externalId != state.externalId)
+                    || (profile.phoneNumber != nil && profile.phoneNumber != state.phoneNumber)
+                    || (profile.externalId != nil && profile.externalId != state.externalId)
             if identifiersChanged {
                 state.reset(preserveTokenData: false)
             }
