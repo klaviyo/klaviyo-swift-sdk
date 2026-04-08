@@ -83,9 +83,9 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// A string identifier for the event type, suitable for logging.
     public var eventName: String {
         switch self {
-        case .formShown: return "form_shown"
-        case .formDismissed: return "form_dismissed"
-        case .formCtaClicked: return "form_cta_clicked"
+        case .formShown: return "formShown"
+        case .formDismissed: return "formDismissed"
+        case .formCtaClicked: return "formCtaClicked"
         }
     }
 }

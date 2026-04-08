@@ -396,13 +396,13 @@ final class FormLifecycleHandlerTests: XCTestCase {
     }
 
     func testEventNameProperty() {
-        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").eventName, "form_shown")
+        XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").eventName, "formShown")
         XCTAssertEqual(
-            FormLifecycleEvent.formDismissed(formId: "", formName: "").eventName, "form_dismissed"
+            FormLifecycleEvent.formDismissed(formId: "", formName: "").eventName, "formDismissed"
         )
         let ctaForEventName = FormLifecycleEvent.formCtaClicked(
             formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
         )
-        XCTAssertEqual(ctaForEventName.eventName, "form_cta_clicked")
+        XCTAssertEqual(ctaForEventName.eventName, "formCtaClicked")
     }
 }
