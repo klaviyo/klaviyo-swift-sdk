@@ -541,22 +541,21 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let pushTokenData = state.pushTokenData
+            let currentIds = [state.email, state.phoneNumber, state.externalId]
+            let isIdentified = currentIds.contains { $0 != nil }
+            let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
+                // Normalize with the same trimming used by updateStateWithProfile
+                // so whitespace-padded inputs match their stored counterparts.
+                $0?.trimWhiteSpaceOrReturnNilIfEmpty()
+            }
+
             // Only reset if the incoming profile has different identifiers.
             // Anonymous ID is the lowest-order identifier, so there's no reason
             // to regenerate it when higher-order identifiers haven't changed.
             // Resetting with the same identifiers causes unnecessary anonymous ID
             // churn, which triggers spurious push-token API requests.
-            // Only compare identifiers that are provided (non-nil) in the incoming
-            // profile, since nil means "not specified" per updateStateWithProfile.
-            // Normalize with the same trimming used by updateStateWithProfile
-            // so whitespace-padded inputs match their stored counterparts.
-            // Guard on the original value (nil = "not specified", skip comparison)
-            // but compare the trimmed value against state.
-            let identifiersChanged =
-                (profile.email != nil && profile.email?.trimWhiteSpaceOrReturnNilIfEmpty() != state.email)
-                    || (profile.phoneNumber != nil && profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() != state.phoneNumber)
-                    || (profile.externalId != nil && profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty() != state.externalId)
-            if identifiersChanged {
+            // resetProfile() remains available for explicitly clobbering all state.
+            if isIdentified, currentIds != incomingIds {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)

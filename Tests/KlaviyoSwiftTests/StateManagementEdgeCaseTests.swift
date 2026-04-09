@@ -729,9 +729,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfileNilIdentifiersSkipsComparisonDoesNotReset() async throws {
-        // When incoming profile has nil identifiers (not specified), they should
-        // be skipped in the comparison — so no reset fires.
+    func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
+        // All-nil incoming identifiers differ from non-nil state identifiers,
+        // so reset fires — preserving the old "clobbering" setProfile behavior.
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,
             email: "existing@email.com",
@@ -750,10 +750,15 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Profile with all-nil identifiers and just a firstName → no identifier comparison → no reset
+        // Profile with all-nil identifiers → [nil,nil,nil] != [email,phone,extId] → reset fires
         let profile = Profile(firstName: "JustAName")
         _ = await store.send(.enqueueProfile(profile)) {
-            // No reset → pushTokenData stays on state, anonymousId unchanged
+            // reset(preserveTokenData: false) fires → identifiers cleared, pushTokenData nil
+            $0.email = nil
+            $0.phoneNumber = nil
+            $0.externalId = nil
+            $0.pushTokenData = nil
+            // pushTokenData existed before reset, so a token request is built with captured data
             let request = KlaviyoRequest(
                 endpoint: .registerPushToken(
                     TEST_API_KEY,
@@ -761,12 +766,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: profile.toAPIModel(
-                            email: $0.email,
-                            phoneNumber: $0.phoneNumber,
-                            externalId: $0.externalId,
-                            anonymousId: initialState.anonymousId!
-                        )
+                        profile: profile.toAPIModel(anonymousId: $0.anonymousId!)
                     )
                 )
             )
