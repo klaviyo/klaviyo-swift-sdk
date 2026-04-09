@@ -548,10 +548,14 @@ struct KlaviyoReducer: ReducerProtocol {
             // churn, which triggers spurious push-token API requests.
             // Only compare identifiers that are provided (non-nil) in the incoming
             // profile, since nil means "not specified" per updateStateWithProfile.
+            // Normalize with the same trimming used by updateStateWithProfile
+            // so whitespace-padded inputs match their stored counterparts.
+            // Guard on the original value (nil = "not specified", skip comparison)
+            // but compare the trimmed value against state.
             let identifiersChanged =
-                (profile.email != nil && profile.email != state.email)
-                    || (profile.phoneNumber != nil && profile.phoneNumber != state.phoneNumber)
-                    || (profile.externalId != nil && profile.externalId != state.externalId)
+                (profile.email != nil && profile.email?.trimWhiteSpaceOrReturnNilIfEmpty() != state.email)
+                    || (profile.phoneNumber != nil && profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() != state.phoneNumber)
+                    || (profile.externalId != nil && profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty() != state.externalId)
             if identifiersChanged {
                 state.reset(preserveTokenData: false)
             }
