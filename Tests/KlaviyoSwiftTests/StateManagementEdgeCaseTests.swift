@@ -559,6 +559,266 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.pushTokenData = nil
         }
     }
+
+    // MARK: - enqueueProfile: conditional reset (push-token storm fix)
+
+    @MainActor
+    func testSetProfileSameIdentifiersDoesNotReset() async throws {
+        // When setProfile is called with the same identifiers that are already on state,
+        // reset() should NOT fire — anonymousId stays the same, no spurious push-token request.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "same@email.com",
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: "+15555555555",
+            externalId: "ext-123",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Same identifiers → no reset → pushTokenData preserved on state, anonymousId unchanged.
+        // The reducer still builds a registerPushToken request using the captured pushTokenData,
+        // but the state's pushTokenData is NOT cleared (only reset() clears it).
+        _ = await store.send(.enqueueProfile(Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123"))) {
+            // anonymousId stays the same — no reset, pushTokenData stays on state
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    TEST_API_KEY,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123")
+                            .toAPIModel(anonymousId: initialState.anonymousId!)
+                    )
+                )
+            )
+            $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testSetProfileDifferentIdentifiersResetsState() async throws {
+        // When setProfile is called with different identifiers, reset() SHOULD fire,
+        // regenerating the anonymousId and clearing pushTokenData.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "old@email.com",
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: "+11111111111",
+            externalId: "old-ext",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"))) {
+            // reset() fires → identifiers cleared, then updateStateWithProfile sets new ones
+            $0.email = "new@email.com"
+            $0.phoneNumber = "+12222222222"
+            $0.externalId = "new-ext"
+            // pushTokenData cleared by reset
+            $0.pushTokenData = nil
+            // Since pushTokenData existed before reset, the reducer uses it to build a token request
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    TEST_API_KEY,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext")
+                            .toAPIModel(anonymousId: $0.anonymousId!)
+                    )
+                )
+            )
+            $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
+        // Same identifiers but different non-identifier attributes (e.g. firstName) —
+        // should NOT reset, but attributes should still be sent in the profile request.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "same@email.com",
+            anonymousId: environment.uuid().uuidString,
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // No pushTokenData → a createProfile request is generated instead of registerPushToken
+        let profile = Profile(email: "same@email.com", firstName: "NewName")
+        _ = await store.send(.enqueueProfile(profile)) {
+            // No reset (same email), so anonymousId unchanged
+            // A createProfile request should be enqueued with the updated attributes
+            let profilePayload = profile.toAPIModel(
+                email: $0.email,
+                phoneNumber: $0.phoneNumber,
+                externalId: $0.externalId,
+                anonymousId: $0.anonymousId!
+            )
+            let request = KlaviyoRequest(
+                endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+            )
+            $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testSetProfilePartialIdentifierMatchStillResets() async throws {
+        // If only one identifier changes (e.g. email changes, phone stays same),
+        // reset should still fire.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "old@email.com",
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: "+15555555555",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Email changes, phone stays the same → identifiersChanged = true
+        _ = await store.send(.enqueueProfile(Profile(email: "different@email.com", phoneNumber: "+15555555555"))) {
+            // reset() fires
+            $0.email = "different@email.com"
+            $0.phoneNumber = "+15555555555"
+            $0.pushTokenData = nil
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    TEST_API_KEY,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile(email: "different@email.com", phoneNumber: "+15555555555")
+                            .toAPIModel(anonymousId: $0.anonymousId!)
+                    )
+                )
+            )
+            $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testSetProfileNilIdentifiersSkipsComparisonDoesNotReset() async throws {
+        // When incoming profile has nil identifiers (not specified), they should
+        // be skipped in the comparison — so no reset fires.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "existing@email.com",
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: "+15555555555",
+            externalId: "ext-id",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Profile with all-nil identifiers and just a firstName → no identifier comparison → no reset
+        let profile = Profile(firstName: "JustAName")
+        _ = await store.send(.enqueueProfile(profile)) {
+            // No reset → pushTokenData stays on state, anonymousId unchanged
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    TEST_API_KEY,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: profile.toAPIModel(
+                            email: $0.email,
+                            phoneNumber: $0.phoneNumber,
+                            externalId: $0.externalId,
+                            anonymousId: initialState.anonymousId!
+                        )
+                    )
+                )
+            )
+            $0.queue = [request]
+        }
+    }
+
+    @MainActor
+    func testResetProfileStillClobbersAllState() async throws {
+        // resetProfile() should always clobber all state, regardless of identifiers.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "user@email.com",
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: "+15555555555",
+            externalId: "ext-123",
+            pushTokenData: .init(pushToken: "blob_token",
+                                 pushEnablement: .authorized,
+                                 pushBackground: .available,
+                                 deviceData: .init(context: environment.appContextInfo())),
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.resetProfile) {
+            // reset(preserveTokenData: true) is the default for resetProfile
+            $0.email = nil
+            $0.phoneNumber = nil
+            $0.externalId = nil
+            $0.pendingProfile = nil
+            // pushTokenData is preserved and a new token request is enqueued
+            // anonymousId is regenerated since the profile was identified
+            $0.pushTokenData = initialState.pushTokenData
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    TEST_API_KEY,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile()
+                            .toAPIModel(anonymousId: $0.anonymousId!)
+                    )
+                )
+            )
+            $0.queue = [request]
+        }
+    }
 }
 
 extension Event.EventName: CaseIterable {
