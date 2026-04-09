@@ -91,8 +91,8 @@ class InAppWindowManager {
         let width = layout.width.toPoints(relativeTo: screenWidth)
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
-        let marginTop = max(safeArea.top, margin.top)
-        let marginBottom = max(safeArea.bottom, margin.bottom)
+        let marginTop = safeArea.top + margin.top
+        let marginBottom = safeArea.bottom + margin.bottom
         let marginLeft = margin.left
         let marginRight = margin.right
 
