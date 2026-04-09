@@ -75,7 +75,7 @@ class InAppWindowManager {
         }
     }
 
-    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
+    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect, keyboardVisible: Bool = false) -> CGRect {
         guard layout.position != .fullscreen else {
             return screenBounds
         }
@@ -92,40 +92,45 @@ class InAppWindowManager {
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
         let marginTop = safeArea.top + margin.top
-        let marginBottom = safeArea.bottom + margin.bottom
-        let marginLeft = margin.left
-        let marginRight = margin.right
+        let marginBottom = (keyboardVisible ? 0 : safeArea.bottom) + margin.bottom
+        let marginLeft = safeArea.left + margin.left
+        let marginRight = safeArea.right + margin.right
+
+        let availableWidth = screenWidth - marginLeft - marginRight
+        let availableHeight = screenHeight - marginTop - marginBottom
+        let clampedWidth = min(width, availableWidth)
+        let clampedHeight = min(height, availableHeight)
 
         let x: CGFloat
         let y: CGFloat
 
         switch layout.position {
         case .top:
-            x = (screenWidth - width) / 2
+            x = marginLeft + (availableWidth - clampedWidth) / 2
             y = marginTop
         case .topLeft:
             x = marginLeft
             y = marginTop
         case .topRight:
-            x = screenWidth - width - marginRight
+            x = screenWidth - clampedWidth - marginRight
             y = marginTop
         case .bottom:
-            x = (screenWidth - width) / 2
-            y = screenHeight - height - marginBottom
+            x = marginLeft + (availableWidth - clampedWidth) / 2
+            y = screenHeight - clampedHeight - marginBottom
         case .bottomLeft:
             x = marginLeft
-            y = screenHeight - height - marginBottom
+            y = screenHeight - clampedHeight - marginBottom
         case .bottomRight:
-            x = screenWidth - width - marginRight
-            y = screenHeight - height - marginBottom
+            x = screenWidth - clampedWidth - marginRight
+            y = screenHeight - clampedHeight - marginBottom
         case .center:
-            x = (screenWidth - width) / 2
-            y = (screenHeight - height) / 2
+            x = marginLeft + (availableWidth - clampedWidth) / 2
+            y = marginTop + (availableHeight - clampedHeight) / 2
         case .fullscreen:
             return screenBounds
         }
 
-        return CGRect(x: x, y: y, width: width, height: height)
+        return CGRect(x: x, y: y, width: clampedWidth, height: clampedHeight)
     }
 
     private func setupObservers() {
@@ -149,11 +154,12 @@ class InAppWindowManager {
         }
 
         var screenBounds = getScreenBounds()
-        if notification.name == UIResponder.keyboardWillShowNotification {
+        let isShowing = notification.name == UIResponder.keyboardWillShowNotification
+        if isShowing {
             screenBounds.size.height -= keyboardFrame.height
         }
 
-        window.frame = calculateFrame(for: currentLayout, in: screenBounds)
+        window.frame = calculateFrame(for: currentLayout, in: screenBounds, keyboardVisible: isShowing)
     }
 
     private func isBottomAnchored(_ position: FormPosition) -> Bool {
