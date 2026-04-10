@@ -261,11 +261,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
             formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
-        case .formDisappeared:
+        case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.dismiss)
+            formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -273,13 +273,22 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
-        case let .openDeepLink(url):
+        case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
             // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCTAClicked)
+            // Fall back to stored context if fender omits formId/formName (rollback / companion PR not yet deployed)
+            let manager = IAFPresentationManager.shared
+            let effectiveFormId = formId ?? manager.currentFormId
+            let effectiveFormName = formName ?? manager.currentFormName
+            manager.invokeLifecycleHandler(for: .formCtaClicked(
+                formId: effectiveFormId,
+                formName: effectiveFormName,
+                buttonLabel: buttonLabel,
+                deepLinkUrl: url
+            ))
 
             // Only attempt to open valid URLs (skip if nil or empty)
             guard let url = url, !url.absoluteString.isEmpty else {
