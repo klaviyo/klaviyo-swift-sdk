@@ -542,7 +542,6 @@ struct KlaviyoReducer: ReducerProtocol {
 
             let pushTokenData = state.pushTokenData
             let currentIds = [state.email, state.phoneNumber, state.externalId]
-            let isIdentified = currentIds.contains { $0 != nil }
             let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                 // Normalize with the same trimming used by updateStateWithProfile
                 // so whitespace-padded inputs match their stored counterparts.
@@ -555,7 +554,7 @@ struct KlaviyoReducer: ReducerProtocol {
             // Resetting with the same identifiers causes unnecessary anonymous ID
             // churn, which triggers spurious push-token API requests.
             // resetProfile() remains available for explicitly clobbering all state.
-            if isIdentified, currentIds != incomingIds {
+            if state.isIdentified, currentIds != incomingIds {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)
