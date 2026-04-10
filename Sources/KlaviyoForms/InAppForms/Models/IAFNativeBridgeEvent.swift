@@ -185,7 +185,9 @@ extension IAFNativeBridgeEvent {
     }
 
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
-        // events that JS is permitted to sending
+        // Events that JS is permitted to send. These are only used for their
+        // `name` and `version` properties — the associated values are placeholders
+        // and are never decoded.
         [
             .formWillAppear(formId: "", formName: ""),
             .formDisappeared(formId: "", formName: ""),
