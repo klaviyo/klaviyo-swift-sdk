@@ -9,6 +9,11 @@ import AnyCodable
 import Foundation
 import OSLog
 
+/// Error thrown when a required field is missing from a bridge message payload.
+enum BridgeMessageError: Error, Equatable {
+    case missingRequiredField(String)
+}
+
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
     case formWillAppear(formId: String, formName: String)
@@ -51,11 +56,11 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
-            self = .formWillAppear(formId: payload?.formId ?? "", formName: payload?.formName ?? "")
+            let payload = try container.decode(FormContextPayload.self, forKey: .data)
+            self = .formWillAppear(formId: payload.formId, formName: payload.formName)
         case .formDisappeared:
-            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
-            self = .formDisappeared(formId: payload?.formId ?? "", formName: payload?.formName ?? "")
+            let payload = try container.decode(FormContextPayload.self, forKey: .data)
+            self = .formDisappeared(formId: payload.formId, formName: payload.formName)
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
@@ -86,8 +91,27 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
 extension IAFNativeBridgeEvent {
     struct FormContextPayload: Decodable {
-        let formId: String?
-        let formName: String?
+        let formId: String
+        let formName: String
+
+        enum CodingKeys: String, CodingKey {
+            case formId
+            case formName
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            guard let formId = try container.decodeIfPresent(String.self, forKey: .formId),
+                  !formId.isEmpty else {
+                throw BridgeMessageError.missingRequiredField("formId")
+            }
+            guard let formName = try container.decodeIfPresent(String.self, forKey: .formName),
+                  !formName.isEmpty else {
+                throw BridgeMessageError.missingRequiredField("formName")
+            }
+            self.formId = formId
+            self.formName = formName
+        }
     }
 
     struct DeepLinkEventPayload: Decodable {
@@ -105,10 +129,22 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            formId = try container.decodeIfPresent(String.self, forKey: .formId) ?? ""
-            formName = try container.decodeIfPresent(String.self, forKey: .formName) ?? ""
-            buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel) ?? ""
-            // Handle missing, null, or empty string gracefully
+            guard let formId = try container.decodeIfPresent(String.self, forKey: .formId),
+                  !formId.isEmpty else {
+                throw BridgeMessageError.missingRequiredField("formId")
+            }
+            guard let formName = try container.decodeIfPresent(String.self, forKey: .formName),
+                  !formName.isEmpty else {
+                throw BridgeMessageError.missingRequiredField("formName")
+            }
+            guard let buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel),
+                  !buttonLabel.isEmpty else {
+                throw BridgeMessageError.missingRequiredField("buttonLabel")
+            }
+            self.formId = formId
+            self.formName = formName
+            self.buttonLabel = buttonLabel
+            // Handle missing, null, or empty string gracefully — ios URL is genuinely optional
             guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
                   !urlString.isEmpty else {
                 ios = nil

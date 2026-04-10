@@ -67,7 +67,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeOpenDeepLink() async throws {
+    func testDecodeOpenDeepLinkMissingButtonLabel() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -81,17 +81,9 @@ struct IAFNativeBridgeEventTests {
         """
 
         let data = try #require(json.data(using: .utf8))
-        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
-            Issue.record("event type should be .openDeepLink but was '.\(event)'")
-            return
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         }
-
-        let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
-        #expect(url == expectedUrl)
-        #expect(formId == "form456")
-        #expect(formName == "CTA Form")
-        #expect(buttonLabel == "")
     }
 
     @Test
@@ -136,17 +128,9 @@ struct IAFNativeBridgeEventTests {
         """
 
         let data = try #require(json.data(using: .utf8))
-        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
-            Issue.record("event type should be .openDeepLink but was '.\(event)'")
-            return
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         }
-
-        let expectedUrl = try #require(URL(string: "klaviyotest://settings"))
-        #expect(url == expectedUrl)
-        #expect(formId == "")
-        #expect(formName == "")
-        #expect(buttonLabel == "")
     }
 
     @Test
@@ -172,7 +156,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeFormWillAppearWithoutFormName() async throws {
+    func testDecodeFormWillAppearMissingFormName() async throws {
         let json = """
         {
           "type": "formWillAppear",
@@ -183,13 +167,9 @@ struct IAFNativeBridgeEventTests {
         """
 
         let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
-            Issue.record("event type should be .formWillAppear but was '.\(event)'")
-            return
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         }
-        #expect(formId == "abc123")
-        #expect(formName == "")
     }
 
     @Test
@@ -224,13 +204,9 @@ struct IAFNativeBridgeEventTests {
         """
 
         let data = json.data(using: .utf8)!
-        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formDisappeared(formId, formName) = event else {
-            Issue.record("event type should be .formDisappeared but was '.\(event)'")
-            return
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         }
-        #expect(formId == "")
-        #expect(formName == "")
     }
 
     @Test
@@ -269,6 +245,145 @@ struct IAFNativeBridgeEventTests {
         let profileEventDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: profileEventData)
 
         #expect(profileEventDataDecoded == associatedValueDataDecoded)
+    }
+
+    // MARK: - Missing Required Fields
+
+    @Test
+    func testDecodeFormWillAppearMissingFormId() async throws {
+        let json = """
+        {
+          "type": "formWillAppear",
+          "data": {
+            "formName": "Test Form"
+          }
+        }
+        """
+        let data = json.data(using: .utf8)!
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeFormWillAppearEmptyData() async throws {
+        let json = """
+        {
+          "type": "formWillAppear",
+          "data": {}
+        }
+        """
+        let data = json.data(using: .utf8)!
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeFormDisappearedMissingFormId() async throws {
+        let json = """
+        {
+          "type": "formDisappeared",
+          "data": {
+            "formName": "Test Form"
+          }
+        }
+        """
+        let data = json.data(using: .utf8)!
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeFormDisappearedMissingFormName() async throws {
+        let json = """
+        {
+          "type": "formDisappeared",
+          "data": {
+            "formId": "abc123"
+          }
+        }
+        """
+        let data = json.data(using: .utf8)!
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkMissingFormId() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "formName": "CTA Form",
+            "buttonLabel": "Shop Now"
+          }
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkMissingFormName() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "formId": "form456",
+            "buttonLabel": "Shop Now"
+          }
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkEmptyData() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {}
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkWithoutIosUrl() async throws {
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "android": "klaviyotest://settings",
+            "formId": "form456",
+            "formName": "CTA Form",
+            "buttonLabel": "Shop Now"
+          }
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            return
+        }
+        #expect(url == nil)
+        #expect(formId == "form456")
+        #expect(formName == "CTA Form")
+        #expect(buttonLabel == "Shop Now")
     }
 
     @Test
