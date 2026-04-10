@@ -541,7 +541,8 @@ class StateManagementTests: XCTestCase {
             $0.email = Profile.test.email
             $0.phoneNumber = Profile.test.phoneNumber
             $0.externalId = Profile.test.externalId
-            $0.pushTokenData = nil
+            // No reset — state had no prior identifiers (isIdentified = false),
+            // so pushTokenData stays on state.
 
             let request = KlaviyoRequest(
                 endpoint: .registerPushToken(
@@ -564,12 +565,27 @@ class StateManagementTests: XCTestCase {
     func testCreateProfileWithTrailingWhitespaceProperties() async throws {
         let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
 
+        let initialState = INITIALIZED_TEST_STATE()
         _ = await store.send(.enqueueProfile(Profile(email: "foo@blob.com ", phoneNumber: "+19999999999     ", externalId: "abcdefg    "))) {
             $0.phoneNumber = "+19999999999"
             $0.email = "foo@blob.com"
             $0.externalId = "abcdefg"
-            $0.enqueueProfileOrTokenRequest()
-            $0.pushTokenData = nil
+            // No reset — state had no prior identifiers (isIdentified = false),
+            // so pushTokenData stays on state. The reducer builds the request inline
+            // using the captured pushTokenData without clearing it from state.
+            let request = KlaviyoRequest(
+                endpoint: .registerPushToken(
+                    initialState.apiKey!,
+                    PushTokenPayload(
+                        pushToken: initialState.pushTokenData!.pushToken,
+                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
+                        background: initialState.pushTokenData!.pushBackground.rawValue,
+                        profile: Profile(email: "foo@blob.com", phoneNumber: "+19999999999", externalId: "abcdefg")
+                            .toAPIModel(anonymousId: $0.anonymousId!)
+                    )
+                )
+            )
+            $0.queue = [request]
         }
     }
 
