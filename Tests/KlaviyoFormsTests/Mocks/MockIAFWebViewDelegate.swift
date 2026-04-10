@@ -20,6 +20,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 
     var handshakeResult: HandshakeResult?
     var evaluateJavaScriptCalled = false
+    var evaluatedScripts: [String] = []
 
     init(viewModel: IAFWebViewModel) {
         self.viewModel = viewModel
@@ -59,6 +60,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 
     func evaluateJavaScript(_ script: String) async throws -> Any? {
         evaluateJavaScriptCalled = true
+        evaluatedScripts.append(script)
         return true
     }
 
