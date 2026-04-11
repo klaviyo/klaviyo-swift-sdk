@@ -296,23 +296,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // Invoke lifecycle handler only when all metadata fields are present
-            if let formId, let formName, let buttonLabel,
-               let url, !url.absoluteString.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                    formId: formId,
-                    formName: formName,
-                    buttonLabel: buttonLabel,
-                    deepLinkUrl: url
-                ))
-            } else if formId == nil || formName == nil || buttonLabel == nil {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "openDeepLink missing metadata — skipping lifecycle callback")
-                }
-            }
-
-            // Always attempt deep link navigation when URL is present
+            // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
@@ -321,6 +305,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 return
             }
 
+            // 2. Handle deep link navigation before validating lifecycle metadata
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
@@ -331,6 +316,22 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
                 }
             }
+
+            // 3. Invoke lifecycle handler only when all metadata fields are present
+            guard let formId, let formName, let buttonLabel else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "openDeepLink missing metadata — skipping lifecycle callback")
+                }
+                return
+            }
+
+            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
+                formId: formId,
+                formName: formName,
+                buttonLabel: buttonLabel,
+                deepLinkUrl: url
+            ))
         case let .abort(reason):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'abort' event from KlaviyoJS with reason: \(reason, privacy: .public)")
