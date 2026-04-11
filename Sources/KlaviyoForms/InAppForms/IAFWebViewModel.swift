@@ -260,14 +260,30 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.present)
+            if let formId, let formName {
+                IAFPresentationManager.shared.invokeLifecycleHandler(
+                    for: .formShown(formId: formId, formName: formName))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "formWillAppear missing metadata — skipping lifecycle callback")
+                }
+            }
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formDismissed(formId: formId, formName: formName))
             formLifecycleContinuation.yield(.dismiss)
+            if let formId, let formName {
+                IAFPresentationManager.shared.invokeLifecycleHandler(
+                    for: .formDismissed(formId: formId, formName: formName))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "formDisappeared missing metadata — skipping lifecycle callback")
+                }
+            }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -280,20 +296,30 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // Only emit CTA lifecycle event and attempt deep link when URL is present
+            // Invoke lifecycle handler only when all metadata fields are present
+            if let formId, let formName, let buttonLabel,
+               let url, !url.absoluteString.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
+                    formId: formId,
+                    formName: formName,
+                    buttonLabel: buttonLabel,
+                    deepLinkUrl: url
+                ))
+            } else if formId == nil || formName == nil || buttonLabel == nil {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "openDeepLink missing metadata — skipping lifecycle callback")
+                }
+            }
+
+            // Always attempt deep link navigation when URL is present
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("CTA clicked but no deep link URL configured — skipping lifecycle event")
+                    Logger.webViewLogger.warning(
+                        "CTA clicked but no deep link URL configured — skipping navigation")
                 }
                 return
             }
-
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                formId: formId,
-                formName: formName,
-                buttonLabel: buttonLabel,
-                deepLinkUrl: url
-            ))
 
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {

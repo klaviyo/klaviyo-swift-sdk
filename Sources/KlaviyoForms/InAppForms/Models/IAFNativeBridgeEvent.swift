@@ -9,18 +9,13 @@ import AnyCodable
 import Foundation
 import OSLog
 
-/// Error thrown when a required field is missing from a bridge message payload.
-enum BridgeMessageError: Error, Equatable {
-    case missingRequiredField(String)
-}
-
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear(formId: String, formName: String)
-    case formDisappeared(formId: String, formName: String)
+    case formWillAppear(formId: String?, formName: String?)
+    case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(url: URL?, formId: String, formName: String, buttonLabel: String)
+    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -91,8 +86,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
 extension IAFNativeBridgeEvent {
     struct FormContextPayload: Decodable {
-        let formId: String
-        let formName: String
+        /// Non-empty form ID, or nil if missing/empty.
+        let formId: String?
+        /// Non-empty form name, or nil if missing/empty.
+        let formName: String?
 
         enum CodingKeys: String, CodingKey {
             case formId
@@ -101,24 +98,21 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            guard let formId = try container.decodeIfPresent(String.self, forKey: .formId),
-                  !formId.isEmpty else {
-                throw BridgeMessageError.missingRequiredField("formId")
-            }
-            guard let formName = try container.decodeIfPresent(String.self, forKey: .formName),
-                  !formName.isEmpty else {
-                throw BridgeMessageError.missingRequiredField("formName")
-            }
-            self.formId = formId
-            self.formName = formName
+            let rawFormId = try container.decodeIfPresent(String.self, forKey: .formId)
+            formId = rawFormId?.isEmpty == true ? nil : rawFormId
+            let rawFormName = try container.decodeIfPresent(String.self, forKey: .formName)
+            formName = rawFormName?.isEmpty == true ? nil : rawFormName
         }
     }
 
     struct DeepLinkEventPayload: Decodable {
         let ios: URL?
-        let formId: String
-        let formName: String
-        let buttonLabel: String
+        /// Non-empty form ID, or nil if missing/empty.
+        let formId: String?
+        /// Non-empty form name, or nil if missing/empty.
+        let formName: String?
+        /// Non-empty button label, or nil if missing/empty.
+        let buttonLabel: String?
 
         enum CodingKeys: String, CodingKey {
             case ios
@@ -129,21 +123,12 @@ extension IAFNativeBridgeEvent {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            guard let formId = try container.decodeIfPresent(String.self, forKey: .formId),
-                  !formId.isEmpty else {
-                throw BridgeMessageError.missingRequiredField("formId")
-            }
-            guard let formName = try container.decodeIfPresent(String.self, forKey: .formName),
-                  !formName.isEmpty else {
-                throw BridgeMessageError.missingRequiredField("formName")
-            }
-            guard let buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel),
-                  !buttonLabel.isEmpty else {
-                throw BridgeMessageError.missingRequiredField("buttonLabel")
-            }
-            self.formId = formId
-            self.formName = formName
-            self.buttonLabel = buttonLabel
+            let rawFormId = try container.decodeIfPresent(String.self, forKey: .formId)
+            formId = rawFormId?.isEmpty == true ? nil : rawFormId
+            let rawFormName = try container.decodeIfPresent(String.self, forKey: .formName)
+            formName = rawFormName?.isEmpty == true ? nil : rawFormName
+            let rawButtonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
+            buttonLabel = rawButtonLabel?.isEmpty == true ? nil : rawButtonLabel
             // Handle missing, null, or empty string gracefully — ios URL is genuinely optional
             guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
                   !urlString.isEmpty else {
@@ -189,11 +174,11 @@ extension IAFNativeBridgeEvent {
         // `name` and `version` properties — the associated values are placeholders
         // and are never decoded.
         [
-            .formWillAppear(formId: "", formName: ""),
-            .formDisappeared(formId: "", formName: ""),
+            .formWillAppear(formId: nil, formName: nil),
+            .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(url: URL(string: "https://example.com")!, formId: "", formName: "", buttonLabel: ""),
+            .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,

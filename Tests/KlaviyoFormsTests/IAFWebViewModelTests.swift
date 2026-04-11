@@ -249,6 +249,72 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+        // Given
+        let expectation = XCTestExpectation(
+            description: "formWillAppear with missing metadata should still yield .present")
+
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .present = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a formWillAppear with empty data (no formId/formName)
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillAppear",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - .present should still be yielded
+        await fulfillment(of: [expectation], timeout: 5.0)
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+        // Given
+        let expectation = XCTestExpectation(
+            description: "formDisappeared with missing metadata should still yield .dismiss")
+
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .dismiss = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a formDisappeared with empty data
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formDisappeared",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - .dismiss should still be yielded
+        await fulfillment(of: [expectation], timeout: 5.0)
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
     func testAbortEventYieldsAbortLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
