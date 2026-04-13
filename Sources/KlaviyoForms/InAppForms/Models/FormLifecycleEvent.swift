@@ -33,28 +33,24 @@ import Foundation
 /// }
 /// ```
 public enum FormLifecycleEvent: Equatable, Sendable {
-    /// Triggered when the JavaScript bridge reports a form will appear.
+    /// Triggered when a form is shown to the user.
     ///
-    /// Fired after the SDK has initiated form presentation. The callback
-    /// reflects the JS-side `formWillAppear` signal and reliably indicates
-    /// the form was shown.
+    /// Fired after the SDK has initiated form presentation.
     case formShown(formId: String, formName: String)
 
-    /// Triggered when the JavaScript bridge reports a form has disappeared.
+    /// Triggered when a form is dismissed by the user.
     ///
-    /// Fired after the SDK has initiated form dismissal. Reflects the
-    /// JS-side `formDisappeared` signal for user-initiated dismissals
-    /// (e.g. tapping outside, close button). Does **not** fire when the
-    /// webview is destroyed before a form is ever shown (session timeouts,
-    /// aborts).
+    /// Fired after the SDK has initiated form dismissal. Fires for
+    /// user-initiated dismissals (e.g. tapping outside, close button).
+    /// Does **not** fire when the SDK tears down the form internally
+    /// (session timeouts, aborts).
     case formDismissed(formId: String, formName: String)
 
-    /// Triggered when a user taps a call-to-action button in a form
+    /// Triggered when a user taps a call-to-action (CTA) button in a form
     /// that has a deep link URL configured.
     ///
-    /// Fired after the SDK has initiated deep link navigation. If no
-    /// deep link URL is configured for the CTA, this event is not
-    /// emitted.
+    /// Fired after the SDK has initiated deep link navigation. Not emitted
+    /// if no deep link URL is configured for the CTA.
     ///
     /// - `buttonLabel`: The label text of the tapped button.
     /// - `deepLinkUrl`: The deep link URL associated with the CTA.
