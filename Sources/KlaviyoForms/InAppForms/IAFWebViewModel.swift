@@ -261,7 +261,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
             formLifecycleContinuation.yield(.present)
-            if let formId, let formName {
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
                     for: .formShown(formId: formId, formName: formName))
             } else {
@@ -275,7 +276,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
             formLifecycleContinuation.yield(.dismiss)
-            if let formId, let formName {
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
                     for: .formDismissed(formId: formId, formName: formName))
             } else {
@@ -319,20 +321,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
             // 3. Invoke lifecycle handler when form identity fields are present
             //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
-            guard let formId, let formName else {
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
+                    formId: formId,
+                    formName: formName,
+                    buttonLabel: buttonLabel ?? "",
+                    deepLinkUrl: url
+                ))
+            } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
                         "openDeepLink missing metadata — skipping lifecycle callback")
                 }
-                return
             }
-
-            IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                formId: formId,
-                formName: formName,
-                buttonLabel: buttonLabel ?? "",
-                deepLinkUrl: url
-            ))
         case let .abort(reason):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'abort' event from KlaviyoJS with reason: \(reason, privacy: .public)")

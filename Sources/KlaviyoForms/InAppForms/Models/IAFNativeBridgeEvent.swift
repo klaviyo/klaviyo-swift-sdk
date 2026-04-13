@@ -51,11 +51,11 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let payload = try container.decode(FormContextPayload.self, forKey: .data)
-            self = .formWillAppear(formId: payload.formId, formName: payload.formName)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
+            self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
         case .formDisappeared:
-            let payload = try container.decode(FormContextPayload.self, forKey: .data)
-            self = .formDisappeared(formId: payload.formId, formName: payload.formName)
+            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
+            self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
@@ -65,8 +65,9 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .openDeepLink:
-            let payload = try container.decode(DeepLinkEventPayload.self, forKey: .data)
-            self = .openDeepLink(url: payload.ios, formId: payload.formId, formName: payload.formName, buttonLabel: payload.buttonLabel)
+            let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
+            let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
+            self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -86,57 +87,15 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 
 extension IAFNativeBridgeEvent {
     struct FormContextPayload: Decodable {
-        /// Non-empty form ID, or nil if missing/empty.
         let formId: String?
-        /// Non-empty form name, or nil if missing/empty.
         let formName: String?
-
-        enum CodingKeys: String, CodingKey {
-            case formId
-            case formName
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let rawFormId = try container.decodeIfPresent(String.self, forKey: .formId)
-            formId = rawFormId?.isEmpty == true ? nil : rawFormId
-            let rawFormName = try container.decodeIfPresent(String.self, forKey: .formName)
-            formName = rawFormName?.isEmpty == true ? nil : rawFormName
-        }
     }
 
     struct DeepLinkEventPayload: Decodable {
-        let ios: URL?
-        /// Non-empty form ID, or nil if missing/empty.
+        let ios: String?
         let formId: String?
-        /// Non-empty form name, or nil if missing/empty.
         let formName: String?
-        /// Non-empty button label, or nil if missing/empty.
         let buttonLabel: String?
-
-        enum CodingKeys: String, CodingKey {
-            case ios
-            case formId
-            case formName
-            case buttonLabel
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let rawFormId = try container.decodeIfPresent(String.self, forKey: .formId)
-            formId = rawFormId?.isEmpty == true ? nil : rawFormId
-            let rawFormName = try container.decodeIfPresent(String.self, forKey: .formName)
-            formName = rawFormName?.isEmpty == true ? nil : rawFormName
-            let rawButtonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
-            buttonLabel = rawButtonLabel?.isEmpty == true ? nil : rawButtonLabel
-            // Handle missing, null, or empty string gracefully — ios URL is genuinely optional
-            guard let urlString = try container.decodeIfPresent(String.self, forKey: .ios),
-                  !urlString.isEmpty else {
-                ios = nil
-                return
-            }
-            ios = URL(string: urlString)
-        }
     }
 
     struct AbortPayload: Decodable {
