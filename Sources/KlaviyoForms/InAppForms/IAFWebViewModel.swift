@@ -317,8 +317,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             }
 
-            // 3. Invoke lifecycle handler only when all metadata fields are present
-            guard let formId, let formName, let buttonLabel else {
+            // 3. Invoke lifecycle handler when form identity fields are present
+            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
+            guard let formId, let formName else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
                         "openDeepLink missing metadata — skipping lifecycle callback")
@@ -329,7 +330,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
                 formId: formId,
                 formName: formName,
-                buttonLabel: buttonLabel,
+                buttonLabel: buttonLabel ?? "",
                 deepLinkUrl: url
             ))
         case let .abort(reason):
