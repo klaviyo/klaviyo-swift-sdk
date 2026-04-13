@@ -584,25 +584,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Same identifiers → no reset → pushTokenData preserved on state, anonymousId unchanged.
-        // The reducer still builds a registerPushToken request using the captured pushTokenData,
-        // but the state's pushTokenData is NOT cleared (only reset() clears it).
-        _ = await store.send(.enqueueProfile(Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123"))) {
-            // anonymousId stays the same — no reset, pushTokenData stays on state
-            let request = KlaviyoRequest(
-                endpoint: .registerPushToken(
-                    TEST_API_KEY,
-                    PushTokenPayload(
-                        pushToken: initialState.pushTokenData!.pushToken,
-                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                        background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123")
-                            .toAPIModel(anonymousId: initialState.anonymousId!)
-                    )
-                )
-            )
-            $0.queue = [request]
-        }
+        // Same identifiers + no non-identifier attributes → no reset, no API call, no state change.
+        // Nothing changed, so there's no reason to hit the network.
+        // The pushTokenData and anonymousId both remain untouched on state.
+        _ = await store.send(.enqueueProfile(Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123")))
     }
 
     @MainActor

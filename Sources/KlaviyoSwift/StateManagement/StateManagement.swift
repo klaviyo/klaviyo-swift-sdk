@@ -548,16 +548,26 @@ struct KlaviyoReducer: ReducerProtocol {
                 $0?.trimWhiteSpaceOrReturnNilIfEmpty()
             }
 
+            let identifiersChanged = currentIds != incomingIds
+
             // Only reset if the incoming profile has different identifiers.
             // Anonymous ID is the lowest-order identifier, so there's no reason
             // to regenerate it when higher-order identifiers haven't changed.
             // Resetting with the same identifiers causes unnecessary anonymous ID
             // churn, which triggers spurious push-token API requests.
             // resetProfile() remains available for explicitly clobbering all state.
-            if state.isIdentified, currentIds != incomingIds {
+            if state.isIdentified, identifiersChanged {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)
+
+            // Skip the API call entirely when there is nothing new to sync:
+            // identifiers are unchanged, the profile carries no extra attributes,
+            // and no profile properties are queued up via setProfileProperty.
+            if !identifiersChanged, !profile.hasNonIdentifierData, state.pendingProfile == nil {
+                return .none
+            }
+
             guard let anonymousId = state.anonymousId,
                   let apiKey = state.apiKey
             else {

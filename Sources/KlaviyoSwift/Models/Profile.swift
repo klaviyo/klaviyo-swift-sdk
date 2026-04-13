@@ -84,6 +84,19 @@ public struct Profile: Equatable, Codable {
 
     let _properties: AnyCodable
 
+    /// Returns `true` if the profile contains any data beyond the three identifier fields
+    /// (email, phoneNumber, externalId). Used to decide whether to skip a redundant API
+    /// call when the caller's identifiers haven't changed.
+    var hasNonIdentifierData: Bool {
+        firstName != nil ||
+            lastName != nil ||
+            organization != nil ||
+            title != nil ||
+            image != nil ||
+            location != nil ||
+            !properties.isEmpty
+    }
+
     /// Create or update properties about a profile without tracking an associated event.
     /// - Parameters:
     ///   - email: Individual's email address
