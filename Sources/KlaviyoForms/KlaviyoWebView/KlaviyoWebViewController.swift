@@ -44,6 +44,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     private var addedMessageHandlers: Set<String> = []
 
     private var viewModel: KlaviyoWebViewModeling
+    var onSizeTransition: (@MainActor (CGSize, UIViewControllerTransitionCoordinator) -> Void)?
 
     // MARK: - Initializers
 
@@ -94,6 +95,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
               webView.estimatedProgress != 1.0 else { return }
 
         loadUrl()
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        onSizeTransition?(size, coordinator)
     }
 
     @MainActor
