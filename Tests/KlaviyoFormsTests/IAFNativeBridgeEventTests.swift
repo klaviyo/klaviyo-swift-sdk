@@ -6,18 +6,12 @@
 //
 
 @testable import KlaviyoForms
-import AnyCodable
 import Foundation
 
 #if canImport(Testing)
 import Testing
 
 struct IAFNativeBridgeEventTests {
-    private struct FormWillAppearPayload: Decodable {
-        let formId: String?
-        let formName: String?
-    }
-
     @Test
     func testHandshakeCreated() async throws {
         struct TestableHandshakeData: Codable, Equatable {
@@ -64,7 +58,7 @@ struct IAFNativeBridgeEventTests {
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .abort(reason) = event else {
-            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            Issue.record("event type should be .abort but was '.\(event)'")
             return
         }
 
@@ -168,11 +162,10 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(payloadData) = event else {
+        guard case let .formWillAppear(payload) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: payloadData)
         #expect(payload.formId == "abc123")
         #expect(payload.formName == "Test Form")
     }
@@ -190,11 +183,10 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(payloadData) = event else {
+        guard case let .formWillAppear(payload) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
-        let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: payloadData)
         #expect(payload.formId == "abc123")
         #expect(payload.formName == nil)
     }
@@ -255,27 +247,16 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let profileEvent = """
-        {
-          "metric": "Form completed by profile",
-          "properties": {
-            "form_id": "7uSP7t",
-            "form_version_id": 8
-          }
-        }
-        """
         let jsonData = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
-        guard case let .trackProfileEvent(associatedValueData) = event else {
+        guard case let .trackProfileEvent(payload) = event else {
             Issue.record("event type should be .trackProfileEvent but was '.\(event)'")
             return
         }
-        let associatedValueDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: associatedValueData)
 
-        let profileEventData = try #require(profileEvent.data(using: .utf8))
-        let profileEventDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: profileEventData)
-
-        #expect(profileEventDataDecoded == associatedValueDataDecoded)
+        #expect(payload.metric == "Form completed by profile")
+        #expect(payload.properties.formId == "7uSP7t")
+        #expect(payload.properties.formVersionId == 8)
     }
 
     @Test
@@ -325,62 +306,50 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let aggregateEvent = """
-        {
-            "metric_group": "signup-forms",
-            "events": [
-                {
-                    "metric": "stepSubmit",
-                    "log_to_statsd": true,
-                    "log_to_s3": true,
-                    "log_to_metrics_service": true,
-                    "metric_service_event_name": "submitted_form_step",
-                    "event_details": {
-                        "form_version_c_id": "1",
-                        "is_client": true,
-                        "submitted_fields": {
-                            "$source": "Local Form",
-                            "$email": "local@local.com",
-                            "$consent_method": "Klaviyo Form",
-                            "$consent_form_id": "64CjgW",
-                            "$consent_form_version": 3,
-                            "sent_identifiers": {},
-                            "sms_consent": true,
-                            "$step_name": "Email Opt-In"
-                        },
-                        "step_name": "Email Opt-In",
-                        "step_number": 1,
-                        "action_type": "Submit Step",
-                        "form_id": "64CjgW",
-                        "form_version_id": 3,
-                        "form_type": "POPUP",
-                        "device_type": "DESKTOP",
-                        "hostname": "localhost",
-                        "href": "http://localhost:4001/onsite/js/",
-                        "page_url": "http://localhost:4001/onsite/js/",
-                        "first_referrer": "http://localhost:4001/onsite/js/",
-                        "referrer": "http://localhost:4001/onsite/js/",
-                        "cid": "ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz"
-                    }
-                }
-            ]
-        }
-        """
-
         let jsonData = try #require(json.data(using: .utf8))
-        let aggregateEventData = try #require(aggregateEvent.data(using: .utf8))
-        let aggregateEventDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: aggregateEventData)
-
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
 
-        guard case let .trackAggregateEvent(associatedValueData) = event else {
+        guard case let .trackAggregateEvent(payload) = event else {
             Issue.record("event type should be .trackAggregateEvent but was '.\(event)'")
             return
         }
 
-        let associatedValueDataDecoded = try JSONDecoder().decode(AnyCodable.self, from: associatedValueData)
+        #expect(payload.metricGroup == "signup-forms")
+        #expect(payload.events.count == 1)
 
-        #expect(aggregateEventDataDecoded == associatedValueDataDecoded)
+        let firstEvent = try #require(payload.events.first)
+        #expect(firstEvent.metric == "stepSubmit")
+        #expect(firstEvent.logToStatsd == true)
+        #expect(firstEvent.logToS3 == true)
+        #expect(firstEvent.logToMetricsService == true)
+        #expect(firstEvent.metricServiceEventName == "submitted_form_step")
+
+        let details = try #require(firstEvent.eventDetails)
+        #expect(details.formVersionCId == "1")
+        #expect(details.isClient == true)
+        #expect(details.stepName == "Email Opt-In")
+        #expect(details.stepNumber == 1)
+        #expect(details.actionType == "Submit Step")
+        #expect(details.formId == "64CjgW")
+        #expect(details.formVersionId == 3)
+        #expect(details.formType == "POPUP")
+        #expect(details.deviceType == "DESKTOP")
+        #expect(details.hostname == "localhost")
+        #expect(details.href == "http://localhost:4001/onsite/js/")
+        #expect(details.pageURL == "http://localhost:4001/onsite/js/")
+        #expect(details.firstReferrer == "http://localhost:4001/onsite/js/")
+        #expect(details.referrer == "http://localhost:4001/onsite/js/")
+        #expect(details.cid == "ODZjYjJmMjUtNjliMC00ZGVlLTllM2YtNDY5YTlmNjcwYmUz")
+
+        let submittedFields = try #require(details.submittedFields)
+        #expect(submittedFields.source == "Local Form")
+        #expect(submittedFields.email == "local@local.com")
+        #expect(submittedFields.consentMethod == "Klaviyo Form")
+        #expect(submittedFields.consentFormId == "64CjgW")
+        #expect(submittedFields.consentFormVersion == 3)
+        #expect(submittedFields.sentIdentifiers == [:])
+        #expect(submittedFields.smsConsent == true)
+        #expect(submittedFields.stepName == "Email Opt-In")
     }
 }
 #endif

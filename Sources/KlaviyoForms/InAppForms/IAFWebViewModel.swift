@@ -256,33 +256,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(data):
+        case let .formWillAppear(payload):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
 
-            do {
-                let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: data)
-                let layout = payload.layout ?? FormLayout(position: .fullscreen)
-                formLifecycleContinuation.yield(.present(formId: payload.formId, formName: payload.formName, withLayout: layout))
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to parse formWillAppear payload: \(error.localizedDescription)")
-                }
-                formLifecycleContinuation.yield(.present(formId: nil, formName: nil, withLayout: FormLayout(position: .fullscreen)))
-            }
+            let layout = payload.layout ?? FormLayout(position: .fullscreen)
+            formLifecycleContinuation.yield(.present(formId: payload.formId, formName: payload.formName, withLayout: layout))
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
             formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
-        case let .trackProfileEvent(data):
-            if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
+        case let .trackProfileEvent(payload):
+            KlaviyoSDK().create(event: Event(name: .customEvent(payload.metric), properties: payload.eventProperties))
+        case let .trackAggregateEvent(payload):
+            do {
+                let data = try JSONEncoder().encode(payload)
+                KlaviyoInternal.create(aggregateEvent: data)
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Failed to encode aggregate event payload: \(error.localizedDescription)")
+                }
             }
-        case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
@@ -340,12 +336,4 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         }
     }
-}
-
-// MARK: - FormWillAppearPayload
-
-private struct FormWillAppearPayload: Codable {
-    let formId: String?
-    let formName: String?
-    let layout: FormLayout?
 }
