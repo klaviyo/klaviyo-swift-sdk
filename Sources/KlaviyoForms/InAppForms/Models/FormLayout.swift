@@ -27,7 +27,7 @@ enum DimensionUnit: String, Codable {
 }
 
 /// A dimension with a value and unit.
-struct Dimension: Codable {
+struct Dimension: Codable, Equatable {
     let value: Double
     let unit: DimensionUnit
 
@@ -43,7 +43,7 @@ struct Dimension: Codable {
 }
 
 /// Margins from the anchor position, in points.
-struct Margins: Codable {
+struct Margins: Codable, Equatable {
     let top: CGFloat
     let bottom: CGFloat
     let left: CGFloat
@@ -53,7 +53,7 @@ struct Margins: Codable {
 }
 
 /// Layout configuration for flexible/banner forms.
-struct FormLayout: Codable {
+struct FormLayout: Codable, Equatable {
     let position: FormPosition
     let width: Dimension
     let height: Dimension

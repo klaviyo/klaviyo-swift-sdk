@@ -109,10 +109,10 @@ extension IAFNativeBridgeEvent {
             properties["form_id"] = self.properties.formId
             properties["form_version_id"] = self.properties.formVersionId
 
-            [
+            return [
                 "metric": metric,
                 "properties": properties
-            ]
+            ] as [String: Any]
         }
     }
 
