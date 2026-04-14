@@ -96,8 +96,8 @@ class InAppWindowManager {
         let marginLeft = safeArea.left + margin.left
         let marginRight = safeArea.right + margin.right
 
-        let availableWidth = screenWidth - marginLeft - marginRight
-        let availableHeight = screenHeight - marginTop - marginBottom
+        let availableWidth = max(0, screenWidth - marginLeft - marginRight)
+        let availableHeight = max(0, screenHeight - marginTop - marginBottom)
         let clampedWidth = min(width, availableWidth)
         let clampedHeight = min(height, availableHeight)
 
