@@ -33,28 +33,24 @@ import Foundation
 /// }
 /// ```
 public enum FormLifecycleEvent: Equatable, Sendable {
-    /// Triggered when the JavaScript bridge reports a form will appear.
+    /// Triggered when a form is shown to the user.
     ///
-    /// This event reflects the JS-side `formWillAppear` signal and fires
-    /// before native presentation validation (e.g. checking for a visible
-    /// view controller). In practice, it reliably indicates the form was
-    /// shown and matches the analytics data tracked by the webview.
+    /// Fired after the SDK has initiated form presentation.
     case formShown(formId: String, formName: String)
 
-    /// Triggered when the JavaScript bridge reports a form has disappeared.
+    /// Triggered when a form is dismissed by the user.
     ///
-    /// This event reflects the JS-side `formDisappeared` signal and fires
-    /// for user-initiated dismissals (e.g. tapping outside, close button).
-    /// It does **not** fire for scenarios where the webview is destroyed
-    /// before a form is ever shown, such as session timeouts or aborts.
+    /// Fired after the SDK has initiated form dismissal. Fires for
+    /// user-initiated dismissals (e.g. tapping outside, close button).
+    /// Does **not** fire when the SDK tears down the form internally
+    /// (session timeouts, aborts).
     case formDismissed(formId: String, formName: String)
 
-    /// Triggered when a user taps a call-to-action button in a form
+    /// Triggered when a user taps a call-to-action (CTA) button in a form
     /// that has a deep link URL configured.
     ///
-    /// This event fires before the deep link URL is processed, ensuring
-    /// the event is captured even if URL routing fails. If no deep link
-    /// URL is configured for the CTA, this event is not emitted.
+    /// Fired after the SDK has initiated deep link navigation. Not emitted
+    /// if no deep link URL is configured for the CTA.
     ///
     /// - `buttonLabel`: The label text of the tapped button.
     /// - `deepLinkUrl`: The deep link URL associated with the CTA.

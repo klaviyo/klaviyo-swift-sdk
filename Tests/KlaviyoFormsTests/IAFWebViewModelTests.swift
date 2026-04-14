@@ -180,15 +180,11 @@ final class IAFWebViewModelTests: XCTestCase {
     func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
-        var receivedFormId = ""
-        var receivedFormName = ""
 
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
-                if case let .present(formId, formName) = event {
-                    receivedFormId = formId
-                    receivedFormName = formName
+                if case .present = event {
                     expectation.fulfill()
                     break
                 }
@@ -213,8 +209,6 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
-        XCTAssertEqual(receivedFormId, "test123")
-        XCTAssertEqual(receivedFormName, "Test Form")
         lifecycleTask.cancel()
     }
 
@@ -222,15 +216,11 @@ final class IAFWebViewModelTests: XCTestCase {
     func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
         // Given
         let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
-        var receivedFormId = ""
-        var receivedFormName = ""
 
         // Create a task to listen for lifecycle events
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
-                if case let .dismiss(formId, formName) = event {
-                    receivedFormId = formId
-                    receivedFormName = formName
+                if case .dismiss = event {
                     expectation.fulfill()
                     break
                 }
@@ -255,8 +245,72 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
-        XCTAssertEqual(receivedFormId, "dismiss123")
-        XCTAssertEqual(receivedFormName, "Dismiss Form")
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+        // Given
+        let expectation = XCTestExpectation(
+            description: "formWillAppear with missing metadata should still yield .present")
+
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .present = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a formWillAppear with empty data (no formId/formName)
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillAppear",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - .present should still be yielded
+        await fulfillment(of: [expectation], timeout: 5.0)
+        lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+        // Given
+        let expectation = XCTestExpectation(
+            description: "formDisappeared with missing metadata should still yield .dismiss")
+
+        let lifecycleTask = Task {
+            for await event in viewModel.formLifecycleStream {
+                if case .dismiss = event {
+                    expectation.fulfill()
+                    break
+                }
+            }
+        }
+
+        // When - simulate a formDisappeared with empty data
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formDisappeared",
+              "data": {}
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - .dismiss should still be yielded
+        await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
     }
 
