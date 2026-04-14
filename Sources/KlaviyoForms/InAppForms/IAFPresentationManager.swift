@@ -390,8 +390,8 @@ class IAFPresentationManager {
             currentFormId = formId
             currentFormName = formName
             hasInvokedDismissed = false
-            invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
             InAppWindowManager.shared.present(viewController: viewController, layout: layout)
+            invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
         } else {
             // Fullscreen form: use modal presentation
             presentFormAsModal(viewController: viewController, formId: formId, formName: formName)
