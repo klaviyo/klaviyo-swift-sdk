@@ -256,58 +256,54 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(formId, formName):
+        case let .formWillAppear(payload):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present)
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formShown(formId: formId, formName: formName))
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "formWillAppear missing metadata — skipping lifecycle callback")
-                }
-            }
+
+            let layout = payload.layout ?? FormLayout(position: .fullscreen)
+            formLifecycleContinuation.yield(.present(formId: payload.formId, formName: payload.formName, withLayout: layout))
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.dismiss)
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formDismissed(formId: formId, formName: formName))
-            } else {
+            formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
+        case let .trackProfileEvent(payload):
+            KlaviyoSDK().create(event: Event(name: .customEvent(payload.metric), properties: payload.eventProperties))
+        case let .trackAggregateEvent(payload):
+            do {
+                let data = try JSONEncoder().encode(payload)
+                KlaviyoInternal.create(aggregateEvent: data)
+            } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "formDisappeared missing metadata — skipping lifecycle callback")
+                    Logger.webViewLogger.warning("Failed to encode aggregate event payload: \(error.localizedDescription)")
                 }
             }
-        case let .trackProfileEvent(data):
-            if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
-            }
-        case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
+            // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
+            // Fall back to stored context if fender omits formId/formName (rollback / companion PR not yet deployed)
+            let manager = IAFPresentationManager.shared
+            let effectiveFormId = formId ?? manager.currentFormId
+            let effectiveFormName = formName ?? manager.currentFormName
+            manager.invokeLifecycleHandler(for: .formCtaClicked(
+                formId: effectiveFormId,
+                formName: effectiveFormName,
+                buttonLabel: buttonLabel,
+                deepLinkUrl: url
+            ))
+
+            // Only attempt to open valid URLs (skip if nil or empty)
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "CTA clicked but no deep link URL configured — skipping navigation")
+                    Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
                 }
                 return
             }
 
-            // 2. Handle deep link navigation before validating lifecycle metadata
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
@@ -316,23 +312,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
-                }
-            }
-
-            // 3. Invoke lifecycle handler when form identity fields are present
-            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                    formId: formId,
-                    formName: formName,
-                    buttonLabel: buttonLabel ?? "",
-                    deepLinkUrl: url
-                ))
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "openDeepLink missing metadata — skipping lifecycle callback")
                 }
             }
         case let .abort(reason):
