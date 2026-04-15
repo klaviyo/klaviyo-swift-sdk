@@ -186,8 +186,8 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case let .present(formId, formName):
-            presentForm(formId: formId, formName: formName)
+        case let .present(formId, formName, withLayout: layout):
+            presentForm(formId: formId, formName: formName, layout: layout)
         case let .dismiss(formId, formName):
             dismissForm(formId: formId, formName: formName)
         case .abort:
@@ -375,7 +375,7 @@ class IAFPresentationManager {
 
     // MARK: - View Lifecycle
 
-    private func presentForm(formId: String? = nil, formName: String? = nil) {
+    private func presentForm(formId: String? = nil, formName: String? = nil, layout: FormLayout?) {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
@@ -383,6 +383,22 @@ class IAFPresentationManager {
             return
         }
 
+        if let layout, layout.position != .fullscreen {
+            // Flexible form: use window manager
+            delayedPresentationTask?.cancel()
+            delayedPresentationTask = nil
+            currentFormId = formId
+            currentFormName = formName
+            hasInvokedDismissed = false
+            invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
+            InAppWindowManager.shared.present(viewController: viewController, layout: layout)
+        } else {
+            // Fullscreen form: use modal presentation
+            presentFormAsModal(viewController: viewController, formId: formId, formName: formName)
+        }
+    }
+
+    private func presentFormAsModal(viewController: KlaviyoWebViewController, formId: String? = nil, formName: String? = nil) {
         guard let topController = UIApplication.shared.topMostViewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Unable to access topMostViewController; ignoring `presentForm()` request.")
@@ -402,7 +418,7 @@ class IAFPresentationManager {
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 try? Task.checkCancellation()
-                self.presentForm(formId: formId, formName: formName)
+                self.presentForm(formId: formId, formName: formName, layout: nil)
             }
         } else {
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
@@ -431,7 +447,8 @@ class IAFPresentationManager {
             invokeLifecycleHandler(for: .formDismissed(formId: effectiveFormId, formName: effectiveFormName))
             hasInvokedDismissed = true
         }
-        viewController.dismiss(animated: false)
+
+        performDismiss(viewController: viewController)
     }
 
     // MARK: - Cleanup & Destruction
@@ -441,17 +458,27 @@ class IAFPresentationManager {
 
         // Invoke lifecycle handler if form was visible
         // This covers timeout-based and programmatic dismissals
-        if viewController.presentingViewController != nil && !hasInvokedDismissed {
+        if (InAppWindowManager.shared.hasActiveWindow || viewController.presentingViewController != nil) && !hasInvokedDismissed {
             invokeLifecycleHandler(for: .formDismissed(formId: currentFormId, formName: currentFormName))
             hasInvokedDismissed = true
         }
 
-        viewController.dismiss(animated: false, completion: nil)
+        performDismiss(viewController: viewController)
 
         currentFormId = nil
         currentFormName = nil
         self.viewController = nil
         viewModel = nil
+    }
+
+    private func performDismiss(viewController: KlaviyoWebViewController) {
+        if InAppWindowManager.shared.hasActiveWindow {
+            // Flexible form: dismiss window
+            InAppWindowManager.shared.dismiss()
+        } else {
+            // Fullscreen form: dismiss modal
+            viewController.dismiss(animated: false, completion: nil)
+        }
     }
 
     func destroyWebviewAndListeners() {
