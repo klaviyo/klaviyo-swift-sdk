@@ -154,6 +154,7 @@ extension IAFNativeBridgeEvent {
             let formVersionId: Int?
             let formType: String?
             let deviceType: String?
+            let channelType: String?
             let hostname: String?
             let href: String?
             let pageURL: String?
@@ -172,6 +173,7 @@ extension IAFNativeBridgeEvent {
                 case formVersionId = "form_version_id"
                 case formType = "form_type"
                 case deviceType = "device_type"
+                case channelType = "channel_type"
                 case hostname
                 case href
                 case pageURL = "page_url"
@@ -303,6 +305,7 @@ extension IAFNativeBridgeEvent {
                                 formVersionId: 0,
                                 formType: "",
                                 deviceType: "",
+                                channelType: nil,
                                 hostname: "",
                                 href: "",
                                 pageURL: "",
