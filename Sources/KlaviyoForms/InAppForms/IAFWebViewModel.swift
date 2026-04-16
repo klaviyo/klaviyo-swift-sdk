@@ -302,7 +302,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "CTA clicked but no deep link URL configured — skipping navigation")
+                        "CTA clicked but no deep link URL configured — skipping navigation"
+                    )
                 }
                 return
             }
@@ -332,7 +333,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "openDeepLink missing metadata — skipping lifecycle callback")
+                        "openDeepLink missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .abort(reason):
