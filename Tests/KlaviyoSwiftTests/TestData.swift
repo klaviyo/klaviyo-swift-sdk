@@ -224,6 +224,7 @@ extension KlaviyoSwiftEnvironment {
             Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
         }, setBadgeCount: { _ in
             nil
+        }, pruneCategory: { _ in
         })
     }
 }
