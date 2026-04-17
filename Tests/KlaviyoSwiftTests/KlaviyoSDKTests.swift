@@ -22,6 +22,7 @@ class KlaviyoSDKTests: XCTestCase {
     override func setUpWithError() throws {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
+        klaviyoSwiftEnvironment.pruneCategory = { _ in }
     }
 
     override func tearDown() async throws {

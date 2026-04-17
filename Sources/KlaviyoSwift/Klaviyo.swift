@@ -212,7 +212,7 @@ public struct KlaviyoSDK {
 
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
-            KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+            klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
         }
 
         // Prune the category if the push with action buttons was dismissed from the Notification Center
