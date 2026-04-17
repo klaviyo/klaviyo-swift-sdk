@@ -14,13 +14,23 @@ import KlaviyoCore
 import OSLog
 import UserNotifications
 
+extension UNNotification {
+    /// Determines if this notification originated from Klaviyo.
+    ///
+    /// A notification is considered a Klaviyo notification if it contains
+    /// a "body" dictionary with a "_k" key in its userInfo.
+    public var isKlaviyoNotification: Bool {
+        request.content.isKlaviyoNotification
+    }
+}
+
 extension UNNotificationResponse {
     /// Determines if a notification originated from Klaviyo.
     ///
     /// A notification is considered a Klaviyo notification if it contains
     /// a "body" dictionary with a "_k" key in its userInfo.
     public var isKlaviyoNotification: Bool {
-        notification.request.content.userInfo.isKlaviyoNotification()
+        notification.isKlaviyoNotification
     }
 
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.

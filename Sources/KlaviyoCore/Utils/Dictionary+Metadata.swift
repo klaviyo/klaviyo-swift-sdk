@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UserNotifications
 
 extension Dictionary where Key == String, Value == Any {
     /// Appends device, SDK, and app metadata to event properties
@@ -39,12 +40,19 @@ extension Dictionary where Key == AnyHashable {
     /// a "body" dictionary with a "_k" key in its userInfo.
     ///
     /// - Returns: `true` if the notification is from Klaviyo, `false` otherwise
-    public func isKlaviyoNotification() -> Bool {
+    func isKlaviyoNotification() -> Bool {
         guard let properties = self as? [String: Any],
               let body = properties["body"] as? [String: Any],
               body["_k"] != nil else {
             return false
         }
         return true
+    }
+}
+
+extension UNNotificationContent {
+    /// Determines if this notification content originated from Klaviyo.
+    public var isKlaviyoNotification: Bool {
+        userInfo.isKlaviyoNotification()
     }
 }
