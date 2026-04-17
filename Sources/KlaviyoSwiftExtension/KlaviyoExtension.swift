@@ -217,7 +217,7 @@ public enum KlaviyoExtensionSDK {
         // Respect developer-set categories for non-Klaviyo notifications
         // Only process and set up action buttons for Klaviyo notifications
         let existingCategory = request.content.categoryIdentifier
-        guard bestAttemptContent.userInfo.isKlaviyoNotification() && existingCategory.isEmpty else {
+        guard bestAttemptContent.isKlaviyoNotification && existingCategory.isEmpty else {
             return
         }
 
