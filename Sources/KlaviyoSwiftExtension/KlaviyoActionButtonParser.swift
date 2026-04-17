@@ -119,7 +119,8 @@ enum KlaviyoActionButtonParser {
         case .openApp:
             return url == nil
         case .deepLink:
-            return url != nil
+            guard let url else { return false }
+            return URL(string: url) != nil
         }
     }
 

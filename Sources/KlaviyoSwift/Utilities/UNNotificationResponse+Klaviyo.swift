@@ -93,84 +93,33 @@ extension UNNotificationResponse {
     }
 
     /// Returns the action-specific deep link URL from the payload.
-    ///
-    /// This method checks the dynamic button format: `body.action_buttons[].url`
-    ///
-    /// Returns nil if no action-specific URL is found.
     var actionButtonURL: URL? {
-        guard isActionButtonTap,
-              isKlaviyoNotification,
-              let properties = klaviyoProperties else {
-            return nil
-        }
-
-        // Check dynamic format: body.action_buttons[].url
-        if let body = properties["body"] as? [String: Any],
-           let actionButtons = body["action_buttons"] as? [[String: Any]] {
-            for button in actionButtons {
-                if let id = button["id"] as? String,
-                   id == actionIdentifier,
-                   let urlString = button["url"] as? String,
-                   let url = URL(string: urlString) {
-                    return url
-                }
-            }
-        }
-
-        return nil
+        guard let urlString = matchingActionButton?["url"] as? String else { return nil }
+        return URL(string: urlString)
     }
 
     /// Returns the button label text (for analytics).
-    ///
-    /// This is available for dynamic action buttons that include a label in the payload.
-    ///
-    /// Returns nil if no label is found.
     var actionButtonLabel: String? {
-        guard isActionButtonTap,
-              isKlaviyoNotification,
-              let properties = klaviyoProperties else {
-            return nil
-        }
-
-        // Dynamic format: body.action_buttons[].label
-        if let body = properties["body"] as? [String: Any],
-           let actionButtons = body["action_buttons"] as? [[String: Any]] {
-            for button in actionButtons {
-                if let id = button["id"] as? String,
-                   id == actionIdentifier,
-                   let label = button["label"] as? String {
-                    return label
-                }
-            }
-        }
-
-        return nil
+        matchingActionButton?["label"] as? String
     }
 
     /// Returns the action type for the tapped button.
-    ///
-    /// This method checks the dynamic button format: `body.action_buttons[].action`
-    ///
-    /// Returns nil if no action type is found or if the action is invalid.
     var actionButtonType: ActionType? {
+        guard let actionString = matchingActionButton?["action"] as? String else { return nil }
+        return ActionType(rawValue: actionString)
+    }
+
+    // MARK: - Private Helpers
+
+    /// Returns the action button dictionary matching the tapped action identifier, if any.
+    private var matchingActionButton: [String: Any]? {
         guard isActionButtonTap,
               isKlaviyoNotification,
-              let properties = klaviyoProperties else {
+              let properties = klaviyoProperties,
+              let body = properties["body"] as? [String: Any],
+              let actionButtons = body["action_buttons"] as? [[String: Any]] else {
             return nil
         }
-
-        // Check dynamic format: body.action_buttons[].action
-        if let body = properties["body"] as? [String: Any],
-           let actionButtons = body["action_buttons"] as? [[String: Any]] {
-            for button in actionButtons {
-                if let id = button["id"] as? String,
-                   id == actionIdentifier,
-                   let actionString = button["action"] as? String {
-                    return ActionType(rawValue: actionString)
-                }
-            }
-        }
-
-        return nil
+        return actionButtons.first { $0["id"] as? String == actionIdentifier }
     }
 }
