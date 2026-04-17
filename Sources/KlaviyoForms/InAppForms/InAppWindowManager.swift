@@ -42,7 +42,7 @@ class InAppWindowManager {
         window.makeKeyAndVisible()
 
         updateWindowFrame()
-        setupObservers()
+        setupObservers(on: viewController)
     }
 
     /// Returns true if the window manager has an active window.
@@ -75,7 +75,7 @@ class InAppWindowManager {
         }
     }
 
-    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect, keyboardVisible: Bool = false) -> CGRect {
+    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
         guard layout.position != .fullscreen else {
             return screenBounds
         }
@@ -92,7 +92,7 @@ class InAppWindowManager {
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
         let marginTop = safeArea.top + margin.top
-        let marginBottom = (keyboardVisible ? 0 : safeArea.bottom) + margin.bottom
+        let marginBottom = safeArea.bottom + margin.bottom
         let marginLeft = safeArea.left + margin.left
         let marginRight = safeArea.right + margin.right
 
@@ -133,36 +133,52 @@ class InAppWindowManager {
         return CGRect(x: x, y: y, width: clampedWidth, height: clampedHeight)
     }
 
-    private func setupObservers() {
-        NotificationCenter.default.addObserver(self, selector: #selector(handleOrientationChange), name: UIDevice.orientationDidChangeNotification, object: nil)
+    private func setupObservers(on viewController: KlaviyoWebViewController) {
+        // Handle orientation changes via viewWillTransition
+        viewController.onSizeTransition = { [weak self] _, coordinator in
+            coordinator.animate(alongsideTransition: { _ in
+                self?.updateWindowFrame()
+            }, completion: nil)
+        }
+
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
-    }
-
-    @objc
-    private func handleOrientationChange() {
-        updateWindowFrame()
     }
 
     @objc
     private func handleKeyboardChange(_ notification: Notification) {
         guard let window,
               let currentLayout,
-              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
-              isBottomAnchored(currentLayout.position) else {
+              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
             return
         }
 
-        var screenBounds = getScreenBounds()
-        let isShowing = notification.name == UIResponder.keyboardWillShowNotification
-        if isShowing {
-            screenBounds.size.height -= keyboardFrame.height
+        let screenBounds = getScreenBounds()
+
+        guard currentLayout.position != .fullscreen else { return }
+        if notification.name == UIResponder.keyboardWillShowNotification {
+            // Calculate the form's bottom edge position and gap from screen bottom
+            let baseFrame = calculateFrame(for: currentLayout, in: screenBounds)
+            let formBottomEdge = baseFrame.maxY
+            let screenBottom = screenBounds.maxY
+            let gap = screenBottom - formBottomEdge
+
+            // Calculate actual keyboard overlap
+            let keyboardHeight = keyboardFrame.height
+            let overlap = max(0, keyboardHeight - gap)
+
+            if overlap > 0 {
+                // Shift window up by the overlap amount, clamped to safe area top
+                let safeAreaTop = windowScene?.windows.first?.safeAreaInsets.top ?? 0
+                var adjustedFrame = baseFrame
+                adjustedFrame.origin.y = max(safeAreaTop, baseFrame.origin.y - overlap)
+                window.frame = adjustedFrame
+            } else {
+                window.frame = baseFrame
+            }
+        } else {
+            // Keyboard dismissed, restore original frame
+            window.frame = calculateFrame(for: currentLayout, in: screenBounds)
         }
-
-        window.frame = calculateFrame(for: currentLayout, in: screenBounds, keyboardVisible: isShowing)
-    }
-
-    private func isBottomAnchored(_ position: FormPosition) -> Bool {
-        position == .bottom || position == .bottomLeft || position == .bottomRight
     }
 }
