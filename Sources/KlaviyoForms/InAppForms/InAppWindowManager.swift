@@ -16,14 +16,12 @@ class InAppWindowManager {
     private var window: UIWindow?
     private var windowScene: UIWindowScene?
     private var currentLayout: FormLayout?
-    private weak var viewController: KlaviyoWebViewController?
 
     private init() {}
 
     /// Presents the view controller in a window configured according to the layout.
     func present(viewController: KlaviyoWebViewController, layout: FormLayout) {
         dismiss()
-        self.viewController = viewController
         currentLayout = layout
 
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
@@ -147,6 +145,8 @@ class InAppWindowManager {
         }
 
         let screenBounds = getScreenBounds()
+
+        guard currentLayout.position != .fullscreen else { return }
 
         if notification.name == UIResponder.keyboardWillShowNotification {
             // Calculate the form's bottom edge position and gap from screen bottom
