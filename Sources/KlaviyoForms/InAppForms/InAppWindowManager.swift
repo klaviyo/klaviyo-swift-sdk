@@ -75,7 +75,7 @@ class InAppWindowManager {
         }
     }
 
-    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect, keyboardVisible: Bool = false) -> CGRect {
+    private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
         guard layout.position != .fullscreen else {
             return screenBounds
         }
@@ -92,7 +92,7 @@ class InAppWindowManager {
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
         let marginTop = safeArea.top + margin.top
-        let marginBottom = (keyboardVisible ? 0 : safeArea.bottom) + margin.bottom
+        let marginBottom = safeArea.bottom + margin.bottom
         let marginLeft = safeArea.left + margin.left
         let marginRight = safeArea.right + margin.right
 
@@ -168,9 +168,10 @@ class InAppWindowManager {
             let overlap = max(0, keyboardHeight - gap)
 
             if overlap > 0 {
-                // Shift window up by the overlap amount
+                // Shift window up by the overlap amount, clamped to safe area top
+                let safeAreaTop = windowScene?.windows.first?.safeAreaInsets.top ?? 0
                 var adjustedFrame = baseFrame
-                adjustedFrame.origin.y -= overlap
+                adjustedFrame.origin.y = max(safeAreaTop, baseFrame.origin.y - overlap)
                 window.frame = adjustedFrame
             } else {
                 window.frame = baseFrame
