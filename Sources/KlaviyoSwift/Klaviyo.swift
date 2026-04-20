@@ -56,6 +56,28 @@ public struct KlaviyoSDK {
         state.pushTokenData?.pushToken
     }
 
+    /// Whether logging is currently enabled for the Klaviyo SDK.
+    ///
+    /// Logging is enabled by default. When disabled, all `os.Logger` output,
+    /// legacy `LoggerClient` error logging, and runtime warnings are silenced.
+    public var isLoggingEnabled: Bool {
+        KlaviyoLogConfig.shared.isLoggingEnabled
+    }
+
+    /// Enable or disable logging for the Klaviyo SDK.
+    ///
+    /// When disabled, all log output across KlaviyoCore, KlaviyoSwift,
+    /// KlaviyoForms, and KlaviyoLocation is silenced. Re-enabling restores
+    /// logging immediately.
+    ///
+    /// - Parameter enabled: Pass `true` to enable logging, `false` to disable.
+    /// - Returns: The current `KlaviyoSDK` instance, for chaining.
+    @discardableResult
+    public func setLoggingEnabled(_ enabled: Bool) -> KlaviyoSDK {
+        KlaviyoLogConfig.shared.isLoggingEnabled = enabled
+        return self
+    }
+
     /// Initialize the swift SDK with the given api key.
     /// NOTE: if the SDK has been initialized previously this will result in the profile
     /// information being reset and the token data being reassigned (see ``resetProfile()`` for details.)
