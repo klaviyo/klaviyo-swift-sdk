@@ -1,0 +1,29 @@
+Tests/KlaviyoSwiftTests/__Snapshots__/EncodableTests/testKlaviyoState.1.json
+  0b751b7135c2f4a9 73
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testKlaviyoRequest.1.json
+  0b751b7135c2f4a9 47
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testTokenPayload.1.json
+  0b751b7135c2f4a9 39
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testEventPayload.1.json
+  0b751b7135c2f4a9 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "ab27f3db1bd00418168abbede2c1a48c9b7a00a1",
+  "prompts": {
+    "0b751b7135c2f4a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ce65ea4-45e2-4a45-985b-72206acee666",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
