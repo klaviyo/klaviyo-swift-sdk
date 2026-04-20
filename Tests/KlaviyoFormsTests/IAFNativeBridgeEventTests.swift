@@ -285,7 +285,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
@@ -303,7 +303,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
@@ -455,7 +455,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
