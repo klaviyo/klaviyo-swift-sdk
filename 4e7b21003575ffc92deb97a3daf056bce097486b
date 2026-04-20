@@ -1,0 +1,27 @@
+Sources/KlaviyoCore/Utils/Dictionary+Metadata.swift
+  075ec8092ce56c31 9,43,52-56
+Sources/KlaviyoSwift/Utilities/UNNotificationResponse+Klaviyo.swift
+  075ec8092ce56c31 17-26,33
+Sources/KlaviyoSwiftExtension/KlaviyoExtension.swift
+  075ec8092ce56c31 220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "4e7b21003575ffc92deb97a3daf056bce097486b",
+  "prompts": {
+    "075ec8092ce56c31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aad5eb6-35f9-491f-85de-427fed83fe5a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 4,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,43 @@
+test-payloads/send-test.sh
+  ba32452cdc22af02 1-25
+test-payloads/10-error-case.json
+  ba32452cdc22af02 1-15
+test-payloads/6-back-in-stock.json
+  ba32452cdc22af02 1-28
+test-payloads/9-localization-spanish.json
+  ba32452cdc22af02 1-27
+test-payloads/3-three-buttons.json
+  ba32452cdc22af02 1-32
+test-payloads/7-predefined-fallback.json
+  ba32452cdc22af02 1-20
+test-payloads/1-basic-two-buttons.json
+  ba32452cdc22af02 1-27
+test-payloads/8-hybrid.json
+  ba32452cdc22af02 1-33
+test-payloads/2-with-icons.json
+  ba32452cdc22af02 1-28
+test-payloads/5-abandoned-cart.json
+  ba32452cdc22af02 1-29
+test-payloads/4-single-button.json
+  ba32452cdc22af02 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "a4946764decb2c1dad4b3b5aab156a16b259d1fe",
+  "prompts": {
+    "ba32452cdc22af02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "552b3e84-cfb7-49fb-857d-82cdc47ee72c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 14491,
+      "total_deletions": 0,
+      "accepted_lines": 14491,
+      "overriden_lines": 0
+    }
+  }
+}
