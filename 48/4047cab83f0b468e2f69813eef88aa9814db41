@@ -1,0 +1,23 @@
+.github/workflows/swift.yml
+  afe7feaffe5eb3f4 41,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "484047cab83f0b468e2f69813eef88aa9814db41",
+  "prompts": {
+    "afe7feaffe5eb3f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "829a68f3-ebce-44f9-9a9f-137963f5a6be",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
