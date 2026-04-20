@@ -256,30 +256,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(data):
+        case let .formWillAppear(formId, formName, layout):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-
-            do {
-                let payload = try JSONDecoder().decode(FormWillAppearPayload.self, from: data)
-                let layout = payload.layout ?? FormLayout(position: .fullscreen)
-                formLifecycleContinuation.yield(.present(withLayout: layout))
-                if let formId = payload.formId, !formId.isEmpty,
-                   let formName = payload.formName, !formName.isEmpty {
-                    IAFPresentationManager.shared.invokeLifecycleHandler(
-                        for: .formShown(formId: formId, formName: formName))
-                } else {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.warning(
-                            "formWillAppear missing metadata — skipping lifecycle callback")
-                    }
-                }
-            } catch {
+            formLifecycleContinuation.yield(.present(withLayout: layout ?? FormLayout(position: .fullscreen)))
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(
+                    for: .formShown(formId: formId, formName: formName))
+            } else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to parse formWillAppear payload: \(error.localizedDescription)")
+                    Logger.webViewLogger.warning(
+                        "formWillAppear missing metadata — skipping lifecycle callback")
                 }
-                formLifecycleContinuation.yield(.present(withLayout: FormLayout(position: .fullscreen)))
             }
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
@@ -369,12 +359,4 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         }
     }
-}
-
-// MARK: - FormWillAppearPayload
-
-private struct FormWillAppearPayload: Codable {
-    let formId: String?
-    let formName: String?
-    let layout: FormLayout?
 }
