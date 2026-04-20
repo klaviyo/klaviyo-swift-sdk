@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":1},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -163,7 +163,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }
@@ -184,7 +184,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .formWillAppear(formId, formName) = event else {
+        guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
             return
         }

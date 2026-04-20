@@ -11,7 +11,7 @@ import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
-    case formWillAppear(formId: String?, formName: String?)
+    case formWillAppear(formId: String?, formName: String?, layout: FormLayout?)
     case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
@@ -51,8 +51,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formsDataLoaded:
             self = .formsDataLoaded
         case .formWillAppear:
-            let payload = try? container.decode(FormContextPayload.self, forKey: .data)
-            self = .formWillAppear(formId: payload?.formId, formName: payload?.formName)
+            let payload = try? container.decode(FormWillAppearPayload.self, forKey: .data)
+            self = .formWillAppear(formId: payload?.formId, formName: payload?.formName, layout: payload?.layout)
         case .formDisappeared:
             let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
@@ -86,6 +86,12 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
 }
 
 extension IAFNativeBridgeEvent {
+    struct FormWillAppearPayload: Decodable {
+        let formId: String?
+        let formName: String?
+        let layout: FormLayout?
+    }
+
     struct FormContextPayload: Decodable {
         let formId: String?
         let formName: String?
@@ -133,7 +139,7 @@ extension IAFNativeBridgeEvent {
         // `name` and `version` properties — the associated values are placeholders
         // and are never decoded.
         [
-            .formWillAppear(formId: nil, formName: nil),
+            .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
@@ -148,7 +154,7 @@ extension IAFNativeBridgeEvent {
     private var version: Int {
         switch self {
         case .formsDataLoaded: return 1
-        case .formWillAppear: return 1
+        case .formWillAppear: return 2
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1

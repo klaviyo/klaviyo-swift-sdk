@@ -256,11 +256,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(formId, formName):
+        case let .formWillAppear(formId, formName, layout):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present)
+            formLifecycleContinuation.yield(.present(withLayout: layout ?? FormLayout(position: .fullscreen)))
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
