@@ -251,14 +251,28 @@ public struct KlaviyoSDK {
             return false
         }
 
-        create(event: Event(name: ._openedPush, properties: properties))
-        if let url = notificationResponse.klaviyoDeepLinkURL {
-            if let deepLinkHandler = deepLinkHandler {
-                Task { @MainActor in
-                    deepLinkHandler(url)
+        defer {
+            let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
+            klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
+        }
+
+        // Prune the category if the push with action buttons was dismissed from the Notification Center
+        guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            return true
+        }
+
+        if notificationResponse.isActionButtonTap {
+            handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
+        } else {
+            create(event: Event(name: ._openedPush, properties: properties))
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                if let deepLinkHandler = deepLinkHandler {
+                    Task { @MainActor in
+                        deepLinkHandler(url)
+                    }
+                } else {
+                    dispatchOnMainThread(action: .openDeepLink(url))
                 }
-            } else {
-                dispatchOnMainThread(action: .openDeepLink(url))
             }
         }
         Task { @MainActor in
