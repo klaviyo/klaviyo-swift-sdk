@@ -1,0 +1,29 @@
+Sources/KlaviyoForms/KlaviyoWebView/KlaviyoWebViewController.swift
+  e32609dbb683a875 108-110,116-119
+Sources/KlaviyoForms/InAppForms/IAFWebViewModel.swift
+  e32609dbb683a875 107,149
+Sources/KlaviyoForms/InAppForms/Models/DeviceInfo.swift
+  e32609dbb683a875 9,27,38,147-153,156-163
+Tests/KlaviyoFormsTests/InAppForms/Models/DeviceInfoTests.swift
+  e32609dbb683a875 96-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "71bfd4f4ea60e86355fe8c6f1cafee7628cd6bc2",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 76,
+      "total_deletions": 12,
+      "accepted_lines": 391,
+      "overriden_lines": 0
+    }
+  }
+}
