@@ -1,0 +1,62 @@
+Sources/KlaviyoForms/InAppForms/InAppWindowManager.swift
+  bd019025b6f78a46 19-28,51-56,77-97,168-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "5116a966d531e1385546bc7340391694813b5c7c",
+  "prompts": {
+    "332f05b620dde867": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d6fc2e87-6cc1-4def-aaff-8fcf6702ae1f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 135,
+      "total_deletions": 89,
+      "accepted_lines": 2,
+      "overriden_lines": 13
+    },
+    "8a44338bcf8677da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d49124d-de2b-4898-91db-25cee6c3b132",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 36,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "bd019025b6f78a46": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "049b2f21-9de6-4c1a-947a-e7f1e481fcdf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 126,
+      "total_deletions": 108,
+      "accepted_lines": 41,
+      "overriden_lines": 5
+    },
+    "d8ee43f7ddea5986": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a4874f0-9626-4866-a3cd-bb014bdc7caf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 4,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
