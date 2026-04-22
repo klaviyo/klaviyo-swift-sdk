@@ -1,0 +1,23 @@
+Sources/KlaviyoForms/InAppForms/InAppWindowManager.swift
+  39156c5a41841153 19-38,61-66,87-107,178-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "bc4ba094d4df09d408b9b0d3a3401f00ee6167bc",
+  "prompts": {
+    "39156c5a41841153": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8163fe0-7cb8-43a3-a9fe-bcb505a4e15e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 53,
+      "total_deletions": 52,
+      "accepted_lines": 53,
+      "overriden_lines": 0
+    }
+  }
+}
