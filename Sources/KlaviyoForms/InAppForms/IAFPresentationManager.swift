@@ -103,6 +103,8 @@ class IAFPresentationManager {
         companyObserver?.startObserving()
         isInitializingOrInitialized = true
 
+        _ = InAppWindowManager.shared
+
         companyEventsTask = Task { [weak self] in
             guard let self, let eventsStream = companyObserver?.eventsStream else { return }
             for await event in eventsStream {
