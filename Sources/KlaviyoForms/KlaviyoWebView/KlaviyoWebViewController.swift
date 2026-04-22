@@ -100,6 +100,18 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         onSizeTransition?(size, coordinator)
+        // Re-publish `data-klaviyo-device` after the transition completes so the new
+        // orientation and safe-area values are available to onsite. We wait on the
+        // transition's animation block so `UIScreen.bounds` and the key window's
+        // safe-area insets have settled before we read them.
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            (self?.viewModel as? IAFWebViewModel)?.pushDeviceInfo()
+        }
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        (viewModel as? IAFWebViewModel)?.pushDeviceInfo()
     }
 
     @MainActor
