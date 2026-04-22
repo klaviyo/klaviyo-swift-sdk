@@ -61,7 +61,8 @@ public struct AppContextInfo {
                 osName: String = defaultOSName,
                 manufacturer: String = defaultManufacturer,
                 deviceModel: String = defaultDeviceModel,
-                deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "") {
+                deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? "",
+                environment: String? = nil) {
         self.executable = executable
         self.bundleId = bundleId
         self.appVersion = appVersion
@@ -73,17 +74,21 @@ public struct AppContextInfo {
         self.deviceModel = deviceModel
         self.deviceId = deviceId
 
-        switch UIDevice.current.pushEnvironment {
-        case .development:
-            environment = "debug"
-        case .production:
-            environment = "release"
-        case .unknown:
-            #if DEBUG
-            environment = "debug"
-            #else
-            environment = "release"
-            #endif
+        if let environment {
+            self.environment = environment
+        } else {
+            switch UIDevice.current.pushEnvironment {
+            case .development:
+                self.environment = "debug"
+            case .production:
+                self.environment = "release"
+            case .unknown:
+                #if DEBUG
+                self.environment = "debug"
+                #else
+                self.environment = "release"
+                #endif
+            }
         }
     }
 }
