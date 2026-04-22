@@ -5,7 +5,6 @@
 //  Created by Isobelle Lim on 1/22/26.
 //
 
-import Foundation
 import UIKit
 
 /// Manages the UIWindow lifecycle for flexible/banner in-app forms.
@@ -17,7 +16,26 @@ class InAppWindowManager {
     private var windowScene: UIWindowScene?
     private var currentLayout: FormLayout?
 
-    private init() {}
+    /// Tracks the most-recently-reported keyboard end frame so that layout
+    /// is keyboard-aware even when a form is presented while the keyboard is
+    /// already visible (no new keyboardWillShow fires in that case).
+    private var currentKeyboardFrame: CGRect = .zero
+
+    private init() {
+        let keyboardEvents: [Notification.Name] = [
+            UIResponder.keyboardWillShowNotification,
+            UIResponder.keyboardWillChangeFrameNotification,
+            UIResponder.keyboardWillHideNotification
+        ]
+        for keyboardEvent in keyboardEvents {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleKeyboardChange(_:)),
+                name: keyboardEvent,
+                object: nil
+            )
+        }
+    }
 
     /// Presents the view controller in a window configured according to the layout.
     func present(viewController: KlaviyoWebViewController, layout: FormLayout) {
@@ -39,10 +57,13 @@ class InAppWindowManager {
         window.clipsToBounds = true
         window.windowLevel = .normal + 1
         window.isHidden = false
-        window.makeKeyAndVisible()
-
         updateWindowFrame()
-        setupObservers(on: viewController)
+
+        viewController.onSizeTransition = { [weak self] _, coordinator in
+            coordinator.animate(alongsideTransition: { _ in
+                self?.updateWindowFrame()
+            }, completion: nil)
+        }
     }
 
     /// Returns true if the window manager has an active window.
@@ -52,7 +73,6 @@ class InAppWindowManager {
 
     /// Dismisses and removes the window.
     func dismiss() {
-        NotificationCenter.default.removeObserver(self)
         window?.isHidden = true
         window?.rootViewController = nil
         window = nil
@@ -64,7 +84,27 @@ class InAppWindowManager {
 
     private func updateWindowFrame() {
         guard let window, let currentLayout else { return }
-        window.frame = calculateFrame(for: currentLayout, in: getScreenBounds())
+        let screenBounds = getScreenBounds()
+        var frame = calculateFrame(for: currentLayout, in: screenBounds)
+
+        // Shift the frame up to avoid keyboard overlap. Form dimensions are
+        // always calculated against full screen bounds so percentage-based sizes
+        // aren't affected; we only adjust origin (and height as a last resort).
+        if currentLayout.position != .fullscreen, currentKeyboardFrame != .zero {
+            let keyboardTop = max(0, currentKeyboardFrame.origin.y)
+            let overlap = max(0, frame.maxY - keyboardTop)
+            if overlap > 0 {
+                let safeAreaTop = windowScene?.windows.first?.safeAreaInsets.top ?? 0
+                frame.origin.y = max(safeAreaTop, frame.origin.y - overlap)
+                // Only clamp height if the form is taller than the space above the keyboard.
+                let remainingOverlap = max(0, frame.maxY - keyboardTop)
+                if remainingOverlap > 0 {
+                    frame.size.height -= remainingOverlap
+                }
+            }
+        }
+
+        window.frame = frame
     }
 
     private func getScreenBounds() -> CGRect {
@@ -133,52 +173,11 @@ class InAppWindowManager {
         return CGRect(x: x, y: y, width: clampedWidth, height: clampedHeight)
     }
 
-    private func setupObservers(on viewController: KlaviyoWebViewController) {
-        // Handle orientation changes via viewWillTransition
-        viewController.onSizeTransition = { [weak self] _, coordinator in
-            coordinator.animate(alongsideTransition: { _ in
-                self?.updateWindowFrame()
-            }, completion: nil)
-        }
-
-        NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardChange(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
-    }
-
     @objc
     private func handleKeyboardChange(_ notification: Notification) {
-        guard let window,
-              let currentLayout,
-              let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
-            return
-        }
-
-        let screenBounds = getScreenBounds()
-
-        guard currentLayout.position != .fullscreen else { return }
-        if notification.name == UIResponder.keyboardWillShowNotification {
-            // Calculate the form's bottom edge position and gap from screen bottom
-            let baseFrame = calculateFrame(for: currentLayout, in: screenBounds)
-            let formBottomEdge = baseFrame.maxY
-            let screenBottom = screenBounds.maxY
-            let gap = screenBottom - formBottomEdge
-
-            // Calculate actual keyboard overlap
-            let keyboardHeight = keyboardFrame.height
-            let overlap = max(0, keyboardHeight - gap)
-
-            if overlap > 0 {
-                // Shift window up by the overlap amount, clamped to safe area top
-                let safeAreaTop = windowScene?.windows.first?.safeAreaInsets.top ?? 0
-                var adjustedFrame = baseFrame
-                adjustedFrame.origin.y = max(safeAreaTop, baseFrame.origin.y - overlap)
-                window.frame = adjustedFrame
-            } else {
-                window.frame = baseFrame
-            }
-        } else {
-            // Keyboard dismissed, restore original frame
-            window.frame = calculateFrame(for: currentLayout, in: screenBounds)
-        }
+        currentKeyboardFrame = notification.name == UIResponder.keyboardWillHideNotification
+            ? .zero
+            : (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect ?? .zero)
+        updateWindowFrame()
     }
 }
