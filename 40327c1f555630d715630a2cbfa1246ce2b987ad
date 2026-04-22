@@ -1,0 +1,25 @@
+Sources/KlaviyoSwift/Klaviyo.swift
+  4ce6007105f06e8b 254-274
+KlaviyoSwiftExtension.podspec
+  4ce6007105f06e8b 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "40327c1f555630d715630a2cbfa1246ce2b987ad",
+  "prompts": {
+    "4ce6007105f06e8b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "516ecfa4-7ad6-47fc-b252-e0e2658d24e8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 7,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    }
+  }
+}
