@@ -105,12 +105,18 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         // transition's animation block so `UIScreen.bounds` and the key window's
         // safe-area insets have settled before we read them.
         coordinator.animate(alongsideTransition: nil) { [weak self] _ in
-            (self?.viewModel as? IAFWebViewModel)?.pushDeviceInfo()
+            guard let self else { return }
+            guard self.view.window != nil, !self.webView.isLoading else { return }
+            (self.viewModel as? IAFWebViewModel)?.pushDeviceInfo()
         }
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
+        // Skip while we're not window-attached or mid-load — otherwise preload-phase
+        // safe-area changes fire `evaluateJavaScript` against a webview that can't
+        // service it, producing noisy "Error pushing updated device info" warnings.
+        guard view.window != nil, !webView.isLoading else { return }
         (viewModel as? IAFWebViewModel)?.pushDeviceInfo()
     }
 

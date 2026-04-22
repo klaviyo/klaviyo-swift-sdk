@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import UIKit
 
 /// Describes the device's current physical display characteristics, exposed to onsite JS
@@ -23,6 +24,7 @@ struct DeviceInfo: Codable, Equatable {
 
     /// Safe-area insets in CSS points for the currently displayed window.
     struct SafeAreaInsets: Codable, Equatable {
+        // `top` name locked by wire contract (CSSOM / data-klaviyo-device spec).
         // swiftlint:disable:next identifier_name
         let top: Int
         let bottom: Int
@@ -33,6 +35,7 @@ struct DeviceInfo: Codable, Equatable {
     let screen: Screen
     let safeAreaInsets: SafeAreaInsets
     let orientation: String
+    // `dpr` name locked by wire contract (CSSOM / data-klaviyo-device spec).
     // swiftlint:disable:next identifier_name
     let dpr: Int
 
@@ -141,11 +144,23 @@ struct DeviceInfo: Codable, Equatable {
         let encoder = JSONEncoder()
         // Stable key ordering helps downstream diffing and snapshot tests.
         encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(self),
-              let json = String(data: data, encoding: .utf8) else {
+        do {
+            let data = try encoder.encode(self)
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.error("DeviceInfo encode failed: \(error)")
+            }
             return "{}"
         }
-        return json
+    }
+
+    /// JS statement that sets the `data-klaviyo-device` attribute on the document head
+    /// using this payload. Centralizes the attribute name and JS-escaping contract so
+    /// injection-time and runtime-push call sites stay in lockstep.
+    func asAttributeAssignmentScript() -> String {
+        let json = toJsonString().klaviyoJsSingleQuoteEscaped
+        return "document.head.setAttribute('data-klaviyo-device', '\(json)');"
     }
 }
 

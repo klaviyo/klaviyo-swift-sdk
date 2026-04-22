@@ -93,6 +93,51 @@ final class DeviceInfoTests: XCTestCase {
         XCTAssertEqual(info.orientation, "landscape-primary")
     }
 
+    func testMakeSwapsDimensionsWhenBoundsReportLandscapeButOrientationIsPortrait() {
+        // Opposite of the landscape case: UIKit reports landscape-shaped bounds while
+        // the interface is in portrait. We still swap so the payload matches the
+        // logical orientation.
+        let info = DeviceInfo.make(
+            screenBounds: CGSize(width: 874, height: 402),
+            orientation: .portrait,
+            nativeScale: 3,
+            safeAreaInsets: .zero
+        )
+
+        XCTAssertEqual(info.screen.width, 402)
+        XCTAssertEqual(info.screen.height, 874)
+        XCTAssertEqual(info.orientation, "portrait-primary")
+    }
+
+    func testMakeClampsDprToAtLeastOne() {
+        // `nativeScale` is never *supposed* to be zero, but we clamp defensively so
+        // onsite never divides by zero on the JS side.
+        let info = DeviceInfo.make(
+            screenBounds: CGSize(width: 10, height: 10),
+            orientation: .portrait,
+            nativeScale: 0,
+            safeAreaInsets: .zero
+        )
+
+        XCTAssertEqual(info.dpr, 1)
+    }
+
+    // MARK: - JSON determinism
+
+    func testJsonStringUsesSortedKeysForDeterministicOutput() {
+        let info = DeviceInfo(
+            screen: .init(width: 402, height: 874),
+            safeAreaInsets: .init(top: 47, bottom: 34, left: 0, right: 0),
+            orientation: "portrait-primary",
+            dpr: 3
+        )
+
+        XCTAssertEqual(
+            info.toJsonString(),
+            #"{"dpr":3,"orientation":"portrait-primary","safeAreaInsets":{"bottom":34,"left":0,"right":0,"top":47},"screen":{"height":874,"width":402}}"#
+        )
+    }
+
     // MARK: - JS escaping
 
     func testJsEscapingHandlesBackslashesAndSingleQuotes() {

@@ -104,8 +104,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// attribute injections in this file.
     @MainActor
     private var deviceInfoWKScript: WKUserScript {
-        let json = DeviceInfo.current().toJsonString().klaviyoJsSingleQuoteEscaped
-        let script = "document.head.setAttribute('data-klaviyo-device', '\(json)');"
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
         return WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
@@ -147,8 +146,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// so onsite stays in sync with the device state.
     @MainActor
     func pushDeviceInfo() {
-        let json = DeviceInfo.current().toJsonString().klaviyoJsSingleQuoteEscaped
-        let script = "document.head.setAttribute('data-klaviyo-device', '\(json)');"
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
         Task { @MainActor in
             do {
                 _ = try await delegate?.evaluateJavaScript(script)
