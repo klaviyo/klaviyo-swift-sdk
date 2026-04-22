@@ -22,16 +22,16 @@ class InAppWindowManager {
     private var currentKeyboardFrame: CGRect = .zero
 
     private init() {
-        let names: [Notification.Name] = [
+        let keyboardEvents: [Notification.Name] = [
             UIResponder.keyboardWillShowNotification,
             UIResponder.keyboardWillChangeFrameNotification,
             UIResponder.keyboardWillHideNotification
         ]
-        for name in names {
+        for keyboardEvent in keyboardEvents {
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(handleKeyboardChange(_:)),
-                name: name,
+                name: keyboardEvent,
                 object: nil
             )
         }
