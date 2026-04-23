@@ -107,31 +107,39 @@ struct DeviceInfo: Codable, Equatable {
 
     // MARK: - Live capture
 
-    /// Snapshot the current device state by consulting `UIScreen.main` and the foreground
-    /// window scene's safe-area insets.
+    /// Snapshot the current device state.
+    ///
+    /// Uses the customer app's key window bounds as the primary source so dimensions reflect
+    /// the actual drawable area under iPad split view / stage manager / external-display
+    /// scenarios. Falls back to `scene.screen` and `UIScreen.main` for pathological
+    /// pre-scene cold-launch scenarios.
     @MainActor
     static func current() -> DeviceInfo {
-        let screen = UIScreen.main
-        let windowScene = UIApplication.shared
-            .connectedScenes
+        let scene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive }
-            ?? UIApplication.shared
-            .connectedScenes
+            ?? UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first
 
-        let orientation: UIInterfaceOrientation = windowScene?.interfaceOrientation ?? .portrait
+        let window = scene?.windows.first(where: \.isKeyWindow)
+            ?? scene?.windows.first
 
-        let keyWindow = windowScene?.windows.first(where: \.isKeyWindow)
-            ?? windowScene?.windows.first
+        let bounds = window?.bounds.size
+            ?? scene?.screen.bounds.size
+            ?? UIScreen.main.bounds.size
 
-        let insets = keyWindow?.safeAreaInsets ?? .zero
+        let nativeScale = window?.screen.nativeScale
+            ?? scene?.screen.nativeScale
+            ?? UIScreen.main.nativeScale
+
+        let orientation = scene?.interfaceOrientation ?? .portrait
+        let insets = window?.safeAreaInsets ?? .zero
 
         return DeviceInfo.make(
-            screenBounds: screen.bounds.size,
+            screenBounds: bounds,
             orientation: orientation,
-            nativeScale: screen.nativeScale,
+            nativeScale: nativeScale,
             safeAreaInsets: insets
         )
     }

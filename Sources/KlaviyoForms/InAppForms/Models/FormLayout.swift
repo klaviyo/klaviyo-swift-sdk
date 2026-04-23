@@ -55,10 +55,13 @@ struct Offsets: Codable, Equatable {
 
 /// Tracks whether we've already logged the `margin` → `offsets` fallback deprecation for this session.
 private enum FormLayoutDeprecationLogger {
-    private static let hasLoggedMarginFallback = Atomic(false)
+    // nonisolated(unsafe) because the one call site (`FormLayout.init(from:)` invoked via
+    // `WKScriptMessageHandler`) is main-actor serialized — race would only double-log a debug message.
+    private nonisolated(unsafe) static var hasLoggedMarginFallback = false
 
     static func logMarginFallbackOnce() {
-        guard hasLoggedMarginFallback.compareAndSet(expected: false, newValue: true) else { return }
+        guard !hasLoggedMarginFallback else { return }
+        hasLoggedMarginFallback = true
         if #available(iOS 14.0, *) {
             let message =
                 "formWillAppear payload used deprecated `margin` key; prefer `offsets`. " +
@@ -68,27 +71,7 @@ private enum FormLayoutDeprecationLogger {
     }
 
     static func resetForTesting() {
-        hasLoggedMarginFallback.set(false)
-    }
-}
-
-/// Minimal atomic Bool wrapper to gate the one-shot deprecation log.
-private final class Atomic {
-    private let lock = NSLock()
-    private var value: Bool
-
-    init(_ value: Bool) { self.value = value }
-
-    func set(_ newValue: Bool) {
-        lock.lock(); defer { lock.unlock() }
-        value = newValue
-    }
-
-    func compareAndSet(expected: Bool, newValue: Bool) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        guard value == expected else { return false }
-        value = newValue
-        return true
+        hasLoggedMarginFallback = false
     }
 }
 
