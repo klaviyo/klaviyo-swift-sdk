@@ -59,14 +59,14 @@ final class InAppWindowManagerTests: XCTestCase {
             in: screenBounds,
             safeArea: safeArea
         )
-        let marginTop = safeArea.top + 10
-        let marginBottom = safeArea.bottom + 10
-        let marginLeft = safeArea.left + 10
-        let marginRight = safeArea.right + 10
-        let availableWidth = screenBounds.width - marginLeft - marginRight
-        let availableHeight = screenBounds.height - marginTop - marginBottom
-        XCTAssertEqual(center.origin.x, marginLeft + (availableWidth - 300) / 2)
-        XCTAssertEqual(center.origin.y, marginTop + (availableHeight - 200) / 2)
+        let offsetTop = safeArea.top + 10
+        let offsetBottom = safeArea.bottom + 10
+        let offsetLeft = safeArea.left + 10
+        let offsetRight = safeArea.right + 10
+        let availableWidth = screenBounds.width - offsetLeft - offsetRight
+        let availableHeight = screenBounds.height - offsetTop - offsetBottom
+        XCTAssertEqual(center.origin.x, offsetLeft + (availableWidth - 300) / 2)
+        XCTAssertEqual(center.origin.y, offsetTop + (availableHeight - 200) / 2)
     }
 
     // MARK: - addSafeAreaInsetsToOffsets=false uses offsets as-is

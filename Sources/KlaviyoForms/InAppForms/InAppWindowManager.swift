@@ -143,13 +143,13 @@ class InAppWindowManager {
         // into the provided offsets and the SDK should not add insets of its own.
         let effectiveSafeArea: UIEdgeInsets = layout.addSafeAreaInsetsToOffsets ? safeArea : .zero
 
-        let marginTop = effectiveSafeArea.top + offsets.top
-        let marginBottom = effectiveSafeArea.bottom + offsets.bottom
-        let marginLeft = effectiveSafeArea.left + offsets.left
-        let marginRight = effectiveSafeArea.right + offsets.right
+        let offsetTop = effectiveSafeArea.top + offsets.top
+        let offsetBottom = effectiveSafeArea.bottom + offsets.bottom
+        let offsetLeft = effectiveSafeArea.left + offsets.left
+        let offsetRight = effectiveSafeArea.right + offsets.right
 
-        let availableWidth = max(0, screenWidth - marginLeft - marginRight)
-        let availableHeight = max(0, screenHeight - marginTop - marginBottom)
+        let availableWidth = max(0, screenWidth - offsetLeft - offsetRight)
+        let availableHeight = max(0, screenHeight - offsetTop - offsetBottom)
         let clampedWidth = min(width, availableWidth)
         let clampedHeight = min(height, availableHeight)
 
@@ -158,26 +158,26 @@ class InAppWindowManager {
 
         switch layout.position {
         case .top:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = marginTop
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = offsetTop
         case .topLeft:
-            x = marginLeft
-            y = marginTop
+            x = offsetLeft
+            y = offsetTop
         case .topRight:
-            x = screenWidth - clampedWidth - marginRight
-            y = marginTop
+            x = screenWidth - clampedWidth - offsetRight
+            y = offsetTop
         case .bottom:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = screenHeight - clampedHeight - marginBottom
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = screenHeight - clampedHeight - offsetBottom
         case .bottomLeft:
-            x = marginLeft
-            y = screenHeight - clampedHeight - marginBottom
+            x = offsetLeft
+            y = screenHeight - clampedHeight - offsetBottom
         case .bottomRight:
-            x = screenWidth - clampedWidth - marginRight
-            y = screenHeight - clampedHeight - marginBottom
+            x = screenWidth - clampedWidth - offsetRight
+            y = screenHeight - clampedHeight - offsetBottom
         case .center:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = marginTop + (availableHeight - clampedHeight) / 2
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = offsetTop + (availableHeight - clampedHeight) / 2
         case .fullscreen:
             return screenBounds
         }
