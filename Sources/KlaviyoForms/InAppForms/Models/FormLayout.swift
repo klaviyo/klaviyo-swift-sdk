@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import UIKit
 
 /// Position where the form should be anchored on screen.
@@ -42,7 +43,9 @@ struct Dimension: Codable, Equatable {
     }
 }
 
-/// Margins from the anchor position, in points.
+/// Offsets from the anchor position, in points.
+///
+/// Kept named `Margins` (type alias `Offsets`) to minimize call-site churn; the wire key is `offsets`.
 struct Margins: Codable, Equatable {
     let top: CGFloat
     let bottom: CGFloat
@@ -52,25 +55,81 @@ struct Margins: Codable, Equatable {
     static let zero = Margins(top: 0, bottom: 0, left: 0, right: 0)
 }
 
+typealias Offsets = Margins
+
+/// Tracks whether we've already logged the `margin` → `offsets` fallback deprecation for this session.
+private enum FormLayoutDeprecationLogger {
+    private static let hasLoggedMarginFallback = Atomic(false)
+
+    static func logMarginFallbackOnce() {
+        guard hasLoggedMarginFallback.compareAndSet(expected: false, newValue: true) else { return }
+        if #available(iOS 14.0, *) {
+            let message =
+                "formWillAppear payload used deprecated `margin` key; prefer `offsets`. " +
+                "This warning is logged once per session."
+            Logger.webViewLogger.info("\(message)")
+        }
+    }
+
+    static func resetForTesting() {
+        hasLoggedMarginFallback.set(false)
+    }
+}
+
+/// Minimal atomic Bool wrapper to gate the one-shot deprecation log.
+private final class Atomic {
+    private let lock = NSLock()
+    private var value: Bool
+
+    init(_ value: Bool) { self.value = value }
+
+    func set(_ newValue: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        value = newValue
+    }
+
+    func compareAndSet(expected: Bool, newValue: Bool) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard value == expected else { return false }
+        value = newValue
+        return true
+    }
+}
+
 /// Layout configuration for flexible/banner forms.
 struct FormLayout: Codable, Equatable {
     let position: FormPosition
     let width: Dimension
     let height: Dimension
-    let margin: Margins
+    let offsets: Offsets
+    /// When `true` (default), the SDK adds the window's safe-area insets on top of `offsets`
+    /// when positioning the form. When `false`, `offsets` are used as-is — the onsite/web layer
+    /// is responsible for accounting for safe-area.
+    let addSafeAreaInsetsToOffsets: Bool
 
     static let fullDimension = Dimension(value: 100, unit: .percent)
+
+    enum CodingKeys: String, CodingKey {
+        case position
+        case width
+        case height
+        case offsets
+        case margin
+        case addSafeAreaInsetsToOffsets
+    }
 
     init(
         position: FormPosition,
         width: Dimension = fullDimension,
         height: Dimension = fullDimension,
-        margin: Margins = .zero
+        offsets: Offsets = .zero,
+        addSafeAreaInsetsToOffsets: Bool = true
     ) {
         self.position = position
         self.width = width
         self.height = height
-        self.margin = margin
+        self.offsets = offsets
+        self.addSafeAreaInsetsToOffsets = addSafeAreaInsetsToOffsets
     }
 
     init(from decoder: Decoder) throws {
@@ -78,6 +137,34 @@ struct FormLayout: Codable, Equatable {
         position = try container.decode(FormPosition.self, forKey: .position)
         width = try container.decodeIfPresent(Dimension.self, forKey: .width) ?? Self.fullDimension
         height = try container.decodeIfPresent(Dimension.self, forKey: .height) ?? Self.fullDimension
-        margin = try container.decodeIfPresent(Margins.self, forKey: .margin) ?? .zero
+
+        if let decodedOffsets = try container.decodeIfPresent(Offsets.self, forKey: .offsets) {
+            offsets = decodedOffsets
+        } else if let legacyMargin = try container.decodeIfPresent(Offsets.self, forKey: .margin) {
+            FormLayoutDeprecationLogger.logMarginFallbackOnce()
+            offsets = legacyMargin
+        } else {
+            offsets = .zero
+        }
+
+        addSafeAreaInsetsToOffsets = try container
+            .decodeIfPresent(Bool.self, forKey: .addSafeAreaInsetsToOffsets) ?? true
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(position, forKey: .position)
+        try container.encode(width, forKey: .width)
+        try container.encode(height, forKey: .height)
+        try container.encode(offsets, forKey: .offsets)
+        try container.encode(addSafeAreaInsetsToOffsets, forKey: .addSafeAreaInsetsToOffsets)
     }
 }
+
+#if DEBUG
+enum FormLayoutTestHooks {
+    static func resetDeprecationLogger() {
+        FormLayoutDeprecationLogger.resetForTesting()
+    }
+}
+#endif

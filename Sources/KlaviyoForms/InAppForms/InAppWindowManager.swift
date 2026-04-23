@@ -116,25 +116,37 @@ class InAppWindowManager {
     }
 
     private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
+        // Read safe area insets from the key window to avoid placing the form
+        // behind notches, Dynamic Island, or the home indicator.
+        let safeArea = windowScene?.windows.first?.safeAreaInsets ?? .zero
+        return Self.calculateFrame(for: layout, in: screenBounds, safeArea: safeArea)
+    }
+
+    /// Pure layout computation, extracted for testability.
+    nonisolated static func calculateFrame(
+        for layout: FormLayout,
+        in screenBounds: CGRect,
+        safeArea: UIEdgeInsets
+    ) -> CGRect {
         guard layout.position != .fullscreen else {
             return screenBounds
         }
 
-        // Read safe area insets from the key window to avoid placing the form
-        // behind notches, Dynamic Island, or the home indicator.
-        let safeArea = windowScene?.windows.first?.safeAreaInsets ?? .zero
-
-        let margin = layout.margin
+        let offsets = layout.offsets
         let screenWidth = screenBounds.width
         let screenHeight = screenBounds.height
 
         let width = layout.width.toPoints(relativeTo: screenWidth)
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
-        let marginTop = safeArea.top + margin.top
-        let marginBottom = safeArea.bottom + margin.bottom
-        let marginLeft = safeArea.left + margin.left
-        let marginRight = safeArea.right + margin.right
+        // When `addSafeAreaInsetsToOffsets` is false, onsite has already baked safe-area handling
+        // into the provided offsets and the SDK should not add insets of its own.
+        let effectiveSafeArea: UIEdgeInsets = layout.addSafeAreaInsetsToOffsets ? safeArea : .zero
+
+        let marginTop = effectiveSafeArea.top + offsets.top
+        let marginBottom = effectiveSafeArea.bottom + offsets.bottom
+        let marginLeft = effectiveSafeArea.left + offsets.left
+        let marginRight = effectiveSafeArea.right + offsets.right
 
         let availableWidth = max(0, screenWidth - marginLeft - marginRight)
         let availableHeight = max(0, screenHeight - marginTop - marginBottom)
