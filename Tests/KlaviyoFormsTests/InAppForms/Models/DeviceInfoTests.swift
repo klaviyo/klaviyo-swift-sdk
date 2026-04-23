@@ -108,29 +108,22 @@ final class DeviceInfoTests: XCTestCase {
         )
     }
 
-    // MARK: - JS escaping
+    // MARK: - JS injection script shape
 
-    func testJsEscapingHandlesBackslashesAndSingleQuotes() {
-        let payload = "it's a back\\slash"
-        XCTAssertEqual(payload.klaviyoJsSingleQuoteEscaped, "it\\'s a back\\\\slash")
-    }
-
-    func testJsEscapingLeavesDoubleQuotesUntouched() {
-        // JSON's own double-quote syntax must survive embedding in a single-quoted
-        // JS string literal — otherwise onsite will see a broken payload.
-        let payload = "{\"screen\":{\"width\":402}}"
-        XCTAssertEqual(payload.klaviyoJsSingleQuoteEscaped, payload)
-    }
-
-    func testEndToEndJsEscapedPayloadIsSingleQuoteSafe() {
+    func testAsAttributeAssignmentScriptWrapsJsonInStringify() {
         let info = DeviceInfo(
             screen: .init(width: 402, height: 874),
             safeAreaInsets: .init(top: 47, bottom: 34, left: 0, right: 0),
             orientation: "portrait-primary",
             dpr: 3
         )
-        let escaped = info.toJsonString().klaviyoJsSingleQuoteEscaped
-        // The escaped payload must be safely embeddable inside `'...'` JS literal.
-        XCTAssertFalse(escaped.contains("'"), "unescaped single quote in payload")
+        let script = info.asAttributeAssignmentScript()
+        // We rely on JSON being a valid JS expression: embed the object literal directly
+        // and let the engine JSON.stringify it — no JS-string escaping required.
+        XCTAssertTrue(
+            script.hasPrefix("document.head.setAttribute('data-klaviyo-device', JSON.stringify(")
+        )
+        XCTAssertTrue(script.hasSuffix("));"))
+        XCTAssertTrue(script.contains(info.toJsonString()))
     }
 }

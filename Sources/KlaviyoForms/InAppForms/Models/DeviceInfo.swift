@@ -140,23 +140,15 @@ struct DeviceInfo: Codable, Equatable {
     }
 
     /// JS statement that sets the `data-klaviyo-device` attribute on the document head
-    /// using this payload. Centralizes the attribute name and JS-escaping contract so
-    /// injection-time and runtime-push call sites stay in lockstep.
-    func asAttributeAssignmentScript() -> String {
-        let json = toJsonString().klaviyoJsSingleQuoteEscaped
-        return "document.head.setAttribute('data-klaviyo-device', '\(json)');"
-    }
-}
-
-// MARK: - JS escaping
-
-extension String {
-    /// Escapes a JSON payload for embedding inside a single-quoted JS string literal.
+    /// using this payload. Centralizes the attribute name so injection-time and
+    /// runtime-push call sites stay in lockstep.
     ///
-    /// JSON already escapes double quotes, control characters, and non-ASCII characters,
-    /// so only backslashes and single quotes need additional handling.
-    var klaviyoJsSingleQuoteEscaped: String {
-        replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
+    /// JSON is a subset of JavaScript — embedding the raw JSON as a JS object expression
+    /// and letting the engine `JSON.stringify` it sidesteps any JS string-literal escaping
+    /// concerns (no need to escape single quotes, backslashes, etc. that might appear
+    /// inside the payload).
+    func asAttributeAssignmentScript() -> String {
+        let json = toJsonString()
+        return "document.head.setAttribute('data-klaviyo-device', JSON.stringify(\(json)));"
     }
 }
