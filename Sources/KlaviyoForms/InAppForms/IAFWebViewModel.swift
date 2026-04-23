@@ -102,6 +102,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
     /// HTML parse phase — this is what distinguishes it from the other `.atDocumentEnd`
     /// attribute injections in this file.
+    ///
+    /// Note on staleness: this is a computed property re-evaluated each time
+    /// `setupLoadScripts` assembles the script set, so each navigation captures a fresh
+    /// snapshot. Any device-state change between `loadScripts` assembly and the document
+    /// parse is corrected at runtime by `pushDeviceInfo()` via `evaluateJavaScript` on
+    /// `viewWillTransition` / `viewSafeAreaInsetsDidChange`, so onsite's first runtime
+    /// read sees the up-to-date value. IAF view models are 1:1 with a form presentation,
+    /// so the parse-time staleness window is small and acceptable.
     @MainActor
     private var deviceInfoWKScript: WKUserScript {
         let script = DeviceInfo.current().asAttributeAssignmentScript()
