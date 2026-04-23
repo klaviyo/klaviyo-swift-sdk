@@ -1,0 +1,23 @@
+Sources/KlaviyoForms/InAppForms/Models/FormLayout.swift
+  e32609dbb683a875 47,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "2b7be990cef5dc83d4a6b90f83884037fa24ecff",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 6,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
