@@ -166,7 +166,8 @@ extension AppContextInfo {
                            osName: "iOS",
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
-                           deviceId: "fe-fi-fo-fum")
+                           deviceId: "fe-fi-fo-fum",
+                           environment: "debug")
 }
 
 extension URLResponse {
