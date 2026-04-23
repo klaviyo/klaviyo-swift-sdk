@@ -92,10 +92,14 @@ struct DeviceInfo: Codable, Equatable {
 
     /// Snapshot the current device state.
     ///
-    /// Uses the customer app's key window bounds as the primary source so dimensions reflect
-    /// the actual drawable area under iPad split view / stage manager / external-display
-    /// scenarios. Falls back to `scene.screen` and `UIScreen.main` for pathological
-    /// pre-scene cold-launch scenarios.
+    /// Dimensions come from the scene's coordinate space, not any specific window — this
+    /// gives the scene's actual drawable rect under iPad split view / stage manager /
+    /// external-display scenarios, AND avoids reading bounds from our own form overlay
+    /// window when it is currently key (e.g. while the user interacts with a form input).
+    ///
+    /// Safe-area insets come from the customer app's key window. Our own form overlay
+    /// window is explicitly excluded so we report host-level insets regardless of which
+    /// window is currently key.
     @MainActor
     static func current() -> DeviceInfo {
         let scene = UIApplication.shared.connectedScenes
@@ -105,19 +109,19 @@ struct DeviceInfo: Codable, Equatable {
             .compactMap { $0 as? UIWindowScene }
             .first
 
-        let window = scene?.windows.first(where: \.isKeyWindow)
-            ?? scene?.windows.first
+        let ourFormWindow = InAppWindowManager.shared.currentFormWindow
+        let hostWindows = scene?.windows.filter { $0 !== ourFormWindow && !$0.isHidden } ?? []
+        let hostWindow = hostWindows.first(where: \.isKeyWindow) ?? hostWindows.first
 
-        let bounds = window?.bounds.size
+        let bounds = scene?.coordinateSpace.bounds.size
             ?? scene?.screen.bounds.size
             ?? UIScreen.main.bounds.size
 
-        let nativeScale = window?.screen.nativeScale
-            ?? scene?.screen.nativeScale
+        let nativeScale = scene?.screen.nativeScale
             ?? UIScreen.main.nativeScale
 
         let orientation = scene?.interfaceOrientation ?? .portrait
-        let insets = window?.safeAreaInsets ?? .zero
+        let insets = hostWindow?.safeAreaInsets ?? .zero
 
         return DeviceInfo.make(
             screenBounds: bounds,

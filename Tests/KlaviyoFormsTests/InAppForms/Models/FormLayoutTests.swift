@@ -10,14 +10,7 @@ import UIKit
 import XCTest
 
 final class FormLayoutTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        #if DEBUG
-        FormLayoutTestHooks.resetDeprecationLogger()
-        #endif
-    }
-
-    // MARK: - Decoding: offsets / margin wire key
+    // MARK: - Decoding: offsets wire key
 
     func testDecodesOffsetsKey() throws {
         let jsonString = """
@@ -37,36 +30,7 @@ final class FormLayoutTests: XCTestCase {
         )
     }
 
-    func testFallsBackToMarginKeyWhenOffsetsMissing() throws {
-        let jsonString = """
-        {
-            "position": "TOP",
-            "width":  { "value": 100, "unit": "PERCENT" },
-            "height": { "value": 100, "unit": "PERCENT" },
-            "margin": { "top": 5, "bottom": 6, "left": 7, "right": 8 }
-        }
-        """
-
-        let layout = try JSONDecoder().decode(FormLayout.self, from: Data(jsonString.utf8))
-        XCTAssertEqual(layout.offsets, Offsets(top: 5, bottom: 6, left: 7, right: 8))
-    }
-
-    func testOffsetsWinsWhenBothKeysPresent() throws {
-        let jsonString = """
-        {
-            "position": "CENTER",
-            "width":  { "value": 100, "unit": "PERCENT" },
-            "height": { "value": 100, "unit": "PERCENT" },
-            "offsets": { "top": 10, "bottom": 10, "left": 10, "right": 10 },
-            "margin":  { "top": 99, "bottom": 99, "left": 99, "right": 99 }
-        }
-        """
-
-        let layout = try JSONDecoder().decode(FormLayout.self, from: Data(jsonString.utf8))
-        XCTAssertEqual(layout.offsets, Offsets(top: 10, bottom: 10, left: 10, right: 10))
-    }
-
-    func testDefaultsOffsetsToZeroWhenBothKeysAbsent() throws {
+    func testDefaultsOffsetsToZeroWhenAbsent() throws {
         let jsonString = """
         {
             "position": "FULLSCREEN"
