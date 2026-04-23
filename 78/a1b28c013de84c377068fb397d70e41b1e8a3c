@@ -1,0 +1,23 @@
+Sources/KlaviyoForms/InAppForms/IAFWebViewModel.swift
+  e32609dbb683a875 105-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "78a1b28c013de84c377068fb397d70e41b1e8a3c",
+  "prompts": {
+    "e32609dbb683a875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6b95c3a-2fb2-4981-adbf-e8f659540368",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 315,
+      "total_deletions": 0,
+      "accepted_lines": 315,
+      "overriden_lines": 0
+    }
+  }
+}
