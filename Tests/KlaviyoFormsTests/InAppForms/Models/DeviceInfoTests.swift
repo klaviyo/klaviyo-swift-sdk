@@ -43,8 +43,8 @@ final class DeviceInfoTests: XCTestCase {
     func testOrientationMappingCoversAllCSSOMLabels() {
         XCTAssertEqual(DeviceInfo.cssOrientation(for: .portrait), "portrait-primary")
         XCTAssertEqual(DeviceInfo.cssOrientation(for: .portraitUpsideDown), "portrait-secondary")
-        XCTAssertEqual(DeviceInfo.cssOrientation(for: .landscapeLeft), "landscape-primary")
-        XCTAssertEqual(DeviceInfo.cssOrientation(for: .landscapeRight), "landscape-secondary")
+        XCTAssertEqual(DeviceInfo.cssOrientation(for: .landscapeRight), "landscape-primary")
+        XCTAssertEqual(DeviceInfo.cssOrientation(for: .landscapeLeft), "landscape-secondary")
         XCTAssertEqual(DeviceInfo.cssOrientation(for: .unknown), "portrait-primary")
     }
 

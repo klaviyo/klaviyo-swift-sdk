@@ -43,12 +43,19 @@ struct DeviceInfo: Codable, Equatable {
 
     /// Map `UIInterfaceOrientation` to the CSSOM `ScreenOrientation.type` vocabulary.
     /// See https://drafts.csswg.org/screen-orientation/#enumdef-orientationtype
+    ///
+    /// Matches WebKit's own iOS Safari implementation of `screen.orientation.type`:
+    /// `UIInterfaceOrientation.landscapeRight` (home button on the LEFT, angle 90°) is
+    /// `landscape-primary`; `.landscapeLeft` (home button on the RIGHT, angle 270°) is
+    /// `landscape-secondary`. The confusion comes from `UIInterfaceOrientation` and
+    /// `UIDeviceOrientation` being opposites for the same physical position — we use
+    /// the interface flavor here, same as WebKit.
     static func cssOrientation(for orientation: UIInterfaceOrientation) -> String {
         switch orientation {
         case .portrait: return "portrait-primary"
         case .portraitUpsideDown: return "portrait-secondary"
-        case .landscapeLeft: return "landscape-primary"
-        case .landscapeRight: return "landscape-secondary"
+        case .landscapeRight: return "landscape-primary"
+        case .landscapeLeft: return "landscape-secondary"
         case .unknown: return "portrait-primary"
         @unknown default: return "portrait-primary"
         }
