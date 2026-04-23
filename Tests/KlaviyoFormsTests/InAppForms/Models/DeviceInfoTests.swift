@@ -79,36 +79,6 @@ final class DeviceInfoTests: XCTestCase {
         XCTAssertEqual(info.dpr, 3)
     }
 
-    func testMakeSwapsDimensionsWhenBoundsDoNotMatchOrientation() {
-        // Simulate UIKit reporting natural (portrait) bounds while interface is landscape.
-        let info = DeviceInfo.make(
-            screenBounds: CGSize(width: 402, height: 874),
-            orientation: .landscapeLeft,
-            nativeScale: 3,
-            safeAreaInsets: .zero
-        )
-
-        XCTAssertEqual(info.screen.width, 874)
-        XCTAssertEqual(info.screen.height, 402)
-        XCTAssertEqual(info.orientation, "landscape-primary")
-    }
-
-    func testMakeSwapsDimensionsWhenBoundsReportLandscapeButOrientationIsPortrait() {
-        // Opposite of the landscape case: UIKit reports landscape-shaped bounds while
-        // the interface is in portrait. We still swap so the payload matches the
-        // logical orientation.
-        let info = DeviceInfo.make(
-            screenBounds: CGSize(width: 874, height: 402),
-            orientation: .portrait,
-            nativeScale: 3,
-            safeAreaInsets: .zero
-        )
-
-        XCTAssertEqual(info.screen.width, 402)
-        XCTAssertEqual(info.screen.height, 874)
-        XCTAssertEqual(info.orientation, "portrait-primary")
-    }
-
     func testMakeClampsDprToAtLeastOne() {
         // `nativeScale` is never *supposed* to be zero, but we clamp defensively so
         // onsite never divides by zero on the JS side.

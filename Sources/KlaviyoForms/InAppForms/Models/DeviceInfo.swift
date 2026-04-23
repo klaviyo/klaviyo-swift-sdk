@@ -56,43 +56,19 @@ struct DeviceInfo: Codable, Equatable {
 
     // MARK: - Construction
 
-    /// Construct a `DeviceInfo` from raw inputs. Separating computation from UIKit lookups
-    /// keeps the logic pure and testable.
-    ///
-    /// - Parameters:
-    ///   - screenBounds: The raw, orientation-relative `UIScreen.bounds` value.
-    ///   - orientation: The current interface orientation — used both to pick the CSSOM
-    ///     label and to swap `screenBounds` when UIKit is reporting them in the natural
-    ///     (portrait) orientation.
-    ///   - nativeScale: The backing `UIScreen.nativeScale`.
-    ///   - safeAreaInsets: The window's current safe-area insets.
+    /// Construct a `DeviceInfo` from raw inputs. `screenBounds` should already reflect the
+    /// current window's drawable area (not the raw device screen) — live capture uses
+    /// `window.bounds` as the source.
     static func make(
         screenBounds: CGSize,
         orientation: UIInterfaceOrientation,
         nativeScale: CGFloat,
         safeAreaInsets: UIEdgeInsets
     ) -> DeviceInfo {
-        // `UIScreen.bounds` is *usually* orientation-relative on modern iOS, but older iPad
-        // multitasking paths (and a handful of simulator edge cases) still report dimensions
-        // in natural orientation. Swap defensively so our payload always reflects the
-        // logical orientation.
-        let reportedWidth = screenBounds.width
-        let reportedHeight = screenBounds.height
-        let (width, height): (CGFloat, CGFloat) = {
-            let isLandscape = orientation.isLandscape
-            if isLandscape, reportedWidth < reportedHeight {
-                return (reportedHeight, reportedWidth)
-            }
-            if !isLandscape, reportedWidth > reportedHeight {
-                return (reportedHeight, reportedWidth)
-            }
-            return (reportedWidth, reportedHeight)
-        }()
-
-        return DeviceInfo(
+        DeviceInfo(
             screen: Screen(
-                width: Int(width.rounded()),
-                height: Int(height.rounded())
+                width: Int(screenBounds.width.rounded()),
+                height: Int(screenBounds.height.rounded())
             ),
             safeAreaInsets: SafeAreaInsets(
                 top: Int(safeAreaInsets.top.rounded()),
