@@ -1,0 +1,35 @@
+Sources/KlaviyoCore/AppContextInfo.swift
+  afe7feaffe5eb3f4 64-65,77-91
+Tests/KlaviyoSwiftTests/KlaviyoTestUtils.swift
+  afe7feaffe5eb3f4 136-137
+Tests/KlaviyoCoreTests/TestUtils.swift
+  afe7feaffe5eb3f4 169-170
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testEventPayload.1.json
+  afe7feaffe5eb3f4 47
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testTokenPayload.1.json
+  afe7feaffe5eb3f4 39
+Tests/KlaviyoSwiftTests/__Snapshots__/EncodableTests/testKlaviyoState.1.json
+  afe7feaffe5eb3f4 73
+Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testKlaviyoRequest.1.json
+  afe7feaffe5eb3f4 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "ef8e4285336c00c95524ba4a48b7edeab8887c2c",
+  "prompts": {
+    "afe7feaffe5eb3f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "829a68f3-ebce-44f9-9a9f-137963f5a6be",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 18,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}

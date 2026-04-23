@@ -1,0 +1,23 @@
+Sources/KlaviyoForms/InAppForms/IAFPresentationManager.swift
+  39156c5a41841153 106-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "75e05fde2a09c77f24e86527fb8cd30263c8fc83",
+  "prompts": {
+    "39156c5a41841153": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8163fe0-7cb8-43a3-a9fe-bcb505a4e15e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}

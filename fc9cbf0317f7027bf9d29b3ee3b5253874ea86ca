@@ -1,0 +1,23 @@
+Sources/KlaviyoForms/InAppForms/Assets/DragToDismiss.js
+  d67aab2e90d86dbb 49,93-129,131-179,190,229,232,256,258-261,267,273-277,291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "fc9cbf0317f7027bf9d29b3ee3b5253874ea86ca",
+  "prompts": {
+    "d67aab2e90d86dbb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6759cf00-7e97-423a-934e-e88e1a07ad6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [],
+      "total_additions": 148,
+      "total_deletions": 91,
+      "accepted_lines": 105,
+      "overriden_lines": 0
+    }
+  }
+}
