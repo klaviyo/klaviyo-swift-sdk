@@ -42,14 +42,14 @@ struct Dimension: Codable, Equatable {
     }
 }
 
-/// Margins from the anchor position, in points.
-struct Margins: Codable, Equatable {
+/// Offsets from the anchor position, in points.
+struct Offsets: Codable, Equatable {
     let top: CGFloat
     let bottom: CGFloat
     let left: CGFloat
     let right: CGFloat
 
-    static let zero = Margins(top: 0, bottom: 0, left: 0, right: 0)
+    static let zero = Offsets(top: 0, bottom: 0, left: 0, right: 0)
 }
 
 /// Layout configuration for flexible/banner forms.
@@ -57,20 +57,34 @@ struct FormLayout: Codable, Equatable {
     let position: FormPosition
     let width: Dimension
     let height: Dimension
-    let margin: Margins
+    let offsets: Offsets
+    /// When `true` (default), the SDK adds the window's safe-area insets on top of `offsets`
+    /// when positioning the form. When `false`, `offsets` are used as-is — the onsite/web layer
+    /// is responsible for accounting for safe-area.
+    let addSafeAreaInsetsToOffsets: Bool
 
     static let fullDimension = Dimension(value: 100, unit: .percent)
+
+    enum CodingKeys: String, CodingKey {
+        case position
+        case width
+        case height
+        case offsets
+        case addSafeAreaInsetsToOffsets
+    }
 
     init(
         position: FormPosition,
         width: Dimension = fullDimension,
         height: Dimension = fullDimension,
-        margin: Margins = .zero
+        offsets: Offsets = .zero,
+        addSafeAreaInsetsToOffsets: Bool = true
     ) {
         self.position = position
         self.width = width
         self.height = height
-        self.margin = margin
+        self.offsets = offsets
+        self.addSafeAreaInsetsToOffsets = addSafeAreaInsetsToOffsets
     }
 
     init(from decoder: Decoder) throws {
@@ -78,6 +92,19 @@ struct FormLayout: Codable, Equatable {
         position = try container.decode(FormPosition.self, forKey: .position)
         width = try container.decodeIfPresent(Dimension.self, forKey: .width) ?? Self.fullDimension
         height = try container.decodeIfPresent(Dimension.self, forKey: .height) ?? Self.fullDimension
-        margin = try container.decodeIfPresent(Margins.self, forKey: .margin) ?? .zero
+
+        offsets = try container.decodeIfPresent(Offsets.self, forKey: .offsets) ?? .zero
+
+        addSafeAreaInsetsToOffsets = try container
+            .decodeIfPresent(Bool.self, forKey: .addSafeAreaInsetsToOffsets) ?? true
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(position, forKey: .position)
+        try container.encode(width, forKey: .width)
+        try container.encode(height, forKey: .height)
+        try container.encode(offsets, forKey: .offsets)
+        try container.encode(addSafeAreaInsetsToOffsets, forKey: .addSafeAreaInsetsToOffsets)
     }
 }

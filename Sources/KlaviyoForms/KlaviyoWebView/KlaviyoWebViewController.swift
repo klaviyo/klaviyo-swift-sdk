@@ -100,6 +100,24 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         onSizeTransition?(size, coordinator)
+        // Re-publish `data-klaviyo-device` after the transition completes so the new
+        // orientation and safe-area values are available to onsite. We wait on the
+        // transition's animation block so `UIScreen.bounds` and the key window's
+        // safe-area insets have settled before we read them.
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            guard let self else { return }
+            guard self.view.window != nil, !self.webView.isLoading else { return }
+            (self.viewModel as? IAFWebViewModel)?.pushDeviceInfo()
+        }
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        // Skip while we're not window-attached or mid-load — otherwise preload-phase
+        // safe-area changes fire `evaluateJavaScript` against a webview that can't
+        // service it, producing noisy "Error pushing updated device info" warnings.
+        guard view.window != nil, !webView.isLoading else { return }
+        (viewModel as? IAFWebViewModel)?.pushDeviceInfo()
     }
 
     @MainActor

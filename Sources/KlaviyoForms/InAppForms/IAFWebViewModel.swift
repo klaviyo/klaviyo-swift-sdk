@@ -12,6 +12,7 @@ import KlaviyoSwift
 import OSLog
 import WebKit
 
+// swiftlint:disable:next type_body_length
 class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
@@ -96,6 +97,25 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
+    /// inline `<script>` in the template runs. Injected at `.atDocumentStart` so that
+    /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
+    /// HTML parse phase — this is what distinguishes it from the other `.atDocumentEnd`
+    /// attribute injections in this file.
+    ///
+    /// Note on staleness: this is a computed property re-evaluated each time
+    /// `setupLoadScripts` assembles the script set, so each navigation captures a fresh
+    /// snapshot. Any device-state change between `loadScripts` assembly and the document
+    /// parse is corrected at runtime by `pushDeviceInfo()` via `evaluateJavaScript` on
+    /// `viewWillTransition` / `viewSafeAreaInsetsDidChange`, so onsite's first runtime
+    /// read sees the up-to-date value. IAF view models are 1:1 with a form presentation,
+    /// so the parse-time staleness window is small and acceptable.
+    @MainActor
+    private var deviceInfoWKScript: WKUserScript {
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        return WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
     // MARK: - Initializer
 
     @MainActor
@@ -120,11 +140,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        loadScripts?.insert(deviceInfoWKScript)
         if let profileAttributesWKScript {
             loadScripts?.insert(profileAttributesWKScript)
         }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
+        }
+    }
+
+    /// Push a fresh `DeviceInfo` snapshot to the webview's `data-klaviyo-device` head
+    /// attribute. Called from the view controller on orientation and safe-area changes
+    /// so onsite stays in sync with the device state.
+    @MainActor
+    func pushDeviceInfo() {
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        Task { @MainActor in
+            do {
+                _ = try await delegate?.evaluateJavaScript(script)
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Error pushing updated device info to web view: \(error)")
+                }
+            }
         }
     }
 

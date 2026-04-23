@@ -16,6 +16,11 @@ class InAppWindowManager {
     private var windowScene: UIWindowScene?
     private var currentLayout: FormLayout?
 
+    /// Exposes the form's overlay window so callers that enumerate scene windows can
+    /// filter it out — e.g. `DeviceInfo.current()` must not read bounds/insets from
+    /// our own overlay (which becomes key while the user interacts with the form).
+    var currentFormWindow: UIWindow? { window }
+
     /// Tracks the most-recently-reported keyboard end frame so that layout
     /// is keyboard-aware even when a form is presented while the keyboard is
     /// already visible (no new keyboardWillShow fires in that case).
@@ -116,28 +121,40 @@ class InAppWindowManager {
     }
 
     private func calculateFrame(for layout: FormLayout, in screenBounds: CGRect) -> CGRect {
+        // Read safe area insets from the key window to avoid placing the form
+        // behind notches, Dynamic Island, or the home indicator.
+        let safeArea = windowScene?.windows.first?.safeAreaInsets ?? .zero
+        return Self.calculateFrame(for: layout, in: screenBounds, safeArea: safeArea)
+    }
+
+    /// Pure layout computation, extracted for testability.
+    nonisolated static func calculateFrame(
+        for layout: FormLayout,
+        in screenBounds: CGRect,
+        safeArea: UIEdgeInsets
+    ) -> CGRect {
         guard layout.position != .fullscreen else {
             return screenBounds
         }
 
-        // Read safe area insets from the key window to avoid placing the form
-        // behind notches, Dynamic Island, or the home indicator.
-        let safeArea = windowScene?.windows.first?.safeAreaInsets ?? .zero
-
-        let margin = layout.margin
+        let offsets = layout.offsets
         let screenWidth = screenBounds.width
         let screenHeight = screenBounds.height
 
         let width = layout.width.toPoints(relativeTo: screenWidth)
         let height = layout.height.toPoints(relativeTo: screenHeight)
 
-        let marginTop = safeArea.top + margin.top
-        let marginBottom = safeArea.bottom + margin.bottom
-        let marginLeft = safeArea.left + margin.left
-        let marginRight = safeArea.right + margin.right
+        // When `addSafeAreaInsetsToOffsets` is false, onsite has already baked safe-area handling
+        // into the provided offsets and the SDK should not add insets of its own.
+        let effectiveSafeArea: UIEdgeInsets = layout.addSafeAreaInsetsToOffsets ? safeArea : .zero
 
-        let availableWidth = max(0, screenWidth - marginLeft - marginRight)
-        let availableHeight = max(0, screenHeight - marginTop - marginBottom)
+        let offsetTop = effectiveSafeArea.top + offsets.top
+        let offsetBottom = effectiveSafeArea.bottom + offsets.bottom
+        let offsetLeft = effectiveSafeArea.left + offsets.left
+        let offsetRight = effectiveSafeArea.right + offsets.right
+
+        let availableWidth = max(0, screenWidth - offsetLeft - offsetRight)
+        let availableHeight = max(0, screenHeight - offsetTop - offsetBottom)
         let clampedWidth = min(width, availableWidth)
         let clampedHeight = min(height, availableHeight)
 
@@ -146,26 +163,26 @@ class InAppWindowManager {
 
         switch layout.position {
         case .top:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = marginTop
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = offsetTop
         case .topLeft:
-            x = marginLeft
-            y = marginTop
+            x = offsetLeft
+            y = offsetTop
         case .topRight:
-            x = screenWidth - clampedWidth - marginRight
-            y = marginTop
+            x = screenWidth - clampedWidth - offsetRight
+            y = offsetTop
         case .bottom:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = screenHeight - clampedHeight - marginBottom
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = screenHeight - clampedHeight - offsetBottom
         case .bottomLeft:
-            x = marginLeft
-            y = screenHeight - clampedHeight - marginBottom
+            x = offsetLeft
+            y = screenHeight - clampedHeight - offsetBottom
         case .bottomRight:
-            x = screenWidth - clampedWidth - marginRight
-            y = screenHeight - clampedHeight - marginBottom
+            x = screenWidth - clampedWidth - offsetRight
+            y = screenHeight - clampedHeight - offsetBottom
         case .center:
-            x = marginLeft + (availableWidth - clampedWidth) / 2
-            y = marginTop + (availableHeight - clampedHeight) / 2
+            x = offsetLeft + (availableWidth - clampedWidth) / 2
+            y = offsetTop + (availableHeight - clampedHeight) / 2
         case .fullscreen:
             return screenBounds
         }
