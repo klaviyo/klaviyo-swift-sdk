@@ -44,18 +44,14 @@ struct Dimension: Codable, Equatable {
 }
 
 /// Offsets from the anchor position, in points.
-///
-/// Kept named `Margins` (type alias `Offsets`) to minimize call-site churn; the wire key is `offsets`.
-struct Margins: Codable, Equatable {
+struct Offsets: Codable, Equatable {
     let top: CGFloat
     let bottom: CGFloat
     let left: CGFloat
     let right: CGFloat
 
-    static let zero = Margins(top: 0, bottom: 0, left: 0, right: 0)
+    static let zero = Offsets(top: 0, bottom: 0, left: 0, right: 0)
 }
-
-typealias Offsets = Margins
 
 /// Tracks whether we've already logged the `margin` → `offsets` fallback deprecation for this session.
 private enum FormLayoutDeprecationLogger {
