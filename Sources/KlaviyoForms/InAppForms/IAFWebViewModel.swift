@@ -12,6 +12,7 @@ import KlaviyoSwift
 import OSLog
 import WebKit
 
+// swiftlint:disable:next type_body_length
 class IAFWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
@@ -96,6 +97,25 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
+    /// inline `<script>` in the template runs. Injected at `.atDocumentStart` so that
+    /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
+    /// HTML parse phase — this is what distinguishes it from the other `.atDocumentEnd`
+    /// attribute injections in this file.
+    ///
+    /// Note on staleness: this is a computed property re-evaluated each time
+    /// `setupLoadScripts` assembles the script set, so each navigation captures a fresh
+    /// snapshot. Any device-state change between `loadScripts` assembly and the document
+    /// parse is corrected at runtime by `pushDeviceInfo()` via `evaluateJavaScript` on
+    /// `viewWillTransition` / `viewSafeAreaInsetsDidChange`, so onsite's first runtime
+    /// read sees the up-to-date value. IAF view models are 1:1 with a form presentation,
+    /// so the parse-time staleness window is small and acceptable.
+    @MainActor
+    private var deviceInfoWKScript: WKUserScript {
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        return WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
     // MARK: - Initializer
 
     @MainActor
@@ -120,11 +140,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
+        loadScripts?.insert(deviceInfoWKScript)
         if let profileAttributesWKScript {
             loadScripts?.insert(profileAttributesWKScript)
         }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
+        }
+    }
+
+    /// Push a fresh `DeviceInfo` snapshot to the webview's `data-klaviyo-device` head
+    /// attribute. Called from the view controller on orientation and safe-area changes
+    /// so onsite stays in sync with the device state.
+    @MainActor
+    func pushDeviceInfo() {
+        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        Task { @MainActor in
+            do {
+                _ = try await delegate?.evaluateJavaScript(script)
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Error pushing updated device info to web view: \(error)")
+                }
+            }
         }
     }
 
@@ -256,16 +294,36 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         switch event {
         case .formsDataLoaded:
             ()
-        case let .formWillAppear(formId, formName):
+        case let .formWillAppear(formId, formName, layout):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.present(formId: formId, formName: formName))
+            formLifecycleContinuation.yield(.present(withLayout: layout ?? FormLayout(position: .fullscreen)))
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(
+                    for: .formShown(formId: formId, formName: formName))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "formWillAppear missing metadata — skipping lifecycle callback")
+                }
+            }
         case let .formDisappeared(formId, formName):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formDisappeared' event from KlaviyoJS")
             }
-            formLifecycleContinuation.yield(.dismiss(formId: formId, formName: formName))
+            formLifecycleContinuation.yield(.dismiss)
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(
+                    for: .formDismissed(formId: formId, formName: formName))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "formDisappeared missing metadata — skipping lifecycle callback")
+                }
+            }
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
@@ -278,26 +336,17 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
             }
 
-            // Notify lifecycle handler that CTA was clicked (always fire, even if URL is nil/invalid)
-            // Fall back to stored context if fender omits formId/formName (rollback / companion PR not yet deployed)
-            let manager = IAFPresentationManager.shared
-            let effectiveFormId = formId ?? manager.currentFormId
-            let effectiveFormName = formName ?? manager.currentFormName
-            manager.invokeLifecycleHandler(for: .formCtaClicked(
-                formId: effectiveFormId,
-                formName: effectiveFormName,
-                buttonLabel: buttonLabel,
-                deepLinkUrl: url
-            ))
-
-            // Only attempt to open valid URLs (skip if nil or empty)
+            // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("CTA clicked but no deep link URL configured in form")
+                    Logger.webViewLogger.warning(
+                        "CTA clicked but no deep link URL configured — skipping navigation"
+                    )
                 }
                 return
             }
 
+            // 2. Handle deep link navigation before validating lifecycle metadata
             if UIApplication.shared.canOpenURL(url) {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
@@ -306,6 +355,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
+                }
+            }
+
+            // 3. Invoke lifecycle handler when form identity fields are present
+            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
+                    formId: formId,
+                    formName: formName,
+                    buttonLabel: buttonLabel ?? "",
+                    deepLinkUrl: url
+                ))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "openDeepLink missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .abort(reason):

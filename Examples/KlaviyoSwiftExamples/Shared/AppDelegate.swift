@@ -38,20 +38,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms() // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
-            .registerFormLifecycleHandler { event, context in
+            .registerFormLifecycleHandler { event in
                 // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
                 // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
 
                 switch event {
                 case .formShown:
-                    print("🎨 [Form Lifecycle] Form Shown: \(context.formId ?? "unknown")")
-                    print("   Form Name: \(context.formName ?? "unknown")")
+                    print("🎨 [Form Lifecycle] Form Shown: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
                 case .formDismissed:
-                    print("👋 [Form Lifecycle] Form Dismissed: \(context.formId ?? "unknown")")
-                    print("   Form Name: \(context.formName ?? "unknown")")
-                case .formCTAClicked:
-                    print("🖱️  [Form Lifecycle] Form CTA Clicked: \(context.formId ?? "unknown")")
-                    print("   Form Name: \(context.formName ?? "unknown")")
+                    print("👋 [Form Lifecycle] Form Dismissed: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
+                case let .formCtaClicked(_, _, buttonLabel, deepLinkUrl):
+                    print("🖱️  [Form Lifecycle] Form CTA Clicked: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
+                    print("   Button: \(buttonLabel) → \(deepLinkUrl)")
                 }
             }
 
