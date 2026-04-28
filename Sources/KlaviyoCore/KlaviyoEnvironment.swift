@@ -227,6 +227,12 @@ public struct KlaviyoEnvironment {
         return __klaviyoSwiftVersion
     }
 
+    @available(iOSApplicationExtension, unavailable)
+    private static func backgroundSetting() -> PushBackground {
+        .create(from: UIApplication.shared.backgroundRefreshStatus)
+    }
+
+    @available(iOSApplicationExtension, unavailable)
     public static var production = KlaviyoEnvironment(
         archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
@@ -241,9 +247,7 @@ public struct KlaviyoEnvironment {
             let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
             return PushEnablement.create(from: notificationSettings.authorizationStatus)
         },
-        getBackgroundSetting: {
-            .create(from: UIApplication.shared.backgroundRefreshStatus)
-        },
+        getBackgroundSetting: { Self.backgroundSetting() },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },

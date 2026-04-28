@@ -49,6 +49,7 @@ public class DeepLinkHandler {
     // MARK: - Handle Link
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
+    @available(iOSApplicationExtension, unavailable)
     package func openURL(_ url: URL) async {
         if let customDeepLinkHandler {
             if #available(iOS 14.0, *) {
@@ -72,6 +73,7 @@ public class DeepLinkHandler {
         }
     }
 
+    @available(iOSApplicationExtension, unavailable)
     @MainActor
     private static func openWithFallbackHandler(url: URL) async {
         if !KlaviyoEnvironment.isWrapperSDK {
@@ -101,6 +103,7 @@ public class DeepLinkHandler {
     ///
     /// - Parameter url: The universal link URL to be handled.
     /// - Returns: `true` if the link was successfully submitted or handled, and `false` otherwise.
+    @available(iOSApplicationExtension, unavailable)
     @MainActor
     private static func routeWithSceneSessionActivation(url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
@@ -166,6 +169,7 @@ public class DeepLinkHandler {
     }
 
     /// Routes the URL using the AppDelegate API.
+    @available(iOSApplicationExtension, unavailable)
     @MainActor
     @discardableResult
     private static func routeWithAppDelegate(url: URL) async -> Bool {
@@ -185,6 +189,7 @@ public class DeepLinkHandler {
     }
 
     /// Fallback that attempts to open the URL using ``UIApplication.shared.open(_:)``.
+    @available(iOSApplicationExtension, unavailable)
     @MainActor
     @discardableResult
     private static func openWithUIApplicationAPI(_ url: URL) async -> Bool {
