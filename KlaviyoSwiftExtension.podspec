@@ -15,5 +15,5 @@ Pod::Spec.new do |s|
   s.platform = :ios
   s.ios.deployment_target = '13.0'
   s.source_files = 'Sources/KlaviyoSwiftExtension/**/*.swift'
-  s.dependency     'KlaviyoCore', '~> 5.3.0'
+  s.dependency     'KlaviyoPushCore', '~> 5.3.0'
 end

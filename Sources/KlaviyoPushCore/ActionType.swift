@@ -1,9 +1,6 @@
 //
 //  ActionType.swift
 //
-//
-//  Created by Belle Lim on 1/20/26.
-//
 
 import Foundation
 

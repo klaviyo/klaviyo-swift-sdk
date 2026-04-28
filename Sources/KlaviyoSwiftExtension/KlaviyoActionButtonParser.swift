@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import KlaviyoCore
+import KlaviyoPushCore
 import OSLog
 import UserNotifications
 

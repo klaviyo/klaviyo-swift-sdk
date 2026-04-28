@@ -36,8 +36,12 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "KlaviyoPushCore",
+            path: "Sources/KlaviyoPushCore"
+        ),
+        .target(
             name: "KlaviyoCore",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoPushCore"],
             path: "Sources/KlaviyoCore"
         ),
         .testTarget(
@@ -93,14 +97,14 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwiftExtension",
-            dependencies: ["KlaviyoCore"],
+            dependencies: ["KlaviyoPushCore"],
             path: "Sources/KlaviyoSwiftExtension"
         ),
         .testTarget(
             name: "KlaviyoSwiftExtensionTests",
             dependencies: [
                 "KlaviyoSwiftExtension",
-                "KlaviyoCore"
+                "KlaviyoPushCore"
             ]
         ),
         .target(
