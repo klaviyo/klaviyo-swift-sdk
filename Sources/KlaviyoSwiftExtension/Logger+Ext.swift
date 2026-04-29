@@ -24,4 +24,6 @@ extension Logger {
     static let actionButtons = Logger(category: "Action Buttons")
     /// Logger for Rich Media
     static let richMedia = Logger(category: "Rich Media")
+    /// Logger for notification category management
+    static let notifications = Logger(category: "Notifications")
 }
