@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import KlaviyoCore
 import OSLog
 import UserNotifications
 
