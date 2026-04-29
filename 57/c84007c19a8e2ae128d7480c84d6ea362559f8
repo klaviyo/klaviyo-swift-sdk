@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "57c84007c19a8e2ae128d7480c84d6ea362559f8",
+  "prompts": {
+    "04badfd0d70e658f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c887be-f3d8-4fc8-a70d-1e225e6b0237",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 157,
+      "total_deletions": 98,
+      "accepted_lines": 59,
+      "overriden_lines": 0
+    }
+  }
+}
