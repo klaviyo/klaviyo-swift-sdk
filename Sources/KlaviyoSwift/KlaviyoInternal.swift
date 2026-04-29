@@ -7,7 +7,7 @@
 
 import Combine
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 /// The internal interface for the Klaviyo SDK.
 ///

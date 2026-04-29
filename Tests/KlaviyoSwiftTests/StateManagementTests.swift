@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 12/6/22.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 @testable import KlaviyoSwift
 import AnyCodable
 import Combine

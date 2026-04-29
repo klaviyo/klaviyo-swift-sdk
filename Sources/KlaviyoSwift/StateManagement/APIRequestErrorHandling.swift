@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 enum ErrorHandlingConstants {
     static let maxBackoff = 60 * 3 // 3 minutes

@@ -7,7 +7,7 @@
 
 import Combine
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let TEST_API_KEY = "fake-key"

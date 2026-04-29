@@ -8,7 +8,7 @@
 @testable import KlaviyoSwift
 import Combine
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import XCTest
 
 class AppLifeCycleEventsTests: XCTestCase {

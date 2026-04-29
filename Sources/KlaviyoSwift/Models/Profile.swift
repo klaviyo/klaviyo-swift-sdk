@@ -7,7 +7,7 @@
 
 import AnyCodable
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 public struct Profile: Equatable, Codable {
     public enum ProfileKey: Equatable, Hashable, Codable {
