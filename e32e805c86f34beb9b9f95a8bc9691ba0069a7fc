@@ -1,0 +1,23 @@
+.github/workflows/cocoapods-publish.yml
+  23a3cdce490260a6 5,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "e32e805c86f34beb9b9f95a8bc9691ba0069a7fc",
+  "prompts": {
+    "23a3cdce490260a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e8722cf-49e1-47f2-9f13-6bb221b92ac7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 9533,
+      "total_deletions": 2,
+      "accepted_lines": 9533,
+      "overriden_lines": 0
+    }
+  }
+}

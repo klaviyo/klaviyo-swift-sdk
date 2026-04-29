@@ -1,0 +1,35 @@
+Sources/KlaviyoSwiftExtension/ActionType.swift
+  04badfd0d70e658f 5-10
+Tests/KlaviyoSwiftTests/TestData.swift
+  04badfd0d70e658f 227-228
+Sources/KlaviyoSwift/KlaviyoSwiftEnvironment.swift
+  04badfd0d70e658f 22,49-51
+Sources/KlaviyoSwift/Klaviyo.swift
+  04badfd0d70e658f 213-218,254-259
+Sources/KlaviyoSwiftExtension/KlaviyoCategoryManager.swift
+  04badfd0d70e658f 5-11
+Sources/KlaviyoCore/KlaviyoCategoryManager.swift
+  04badfd0d70e658f 1-140
+Sources/KlaviyoCore/Models/ActionType.swift
+  04badfd0d70e658f 8-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "ac53932c79825ec37eb9c055f58d33c130928148",
+  "prompts": {
+    "04badfd0d70e658f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c887be-f3d8-4fc8-a70d-1e225e6b0237",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 262,
+      "total_deletions": 87,
+      "accepted_lines": 177,
+      "overriden_lines": 0
+    }
+  }
+}

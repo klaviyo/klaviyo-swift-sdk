@@ -1,0 +1,85 @@
+KlaviyoSwiftExtension.podspec
+  40a7464df784f625 3,18
+KlaviyoForms.podspec
+  40a7464df784f625 3,22
+KlaviyoSwift.podspec
+  40a7464df784f625 3,20
+Sources/KlaviyoCore/Utils/Version.swift
+  40a7464df784f625 11
+KlaviyoLocation.podspec
+  40a7464df784f625 3,17
+KlaviyoCore.podspec
+  40a7464df784f625 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "0f1bd9cb6916e57665ae5e408f654b2b54e8380e",
+  "prompts": {
+    "23a3cdce490260a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e8722cf-49e1-47f2-9f13-6bb221b92ac7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 9426,
+      "overriden_lines": 9
+    },
+    "40a7464df784f625": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "393e7ee7-854f-483c-a897-e241ea773d93",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 253,
+      "total_deletions": 20,
+      "accepted_lines": 407,
+      "overriden_lines": 1
+    },
+    "48c0a6f49bc9a219": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "11adbf04-5581-49d9-b2c4-4d865fa02207",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "4fff013d7efd7b1c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "242bdf48-94d9-4587-9952-e772d28726a1",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 5,
+      "accepted_lines": 7026,
+      "overriden_lines": 891
+    },
+    "c0fc70052cd3883d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8bfd2d65-e0e8-4191-8299-322ceb8f3d7b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
