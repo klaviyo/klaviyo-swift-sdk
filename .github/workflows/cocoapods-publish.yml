@@ -2,7 +2,7 @@
 #
 # This workflow publishes all five podspecs in dependency order:
 # 1. KlaviyoCore (foundation, no dependencies)
-# 2. KlaviyoSwiftExtension (depends on KlaviyoCore)
+# 2. KlaviyoSwiftExtension (standalone, no dependencies)
 # 3. KlaviyoSwift (depends on KlaviyoCore)
 # 4. KlaviyoForms (depends on KlaviyoSwift)
 # 5. KlaviyoLocation (depends on KlaviyoSwift)
@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "Validating all podspecs in dependency order..."
           pod lib lint KlaviyoCore.podspec --allow-warnings
-          pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings --include-podspecs='*.podspec'
+          pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
           pod lib lint KlaviyoSwift.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoForms.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoLocation.podspec --allow-warnings --include-podspecs='*.podspec'
