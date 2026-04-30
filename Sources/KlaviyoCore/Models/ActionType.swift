@@ -5,6 +5,12 @@
 //  Created by Belle Lim on 1/20/26.
 //
 
+// NOTE: KlaviyoSwiftExtension carries an internal copy of this enum
+// (Sources/KlaviyoSwiftExtension/ActionType.swift) because that target cannot
+// depend on KlaviyoCore (NSE/share-extension sandbox restriction). The two
+// copies are intentionally kept in sync. If you add or rename cases here,
+// mirror the change there.
+
 import Foundation
 
 /// Represents the supported action types for push notification buttons.
