@@ -1,0 +1,23 @@
+Sources/KlaviyoCore/KlaviyoEnvironment.swift
+  d9c6b1a25a6291e0 15-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "ca0954941e55a6d04582acf3894d013e8bb89ac7",
+  "prompts": {
+    "d9c6b1a25a6291e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fed379fb-c036-4150-b399-d6e3e8d56197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Noah Durell",
+      "messages": [],
+      "total_additions": 480,
+      "total_deletions": 0,
+      "accepted_lines": 13009,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,143 @@
+Sources/KlaviyoForms/InAppForms/IAFPresentationManager.swift
+  d9c6b1a25a6291e0 9
+Tests/KlaviyoLocationTests/GeofenceCooldownTrackerTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoSwift/Models/LifecycleEventsExtension.swift
+  d9c6b1a25a6291e0 9
+Tests/KlaviyoCoreTests/DeepLinkHandlerTests.swift
+  d9c6b1a25a6291e0 8
+Sources/KlaviyoForms/InAppForms/Observers/CompanyObserver.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/StateManagementTests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoLocationTests/KlaviyoLocationManagerTests.swift
+  d9c6b1a25a6291e0 11
+"Sources/KlaviyoForms/KlaviyoWebView/Development Assets/PreviewWebViewModel.swift"
+  d9c6b1a25a6291e0 11
+Sources/KlaviyoSwift/StateManagement/APIRequestErrorHandling.swift
+  d9c6b1a25a6291e0 9
+Tests/KlaviyoCoreTests/KlaviyoEndpointTests.swift
+  d9c6b1a25a6291e0 1
+Sources/KlaviyoSwift/KlaviyoInternal.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoForms/InAppForms/Observers/ProfileEventObserver.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoLocationTests/GeofenceTests.swift
+  d9c6b1a25a6291e0 12
+Sources/KlaviyoSwift/StateManagement/KlaviyoState.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoFormsTests/IAFWebViewModelTests.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/KlaviyoTestUtils.swift
+  d9c6b1a25a6291e0 8
+Sources/KlaviyoCore/KlaviyoEnvironment.swift
+  d9c6b1a25a6291e0 13-22
+Tests/KlaviyoSwiftTests/AttemptNumberTests.swift
+  d9c6b1a25a6291e0 1
+Sources/KlaviyoSwift/Models/Event.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/APIRequestErrorHandlingTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoForms/InAppForms/Observers/LifecycleObserver.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/KlaviyoInternalTests.swift
+  d9c6b1a25a6291e0 11
+Tests/KlaviyoFormsTests/KlaviyoWebViewControllerTests.swift
+  d9c6b1a25a6291e0 3
+Tests/KlaviyoSwiftTests/StateManagementEdgeCaseTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoLocation/GeofenceService.swift
+  d9c6b1a25a6291e0 9
+Sources/KlaviyoForms/InAppForms/IAFWebViewModel.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoCoreTests/NetworkSessionTests.swift
+  d9c6b1a25a6291e0 8
+Sources/KlaviyoLocation/KlaviyoLocationManager.swift
+  d9c6b1a25a6291e0 11
+Tests/KlaviyoSwiftTests/StateChangePublisherTests.swift
+  d9c6b1a25a6291e0 13
+Tests/KlaviyoSwiftTests/EncodableTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoSwift/Utilities/EventBuffer.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoCoreTests/RequestAttemptInfoTests.swift
+  d9c6b1a25a6291e0 1
+Tests/KlaviyoCoreTests/FileUtilsTests.swift
+  d9c6b1a25a6291e0 8
+Sources/KlaviyoCore/AppLifeCycleEvents.swift
+  d9c6b1a25a6291e0 26
+Tests/KlaviyoCoreTests/KlaviyoRequestTests.swift
+  d9c6b1a25a6291e0 1
+Sources/KlaviyoForms/KlaviyoWebView/KlaviyoWebViewController.swift
+  d9c6b1a25a6291e0 9
+Sources/KlaviyoLocation/Utilities/GeofenceCooldownTracker.swift
+  d9c6b1a25a6291e0 9
+Tests/KlaviyoFormsTests/KlaviyoFormsTestUtils.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoSwiftTests/TrackingLinkDestinationResponseTests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoCoreTests/KlaviyoAPITests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoSwiftTests/DeepLinkHandlingTests.swift
+  d9c6b1a25a6291e0 7
+Tests/KlaviyoSwiftTests/TestData.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoCoreTests/TestUtils.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoCoreTests/EncodableTests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoSwiftTests/ResolveTrackingLinkTests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoFormsTests/IAFWebViewModelPreloadingTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoLocation/Models/Geofence.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoSwift/Models/Profile.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/KlaviyoSDKTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoSwift/StateManagement/StateManagement.swift
+  d9c6b1a25a6291e0 17
+Tests/KlaviyoCoreTests/WithTimeoutTests.swift
+  d9c6b1a25a6291e0 1
+Sources/KlaviyoLocation/KlaviyoLocationManager+CLLocationManagerDelegate.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoSwiftTests/KlaviyoStateTests.swift
+  d9c6b1a25a6291e0 10
+Sources/KlaviyoSwift/Klaviyo.swift
+  d9c6b1a25a6291e0 10
+Tests/KlaviyoCoreTests/Dictionary+MetadataTests.swift
+  d9c6b1a25a6291e0 8
+Tests/KlaviyoSwiftTests/AppLifeCycleEventsTests.swift
+  d9c6b1a25a6291e0 11
+Sources/KlaviyoCore/Networking/KlaviyoAPI.swift
+  d9c6b1a25a6291e0 14
+Sources/KlaviyoSwift/Models/ProfileAPIExtension.swift
+  d9c6b1a25a6291e0 9
+Tests/KlaviyoLocationTests/KlaviyoLocationTestUtils.swift
+  d9c6b1a25a6291e0 8
+Sources/KlaviyoCore/Networking/KlaviyoRequest.swift
+  d9c6b1a25a6291e0 26
+Tests/KlaviyoCoreTests/ArchivalUtilsTests.swift
+  d9c6b1a25a6291e0 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "bdd9b238fd603d1e548df070f9694ca2094b9e99",
+  "prompts": {
+    "d9c6b1a25a6291e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fed379fb-c036-4150-b399-d6e3e8d56197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Noah Durell",
+      "messages": [],
+      "total_additions": 12743,
+      "total_deletions": 63,
+      "accepted_lines": 12736,
+      "overriden_lines": 0
+    }
+  }
+}
