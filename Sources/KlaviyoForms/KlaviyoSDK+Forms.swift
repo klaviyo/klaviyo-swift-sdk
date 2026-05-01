@@ -60,13 +60,13 @@ extension KlaviyoSDK {
     /// KlaviyoSDK().registerFormLifecycleHandler { event in
     ///     switch event {
     ///     case .formShown(let formId, let formName):
-    ///         Analytics.track("Form Shown", properties: ["formId": formId ?? ""])
+    ///         Analytics.track("Form Shown", properties: ["formId": formId])
     ///     case .formDismissed(let formId, let formName):
-    ///         Analytics.track("Form Dismissed", properties: ["formId": formId ?? ""])
+    ///         Analytics.track("Form Dismissed", properties: ["formId": formId])
     ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
     ///         Analytics.track("Form CTA Clicked", properties: [
-    ///             "formId": formId ?? "",
-    ///             "buttonLabel": buttonLabel ?? ""
+    ///             "formId": formId,
+    ///             "buttonLabel": buttonLabel
     ///         ])
     ///     }
     /// }
