@@ -5,7 +5,7 @@
 //  Created by Ajay Subramanya on 8/15/24.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 import Combine
 import CoreLocation
 import Foundation

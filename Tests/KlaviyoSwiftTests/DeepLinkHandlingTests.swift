@@ -4,7 +4,7 @@
 //  Created by Cursor AI on 8/11/25.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 @testable import KlaviyoSwift
 import Combine
 import Foundation
