@@ -41,6 +41,7 @@
   - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
   - [Setup](#setup-2)
@@ -795,32 +796,33 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 ### Monitoring Form Lifecycle Events
 
-> ℹ️ Form lifecycle events are available in SDK version 5.x.0 and higher
+> ℹ️ Form lifecycle events are available in SDK version 5.3.0 and higher
 
 You can register a handler to track when forms are shown, dismissed, or when users tap call-to-action buttons. This is useful for sending form engagement data to third-party analytics platforms like Amplitude, Segment, or Mixpanel.
 
 ```swift
 import KlaviyoForms
 
-KlaviyoSDK().registerFormLifecycleHandler { event, context in
+KlaviyoSDK().registerFormLifecycleHandler { event in
     switch event {
-    case .formShown:
+    case .formShown(let formId, let formName):
         // Track when a form is displayed
         Analytics.track("Klaviyo Form Shown", properties: [
-            "formId": context.formId ?? "",
-            "formName": context.formName ?? ""
+            "formId": formId ?? "",
+            "formName": formName ?? ""
         ])
-    case .formDismissed:
+    case .formDismissed(let formId, let formName):
         // Track when a form is dismissed (user, timeout, or programmatic)
         Analytics.track("Klaviyo Form Dismissed", properties: [
-            "formId": context.formId ?? "",
-            "formName": context.formName ?? ""
+            "formId": formId ?? "",
+            "formName": formName ?? ""
         ])
-    case .formCTAClicked:
+    case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
         // Track when a user taps a call-to-action button
         Analytics.track("Klaviyo Form CTA Clicked", properties: [
-            "formId": context.formId ?? "",
-            "formName": context.formName ?? ""
+            "formId": formId ?? "",
+            "formName": formName ?? "",
+            "buttonLabel": buttonLabel ?? ""
         ])
     }
 }
