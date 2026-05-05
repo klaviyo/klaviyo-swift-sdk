@@ -808,21 +808,21 @@ KlaviyoSDK().registerFormLifecycleHandler { event in
     case .formShown(let formId, let formName):
         // Track when a form is displayed
         Analytics.track("Klaviyo Form Shown", properties: [
-            "formId": formId ?? "",
-            "formName": formName ?? ""
+            "formId": formId,
+            "formName": formName
         ])
     case .formDismissed(let formId, let formName):
-        // Track when a form is dismissed (user, timeout, or programmatic)
+        // Track when a form is dismissed
         Analytics.track("Klaviyo Form Dismissed", properties: [
-            "formId": formId ?? "",
-            "formName": formName ?? ""
+            "formId": formId,
+            "formName": formName
         ])
     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
         // Track when a user taps a call-to-action button
         Analytics.track("Klaviyo Form CTA Clicked", properties: [
-            "formId": formId ?? "",
-            "formName": formName ?? "",
-            "buttonLabel": buttonLabel ?? ""
+            "formId": formId,
+            "formName": formName,
+            "buttonLabel": buttonLabel
         ])
     }
 }
