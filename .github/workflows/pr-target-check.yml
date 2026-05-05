@@ -1,0 +1,50 @@
+name: PR Target Branch Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - master
+
+jobs:
+  check-pr-target:
+    name: Check PR targets a release branch
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Validate source branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]]; then
+            echo "Branch '$HEAD_REF' is allowed to target master."
+            exit 0
+          fi
+
+          # Post a comment only if one hasn't been posted already
+          MARKER="<!-- pr-target-check-warning -->"
+          EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+
+          if [ -z "$EXISTING" ]; then
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --method POST \
+              --field body="${MARKER}
+          **:warning: This PR needs to target a release branch before it can merge to \`master\`.**
+
+          All changes — including hotfixes, dependency bumps, and feature work — should flow through a \`rel/*\` branch rather than merging directly to \`master\`. This keeps commit history clean and ensures every change is tied to a release.
+
+          **To fix:** change the base branch of this PR to the appropriate \`rel/*\` branch. You can do this without closing the PR — use the base branch dropdown at the top of the PR.
+
+          - If the release version isn't decided yet, create a placeholder: \`rel/X.Y.Z\`
+          - If this is CI/tooling work, rename your branch with a \`ci/\` prefix and this check will pass
+
+          _Enforced by the \`pr-target-check\` workflow._"
+          fi
+
+          echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/* or ci/*."
+          exit 1
