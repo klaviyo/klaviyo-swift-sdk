@@ -33,9 +33,6 @@ class IAFPresentationManager {
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
-    private var hasInvokedDismissed = false
-    private(set) var currentFormId: String?
-    private(set) var currentFormName: String?
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
@@ -105,6 +102,8 @@ class IAFPresentationManager {
         companyObserver = CompanyObserver()
         companyObserver?.startObserving()
         isInitializingOrInitialized = true
+
+        _ = InAppWindowManager.shared
 
         companyEventsTask = Task { [weak self] in
             guard let self, let eventsStream = companyObserver?.eventsStream else { return }
@@ -186,10 +185,10 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
-        case let .present(formId, formName):
-            presentForm(formId: formId, formName: formName)
-        case let .dismiss(formId, formName):
-            dismissForm(formId: formId, formName: formName)
+        case let .present(withLayout: layout):
+            presentForm(layout: layout)
+        case .dismiss:
+            dismissForm()
         case .abort:
             destroyWebviewAndListeners()
         }
@@ -375,7 +374,7 @@ class IAFPresentationManager {
 
     // MARK: - View Lifecycle
 
-    private func presentForm(formId: String? = nil, formName: String? = nil) {
+    private func presentForm(layout: FormLayout?) {
         guard let viewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
@@ -383,6 +382,18 @@ class IAFPresentationManager {
             return
         }
 
+        if let layout, layout.position != .fullscreen {
+            // Flexible form: use window manager
+            delayedPresentationTask?.cancel()
+            delayedPresentationTask = nil
+            InAppWindowManager.shared.present(viewController: viewController, layout: layout)
+        } else {
+            // Fullscreen form: use modal presentation
+            presentFormAsModal(viewController: viewController)
+        }
+    }
+
+    private func presentFormAsModal(viewController: KlaviyoWebViewController) {
         guard let topController = UIApplication.shared.topMostViewController else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Unable to access topMostViewController; ignoring `presentForm()` request.")
@@ -402,7 +413,7 @@ class IAFPresentationManager {
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 try? Task.checkCancellation()
-                self.presentForm(formId: formId, formName: formName)
+                self.presentForm(layout: nil)
             }
         } else {
             if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
@@ -410,28 +421,14 @@ class IAFPresentationManager {
                     Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
                 }
             } else {
-                hasInvokedDismissed = false
-                currentFormId = formId
-                currentFormName = formName
-                topController.present(viewController, animated: false) { [weak self] in
-                    guard let self, !self.hasInvokedDismissed else { return }
-                    self.invokeLifecycleHandler(for: .formShown(formId: formId, formName: formName))
-                }
+                topController.present(viewController, animated: false, completion: nil)
             }
         }
     }
 
-    func dismissForm(formId: String? = nil, formName: String? = nil) {
+    func dismissForm() {
         guard let viewController else { return }
-        // Fall back to the context captured at present time if the bridge sends nil identifiers
-        // (e.g. fender rollback or companion PR not yet deployed)
-        let effectiveFormId = formId ?? currentFormId
-        let effectiveFormName = formName ?? currentFormName
-        if !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed(formId: effectiveFormId, formName: effectiveFormName))
-            hasInvokedDismissed = true
-        }
-        viewController.dismiss(animated: false)
+        performDismiss(viewController: viewController)
     }
 
     // MARK: - Cleanup & Destruction
@@ -439,19 +436,20 @@ class IAFPresentationManager {
     func destroyWebView() {
         guard let viewController else { return }
 
-        // Invoke lifecycle handler if form was visible
-        // This covers timeout-based and programmatic dismissals
-        if viewController.presentingViewController != nil && !hasInvokedDismissed {
-            invokeLifecycleHandler(for: .formDismissed(formId: currentFormId, formName: currentFormName))
-            hasInvokedDismissed = true
-        }
+        performDismiss(viewController: viewController)
 
-        viewController.dismiss(animated: false, completion: nil)
-
-        currentFormId = nil
-        currentFormName = nil
         self.viewController = nil
         viewModel = nil
+    }
+
+    private func performDismiss(viewController: KlaviyoWebViewController) {
+        if InAppWindowManager.shared.hasActiveWindow {
+            // Flexible form: dismiss window
+            InAppWindowManager.shared.dismiss()
+        } else {
+            // Fullscreen form: dismiss modal
+            viewController.dismiss(animated: false, completion: nil)
+        }
     }
 
     func destroyWebviewAndListeners() {

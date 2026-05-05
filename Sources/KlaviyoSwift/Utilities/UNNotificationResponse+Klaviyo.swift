@@ -10,8 +10,19 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UserNotifications
+
+extension UNNotification {
+    /// Determines if this notification originated from Klaviyo.
+    ///
+    /// A notification is considered a Klaviyo notification if it contains
+    /// a "body" dictionary with a "_k" key in its userInfo.
+    public var isKlaviyoNotification: Bool {
+        request.content.isKlaviyoNotification
+    }
+}
 
 extension UNNotificationResponse {
     /// Determines if a notification originated from Klaviyo.
@@ -19,13 +30,7 @@ extension UNNotificationResponse {
     /// A notification is considered a Klaviyo notification if it contains
     /// a "body" dictionary with a "_k" key in its userInfo.
     public var isKlaviyoNotification: Bool {
-        if let properties = notification.request.content.userInfo as? [String: Any],
-           let body = properties["body"] as? [String: Any],
-           let _ = body["_k"] {
-            return true
-        } else {
-            return false
-        }
+        notification.isKlaviyoNotification
     }
 
     /// Returns the custom Klaviyo properties from a Klaviyo notification payload, if present.
@@ -75,5 +80,56 @@ extension UNNotificationResponse {
         }
 
         return url
+    }
+
+    // MARK: - Action Button Support
+
+    /// Detects if the user tapped an action button (vs tapping the notification body).
+    ///
+    /// Returns `true` if the user tapped an action button, `false` if they tapped
+    /// the notification body or dismissed it.
+    var isActionButtonTap: Bool {
+        actionIdentifier != UNNotificationDefaultActionIdentifier &&
+            actionIdentifier != UNNotificationDismissActionIdentifier
+    }
+
+    /// Returns the action button ID that was tapped (if any).
+    ///
+    /// This returns the button's identifier string (e.g., "com.klaviyo.action.shop")
+    /// if the user tapped an action button, or nil otherwise.
+    var actionButtonId: String? {
+        guard isActionButtonTap else { return nil }
+        return actionIdentifier
+    }
+
+    /// Returns the action-specific deep link URL from the payload.
+    var actionButtonURL: URL? {
+        guard let urlString = matchingActionButton?["url"] as? String else { return nil }
+        return URL(string: urlString)
+    }
+
+    /// Returns the button label text (for analytics).
+    var actionButtonLabel: String? {
+        matchingActionButton?["label"] as? String
+    }
+
+    /// Returns the action type for the tapped button.
+    var actionButtonType: ActionType? {
+        guard let actionString = matchingActionButton?["action"] as? String else { return nil }
+        return ActionType(rawValue: actionString)
+    }
+
+    // MARK: - Private Helpers
+
+    /// Returns the action button dictionary matching the tapped action identifier, if any.
+    private var matchingActionButton: [String: Any]? {
+        guard isActionButtonTap,
+              isKlaviyoNotification,
+              let properties = klaviyoProperties,
+              let body = properties["body"] as? [String: Any],
+              let actionButtons = body["action_buttons"] as? [[String: Any]] else {
+            return nil
+        }
+        return actionButtons.first { $0["id"] as? String == actionIdentifier }
     }
 }

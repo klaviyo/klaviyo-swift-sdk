@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 import UIKit
 import UserNotifications
 
@@ -18,6 +19,7 @@ struct KlaviyoSwiftEnvironment {
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
     var setBadgeCount: (Int) -> Task<Void, Never>?
+    var pruneCategory: (String) -> Void
 
     static let production: KlaviyoSwiftEnvironment = {
         let store = Store.production
@@ -44,6 +46,9 @@ struct KlaviyoSwiftEnvironment {
                     }
                     userDefaults.set(count, forKey: "badgeCount")
                 }
+            },
+            pruneCategory: { categoryIdentifier in
+                KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
             }
         )
     }()

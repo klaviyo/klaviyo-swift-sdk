@@ -28,7 +28,9 @@
       - [Autoclearing](#autoclearing)
       - [Handling Other Badging Sources](#handling-other-badging-sources)
     - [Silent Push Notifications](#silent-push-notifications)
+    - [Handling background notifications (content-available)](#handling-background-notifications-content-available)
     - [Custom Data](#custom-data)
+    - [Push Action Buttons](#push-action-buttons)
 - [Deep Linking](#deep-linking)
   - [Adding link-handling logic](#adding-link-handling-logic)
   - [Handling URL Schemes](#handling-url-schemes)
@@ -427,7 +429,7 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
   // Access custom key-value pairs from the top level
   if let customData = userInfo["key_value_pairs"] as? [String: String] {
     // Process your custom key-value pairs here
-    for (key, value) in kvPairs {
+    for (key, value) in customData {
         print("Key: \(key), Value: \(value)")
     }
   } else {
@@ -438,8 +440,53 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 
 >  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
 
+#### Handling background notifications (content-available)
+
+Klaviyo can send a **standard** push (title, body, and other visible notification UI) whose APNs payload also includes **`content-available: 1`**. That is different from a [silent push](#silent-push-notifications): silent pushes never show an alert, while this is a normal user-visible notification that *additionally* asks iOS to wake your app in the background so you can refresh data or run other work from the same `userInfo`.
+
+You still handle the visible notification through [`UNUserNotificationCenterDelegate`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate) when the message is presented or opened. The background wake for `content-available` uses the same app delegate path as silent push: `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`. Implement that method (see the example under [Silent Push Notifications](#silent-push-notifications)) and finish by calling `completionHandler` with `.newData`, `.noData`, or `.failed` when your background work completes. Use the same Background Modes / remote-notification setup called out in that section (Apple’s [background updates](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app) guide).
+
+>  ℹ️ Background wakes are best-effort and may be throttled. As with [silent push notifications](#silent-push-notifications), test this functionality on a physical device because the Simulator does not support the full remote-notification background path.
+
 #### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
+
+#### Push Action Buttons
+
+>  ℹ️ Push Action Buttons is supported in SDK version [5.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.3.0) and higher
+
+Klaviyo supports the ability to add [custom push action buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) to push notification messages. These buttons can show custom text and can deep link or open your app when tapped. If a button is tapped, the open push event includes the corresponding button information. No additional setup is needed to support push action buttons. Push notifications can include a maximum of 3 valid buttons.
+
+To test push action buttons, use Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications) and send a payload with this format to resemble what the SDK would receive from Klaviyo.
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "New Arrivals Just for You",
+      "body": "Check out our latest collection"
+    },
+    "mutable-content": 1,
+    "sound": "default"
+  },
+  "body": {
+    "_k": { },
+    "action_buttons": [
+      {
+        "id": "someId",
+        "label": "Go to Settings",
+        "action": "deep_link",
+        "url": "klaviyotest://settings"
+      },
+      {
+        "id": "someOtherId",
+        "label": "Open App",
+        "action": "open_app"
+      }
+    ]
+  }
+}
+```
 
 ## Deep Linking
 
