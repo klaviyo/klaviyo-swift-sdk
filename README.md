@@ -822,7 +822,8 @@ KlaviyoSDK().registerFormLifecycleHandler { event in
         Analytics.track("Klaviyo Form CTA Clicked", properties: [
             "formId": formId,
             "formName": formName,
-            "buttonLabel": buttonLabel
+            "buttonLabel": buttonLabel,
+            "deepLinkUrl": deepLinkUrl.absoluteString
         ])
     }
 }
