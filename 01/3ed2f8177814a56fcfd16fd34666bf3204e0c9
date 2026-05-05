@@ -1,0 +1,23 @@
+.github/workflows/pr-target-check.yml
+  5d85a9693abe8916 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "013ed2f8177814a56fcfd16fd34666bf3204e0c9",
+  "prompts": {
+    "5d85a9693abe8916": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "39376118-7432-4b26-b091-a8593ef739de",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Isobelle Lim",
+      "messages": [],
+      "total_additions": 122,
+      "total_deletions": 0,
+      "accepted_lines": 122,
+      "overriden_lines": 0
+    }
+  }
+}
