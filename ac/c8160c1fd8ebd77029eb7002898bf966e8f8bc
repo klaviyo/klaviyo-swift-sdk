@@ -1,0 +1,23 @@
+.pre-commit-config.yaml
+  ec9e25a248744768 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "acc8160c1fd8ebd77029eb7002898bf966e8f8bc",
+  "prompts": {
+    "ec9e25a248744768": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7699c512-6a93-4667-9ac3-3471e4e02505",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Evan Masseau",
+      "messages": [],
+      "total_additions": 4547,
+      "total_deletions": 418,
+      "accepted_lines": 3600,
+      "overriden_lines": 0
+    }
+  }
+}
