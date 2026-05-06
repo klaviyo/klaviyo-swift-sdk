@@ -2,7 +2,7 @@ name: PR Target Branch Check
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
     branches:
       - master
 
@@ -28,6 +28,16 @@ jobs:
             exit 0
           fi
 
+          # Check for manual-merge override label
+          HAS_OVERRIDE=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels" \
+            --jq '.[] | select(.name == "manual-merge") | .name' | head -1)
+
+          if [ -n "$HAS_OVERRIDE" ]; then
+            echo "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
+            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            exit 0
+          fi
+
           # Post a comment only if one hasn't been posted already
           MARKER="<!-- pr-target-check-warning -->"
           EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
@@ -45,11 +55,14 @@ jobs:
 
           - If the release version isn't decided yet, create a placeholder: \`rel/X.Y.Z\`
           - If this is CI/tooling work, rename your branch with a \`ci/\` prefix and this check will pass
+          - If this is documentation-only work, rename your branch with a \`docs/\` prefix and this check will pass
+
+          > **Override:** In exceptional circumstances, a maintainer may add the \`manual-merge\` label to bypass this check and merge directly to \`master\`. This should be used sparingly — it skips the release branch entirely and may result in changes not being included in a release or loss of commit attribution if not handled carefully.
 
           _Enforced by the \`pr-target-check\` workflow._"
           fi
 
           gh pr edit $PR_NUMBER --repo $REPO --add-label "$LABEL"
 
-          echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/* or ci/*."
+          echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/*, ci/*, or docs/*. Add the manual-merge label to override."
           exit 1
