@@ -22,7 +22,7 @@ jobs:
           REPO: ${{ github.repository }}
           LABEL: "needs: release branch"
         run: |
-          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]]; then
+          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
             gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
             exit 0
