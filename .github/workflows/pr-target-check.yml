@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      issues: write
     steps:
       - name: Validate source branch
         env:
@@ -19,9 +20,11 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          LABEL: "needs: release branch"
         run: |
           if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
+            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -45,6 +48,8 @@ jobs:
 
           _Enforced by the \`pr-target-check\` workflow._"
           fi
+
+          gh pr edit $PR_NUMBER --repo $REPO --add-label "$LABEL"
 
           echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/* or ci/*."
           exit 1
