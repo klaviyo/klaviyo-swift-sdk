@@ -51,9 +51,8 @@ jobs:
 
           All changes — including hotfixes, dependency bumps, and feature work — should flow through a \`rel/*\` branch rather than merging directly to \`master\`. This keeps commit history clean and ensures every change is tied to a release.
 
-          **To fix:** change the base branch of this PR to the appropriate \`rel/*\` branch. You can do this without closing the PR — use the base branch dropdown at the top of the PR.
+          **To fix:** change the base branch of this PR to the appropriate \`rel/*\` branch when available. You can do this without closing the PR — use the base branch dropdown at the top of the PR.
 
-          - If the release version isn't decided yet, create a placeholder: \`rel/X.Y.Z\`
           - If this is CI/tooling work, rename your branch with a \`ci/\` prefix and this check will pass
           - If this is documentation-only work, rename your branch with a \`docs/\` prefix and this check will pass
 
