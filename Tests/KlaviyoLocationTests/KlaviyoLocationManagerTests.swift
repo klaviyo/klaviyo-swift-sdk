@@ -8,7 +8,7 @@
 @testable import KlaviyoLocation
 import CoreLocation
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Combine
 import XCTest

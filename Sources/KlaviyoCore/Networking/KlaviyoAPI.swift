@@ -11,6 +11,7 @@ import Foundation
 public struct KlaviyoAPI {
     public var send: (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError>
 
+    @_spi(KlaviyoPrivate)
     public init(send: @escaping (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError> = { request, requestAttemptInfo in
         let start = environment.date()
 

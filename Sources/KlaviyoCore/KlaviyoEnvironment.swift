@@ -10,7 +10,21 @@ import CoreLocation
 import Foundation
 import UIKit
 
-public var environment = KlaviyoEnvironment.production
+@_spi(KlaviyoPrivate)
+public enum KlaviyoEnv {
+    #if compiler(>=5.10)
+    public nonisolated(unsafe) static var current = KlaviyoEnvironment.production
+    #else
+    public static var current = KlaviyoEnvironment.production
+    #endif
+}
+
+@_spi(KlaviyoPrivate)
+@available(*, deprecated, renamed: "KlaviyoEnv.current")
+public var environment: KlaviyoEnvironment {
+    get { KlaviyoEnv.current }
+    set { KlaviyoEnv.current = newValue }
+}
 
 public struct KlaviyoEnvironment {
     public init(

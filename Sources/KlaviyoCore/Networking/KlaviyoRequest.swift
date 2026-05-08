@@ -23,6 +23,7 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// - Parameters:
     ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
     ///   - endpoint: The endpoint this request will target.
+    @_spi(KlaviyoPrivate)
     public init(
         id: String = environment.uuid().uuidString,
         endpoint: KlaviyoEndpoint

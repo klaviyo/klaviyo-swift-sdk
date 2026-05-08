@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 9/30/22.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 import Combine
 import CombineSchedulers
 import CoreLocation

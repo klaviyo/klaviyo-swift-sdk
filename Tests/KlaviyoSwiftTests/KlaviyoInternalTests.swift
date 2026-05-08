@@ -8,7 +8,7 @@
 import Combine
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 final class KlaviyoInternalTests: XCTestCase {
     var cancellables = Set<AnyCancellable>()

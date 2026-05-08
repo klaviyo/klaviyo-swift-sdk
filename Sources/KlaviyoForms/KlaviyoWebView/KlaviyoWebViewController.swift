@@ -6,7 +6,7 @@
 //
 
 import Combine
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import OSLog
 import UIKit
 import WebKit

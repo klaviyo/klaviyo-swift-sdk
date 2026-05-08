@@ -7,7 +7,7 @@
 
 import CoreLocation
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
