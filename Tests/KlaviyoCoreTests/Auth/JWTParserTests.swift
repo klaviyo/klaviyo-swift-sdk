@@ -136,6 +136,21 @@ struct JWTParserTests {
         )
     }
 
+    @Test
+    func emptyPayloadSegmentIsRejected() throws {
+        // Token has the correct 3-segment shape but the payload segment between the dots
+        // is empty. Base64URL-decoding an empty string yields empty `Data`, which then
+        // fails JSON decoding — so the failure surfaces as `.malformedJSON` rather than
+        // `.malformedBase64`. Pins that boundary.
+        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: ["alg": "HS256"]))
+        let token = "\(header)..signature"
+
+        expectFailure(
+            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),
+            .malformedJSON
+        )
+    }
+
     // MARK: - Missing claims
 
     @Test
