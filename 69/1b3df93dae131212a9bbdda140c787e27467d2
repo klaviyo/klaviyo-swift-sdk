@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "691b3df93dae131212a9bbdda140c787e27467d2",
+  "prompts": {
+    "d63a967f1d6a7770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24596d87-cf93-402b-b711-5b53428ab634",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Ajay Subramanya",
+      "messages": [],
+      "total_additions": 7089,
+      "total_deletions": 0,
+      "accepted_lines": 6004,
+      "overriden_lines": 47
+    }
+  }
+}
