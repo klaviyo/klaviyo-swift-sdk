@@ -33,11 +33,22 @@ struct JWTParserTests {
 
     @Test
     func validTokenIgnoresUnknownClaims() throws {
+        // Claims mirror what real OIDC/OAuth providers (Auth0, Okta, Cognito, etc.) emit
+        // alongside the required exp/iat. Picks one of every JSON value type our parser
+        // might encounter in an unknown position: string, number, boolean, array of
+        // strings, nested object.
         let token = try makeJWT(extraClaims: [
-            "sub": "user-123",
-            "aud": "klaviyo",
             "iss": "https://auth.example.com",
-            "custom_field": ["nested": 42]
+            "sub": "550e8400-e29b-41d4-a716-446655440000",
+            "aud": ["klaviyo", "other-rp"],
+            "nbf": Self.defaultIat,
+            "jti": "a8f5c1d4-3b6a-4c2e-9d1f-7e8b2a3c4d5e",
+            "auth_time": Self.defaultIat,
+            "azp": "klaviyo-mobile-sdk",
+            "email": "user@example.com",
+            "email_verified": true,
+            "scope": "openid profile email",
+            "address": ["country": "US", "postal_code": "12345"]
         ])
 
         let validated = try requireValidated(
