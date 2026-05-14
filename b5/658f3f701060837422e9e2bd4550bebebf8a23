@@ -1,0 +1,36 @@
+Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift
+  1e4fcb4f115302a9 36-39,42-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "b5658f3f701060837422e9e2bd4550bebebf8a23",
+  "prompts": {
+    "1e4fcb4f115302a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f7de856-d972-4dc6-bf90-311d9ae181bc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 408,
+      "accepted_lines": 364,
+      "overriden_lines": 0
+    },
+    "a1f615c66e53f804": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "429ed0d7-8097-4b41-9b76-271777a8771d",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
