@@ -1,0 +1,1898 @@
+Sources/KlaviyoCore/Auth/JWTParser.swift
+  1e4fcb4f115302a9 20-24,33-36,73
+Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift
+  1e4fcb4f115302a9 3
+Sources/KlaviyoCore/Auth/JWTValidationFailure.swift
+  1e4fcb4f115302a9 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.1",
+  "base_commit_sha": "bd1ec87b2811b39f978c3aa7a1f78f9f67010254",
+  "prompts": {
+    "1e4fcb4f115302a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f7de856-d972-4dc6-bf90-311d9ae181bc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Andrew Balmer",
+      "messages": [
+        {
+          "type": "user",
+          "text": "Work on Linear issue MAGE-613:\n\n<issue identifier=\"MAGE-613\">\n<title>iOS: JWT parsing and validation</title>\n<description>\n## Summary\n\nImplement JWT parsing and validation for the iOS SDK. This is the foundational layer that the auth token manager will use to decide whether a returned token is usable and when it should be refreshed.\n\n## Scope\n\n* Pure-Swift JWT parser that extracts the `exp` and `iat` claims (RFC 7519 NumericDate). No other claims are read; `sub`, audience, issuer, and custom claims are opaque to the SDK.\n* `ValidatedToken` struct (or equivalent) holding the raw JWT string alongside its decoded `exp` and `iat` as `Date` values.\n* Validation rules — reject tokens that:\n  * Fail to decode (malformed Base64URL, malformed JSON, missing claims).\n  * Are already expired at the time of acquisition, applying a 15-second clock-skew leeway (`now >= exp - leeway` means expired).\n* No signature verification. The SDK is not a security boundary; the Klaviyo backend performs full validation.\n* `OSLog`-based logging of validation failures with the reason (missing claim / malformed / expired on receipt). Token contents NEVER logged; use `.private` privacy markers on token-adjacent values.\n\n## Notes\n\nThis work has no runtime dependencies on the rest of the auth token system and is easy to unit-test in isolation. The downstream `AuthTokenManager` ticket consumes the `ValidatedToken` type to schedule refreshes and detect expiry.\n\n## References\n\n* [Spec: Personalized In-App Forms — Auth Token Integration](<https://linear.app/klaviyo/document/personalized-in-app-forms-auth-token-integration-03d3495f6093>) — §JWT contract, §Clock skew tolerance, §Logging and observability\n</description>\n<team name=\"Mobile App Growth\"/>\n<project name=\"JWT support in SDK/onsite\">Implement authenticated client APIs to securely transmit PII to end-user devices. This enables personalized content for in-app and onsite forms, which is essential for fully integrating forms as a core messaging channel.</project>\n<issue-relations>\n<blocking><issue-ref identifier=\"MAGE-615\" title=\"iOS: AuthTokenManager actor and public setAuthTokenProvider API\"/></blocking>\n<related><issue-ref identifier=\"MAGE-623\" title=\"iOS: AuthTokenManager skeleton + public setAuthTokenProvider API\"/></related>\n</issue-relations>\n</issue>",
+          "timestamp": "2026-05-13T16:56:17.224Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git log --oneline master..HEAD 2>&1 | head -30",
+            "description": "Check commits on current branch vs master"
+          },
+          "timestamp": "2026-05-13T16:56:21.078Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status",
+            "description": "Check working tree status"
+          },
+          "timestamp": "2026-05-13T16:56:21.476Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources",
+            "description": "List Sources directory"
+          },
+          "timestamp": "2026-05-13T16:56:22.112Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Branch is set up but no commits yet on this work. Let me explore the codebase structure first.",
+          "timestamp": "2026-05-13T16:56:32.735Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore",
+            "description": "List KlaviyoCore directory"
+          },
+          "timestamp": "2026-05-13T16:56:33.530Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests 2>/dev/null",
+            "description": "List Tests directory"
+          },
+          "timestamp": "2026-05-13T16:56:34.228Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cat /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Package.swift",
+            "description": "View Package.swift"
+          },
+          "timestamp": "2026-05-13T16:56:34.774Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Utils /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Models /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Networking",
+            "description": "List KlaviyoCore subdirectories"
+          },
+          "timestamp": "2026-05-13T16:56:40.240Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests",
+            "description": "List KlaviyoCoreTests directory"
+          },
+          "timestamp": "2026-05-13T16:56:40.745Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"OSLog\\|os_log\\|Logger\\b\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore --include=\"*.swift\" | head -30",
+            "description": "Find OSLog usage in KlaviyoCore"
+          },
+          "timestamp": "2026-05-13T16:56:41.921Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Utils/Logger+Ext.swift"
+          },
+          "timestamp": "2026-05-13T16:56:46.201Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Utils/LoggerClient.swift"
+          },
+          "timestamp": "2026-05-13T16:56:46.512Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"jwt\\|JWT\\|Jwt\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources --include=\"*.swift\" 2>/dev/null | head -20",
+            "description": "Search for existing JWT references"
+          },
+          "timestamp": "2026-05-13T16:56:51.346Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cat /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.swiftlint.yml 2>/dev/null | head -60",
+            "description": "Check SwiftLint config"
+          },
+          "timestamp": "2026-05-13T16:56:52.404Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Utils/String+Extensions.swift"
+          },
+          "timestamp": "2026-05-13T16:56:52.830Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Models/KlaviyoAPIError.swift"
+          },
+          "timestamp": "2026-05-13T16:56:56.311Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Models/ObjectStateError.swift"
+          },
+          "timestamp": "2026-05-13T16:56:57.079Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/UInt64+ExtTests.swift"
+          },
+          "timestamp": "2026-05-13T16:56:57.485Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Let me also examine the related ticket and look at the Linear spec for additional context.",
+          "timestamp": "2026-05-13T16:57:02.266Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "ToolSearch",
+          "input": {
+            "max_results": 5,
+            "query": "select:mcp__claude_ai_Linear__get_issue,mcp__claude_ai_Linear__get_document"
+          },
+          "timestamp": "2026-05-13T16:57:03.011Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "ToolSearch",
+          "input": {
+            "max_results": 5,
+            "query": "select:TaskCreate,TaskUpdate"
+          },
+          "timestamp": "2026-05-13T16:57:08.605Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "mcp__claude_ai_Linear__get_document",
+          "input": {
+            "id": "personalized-in-app-forms-auth-token-integration-03d3495f6093"
+          },
+          "timestamp": "2026-05-13T16:57:08.809Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/.claude/projects/-Users-andrew-balmer-Klaviyo-Repos-klaviyo-swift-sdk/6f7de856-d972-4dc6-bf90-311d9ae181bc/tool-results/toolu_01QRbABMbrxz8PAakxHZ7eZY.json"
+          },
+          "timestamp": "2026-05-13T16:57:39.736Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/KlaviyoCategoryManager.swift",
+            "limit": 60
+          },
+          "timestamp": "2026-05-13T16:58:19.523Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Networking/KlaviyoEndpoint.swift",
+            "limit": 100,
+            "offset": 1
+          },
+          "timestamp": "2026-05-13T16:58:20.120Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "find /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk -maxdepth 3 -name \"AGENTS.md\" 2>/dev/null",
+            "description": "Find AGENTS.md files"
+          },
+          "timestamp": "2026-05-13T16:58:25.008Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/WithTimeoutTests.swift"
+          },
+          "timestamp": "2026-05-13T16:58:25.723Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/AGENTS.md"
+          },
+          "timestamp": "2026-05-13T16:58:29.094Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git branch -r | grep \"rel/\" | head -10",
+            "description": "Find active release branches"
+          },
+          "timestamp": "2026-05-13T16:58:33.331Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Adding JWTValidationFailure error type",
+            "description": "Define an error enum with cases for each validation failure mode (malformed structure, malformed base64, malformed JSON, missing exp, missing iat, expired on receipt). Used as the error type for parse-and-validate.",
+            "subject": "Add JWTValidationFailure error type"
+          },
+          "timestamp": "2026-05-13T16:58:34.942Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Adding ValidatedToken struct",
+            "description": "Internal struct in KlaviyoCore holding the raw JWT string plus decoded `exp` and `iat` as `Date` values. Will be consumed by the downstream AuthTokenManager ticket.",
+            "subject": "Add ValidatedToken struct in KlaviyoCore"
+          },
+          "timestamp": "2026-05-13T16:58:36.536Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Implementing JWTParser",
+            "description": "Pure-Swift parser that splits the JWT into three segments, base64URL-decodes the payload, JSON-decodes the `exp` and `iat` NumericDate claims, and rejects malformed/expired tokens (applying the 15-second clock skew leeway). No signature verification.",
+            "subject": "Implement JWTParser with base64URL decoding and validation"
+          },
+          "timestamp": "2026-05-13T16:58:38.318Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Wiring up OSLog auth logger",
+            "description": "Extend `Logger+Ext.swift` with an `auth` category. Log validation failures with the reason at error level, using `.private` privacy markers on any token-adjacent values. Token contents NEVER logged.",
+            "subject": "Add OSLog category for auth and wire logging into JWTParser"
+          },
+          "timestamp": "2026-05-13T16:58:39.887Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Writing JWTParser tests",
+            "description": "Tests in Tests/KlaviyoCoreTests/Auth covering: valid token success, malformed structure (not 3 segments), invalid base64URL payload, invalid JSON payload, missing exp, missing iat, expired tokens (with and without leeway), fractional NumericDate values, and base64URL with no padding / with hyphens-underscores.",
+            "subject": "Write JWTParser unit tests covering happy paths and each failure mode"
+          },
+          "timestamp": "2026-05-13T16:58:42.058Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskCreate",
+          "input": {
+            "activeForm": "Verifying build, tests, lint, and format",
+            "description": "Run `xcodebuild build` and `xcodebuild test` for the package on iPhone 17 Pro simulator. Run `swiftlint --strict` and `swiftformat .` to confirm style.",
+            "subject": "Verify build, tests, lint, and format pass locally"
+          },
+          "timestamp": "2026-05-13T16:58:43.569Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git branch -r --sort=-committerdate | grep \"rel/\" | head -10",
+            "description": "Sort release branches by recency"
+          },
+          "timestamp": "2026-05-13T16:58:47.789Z"
+        },
+        {
+          "type": "assistant",
+          "text": "I have enough context. Let me update the first task and start implementing.",
+          "timestamp": "2026-05-13T16:59:40.506Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "1"
+          },
+          "timestamp": "2026-05-13T16:59:41.115Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "mkdir -p /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth",
+            "description": "Create Auth subdirectories"
+          },
+          "timestamp": "2026-05-13T16:59:42.134Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "//\n//  JWTValidationFailure.swift\n//  KlaviyoCore\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//\n\nimport Foundation\n\n/// Reasons a JWT can fail SDK-side validation.\n///\n/// The SDK does **not** verify the token's cryptographic signature; the Klaviyo backend is the\n/// security boundary for that. These cases capture only what the SDK can detect locally:\n/// structural problems, missing required claims, or tokens that are already expired at the time\n/// of acquisition (applying a clock-skew leeway).\nenum JWTValidationFailure: Error, Equatable {\n    /// The token did not contain three `.`-separated segments.\n    case malformedStructure\n    /// The payload segment could not be Base64URL-decoded.\n    case malformedBase64\n    /// The payload segment did not decode to a JSON object with the expected claim types.\n    case malformedJSON\n    /// The `exp` claim was absent from the payload.\n    case missingExpClaim\n    /// The `iat` claim was absent from the payload.\n    case missingIatClaim\n    /// The token was already expired at acquisition, after applying clock-skew leeway.\n    case expiredOnReceipt\n}\n\nextension JWTValidationFailure {\n    /// Token-agnostic, human-readable description suitable for log output.\n    var reason: String {\n        switch self {\n        case .malformedStructure: return \"malformed structure\"\n        case .malformedBase64: return \"malformed base64URL payload\"\n        case .malformedJSON: return \"malformed JSON payload\"\n        case .missingExpClaim: return \"missing exp claim\"\n        case .missingIatClaim: return \"missing iat claim\"\n        case .expiredOnReceipt: return \"expired on receipt\"\n        }\n    }\n}\n",
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTValidationFailure.swift"
+          },
+          "timestamp": "2026-05-14T09:47:32.363Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "1"
+          },
+          "timestamp": "2026-05-14T09:47:32.807Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "2"
+          },
+          "timestamp": "2026-05-14T09:47:33.215Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "//\n//  ValidatedToken.swift\n//  KlaviyoCore\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//\n\nimport Foundation\n\n/// A JWT that has passed SDK-side parsing and validation.\n///\n/// The SDK reads only the `exp` and `iat` claims; all other claims (`sub`, audience, issuer,\n/// custom claims) remain opaque and are resolved by the Klaviyo backend. The SDK does not\n/// verify the token's signature — the backend is the security boundary.\nstruct ValidatedToken: Equatable, Hashable {\n    /// The raw JWT string as supplied to the SDK.\n    let rawToken: String\n\n    /// The `exp` (expiration time) claim decoded from a NumericDate to a `Date`.\n    let expiresAt: Date\n\n    /// The `iat` (issued at) claim decoded from a NumericDate to a `Date`.\n    let issuedAt: Date\n}\n",
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/ValidatedToken.swift"
+          },
+          "timestamp": "2026-05-14T09:47:39.887Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "2"
+          },
+          "timestamp": "2026-05-14T09:47:40.331Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "4"
+          },
+          "timestamp": "2026-05-14T09:47:40.598Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Utils/Logger+Ext.swift",
+            "new_string": "    /// Logger for notification category management\n    static let notifications = Logger(category: \"Notifications\")\n\n    /// Logger for authentication token parsing and validation\n    static let auth = Logger(category: \"Auth\")\n}",
+            "old_string": "    /// Logger for notification category management\n    static let notifications = Logger(category: \"Notifications\")\n}",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:47:46.887Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "4"
+          },
+          "timestamp": "2026-05-14T09:47:47.409Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "3"
+          },
+          "timestamp": "2026-05-14T09:47:47.950Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "//\n//  JWTParser.swift\n//  KlaviyoCore\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//\n\nimport Foundation\nimport OSLog\n\n/// Pure-Swift parser for the foundational subset of RFC 7519 that the SDK depends on.\n///\n/// The parser splits a compact JWT into its three segments, Base64URL-decodes the payload,\n/// JSON-decodes the `exp` and `iat` (NumericDate) claims, and applies a clock-skew leeway to\n/// the expiration check. All other claims are ignored.\n///\n/// The SDK never verifies the token's cryptographic signature; the Klaviyo backend is the\n/// security boundary for that. This type exists purely so the auth-token system can decide\n/// whether a returned token is usable and when it should be refreshed.\nenum JWTParser {\n    /// Clock-skew leeway subtracted from `exp` before comparing to the current time.\n    ///\n    /// A token is treated as expired when `now >= exp - leeway`. The 15-second window keeps\n    /// the SDK from injecting a token that the Klaviyo backend would reject due to clock\n    /// drift between the device and the backend.\n    static let defaultLeeway: TimeInterval = 15\n\n    /// Parses a JWT string and validates the `exp` and `iat` claims.\n    ///\n    /// - Parameters:\n    ///   - token: The raw JWT string.\n    ///   - now: The current time used for the expiration check. Injectable to make tests\n    ///     deterministic. Defaults to `Date()`.\n    ///   - leeway: Clock-skew leeway subtracted from `exp`. Defaults to ``defaultLeeway``.\n    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    static func parseAndValidate(\n        _ token: String,\n        now: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {\n        let segments = token.split(separator: \".\", omittingEmptySubsequences: false)\n        guard segments.count == 3 else {\n            logFailure(.malformedStructure)\n            return .failure(.malformedStructure)\n        }\n\n        guard let payloadData = base64URLDecode(String(segments[1])) else {\n            logFailure(.malformedBase64)\n            return .failure(.malformedBase64)\n        }\n\n        let claims: Claims\n        do {\n            claims = try JSONDecoder().decode(Claims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }\n\n        guard let exp = claims.exp else {\n            logFailure(.missingExpClaim)\n            return .failure(.missingExpClaim)\n        }\n        guard let iat = claims.iat else {\n            logFailure(.missingIatClaim)\n            return .failure(.missingIatClaim)\n        }\n\n        if now.timeIntervalSince1970 >= exp - leeway {\n            logFailure(.expiredOnReceipt)\n            return .failure(.expiredOnReceipt)\n        }\n\n        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: exp),\n            issuedAt: Date(timeIntervalSince1970: iat)\n        ))\n    }\n\n    /// Subset of the JWT payload claims that the SDK reads. Other claims are intentionally\n    /// not decoded — `JSONDecoder` ignores unknown keys by default.\n    private struct Claims: Decodable {\n        let exp: TimeInterval?\n        let iat: TimeInterval?\n    }\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and\n    /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before\n    /// handing off to `Data(base64Encoded:)`.\n    private static func base64URLDecode(_ value: String) -> Data? {\n        var normalized = value\n            .replacingOccurrences(of: \"-\", with: \"+\")\n            .replacingOccurrences(of: \"_\", with: \"/\")\n        let paddingNeeded = (4 - normalized.count % 4) % 4\n        normalized.append(String(repeating: \"=\", count: paddingNeeded))\n        return Data(base64Encoded: normalized)\n    }\n\n    private static func logFailure(_ failure: JWTValidationFailure) {\n        // The reason is a fixed enum-case description; it carries no token-derived content,\n        // so `.public` is appropriate. The raw token is never passed to the logger.\n        if #available(iOS 14.0, *) {\n            Logger.auth.error(\"JWT validation failed: \\(failure.reason, privacy: .public)\")\n        }\n    }\n}\n",
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift"
+          },
+          "timestamp": "2026-05-14T09:48:06.944Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "3"
+          },
+          "timestamp": "2026-05-14T09:48:07.409Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "5"
+          },
+          "timestamp": "2026-05-14T09:48:07.667Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"try!\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests --include=\"*.swift\" | head -10",
+            "description": "Check for try! usage in core tests"
+          },
+          "timestamp": "2026-05-14T09:48:24.845Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"swiftformat\\|line_length\\|110\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.swiftformat 2>/dev/null; cat /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.swiftformat 2>/dev/null | head -30",
+            "description": "Check SwiftFormat config"
+          },
+          "timestamp": "2026-05-14T09:48:26.135Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"try!\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests --include=\"*.swift\" | head -15",
+            "description": "Find try! usage in tests"
+          },
+          "timestamp": "2026-05-14T09:48:30.481Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"JSONSerialization\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests --include=\"*.swift\" | head -10",
+            "description": "Find JSONSerialization usage in tests"
+          },
+          "timestamp": "2026-05-14T09:48:31.403Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "//\n//  JWTParserTests.swift\n//  klaviyo-swift-sdk\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//\n\n@testable import KlaviyoCore\nimport XCTest\n\nfinal class JWTParserTests: XCTestCase {\n    private static let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)\n    private static let defaultIat: TimeInterval = 1_700_000_000 - 60\n    private static let defaultExp: TimeInterval = 1_700_000_000 + 3600\n\n    // MARK: - Happy path\n\n    func testValidToken_returnsValidatedTokenWithDecodedClaims() throws {\n        let token = try makeJWT()\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: Self.referenceNow))\n\n        XCTAssertEqual(validated.rawToken, token)\n        XCTAssertEqual(validated.issuedAt, Date(timeIntervalSince1970: Self.defaultIat))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    func testValidToken_ignoresUnknownClaims() throws {\n        let token = try makeJWT(extraClaims: [\n            \"sub\": \"user-123\",\n            \"aud\": \"klaviyo\",\n            \"iss\": \"https://auth.example.com\",\n            \"custom_field\": [\"nested\": 42]\n        ])\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: Self.referenceNow))\n\n        XCTAssertEqual(validated.issuedAt, Date(timeIntervalSince1970: Self.defaultIat))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    func testValidToken_decodesFractionalNumericDates() throws {\n        let iat = 1_700_000_000.25\n        let exp = 1_700_003_600.75\n        let token = try makeJWT(iat: iat, exp: exp)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: Self.referenceNow))\n\n        XCTAssertEqual(validated.issuedAt, Date(timeIntervalSince1970: iat))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: exp))\n    }\n\n    // MARK: - Malformed structure\n\n    func testEmptyString_returnsMalformedStructure() {\n        assertFailure(JWTParser.parseAndValidate(\"\", now: Self.referenceNow), .malformedStructure)\n    }\n\n    func testSingleSegment_returnsMalformedStructure() {\n        assertFailure(JWTParser.parseAndValidate(\"only-one-segment\", now: Self.referenceNow), .malformedStructure)\n    }\n\n    func testTwoSegments_returnsMalformedStructure() {\n        assertFailure(JWTParser.parseAndValidate(\"header.payload\", now: Self.referenceNow), .malformedStructure)\n    }\n\n    func testFourSegments_returnsMalformedStructure() {\n        assertFailure(\n            JWTParser.parseAndValidate(\"a.b.c.d\", now: Self.referenceNow),\n            .malformedStructure\n        )\n    }\n\n    // MARK: - Malformed Base64URL\n\n    func testInvalidBase64Payload_returnsMalformedBase64() throws {\n        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        // `*` is not a valid base64URL character.\n        let token = \"\\(header).****.signature\"\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .malformedBase64\n        )\n    }\n\n    // MARK: - Malformed JSON\n\n    func testNonJSONPayload_returnsMalformedJSON() throws {\n        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        let payload = base64URLEncodeString(\"not-actually-json\")\n        let token = \"\\(header).\\(payload).signature\"\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    func testJSONArrayPayload_returnsMalformedJSON() throws {\n        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        let payload = try base64URLEncode(JSONSerialization.data(withJSONObject: [1, 2, 3]))\n        let token = \"\\(header).\\(payload).signature\"\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    func testExpAsString_returnsMalformedJSON() throws {\n        let token = try makeJWT(payload: [\n            \"iat\": Self.defaultIat,\n            \"exp\": \"not-a-number\"\n        ])\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    // MARK: - Missing claims\n\n    func testMissingExpClaim_returnsMissingExpClaim() throws {\n        let token = try makeJWT(payload: [\"iat\": Self.defaultIat])\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .missingExpClaim\n        )\n    }\n\n    func testMissingIatClaim_returnsMissingIatClaim() throws {\n        let token = try makeJWT(payload: [\"exp\": Self.defaultExp])\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .missingIatClaim\n        )\n    }\n\n    func testEmptyPayload_returnsMissingExpClaim() throws {\n        let token = try makeJWT(payload: [:])\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: Self.referenceNow),\n            .missingExpClaim\n        )\n    }\n\n    // MARK: - Expiration\n\n    func testNowEqualsExp_returnsExpiredOnReceipt() throws {\n        let token = try makeJWT()\n\n        assertFailure(\n            JWTParser.parseAndValidate(\n                token,\n                now: Date(timeIntervalSince1970: Self.defaultExp)\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowPastExp_returnsExpiredOnReceipt() throws {\n        let token = try makeJWT()\n\n        assertFailure(\n            JWTParser.parseAndValidate(\n                token,\n                now: Date(timeIntervalSince1970: Self.defaultExp + 1)\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowAtLeewayBoundary_returnsExpiredOnReceipt() throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: now, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowJustInsideLeeway_returnsSuccess() throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: now, leeway: leeway))\n        XCTAssertEqual(validated.rawToken, token)\n    }\n\n    func testZeroLeeway_movesExpiryBoundaryToExp() throws {\n        let token = try makeJWT()\n\n        // With leeway = 0, `now == exp - 1` is still valid.\n        let justBefore = Date(timeIntervalSince1970: Self.defaultExp - 1)\n        XCTAssertNoThrow(\n            try unwrap(JWTParser.parseAndValidate(token, now: justBefore, leeway: 0))\n        )\n\n        // ...but `now == exp` is expired.\n        assertFailure(\n            JWTParser.parseAndValidate(\n                token,\n                now: Date(timeIntervalSince1970: Self.defaultExp),\n                leeway: 0\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    func testDefaultLeewayIs15Seconds() {\n        XCTAssertEqual(JWTParser.defaultLeeway, 15)\n    }\n\n    // MARK: - Base64URL handling\n\n    func testPayloadWithUrlSafeCharactersDecodesCorrectly() throws {\n        // Force the payload's base64 encoding to use `-` and `_` substitutions by\n        // choosing claim values that produce those bytes when JSON-encoded.\n        //\n        // Standard base64 emits `+` and `/` for byte sequences containing these bits;\n        // the parser must accept the URL-safe substitutions.\n        let token = try makeJWT(extraClaims: [\"data\": \">>>>???\"])\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: Self.referenceNow))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    func testPayloadWithoutPaddingDecodesCorrectly() throws {\n        // makeJWT() always strips `=` padding (RFC 7515 §2). This test exists to make\n        // the no-padding case an explicit assertion on the parser's input contract.\n        let token = try makeJWT()\n        XCTAssertFalse(token.contains(\"=\"), \"JWT segments should not contain `=` padding\")\n\n        XCTAssertNoThrow(\n            try unwrap(JWTParser.parseAndValidate(token, now: Self.referenceNow))\n        )\n    }\n\n    // MARK: - Reason strings (logging surface)\n\n    func testValidationFailureReasons_doNotContainTokenAdjacentText() {\n        // The reason strings are passed to the logger with `.public` privacy, so they\n        // must not vary by token contents. This test pins them in case a future change\n        // tries to interpolate token-derived data into them.\n        XCTAssertEqual(JWTValidationFailure.malformedStructure.reason, \"malformed structure\")\n        XCTAssertEqual(JWTValidationFailure.malformedBase64.reason, \"malformed base64URL payload\")\n        XCTAssertEqual(JWTValidationFailure.malformedJSON.reason, \"malformed JSON payload\")\n        XCTAssertEqual(JWTValidationFailure.missingExpClaim.reason, \"missing exp claim\")\n        XCTAssertEqual(JWTValidationFailure.missingIatClaim.reason, \"missing iat claim\")\n        XCTAssertEqual(JWTValidationFailure.expiredOnReceipt.reason, \"expired on receipt\")\n    }\n\n    // MARK: - Helpers\n\n    private func unwrap<Success, Failure>(\n        _ result: Result<Success, Failure>,\n        file: StaticString = #file,\n        line: UInt = #line\n    ) throws -> Success {\n        switch result {\n        case let .success(value):\n            return value\n        case let .failure(error):\n            XCTFail(\"Expected success, got failure: \\(error)\", file: file, line: line)\n            throw error\n        }\n    }\n\n    private func assertFailure(\n        _ result: Result<ValidatedToken, JWTValidationFailure>,\n        _ expected: JWTValidationFailure,\n        file: StaticString = #file,\n        line: UInt = #line\n    ) {\n        switch result {\n        case let .success(value):\n            XCTFail(\"Expected failure \\(expected), got success: \\(value)\", file: file, line: line)\n        case let .failure(actual):\n            XCTAssertEqual(actual, expected, file: file, line: line)\n        }\n    }\n}\n\n// MARK: - JWT Fixture Helpers\n\nprivate extension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    func makeJWT(\n        iat: TimeInterval? = JWTParserTests.defaultIat,\n        exp: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let iat = iat { payload[\"iat\"] = iat }\n        if let exp = exp { payload[\"exp\"] = exp }\n        return try makeJWT(payload: payload)\n    }\n\n    /// Builds a JWT with a caller-specified payload. The header is fixed and the\n    /// signature segment is a placeholder — neither is validated by the parser.\n    func makeJWT(payload: [String: Any]) throws -> String {\n        let header: [String: Any] = [\"alg\": \"HS256\", \"typ\": \"JWT\"]\n        let headerSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: header))\n        let payloadSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: payload))\n        return \"\\(headerSeg).\\(payloadSeg).signature\"\n    }\n\n    func base64URLEncode(_ data: Data) -> String {\n        data.base64EncodedString()\n            .replacingOccurrences(of: \"+\", with: \"-\")\n            .replacingOccurrences(of: \"/\", with: \"_\")\n            .replacingOccurrences(of: \"=\", with: \"\")\n    }\n\n    func base64URLEncodeString(_ string: String) -> String {\n        base64URLEncode(Data(string.utf8))\n    }\n}\n",
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift"
+          },
+          "timestamp": "2026-05-14T09:49:22.163Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -B1 -A3 \"private extension\\|fileprivate extension\\|^extension.*Tests\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/*.swift | head -40",
+            "description": "Check extension conventions in tests"
+          },
+          "timestamp": "2026-05-14T09:49:33.402Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"^private extension\\|^fileprivate extension\\|^extension.*{$\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests --include=\"*.swift\" | head -20",
+            "description": "Check extension declaration styles in tests"
+          },
+          "timestamp": "2026-05-14T09:49:38.317Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rn \"^private extension\\|^fileprivate extension\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources --include=\"*.swift\" | head -10",
+            "description": "Check extension declaration styles in sources"
+          },
+          "timestamp": "2026-05-14T09:49:39.001Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "// MARK: - JWT Fixture Helpers\n\nextension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    fileprivate func makeJWT(\n        iat: TimeInterval? = JWTParserTests.defaultIat,\n        exp: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let iat = iat { payload[\"iat\"] = iat }\n        if let exp = exp { payload[\"exp\"] = exp }\n        return try makeJWT(payload: payload)\n    }\n\n    /// Builds a JWT with a caller-specified payload. The header is fixed and the\n    /// signature segment is a placeholder — neither is validated by the parser.\n    fileprivate func makeJWT(payload: [String: Any]) throws -> String {\n        let header: [String: Any] = [\"alg\": \"HS256\", \"typ\": \"JWT\"]\n        let headerSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: header))\n        let payloadSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: payload))\n        return \"\\(headerSeg).\\(payloadSeg).signature\"\n    }\n\n    fileprivate func base64URLEncode(_ data: Data) -> String {\n        data.base64EncodedString()\n            .replacingOccurrences(of: \"+\", with: \"-\")\n            .replacingOccurrences(of: \"/\", with: \"_\")\n            .replacingOccurrences(of: \"=\", with: \"\")\n    }\n\n    fileprivate func base64URLEncodeString(_ string: String) -> String {\n        base64URLEncode(Data(string.utf8))\n    }\n}",
+            "old_string": "// MARK: - JWT Fixture Helpers\n\nprivate extension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    func makeJWT(\n        iat: TimeInterval? = JWTParserTests.defaultIat,\n        exp: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let iat = iat { payload[\"iat\"] = iat }\n        if let exp = exp { payload[\"exp\"] = exp }\n        return try makeJWT(payload: payload)\n    }\n\n    /// Builds a JWT with a caller-specified payload. The header is fixed and the\n    /// signature segment is a placeholder — neither is validated by the parser.\n    func makeJWT(payload: [String: Any]) throws -> String {\n        let header: [String: Any] = [\"alg\": \"HS256\", \"typ\": \"JWT\"]\n        let headerSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: header))\n        let payloadSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: payload))\n        return \"\\(headerSeg).\\(payloadSeg).signature\"\n    }\n\n    func base64URLEncode(_ data: Data) -> String {\n        data.base64EncodedString()\n            .replacingOccurrences(of: \"+\", with: \"-\")\n            .replacingOccurrences(of: \"/\", with: \"_\")\n            .replacingOccurrences(of: \"=\", with: \"\")\n    }\n\n    func base64URLEncodeString(_ string: String) -> String {\n        base64URLEncode(Data(string.utf8))\n    }\n}",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:50:10.208Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now let me run the build to verify everything compiles.",
+          "timestamp": "2026-05-14T09:50:17.536Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild build -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" 2>&1 | tail -50",
+            "description": "Build package for iPhone 17 Pro",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T09:50:18.968Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Build succeeded. Now let me run the tests.",
+          "timestamp": "2026-05-14T09:50:34.911Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | tail -60",
+            "description": "Run JWTParser tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T09:50:36.717Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All 23 tests passed. Now let me run lint and format.",
+          "timestamp": "2026-05-14T09:51:08.581Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "5"
+          },
+          "timestamp": "2026-05-14T09:51:09.066Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "in_progress",
+            "taskId": "6"
+          },
+          "timestamp": "2026-05-14T09:51:09.466Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict --quiet 2>&1 | grep -E \"(Auth|jwt|JWT|Logger\\+Ext)\" | head -30",
+            "description": "Run swiftlint strict on auth files"
+          },
+          "timestamp": "2026-05-14T09:51:11.197Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -20",
+            "description": "Run swiftformat lint on new files"
+          },
+          "timestamp": "2026-05-14T09:51:12.449Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Auto-fix SwiftFormat issues"
+          },
+          "timestamp": "2026-05-14T09:51:31.557Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -10",
+            "description": "Re-check SwiftFormat"
+          },
+          "timestamp": "2026-05-14T09:51:52.368Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -20",
+            "description": "Run swiftlint strict on new files"
+          },
+          "timestamp": "2026-05-14T09:51:53.364Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict --use-script-input-files 2>&1 <<EOF\nSources/KlaviyoCore/Auth/JWTParser.swift\nSources/KlaviyoCore/Auth/JWTValidationFailure.swift\nSources/KlaviyoCore/Auth/ValidatedToken.swift\nSources/KlaviyoCore/Utils/Logger+Ext.swift\nTests/KlaviyoCoreTests/Auth/JWTParserTests.swift\nEOF\n",
+            "description": "Try alternative swiftlint invocation"
+          },
+          "timestamp": "2026-05-14T09:52:01.322Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict --fix 2>&1 | tail -20",
+            "description": "Run swiftlint strict on the whole project"
+          },
+          "timestamp": "2026-05-14T09:52:02.115Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict 2>&1 | tail -20",
+            "description": "Run swiftlint strict on the whole project"
+          },
+          "timestamp": "2026-05-14T09:52:08.092Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict --fix Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -20",
+            "description": "Run SwiftLint on new files with --fix"
+          },
+          "timestamp": "2026-05-14T09:52:13.110Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -20",
+            "description": "Run SwiftLint strict to verify"
+          },
+          "timestamp": "2026-05-14T09:52:19.883Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git diff --stat Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -10",
+            "description": "Check diff after lint fix"
+          },
+          "timestamp": "2026-05-14T09:52:20.689Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cat /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.swiftlint.yml",
+            "description": "View full SwiftLint config"
+          },
+          "timestamp": "2026-05-14T09:52:42.176Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift"
+          },
+          "timestamp": "2026-05-14T09:52:51.545Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    /// Parses a JWT string and validates the `exp` and `iat` claims.\n    ///\n    /// - Parameters:\n    ///   - token: The raw JWT string.\n    ///   - currentTime: The current time used for the expiration check. Injectable to make\n    ///     tests deterministic. Defaults to `Date()`.\n    ///   - leeway: Clock-skew leeway subtracted from `exp`. Defaults to ``defaultLeeway``.\n    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    static func parseAndValidate(\n        _ token: String,\n        currentTime: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {\n        let segments = token.split(separator: \".\", omittingEmptySubsequences: false)\n        guard segments.count == 3 else {\n            logFailure(.malformedStructure)\n            return .failure(.malformedStructure)\n        }\n\n        guard let payloadData = base64URLDecode(String(segments[1])) else {\n            logFailure(.malformedBase64)\n            return .failure(.malformedBase64)\n        }\n\n        let claims: Claims\n        do {\n            claims = try JSONDecoder().decode(Claims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }\n\n        guard let expiresAtSeconds = claims.expiresAtSeconds else {\n            logFailure(.missingExpClaim)\n            return .failure(.missingExpClaim)\n        }\n        guard let issuedAtSeconds = claims.issuedAtSeconds else {\n            logFailure(.missingIatClaim)\n            return .failure(.missingIatClaim)\n        }\n\n        if currentTime.timeIntervalSince1970 >= expiresAtSeconds - leeway {\n            logFailure(.expiredOnReceipt)\n            return .failure(.expiredOnReceipt)\n        }\n\n        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: expiresAtSeconds),\n            issuedAt: Date(timeIntervalSince1970: issuedAtSeconds)\n        ))\n    }\n\n    /// Subset of the JWT payload claims that the SDK reads. Other claims are intentionally\n    /// not decoded — `JSONDecoder` ignores unknown keys by default.\n    private struct Claims: Decodable {\n        let expiresAtSeconds: TimeInterval?\n        let issuedAtSeconds: TimeInterval?\n\n        private enum CodingKeys: String, CodingKey {\n            case expiresAtSeconds = \"exp\"\n            case issuedAtSeconds = \"iat\"\n        }\n    }",
+            "old_string": "    /// Parses a JWT string and validates the `exp` and `iat` claims.\n    ///\n    /// - Parameters:\n    ///   - token: The raw JWT string.\n    ///   - now: The current time used for the expiration check. Injectable to make tests\n    ///     deterministic. Defaults to `Date()`.\n    ///   - leeway: Clock-skew leeway subtracted from `exp`. Defaults to ``defaultLeeway``.\n    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    static func parseAndValidate(\n        _ token: String,\n        now: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {\n        let segments = token.split(separator: \".\", omittingEmptySubsequences: false)\n        guard segments.count == 3 else {\n            logFailure(.malformedStructure)\n            return .failure(.malformedStructure)\n        }\n\n        guard let payloadData = base64URLDecode(String(segments[1])) else {\n            logFailure(.malformedBase64)\n            return .failure(.malformedBase64)\n        }\n\n        let claims: Claims\n        do {\n            claims = try JSONDecoder().decode(Claims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }\n\n        guard let exp = claims.exp else {\n            logFailure(.missingExpClaim)\n            return .failure(.missingExpClaim)\n        }\n        guard let iat = claims.iat else {\n            logFailure(.missingIatClaim)\n            return .failure(.missingIatClaim)\n        }\n\n        if now.timeIntervalSince1970 >= exp - leeway {\n            logFailure(.expiredOnReceipt)\n            return .failure(.expiredOnReceipt)\n        }\n\n        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: exp),\n            issuedAt: Date(timeIntervalSince1970: iat)\n        ))\n    }\n\n    /// Subset of the JWT payload claims that the SDK reads. Other claims are intentionally\n    /// not decoded — `JSONDecoder` ignores unknown keys by default.\n    private struct Claims: Decodable {\n        let exp: TimeInterval?\n        let iat: TimeInterval?\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:53:08.811Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift"
+          },
+          "timestamp": "2026-05-14T09:53:12.955Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -n \"now:\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "description": "Find all \"now:\" usages in tests"
+          },
+          "timestamp": "2026-05-14T09:53:24.068Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "currentTime: Self.referenceNow",
+            "old_string": "now: Self.referenceNow",
+            "replace_all": true
+          },
+          "timestamp": "2026-05-14T09:53:29.331Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "    func testValidToken_decodesFractionalNumericDates() throws {\n        let issuedAtSeconds = 1_700_000_000.25\n        let expiresAtSeconds = 1_700_003_600.75\n        let token = try makeJWT(issuedAt: issuedAtSeconds, expiresAt: expiresAtSeconds)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, currentTime: Self.referenceNow))\n\n        XCTAssertEqual(validated.issuedAt, Date(timeIntervalSince1970: issuedAtSeconds))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: expiresAtSeconds))\n    }",
+            "old_string": "    func testValidToken_decodesFractionalNumericDates() throws {\n        let iat = 1_700_000_000.25\n        let exp = 1_700_003_600.75\n        let token = try makeJWT(iat: iat, exp: exp)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, currentTime: Self.referenceNow))\n\n        XCTAssertEqual(validated.issuedAt, Date(timeIntervalSince1970: iat))\n        XCTAssertEqual(validated.expiresAt, Date(timeIntervalSince1970: exp))\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:53:37.397Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "    func testNowAtLeewayBoundary_returnsExpiredOnReceipt() throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowJustInsideLeeway_returnsSuccess() throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try unwrap(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway)\n        )\n        XCTAssertEqual(validated.rawToken, token)\n    }",
+            "old_string": "    func testNowAtLeewayBoundary_returnsExpiredOnReceipt() throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, currentTime: now, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowJustInsideLeeway_returnsSuccess() throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, currentTime: now, leeway: leeway))\n        XCTAssertEqual(validated.rawToken, token)\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:53:47.631Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "limit": 60,
+            "offset": 175
+          },
+          "timestamp": "2026-05-14T09:53:51.275Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "                currentTime: Date(timeIntervalSince1970: Self.defaultExp",
+            "old_string": "                now: Date(timeIntervalSince1970: Self.defaultExp",
+            "replace_all": true
+          },
+          "timestamp": "2026-05-14T09:53:59.075Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "    func testNowAtLeewayBoundary_returnsExpiredOnReceipt() throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowJustInsideLeeway_returnsSuccess() throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try unwrap(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway)\n        )\n        XCTAssertEqual(validated.rawToken, token)\n    }\n\n    func testZeroLeeway_movesExpiryBoundaryToExp() throws {\n        let token = try makeJWT()\n\n        // With leeway = 0, `now == exp - 1` is still valid.\n        let justBefore = Date(timeIntervalSince1970: Self.defaultExp - 1)\n        XCTAssertNoThrow(\n            try unwrap(JWTParser.parseAndValidate(token, currentTime: justBefore, leeway: 0))\n        )",
+            "old_string": "    func testNowAtLeewayBoundary_returnsExpiredOnReceipt() throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        assertFailure(\n            JWTParser.parseAndValidate(token, now: now, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    func testNowJustInsideLeeway_returnsSuccess() throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let now = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try unwrap(JWTParser.parseAndValidate(token, now: now, leeway: leeway))\n        XCTAssertEqual(validated.rawToken, token)\n    }\n\n    func testZeroLeeway_movesExpiryBoundaryToExp() throws {\n        let token = try makeJWT()\n\n        // With leeway = 0, `now == exp - 1` is still valid.\n        let justBefore = Date(timeIntervalSince1970: Self.defaultExp - 1)\n        XCTAssertNoThrow(\n            try unwrap(JWTParser.parseAndValidate(token, now: justBefore, leeway: 0))\n        )",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:54:11.068Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now let me fix the helper function parameters and line-length issues:",
+          "timestamp": "2026-05-14T09:54:15.142Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "limit": 50,
+            "offset": 290
+          },
+          "timestamp": "2026-05-14T09:54:15.943Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "extension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    private func makeJWT(\n        issuedAt: TimeInterval? = JWTParserTests.defaultIat,\n        expiresAt: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let issuedAt = issuedAt { payload[\"iat\"] = issuedAt }\n        if let expiresAt = expiresAt { payload[\"exp\"] = expiresAt }\n        return try makeJWT(payload: payload)\n    }",
+            "old_string": "extension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    private func makeJWT(\n        iat: TimeInterval? = JWTParserTests.defaultIat,\n        exp: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let iat = iat { payload[\"iat\"] = iat }\n        if let exp = exp { payload[\"exp\"] = exp }\n        return try makeJWT(payload: payload)\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:54:24.540Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now let me fix the line length violations:",
+          "timestamp": "2026-05-14T09:54:27.995Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "limit": 15,
+            "offset": 55
+          },
+          "timestamp": "2026-05-14T09:54:28.984Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "    func testSingleSegment_returnsMalformedStructure() {\n        assertFailure(\n            JWTParser.parseAndValidate(\"only-one-segment\", currentTime: Self.referenceNow),\n            .malformedStructure\n        )\n    }\n\n    func testTwoSegments_returnsMalformedStructure() {\n        assertFailure(\n            JWTParser.parseAndValidate(\"header.payload\", currentTime: Self.referenceNow),\n            .malformedStructure\n        )\n    }",
+            "old_string": "    func testSingleSegment_returnsMalformedStructure() {\n        assertFailure(JWTParser.parseAndValidate(\"only-one-segment\", currentTime: Self.referenceNow), .malformedStructure)\n    }\n\n    func testTwoSegments_returnsMalformedStructure() {\n        assertFailure(JWTParser.parseAndValidate(\"header.payload\", currentTime: Self.referenceNow), .malformedStructure)\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:54:36.525Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now let me re-run lint and format to confirm everything's clean:",
+          "timestamp": "2026-05-14T09:54:40.266Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -20",
+            "description": "Re-run SwiftLint strict on auth files"
+          },
+          "timestamp": "2026-05-14T09:54:42.139Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -10",
+            "description": "Re-run SwiftFormat lint"
+          },
+          "timestamp": "2026-05-14T09:54:43.073Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: expiresAtSeconds),\n            issuedAt: Date(timeIntervalSince1970: issuedAtSeconds)\n        ))\n    }\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "old_string": "        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: expiresAtSeconds),\n            issuedAt: Date(timeIntervalSince1970: issuedAtSeconds)\n        ))\n    }\n\n    /// Subset of the JWT payload claims that the SDK reads. Other claims are intentionally\n    /// not decoded — `JSONDecoder` ignores unknown keys by default.\n    private struct Claims: Decodable {\n        let expiresAtSeconds: TimeInterval?\n        let issuedAtSeconds: TimeInterval?\n\n        private enum CodingKeys: String, CodingKey {\n            case expiresAtSeconds = \"exp\"\n            case issuedAtSeconds = \"iat\"\n        }\n    }\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:54:54.401Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    private static func logFailure(_ failure: JWTValidationFailure) {\n        // The reason is a fixed enum-case description; it carries no token-derived content,\n        // so `.public` is appropriate. The raw token is never passed to the logger.\n        if #available(iOS 14.0, *) {\n            Logger.auth.error(\"JWT validation failed: \\(failure.reason, privacy: .public)\")\n        }\n    }\n}\n\n/// Subset of the JWT payload claims that the SDK reads. Other claims are intentionally not\n/// decoded — `JSONDecoder` ignores unknown keys by default.\nprivate struct JWTClaims: Decodable {\n    let expiresAtSeconds: TimeInterval?\n    let issuedAtSeconds: TimeInterval?\n\n    private enum CodingKeys: String, CodingKey {\n        case expiresAtSeconds = \"exp\"\n        case issuedAtSeconds = \"iat\"\n    }\n}",
+            "old_string": "    private static func logFailure(_ failure: JWTValidationFailure) {\n        // The reason is a fixed enum-case description; it carries no token-derived content,\n        // so `.public` is appropriate. The raw token is never passed to the logger.\n        if #available(iOS 14.0, *) {\n            Logger.auth.error(\"JWT validation failed: \\(failure.reason, privacy: .public)\")\n        }\n    }\n}",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:55:03.442Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "        let claims: JWTClaims\n        do {\n            claims = try JSONDecoder().decode(JWTClaims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }",
+            "old_string": "        let claims: Claims\n        do {\n            claims = try JSONDecoder().decode(Claims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T09:55:08.814Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -10",
+            "description": "Re-run SwiftLint"
+          },
+          "timestamp": "2026-05-14T09:55:14.204Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth Sources/KlaviyoCore/Utils/Logger+Ext.swift 2>&1 | tail -5",
+            "description": "Re-run SwiftFormat lint"
+          },
+          "timestamp": "2026-05-14T09:55:14.914Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Clean. Now let me re-run the tests to make sure the renaming didn't break anything:",
+          "timestamp": "2026-05-14T09:55:19.231Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | tail -15",
+            "description": "Re-run JWTParser tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T09:55:20.819Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All 23 tests pass. Let me also run the full KlaviyoCoreTests suite to make sure I didn't break anything else, then mark task #6 done.",
+          "timestamp": "2026-05-14T09:55:43.278Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests 2>&1 | tail -10",
+            "description": "Run full KlaviyoCoreTests suite",
+            "timeout": 300000
+          },
+          "timestamp": "2026-05-14T09:55:44.441Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests 2>&1 | grep -E \"(Test Case|passed|failed|Executed)\" | tail -15",
+            "description": "Confirm total test results",
+            "timeout": 300000
+          },
+          "timestamp": "2026-05-14T09:56:03.216Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All 106 KlaviyoCoreTests pass (23 new + 83 existing). Let me mark the verification task done and summarize.",
+          "timestamp": "2026-05-14T09:56:21.776Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "TaskUpdate",
+          "input": {
+            "status": "completed",
+            "taskId": "6"
+          },
+          "timestamp": "2026-05-14T09:56:22.170Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status",
+            "description": "Show final git status"
+          },
+          "timestamp": "2026-05-14T09:56:22.554Z"
+        },
+        {
+          "type": "assistant",
+          "text": "MAGE-613 implementation complete. Here's what's on the branch (no commits yet — let me know when you want me to commit):\n\n**New files in `Sources/KlaviyoCore/Auth/`:**\n- `ValidatedToken.swift` — `internal` struct with `rawToken`, `expiresAt`, `issuedAt`.\n- `JWTValidationFailure.swift` — error enum with cases for malformed structure / base64 / JSON, missing `exp`/`iat`, and `expiredOnReceipt`, plus a token-agnostic `reason` string used for logging.\n- `JWTParser.swift` — pure-Swift parser: three-segment split, Base64URL decode (with `-`/`_` substitution and re-padding), `JWTClaims` Decodable mapping `exp`→`expiresAtSeconds` / `iat`→`issuedAtSeconds`, then the `now >= exp - leeway` check. `defaultLeeway = 15`. Logs failures at error level via `Logger.auth` with `.public` privacy on the static reason string; raw token never reaches the logger.\n\n**Edited:**\n- `Sources/KlaviyoCore/Utils/Logger+Ext.swift` — adds `Logger.auth` category.\n\n**Tests in `Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift`:** 23 cases covering happy path, unknown-claim ignore, fractional NumericDates, all four malformed-structure shapes, malformed base64, three malformed-JSON shapes (non-JSON, array, wrong-typed `exp`), missing `exp`/`iat`/both, exp-boundary cases (now=exp, now>exp, `now == exp - leeway`, just inside leeway, leeway=0), `defaultLeeway` pinned to 15, URL-safe characters, no-padding payload, and a pin on the reason strings.\n\n**Quality gates:** `xcodebuild build` ✓, full `KlaviyoCoreTests` suite 106/106 ✓, `swiftlint --strict` clean, `swiftformat --lint` clean.\n\nBranch is `ab/MAGE-613/...` — per AGENTS.md it should target an active `rel/*` (most recent is `rel/5.3.1`) when you're ready to open the PR.",
+          "timestamp": "2026-05-14T09:56:34.883Z"
+        },
+        {
+          "type": "user",
+          "text": "One correction: OSLog messages should be called inline, not via any wrapper methods. So we should remove the `logFailure` function and move all logger calls inline",
+          "timestamp": "2026-05-14T10:05:30.285Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Got it. Inlining the Logger calls. Since the messages will be string literals (no token-adjacent interpolation), I'll drop the `reason` property and its pinning test alongside `logFailure`.",
+          "timestamp": "2026-05-14T10:06:01.285Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift"
+          },
+          "timestamp": "2026-05-14T10:06:02.518Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    ) -> Result<ValidatedToken, JWTValidationFailure> {\n        // Log messages below are string literals (no token-derived interpolation), so OSLog\n        // treats them as public by default. The raw token is never passed to the logger.\n        let segments = token.split(separator: \".\", omittingEmptySubsequences: false)\n        guard segments.count == 3 else {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: malformed structure\")\n            }\n            return .failure(.malformedStructure)\n        }\n\n        guard let payloadData = base64URLDecode(String(segments[1])) else {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: malformed base64URL payload\")\n            }\n            return .failure(.malformedBase64)\n        }\n\n        let claims: JWTClaims\n        do {\n            claims = try JSONDecoder().decode(JWTClaims.self, from: payloadData)\n        } catch {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: malformed JSON payload\")\n            }\n            return .failure(.malformedJSON)\n        }\n\n        guard let expiresAtSeconds = claims.expiresAtSeconds else {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: missing exp claim\")\n            }\n            return .failure(.missingExpClaim)\n        }\n        guard let issuedAtSeconds = claims.issuedAtSeconds else {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: missing iat claim\")\n            }\n            return .failure(.missingIatClaim)\n        }\n\n        if currentTime.timeIntervalSince1970 >= expiresAtSeconds - leeway {\n            if #available(iOS 14.0, *) {\n                Logger.auth.error(\"JWT validation failed: expired on receipt\")\n            }\n            return .failure(.expiredOnReceipt)\n        }\n\n        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: expiresAtSeconds),\n            issuedAt: Date(timeIntervalSince1970: issuedAtSeconds)\n        ))\n    }\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and\n    /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before\n    /// handing off to `Data(base64Encoded:)`.\n    private static func base64URLDecode(_ value: String) -> Data? {\n        var normalized = value\n            .replacingOccurrences(of: \"-\", with: \"+\")\n            .replacingOccurrences(of: \"_\", with: \"/\")\n        let paddingNeeded = (4 - normalized.count % 4) % 4\n        normalized.append(String(repeating: \"=\", count: paddingNeeded))\n        return Data(base64Encoded: normalized)\n    }\n}",
+            "old_string": "    ) -> Result<ValidatedToken, JWTValidationFailure> {\n        let segments = token.split(separator: \".\", omittingEmptySubsequences: false)\n        guard segments.count == 3 else {\n            logFailure(.malformedStructure)\n            return .failure(.malformedStructure)\n        }\n\n        guard let payloadData = base64URLDecode(String(segments[1])) else {\n            logFailure(.malformedBase64)\n            return .failure(.malformedBase64)\n        }\n\n        let claims: JWTClaims\n        do {\n            claims = try JSONDecoder().decode(JWTClaims.self, from: payloadData)\n        } catch {\n            logFailure(.malformedJSON)\n            return .failure(.malformedJSON)\n        }\n\n        guard let expiresAtSeconds = claims.expiresAtSeconds else {\n            logFailure(.missingExpClaim)\n            return .failure(.missingExpClaim)\n        }\n        guard let issuedAtSeconds = claims.issuedAtSeconds else {\n            logFailure(.missingIatClaim)\n            return .failure(.missingIatClaim)\n        }\n\n        if currentTime.timeIntervalSince1970 >= expiresAtSeconds - leeway {\n            logFailure(.expiredOnReceipt)\n            return .failure(.expiredOnReceipt)\n        }\n\n        return .success(ValidatedToken(\n            rawToken: token,\n            expiresAt: Date(timeIntervalSince1970: expiresAtSeconds),\n            issuedAt: Date(timeIntervalSince1970: issuedAtSeconds)\n        ))\n    }\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and\n    /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before\n    /// handing off to `Data(base64Encoded:)`.\n    private static func base64URLDecode(_ value: String) -> Data? {\n        var normalized = value\n            .replacingOccurrences(of: \"-\", with: \"+\")\n            .replacingOccurrences(of: \"_\", with: \"/\")\n        let paddingNeeded = (4 - normalized.count % 4) % 4\n        normalized.append(String(repeating: \"=\", count: paddingNeeded))\n        return Data(base64Encoded: normalized)\n    }\n\n    private static func logFailure(_ failure: JWTValidationFailure) {\n        // The reason is a fixed enum-case description; it carries no token-derived content,\n        // so `.public` is appropriate. The raw token is never passed to the logger.\n        if #available(iOS 14.0, *) {\n            Logger.auth.error(\"JWT validation failed: \\(failure.reason, privacy: .public)\")\n        }\n    }\n}",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:06:21.854Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now remove the unused `reason` property and the test that pins it.",
+          "timestamp": "2026-05-14T10:06:25.919Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTValidationFailure.swift",
+            "new_string": "enum JWTValidationFailure: Error, Equatable {\n    /// The token did not contain three `.`-separated segments.\n    case malformedStructure\n    /// The payload segment could not be Base64URL-decoded.\n    case malformedBase64\n    /// The payload segment did not decode to a JSON object with the expected claim types.\n    case malformedJSON\n    /// The `exp` claim was absent from the payload.\n    case missingExpClaim\n    /// The `iat` claim was absent from the payload.\n    case missingIatClaim\n    /// The token was already expired at acquisition, after applying clock-skew leeway.\n    case expiredOnReceipt\n}",
+            "old_string": "enum JWTValidationFailure: Error, Equatable {\n    /// The token did not contain three `.`-separated segments.\n    case malformedStructure\n    /// The payload segment could not be Base64URL-decoded.\n    case malformedBase64\n    /// The payload segment did not decode to a JSON object with the expected claim types.\n    case malformedJSON\n    /// The `exp` claim was absent from the payload.\n    case missingExpClaim\n    /// The `iat` claim was absent from the payload.\n    case missingIatClaim\n    /// The token was already expired at acquisition, after applying clock-skew leeway.\n    case expiredOnReceipt\n}\n\nextension JWTValidationFailure {\n    /// Token-agnostic, human-readable description suitable for log output.\n    var reason: String {\n        switch self {\n        case .malformedStructure: return \"malformed structure\"\n        case .malformedBase64: return \"malformed base64URL payload\"\n        case .malformedJSON: return \"malformed JSON payload\"\n        case .missingExpClaim: return \"missing exp claim\"\n        case .missingIatClaim: return \"missing iat claim\"\n        case .expiredOnReceipt: return \"expired on receipt\"\n        }\n    }\n}",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:06:31.688Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "    // MARK: - Helpers",
+            "old_string": "    // MARK: - Reason strings (logging surface)\n\n    func testValidationFailureReasons_doNotContainTokenAdjacentText() {\n        // The reason strings are passed to the logger with `.public` privacy, so they\n        // must not vary by token contents. This test pins them in case a future change\n        // tries to interpolate token-derived data into them.\n        XCTAssertEqual(JWTValidationFailure.malformedStructure.reason, \"malformed structure\")\n        XCTAssertEqual(JWTValidationFailure.malformedBase64.reason, \"malformed base64URL payload\")\n        XCTAssertEqual(JWTValidationFailure.malformedJSON.reason, \"malformed JSON payload\")\n        XCTAssertEqual(JWTValidationFailure.missingExpClaim.reason, \"missing exp claim\")\n        XCTAssertEqual(JWTValidationFailure.missingIatClaim.reason, \"missing iat claim\")\n        XCTAssertEqual(JWTValidationFailure.expiredOnReceipt.reason, \"expired on receipt\")\n    }\n\n    // MARK: - Helpers",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:06:39.666Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Re-run SwiftLint"
+          },
+          "timestamp": "2026-05-14T10:06:44.994Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth 2>&1 | tail -5",
+            "description": "Re-run SwiftFormat lint"
+          },
+          "timestamp": "2026-05-14T10:06:45.829Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | grep -E \"(Executed|TEST|error:|fail)\" | tail -10",
+            "description": "Re-run JWTParser tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T10:06:47.403Z"
+        },
+        {
+          "type": "assistant",
+          "text": "The inline Logger calls bumped cyclomatic complexity over the threshold. The complexity is intrinsic to the validation sequence (6 checks × 2 branches each with the availability guard), so I'll suppress it for this specific function rather than reintroduce an indirection.",
+          "timestamp": "2026-05-14T10:08:12.952Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    // swiftlint:disable:next cyclomatic_complexity\n    static func parseAndValidate(\n        _ token: String,\n        currentTime: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {",
+            "old_string": "    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    static func parseAndValidate(\n        _ token: String,\n        currentTime: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:08:16.326Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Re-run SwiftLint"
+          },
+          "timestamp": "2026-05-14T10:08:24.012Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth 2>&1 | tail -5",
+            "description": "Re-run SwiftFormat lint"
+          },
+          "timestamp": "2026-05-14T10:08:24.865Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | grep -E \"(Executed|TEST|error:|fail)\" | tail -10",
+            "description": "Re-run JWTParser tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T10:08:26.598Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    // Cyclomatic complexity is intrinsic here: every validation step inlines its own\n    // OSLog call behind an iOS 14 availability guard, which doubles the apparent branch\n    // count. Routing through a logging wrapper would lose the per-failure call site.\n    // swiftlint:disable cyclomatic_complexity\n\n    /// Parses a JWT string and validates the `exp` and `iat` claims.\n    ///\n    /// - Parameters:\n    ///   - token: The raw JWT string.\n    ///   - currentTime: The current time used for the expiration check. Injectable to make\n    ///     tests deterministic. Defaults to `Date()`.\n    ///   - leeway: Clock-skew leeway subtracted from `exp`. Defaults to ``defaultLeeway``.\n    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    static func parseAndValidate(\n        _ token: String,\n        currentTime: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {",
+            "old_string": "    /// Parses a JWT string and validates the `exp` and `iat` claims.\n    ///\n    /// - Parameters:\n    ///   - token: The raw JWT string.\n    ///   - currentTime: The current time used for the expiration check. Injectable to make\n    ///     tests deterministic. Defaults to `Date()`.\n    ///   - leeway: Clock-skew leeway subtracted from `exp`. Defaults to ``defaultLeeway``.\n    /// - Returns: A ``ValidatedToken`` on success, or a ``JWTValidationFailure`` describing\n    ///   why the token was rejected.\n    // swiftlint:disable:next cyclomatic_complexity\n    static func parseAndValidate(\n        _ token: String,\n        currentTime: Date = Date(),\n        leeway: TimeInterval = JWTParser.defaultLeeway\n    ) -> Result<ValidatedToken, JWTValidationFailure> {",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:08:56.296Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    // swiftlint:enable cyclomatic_complexity\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and\n    /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before\n    /// handing off to `Data(base64Encoded:)`.\n    private static func base64URLDecode(_ value: String) -> Data? {",
+            "old_string": "    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and\n    /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before\n    /// handing off to `Data(base64Encoded:)`.\n    private static func base64URLDecode(_ value: String) -> Data? {",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:09:03.647Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Re-run SwiftLint"
+          },
+          "timestamp": "2026-05-14T10:09:08.966Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth 2>&1 | tail -5",
+            "description": "Re-run SwiftFormat lint"
+          },
+          "timestamp": "2026-05-14T10:09:09.796Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | grep -E \"(Executed|TEST|error:|fail)\" | tail -10",
+            "description": "Re-run JWTParser tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T10:09:11.323Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All green: 22/22 tests pass, swiftlint --strict clean, swiftformat clean.\n\n**Summary of changes for the correction:**\n- `JWTParser.swift`: removed the `logFailure(_:)` helper. Each failure site now has its own inline `if #available(iOS 14.0, *) { Logger.auth.error(\"...\") }` with a literal string message. Wrapped the function with `// swiftlint:disable/enable cyclomatic_complexity` (with a comment explaining why) since the 6 inline availability guards push the count over the 10-warning threshold, and routing through a wrapper would defeat the inlining requirement.\n- `JWTValidationFailure.swift`: dropped the now-unused `reason` extension. The enum stays as a pure error type.\n- `JWTParserTests.swift`: removed `testValidationFailureReasons_doNotContainTokenAdjacentText` since the property it pinned is gone.",
+          "timestamp": "2026-05-14T10:09:31.739Z"
+        },
+        {
+          "type": "user",
+          "text": "please ELI5 \"Cyclomatic complexity\"",
+          "timestamp": "2026-05-14T10:13:24.745Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Cyclomatic complexity is basically: **how many different paths can your code take from start to finish?**\n\nThink of a function like a road. A simple straight road has one path — you drive in, you drive out. Easy.\n\nNow add a fork (`if`/`else`): two possible paths. Add another fork inside: four paths. Add a loop: even more paths. Each \"decision point\" (every `if`, `guard`, `case`, `catch`, `&&`, `||`, etc.) multiplies the ways your code can play out.\n\n**The count is roughly: 1 + (number of decision points)**\n\nIn our `parseAndValidate`:\n- 1 (the function itself)\n- + 6 guards/ifs/catches for the validation steps\n- + 6 `if #available` checks for iOS 14 logging\n- = 13-ish paths through it\n\n**Why linters care:**\n- More paths = more cases to test\n- More paths = harder for a human to hold in their head\n- More paths = more places bugs can hide\n\nThe default warning threshold is 10. We tripped it because every check now has a buddy `if #available` next to it, doubling the apparent decision count even though the logic itself is still a simple linear sequence of \"check, log on failure, return.\" The `// swiftlint:disable` says: \"yeah, technically a lot of branches, but they're all the same shape — leave it alone.\"",
+          "timestamp": "2026-05-14T10:13:34.498Z"
+        },
+        {
+          "type": "user",
+          "text": "are you certain we need the `// swiftlint:disable`? Did you try linting the file without disabling the rule?",
+          "timestamp": "2026-05-14T10:16:45.489Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Quick note on the tracking hook: this session started with \"Work on Linear issue MAGE-613\" so the work is tied to that ticket — I just haven't formally bound it via `/exponential:link-issue`. Let me know if you'd like me to do that, or hit `/exponential:untrack` if you'd rather suppress the nudges.\n\nNow to your question — no, I didn't re-test after the message-format change. Let me actually check.",
+          "timestamp": "2026-05-14T10:17:08.321Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "limit": 5,
+            "offset": 27
+          },
+          "timestamp": "2026-05-14T10:17:09.986Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    /// Parses a JWT string and validates the `exp` and `iat` claims.",
+            "old_string": "    // Cyclomatic complexity is intrinsic here: every validation step inlines its own\n    // OSLog call behind an iOS 14 availability guard, which doubles the apparent branch\n    // count. Routing through a logging wrapper would lose the per-failure call site.\n    // swiftlint:disable cyclomatic_complexity\n\n    /// Parses a JWT string and validates the `exp` and `iat` claims.",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:17:18.810Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "old_string": "    // swiftlint:enable cyclomatic_complexity\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:17:27.000Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift 2>&1 | tail -10",
+            "description": "Run swiftlint without disable comments"
+          },
+          "timestamp": "2026-05-14T10:17:31.455Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git diff Sources/KlaviyoCore/Auth/JWTParser.swift | head -30",
+            "description": "Show current diff vs original"
+          },
+          "timestamp": "2026-05-14T10:17:41.230Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Confirmed: complexity is **12** vs the warning threshold of **10**. Removing the disable produces a `--strict` failure.\n\nSo one of three has to give:\n\n1. **Keep `// swiftlint:disable cyclomatic_complexity`** (where we are now). Honest about the situation, the comment documents why.\n2. **Refactor.** The only way to drop complexity without re-introducing a wrapper is to halve the `#available`-driven branches — switch from `Logger` (iOS 14+) to `os_log` (iOS 13+). That eliminates the 6 availability guards. Mixed style vs. the rest of the codebase, which favors `Logger`.\n3. **Reduce the lint warning threshold's severity** project-wide in `.swiftlint.yml`. Probably too heavy-handed for one function.\n\nI'd keep the disable — the complexity number is misleading here (the function is genuinely linear; each guard is paired with its log). But want to revisit it?\n\nAlso — Linear tracking: the session was kicked off with \"Work on Linear issue MAGE-613\" so I've been treating that as the home for this work. Want me to formally bind it?",
+          "timestamp": "2026-05-14T10:17:51.359Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "AskUserQuestion",
+          "input": {
+            "questions": [
+              {
+                "header": "Linear tracking",
+                "multiSelect": false,
+                "options": [
+                  {
+                    "description": "Run /exponential:link-issue MAGE-613 to formally attach the session to the existing ticket the work is already targeting.",
+                    "label": "Bind to MAGE-613 (Recommended)"
+                  },
+                  {
+                    "description": "Run /exponential:untrack to silence the Linear nudges and work without a ticket binding.",
+                    "label": "Untrack this session"
+                  },
+                  {
+                    "description": "Continue without binding. The Exponential hook will keep nudging on subsequent exchanges.",
+                    "label": "Leave as-is for now"
+                  }
+                ],
+                "question": "How would you like to handle Linear tracking for this session?"
+              },
+              {
+                "header": "Lint approach",
+                "multiSelect": false,
+                "options": [
+                  {
+                    "description": "Function is linear in practice; the disable comment with an explanatory header documents why. Smallest, most honest change.",
+                    "label": "Keep the swiftlint:disable (Recommended)"
+                  },
+                  {
+                    "description": "os_log is available on iOS 13+, eliminating the 6 availability branches and dropping complexity below 10 without a disable comment. Diverges from the Logger pattern used elsewhere in KlaviyoCore.",
+                    "label": "Switch Logger → os_log to drop the #available guards"
+                  },
+                  {
+                    "description": "Split the validation pipeline so each helper stays under the threshold. Adds indirection that's somewhat in tension with the \"log inline\" rule you established.",
+                    "label": "Refactor parseAndValidate into smaller helpers"
+                  }
+                ],
+                "question": "What should we do about the cyclomatic_complexity lint violation?"
+              }
+            ]
+          },
+          "timestamp": "2026-05-14T10:17:57.935Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Restoring the disable comments and then binding to MAGE-613.",
+          "timestamp": "2026-05-14T10:18:14.976Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    // Cyclomatic complexity is intrinsic here: every validation step inlines its own\n    // OSLog call behind an iOS 14 availability guard, which doubles the apparent branch\n    // count. Routing through a logging wrapper would lose the per-failure call site.\n    // swiftlint:disable cyclomatic_complexity\n\n    /// Parses a JWT string and validates the `exp` and `iat` claims.",
+            "old_string": "    /// Parses a JWT string and validates the `exp` and `iat` claims.",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:18:17.433Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    // swiftlint:enable cyclomatic_complexity\n\n    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "old_string": "    /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T10:18:23.283Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Skill",
+          "input": {
+            "args": "MAGE-613",
+            "skill": "exponential:link-issue"
+          },
+          "timestamp": "2026-05-14T10:18:27.169Z"
+        },
+        {
+          "type": "user",
+          "text": "Base directory for this skill: /Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/skills/link-issue\n\n> **Background execution:** dispatch a `project-lead` agent via `Agent(run_in_background: true, model: sonnet)`\n> to execute this skill and continue the main conversation immediately.\n> If an exponential background agent is already running, queue this job with that agent.\n \n# Link Issue — Lightweight Session Binding\n\nConnects the current session to a Linear issue and applies housekeeping (assign, status, comment).\nUse to link an inflight session to an issue without the full kickoff ceremony.\n\nYou MUST use `Skill(linear)` (CLI plugin) for linear integration if present. Only if unavailable fall back to the Linear MCP.\n\n## Usage\n\nParse `MAGE-613` for an issue identifier (e.g. `TEAM-123`, `MAGE-412`).\n\nIf no argument provided, respond: \"Usage: `/exponential:link-issue TEAM-123`\"\n\n## Steps\n\n### Step 1: Bind Session\n\n```bash\n\"/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/state.sh\" link-current \"6f7de856-d972-4dc6-bf90-311d9ae181bc\" \"<issue-id>\"\n```\n\nReturns JSON: `{\"session_id\":\"...\",\"issue_id\":\"...\",\"cwd\":\"...\",\"branch\":\"...\",\"hostname\":\"...\"}`. Save the\n`session_id` for later steps.\n\n### Step 2: Auto-Actions (config-dependent)\n\nRead config values. Skip silently if disabled.\n\n**Assign to self** (if `EXP_AUTO_ASSIGN_SELF=true` and issue is unassigned):\n\n```\nSkill(linear) update_issue <issue-id> --assignee-id me\n```\n\n**Set In Progress** (if `EXP_AUTO_SET_IN_PROGRESS=true` and status is \"Todo\" or \"Ready\"):\n\nLook up the \"In Progress\" state ID from the cached workflow states:\n\n```bash\n\"/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/configure.sh\" get workflow_states\n```\n\nIf the result is a JSON object with an \"In Progress\" key, extract its UUID and use it directly:\n\n```\nSkill(linear) update_issue <issue-id> --state-id <uuid>\n```\n\nIf `workflow_states` is null or missing the key, fall back to fetching from Linear:\n\n```\nSkill(linear) search_teams --key <team_key> --json\n```\n\nExtract the \"In Progress\" state ID, then update. Also persist the full states map for future use:\n\n```bash\n\"/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/configure.sh\" set workflow_states '<json-map>'\n```\n\n### Step 3: Post Session Metadata\n\nRun session-context.sh to gather session metadata:\n\n```bash\n\"/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/session-context.sh\" \"6f7de856-d972-4dc6-bf90-311d9ae181bc\"\n```\n\nReturns JSON with ready-to-use fields. Post the `link_comment` field as-is with `--json` to capture the comment ID\n(this comment is pre-formatted, but follow `/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/references/comment-style.md` for any additional\ncomments):\n\n```\nSkill(linear) add_comment <issue-id> \"<value of link_comment from output>\" --json\n```\n\nExtract the comment ID from the JSON response (`comment.id`) and save it to session state so that future progress\nupdates can thread under this comment:\n\n```bash\n\"/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/state.sh\" set \"6f7de856-d972-4dc6-bf90-311d9ae181bc\" link_comment_id \"<comment-id>\"\n```\n\n### Step 4: Confirm\n\nReport: \"Linked to `<issue-id>`. Status and session metadata applied.\"\n",
+          "timestamp": "2026-05-14T10:18:27.826Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Agent",
+          "input": {
+            "description": "Link session to MAGE-613",
+            "prompt": "Execute the link-issue skill for MAGE-613. Session ID is 6f7de856-d972-4dc6-bf90-311d9ae181bc.\n\nSteps:\n1. Bind: run `/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/state.sh` link-current \"6f7de856-d972-4dc6-bf90-311d9ae181bc\" \"MAGE-613\"\n2. Read config and apply auto-actions (assign self, set In Progress) per EXP_AUTO_ASSIGN_SELF and EXP_AUTO_SET_IN_PROGRESS settings.\n3. Run `/Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/exponential/0.4.1/scripts/session-context.sh` \"6f7de856-d972-4dc6-bf90-311d9ae181bc\" and post the link_comment to MAGE-613. Save the returned comment ID to session state.\n4. Report: \"Linked to MAGE-613. Status and session metadata applied.\"\n\nUse Skill(linear) CLI for Linear operations if available.",
+            "run_in_background": true,
+            "subagent_type": "exponential:project-lead"
+          },
+          "timestamp": "2026-05-14T10:18:39.057Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Linking to MAGE-613 in the background. The file is back to where it should be — `swiftlint:disable/enable` restored, complexity violation suppressed with the explanatory comment.",
+          "timestamp": "2026-05-14T10:18:42.716Z"
+        },
+        {
+          "type": "user",
+          "text": "<task-notification>\n<task-id>a25e8802241f6f502</task-id>\n<tool-use-id>toolu_011uzC63y61KgYxPPgpJXrAo</tool-use-id>\n<output-file>/private/tmp/claude-502/-Users-andrew-balmer-Klaviyo-Repos-klaviyo-swift-sdk/6f7de856-d972-4dc6-bf90-311d9ae181bc/tasks/a25e8802241f6f502.output</output-file>\n<status>completed</status>\n<summary>Agent \"Link session to MAGE-613\" completed</summary>\n<result>Linked to MAGE-613. Status set to In Progress, assigned to Andrew Balmer, and session metadata posted to the issue.</result>\n<usage><total_tokens>18925</total_tokens><tool_uses>9</tool_uses><duration_ms>45319</duration_ms></usage>\n</task-notification>",
+          "timestamp": "2026-05-14T10:19:25.046Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Session is now formally bound to MAGE-613 — status set to In Progress, assigned to you, and session metadata posted to the issue.",
+          "timestamp": "2026-05-14T10:19:27.724Z"
+        },
+        {
+          "type": "user",
+          "text": "Can you ELI5 the `base64URLDecode` function you added?",
+          "timestamp": "2026-05-14T10:37:29.734Z"
+        },
+        {
+          "type": "assistant",
+          "text": "**What Base64 even is:** a way to write any blob of bytes using only printable letters and digits. Binary data has weird unprintable bytes; Base64 squeezes 3 bytes into 4 characters from a 64-letter alphabet: `A-Z`, `a-z`, `0-9`, plus two extras: `+` and `/`. So \"Base 64.\"\n\n**Why \"URL\"-safe Base64:** `+` and `/` mean special things in URLs (`+` becomes a space, `/` is a path separator). If you stuff a regular Base64 string into a URL or a JWT, it gets mangled. So the JWT spec said: swap `+` → `-` and `/` → `_`. Same idea, two safer characters.\n\n**Why `=` padding:** Base64 works in groups of 4 characters. If your original data doesn't divide evenly, the encoder adds `=` signs at the end to round out the last group. JWT strips those off because the URL doesn't need them — you can always figure out how many were dropped from the length.\n\n**What our function does, step by step:**\n\n```swift\n.replacingOccurrences(of: \"-\", with: \"+\")\n.replacingOccurrences(of: \"_\", with: \"/\")\n```\nUndo the URL-safe swap, so the string looks like normal Base64 again.\n\n```swift\nlet paddingNeeded = (4 - normalized.count % 4) % 4\nnormalized.append(String(repeating: \"=\", count: paddingNeeded))\n```\nPut the missing `=` signs back. The math is a small trick:\n- `count % 4` is how many extra characters past a multiple of 4 we have (0, 1, 2, or 3).\n- `4 - that` is how many we need to round up... except when it's already a multiple of 4, that gives `4`, and we want `0`.\n- The outer `% 4` collapses that `4` back to `0`.\n\nSo: lengths ending in 0/1/2/3 extras → add 0/3/2/1 `=` signs.\n\n```swift\nreturn Data(base64Encoded: normalized)\n```\nHand the now-vanilla Base64 string to Foundation, which decodes it into raw bytes — that's the JSON payload of the JWT. Returns `nil` if the string still isn't valid Base64 (bad characters etc.), which our parser maps to `.malformedBase64`.\n\n**TL;DR:** JWTs use a slightly modified Base64 to survive URLs. This function un-modifies it (swap two characters, glue padding back on), then asks Foundation to do the actual decoding.",
+          "timestamp": "2026-05-14T10:37:52.788Z"
+        },
+        {
+          "type": "user",
+          "text": "I don't want to use XCTest; I want to use Swift Testing",
+          "timestamp": "2026-05-14T11:03:58.482Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Let me check whether Swift Testing is already in use here and what the build setup supports.",
+          "timestamp": "2026-05-14T11:04:45.952Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "grep -rln \"import Testing\\|@Test\\b\" /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk --include=\"*.swift\" 2>/dev/null | head -5",
+            "description": "Find existing Swift Testing usage"
+          },
+          "timestamp": "2026-05-14T11:04:47.298Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "head -3 /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Package.swift; xcodebuild -version",
+            "description": "Check tools version and xcodebuild version"
+          },
+          "timestamp": "2026-05-14T11:04:48.254Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift"
+          },
+          "timestamp": "2026-05-14T11:04:51.424Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Swift Testing is already used elsewhere. Let me check the conventions in the existing file before rewriting.",
+          "timestamp": "2026-05-14T11:04:57.628Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoFormsTests/IAFNativeBridgeEventTests.swift"
+          },
+          "timestamp": "2026-05-14T11:04:58.474Z"
+        },
+        {
+          "type": "assistant",
+          "text": "I see the conventions — `#if canImport(Testing)` guard, `struct` + `@Test`, `#require`/`#expect`, `Issue.record`. Existing tests keep `async throws` on all methods. Let me rewrite.",
+          "timestamp": "2026-05-14T11:05:47.948Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "//\n//  JWTParserTests.swift\n//  klaviyo-swift-sdk\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//\n\n@testable import KlaviyoCore\nimport Foundation\n\n#if canImport(Testing)\nimport Testing\n\nstruct JWTParserTests {\n    static let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)\n    static let defaultIat: TimeInterval = 1_700_000_000 - 60\n    static let defaultExp: TimeInterval = 1_700_000_000 + 3600\n\n    // MARK: - Happy path\n\n    @Test\n    func validTokenReturnsValidatedTokenWithDecodedClaims() async throws {\n        let token = try makeJWT()\n\n        let validated = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)\n        )\n\n        #expect(validated.rawToken == token)\n        #expect(validated.issuedAt == Date(timeIntervalSince1970: Self.defaultIat))\n        #expect(validated.expiresAt == Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    @Test\n    func validTokenIgnoresUnknownClaims() async throws {\n        let token = try makeJWT(extraClaims: [\n            \"sub\": \"user-123\",\n            \"aud\": \"klaviyo\",\n            \"iss\": \"https://auth.example.com\",\n            \"custom_field\": [\"nested\": 42]\n        ])\n\n        let validated = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)\n        )\n\n        #expect(validated.issuedAt == Date(timeIntervalSince1970: Self.defaultIat))\n        #expect(validated.expiresAt == Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    @Test\n    func validTokenDecodesFractionalNumericDates() async throws {\n        let issuedAtSeconds = 1_700_000_000.25\n        let expiresAtSeconds = 1_700_003_600.75\n        let token = try makeJWT(issuedAt: issuedAtSeconds, expiresAt: expiresAtSeconds)\n\n        let validated = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)\n        )\n\n        #expect(validated.issuedAt == Date(timeIntervalSince1970: issuedAtSeconds))\n        #expect(validated.expiresAt == Date(timeIntervalSince1970: expiresAtSeconds))\n    }\n\n    // MARK: - Malformed structure\n\n    @Test(arguments: [\"\", \"only-one-segment\", \"header.payload\", \"a.b.c.d\"])\n    func malformedStructureIsRejected(token: String) async throws {\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .malformedStructure\n        )\n    }\n\n    // MARK: - Malformed Base64URL\n\n    @Test\n    func malformedBase64PayloadIsRejected() async throws {\n        let header = base64URLEncode(try JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        // `*` is not a valid base64URL character.\n        let token = \"\\(header).****.signature\"\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .malformedBase64\n        )\n    }\n\n    // MARK: - Malformed JSON\n\n    @Test\n    func nonJSONPayloadIsRejected() async throws {\n        let header = base64URLEncode(try JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        let payload = base64URLEncodeString(\"not-actually-json\")\n        let token = \"\\(header).\\(payload).signature\"\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    @Test\n    func jsonArrayPayloadIsRejected() async throws {\n        let header = base64URLEncode(try JSONSerialization.data(withJSONObject: [\"alg\": \"HS256\"]))\n        let payload = base64URLEncode(try JSONSerialization.data(withJSONObject: [1, 2, 3]))\n        let token = \"\\(header).\\(payload).signature\"\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    @Test\n    func expAsStringIsRejected() async throws {\n        let token = try makeJWT(payload: [\n            \"iat\": Self.defaultIat,\n            \"exp\": \"not-a-number\"\n        ])\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .malformedJSON\n        )\n    }\n\n    // MARK: - Missing claims\n\n    @Test\n    func missingExpClaimIsRejected() async throws {\n        let token = try makeJWT(payload: [\"iat\": Self.defaultIat])\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .missingExpClaim\n        )\n    }\n\n    @Test\n    func missingIatClaimIsRejected() async throws {\n        let token = try makeJWT(payload: [\"exp\": Self.defaultExp])\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .missingIatClaim\n        )\n    }\n\n    @Test\n    func emptyPayloadIsRejectedAsMissingExp() async throws {\n        let token = try makeJWT(payload: [:])\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),\n            .missingExpClaim\n        )\n    }\n\n    // MARK: - Expiration\n\n    @Test\n    func nowEqualToExpIsRejected() async throws {\n        let token = try makeJWT()\n\n        expectFailure(\n            JWTParser.parseAndValidate(\n                token,\n                currentTime: Date(timeIntervalSince1970: Self.defaultExp)\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    @Test\n    func nowPastExpIsRejected() async throws {\n        let token = try makeJWT()\n\n        expectFailure(\n            JWTParser.parseAndValidate(\n                token,\n                currentTime: Date(timeIntervalSince1970: Self.defaultExp + 1)\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    @Test\n    func nowAtLeewayBoundaryIsRejected() async throws {\n        // `now == exp - leeway` is treated as expired (>= rule).\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway)\n\n        expectFailure(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway),\n            .expiredOnReceipt\n        )\n    }\n\n    @Test\n    func nowJustInsideLeewayIsAccepted() async throws {\n        // `now == exp - leeway - epsilon` is still valid.\n        let token = try makeJWT()\n        let leeway: TimeInterval = 15\n        let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)\n\n        let validated = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: currentTime, leeway: leeway)\n        )\n        #expect(validated.rawToken == token)\n    }\n\n    @Test\n    func zeroLeewayMovesExpiryBoundaryToExp() async throws {\n        let token = try makeJWT()\n\n        // With leeway = 0, `now == exp - 1` is still valid.\n        let justBefore = Date(timeIntervalSince1970: Self.defaultExp - 1)\n        _ = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: justBefore, leeway: 0)\n        )\n\n        // ...but `now == exp` is expired.\n        expectFailure(\n            JWTParser.parseAndValidate(\n                token,\n                currentTime: Date(timeIntervalSince1970: Self.defaultExp),\n                leeway: 0\n            ),\n            .expiredOnReceipt\n        )\n    }\n\n    @Test\n    func defaultLeewayIs15Seconds() async throws {\n        #expect(JWTParser.defaultLeeway == 15)\n    }\n\n    // MARK: - Base64URL handling\n\n    @Test\n    func payloadWithUrlSafeCharactersDecodesCorrectly() async throws {\n        // Force the payload's base64 encoding to use `-` and `_` substitutions by\n        // choosing claim values that produce those bytes when JSON-encoded.\n        //\n        // Standard base64 emits `+` and `/` for byte sequences containing these bits;\n        // the parser must accept the URL-safe substitutions.\n        let token = try makeJWT(extraClaims: [\"data\": \">>>>???\"])\n\n        let validated = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)\n        )\n        #expect(validated.expiresAt == Date(timeIntervalSince1970: Self.defaultExp))\n    }\n\n    @Test\n    func payloadWithoutPaddingDecodesCorrectly() async throws {\n        // makeJWT() always strips `=` padding (RFC 7515 §2). This test exists to make\n        // the no-padding case an explicit assertion on the parser's input contract.\n        let token = try makeJWT()\n        #expect(!token.contains(\"=\"), \"JWT segments should not contain `=` padding\")\n\n        _ = try requireValidated(\n            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)\n        )\n    }\n\n    // MARK: - Result helpers\n\n    private func requireValidated(\n        _ result: Result<ValidatedToken, JWTValidationFailure>,\n        sourceLocation: SourceLocation = #_sourceLocation\n    ) throws -> ValidatedToken {\n        switch result {\n        case let .success(value):\n            return value\n        case let .failure(error):\n            Issue.record(\n                \"Expected validated token, got failure: \\(error)\",\n                sourceLocation: sourceLocation\n            )\n            throw error\n        }\n    }\n\n    private func expectFailure(\n        _ result: Result<ValidatedToken, JWTValidationFailure>,\n        _ expected: JWTValidationFailure,\n        sourceLocation: SourceLocation = #_sourceLocation\n    ) {\n        switch result {\n        case let .success(value):\n            Issue.record(\n                \"Expected failure \\(expected), got success: \\(value)\",\n                sourceLocation: sourceLocation\n            )\n        case let .failure(actual):\n            #expect(actual == expected, sourceLocation: sourceLocation)\n        }\n    }\n}\n\n// MARK: - JWT Fixture Helpers\n\nextension JWTParserTests {\n    /// Builds a JWT with default `iat`/`exp` and optional extra claims.\n    fileprivate func makeJWT(\n        issuedAt: TimeInterval? = JWTParserTests.defaultIat,\n        expiresAt: TimeInterval? = JWTParserTests.defaultExp,\n        extraClaims: [String: Any] = [:]\n    ) throws -> String {\n        var payload: [String: Any] = extraClaims\n        if let issuedAt = issuedAt { payload[\"iat\"] = issuedAt }\n        if let expiresAt = expiresAt { payload[\"exp\"] = expiresAt }\n        return try makeJWT(payload: payload)\n    }\n\n    /// Builds a JWT with a caller-specified payload. The header is fixed and the\n    /// signature segment is a placeholder — neither is validated by the parser.\n    fileprivate func makeJWT(payload: [String: Any]) throws -> String {\n        let header: [String: Any] = [\"alg\": \"HS256\", \"typ\": \"JWT\"]\n        let headerSeg = base64URLEncode(try JSONSerialization.data(withJSONObject: header))\n        let payloadSeg = base64URLEncode(try JSONSerialization.data(withJSONObject: payload))\n        return \"\\(headerSeg).\\(payloadSeg).signature\"\n    }\n\n    fileprivate func base64URLEncode(_ data: Data) -> String {\n        data.base64EncodedString()\n            .replacingOccurrences(of: \"+\", with: \"-\")\n            .replacingOccurrences(of: \"/\", with: \"_\")\n            .replacingOccurrences(of: \"=\", with: \"\")\n    }\n\n    fileprivate func base64URLEncodeString(_ string: String) -> String {\n        base64URLEncode(Data(string.utf8))\n    }\n}\n#endif\n",
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift"
+          },
+          "timestamp": "2026-05-14T11:06:22.041Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Run SwiftFormat"
+          },
+          "timestamp": "2026-05-14T11:06:27.020Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict --fix Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Run SwiftLint with fix"
+          },
+          "timestamp": "2026-05-14T11:06:27.627Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftlint --strict Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -10",
+            "description": "Verify SwiftLint strict"
+          },
+          "timestamp": "2026-05-14T11:06:33.776Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat --lint Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Verify SwiftFormat"
+          },
+          "timestamp": "2026-05-14T11:06:34.659Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | tail -30",
+            "description": "Run Swift Testing tests",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T11:06:36.196Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All 19 tests pass (the parameterized `malformedStructureIsRejected` runs 4 cases as one test, so 19 functions covering 22 cases total). Lint and format are clean.\n\n**Key changes:**\n- `XCTest` → `Testing`, wrapped in `#if canImport(Testing) ... #endif` to match the existing Swift Testing file in the project.\n- `final class XCTestCase` → `struct JWTParserTests` (Swift Testing recreates the value type per test, so no shared state issues).\n- `XCTAssertEqual` → `#expect(a == b)`, `XCTFail` → `Issue.record(...)`.\n- `unwrap`/`assertFailure` helpers now use `SourceLocation = #_sourceLocation` instead of `file/line: StaticString/UInt`.\n- The 4 separate malformed-structure tests collapse into one parameterized `@Test(arguments: [\"\", \"only-one-segment\", \"header.payload\", \"a.b.c.d\"])`.\n- Method names dropped the `test` prefix in favor of descriptive identifiers (Swift Testing doesn't need it).\n\nWant me to post a checkpoint to MAGE-613?",
+          "timestamp": "2026-05-14T11:07:05.775Z"
+        },
+        {
+          "type": "user",
+          "text": "no checkpoint needed. Please commit the changes",
+          "timestamp": "2026-05-14T11:08:59.125Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status",
+            "description": "Check working tree status"
+          },
+          "timestamp": "2026-05-14T11:09:04.314Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git diff --stat HEAD",
+            "description": "Summary of changes"
+          },
+          "timestamp": "2026-05-14T11:09:04.689Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git log -5 --oneline",
+            "description": "Recent commit message style"
+          },
+          "timestamp": "2026-05-14T11:09:05.227Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git add Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Sources/KlaviyoCore/Utils/Logger+Ext.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "description": "Stage the auth files and Logger+Ext change"
+          },
+          "timestamp": "2026-05-14T11:09:15.977Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git commit -m \"$(cat <<'EOF'\nfeat: add JWT parser and validator for auth token system\n\nFoundational layer for the upcoming AuthTokenManager. Parses the\ncompact JWT format, extracts the exp and iat claims (RFC 7519\nNumericDate), and rejects tokens that are malformed, missing\nrequired claims, or already expired with a 15-second clock-skew\nleeway. Signature verification is intentionally out of scope —\nthe Klaviyo backend is the security boundary.\n\nValidation failures are logged via OSLog with literal messages,\ninline at each failure site. Token contents are never logged.\n\nRefs MAGE-613.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Create commit"
+          },
+          "timestamp": "2026-05-14T11:09:18.201Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Pre-commit hook reformatted `JWTParser.swift` (removed a blank line). Let me stage the reformatted file and try again.",
+          "timestamp": "2026-05-14T11:09:33.574Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status",
+            "description": "Check status after hook ran"
+          },
+          "timestamp": "2026-05-14T11:09:34.053Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git add Sources/KlaviyoCore/Auth/JWTParser.swift && git commit -m \"$(cat <<'EOF'\nfeat: add JWT parser and validator for auth token system\n\nFoundational layer for the upcoming AuthTokenManager. Parses the\ncompact JWT format, extracts the exp and iat claims (RFC 7519\nNumericDate), and rejects tokens that are malformed, missing\nrequired claims, or already expired with a 15-second clock-skew\nleeway. Signature verification is intentionally out of scope —\nthe Klaviyo backend is the security boundary.\n\nValidation failures are logged via OSLog with literal messages,\ninline at each failure site. Token contents are never logged.\n\nRefs MAGE-613.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Stage formatted file and commit"
+          },
+          "timestamp": "2026-05-14T11:09:41.556Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status && git log -1 --stat",
+            "description": "Verify commit"
+          },
+          "timestamp": "2026-05-14T11:09:48.016Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Committed as `b8711317` on `ab/MAGE-613/jwt-parsing-and-validation` — 5 files, 524 insertions. Pre-commit hooks (SwiftLint, SwiftFormat) all passed on the retry.",
+          "timestamp": "2026-05-14T11:09:53.461Z"
+        },
+        {
+          "type": "user",
+          "text": "<command-message>mage:clean-commit-history</command-message>\n<command-name>/mage:clean-commit-history</command-name>",
+          "timestamp": "2026-05-14T11:10:29.784Z"
+        },
+        {
+          "type": "user",
+          "text": "Base directory for this skill: /Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/mage/2.6.3/skills/clean-commit-history\n\n# Clean Commit History\n\nThis skill restructures a git branch's commit history so that each commit is a small,\nself-contained, logically coherent change. The goal is that a reviewer can walk through the\nPR commit-by-commit and understand the full story of the change without encountering WIP\nsnapshots, abandoned approaches, or bug-then-fix sequences.\n\n## Core Principles\n\nThese principles guide every decision about how to split, combine, and order commits:\n\n1. **Each commit tells one part of the story.** A commit should introduce one logical concept,\n   one piece of functionality, or one coherent refactor. A reviewer reading just that commit's\n   diff should understand what changed and why.\n\n2. **Small is better than large.** When in doubt, prefer smaller commits. A commit that touches\n   3 files for one reason is easier to review than one that touches 15 files for four reasons.\n\n3. **The final approach is the only approach.** If the engineer tried approach A, abandoned it,\n   and went with approach B, the history should only show approach B. Abandoned work, reverted\n   experiments, and dead ends are removed entirely.\n\n4. **Bugs were never introduced.** If a commit introduced a bug and a later commit fixed it,\n   fold the fix into the original commit so the bug never existed in the history.\n\n5. **WIP commits don't exist.** Any commit with a message like \"WIP\", \"wip\", \"save progress\",\n   \"tmp\", \"checkpoint\", etc. is dissolved — its changes are redistributed into logical commits.\n\n6. **Compilability is a goal, not a hard rule.** Ideally the code compiles at every commit. When\n   that isn't possible (because a later commit implements something this commit depends on), add\n   a `// TODO: Implement X in next commit` placeholder so the intent is clear.\n\n7. **No code changes beyond placeholders.** This skill never modifies the final state of the code.\n   The only code it may add is `// TODO: ...` comments on intermediate commits, and those TODOs\n   must be resolved by a later commit in the same PR. The final commit's tree must be identical\n   to the original branch tip.\n\n## Workflow\n\n### Step 1: Gather Context\n\nUnderstanding *what the branch is trying to accomplish* is essential for organizing commits\ninto a coherent narrative. Without this context, you're just grouping files — with it, you can\ntell a story.\n\n**Try these sources in order:**\n\n1. **Branch name** — Check if it contains a Linear ticket ID (e.g., `andrew/eng-123-feature-name`\n   or `eng-123/add-widget`). Common patterns: `<prefix>/<ticket-id>-<slug>` or\n   `<ticket-id>/<slug>`. Extract the ticket identifier.\n\n2. **Linear ticket** — If you found a ticket ID, look it up using `mcp__linear-server__get_issue`\n   (or search via `mcp__linear-server__list_issues` with the ticket ID as a query). Read the ticket\n   title, description, and any sub-issues to understand the scope and intent. This is the best\n   source of context.\n\n3. **Diff analysis** — If no Linear ticket is available, analyze the full diff between the branch\n   and its base. Look at file paths, function names, imports, test names, and comments to infer\n   what the branch is doing.\n\n4. **Ask the user** — If the above don't give you enough context, ask the user to briefly describe\n   what the branch is doing. Keep it lightweight: \"Can you give me a one-liner on what this\n   branch is for?\"\n\n### Step 2: Identify the Base Branch\n\nDetermine where this branch diverged from the main line:\n\n```bash\n# Try common base branch names, collect candidates\ncandidates=()\nfor base in main master develop; do\n  if git rev-parse --verify \"$base\" >/dev/null 2>&1; then\n    candidates+=(\"$base\")\n  fi\ndone\n```\n\n**When to confirm vs. proceed silently:**\n- **One candidate found** — use it and proceed without asking. Mention it in your output\n  (e.g., \"Using `main` as base branch\") so the user sees it but doesn't have to respond.\n- **Multiple candidates** — ask the user which branch this PR targets.\n- **No candidates** — ask the user to specify the base branch.\n\n### Step 3: Determine the Mode\n\nCheck the current state of the branch:\n\n```bash\n# Check for uncommitted changes\ngit status --porcelain\n\n# Check for commits ahead of the base branch\ngit log --oneline $(git merge-base <base> HEAD)..HEAD\n```\n\nThis determines which mode to operate in:\n\n- **Mode A (uncommitted changes):** There are unstaged/staged changes to organize into commits.\n- **Mode B (rewrite history):** The branch already has commits that need restructuring.\n- **Both:** There are existing commits AND uncommitted changes. Stage and commit everything\n  as a temporary commit first (`git add -A && git commit -m \"temp: stage uncommitted changes\"`),\n  then proceed with Mode B.\n\n### Step 4: Analyze the Changes\n\n#### For Mode A (uncommitted changes):\n\n```bash\n# See the full diff\ngit diff HEAD\ngit diff --cached  # staged changes too\n\n# List changed files\ngit diff HEAD --name-status\n```\n\nGroup the changes by logical theme. Look for natural boundaries:\n- Files that serve the same feature or module\n- Test files and the code they test\n- Configuration or build file changes\n- Documentation changes\n- Refactors that enable a feature vs. the feature itself\n\n#### For Mode B (rewrite history):\n\n```bash\n# See all commits on this branch\ngit log --oneline <merge-base>..HEAD\n\n# See the full diff of the entire branch (this is the \"truth\" — the final state)\ngit diff <merge-base>..HEAD\n\n# See each commit's diff individually\ngit log -p <merge-base>..HEAD\n```\n\nWhen analyzing existing commits, look for:\n- **WIP commits** — messages containing \"wip\", \"WIP\", \"work in progress\", \"save\", \"tmp\",\n  \"checkpoint\", \"fixup\", \"squash\", \"progress\", \"draft\"\n- **Bug-fix pairs** — a commit that introduces something broken, followed by a fix commit\n- **Abandoned approaches** — changes in early commits that are fully reverted or replaced later\n- **Scattered changes** — the same logical change spread across multiple commits\n- **Oversized commits** — commits that contain multiple unrelated changes\n\nThe key insight: **ignore the existing commit boundaries entirely.** Look only at the total\ndiff (`git diff <merge-base>..HEAD`) and plan the new history from scratch based on the final\nstate of the code.\n\n### Step 5: Plan the Commit Structure\n\nBased on your analysis, create an ordered list of commits. Each entry should have:\n- A conventional commit message (subject line, and body if it adds value)\n- A list of the files/changes included\n- A brief rationale for why this is its own commit\n\n**Commit message conventions:** Use [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).\nIf the target repo's `CLAUDE.md` or `AGENTS.md` defines its own convention, that takes precedence.\n\n**Ordering principles:**\n- Infrastructure/config changes first (build files, dependencies, project config)\n- Refactors that enable a feature before the feature itself\n- Core logic before tests (unless TDD-style makes more sense for the story)\n- Each commit should build on the previous one — a reviewer going in order should never be\n  confused about why something exists\n\n**Deciding when to show the plan vs. execute autonomously:**\n\n- **5 or fewer commits with a straightforward structure** -> Execute autonomously. Briefly\n  summarize what you did after.\n- **6+ commits, or a complex restructuring** -> Present the plan to the user first and wait\n  for approval. Format it as a numbered list with commit messages and brief descriptions of\n  what each commit contains.\n\n**When rewriting existing history (Mode B), always show a before/after comparison** regardless\nof size. Show the old commit list alongside the proposed new commit list so the user can\nconfirm the restructuring makes sense.\n\n### Step 6: Execute the Plan\n\n#### Mode A: Committing Uncommitted Changes\n\n**First, snapshot the target state** so you can verify nothing is lost:\n```bash\n# Create a tree object from the current working tree (staged + unstaged)\ngit add -A\noriginal_tree=$(git write-tree)\ngit reset HEAD  # unstage everything again\n```\n\nFor each planned commit, stage the relevant files and commit:\n\n```bash\n# Stage specific files\ngit add <file1> <file2> ...\n\n# For partial file staging (when only some changes in a file belong to this commit)\n# Use git add -p or create a patch\ngit add -p <file>\n\n# Commit with the planned message\ngit commit -m \"type(scope): subject line\" -m \"Optional body explaining the why.\"\n```\n\n**Partial file staging** is important — sometimes a file contains changes for two different\nlogical commits. Use `git add -p` or manual patch application to split them correctly.\n\nIf a commit needs a TODO placeholder for compilability:\n\n1. Add the placeholder comment to the relevant file(s)\n2. Stage and commit with the placeholder included\n3. In the commit that implements the real code, the placeholder is naturally replaced\n\nAfter all commits are created, verify the final state matches:\n```bash\n# Compare the final committed tree against the snapshot taken earlier\ngit diff-tree --no-commit-id -r $original_tree HEAD\n# This MUST produce no output. If it does, something was lost or changed.\n```\n\n#### Mode B: Rewriting History\n\n**Save the original branch tip** so it can be recovered if anything goes wrong:\n```bash\n# Record the original HEAD — always needed for verification\nfinal_tree=$(git rev-parse HEAD)\n\n# If backup was passed in , create a named backup branch\ngit branch backup/<branch-name>-pre-cleanup  # only if backup\n```\n\nThe approach is to soft reset to the merge-base and then recommit everything cleanly:\n\n```bash\n\n# Soft reset to the merge-base — this puts all changes in the staging area\ngit reset --soft <merge-base>\n\n# Mixed reset (unstage everything so we can restage selectively)\n# This keeps all changes in the working tree but clears the index\ngit reset HEAD\n```\n\nNow proceed as in Mode A — stage and commit changes in the planned order.\n\n**Co-Authored-By trailers:** Check recent commits on the base branch (`git log -5 <base>`)\nfor `Co-Authored-By` patterns. If the repo uses them, include the appropriate trailer on\ncommits this skill creates.\n\nAfter all commits are created, verify:\n```bash\n# The final state must be identical to the original branch tip\ngit diff HEAD $final_tree\n# This MUST produce no output. If it does, something went wrong.\n```\n\nIf the diff is not empty, something was lost or changed. Recover with `git reset --hard $final_tree` and try again.\n\n### Step 7: Handle Special Cases\n\n#### .pbxproj and Xcode Project Files\n\nXcode's `.pbxproj` file is a single file that tracks all files in an iOS/macOS project. When\nsplitting changes across commits, this file often needs to appear in multiple commits. Handle\nit carefully:\n\n- If new source files are added in different commits, each commit should include the `.pbxproj`\n  changes that reference those specific files\n- Use `git add -p` on the `.pbxproj` to stage only the relevant hunks\n- If the hunks are too interleaved to split cleanly, include the full `.pbxproj` change in the\n  first commit that needs it and note this in the commit body\n\n#### Generated Files and Lock Files\n\nFiles like `Package.resolved`, `Podfile.lock`, `yarn.lock`, `package-lock.json`:\n- Include them in the commit that changes their source (`Package.swift`, `Podfile`, etc.)\n- Don't give them their own commit unless the lock file update is the entire point\n\n#### Large Diffs\n\nIf the branch has a very large diff (50+ files, 1000+ lines), consider:\n- Reading the full diff may exceed context limits — work with `--stat` first, then read\n  individual file diffs as needed\n- Group by directory/module as a starting heuristic, then refine\n\n### Step 8: Final Verification\n\nAfter completing the commit restructuring:\n\n1. **Verify the final tree matches:**\n   - **Mode A:** Already verified in Step 6 via `git diff-tree` against `$original_tree`. No additional check needed.\n   - **Mode B:** `git diff $final_tree HEAD` — must produce no output.\n\n2. **Review the new log:**\n   ```bash\n   git log --oneline <merge-base>..HEAD\n   ```\n\n3. **Present the result to the user** — show the final commit list and confirm it looks good.\n\n4. **Show how to recover the original history:**\n   - If `backup` was used: \"Your original history is saved at `backup/<branch-name>-pre-cleanup`.\"\n   - Always: \"The original branch tip was `<sha>`. To restore: `git reset --hard <sha>`\"\n\n## Important Reminders\n\n- **Never change the final code state.** The tree at HEAD after restructuring must be identical\n  to the tree before restructuring (with the sole exception of TODO placeholders on intermediate\n  commits). If the user wants code changes, that's a separate task.\n\n- **Always record the original SHA** and show the user how to recover. Create a backup branch\n  only if `backup` is passed in ``.\n\n- **Confirm the base branch when ambiguous.** Auto-detect and proceed when there's one clear\n  candidate; only ask when multiple candidates exist or none are found.\n\n- **Show the before/after plan for history rewrites.** Even if the restructuring seems obvious,\n  the user should see what's going to change before it happens.\n\n- **Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).** Repo-specific\n  `CLAUDE.md` or `AGENTS.md` takes precedence if it defines its own convention.\n",
+          "timestamp": "2026-05-14T11:10:29.784Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status --porcelain && echo \"---\" && git log --oneline master..HEAD",
+            "description": "Check branch state vs master"
+          },
+          "timestamp": "2026-05-14T11:10:43.009Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git log --oneline origin/rel/5.3.1..HEAD 2>/dev/null | head -20",
+            "description": "Check vs latest rel branch"
+          },
+          "timestamp": "2026-05-14T11:10:43.534Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Nothing to clean — the branch has exactly one commit on top of `master`:\n\n```\nb8711317 feat: add JWT parser and validator for auth token system\n```\n\nThat's already a single self-contained logical change with a Conventional Commits subject, a body explaining the why, and a Linear ref. No WIP commits, no bug-then-fix pairs, no abandoned approaches, no scattered changes.\n\nIf you'd like me to split it (e.g. one commit for the error/struct types, one for the parser, one for the tests, one for the logger category), I can — but that would be _adding_ ceremony to a small change rather than removing noise. The skill's value kicks in when there's an actual mess. Want me to split anyway?",
+          "timestamp": "2026-05-14T11:10:52.283Z"
+        },
+        {
+          "type": "user",
+          "text": "no",
+          "timestamp": "2026-05-14T11:11:35.585Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Sounds good. Branch stays as one commit, ready for PR when you are.",
+          "timestamp": "2026-05-14T11:11:44.209Z"
+        },
+        {
+          "type": "user",
+          "text": "<command-message>mage:pr-draft</command-message>\n<command-name>/mage:pr-draft</command-name>",
+          "timestamp": "2026-05-14T11:12:11.034Z"
+        },
+        {
+          "type": "user",
+          "text": "Base directory for this skill: /Users/andrew.balmer/.claude/plugins/cache/klaviyo-plugins/mage/2.6.3/skills/pr-draft\n\n# PR Draft\n\nFull review→fix→draft PR workflow. Orchestrate code review, implement fixes, and create or update high-quality draft pull requests.\n\nTake changes from the current branch and shepherd them to a draft PR by:\n1. Gathering context (repo conventions, existing PR, templates)\n2. Running code review via `reviewer` agent/skill from this plugin in a clean context\n3. Prioritize and implementing fixes for issues found, treat nitpicks with skepticism\n4. Iterating until quality is acceptable\n5. Resolving any conflicts with the base branch\n6. Creating a new draft PR or updating the existing one\n\n**Max iterations:** Use `` if provided, otherwise default to 2. If 0, skip the review and go to Phase 4 and 5\n\n## Phase 1: Context Gathering\n\n1. **Read repository context:**\n   - Read `AGENTS.md` at repo root (fall back to `CLAUDE.md` if absent)\n   - Note build commands, test commands, and project-specific conventions\n\n2. **Identify the repository and branch:**\n   ```bash\n   git branch --show-current\n   git remote -v\n   ```\n\n3. **Check for an existing PR on this branch:**\n   ```bash\n   gh pr view --json number,title,body,url,state,baseRefName 2>/dev/null\n   ```\n   - If a PR exists: **update mode**. Record the PR number, URL, current title, body, and base branch.\n   - If no PR exists: **create mode**.\n\n4. **Find the PR template:**\n   - Check `.github/PULL_REQUEST_TEMPLATE.md`\n   - Check `.github/PULL_REQUEST_TEMPLATE/` directory\n   - If no template exists, use Summary / Changes / Testing sections\n\n5. **Determine the base branch:**\n   - **Update mode:** Use the base branch from the existing PR\n   - **Create mode:** Check the current branch name first:\n     - `rel/*`, `ci/*`, or `docs/*` branches → target `master` directly, no confirmation needed\n     - All other branches (`feat/*`, `{initials}/*`, hotfixes, etc.) → suggest `master` as the default, then **ask the user**:\n       > \"This branch can't merge directly into `master` — you'll need to target a `rel/*` branch (or another intermediate branch). What branch should this PR open against? (Default: `master` if you want to set that up later)\"\n     - List available remote release branches for reference: `git branch -r | grep rel/`\n     - If the user's desired target branch doesn't exist yet, offer to create it now (`git push origin HEAD:refs/heads/<branch-name>`) or proceed with `master` as a placeholder and retarget later\n   - **Do not silently open against `master`** for non-`rel/ci/docs` branches — a required status check will block the merge and the CI bot will post a correction comment on the PR\n\n## Phase 2: Review Loop\n\n**Maximum iterations as configured above.** Each iteration:\n\n1. **Invoke the Reviewer:**\n\n   Use the Task tool to launch the `reviewer` agent:\n   ```\n   Task(subagent_type=\"reviewer\", prompt=\"Review all changes on this branch compared to <base-branch>. Provide findings categorized as High, Medium, Low, or Nit. If a PR exists, include unresolved reviewer feedback.\")\n   ```\n\n   **Context management:**\n   - **Fresh context (default):** After implementing fixes. The reviewer sees the code fresh.\n   - **Resume previous reviewer:** Only when actively debugging a tricky issue and need continuity.\n\n2. **Analyze findings:**\n   - **Unresolved PR Feedback**: Issues from human reviewers — treat as High severity\n   - **High**: Bugs, security issues, breaking changes — MUST fix\n   - **Medium**: Inconsistencies, missing tests, performance — SHOULD fix\n   - **Low/Nit**: Nice-to-haves, cosmetic — MAY fix, use judgement\n\n3. **Triage unresolved PR threads:**\n   When the reviewer surfaces **Unresolved PR Feedback**, apply the triage protocol from `review-playbook.md` (in the grimoire directory). The reviewer identifies the threads; the playbook guides how to handle them — assess severity, verify bot claims, check for author input, then fix or skip accordingly. After fixing, reply in-thread and conditionally resolve per the playbook's thread response mechanics.\n\n4. **Implement fixes:**\n   - Address Unresolved PR Feedback, High, and Medium issues\n   - Triage feedback, be skeptical about nitpicks, and for larger changes, use the `autonomous-developer` agent or skill to parallelize work\n   - Run build and tests after all fixes complete. Note: build/test commands are repo-specific and cannot be pre-authorized in allowed-tools, so they may require user approval when invoked.\n   - For review-feedback fixes, follow the fix-and-push convention in `review-playbook.md` (grimoire directory) — batch fixes per file, use the `-Claude` commit signature\n\n5. **Check exit conditions:**\n   - No High or Medium issues → Exit loop, proceed to PR\n   - Issues remain, iterations left → Continue loop\n   - Iteration limit reached:\n     - If only Low/Nit remain → Proceed to PR\n     - If High/Medium remain → **STOP and ask user**\n\n## Phase 3: Iteration Limit Handling\n\nIf you've hit the iteration limit and High or Medium issues remain:\n\n1. **Report what you're stuck on:**\n   - List the remaining issues clearly\n   - Explain what you tried and why the fix isn't working\n\n2. **Ask the user** whether to:\n   - Continue trying to fix (with guidance)\n   - Proceed with PR anyway (noting issues in description)\n   - Abort PR creation\n\n**Do NOT silently proceed with known High severity issues.**\n\n## Phase 4 Conflict Resolution & Verification\n\nBefore creating or updating the PR, ensure the branch is up to date with its base.\n\n1. **Determine the base branch.** For existing PRs, use the PR's actual base branch (from Phase 1) — do NOT assume `main` or `master`.\n\n2. **Check for conflicts:**\n   ```bash\n   git fetch origin <base-branch>\n   git merge-tree $(git merge-base HEAD origin/<base-branch>) HEAD origin/<base-branch>\n   ```\n   If no conflicts are reported, skip to step 4 (verify the diff).\n\n3. **Choose a resolution strategy:**\n   - **Rebase** (preferred): Use when the feature branch has clean, linear commit history.\n     ```bash\n     git rebase origin/<base-branch>\n     ```\n   - **Merge**: Use when the branch already has a non-linear history (prior merge commits).\n     ```bash\n     git merge origin/<base-branch>\n     ```\n   Resolve any conflicts, preferring the feature branch's intent while incorporating base branch additions.\n\n4. **Verify the diff after resolution.** Before pushing, compare the branch against the base to ensure only the PR's own changes are present:\n   ```bash\n   git diff origin/<base-branch>...HEAD --stat\n   ```\n   - The diff should contain **only files this PR intentionally modifies**\n   - If the diff includes many unrelated files (e.g., CODEOWNERS, marketplace.json, other plugins) this indicates a bad rebase or merge commit that pulled in unrelated changes\n   - **If the diff looks wrong:** abort immediately — `git rebase --abort` or `git reset --hard` to the pre-resolution state, then alert the user rather than pushing a polluted branch\n\n5. **Push the resolved branch:**\n   ```bash\n   git push --force-with-lease\n   ```\n\n## Phase 5: PR Creation or Update\n\n**Before creating or updating the PR**, check the conversation context for any referenced ticket IDs (e.g., `MAGE-123`, `CPRO-456`, Linear issue identifiers). If any are found:\n- Check the PR template (from Phase 1) for an existing section for ticket references (e.g., \"Related issues\", \"Tickets\", \"References\")\n- If the template has such a section, place ticket IDs there\n- If no template section exists, add a `## Related tickets` section to the PR body\n- **Use a linking phrase** so Linear's GitHub integration auto-links the issue. Choose based on intent:\n  - **Link-only** (default): `Related to MAGE-123` — also: `ref`, `references`, `part of`, `contributes to`, `towards`\n  - **Closing**: `Resolves MAGE-123` — also: `close/closes/closed/closing`, `fix/fixes/fixed/fixing`, `resolve/resolved/resolving`, `complete/completes/completed/completing`\n- Do NOT use bare ticket IDs without a phrase prefix — Linear won't detect them\n\n### Create Mode\n\n1. **Prepare PR content:**\n   - Title: Clear, concise summary of the change\n   - Body: Follow the repo's PR template exactly\n   - Include summary of changes, testing performed, related issues\n   - Include any referenced ticket IDs (see above)\n\n2. **Create the draft PR:**\n   ```bash\n   gh pr create --draft --title \"<title>\" --body \"<body>\"\n   ```\n\n3. **Report success** using the output format below.\n\n### Update Mode\n\n1. **Push new commits** if not already pushed:\n   ```bash\n   git push\n   ```\n\n2. **Evaluate the PR description:**\n   - Compare current PR body against the full branch diff and commit history\n   - Preserve manually-added context that's still relevant\n   - Rewrite from template if scope changed significantly\n\n3. **Update if needed:**\n   ```bash\n   gh pr edit <number> --body \"<updated body>\"\n   gh pr edit <number> --title \"<updated title>\"  # if title no longer fits\n   ```\n\n4. **Report success** using the output format below. Offer to start a `/pr-loop` to monitor for feedback in Github.\n\n## Important Guidelines\n\n- **Consider commit history quality** — if the branch has messy history (WIP commits, bug-then-fix sequences, scattered changes), suggest running `/clean-commit-history` before creating the PR\n- **Always create as DRAFT** — never create a non-draft PR\n- **Always ask before opening non-`rel/ci/docs` branches against `master`** — the status check will block the merge; confirm the target branch with the user first\n- **Always use the repo's template** — don't invent your own format if a template exists\n- **Read AGENTS.md first** — repo-specific instructions take precedence\n- **Be transparent about issues** — don't hide problems from the user\n- **Ask when stuck** — don't spin forever on unfixable issues\n- **Use the review playbook for thread triage** — read `review-playbook.md` from the grimoire for severity assessment, thread response, and resolution guidance\n- **Trigger BugBot:** After creating or updating a draft PR, add a comment to trigger BugBot:\n   ```bash\n   gh api repos/{owner}/{repo}/issues/{pr_number}/comments -f body=\"bugbot run\"\n   ```\n\n## Error Handling\n\n- If `gh` commands fail, check authentication: `gh auth status`\n- If the branch has no changes, report clearly and don't create an empty PR\n- If you can't determine the base branch, ask the user\n- If `gh pr view` fails in Phase 1, assume create mode\n\n## Output Format\n\n```\n## PR Created\n\n**URL:** <PR URL>\n**Status:** [Draft / Live]\n\n### Changes Made\n- Description: [Updated / No changes needed]\n- Title: [Updated / No changes needed]\n- Commits pushed: [count or \"Already up to date\"]\n\n### Review Summary\n- Iterations: X\n- Issues fixed: [list]\n- Remaining suggestions: [list or \"None\"]\n\n### Next Steps\n- Review the PR description\n- Add reviewers when ready\n- Mark as ready for review\n- Run `/pr-loop` to watch for and auto-fix review feedback\n```\n",
+          "timestamp": "2026-05-14T11:12:11.034Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "gh pr view --json number,title,body,url,state,baseRefName 2>&1 | head -20",
+            "description": "Check for existing PR"
+          },
+          "timestamp": "2026-05-14T11:12:19.169Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.github/pull_request_template.md /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.github/PULL_REQUEST_TEMPLATE.md 2>&1 | head -5",
+            "description": "Find PR template"
+          },
+          "timestamp": "2026-05-14T11:12:21.058Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git branch -r | grep \"rel/\" | sort -V | tail -8",
+            "description": "List recent release branches"
+          },
+          "timestamp": "2026-05-14T11:12:21.355Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/.github/pull_request_template.md"
+          },
+          "timestamp": "2026-05-14T11:12:25.148Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "AskUserQuestion",
+          "input": {
+            "questions": [
+              {
+                "header": "PR target",
+                "multiSelect": false,
+                "options": [
+                  {
+                    "description": "Open against rel/5.3.1 — the most recently committed release branch. Auth token work would land here for a 5.3.x release.",
+                    "label": "rel/5.3.1 (most recent)"
+                  },
+                  {
+                    "description": "Open against master as a placeholder and retarget once the active rel/* is identified. CI will block the merge until retargeted.",
+                    "label": "master with retarget later"
+                  },
+                  {
+                    "description": "I'll prompt for the exact branch name. Use this if there's a newer release branch in flight (e.g. rel/5.4.0) that I haven't found yet.",
+                    "label": "A different rel/* branch"
+                  }
+                ],
+                "question": "Which branch should this PR target?"
+              }
+            ]
+          },
+          "timestamp": "2026-05-14T11:12:32.718Z"
+        },
+        {
+          "type": "assistant",
+          "text": "`feat/jwts-for-personalized-forms` doesn't exist yet on the remote — I need to know what to branch it from. Per AGENTS.md, `feat/*` branches eventually merge into `rel/*`, so the feat branch should be based on whichever `rel/*` it'll target.",
+          "timestamp": "2026-05-14T11:14:16.925Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "AskUserQuestion",
+          "input": {
+            "questions": [
+              {
+                "header": "Feat base",
+                "multiSelect": false,
+                "options": [
+                  {
+                    "description": "Branch from origin/rel/5.3.1 — most recent release branch. Eventually merges back to rel/5.3.1.",
+                    "label": "rel/5.3.1 (Recommended)"
+                  },
+                  {
+                    "description": "Branch from master. Useful if the integration target is master-bound (e.g. for a 5.4.x release that hasn't been cut yet).",
+                    "label": "master"
+                  },
+                  {
+                    "description": "I'll ask for the exact base. Use if there's a newer rel/5.4.0 (or similar) in flight that I missed.",
+                    "label": "A different rel/* branch"
+                  }
+                ],
+                "question": "What should the new feat/jwts-for-personalized-forms branch be based on?"
+              }
+            ]
+          },
+          "timestamp": "2026-05-14T11:14:19.108Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Setting up: fetch latest master, create the new feat branch on the remote, push the current branch, then run review and open the PR.",
+          "timestamp": "2026-05-14T11:15:14.134Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git fetch origin master && git push origin origin/master:refs/heads/feat/jwts-for-personalized-forms 2>&1 | tail -10",
+            "description": "Create feat branch on remote from master"
+          },
+          "timestamp": "2026-05-14T11:15:15.530Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git push -u origin ab/MAGE-613/jwt-parsing-and-validation 2>&1 | tail -10",
+            "description": "Push current branch to remote"
+          },
+          "timestamp": "2026-05-14T11:15:16.182Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Both branches pushed. Now running the reviewer in a fresh context.",
+          "timestamp": "2026-05-14T11:15:27.707Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Agent",
+          "input": {
+            "description": "Review JWT parser branch",
+            "prompt": "Review all changes on branch `ab/MAGE-613/jwt-parsing-and-validation` compared to its intended PR base `feat/jwts-for-personalized-forms` (which is currently identical to origin/master).\n\nWorking directory: /Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk\nRepo: klaviyo/klaviyo-swift-sdk\n\nContext — this branch implements MAGE-613: JWT parsing and validation for the iOS SDK. It's the foundational layer for an upcoming AuthTokenManager. Scope (from the Linear ticket):\n- Pure-Swift parser that extracts `exp` and `iat` (RFC 7519 NumericDate) claims; all other claims are opaque\n- `ValidatedToken` holding the raw JWT alongside decoded `exp`/`iat` as `Date` values\n- Validation rejects: malformed Base64URL, malformed JSON, missing required claims, expired-on-receipt (with 15-second clock-skew leeway: `now >= exp - leeway` means expired)\n- No signature verification — Klaviyo backend is the security boundary\n- OSLog-based logging of failures with reason; token contents NEVER logged; `.private` privacy markers required on token-adjacent values\n\nFiles added:\n- Sources/KlaviyoCore/Auth/JWTParser.swift\n- Sources/KlaviyoCore/Auth/JWTValidationFailure.swift\n- Sources/KlaviyoCore/Auth/ValidatedToken.swift\n- Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift (Swift Testing, 19 tests, 22 cases incl. one parameterized)\n\nFiles modified:\n- Sources/KlaviyoCore/Utils/Logger+Ext.swift (added Logger.auth category)\n\nProvide findings categorized as High / Medium / Low / Nit. Use Klaviyo iOS SDK conventions from AGENTS.md. The base branch (feat/jwts-for-personalized-forms) is brand-new and has no prior reviewer feedback, so just review the diff itself.\n\nReport under 600 words.",
+            "subagent_type": "mage:reviewer"
+          },
+          "timestamp": "2026-05-14T11:15:36.913Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Reviewer surfaced 2 Mediums and a handful of Lows/Nits. Triaging:\n\n- **Medium #1 (privacy posture):** Reviewer suggests folding logs back into a wrapper. **Won't do** — you explicitly directed inline calls last exchange. Will add a comment documenting why `.private` isn't needed (no token-adjacent interpolation).\n- **Medium #2 (iat sanity-checking):** Scope per the ticket is exp-based rejection only; the spec uses `iat` for downstream refresh math, not as a rejection criterion. Will document the choice rather than add validation.\n- **Low #4 (cache `JSONDecoder`):** Worth doing — matches codebase pattern.\n- **Low #3 (JSON string coercion), #5 (more parameterization), #6 (epsilon):** Pass.\n- **Nit #7 (file header):** Quick fix.\n- **Nit #8 (`.malformedJSON` doc):** Quick fix.",
+          "timestamp": "2026-05-14T11:17:34.868Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift"
+          },
+          "timestamp": "2026-05-14T11:17:35.638Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "/// Pure-Swift parser for the foundational subset of RFC 7519 that the SDK depends on.\n///\n/// The parser splits a compact JWT into its three segments, Base64URL-decodes the payload,\n/// JSON-decodes the `exp` and `iat` (NumericDate) claims, and applies a clock-skew leeway to\n/// the expiration check. All other claims are ignored.\n///\n/// The SDK never verifies the token's cryptographic signature; the Klaviyo backend is the\n/// security boundary for that. This type exists purely so the auth-token system can decide\n/// whether a returned token is usable and when it should be refreshed.\n///\n/// Note: `iat` is required to be present (for the downstream `AuthTokenManager`'s refresh\n/// scheduling, which uses `iat + 0.9 * (exp - iat)`), but is otherwise not range-checked\n/// here. Sanity-checks on the iat/exp relationship belong with the manager that consumes\n/// the validated token.\n///\n/// Logging note: every log message in this file is a string literal with no interpolation\n/// of token-derived values, so OSLog's default-public treatment is intentional and safe.\n/// If a future change wants to log any token-adjacent value, that interpolation must use\n/// `privacy: .private` per the auth-token spec.\nenum JWTParser {",
+            "old_string": "/// Pure-Swift parser for the foundational subset of RFC 7519 that the SDK depends on.\n///\n/// The parser splits a compact JWT into its three segments, Base64URL-decodes the payload,\n/// JSON-decodes the `exp` and `iat` (NumericDate) claims, and applies a clock-skew leeway to\n/// the expiration check. All other claims are ignored.\n///\n/// The SDK never verifies the token's cryptographic signature; the Klaviyo backend is the\n/// security boundary for that. This type exists purely so the auth-token system can decide\n/// whether a returned token is usable and when it should be refreshed.\nenum JWTParser {",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T11:17:47.830Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "    static let defaultLeeway: TimeInterval = 15\n\n    /// Shared decoder for JWT payloads. Held statically because `JSONDecoder` is reentrant\n    /// for `decode(_:from:)` and this path is hit on every token acquisition / refresh.\n    private static let decoder = JSONDecoder()",
+            "old_string": "    static let defaultLeeway: TimeInterval = 15",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T11:17:54.027Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTParser.swift",
+            "new_string": "        let claims: JWTClaims\n        do {\n            claims = try Self.decoder.decode(JWTClaims.self, from: payloadData)\n        } catch {",
+            "old_string": "        let claims: JWTClaims\n        do {\n            claims = try JSONDecoder().decode(JWTClaims.self, from: payloadData)\n        } catch {",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T11:18:00.699Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Sources/KlaviyoCore/Auth/JWTValidationFailure.swift",
+            "new_string": "    /// The payload segment did not decode to a JSON object with the expected claim types.\n    /// Covers both \"not a JSON object\" (e.g. payload is a JSON array or non-JSON bytes)\n    /// and \"claim has the wrong type\" (e.g. `exp` is a string instead of a NumericDate).\n    case malformedJSON",
+            "old_string": "    /// The payload segment did not decode to a JSON object with the expected claim types.\n    case malformedJSON",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T11:18:06.756Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/andrew.balmer/Klaviyo/Repos/klaviyo-swift-sdk/Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift",
+            "new_string": "//\n//  JWTParserTests.swift\n//  KlaviyoCore\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//",
+            "old_string": "//\n//  JWTParserTests.swift\n//  klaviyo-swift-sdk\n//\n//  Created by Andrew Balmer on 2026-05-14.\n//",
+            "replace_all": false
+          },
+          "timestamp": "2026-05-14T11:18:11.633Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "swiftformat Sources/KlaviyoCore/Auth Tests/KlaviyoCoreTests/Auth 2>&1 | tail -3 && swiftlint --strict Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Sources/KlaviyoCore/Auth/ValidatedToken.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift 2>&1 | tail -5",
+            "description": "Run formatters/lint on edits"
+          },
+          "timestamp": "2026-05-14T11:18:17.130Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "xcodebuild test -scheme klaviyo-swift-sdk-Package -destination \"platform=iOS Simulator,name=iPhone 17 Pro\" -only-testing:KlaviyoCoreTests/JWTParserTests 2>&1 | grep -E \"(Executed|TEST|Test run|fail|error:)\" | tail -10",
+            "description": "Re-run tests after edits",
+            "timeout": 240000
+          },
+          "timestamp": "2026-05-14T11:18:19.033Z"
+        },
+        {
+          "type": "assistant",
+          "text": "All tests still pass. Now committing the review fixes and creating the PR.",
+          "timestamp": "2026-05-14T11:20:08.818Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git status && echo \"---\" && git diff --stat",
+            "description": "Show pending diff"
+          },
+          "timestamp": "2026-05-14T11:20:09.539Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git add Sources/KlaviyoCore/Auth/JWTParser.swift Sources/KlaviyoCore/Auth/JWTValidationFailure.swift Tests/KlaviyoCoreTests/Auth/JWTParserTests.swift && git commit -m \"$(cat <<'EOF'\ndocs: clarify JWT parser scope and logging privacy posture\n\nAddress review feedback before opening the PR:\n- Document that iat is read but not range-checked (downstream\n  AuthTokenManager owns the iat/exp sanity-check)\n- Note that log messages are literals by design, so OSLog's\n  default-public treatment is intentional; future interpolation\n  of token-adjacent values must use privacy: .private\n- Cache JSONDecoder as a static let to match the codebase pattern\n- Expand the .malformedJSON case doc to cover both shapes it catches\n- Align test file header with the rest of KlaviyoCore\n\nRefs MAGE-613.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Commit review fixes"
+          },
+          "timestamp": "2026-05-14T11:20:17.876Z"
+        }
+      ],
+      "total_additions": 18,
+      "total_deletions": 2,
+      "accepted_lines": 821,
+      "overriden_lines": 0
+    }
+  }
+}
