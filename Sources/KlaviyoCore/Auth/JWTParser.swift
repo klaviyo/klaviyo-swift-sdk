@@ -17,6 +17,11 @@ import OSLog
 /// The SDK never verifies the token's cryptographic signature; the Klaviyo backend is the
 /// security boundary for that. This type exists purely so the auth-token system can decide
 /// whether a returned token is usable and when it should be refreshed.
+///
+/// Note: `iat` is required to be present (for the downstream `AuthTokenManager`'s refresh
+/// scheduling, which uses `iat + 0.9 * (exp - iat)`), but is otherwise not range-checked
+/// here. Sanity-checks on the iat/exp relationship belong with the manager that consumes
+/// the validated token.
 enum JWTParser {
     /// Clock-skew leeway subtracted from `exp` before comparing to the current time.
     ///
@@ -24,6 +29,10 @@ enum JWTParser {
     /// the SDK from injecting a token that the Klaviyo backend would reject due to clock
     /// drift between the device and the backend.
     static let defaultLeeway: TimeInterval = 15
+
+    /// Shared decoder for JWT payloads. Held statically because `JSONDecoder` is reentrant
+    /// for `decode(_:from:)` and this path is hit on every token acquisition / refresh.
+    private static let decoder = JSONDecoder()
 
     // Cyclomatic complexity is intrinsic here: every validation step inlines its own
     // OSLog call behind an iOS 14 availability guard, which doubles the apparent branch
@@ -61,7 +70,7 @@ enum JWTParser {
 
         let claims: JWTClaims
         do {
-            claims = try JSONDecoder().decode(JWTClaims.self, from: payloadData)
+            claims = try Self.decoder.decode(JWTClaims.self, from: payloadData)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.auth.warning("JWT validation failed: malformed JSON payload")

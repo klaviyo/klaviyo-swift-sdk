@@ -1,6 +1,6 @@
 //
 //  JWTParserTests.swift
-//  klaviyo-swift-sdk
+//  KlaviyoCore
 //
 //  Created by Andrew Balmer on 2026-05-14.
 //

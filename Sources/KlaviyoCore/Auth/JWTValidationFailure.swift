@@ -21,6 +21,8 @@ enum JWTValidationFailure: Error, Equatable {
     case malformedBase64
 
     /// The payload segment did not decode to a JSON object with the expected claim types.
+    /// Covers both "not a JSON object" (e.g. payload is a JSON array or non-JSON bytes)
+    /// and "claim has the wrong type" (e.g. `exp` is a string instead of a NumericDate).
     case malformedJSON
 
     /// The `exp` claim was absent from the payload.
