@@ -31,6 +31,17 @@ package actor AuthTokenManager {
     /// Starts `nil`; set by ``registerProvider(_:)``.
     private var provider: AuthTokenProvider?
 
+    // MARK: - Reserved storage
+
+    // TODO: - [MAGE-624] use to deduplicate concurrent currentToken() callers so they share a single provider invocation
+    private var inFlightFetch: Task<String, Error>?
+
+    // TODO: - [MAGE-625] schedule refreshes at iat + 0.9 * (exp - iat), bounded by [now + 5s, exp - 30s]
+    private var refreshTask: Task<Void, Never>?
+
+    // TODO: - [MAGE-626] fan successful refresh tokens out to consumers via refreshes() -> AsyncStream<String>
+    private var refreshContinuations: [AsyncStream<String>.Continuation] = []
+
     init() {}
 
     /// Registers a new provider, discards any cached token from a previous
@@ -55,10 +66,8 @@ package actor AuthTokenManager {
     /// Returns the current auth token, fetching one via the registered provider
     /// if the cache is empty or has gone stale.
     ///
-    /// This is the happy-path skeleton: a single caller races directly against the
-    /// provider, with no in-flight deduplication and no timeout enforcement. Those
-    /// arrive in sub-issue MAGE-624; until then, two concurrent callers will both
-    /// invoke the provider — the wrong behavior is "extra fetches", not data
+    /// A single caller invokes the provider directly. If two callers race, both
+    /// will invoke the provider — the result is extra network calls, not data
     /// corruption.
     ///
     /// - Throws: ``AuthTokenError/noProviderRegistered`` when no provider is
