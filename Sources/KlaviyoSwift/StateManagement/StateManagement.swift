@@ -135,6 +135,10 @@ enum KlaviyoAction: Equatable {
     /// open a deep link URL originating from a Klaviyo notification
     case openDeepLink(URL)
 
+    /// open an external web URL in the system browser, bypassing any registered deep
+    /// link handler. Used by the `open_url` push action and IAF `openExternalUrl` event.
+    case openWebUrl(URL)
+
     /// indicates that deep link processing has completed
     case deepLinkProcessingCompleted
 
@@ -147,7 +151,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .openWebUrl, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -730,6 +734,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .run { send in
                 await environment.linkHandler.openURL(url)
                 await send(.deepLinkProcessingCompleted)
+            }
+
+        case let .openWebUrl(url):
+            return .run { _ in
+                await environment.linkHandler.openExternalURL(url)
             }
 
         case .deepLinkProcessingCompleted:

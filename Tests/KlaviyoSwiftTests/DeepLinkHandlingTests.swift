@@ -292,6 +292,29 @@ final class DeepLinkHandlingTests: XCTestCase {
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)
     }
 
+    // MARK: - openWebUrl Tests
+
+    @MainActor
+    func testOpenWebUrlBypassesCustomDeepLinkHandler() async throws {
+        let url = URL(string: "https://example.com/external")!
+
+        environment.linkHandler.registerCustomHandler { _ in
+            XCTFail("Custom deep link handler must not be invoked for openWebUrl")
+        }
+
+        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
+        await store.send(.openWebUrl(url))
+    }
+
+    @MainActor
+    func testOpenWebUrlDoesNotSetProcessingDeepLinkState() async throws {
+        let url = URL(string: "https://example.com/web")!
+        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
+
+        // No state change expected; isProcessingDeepLink is a deep-link-only lock.
+        await store.send(.openWebUrl(url))
+    }
+
     @MainActor
     func testIsDeepLinkHandlerRegisteredConsistencyWithEnvironment() {
         let sdk = KlaviyoSDK()
