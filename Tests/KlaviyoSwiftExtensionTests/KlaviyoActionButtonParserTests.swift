@@ -277,4 +277,55 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.last?.action, .openApp, "Second button should have correct action")
         XCTAssertNil(result?.last?.url, "Second button (openApp) should not have URL")
     }
+
+    func testParseActionButtons_ParsesValidOpenUrlButton() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": {},
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.open_url",
+                        "label": "Visit Site",
+                        "action": "open_url",
+                        "url": "https://example.com/sale"
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertNotNil(result, "Should parse valid open_url button")
+        XCTAssertEqual(result?.count, 1)
+        XCTAssertEqual(result?.first?.action, .openUrl)
+        XCTAssertEqual(result?.first?.url, "https://example.com/sale")
+    }
+
+    func testParseActionButtons_SkipsOpenUrlWithoutURL() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": {},
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.openurl_no_url",
+                        "label": "Visit Site",
+                        "action": "open_url"
+                        // Missing URL - open_url must have URL
+                    ],
+                    [
+                        "id": "com.klaviyo.test.valid",
+                        "label": "Valid Button",
+                        "action": "open_url",
+                        "url": "https://example.com"
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertNotNil(result, "Should return valid buttons")
+        XCTAssertEqual(result?.count, 1, "Should skip open_url button without URL")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+    }
 }
