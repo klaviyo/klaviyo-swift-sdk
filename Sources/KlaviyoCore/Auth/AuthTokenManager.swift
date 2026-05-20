@@ -31,14 +31,6 @@ package actor AuthTokenManager {
     /// Starts `nil`; set by ``registerProvider(_:)``.
     private var provider: AuthTokenProvider?
 
-    // MARK: - Reserved storage
-
-    // TODO: - [MAGE-624] dedup concurrent currentToken() callers
-    private var inFlightFetch: Task<String, Error>?
-
-    // TODO: - [MAGE-625] proactively refresh the cached token
-    private var refreshTask: Task<Void, Never>?
-
     init() {}
 
     /// Registers a new provider, discards any cached token from a previous
