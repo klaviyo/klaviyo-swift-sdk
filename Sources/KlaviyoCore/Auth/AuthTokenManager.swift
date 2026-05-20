@@ -33,13 +33,13 @@ package actor AuthTokenManager {
 
     // MARK: - Reserved storage
 
-    // TODO: - [MAGE-624] use to deduplicate concurrent currentToken() callers so they share a single provider invocation
+    // TODO: - [MAGE-624] dedup concurrent currentToken() callers
     private var inFlightFetch: Task<String, Error>?
 
-    // TODO: - [MAGE-625] schedule refreshes at iat + 0.9 * (exp - iat), bounded by [now + 5s, exp - 30s]
+    // TODO: - [MAGE-625] proactively refresh the cached token
     private var refreshTask: Task<Void, Never>?
 
-    // TODO: - [MAGE-626] fan successful refresh tokens out to consumers via refreshes() -> AsyncStream<String>
+    // TODO: - [MAGE-626] notify consumers when the cached token refreshes
     private var refreshContinuations: [AsyncStream<String>.Continuation] = []
 
     init() {}
