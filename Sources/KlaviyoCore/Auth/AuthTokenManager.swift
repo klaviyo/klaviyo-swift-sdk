@@ -39,9 +39,6 @@ package actor AuthTokenManager {
     // TODO: - [MAGE-625] proactively refresh the cached token
     private var refreshTask: Task<Void, Never>?
 
-    // TODO: - [MAGE-626] notify consumers when the cached token refreshes
-    private var refreshContinuations: [AsyncStream<String>.Continuation] = []
-
     init() {}
 
     /// Registers a new provider, discards any cached token from a previous
