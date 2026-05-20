@@ -482,4 +482,129 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
         }
     }
+
+    // MARK: - open_url action Tests
+
+    func testHandleBodyTap_OpenUrlActionDispatchesOpenWebUrl() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "test_open_url"],
+            "open_action": "open_url",
+            "open_url": webURL.absoluteString
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        let webUrlDispatched = capturedActions.contains { action in
+            if case let .openWebUrl(url) = action { return url == webURL }
+            return false
+        }
+        XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl for open_url action")
+
+        let deepLinkDispatched = capturedActions.contains { action in
+            if case .openDeepLink = action { return true }
+            return false
+        }
+        XCTAssertFalse(deepLinkDispatched, "Should not dispatch .openDeepLink when open_url action is set")
+    }
+
+    func testHandleBodyTap_DeepLinkUnchangedWhenOpenActionAbsent() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "test_deep_link_regression"],
+            "url": deepURL.absoluteString
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        _ = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+
+        let deepLinkDispatched = capturedActions.contains { action in
+            if case let .openDeepLink(url) = action { return url == deepURL }
+            return false
+        }
+        XCTAssertTrue(deepLinkDispatched, "Deep link path must remain unchanged when open_action is absent")
+    }
+
+    func testHandleActionButtonTap_OpenUrlButton() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionURL = try XCTUnwrap(URL(string: "https://example.com/promo"))
+        let actionId = "com.klaviyo.test.web"
+        let buttonLabel = "Visit Site"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_open_url_button",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_url",
+                        "url": actionURL.absoluteString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        let webUrlDispatched = capturedActions.contains { action in
+            if case let .openWebUrl(url) = action { return url == actionURL }
+            return false
+        }
+        XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl for open_url action button")
+
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction)
+        if case let .enqueueEvent(event) = eventAction! {
+            XCTAssertEqual(event.properties["Button Action"] as? String, "Open URL")
+            XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString)
+        }
+    }
 }
