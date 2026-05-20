@@ -31,4 +31,7 @@ extension Logger {
 
     /// Logger for notification category management
     static let notifications = Logger(category: "Notifications")
+
+    /// Logger for authentication token parsing and validation
+    static let auth = Logger(category: "Auth")
 }
