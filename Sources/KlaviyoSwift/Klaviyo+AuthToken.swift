@@ -17,11 +17,10 @@ extension KlaviyoSDK {
     ///
     /// Each call invalidates any cached token and triggers an eager fetch to
     /// warm the cache. Calling again later replaces the previously registered
-    /// provider. There is no public API for clearing a registered provider —
-    /// that happens internally when `resetProfile()` is called.
+    /// provider.
     ///
-    /// The SDK does not surface acquisition errors to the host in v1 — failures
-    /// are observable only via OSLog (subsystem
+    /// The SDK does not surface acquisition errors to the host — failures are
+    /// observable only via OSLog (subsystem
     /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`) and via
     /// form-display behavior.
     ///

@@ -8,16 +8,14 @@
 import Foundation
 import OSLog
 
-/// Owns the host-supplied ``AuthTokenProvider`` and serves the current auth JWT to
-/// internal SDK consumers (in-app forms today, future feature modules tomorrow).
+/// Owns the host-supplied ``AuthTokenProvider`` and serves the current auth JWT
+/// to internal SDK consumers (in-app forms today, future feature modules
+/// tomorrow).
 ///
-/// This skeleton ships only the happy-path acquisition flow: register a provider,
-/// fetch and validate a token, cache it, and hand the cached string to callers
-/// until the next provider change. Concurrent-caller deduplication, timeout
-/// enforcement, proactive refresh scheduling, the refresh notification stream, and
-/// the `reset()` lifecycle hook will land in sibling sub-issues. Their stored
-/// properties are declared here so adding those behaviors doesn't churn the
-/// actor's shape.
+/// Validates each token via ``JWTParser`` on acquisition, caches the result in
+/// memory, and serves the cached string until either the cached token's `exp`
+/// has elapsed (with the same clock-skew leeway ``JWTParser`` uses) or the
+/// provider is replaced via ``registerProvider(_:)``.
 ///
 /// The token cache is in-memory only — never persisted to disk or Keychain.
 package actor AuthTokenManager {
@@ -30,29 +28,18 @@ package actor AuthTokenManager {
     private var cachedToken: ValidatedToken?
 
     /// Host-supplied closure that returns a fresh JWT on each invocation.
-    /// Starts `nil`; set by ``registerProvider(_:)``. There is no public API
-    /// for clearing — that happens internally via ``reset()`` (deferred to a
-    /// sibling sub-issue) when `KlaviyoSDK.resetProfile()` is called.
+    /// Starts `nil`; set by ``registerProvider(_:)``.
     private var provider: AuthTokenProvider?
 
-    // MARK: - Deferred state
+    // MARK: - Reserved storage
 
-    // The following properties are declared as part of this actor's shape so
-    // that sibling sub-issues can fill in their behaviors without churning the
-    // signature. They are unused in this skeleton.
-
-    /// Reserved for concurrent-caller deduplication. Sub-issue MAGE-624 will
-    /// populate this from ``currentToken()`` so that multiple callers share a
-    /// single provider invocation.
+    // TODO: - [MAGE-624] use to deduplicate concurrent currentToken() callers so they share a single provider invocation
     private var inFlightFetch: Task<String, Error>?
 
-    /// Reserved for proactive refresh scheduling. Sub-issue MAGE-625 will schedule
-    /// refreshes at `iat + 0.9 * (exp - iat)` bounded by `[now + 5s, exp - 30s]`.
+    // TODO: - [MAGE-625] schedule refreshes at iat + 0.9 * (exp - iat), bounded by [now + 5s, exp - 30s]
     private var refreshTask: Task<Void, Never>?
 
-    /// Reserved for the refresh-notification stream. Sub-issue MAGE-626 will fan
-    /// successful refresh tokens out to consumers via
-    /// `refreshes() -> AsyncStream<String>`.
+    // TODO: - [MAGE-626] fan successful refresh tokens out to consumers via refreshes() -> AsyncStream<String>
     private var refreshContinuations: [AsyncStream<String>.Continuation] = []
 
     init() {}
@@ -63,9 +50,7 @@ package actor AuthTokenManager {
     /// The eager fetch is fire-and-forget so registration call sites stay
     /// responsive — failures during the warm-up surface only as logs (the same
     /// logs ``currentToken()`` would emit). Calling this again later replaces
-    /// the previous provider; there is no public API for clearing a registered
-    /// provider, since clearing is part of the profile-reset lifecycle handled
-    /// in a sibling sub-issue.
+    /// the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
         cachedToken = nil
         provider = newProvider
@@ -81,10 +66,8 @@ package actor AuthTokenManager {
     /// Returns the current auth token, fetching one via the registered provider
     /// if the cache is empty or has gone stale.
     ///
-    /// This is the happy-path skeleton: a single caller races directly against the
-    /// provider, with no in-flight deduplication and no timeout enforcement. Those
-    /// arrive in sub-issue MAGE-624; until then, two concurrent callers will both
-    /// invoke the provider — the wrong behavior is "extra fetches", not data
+    /// A single caller invokes the provider directly. If two callers race, both
+    /// will invoke the provider — the result is extra network calls, not data
     /// corruption.
     ///
     /// - Throws: ``AuthTokenError/noProviderRegistered`` when no provider is
