@@ -82,6 +82,41 @@ extension UNNotificationResponse {
         return url
     }
 
+    /// Returns the value of the `open_action` field from a Klaviyo notification payload, if present.
+    ///
+    /// A value of `"open_url"` indicates the notification should open an external web URL
+    /// (see `klaviyoWebUrl`) in the system browser rather than route through the app's
+    /// deep link handler.
+    var klaviyoOpenAction: String? {
+        guard isKlaviyoNotification else {
+            return nil
+        }
+        return klaviyoProperties?["open_action"] as? String
+    }
+
+    /// Returns the external web URL from a Klaviyo notification payload, if present.
+    ///
+    /// Reads the `open_url` field. Returns `nil` if the field is absent or the value is
+    /// not a parseable URL.
+    var klaviyoWebUrl: URL? {
+        guard isKlaviyoNotification else {
+            return nil
+        }
+
+        guard let urlString = klaviyoProperties?["open_url"] as? String else {
+            return nil
+        }
+
+        guard let url = URL(string: urlString) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Unable to convert open_url string '\(urlString)' to a valid URL.")
+            }
+            return nil
+        }
+
+        return url
+    }
+
     // MARK: - Action Button Support
 
     /// Detects if the user tapped an action button (vs tapping the notification body).
