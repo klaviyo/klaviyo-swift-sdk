@@ -55,8 +55,10 @@ package actor AuthTokenManager {
     /// Returns the current auth token, fetching one via the registered provider
     /// if the cache is empty or has gone stale.
     ///
-    /// A single caller invokes the provider directly. If two callers race, both
-    /// will invoke the provider — the result is extra network calls, not data
+    /// This is the happy-path skeleton: a single caller races directly against the
+    /// provider, with no in-flight deduplication and no timeout enforcement. Those
+    /// arrive in sub-issue MAGE-624; until then, two concurrent callers will both
+    /// invoke the provider — the wrong behavior is "extra fetches", not data
     /// corruption.
     ///
     /// - Throws: ``AuthTokenError/noProviderRegistered`` when no provider is
