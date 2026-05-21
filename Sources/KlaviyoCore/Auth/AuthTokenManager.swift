@@ -72,6 +72,9 @@ package actor AuthTokenManager {
             throw AuthTokenError.noProviderRegistered
         }
 
+        // TODO: [MAGE-624] cancel any in-flight fetch when `registerProvider(_:)`
+        // runs — the resumed continuation below can otherwise overwrite the cache
+        // with a token from a since-replaced provider.
         let rawToken = try await provider()
 
         switch JWTParser.parseAndValidate(rawToken) {
