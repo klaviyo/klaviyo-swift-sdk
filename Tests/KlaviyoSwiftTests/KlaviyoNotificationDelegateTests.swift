@@ -12,6 +12,7 @@ import Testing
 
 @Suite
 struct KlaviyoNotificationDelegateTests {
-    // Add tests as delegate forwarding behavior is implemented in MAGE-657/MAGE-660.
+    // TODO: [MAGE-657] Add tests for delegate forwarding and OnceCallback behavior
+    // TODO: [MAGE-660] Add tests for double-track guard
 }
 #endif
