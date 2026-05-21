@@ -34,10 +34,11 @@ enum JWTParser {
     /// for `decode(_:from:)` and this path is hit on every token acquisition / refresh.
     private static let decoder = JSONDecoder()
 
-    // Cyclomatic complexity is intrinsic here: every validation step inlines its own
-    // OSLog call behind an iOS 14 availability guard, which doubles the apparent branch
-    // count. Routing through a logging wrapper would lose the per-failure call site.
-    // swiftlint:disable cyclomatic_complexity
+    // Cyclomatic complexity and function-body length are intrinsic here: every
+    // validation step inlines its own OSLog call behind an iOS 14 availability
+    // guard, which doubles the apparent branch count. Routing through a logging
+    // wrapper would lose the per-failure call site.
+    // swiftlint:disable cyclomatic_complexity function_body_length
 
     /// Parses a JWT string and validates the `exp` and `iat` claims.
     ///
@@ -59,6 +60,13 @@ enum JWTParser {
                 Logger.auth.warning("JWT validation failed: malformed structure")
             }
             return .failure(.malformedStructure)
+        }
+
+        for segment in segments where !isBase64URLShape(segment) {
+            if #available(iOS 14.0, *) {
+                Logger.auth.warning("JWT validation failed: malformed base64URL segment")
+            }
+            return .failure(.malformedBase64)
         }
 
         guard let payloadData = base64URLDecode(String(segments[1])) else {
@@ -105,7 +113,21 @@ enum JWTParser {
         ))
     }
 
-    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable cyclomatic_complexity function_body_length
+
+    /// Returns `true` when every character in `segment` is in the Base64URL alphabet
+    /// (RFC 7515 §2): ASCII letter, ASCII digit, `-`, or `_`. Padding `=` is stripped
+    /// from JWT segments and is intentionally not accepted — a `=` in a JWT segment
+    /// is malformed.
+    ///
+    /// Empty segments are accepted — RFC 7515 §3 permits an empty signature segment
+    /// (`alg: none`); structural emptiness of payload/header is caught downstream by
+    /// the JSON decode step.
+    private static func isBase64URLShape(_ segment: Substring) -> Bool {
+        segment.allSatisfy { char in
+            char.isASCII && (char.isLetter || char.isNumber || char == "-" || char == "_")
+        }
+    }
 
     /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and
     /// trailing `=` padding is omitted. We reverse those substitutions and re-pad before
