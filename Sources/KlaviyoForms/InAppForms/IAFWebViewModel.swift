@@ -28,6 +28,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let apiKey: String
     let profileData: ProfileData?
+    let authToken: String?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -97,6 +98,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    @MainActor
+    private var authTokenWKScript: WKUserScript? {
+        guard let authToken else { return nil }
+        let authTokenScript = "document.head.setAttribute('data-klaviyo-jwt', '\(authToken)');"
+        return WKUserScript(source: authTokenScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
     /// inline `<script>` in the template runs. Injected at `.atDocumentStart` so that
     /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
@@ -119,10 +127,17 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, apiKey: String, profileData: ProfileData?, assetSource: String? = nil) {
+    init(
+        url: URL,
+        apiKey: String,
+        profileData: ProfileData?,
+        authToken: String? = nil,
+        assetSource: String? = nil
+    ) {
         self.url = url
         self.apiKey = apiKey
         self.profileData = profileData
+        self.authToken = authToken
         self.assetSource = assetSource
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
@@ -143,6 +158,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(deviceInfoWKScript)
         if let profileAttributesWKScript {
             loadScripts?.insert(profileAttributesWKScript)
+        }
+        if let authTokenWKScript {
+            loadScripts?.insert(authTokenWKScript)
         }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
@@ -219,8 +237,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
-        return profileAttributesScript
+        return "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
     }
 
     @MainActor
@@ -302,11 +319,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formShown(formId: formId, formName: formName))
+                    for: .formShown(formId: formId, formName: formName)
+                )
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formWillAppear missing metadata — skipping lifecycle callback")
+                        "formWillAppear missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .formDisappeared(formId, formName):
@@ -317,11 +336,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formDismissed(formId: formId, formName: formName))
+                    for: .formDismissed(formId: formId, formName: formName)
+                )
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formDisappeared missing metadata — skipping lifecycle callback")
+                        "formDisappeared missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .trackProfileEvent(data):

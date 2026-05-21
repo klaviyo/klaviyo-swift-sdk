@@ -126,15 +126,43 @@ class IAFPresentationManager {
 
     func createFormWebViewAndListen(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
-        createFormWebView(apiKey: apiKey, profileData: profileData)
+        let authToken = await fetchAuthTokenBestEffort()
+        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
         setupFormLifecycleListener()
     }
 
+    /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
+    /// injection. Returns `nil` on any failure — the form proceeds without a token
+    /// and the backend serves non-personalized content.
+    private func fetchAuthTokenBestEffort() async -> String? {
+        // TODO: [MAGE-624] AuthTokenManager will enforce its own 500ms best-effort
+        // deadline internally. No external timeout is needed here; once MAGE-624
+        // lands, this call site is correct as-is.
+        do {
+            let token = try await AuthTokenManager.shared.currentToken()
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Auth token injected at load")
+            }
+            return token
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Auth token unavailable at load — proceeding without token")
+            }
+            return nil
+        }
+    }
+
     /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
+    private func createFormWebView(apiKey: String, profileData: ProfileData?, authToken: String?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
-        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
+        let viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            authToken: authToken,
+            assetSource: assetSource
+        )
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
