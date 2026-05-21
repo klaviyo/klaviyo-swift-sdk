@@ -11,11 +11,41 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
+/// Schedules a `KlaviyoAction` to run on the main actor. Both overloads of
+/// `dispatchOnMainThread` use the same `Task { @MainActor in ... }` isolation form so that
+/// calls submitted in sequence land on the main actor's serial executor in submission
+/// order (see the closure overload below for the FIFO-ordering rationale).
 func dispatchOnMainThread(action: KlaviyoAction) {
-    Task {
-        await MainActor.run {
-            klaviyoSwiftEnvironment.send(action)
-        }
+    Task { @MainActor in
+        klaviyoSwiftEnvironment.send(action)
+    }
+}
+
+/// Schedules an arbitrary closure to run on the main actor. Sibling overload of
+/// `dispatchOnMainThread(action:)` for the cases where we need to invoke a user-supplied
+/// closure (e.g. a `UNUserNotificationCenter` completion handler or a deep-link callback)
+/// rather than dispatch a `KlaviyoAction` into the state-management pipeline.
+///
+/// Two reasons this is `Task { @MainActor in ... }` and not a synchronous-on-main fast path:
+///
+/// 1. **Off-main safety.** Notification completion handlers (`UNUserNotificationCenter`'s
+///    `withCompletionHandler` blocks, `UIApplicationDelegate` background-fetch handlers)
+///    internally touch `UIApplication` state-restoration bookkeeping and trap with
+///    `NSInternalInconsistencyException("Call must be made on main thread")` if invoked
+///    off main. The proxy delegate's `existingDelegate` (e.g. the async-stream-based
+///    bridges in the RN / Flutter host adapters) frequently completes on a non-main
+///    task thread, so we must hop back to main.
+///
+/// 2. **Ordering with the action-dispatch path.** `handle(notificationResponse:)` schedules
+///    side effects (event enqueue, deep-link routing) via the `(action:)` overload above and
+///    then schedules the user-supplied completion via this overload. Both overloads use
+///    `Task { @MainActor in ... }` and therefore enqueue on the same main-actor executor in
+///    submission order, so the side-effect Tasks drain before the completion Task runs; a
+///    caller that observes the SDK's state after `completionHandler()` returns sees the
+///    open event already queued.
+func dispatchOnMainThread(_ block: @escaping () -> Void) {
+    Task { @MainActor in
+        block()
     }
 }
 
@@ -64,6 +94,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .initialize(apiKey))
+        klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
 
@@ -210,6 +241,15 @@ public struct KlaviyoSDK {
             return false
         }
 
+        // Double-track guard: if the SDK's auto-tracking proxy already handled this response,
+        // skip the side effects (event creation, deep link dispatch, category pruning) but still
+        // signal a Klaviyo notification and invoke the completion handler.
+        let requestId = notificationResponse.notification.request.identifier
+        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
+            dispatchOnMainThread(completionHandler)
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -231,9 +271,7 @@ public struct KlaviyoSDK {
             }
         }
 
-        Task { @MainActor in
-            completionHandler()
-        }
+        dispatchOnMainThread(completionHandler)
         return true
     }
 
@@ -249,6 +287,14 @@ public struct KlaviyoSDK {
               let properties = notificationResponse.klaviyoProperties else {
             dispatchOnMainThread(action: .syncBadgeCount)
             return false
+        }
+
+        // Double-track guard: if auto-tracking already handled this response, skip side effects
+        // but still signal a Klaviyo notification and invoke the completion handler.
+        let requestId = notificationResponse.notification.request.identifier
+        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
+            dispatchOnMainThread(completionHandler)
+            return true
         }
 
         defer {
@@ -267,17 +313,13 @@ public struct KlaviyoSDK {
             create(event: Event(name: ._openedPush, properties: properties))
             if let url = notificationResponse.klaviyoDeepLinkURL {
                 if let deepLinkHandler = deepLinkHandler {
-                    Task { @MainActor in
-                        deepLinkHandler(url)
-                    }
+                    dispatchOnMainThread { deepLinkHandler(url) }
                 } else {
                     dispatchOnMainThread(action: .openDeepLink(url))
                 }
             }
         }
-        Task { @MainActor in
-            completionHandler()
-        }
+        dispatchOnMainThread(completionHandler)
         return true
     }
 

@@ -18,6 +18,7 @@
   - [Arguments](#arguments)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
+  - [Automatic Push Tracking (opt-in)](#automatic-push-tracking-opt-in)
   - [Collecting Push Tokens](#collecting-push-tokens)
   - [Request Push Notification Permission](#request-push-notification-permission)
   - [Receiving Push Notifications](#receiving-push-notifications)
@@ -238,6 +239,37 @@ The `create` method takes an event object as an argument. The event can be const
 
 * An apple developer [account](https://developer.apple.com/).
 * Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
+
+### Automatic Push Tracking (opt-in)
+
+> ℹ️ Available as an opt-in today. The default will flip to opt-in by default in a future major release.
+
+When enabled, the SDK wires the iOS push integration for you so you can skip the manual steps in [Collecting Push Tokens](#collecting-push-tokens) and [Receiving Push Notifications](#receiving-push-notifications):
+
+* Injects itself as `UNUserNotificationCenter.current().delegate`, so push opens are tracked automatically — you do not need to implement `userNotificationCenter(_:didReceive:withCompletionHandler:)` or call `KlaviyoSDK().handle(notificationResponse:withCompletionHandler:)` yourself.
+* Swizzles `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` on your app delegate, so the device token is forwarded to Klaviyo automatically — you do not need to call `KlaviyoSDK().set(pushToken:)` yourself.
+* Forwards both `UNUserNotificationCenter` callbacks to any existing host delegate, and observes the delegate via KVO so it can re-inject itself if the host reassigns the delegate later (e.g. in a `SceneDelegate`).
+
+To enable, add the following key to your app's `Info.plist`:
+
+```xml
+<key>klaviyo_automatic_push_tracking</key>
+<true/>
+```
+
+If you handle notification deep links (custom URL schemes or [Klaviyo universal tracking links](#handling-universal-links)) in your own navigation code, move that routing into a closure passed to `registerDeepLinkHandler(_:)` when you initialize the SDK — the SDK invokes it for both notification taps and Klaviyo universal tracking links:
+
+```swift
+KlaviyoSDK()
+    .initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    .registerDeepLinkHandler { url in
+        // route `url` into your app's navigation
+    }
+```
+
+> ⚠️ If you previously assigned a `UNUserNotificationCenterDelegate` yourself, retain it strongly (e.g. as a property on `AppDelegate`). Apple's `UNUserNotificationCenter.delegate` is `weak`; when the SDK takes over as the center's delegate, an unretained host delegate will be deallocated and the SDK can't forward callbacks to it. The SDK logs a warning if this is detected at injection time.
+
+To opt out, omit the `klaviyo_automatic_push_tracking` plist key. This is the default — when omitted, follow the manual integration steps in the next subsections.
 
 ### Collecting Push Tokens
 

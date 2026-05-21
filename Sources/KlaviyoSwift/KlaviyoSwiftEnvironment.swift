@@ -20,6 +20,7 @@ struct KlaviyoSwiftEnvironment {
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
     var setBadgeCount: (Int) -> Task<Void, Never>?
     var pruneCategory: (String) -> Void
+    var injectNotificationDelegate: () -> Void
 
     static let production: KlaviyoSwiftEnvironment = {
         let store = Store.production
@@ -49,6 +50,11 @@ struct KlaviyoSwiftEnvironment {
             },
             pruneCategory: { categoryIdentifier in
                 KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+            },
+            injectNotificationDelegate: {
+                Task { @MainActor in
+                    KlaviyoNotificationDelegate.injectIfEnabled()
+                }
             }
         )
     }()

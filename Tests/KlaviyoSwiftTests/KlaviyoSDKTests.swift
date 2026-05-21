@@ -145,6 +145,51 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(handled)
     }
 
+    // MARK: test auto-track dedup guard
+
+    func testHandlePushNotificationSkipsEventWhenAlreadyAutoTracked() throws {
+        let callback = XCTestExpectation(description: "callback is invoked")
+        let actionDispatched = XCTestExpectation(description: "no Klaviyo action is dispatched")
+        actionDispatched.isInverted = true
+
+        klaviyoSwiftEnvironment.send = { _ in
+            actionDispatched.fulfill()
+            return nil
+        }
+
+        let push_body = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        let requestId = response.notification.request.identifier
+
+        KlaviyoNotificationDelegate.shared.clearAutoTracked()
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: requestId)
+        defer { KlaviyoNotificationDelegate.shared.clearAutoTracked() }
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, actionDispatched], timeout: 1.0)
+        XCTAssertTrue(handled, "handle() must still report a Klaviyo notification even when dedup'd")
+    }
+
+    func testHandlePushNotificationDispatchesEventWhenNotAutoTracked() throws {
+        let callback = XCTestExpectation(description: "callback is invoked")
+        let push_body = ["body": ["_k": ["foo": "bar"]]]
+        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body)))
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+
+        KlaviyoNotificationDelegate.shared.clearAutoTracked()
+        defer { KlaviyoNotificationDelegate.shared.clearAutoTracked() }
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [expectation, callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
     // MARK: test unhandle push notification
 
     func testUnhandlePushNotification() throws {
