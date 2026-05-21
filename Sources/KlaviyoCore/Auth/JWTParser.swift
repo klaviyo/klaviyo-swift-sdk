@@ -115,19 +115,18 @@ enum JWTParser {
 
     // swiftlint:enable cyclomatic_complexity function_body_length
 
-    /// Base64URL alphabet (RFC 7515 §2): `A-Z`, `a-z`, `0-9`, `-`, `_`. Padding `=` is
-    /// stripped from JWT segments and is intentionally not part of this set — a `=` in
-    /// a JWT segment is malformed.
-    private static let base64URLCharacterSet = CharacterSet(
-        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-    )
-
-    /// Returns `true` when every code unit in `segment` is in the Base64URL alphabet.
+    /// Returns `true` when every character in `segment` is in the Base64URL alphabet
+    /// (RFC 7515 §2): ASCII letter, ASCII digit, `-`, or `_`. Padding `=` is stripped
+    /// from JWT segments and is intentionally not accepted — a `=` in a JWT segment
+    /// is malformed.
+    ///
     /// Empty segments are accepted — RFC 7515 §3 permits an empty signature segment
     /// (`alg: none`); structural emptiness of payload/header is caught downstream by
     /// the JSON decode step.
     private static func isBase64URLShape(_ segment: Substring) -> Bool {
-        segment.unicodeScalars.allSatisfy { base64URLCharacterSet.contains($0) }
+        segment.allSatisfy { char in
+            char.isASCII && (char.isLetter || char.isNumber || char == "-" || char == "_")
+        }
     }
 
     /// Decodes a Base64URL string (RFC 7515 §2): `+` is replaced by `-`, `/` by `_`, and
