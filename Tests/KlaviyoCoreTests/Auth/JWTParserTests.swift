@@ -97,6 +97,81 @@ struct JWTParserTests {
         )
     }
 
+    @Test
+    func singleQuoteInSignatureIsRejected() throws {
+        // Reproduces the WebView-injection vector: a token whose signature segment
+        // contains a `'` would break out of a single-quoted JS string literal if it
+        // ever reached the WebView interpolation site. The parser must reject it
+        // before that can happen.
+        let payload = try base64URLEncode(JSONSerialization.data(withJSONObject: [
+            "iat": Self.defaultIat,
+            "exp": Self.defaultExp
+        ]))
+        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: ["alg": "HS256"]))
+        let token = "\(header).\(payload).'); evilJS(); //"
+
+        expectFailure(
+            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),
+            .malformedBase64
+        )
+    }
+
+    @Test
+    func backslashInHeaderIsRejected() throws {
+        let payload = try base64URLEncode(JSONSerialization.data(withJSONObject: [
+            "iat": Self.defaultIat,
+            "exp": Self.defaultExp
+        ]))
+        // Backslashes are the other half of the JS-literal escape concern.
+        let token = "head\\er.\(payload).signature"
+
+        expectFailure(
+            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),
+            .malformedBase64
+        )
+    }
+
+    @Test(arguments: [" ", "\n", "\t", "\"", "<", ">", "/", "+", "=", ","])
+    func nonBase64URLCharacterInSegmentIsRejected(badChar: String) throws {
+        // Sweeps the most common characters that aren't in the Base64URL alphabet
+        // (RFC 7515 §2). Each one, placed inside any segment, must fail validation.
+        // `+`, `/`, and `=` are notable because they ARE in standard Base64 — the
+        // JWT compact serialization substitutes/strips them, so their presence in a
+        // segment is itself a sign of malformed input.
+        //
+        // `.` is intentionally absent: inserting it would change the segment count
+        // and trigger `.malformedStructure` instead, which is already covered by
+        // ``malformedStructureIsRejected``.
+        let payload = try base64URLEncode(JSONSerialization.data(withJSONObject: [
+            "iat": Self.defaultIat,
+            "exp": Self.defaultExp
+        ]))
+        let header = "head\(badChar)er"
+        let token = "\(header).\(payload).signature"
+
+        expectFailure(
+            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow),
+            .malformedBase64
+        )
+    }
+
+    @Test
+    func emptySignatureSegmentIsAccepted() throws {
+        // RFC 7515 §3 permits an empty signature segment for `alg: none`. The parser
+        // doesn't verify signatures, so this case must validate just like any other
+        // well-formed payload.
+        let header = try base64URLEncode(JSONSerialization.data(withJSONObject: ["alg": "none"]))
+        let payload = try base64URLEncode(JSONSerialization.data(withJSONObject: [
+            "iat": Self.defaultIat,
+            "exp": Self.defaultExp
+        ]))
+        let token = "\(header).\(payload)."
+
+        _ = try requireValidated(
+            JWTParser.parseAndValidate(token, currentTime: Self.referenceNow)
+        )
+    }
+
     // MARK: - Malformed JSON
 
     @Test
