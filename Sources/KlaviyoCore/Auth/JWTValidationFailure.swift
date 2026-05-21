@@ -17,7 +17,12 @@ enum JWTValidationFailure: Error, Equatable {
     /// The token did not contain three `.`-separated segments.
     case malformedStructure
 
-    /// The payload segment could not be Base64URL-decoded.
+    /// A segment contained characters outside the Base64URL alphabet (RFC 7515 §2:
+    /// `A-Z`, `a-z`, `0-9`, `-`, `_`; no `=` padding), or the payload segment failed
+    /// Base64URL decoding for some other reason. Applied to all three segments — not
+    /// just the payload — so that ``ValidatedToken/rawToken`` is safe to interpolate
+    /// into contexts that assume a base64url-shaped string (e.g. attribute injection
+    /// into a WebView's JavaScript context).
     case malformedBase64
 
     /// The payload segment did not decode to a JSON object with the expected claim types.
