@@ -13,7 +13,7 @@ import Foundation
 /// security boundary for that. These cases capture only what the SDK can detect locally:
 /// structural problems, missing required claims, or tokens that are already expired at the time
 /// of acquisition (applying a clock-skew leeway).
-enum JWTValidationFailure: Error, Equatable {
+package enum JWTValidationFailure: Error, Equatable {
     /// The token did not contain three `.`-separated segments.
     case malformedStructure
 
