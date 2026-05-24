@@ -25,10 +25,10 @@ import OSLog
 enum JWTParser {
     /// Clock-skew leeway subtracted from `exp` before comparing to the current time.
     ///
-    /// A token is treated as expired when `now >= exp - leeway`. The 15-second window keeps
+    /// A token is treated as expired when `now >= exp - leeway`. The 30-second window keeps
     /// the SDK from injecting a token that the Klaviyo backend would reject due to clock
     /// drift between the device and the backend.
-    static let defaultLeeway: TimeInterval = 15
+    static let defaultLeeway: TimeInterval = 30
 
     /// Shared decoder for JWT payloads. Held statically because `JSONDecoder` is reentrant
     /// for `decode(_:from:)` and this path is hit on every token acquisition / refresh.

@@ -290,7 +290,7 @@ struct JWTParserTests {
     func nowAtLeewayBoundaryIsRejected() throws {
         // `now == exp - leeway` is treated as expired (>= rule).
         let token = try makeJWT()
-        let leeway: TimeInterval = 15
+        let leeway: TimeInterval = 30
         let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway)
 
         expectFailure(
@@ -303,7 +303,7 @@ struct JWTParserTests {
     func nowJustInsideLeewayIsAccepted() throws {
         // `now == exp - leeway - epsilon` is still valid.
         let token = try makeJWT()
-        let leeway: TimeInterval = 15
+        let leeway: TimeInterval = 30
         let currentTime = Date(timeIntervalSince1970: Self.defaultExp - leeway - 0.001)
 
         let validated = try requireValidated(
@@ -334,8 +334,8 @@ struct JWTParserTests {
     }
 
     @Test
-    func defaultLeewayIs15Seconds() {
-        #expect(JWTParser.defaultLeeway == 15)
+    func defaultLeewayIs30Seconds() {
+        #expect(JWTParser.defaultLeeway == 30)
     }
 
     // MARK: - Base64URL handling
