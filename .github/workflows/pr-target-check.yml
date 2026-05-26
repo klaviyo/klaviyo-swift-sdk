@@ -3,8 +3,6 @@ name: PR Target Branch Check
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
-    branches:
-      - master
 
 jobs:
   check-pr-target:
@@ -17,11 +15,19 @@ jobs:
       - name: Validate source branch
         env:
           HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           LABEL: "needs: release branch"
         run: |
+          # If PR doesn't target master, this check doesn't apply — clean up any stale label and pass
+          if [[ "$BASE_REF" != "master" ]]; then
+            echo "PR targets '$BASE_REF' (not master) — check not required."
+            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            exit 0
+          fi
+
           if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
             gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
