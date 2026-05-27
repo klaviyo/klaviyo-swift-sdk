@@ -40,25 +40,31 @@ struct AuthTokenManagerTests {
     @Test
     func currentTokenServesCachedTokenOnSubsequentCalls() async throws {
         let manager = AuthTokenManager()
-        let token = try makeJWT()
-        let counter = CallCounter()
+        let initialToken = try makeJWT()
+        let swappedToken = try makeJWT(extraClaims: ["sub": "user-after-swap"])
+        let providerToken = TokenBox(initialToken)
 
         await manager.registerProvider {
-            await counter.increment()
-            return token
+            await providerToken.value
         }
 
-        // Drain the eager fetch so the cache is warm before the assertions below.
-        try await counter.waitFor(atLeast: 1)
+        // Warm the cache deterministically: awaiting an explicit fetch
+        // guarantees the actor has parsed and cached `initialToken` before we
+        // mutate the provider's return value below.
+        let warmup = try await manager.currentToken()
+        #expect(warmup == initialToken)
 
-        let countBefore = await counter.value
+        // Swap the provider's output without re-registering (which would
+        // clear the cache). If the cache is honored, subsequent calls keep
+        // returning `initialToken`; if they re-invoke the provider, they
+        // observe `swappedToken`.
+        await providerToken.set(swappedToken)
+
         let first = try await manager.currentToken()
         let second = try await manager.currentToken()
-        let countAfter = await counter.value
 
-        #expect(first == token)
-        #expect(second == token)
-        #expect(countBefore == countAfter, "cached token should not re-invoke the provider")
+        #expect(first == initialToken, "cached token should be served, not the swapped provider output")
+        #expect(second == initialToken, "cached token should be served, not the swapped provider output")
     }
 
     // MARK: - currentToken: provider errors
@@ -172,6 +178,21 @@ extension AuthTokenManagerTests {
             await withCheckedContinuation { continuation in
                 waiters.append((threshold, continuation))
             }
+        }
+    }
+
+    /// Mutable token holder used to change a registered provider's return
+    /// value over time without re-registering (re-registration would clear
+    /// the cache and defeat tests that depend on a warm cache).
+    actor TokenBox {
+        private(set) var value: String
+
+        init(_ initial: String) {
+            value = initial
+        }
+
+        func set(_ new: String) {
+            value = new
         }
     }
 

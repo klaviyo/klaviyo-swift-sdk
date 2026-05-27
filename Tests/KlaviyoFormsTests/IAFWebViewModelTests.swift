@@ -160,6 +160,34 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 
+    // MARK: - Auth Token Tests
+
+    @MainActor
+    func testInjectAuthTokenAttribute() async throws {
+        // Given
+        let dummyToken = "header.payload.signature"
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil, authToken: dummyToken)
+
+        // When
+        viewModel.initializeLoadScripts()
+        let authTokenScript = viewModel.findScript(containing: ["data-klaviyo-jwt", dummyToken])
+
+        // Then
+        XCTAssertNotNil(authTokenScript, "Auth token script should be injected when authToken is provided")
+    }
+
+    @MainActor
+    func testAuthTokenScriptNotInjectedWhenTokenIsNil() async throws {
+        // When (default viewModel from setUp has authToken: nil)
+        viewModel.initializeLoadScripts()
+        let authTokenScript = viewModel.findScript(containing: "data-klaviyo-jwt")
+
+        // Then
+        XCTAssertNil(authTokenScript, "Auth token script should not be injected when authToken is nil")
+    }
+
     // MARK: - Klaviyo JS Tests
 
     @MainActor
