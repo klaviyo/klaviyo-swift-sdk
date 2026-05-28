@@ -10,8 +10,10 @@ import UserNotifications
 
 /// A proxy `UNUserNotificationCenterDelegate` that the SDK installs as the active
 /// `UNUserNotificationCenter` delegate to intercept push notification responses automatically.
-final class KlaviyoNotificationDelegate: NSObject, @unchecked Sendable {
+final class KlaviyoNotificationDelegate: NSObject {
     static let shared = KlaviyoNotificationDelegate()
+
+    private override init() {}
 
     /// The host app's delegate that was in place before the SDK proxy was installed.
     ///
