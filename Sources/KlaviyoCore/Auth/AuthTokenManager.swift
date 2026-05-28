@@ -225,12 +225,12 @@ package actor AuthTokenManager {
             }
             Task {
                 try? await Task.sleep(nanoseconds: timeoutNanos)
-                if #available(iOS 14.0, *) {
+                let didTimeout = await resolver.resolve(.failure(AuthTokenError.timedOut))
+                if didTimeout, #available(iOS 14.0, *) {
                     Logger.auth.error(
                         "AuthTokenManager: fetch timed out after \(timeoutSeconds, privacy: .public)s"
                     )
                 }
-                await resolver.resolve(.failure(AuthTokenError.timedOut))
             }
         }
     }
@@ -256,12 +256,16 @@ private actor OnceResolver<T> {
         self.continuation = continuation
     }
 
-    func resolve(_ result: Result<T, Error>) {
-        guard !resumed else { return }
+    /// - Returns: `true` if this call won the race and resumed the continuation;
+    ///   `false` if the continuation was already resumed by an earlier call.
+    @discardableResult
+    func resolve(_ result: Result<T, Error>) -> Bool {
+        guard !resumed else { return false }
         resumed = true
         switch result {
         case let .success(value): continuation.resume(returning: value)
         case let .failure(error): continuation.resume(throwing: error)
         }
+        return true
     }
 }
