@@ -13,7 +13,7 @@ import UserNotifications
 final class KlaviyoNotificationDelegate: NSObject {
     static let shared = KlaviyoNotificationDelegate()
 
-    private override init() {}
+    override private init() {}
 
     /// The host app's delegate that was in place before the SDK proxy was installed.
     ///
