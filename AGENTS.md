@@ -56,6 +56,18 @@ If prompted to commit, push, or open pull requests:
 - Use the PR template at `.github/pull_request_template.md`
 - Include a brief changelog and test plan with reproducible steps
 
+### Branch Naming & PR Targets
+
+| Prefix | Purpose | May target `master` directly |
+|--------|---------|------------------------------|
+| `rel/*` | Release branches | Yes |
+| `ci/*` | CI/tooling changes (GitHub Actions, scripts, build config) | Yes |
+| `docs/*` | Documentation-only changes | Yes |
+| `feat/*` | New features | No — target active `rel/*` |
+| `{initials}/*` | Personal/WIP branches | No — target active `rel/*` |
+
+A required status check blocks merges to `master` from any branch not in the allowed list. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
+
 ## Architecture Overview
 
 The SDK uses [The Composable Architecture](https://www.pointfree.co/collections/composable-architecture) framework. It is

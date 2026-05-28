@@ -41,6 +41,7 @@
   - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
   - [Setup](#setup-2)
@@ -792,6 +793,49 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Monitoring Form Lifecycle Events
+
+> ℹ️ Form lifecycle events are available in SDK version 5.3.0 and higher
+
+You can register a handler to track when forms are shown, dismissed, or when users tap call-to-action buttons. This is useful for sending form engagement data to third-party analytics platforms like Amplitude, Segment, or Mixpanel.
+
+```swift
+import KlaviyoForms
+
+KlaviyoSDK().registerFormLifecycleHandler { event in
+    switch event {
+    case .formShown(let formId, let formName):
+        // Track when a form is displayed
+        Analytics.track("Klaviyo Form Shown", properties: [
+            "formId": formId,
+            "formName": formName
+        ])
+    case .formDismissed(let formId, let formName):
+        // Track when a form is dismissed
+        Analytics.track("Klaviyo Form Dismissed", properties: [
+            "formId": formId,
+            "formName": formName
+        ])
+    case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
+        // Track when a user taps a call-to-action button
+        Analytics.track("Klaviyo Form CTA Clicked", properties: [
+            "formId": formId,
+            "formName": formName,
+            "buttonLabel": buttonLabel,
+            "deepLinkUrl": deepLinkUrl.absoluteString
+        ])
+    }
+}
+```
+
+The handler is called on the main thread and will receive events for all form interactions. To unregister the handler:
+
+```swift
+KlaviyoSDK().unregisterFormLifecycleHandler()
+```
+
+**Note:** The handler is optional and does not affect normal form functionality. Forms will continue to display and track analytics in Klaviyo regardless of whether a handler is registered.
 
 ## Geofencing
 
