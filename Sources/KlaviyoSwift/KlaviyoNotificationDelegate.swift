@@ -19,7 +19,7 @@ final class KlaviyoNotificationDelegate: NSObject {
     ///
     /// `weak` mirrors `UNUserNotificationCenter.delegate`'s own weak contract — the SDK must
     /// not silently extend the lifetime of the host's delegate object.
-    weak var existingDelegate: (any UNUserNotificationCenterDelegate)?
+    private weak var existingDelegate: (any UNUserNotificationCenterDelegate)?
 }
 
 // MARK: - UNUserNotificationCenterDelegate
