@@ -38,7 +38,7 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping @Sendable
-            (UNNotificationPresentationOptions) -> Void
+        (UNNotificationPresentationOptions) -> Void
     ) {
         // TODO: [MAGE-657] Forward to existingDelegate when present
         if #available(iOS 14.0, *) {
