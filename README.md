@@ -1,5 +1,6 @@
 # klaviyo-swift-sdk
 
+
 ![CI status](https://github.com/klaviyo/klaviyo-swift-sdk/actions/workflows/swift.yml/badge.svg)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
 ![SPM version](https://img.shields.io/github/v/release/klaviyo/klaviyo-swift-sdk)
