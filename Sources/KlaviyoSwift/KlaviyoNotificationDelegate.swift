@@ -44,9 +44,9 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
     ) {
         // TODO: [MAGE-657] Forward to existingDelegate when present
         if #available(iOS 14.0, *) {
-            completionHandler([.list, .banner, .sound])
+            completionHandler([.list, .banner, .badge, .sound])
         } else {
-            completionHandler([.alert, .sound])
+            completionHandler([.alert, .badge, .sound])
         }
     }
 }
