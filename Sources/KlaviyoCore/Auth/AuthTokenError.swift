@@ -25,4 +25,9 @@ package enum AuthTokenError: Error, Equatable {
     /// The associated value carries the specific reason (malformed, expired,
     /// missing claim, …).
     case validationFailed(JWTValidationFailure)
+
+    /// The provider did not produce a token within the caller's timeout budget.
+    /// The underlying fetch task may still be running and will write to the cache
+    /// if it eventually succeeds; the timeout only bounds the *caller's* wait.
+    case timedOut
 }

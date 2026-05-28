@@ -135,9 +135,9 @@ class IAFPresentationManager {
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
     private func fetchAuthTokenBestEffort() async -> String? {
-        // TODO: [MAGE-624] AuthTokenManager will enforce its own 500ms best-effort
-        // deadline internally. No external timeout is needed here; once MAGE-624
-        // lands, this call site is correct as-is.
+        // `currentToken()` defaults to `.bestEffort` mode, which applies the
+        // 500ms latency budget appropriate for form display. No external timeout
+        // is needed here.
         do {
             let token = try await AuthTokenManager.shared.currentToken()
             if #available(iOS 14.0, *) {
