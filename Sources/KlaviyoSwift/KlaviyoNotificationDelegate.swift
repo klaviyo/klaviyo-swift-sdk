@@ -24,11 +24,16 @@ protocol UserNotificationCenterProtocol: AnyObject {
 
 extension UNUserNotificationCenter: UserNotificationCenterProtocol {
     func observeDelegate(using handler: @escaping @MainActor () -> Void) -> AnyObject {
-        // `MainActor.assumeIsolated` keeps `UNUserNotificationCenter` (non-Sendable) on
-        // the main actor without crossing isolation boundaries. A `Task { @MainActor in }`
-        // would send the center reference across actor domains, triggering Swift 6 diagnostics.
+        // KVO for UNUserNotificationCenter.delegate always fires on the main thread.
+        // `assumeIsolated` asserts that fact to the type system synchronously (iOS 17+).
+        // On earlier OS versions the Task hop is safe: handler is @MainActor-bound
+        // (implicitly Sendable) and we don't capture the non-Sendable center here.
         observe(\.delegate, options: [.new]) { _, _ in
-            MainActor.assumeIsolated { handler() }
+            if #available(iOS 17.0, *) {
+                MainActor.assumeIsolated { handler() }
+            } else {
+                Task { @MainActor in handler() }
+            }
         }
     }
 }
