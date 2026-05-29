@@ -8,9 +8,6 @@
 @testable import KlaviyoSwift
 import UserNotifications
 
-#if canImport(Testing)
-import Testing
-
 // MARK: - Test Doubles
 
 /// Minimal `UNUserNotificationCenterDelegate` conformer used for object-identity assertions.
@@ -40,6 +37,9 @@ final class MockNotificationCenter: UserNotificationCenterProtocol {
 }
 
 // MARK: - Tests
+
+#if canImport(Testing)
+import Testing
 
 // Note: the `klaviyo_automatic_push_tracking` plist key itself is verified manually
 // in the example app — `Bundle.main` in the test runner never carries it, and making
