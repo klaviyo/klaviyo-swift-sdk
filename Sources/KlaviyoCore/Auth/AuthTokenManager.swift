@@ -185,7 +185,7 @@ package actor AuthTokenManager {
             }
         } catch is CancellationError {
             throw CancellationError()
-        } catch is AuthTokenError {
+        } catch let error as AuthTokenError {
             throw error
         } catch {
             if #available(iOS 14.0, *) {
