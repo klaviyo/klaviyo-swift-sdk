@@ -81,7 +81,7 @@ final class KlaviyoNotificationDelegate: NSObject {
     static func injectIfEnabled() {
         guard klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled() else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.info("Klaviyo automatic push tracking is off by default — set 'klaviyo_automatic_push_tracking' to YES in Info.plist to opt in.")
+                Logger.notifications.info("Klaviyo automatic push tracking is off.")
             }
             return
         }
