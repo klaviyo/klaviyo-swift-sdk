@@ -226,6 +226,12 @@ extension KlaviyoSwiftEnvironment {
             nil
         }, pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
+        }, injectNotificationDelegate: {
+            // no-op: UNUserNotificationCenter.current() is unavailable in test runner
+        }, isAutomaticPushTrackingEnabled: {
+            false
+        }, notificationCenter: {
+            MockNotificationCenter()
         })
     }
 }
