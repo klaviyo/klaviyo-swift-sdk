@@ -122,10 +122,11 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
-        // TODO: [MAGE-657] Forward to existingDelegate via OnceCallback
-        // TODO: [MAGE-657] Call KlaviyoSDK().handle() for auto-tracking
+        let once = OnceCallback(completionHandler)
         // TODO: [MAGE-660] Add double-track guard
-        completionHandler()
+        _ = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: { once() })
+        existingDelegate?.userNotificationCenter?(center, didReceive: response, withCompletionHandler: { once() })
+        once()
     }
 
     func userNotificationCenter(
@@ -134,11 +135,12 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping @Sendable
         (UNNotificationPresentationOptions) -> Void
     ) {
-        // TODO: [MAGE-657] Forward to existingDelegate when present
+        let once = OnceCallback(completionHandler)
+        existingDelegate?.userNotificationCenter?(center, willPresent: notification, withCompletionHandler: { once($0) })
         if #available(iOS 14.0, *) {
-            completionHandler([.list, .banner, .badge, .sound])
+            once([.list, .banner, .badge, .sound])
         } else {
-            completionHandler([.alert, .badge, .sound])
+            once([.alert, .badge, .sound])
         }
     }
 }
