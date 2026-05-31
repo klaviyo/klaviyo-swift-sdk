@@ -6,11 +6,13 @@
 //
 
 @testable import KlaviyoSwift
+import Foundation
 
 #if canImport(Testing)
 import Testing
 
 @Suite
+@MainActor
 struct OnceCallbackTests {
     /// The body must be called on the first invocation.
     @Test
@@ -48,6 +50,16 @@ struct OnceCallbackTests {
         var called = false
         _ = OnceCallback<Void> { called = true }
         #expect(called == false)
+    }
+
+    /// When invoked off the main thread the body must still run on the main thread.
+    @Test
+    func callsBodyOnMainThreadWhenInvokedOffMain() async {
+        let isMain: Bool = await withCheckedContinuation { continuation in
+            let once = OnceCallback<Void> { continuation.resume(returning: Thread.isMainThread) }
+            Task.detached { once() }
+        }
+        #expect(isMain)
     }
 }
 #endif

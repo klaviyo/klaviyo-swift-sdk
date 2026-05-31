@@ -72,6 +72,11 @@ final class KlaviyoNotificationDelegate: NSObject {
     /// without requiring `nonisolated(unsafe)` or `@unchecked Sendable` annotations.
     private var centerObservation: AnyObject?
 
+    // MARK: - Forwarding-cycle guard
+
+    private let didReceiveGuard = ForwardingCycleGuard()
+    private let willPresentGuard = ForwardingCycleGuard()
+
     // MARK: - Injection
 
     /// Reads the opt-in flag and notification center from `KlaviyoSwiftEnvironment`,
@@ -122,10 +127,22 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
+        let requestId = response.notification.request.identifier
+        guard didReceiveGuard.begin(requestId) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Klaviyo: forwarding cycle detected in didReceive, skipping.")
+            }
+            completionHandler()
+            return
+        }
+        defer { didReceiveGuard.end(requestId) }
+
         let once = OnceCallback(completionHandler)
-        // TODO: [MAGE-660] Add double-track guard
+        // MAGE-660: double-track guard (auto + manual paths) is a follow-on ticket.
         _ = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: { once() })
-        existingDelegate?.userNotificationCenter?(center, didReceive: response, withCompletionHandler: { once() })
+        existingDelegate?.userNotificationCenter?(
+            center, didReceive: response, withCompletionHandler: { once() }
+        )
         once()
     }
 
@@ -135,8 +152,24 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping @Sendable
         (UNNotificationPresentationOptions) -> Void
     ) {
+        let requestId = notification.request.identifier
+        guard willPresentGuard.begin(requestId) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Klaviyo: forwarding cycle detected in willPresent, skipping.")
+            }
+            if #available(iOS 14.0, *) {
+                completionHandler([.list, .banner, .badge, .sound])
+            } else {
+                completionHandler([.alert, .badge, .sound])
+            }
+            return
+        }
+        defer { willPresentGuard.end(requestId) }
+
         let once = OnceCallback(completionHandler)
-        existingDelegate?.userNotificationCenter?(center, willPresent: notification, withCompletionHandler: { once($0) })
+        existingDelegate?.userNotificationCenter?(
+            center, willPresent: notification, withCompletionHandler: { once($0) }
+        )
         if #available(iOS 14.0, *) {
             once([.list, .banner, .badge, .sound])
         } else {
