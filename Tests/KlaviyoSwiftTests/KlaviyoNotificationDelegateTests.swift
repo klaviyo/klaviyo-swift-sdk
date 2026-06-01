@@ -142,6 +142,5 @@ struct KlaviyoNotificationDelegateTests {
         #expect(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
         #expect(KlaviyoNotificationDelegate.shared.existingDelegate === newHostDelegate)
     }
-
 }
 #endif
