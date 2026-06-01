@@ -413,7 +413,13 @@ package actor AuthTokenManager {
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: refresh succeeded")
             }
-            // Deliver the refreshed token to live ``refreshes()`` subscribers.
+            // A profile reset (``clearTokenState()``) may have landed on the
+            // actor while this fetch was suspended — `task.value` does not honor
+            // the awaiter's cancellation, so we can resume holding a token that
+            // belongs to the *outgoing* profile. Only broadcast a token that is
+            // still the live cached value; otherwise drop it so stale-profile
+            // tokens never reach live ``refreshes()`` subscribers.
+            guard cachedToken?.rawToken == token else { return }
             refreshSubject.send(token)
         } catch {
             if #available(iOS 14.0, *) {

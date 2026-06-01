@@ -365,6 +365,69 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
+    @Test
+    func refreshInFlightDuringResetDoesNotDeliverStaleToken() async throws {
+        // A proactive refresh that is mid-flight when `clearTokenState()` runs
+        // must not deliver the outgoing profile's token to live subscribers.
+        //
+        // This drives the realistic interleaving — reset lands while the
+        // refresh fetch is suspended in the provider — which the in-flight
+        // fetch cancellation in `clearTokenState()` covers. The
+        // `cachedToken`-identity guard in `performScheduledRefresh()` hardens
+        // the residual window where the fetch *completes* in the instant before
+        // the send; that sub-window isn't deterministically reproducible in a
+        // unit test, so it isn't asserted directly here.
+        let nowSeconds = Date().timeIntervalSince1970
+        let firstToken = try makeJWT(
+            issuedAt: nowSeconds - 60,
+            expiresAt: nowSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+
+        let manager = makeManager(lifeCycle: noopLifecycle())
+        let counter = CallCounter()
+        let refreshStarted = Latch()
+        let releaseRefresh = Latch()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            guard invocation >= 2 else { return firstToken }
+            // Second invocation == the scheduled refresh. Park here so the test
+            // can reset while this fetch is in flight.
+            await refreshStarted.open()
+            await releaseRefresh.wait()
+            return secondToken
+        }
+        try await counter.waitFor(atLeast: 1)
+
+        let collector = TokenCollector()
+        let consumer = Task {
+            for await token in await manager.refreshes() {
+                await collector.append(token)
+            }
+        }
+
+        // Wait until the scheduled refresh has entered the provider, then reset
+        // while it is suspended and let it return.
+        await refreshStarted.wait()
+        await manager.clearTokenState()
+        await releaseRefresh.open()
+
+        // No positive signal to await — yield generously so any erroneous send
+        // would have propagated to the subscriber before we sample.
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+
+        consumer.cancel()
+        let delivered = await collector.received
+        #expect(
+            delivered.isEmpty,
+            "a refresh interrupted by clearTokenState must deliver nothing, saw \(delivered)"
+        )
+    }
+
     // MARK: - Test helpers
 
     /// Returns the first element a stream delivers (or `nil` if it finishes

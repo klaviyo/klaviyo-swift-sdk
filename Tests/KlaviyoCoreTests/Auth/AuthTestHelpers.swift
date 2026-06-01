@@ -70,7 +70,8 @@ actor CallCounter {
     private(set) var value = 0
     private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
-    func increment() {
+    @discardableResult
+    func increment() -> Int {
         value += 1
         waiters = waiters.compactMap { waiter in
             if value >= waiter.threshold {
@@ -79,6 +80,7 @@ actor CallCounter {
             }
             return waiter
         }
+        return value
     }
 
     func waitFor(atLeast threshold: Int) async throws {
@@ -101,6 +103,16 @@ actor TokenBox {
 
     func set(_ token: String) {
         value = token
+    }
+}
+
+/// Accumulates values delivered to a stream subscriber so tests can assert on
+/// what was — or, just as importantly, was not — received.
+actor TokenCollector {
+    private(set) var received: [String] = []
+
+    func append(_ token: String) {
+        received.append(token)
     }
 }
 
