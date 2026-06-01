@@ -150,11 +150,255 @@ struct AuthTokenManagerTests {
         let secondResult = try await manager.currentToken()
         #expect(secondResult == secondToken)
     }
+
+    // MARK: - currentToken: concurrent-caller deduplication
+
+    @Test
+    func concurrentCallersShareSingleProviderInvocation() async throws {
+        let manager = AuthTokenManager()
+        let token = try makeJWT()
+        let counter = CallCounter()
+        let providerEntered = Latch()
+        let providerRelease = Latch()
+
+        await manager.registerProvider {
+            await counter.increment()
+            await providerEntered.open()
+            await providerRelease.wait()
+            return token
+        }
+        // Wait for the eager fetch to enter the provider so that subsequent
+        // currentToken() calls find an in-flight fetch and dedup with it.
+        await providerEntered.wait()
+
+        // Spawn 8 concurrent callers. They should all observe the in-flight
+        // fetch and `await` it rather than starting their own.
+        let callerCount = 8
+        async let results: [String] = withThrowingTaskGroup(of: String.self) { group in
+            for _ in 0..<callerCount {
+                group.addTask {
+                    try await manager.currentToken(mode: .background)
+                }
+            }
+            var collected: [String] = []
+            for try await result in group {
+                collected.append(result)
+            }
+            return collected
+        }
+
+        // Release the provider so the in-flight fetch can complete and all
+        // dedup'd awaiters can resume.
+        await providerRelease.open()
+
+        let allResults = try await results
+        #expect(allResults.count == callerCount)
+        #expect(allResults.allSatisfy { $0 == token })
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 1,
+            "exactly one provider invocation expected across \(callerCount) concurrent callers + eager fetch"
+        )
+    }
+
+    // MARK: - currentToken: timeout enforcement
+
+    @Test
+    func interactiveTimeoutThrowsWithinBudget() async throws {
+        let manager = AuthTokenManager()
+        let token = try makeJWT()
+
+        await manager.registerProvider {
+            // Sleep well past the interactive budget so the timeout always wins.
+            try await Task.sleep(nanoseconds: UInt64(2 * 1_000_000_000))
+            return token
+        }
+
+        let start = Date()
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        // Allow generous headroom for CI scheduler jitter; the assertion that
+        // matters is "did not wait the full provider duration (2s)".
+        #expect(elapsed < 1.5, "interactive caller should time out near 500ms, took \(elapsed)s")
+    }
+
+    @Test
+    func backgroundTimeoutThrowsWithinBudget() async throws {
+        let manager = AuthTokenManager()
+        let token = try makeJWT()
+
+        await manager.registerProvider {
+            // Sleep well past the background budget so the timeout always wins.
+            try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000_000))
+            return token
+        }
+
+        let start = Date()
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .background)
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        #expect(elapsed < 8.0, "background caller should time out near 5s, took \(elapsed)s")
+    }
+
+    @Test
+    func interactiveTimeoutLeavesFetchTaskRunningForLaterCallers() async throws {
+        let manager = AuthTokenManager()
+        let token = try makeJWT()
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment()
+            // Sleep longer than the interactive budget but well under the background budget.
+            try await Task.sleep(nanoseconds: UInt64(800 * 1_000_000))
+            return token
+        }
+
+        // First caller bails out via the interactive timeout.
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+
+        // The in-flight fetch should still be running — a background caller
+        // should dedup with it rather than triggering a second provider call.
+        let result = try await manager.currentToken(mode: .background)
+        #expect(result == token)
+
+        let invocations = await counter.value
+        // Eager fetch + the dedup'd call should sum to a single invocation.
+        // (If the interactive timeout had killed the underlying fetch, we'd
+        // see a second invocation here.)
+        #expect(
+            invocations == 1,
+            "interactive timeout must not cancel the shared in-flight fetch; saw \(invocations) invocations"
+        )
+    }
+
+    // MARK: - currentToken: failure recovery
+
+    @Test
+    func failureClearsInFlightSoNextCallReinvokesProvider() async throws {
+        let manager = AuthTokenManager()
+        let counter = CallCounter()
+        let successToken = try makeJWT()
+        // Single stateful provider on a single manager: it fails until we flip
+        // `behavior`, then succeeds. Crucially we never re-register (that would
+        // reset `inFlight` itself and make the test prove nothing).
+        let behavior = ProviderBehavior(failing: true)
+
+        await manager.registerProvider {
+            await counter.increment()
+            if await behavior.isFailing {
+                throw ProviderTestError.network
+            }
+            return successToken
+        }
+
+        // Phase 1 — drive a failure through the public API. Awaiting the fetch
+        // task to completion guarantees `runFetch`'s `defer` has cleared
+        // `inFlight` by the time this returns: `Task.value` resolves only after
+        // the task body (defers included) fully unwinds. This call either
+        // dedups with the eager warm fetch or starts its own — either way it
+        // throws and the slot it awaited is cleared.
+        await #expect(throws: ProviderTestError.network) {
+            _ = try await manager.currentToken(mode: .background)
+        }
+        let failingInvocations = await counter.value
+        #expect(failingInvocations >= 1)
+
+        // Phase 2 — flip the provider to succeed (no re-registration). If the
+        // failed fetch had left a stale `inFlight`, this call would re-await the
+        // dead task and throw `.network` instead of starting a fresh fetch.
+        await behavior.stopFailing()
+
+        let result = try await manager.currentToken(mode: .background)
+        #expect(result == successToken)
+
+        // The success required a *new* provider invocation, which only happens
+        // if the post-failure `defer` cleared `inFlight`.
+        #expect(await counter.value > failingInvocations)
+    }
+
+    // MARK: - currentToken: cache integrity across provider swap
+
+    @Test
+    func providerReplacedWhileFetchInFlightDoesNotPoisonCache() async throws {
+        // Regression test: actor reentrancy at the `await provider()` call in
+        // the in-flight fetch previously allowed a stale fetch from a replaced
+        // provider to write its (now-stale) token back into the cache after the
+        // new provider had already cached its own token. The fix relies on
+        // cancellation: `registerProvider(_:)` cancels the in-flight task, and
+        // the fetch body's explicit `Task.checkCancellation()` checkpoint drops
+        // the stale write on the floor even when the host's provider closure
+        // does not honor cancellation.
+        let manager = AuthTokenManager()
+        let firstToken = try makeJWT(extraClaims: ["sub": "user-a"])
+        let secondToken = try makeJWT(extraClaims: ["sub": "user-b"])
+
+        let firstProviderEntered = Latch()
+        let firstProviderRelease = Latch()
+
+        await manager.registerProvider {
+            await firstProviderEntered.open()
+            await firstProviderRelease.wait()
+            return firstToken
+        }
+        // Wait until the eager fetch has captured the first provider and is
+        // suspended inside `provider()` — precondition for the reentrancy race.
+        await firstProviderEntered.wait()
+
+        // Swap in a new provider. The new eager fetch caches `secondToken`.
+        let secondProviderCounter = CallCounter()
+        await manager.registerProvider {
+            await secondProviderCounter.increment()
+            return secondToken
+        }
+        try await secondProviderCounter.waitFor(atLeast: 1)
+
+        // Release the first provider. Its in-flight fetch returns
+        // `firstToken`; without cancellation safety it would overwrite the
+        // cache.
+        await firstProviderRelease.open()
+
+        // Yield so the resumed continuation has time to run before we sample
+        // the cache.
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        let result = try await manager.currentToken(mode: .background)
+        #expect(result == secondToken)
+    }
 }
 
 // MARK: - Test helpers
 
 extension AuthTokenManagerTests {
+    /// One-shot async gate. `wait()` suspends until `open()` is called; once
+    /// open it stays open. Used to interleave a provider's resumption with
+    /// other operations in deterministic order.
+    actor Latch {
+        private var isOpen = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+
+        func open() {
+            guard !isOpen else { return }
+            isOpen = true
+            for waiter in waiters {
+                waiter.resume()
+            }
+            waiters.removeAll()
+        }
+
+        func wait() async {
+            if isOpen { return }
+            await withCheckedContinuation { waiters.append($0) }
+        }
+    }
+
     /// Counts provider invocations and lets tests await a specific call count
     /// without sleeping. `signal` runs every increment so any waiters can wake up
     /// promptly when their threshold is met.
@@ -193,6 +437,22 @@ extension AuthTokenManagerTests {
 
         func set(_ new: String) {
             value = new
+        }
+    }
+
+    /// One-way switch read by a stateful provider so its behavior can flip from
+    /// failing to succeeding across invocations *without* re-registering — which
+    /// would reset the in-flight slot and cache and defeat tests that exercise
+    /// post-failure recovery on a single manager.
+    actor ProviderBehavior {
+        private(set) var isFailing: Bool
+
+        init(failing: Bool) {
+            isFailing = failing
+        }
+
+        func stopFailing() {
+            isFailing = false
         }
     }
 
