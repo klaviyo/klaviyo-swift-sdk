@@ -142,5 +142,26 @@ struct KlaviyoNotificationDelegateTests {
         #expect(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
         #expect(KlaviyoNotificationDelegate.shared.existingDelegate === newHostDelegate)
     }
+
+    // MARK: - Auto-track guard passthroughs
+
+    /// After marking a request ID as auto-tracked, `wasAutoTracked` must return true.
+    @Test
+    func markAsAutoTrackedRoundTrip() {
+        let delegate = KlaviyoNotificationDelegate.shared
+        defer { delegate.clearAutoTracked() }
+
+        delegate.markAsAutoTracked(requestId: "test-id")
+
+        #expect(delegate.wasAutoTracked(requestId: "test-id"))
+    }
+
+    /// A request ID that was never marked must not appear as auto-tracked.
+    @Test
+    func wasAutoTrackedReturnsFalseForUnmarkedId() {
+        let delegate = KlaviyoNotificationDelegate.shared
+        defer { delegate.clearAutoTracked() }
+        #expect(!delegate.wasAutoTracked(requestId: "never-marked"))
+    }
 }
 #endif
