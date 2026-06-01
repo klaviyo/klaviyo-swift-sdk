@@ -319,7 +319,8 @@ struct AuthTokenManagerTests {
 
         // The success required a *new* provider invocation, which only happens
         // if the post-failure `defer` cleared `inFlight`.
-        #expect(await counter.value > failingInvocations)
+        let recoveredInvocations = await counter.value
+        #expect(recoveredInvocations > failingInvocations)
     }
 
     // MARK: - currentToken: cache integrity across provider swap

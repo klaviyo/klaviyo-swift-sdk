@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2026-05-14.
 //
 
+import Combine
 import Foundation
 import OSLog
 
@@ -62,7 +63,46 @@ package actor AuthTokenManager {
     /// task is present without its id, or vice versa.
     private var inFlight: (id: UUID, task: Task<String, Error>)?
 
-    package init() {}
+    /// Sleep-and-refresh task that fires at ``refreshAtWallClock``. Cancelled
+    /// and replaced when a new token is acquired (chaining), when
+    /// ``registerProvider(_:)`` runs, or when the foreground transition handler
+    /// detects that the wall-clock target has already passed.
+    private var refreshTask: Task<Void, Never>?
+
+    /// Absolute wall-clock target for the next proactive refresh, or `nil` when
+    /// no refresh is scheduled. Stored as an absolute `Date` rather than a
+    /// duration so the sleep loop can re-check against the *current* clock on
+    /// every wakeup — `Task.sleep` drifts during backgrounding, so trusting the
+    /// elapsed-sleep duration alone would fire late.
+    private var refreshAtWallClock: Date?
+
+    /// Long-lived Combine subscription that dispatches foreground transitions to
+    /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
+    /// ``init`` and survives ``registerProvider(_:)``).
+    private var lifecycleCancellable: AnyCancellable?
+
+    /// Lifecycle event source. Injected for testability; defaults to the
+    /// SDK-wide `environment.appLifeCycle`.
+    private let lifeCycle: AppLifeCycleEvents
+
+    /// Wall-clock source. Injected for testability; defaults to the SDK-wide
+    /// `environment.date` closure. Used by both cached-token validity checks
+    /// and the proactive-refresh scheduling formula so a single time source
+    /// drives every clock-sensitive decision the actor makes.
+    private let currentDate: () -> Date
+
+    /// - Parameters:
+    ///   - lifeCycle: Source of foreground/background events. Defaults to
+    ///     `environment.appLifeCycle`.
+    ///   - currentDate: Wall-clock source. Defaults to `environment.date`.
+    package init(
+        lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
+        currentDate: @escaping () -> Date = { environment.date() }
+    ) {
+        self.lifeCycle = lifeCycle
+        self.currentDate = currentDate
+        Task { await self.startLifecycleObserver() }
+    }
 
     /// Registers a new provider, discards any cached token from a previous
     /// provider, cancels any in-flight fetch, and triggers an eager fetch to
@@ -75,6 +115,9 @@ package actor AuthTokenManager {
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
         inFlight?.task.cancel()
         inFlight = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
         cachedToken = nil
         provider = newProvider
 
@@ -171,6 +214,7 @@ package actor AuthTokenManager {
             switch JWTParser.parseAndValidate(rawToken) {
             case let .success(validated):
                 cachedToken = validated
+                scheduleRefresh(for: validated)
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(
                         """
@@ -202,6 +246,169 @@ package actor AuthTokenManager {
                 )
             }
             throw error
+        }
+    }
+
+    /// Computes the wall-clock target for the proactive refresh of `token`.
+    ///
+    /// The ideal target is `iat + 0.9 * (exp - iat)` — fire when 90% of the
+    /// token's lifetime has elapsed. That target is clamped to the window
+    /// `[now + 5s, exp - JWTParser.defaultLeeway]`:
+    ///
+    /// - The upper bound matches the same skew window ``JWTParser`` uses for
+    ///   the expiry check, so the refresh fires before the cache itself would
+    ///   be considered stale.
+    /// - The lower bound prevents tight refresh loops when a token is
+    ///   acquired very close to its own expiration (e.g., a server returned a
+    ///   short-lived token, or the system clock jumped forward).
+    ///
+    /// Pulled out as a static pure function so tests can verify the formula
+    /// and clamps directly, without driving the full schedule-and-sleep
+    /// lifecycle.
+    static func refreshTarget(for token: ValidatedToken, currentDate: Date) -> Date {
+        let total = token.expiresAt.timeIntervalSince(token.issuedAt)
+        let ideal = token.issuedAt.addingTimeInterval(0.9 * total)
+        let upperBound = token.expiresAt.addingTimeInterval(-JWTParser.defaultLeeway)
+        let lowerBound = currentDate.addingTimeInterval(5)
+        return max(lowerBound, min(ideal, upperBound))
+    }
+
+    /// Schedules a proactive refresh for `token`. Cancels any prior
+    /// ``refreshTask`` so chained refreshes (success → schedule next) and
+    /// provider swaps don't leak overlapping schedules.
+    private func scheduleRefresh(for token: ValidatedToken) {
+        let target = Self.refreshTarget(for: token, currentDate: currentDate())
+
+        refreshTask?.cancel()
+        refreshAtWallClock = target
+        refreshTask = Task { [weak self] in
+            await self?.sleepUntilAndRefresh(target: target)
+        }
+
+        if #available(iOS 14.0, *) {
+            Logger.auth.info(
+                "AuthTokenManager: refresh scheduled (target=\(target, privacy: .private))"
+            )
+        }
+    }
+
+    /// Sleeps until `target` wall-clock time, then fires
+    /// ``performScheduledRefresh()``. The loop re-reads ``now()`` on every
+    /// wakeup rather than trusting that `Task.sleep` slept the full requested
+    /// duration: when the app is backgrounded, wall time advances but
+    /// `Task.sleep` does not, so a single sleep would fire late by exactly the
+    /// backgrounded duration. Re-checking the clock self-corrects — the next
+    /// wakeup observes the post-jump time and exits.
+    ///
+    /// Not a polling loop. Each iteration sleeps the *full* remaining
+    /// duration, so in the happy path the body runs at most ~2–3 times across
+    /// the entire scheduled window (one long sleep, then a final short
+    /// iteration that observes `remaining <= 0` and breaks).
+    private func sleepUntilAndRefresh(target: Date) async {
+        while !Task.isCancelled {
+            let remaining = target.timeIntervalSince(currentDate())
+            if remaining <= 0 { break }
+            try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+        }
+        guard !Task.isCancelled else { return }
+        refreshAtWallClock = nil
+        await performScheduledRefresh()
+    }
+
+    /// Fires a proactive refresh by routing through the same dedup slot that
+    /// user-driven ``currentToken(mode:)`` callers use. If a fetch is already
+    /// in flight (e.g., a form-display caller raced ahead of the scheduled
+    /// wakeup), this awaits that fetch instead of kicking off a second.
+    ///
+    /// On success: ``runFetch`` has already written the new token to the cache
+    /// *and* scheduled the next refresh (via the wiring inside that method).
+    /// On failure: leaves the cached token in place — the cache only goes
+    /// stale at `exp - leeway`, so a foreground transition or user fetch
+    /// before then will retry. Connectivity-driven retry is owned by MAGE-683.
+    private func performScheduledRefresh() async {
+        guard provider != nil else { return }
+        let task = inFlight?.task ?? startFetch()
+        do {
+            _ = try await task.value
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: refresh succeeded")
+            }
+            // Hook for MAGE-626: emit refresh-stream notification to live
+            // consumers here.
+        } catch {
+            if #available(iOS 14.0, *) {
+                let reason = String(describing: error)
+                Logger.auth.warning(
+                    "AuthTokenManager: refresh failed: \(reason, privacy: .public)"
+                )
+            }
+        }
+    }
+
+    /// Starts the long-lived Combine subscription that drives
+    /// ``handleForegroundTransition()`` on each `.foregrounded` event. Idempotent:
+    /// no-op if the observer is already running, so retry-on-restart paths can
+    /// call this safely.
+    ///
+    /// The `sink` closure is non-isolated, so each event hops back onto the actor
+    /// via an unstructured `Task`. Foreground events are not bursty (a
+    /// `.foregrounded` is always preceded by a `.backgrounded`), and the actor
+    /// already serializes the state `handleForegroundTransition()` touches, so the
+    /// lack of cross-event ordering between those tasks is immaterial.
+    private func startLifecycleObserver() {
+        guard lifecycleCancellable == nil else { return }
+        lifecycleCancellable = lifeCycle.lifeCycleEvents()
+            .sink { [weak self] event in
+                guard case .foregrounded = event else { return }
+                Task { await self?.handleForegroundTransition() }
+            }
+    }
+
+    /// Reconciles cache and scheduled-refresh state with wall-clock time when
+    /// the app returns to the foreground. `Task.sleep` does not advance during
+    /// backgrounding, so any scheduled refresh whose target fell inside the
+    /// background window will not have fired yet — and a sufficiently long
+    /// background window can outlive the cached token entirely.
+    ///
+    /// Three cases, in this order:
+    /// 1. Cached token expired during backgrounding — clear cache, cancel any
+    ///    pending refresh, kick off an eager fetch so a subsequent caller
+    ///    isn't the one paying the round-trip.
+    /// 2. Scheduled refresh time has passed but the cache is still valid —
+    ///    cancel the stuck refresh task and fire the refresh immediately.
+    /// 3. Cache valid and refresh still in the future — no-op.
+    private func handleForegroundTransition() async {
+        if let cached = cachedToken, !isCachedTokenValid(cached) {
+            cachedToken = nil
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshAtWallClock = nil
+            Task { [weak self] in
+                _ = try? await self?.currentToken(mode: .background)
+            }
+            if #available(iOS 14.0, *) {
+                Logger.auth.info(
+                    "AuthTokenManager: foreground transition (case=expired-cached-token)"
+                )
+            }
+            return
+        }
+        if let scheduled = refreshAtWallClock, currentDate() >= scheduled {
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshAtWallClock = nil
+            if #available(iOS 14.0, *) {
+                Logger.auth.info(
+                    "AuthTokenManager: foreground transition (case=missed-refresh)"
+                )
+            }
+            await performScheduledRefresh()
+            return
+        }
+        if #available(iOS 14.0, *) {
+            Logger.auth.info(
+                "AuthTokenManager: foreground transition (case=still-valid)"
+            )
         }
     }
 
@@ -246,35 +453,8 @@ package actor AuthTokenManager {
 
     /// `true` when the cached token's `exp` is still in the future after applying
     /// the same clock-skew leeway ``JWTParser`` uses on acquisition.
-    private func isCachedTokenValid(_ token: ValidatedToken, currentTime: Date = Date()) -> Bool {
+    private func isCachedTokenValid(_ token: ValidatedToken) -> Bool {
         let expiresAtSeconds = token.expiresAt.timeIntervalSince1970
-        return currentTime.timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
-    }
-}
-
-/// Serializes the first of two concurrent producers onto a `CheckedContinuation`
-/// so that the loser's resume becomes a no-op. Used by ``AuthTokenManager`` to
-/// race the in-flight fetch against a timeout without leaning on
-/// `withThrowingTaskGroup` (which would block on the loser even after the
-/// winner has resolved).
-private actor OnceResolver<T> {
-    private var resumed = false
-    private let continuation: CheckedContinuation<T, Error>
-
-    init(_ continuation: CheckedContinuation<T, Error>) {
-        self.continuation = continuation
-    }
-
-    /// - Returns: `true` if this call won the race and resumed the continuation;
-    ///   `false` if the continuation was already resumed by an earlier call.
-    @discardableResult
-    func resolve(_ result: Result<T, Error>) -> Bool {
-        guard !resumed else { return false }
-        resumed = true
-        switch result {
-        case let .success(value): continuation.resume(returning: value)
-        case let .failure(error): continuation.resume(throwing: error)
-        }
-        return true
+        return currentDate().timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
     }
 }
