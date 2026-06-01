@@ -148,6 +148,13 @@ package actor AuthTokenManager {
             }
         }
 
+        // Bail before reading `provider`: a task cancelled by `registerProvider(_:)`
+        // before its body began executing would otherwise read the *new* provider
+        // and invoke it, wasting an invocation and undermining dedup during rapid
+        // provider swaps. The checkpoint after `provider()` below covers
+        // cancellation that lands mid-fetch.
+        try Task.checkCancellation()
+
         guard let provider else {
             throw AuthTokenError.noProviderRegistered
         }
