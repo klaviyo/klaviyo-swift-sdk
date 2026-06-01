@@ -284,36 +284,42 @@ struct AuthTokenManagerTests {
         let manager = AuthTokenManager()
         let counter = CallCounter()
         let successToken = try makeJWT()
+        // Single stateful provider on a single manager: it fails until we flip
+        // `behavior`, then succeeds. Crucially we never re-register (that would
+        // reset `inFlight` itself and make the test prove nothing).
+        let behavior = ProviderBehavior(failing: true)
 
-        // First registration uses a provider that always throws. The eager
-        // fetch will fail; the cached token stays nil and inFlightFetch is
-        // cleared by the fetch task's defer.
         await manager.registerProvider {
             await counter.increment()
-            throw ProviderTestError.network
+            if await behavior.isFailing {
+                throw ProviderTestError.network
+            }
+            return successToken
         }
 
+        // Phase 1 — drive a failure through the public API. Awaiting the fetch
+        // task to completion guarantees `runFetch`'s `defer` has cleared
+        // `inFlight` by the time this returns: `Task.value` resolves only after
+        // the task body (defers included) fully unwinds. This call either
+        // dedups with the eager warm fetch or starts its own — either way it
+        // throws and the slot it awaited is cleared.
         await #expect(throws: ProviderTestError.network) {
             _ = try await manager.currentToken(mode: .background)
         }
+        let failingInvocations = await counter.value
+        #expect(failingInvocations >= 1)
 
-        // Without re-registering, swap the provider's behavior by registering
-        // a fresh manager so the failure history doesn't carry across — this
-        // mirrors the spec: "the next call invokes the provider again (not the
-        // cached failure)".
-        let recoveryCounter = CallCounter()
-        let manager2 = AuthTokenManager()
-        await manager2.registerProvider {
-            await recoveryCounter.increment()
-            return successToken
-        }
-        let result = try await manager2.currentToken(mode: .background)
+        // Phase 2 — flip the provider to succeed (no re-registration). If the
+        // failed fetch had left a stale `inFlight`, this call would re-await the
+        // dead task and throw `.network` instead of starting a fresh fetch.
+        await behavior.stopFailing()
+
+        let result = try await manager.currentToken(mode: .background)
         #expect(result == successToken)
 
-        let recoveryInvocations = await recoveryCounter.value
-        #expect(recoveryInvocations >= 1)
-
-        _ = await counter.value // silences unused warning if optimizer drops the await
+        // The success required a *new* provider invocation, which only happens
+        // if the post-failure `defer` cleared `inFlight`.
+        #expect(await counter.value > failingInvocations)
     }
 
     // MARK: - currentToken: cache integrity across provider swap
@@ -431,6 +437,22 @@ extension AuthTokenManagerTests {
 
         func set(_ new: String) {
             value = new
+        }
+    }
+
+    /// One-way switch read by a stateful provider so its behavior can flip from
+    /// failing to succeeding across invocations *without* re-registering — which
+    /// would reset the in-flight slot and cache and defeat tests that exercise
+    /// post-failure recovery on a single manager.
+    actor ProviderBehavior {
+        private(set) var isFailing: Bool
+
+        init(failing: Bool) {
+            isFailing = failing
+        }
+
+        func stopFailing() {
+            isFailing = false
         }
     }
 
