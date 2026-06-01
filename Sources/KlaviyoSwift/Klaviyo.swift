@@ -64,6 +64,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         dispatchOnMainThread(action: .initialize(apiKey))
+        klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
 
