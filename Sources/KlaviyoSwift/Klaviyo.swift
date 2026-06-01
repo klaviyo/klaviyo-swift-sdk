@@ -211,6 +211,12 @@ public struct KlaviyoSDK {
             return false
         }
 
+        let requestId = notificationResponse.notification.request.identifier
+        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
+            Task { @MainActor in completionHandler() }
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -250,6 +256,12 @@ public struct KlaviyoSDK {
               let properties = notificationResponse.klaviyoProperties else {
             dispatchOnMainThread(action: .syncBadgeCount)
             return false
+        }
+
+        let requestId = notificationResponse.notification.request.identifier
+        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
+            Task { @MainActor in completionHandler() }
+            return true
         }
 
         defer {

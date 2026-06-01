@@ -509,4 +509,52 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
         }
     }
+
+    // MARK: - Double-track guard (MAGE-660)
+
+    func testHandleShortCircuitsWhenAutoTracked() throws {
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+
+        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+        addTeardownBlock { KlaviyoNotificationDelegate.shared.clearAutoTracked() }
+
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testDeprecatedHandleShortCircuitsWhenAutoTracked() throws {
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+
+        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+        addTeardownBlock { KlaviyoNotificationDelegate.shared.clearAutoTracked() }
+
+        let handled = klaviyo.handle(
+            notificationResponse: response,
+            withCompletionHandler: { callback.fulfill() },
+            deepLinkHandler: nil
+        )
+
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
 }
