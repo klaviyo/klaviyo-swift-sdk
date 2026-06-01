@@ -128,16 +128,15 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
         let requestId = response.notification.request.identifier
+        let once = OnceCallback(completionHandler)
         guard didReceiveGuard.begin(requestId) else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning("Klaviyo: forwarding cycle detected in didReceive, skipping.")
             }
-            completionHandler()
+            once()
             return
         }
         defer { didReceiveGuard.end(requestId) }
-
-        let once = OnceCallback(completionHandler)
         // MAGE-660: double-track guard (auto + manual paths) is a follow-on ticket.
         _ = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: { once() })
         existingDelegate?.userNotificationCenter?(
@@ -153,20 +152,17 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         (UNNotificationPresentationOptions) -> Void
     ) {
         let requestId = notification.request.identifier
+        let once = OnceCallback(completionHandler)
         guard willPresentGuard.begin(requestId) else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning("Klaviyo: forwarding cycle detected in willPresent, skipping.")
-            }
-            if #available(iOS 14.0, *) {
-                completionHandler([.list, .banner, .badge, .sound])
+                once([.list, .banner, .badge, .sound])
             } else {
-                completionHandler([.alert, .badge, .sound])
+                once([.alert, .badge, .sound])
             }
             return
         }
         defer { willPresentGuard.end(requestId) }
-
-        let once = OnceCallback(completionHandler)
         existingDelegate?.userNotificationCenter?(
             center, willPresent: notification, withCompletionHandler: { once($0) }
         )
