@@ -177,7 +177,7 @@ struct AuthTokenManagerTests {
         async let results: [String] = withThrowingTaskGroup(of: String.self) { group in
             for _ in 0..<callerCount {
                 group.addTask {
-                    try await manager.currentToken(mode: .proactive)
+                    try await manager.currentToken(mode: .background)
                 }
             }
             var collected: [String] = []
@@ -205,75 +205,75 @@ struct AuthTokenManagerTests {
     // MARK: - currentToken: timeout enforcement
 
     @Test
-    func bestEffortTimeoutThrowsWithinBudget() async throws {
+    func interactiveTimeoutThrowsWithinBudget() async throws {
         let manager = AuthTokenManager()
         let token = try makeJWT()
 
         await manager.registerProvider {
-            // Sleep well past the best-effort budget so the timeout always wins.
+            // Sleep well past the interactive budget so the timeout always wins.
             try await Task.sleep(nanoseconds: UInt64(2 * 1_000_000_000))
             return token
         }
 
         let start = Date()
         await #expect(throws: AuthTokenError.timedOut) {
-            _ = try await manager.currentToken(mode: .bestEffort)
+            _ = try await manager.currentToken(mode: .interactive)
         }
         let elapsed = Date().timeIntervalSince(start)
         // Allow generous headroom for CI scheduler jitter; the assertion that
         // matters is "did not wait the full provider duration (2s)".
-        #expect(elapsed < 1.5, "best-effort caller should time out near 500ms, took \(elapsed)s")
+        #expect(elapsed < 1.5, "interactive caller should time out near 500ms, took \(elapsed)s")
     }
 
     @Test
-    func proactiveTimeoutThrowsWithinBudget() async throws {
+    func backgroundTimeoutThrowsWithinBudget() async throws {
         let manager = AuthTokenManager()
         let token = try makeJWT()
 
         await manager.registerProvider {
-            // Sleep well past the proactive budget so the timeout always wins.
+            // Sleep well past the background budget so the timeout always wins.
             try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000_000))
             return token
         }
 
         let start = Date()
         await #expect(throws: AuthTokenError.timedOut) {
-            _ = try await manager.currentToken(mode: .proactive)
+            _ = try await manager.currentToken(mode: .background)
         }
         let elapsed = Date().timeIntervalSince(start)
-        #expect(elapsed < 8.0, "proactive caller should time out near 5s, took \(elapsed)s")
+        #expect(elapsed < 8.0, "background caller should time out near 5s, took \(elapsed)s")
     }
 
     @Test
-    func bestEffortTimeoutLeavesFetchTaskRunningForLaterCallers() async throws {
+    func interactiveTimeoutLeavesFetchTaskRunningForLaterCallers() async throws {
         let manager = AuthTokenManager()
         let token = try makeJWT()
         let counter = CallCounter()
 
         await manager.registerProvider {
             await counter.increment()
-            // Sleep longer than best-effort but well under proactive.
+            // Sleep longer than the interactive budget but well under the background budget.
             try await Task.sleep(nanoseconds: UInt64(800 * 1_000_000))
             return token
         }
 
-        // First caller bails out via best-effort timeout.
+        // First caller bails out via the interactive timeout.
         await #expect(throws: AuthTokenError.timedOut) {
-            _ = try await manager.currentToken(mode: .bestEffort)
+            _ = try await manager.currentToken(mode: .interactive)
         }
 
-        // The in-flight fetch should still be running — a proactive caller
+        // The in-flight fetch should still be running — a background caller
         // should dedup with it rather than triggering a second provider call.
-        let result = try await manager.currentToken(mode: .proactive)
+        let result = try await manager.currentToken(mode: .background)
         #expect(result == token)
 
         let invocations = await counter.value
         // Eager fetch + the dedup'd call should sum to a single invocation.
-        // (If the bestEffort timeout had killed the underlying fetch, we'd
+        // (If the interactive timeout had killed the underlying fetch, we'd
         // see a second invocation here.)
         #expect(
             invocations == 1,
-            "best-effort timeout must not cancel the shared in-flight fetch; saw \(invocations) invocations"
+            "interactive timeout must not cancel the shared in-flight fetch; saw \(invocations) invocations"
         )
     }
 
@@ -294,7 +294,7 @@ struct AuthTokenManagerTests {
         }
 
         await #expect(throws: ProviderTestError.network) {
-            _ = try await manager.currentToken(mode: .proactive)
+            _ = try await manager.currentToken(mode: .background)
         }
 
         // Without re-registering, swap the provider's behavior by registering
@@ -307,7 +307,7 @@ struct AuthTokenManagerTests {
             await recoveryCounter.increment()
             return successToken
         }
-        let result = try await manager2.currentToken(mode: .proactive)
+        let result = try await manager2.currentToken(mode: .background)
         #expect(result == successToken)
 
         let recoveryInvocations = await recoveryCounter.value
@@ -363,7 +363,7 @@ struct AuthTokenManagerTests {
             await Task.yield()
         }
 
-        let result = try await manager.currentToken(mode: .proactive)
+        let result = try await manager.currentToken(mode: .background)
         #expect(result == secondToken)
     }
 }

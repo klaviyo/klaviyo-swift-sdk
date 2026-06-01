@@ -33,11 +33,11 @@ package actor AuthTokenManager {
         /// 500ms budget. Used at form-display time, where a user is waiting on
         /// the form to appear — missing the personalization window is preferable
         /// to delaying the form.
-        case bestEffort = 0.5
+        case interactive = 0.5
 
         /// 5s budget. Used by background acquisition paths (eager fetch at
         /// registration, scheduled refresh) where no user is actively waiting.
-        case proactive = 5.0
+        case background = 5.0
     }
 
     /// Shared instance used by `KlaviyoSDK` and other SDK modules. Tests should
@@ -83,7 +83,7 @@ package actor AuthTokenManager {
         }
         Task {
             // fetch a token to warm the cache
-            _ = try? await self.currentToken(mode: .proactive)
+            _ = try? await self.currentToken(mode: .background)
         }
     }
 
@@ -105,13 +105,13 @@ package actor AuthTokenManager {
     /// `timeoutIntervalForRequest` is sufficient).
     ///
     /// - Parameter mode: Latency budget for *this* call. Defaults to
-    ///   ``FetchMode/bestEffort`` — the form-display path.
+    ///   ``FetchMode/interactive`` — the form-display path.
     /// - Throws: ``AuthTokenError/noProviderRegistered`` when no provider is
     ///   registered; ``AuthTokenError/timedOut`` when the caller's budget
     ///   elapses before the fetch completes; the provider's own error when the
     ///   provider throws; ``AuthTokenError/validationFailed(_:)`` when the
     ///   returned token fails ``JWTParser`` validation.
-    package func currentToken(mode: FetchMode = .bestEffort) async throws -> String {
+    package func currentToken(mode: FetchMode = .interactive) async throws -> String {
         if let cachedToken, isCachedTokenValid(cachedToken) {
             return cachedToken.rawToken
         }
