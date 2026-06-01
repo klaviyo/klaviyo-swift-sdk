@@ -131,7 +131,7 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         let once = OnceCallback(completionHandler)
         guard didReceiveGuard.begin(requestId) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Klaviyo: forwarding cycle detected in didReceive, skipping.")
+                Logger.notifications.warning("Forwarding cycle detected in didReceive, skipping delegate forward.")
             }
             once()
             return
@@ -155,7 +155,7 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         let once = OnceCallback(completionHandler)
         guard willPresentGuard.begin(requestId) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Klaviyo: forwarding cycle detected in willPresent, skipping.")
+                Logger.notifications.warning("Forwarding cycle detected in willPresent, skipping delegate forward.")
                 once([.list, .banner, .badge, .sound])
             } else {
                 once([.alert, .badge, .sound])

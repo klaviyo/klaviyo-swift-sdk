@@ -16,11 +16,11 @@ import Foundation
 /// Thread-safe: the first concurrent caller wins; all subsequent calls are no-ops.
 /// The body is always dispatched on the main thread — `UNUserNotificationCenter`
 /// completion handlers trap if called from a background thread.
-final class OnceCallback<Input>: @unchecked Sendable {
-    private var body: ((Input) -> Void)?
+final class OnceCallback<Input: Sendable>: @unchecked Sendable {
+    private var body: (@Sendable (Input) -> Void)?
     private let lock = NSLock()
 
-    init(_ body: @escaping (Input) -> Void) {
+    init(_ body: @escaping @Sendable (Input) -> Void) {
         self.body = body
     }
 
