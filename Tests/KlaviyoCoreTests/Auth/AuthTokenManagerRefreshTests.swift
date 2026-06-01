@@ -96,7 +96,7 @@ struct AuthTokenManagerRefreshTests {
         )
         let secondToken = try makeJWT(extraClaims: ["sub": "second"])
 
-        let manager = AuthTokenManager(lifeCycle: noopLifecycle())
+        let manager = makeManager(lifeCycle: noopLifecycle())
         let counter = CallCounter()
         let tokens = TokenBox(firstToken)
 
@@ -128,7 +128,7 @@ struct AuthTokenManagerRefreshTests {
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
 
-        let manager = AuthTokenManager(lifeCycle: lifecycle)
+        let manager = makeManager(lifeCycle: lifecycle)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -156,7 +156,7 @@ struct AuthTokenManagerRefreshTests {
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
 
-        let manager = AuthTokenManager(lifeCycle: lifecycle)
+        let manager = makeManager(lifeCycle: lifecycle)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -198,7 +198,7 @@ struct AuthTokenManagerRefreshTests {
 
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
-        let manager = AuthTokenManager(lifeCycle: lifecycle)
+        let manager = makeManager(lifeCycle: lifecycle)
         let counter = CallCounter()
         let tokens = TokenBox(shortLivedToken)
 
@@ -236,7 +236,7 @@ struct AuthTokenManagerRefreshTests {
         )
         let secondToken = try makeJWT(extraClaims: ["sub": "second"])
 
-        let manager = AuthTokenManager(lifeCycle: noopLifecycle())
+        let manager = makeManager(lifeCycle: noopLifecycle())
         let firstCounter = CallCounter()
         let secondCounter = CallCounter()
 
@@ -271,6 +271,21 @@ struct AuthTokenManagerRefreshTests {
     /// task simply parks on the await without ever firing.
     private func noopLifecycle() -> AppLifeCycleEvents {
         AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
+    }
+
+    /// Builds a manager pinned to the real wall-clock.
+    ///
+    /// The manager's `currentDate` defaults to the *global* `environment.date()`.
+    /// Under Swift Testing's parallel execution, sibling XCTest suites set
+    /// `environment = .test()`, whose clock is frozen to 2009
+    /// (`Date(timeIntervalSince1970: 1_234_567_890)`). Tokens here are minted
+    /// with real `Date()`, so a contaminated global clock leaves the manager
+    /// ~17 years behind the tokens — making `sleepUntilAndRefresh`'s remaining
+    /// duration astronomically large and the scheduled refresh effectively
+    /// never fire. Injecting the real clock keeps the manager's time source
+    /// consistent with the tokens and immune to that cross-suite mutation.
+    private func makeManager(lifeCycle: AppLifeCycleEvents) -> AuthTokenManager {
+        AuthTokenManager(lifeCycle: lifeCycle, currentDate: { Date() })
     }
 }
 #endif
