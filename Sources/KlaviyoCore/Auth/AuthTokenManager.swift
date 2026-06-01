@@ -81,6 +81,24 @@ package actor AuthTokenManager {
     /// ``init`` and survives ``registerProvider(_:)``).
     private var lifecycleCancellable: AnyCancellable?
 
+    /// Multicast hub for the proactive-refresh token stream. Each successful
+    /// proactive refresh sends the new token here (see ``performScheduledRefresh()``);
+    /// every active ``refreshes()`` subscriber receives it.
+    ///
+    /// A `PassthroughSubject` rather than a hand-rolled collection of
+    /// `AsyncStream.Continuation`s: the subject natively fans a single
+    /// `send(_:)` out to N subscribers and disposes each subscription via its
+    /// returned cancellable, so there is no continuation bookkeeping for the
+    /// actor to get wrong. ``refreshes()`` bridges it into a per-caller
+    /// `AsyncStream` with the same `sink`-based pattern the lifecycle observer
+    /// uses.
+    ///
+    /// Deliberately retained across both ``registerProvider(_:)`` and
+    /// ``clearTokenState()``: a live form display keeps its subscription across
+    /// provider swaps and profile resets, and the stream simply goes quiet
+    /// until the next successful refresh produces a token to deliver.
+    private let refreshSubject = PassthroughSubject<String, Never>()
+
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
     private let lifeCycle: AppLifeCycleEvents
@@ -113,12 +131,7 @@ package actor AuthTokenManager {
     /// logs ``currentToken(mode:)`` would emit). Calling this again later
     /// replaces the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
-        inFlight?.task.cancel()
-        inFlight = nil
-        refreshTask?.cancel()
-        refreshTask = nil
-        refreshAtWallClock = nil
-        cachedToken = nil
+        cancelInFlightWorkAndClearCache()
         provider = newProvider
 
         if #available(iOS 14.0, *) {
@@ -165,6 +178,73 @@ package actor AuthTokenManager {
 
         let task = inFlight?.task ?? startFetch()
         return try await race(fetch: task, timeoutSeconds: mode.rawValue)
+    }
+
+    /// Returns a stream of token strings produced by *proactive* refreshes.
+    ///
+    /// Each call returns an independent `AsyncStream` backed by its own
+    /// subscription to ``refreshSubject``; multiple concurrent subscribers are
+    /// supported. Only tokens from the proactive-refresh success path are
+    /// delivered (see ``performScheduledRefresh()``) — interactive
+    /// ``currentToken(mode:)`` fetches and the eager warm-up fetch do not emit
+    /// here. The stream never finishes on its own and never errors; the
+    /// consumer ends it by cancelling its iteration, which tears down the
+    /// underlying Combine subscription via `onTermination`.
+    ///
+    /// The subscription is established synchronously inside the stream's build
+    /// closure, so a refresh that fires immediately after this call is still
+    /// delivered — there is no gap between subscribing and being ready to
+    /// receive. Intended for `KlaviyoForms` to push refreshed tokens into an
+    /// active WebView.
+    ///
+    /// Why a stream and not the ``refreshSubject`` itself: the subject is
+    /// actor-isolated, and its `.send(_:)` write end must never cross the
+    /// package boundary (a consumer could otherwise inject tokens to every
+    /// subscriber). The SDK exposes Combine signals only as erased publishers
+    /// or async streams, never as bare subjects. An `AsyncStream` keeps this
+    /// API consistent with the manager's async/await surface and lets consumers
+    /// iterate with `for await`.
+    package func refreshes() -> AsyncStream<String> {
+        AsyncStream { [refreshSubject] continuation in
+            let cancellable = refreshSubject.sink { continuation.yield($0) }
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
+    }
+
+    /// Clears all token-acquisition state tied to the current user, called from
+    /// `KlaviyoSDK().resetProfile()` (e.g. on logout). Discards the cached
+    /// token, cancels the scheduled proactive refresh and its wall-clock
+    /// target, and cancels any in-flight fetch.
+    ///
+    /// Deliberately *retains* three things:
+    /// - ``provider`` — it is host integration code ("how to ask my auth system
+    ///   for a token"), not user identity. The closure is expected to read the
+    ///   current user fresh on each invocation, so the same provider serves the
+    ///   next profile. The next ``currentToken(mode:)`` call drives the next
+    ///   acquisition; this method does not eagerly re-invoke the provider.
+    /// - ``lifecycleCancellable`` — the foreground observer is safe to leave
+    ///   running across resets.
+    /// - ``refreshSubject`` — active ``refreshes()`` subscriptions (e.g. a form
+    ///   on screen during the reset) stay alive across the reset.
+    package func clearTokenState() async {
+        cancelInFlightWorkAndClearCache()
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: token state cleared")
+        }
+    }
+
+    /// Cancels the in-flight fetch and scheduled refresh, then drops the cached
+    /// token. Shared by ``registerProvider(_:)`` (which then installs a new
+    /// provider and warms the cache) and ``clearTokenState()`` (which stops
+    /// there). Does *not* touch ``provider``, ``lifecycleCancellable``, or
+    /// ``refreshSubject`` — callers decide the fate of those.
+    private func cancelInFlightWorkAndClearCache() {
+        inFlight?.task.cancel()
+        inFlight = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
+        cachedToken = nil
     }
 
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
@@ -329,12 +409,12 @@ package actor AuthTokenManager {
         guard provider != nil else { return }
         let task = inFlight?.task ?? startFetch()
         do {
-            _ = try await task.value
+            let token = try await task.value
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: refresh succeeded")
             }
-            // Hook for MAGE-626: emit refresh-stream notification to live
-            // consumers here.
+            // Deliver the refreshed token to live ``refreshes()`` subscribers.
+            refreshSubject.send(token)
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)

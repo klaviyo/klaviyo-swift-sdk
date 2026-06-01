@@ -496,7 +496,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken
-                ))
+                )
+            )
 
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
             let request = KlaviyoRequest(endpoint: endpoint)
@@ -518,6 +519,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
             ])
+
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey
@@ -622,6 +624,13 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.reset()
+
+            // Clear the auth-token cache and cancel any scheduled refresh tied
+            // to the outgoing profile. The provider is retained — see
+            // ``AuthTokenManager/clearTokenState()``.
+            Task {
+                await AuthTokenManager.shared.clearTokenState()
+            }
             return .none
 
         case let .setProfileProperty(key, value):

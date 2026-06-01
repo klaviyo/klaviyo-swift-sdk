@@ -264,7 +264,116 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
+    // MARK: - Refresh stream (refreshes())
+
+    @Test
+    func refreshesDeliversProactivelyRefreshedTokenToAllSubscribers() async throws {
+        // Reuse the timing from `refreshFiresAtScheduledTimeAndChainsNextSchedule`:
+        // the refresh target lands at ~now+10s (upper clamp = exp-30).
+        let nowSeconds = Date().timeIntervalSince1970
+        let firstToken = try makeJWT(
+            issuedAt: nowSeconds - 60,
+            expiresAt: nowSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+
+        let manager = makeManager(lifeCycle: noopLifecycle())
+        let counter = CallCounter()
+        let tokens = TokenBox(firstToken)
+
+        await manager.registerProvider {
+            await counter.increment()
+            return await tokens.value
+        }
+        try await counter.waitFor(atLeast: 1)
+
+        // Two independent subscribers, both attached before the refresh fires.
+        let streamA = await manager.refreshes()
+        let streamB = await manager.refreshes()
+
+        await tokens.set(secondToken)
+
+        // Each subscriber's first delivered element must be the refreshed token.
+        async let firstA = firstElement(of: streamA)
+        async let firstB = firstElement(of: streamB)
+        let (deliveredA, deliveredB) = await (firstA, firstB)
+
+        #expect(deliveredA == secondToken)
+        #expect(deliveredB == secondToken)
+    }
+
+    // MARK: - clearTokenState
+
+    @Test
+    func clearTokenStateDropsCachedTokenButRetainsProvider() async throws {
+        // Warm the cache, then clear. The next fetch must re-invoke the
+        // (retained) provider rather than serve a stale cache — observable by
+        // swapping the provider's output and seeing the new value come back
+        // without any re-registration.
+        let first = try makeJWT(extraClaims: ["sub": "first"])
+        let second = try makeJWT(extraClaims: ["sub": "second"])
+        let tokens = TokenBox(first)
+
+        let manager = makeManager(lifeCycle: noopLifecycle())
+        await manager.registerProvider { await tokens.value }
+
+        let warm = try await manager.currentToken(mode: .background)
+        #expect(warm == first)
+
+        await tokens.set(second)
+        await manager.clearTokenState()
+
+        let afterReset = try await manager.currentToken(mode: .background)
+        #expect(
+            afterReset == second,
+            "cleared cache should re-fetch via the retained provider, not serve the old token"
+        )
+    }
+
+    @Test
+    func clearTokenStateCancelsScheduledRefresh() async throws {
+        // Acquire a short-lived token whose refresh would fire at ~now+10s,
+        // then immediately clear token state. Wait past where the refresh would
+        // have fired; the provider must not be called a second time.
+        let nowSeconds = Date().timeIntervalSince1970
+        let token = try makeJWT(
+            issuedAt: nowSeconds - 60,
+            expiresAt: nowSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+
+        let manager = makeManager(lifeCycle: noopLifecycle())
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        try await counter.waitFor(atLeast: 1)
+
+        await manager.clearTokenState()
+
+        // Past the original schedule's ~now+10s target (and the 5s proactive
+        // timeout), 12s is safely clear of where the refresh would have fired.
+        try await Task.sleep(nanoseconds: UInt64(12 * 1_000_000_000))
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 1,
+            "clearTokenState must cancel the scheduled refresh, saw \(invocations) invocations"
+        )
+    }
+
     // MARK: - Test helpers
+
+    /// Returns the first element a stream delivers (or `nil` if it finishes
+    /// without delivering). Each call drives its own iterator, so independent
+    /// subscribers can be awaited concurrently.
+    private func firstElement(of stream: AsyncStream<String>) async -> String? {
+        var iterator = stream.makeAsyncIterator()
+        return await iterator.next()
+    }
 
     /// Lifecycle source that emits nothing, for tests that don't exercise the
     /// foreground transition path. Uses an `Empty` publisher so the observer
