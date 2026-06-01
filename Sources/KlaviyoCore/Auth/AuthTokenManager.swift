@@ -76,10 +76,10 @@ package actor AuthTokenManager {
     /// elapsed-sleep duration alone would fire late.
     private var refreshAtWallClock: Date?
 
-    /// Long-lived task that consumes the lifecycle event stream and dispatches
-    /// foreground transitions to ``handleForegroundTransition()``. Bound to the
-    /// actor's lifetime (started in ``init`` and survives ``registerProvider(_:)``).
-    private var lifecycleObserverTask: Task<Void, Never>?
+    /// Long-lived Combine subscription that dispatches foreground transitions to
+    /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
+    /// ``init`` and survives ``registerProvider(_:)``).
+    private var lifecycleCancellable: AnyCancellable?
 
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
@@ -345,45 +345,23 @@ package actor AuthTokenManager {
         }
     }
 
-    /// Starts the long-lived ``lifecycleObserverTask`` that drives
+    /// Starts the long-lived Combine subscription that drives
     /// ``handleForegroundTransition()`` on each `.foregrounded` event. Idempotent:
     /// no-op if the observer is already running, so retry-on-restart paths can
     /// call this safely.
+    ///
+    /// The `sink` closure is non-isolated, so each event hops back onto the actor
+    /// via an unstructured `Task`. Foreground events are not bursty (a
+    /// `.foregrounded` is always preceded by a `.backgrounded`), and the actor
+    /// already serializes the state `handleForegroundTransition()` touches, so the
+    /// lack of cross-event ordering between those tasks is immaterial.
     private func startLifecycleObserver() {
-        guard lifecycleObserverTask == nil else { return }
-        lifecycleObserverTask = Task { [weak self] in
-            guard let stream = await self?.makeLifecycleStream() else { return }
-            for await event in stream {
-                guard case .foregrounded = event else { continue }
-                await self?.handleForegroundTransition()
+        guard lifecycleCancellable == nil else { return }
+        lifecycleCancellable = lifeCycle.lifeCycleEvents()
+            .sink { [weak self] event in
+                guard case .foregrounded = event else { return }
+                Task { await self?.handleForegroundTransition() }
             }
-        }
-    }
-
-    /// Bridges the Combine-backed ``AppLifeCycleEvents`` publisher into an
-    /// `AsyncStream`. iOS 15+ uses `Publisher.values`; iOS 13/14 falls back to
-    /// `sink`-into-continuation (the pattern already established by
-    /// `LifecycleObserver` in `KlaviyoForms`). The wrapping `AsyncStream` keeps
-    /// the consumer call site homogeneous, and when the SDK eventually bumps
-    /// its iOS minimum to 15 the `else` branch is a clean delete.
-    private func makeLifecycleStream() -> AsyncStream<LifeCycleEvents> {
-        let publisher = lifeCycle.lifeCycleEvents()
-        return AsyncStream { continuation in
-            if #available(iOS 15.0, *) {
-                let task = Task {
-                    for await event in publisher.values {
-                        continuation.yield(event)
-                    }
-                    continuation.finish()
-                }
-                continuation.onTermination = { _ in task.cancel() }
-            } else {
-                let cancellable = publisher.sink { event in
-                    continuation.yield(event)
-                }
-                continuation.onTermination = { _ in cancellable.cancel() }
-            }
-        }
     }
 
     /// Reconciles cache and scheduled-refresh state with wall-clock time when
