@@ -440,7 +440,7 @@ package actor AuthTokenManager {
         lifecycleCancellable = lifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 guard case .foregrounded = event else { return }
-                Task { await self?.handleForegroundTransition() }
+                Task { [weak self] in await self?.handleForegroundTransition() }
             }
     }
 
