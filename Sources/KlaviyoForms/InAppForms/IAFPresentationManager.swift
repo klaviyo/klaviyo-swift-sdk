@@ -36,6 +36,7 @@ class IAFPresentationManager {
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
+    private var tokenRefreshTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -166,6 +167,27 @@ class IAFPresentationManager {
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
+
+        startTokenRefreshObservation()
+    }
+
+    /// Subscribes to ``AuthTokenManager``'s proactive-refresh stream for the
+    /// lifetime of the WebView, pushing each refreshed token into the live page
+    /// via ``IAFWebViewModel/pushAuthToken(_:)`` so onsite always has a fresh
+    /// token — whether or not a form is currently on screen.
+    ///
+    /// Bound to the WebView's lifetime, not a single form display: started here
+    /// (the single WebView-creation site) and cancelled in ``destroyWebView()``
+    /// (the single destruction site). `self` (the shared manager) is captured
+    /// weakly and re-acquired inside the loop, matching the other observer tasks.
+    private func startTokenRefreshObservation() {
+        tokenRefreshTask = Task { [weak self] in
+            let stream = await AuthTokenManager.shared.refreshes()
+            for await token in stream {
+                guard let self else { return }
+                await self.viewModel?.pushAuthToken(token)
+            }
+        }
     }
 
     // MARK: - Form Lifecycle Listener Setup
@@ -466,6 +488,8 @@ class IAFPresentationManager {
 
         performDismiss(viewController: viewController)
 
+        tokenRefreshTask?.cancel()
+        tokenRefreshTask = nil
         self.viewController = nil
         viewModel = nil
     }
