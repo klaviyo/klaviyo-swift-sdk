@@ -47,7 +47,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test initialize
 
-    func testInitializeSDk() {
+    func testInitializeSDk() throws {
         let expectation = setupActionAssertion(expectedAction: .initialize(TEST_API_KEY))
 
         klaviyo.initialize(with: TEST_API_KEY)
@@ -57,7 +57,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set proprety
 
-    func testSetFirstName() {
+    func testSetFirstName() throws {
         let expectation = setupActionAssertion(expectedAction: .setProfileProperty(.firstName, "test"))
 
         klaviyo.set(profileAttribute: .firstName, value: "test")
@@ -67,7 +67,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set profile
 
-    func testSetProfile() {
+    func testSetProfile() throws {
         let profile = Profile(
             email: "john.smith@example.com",
             phoneNumber: "+15555551212",
@@ -83,7 +83,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test create event
 
-    func testCreateEvent() {
+    func testCreateEvent() throws {
         let event = Event(name: .openedAppMetric)
         let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
 
@@ -92,7 +92,7 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    func testCreateEventFromDocumentation() {
+    func testCreateEventFromDocumentation() throws {
         let event = Event(name: .addedToCartMetric, properties: [
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
@@ -106,7 +106,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set push token
 
-    func testSetPushToken() {
+    func testSetPushToken() throws {
         let tokenData = "mytoken".data(using: .utf8)!
         let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
         let expectation = setupActionAssertion(expectedAction: .setPushToken(strToken, .authorized))
@@ -118,7 +118,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set external id
 
-    func testSetExternalId() {
+    func testSetExternalId() throws {
         let expectation = setupActionAssertion(expectedAction: .setExternalId("foo"))
 
         _ = klaviyo.set(externalId: "foo")
@@ -170,7 +170,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test property getters
 
-    func testPropertyGetters() {
+    func testPropertyGetters() throws {
         klaviyoSwiftEnvironment.state = { KlaviyoState(email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id", pushTokenData: .init(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo())), queue: []) }
         let klaviyo = KlaviyoSDK()
         XCTAssertEqual("foo@foo.com", klaviyo.email)
@@ -309,7 +309,6 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleActionButtonTap_DeepLinkWithAllProperties() throws {
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionURL = try XCTUnwrap(URL(string: "myapp://products/123"))
         let actionId = "com.klaviyo.test.shop"
         let buttonLabel = "Shop Now"
@@ -333,14 +332,6 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
             return nil
         }
 
@@ -353,7 +344,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        wait(for: [callback], timeout: 1.0)
         XCTAssertTrue(handled, "Should handle Klaviyo notification with action button")
 
         // Verify event was created
@@ -366,7 +357,7 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertNotNil(eventAction, "Should create $opened_push event")
 
         // Verify event properties
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
+        if case let .enqueueEvent(event) = eventAction! {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
             XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
             XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
@@ -382,7 +373,6 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleActionButtonTap_OpenAppWithoutURL() throws {
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionId = "com.klaviyo.test.open"
         let buttonLabel = "Open App"
 
@@ -403,14 +393,6 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
             return nil
         }
 
@@ -423,7 +405,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        wait(for: [callback], timeout: 1.0)
         XCTAssertTrue(handled)
 
         // Verify event was created
@@ -436,7 +418,7 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertNotNil(eventAction, "Should create $opened_push event")
 
         // Verify event properties
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
+        if case let .enqueueEvent(event) = eventAction! {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
             XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
             XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
@@ -447,7 +429,6 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleActionButtonTap_NotTriggeredOnBodyTap() throws {
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionId = "com.klaviyo.test.button"
         let buttonLabel = "Tap Me"
 
@@ -467,14 +448,6 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
             return nil
         }
 
@@ -488,7 +461,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        wait(for: [callback], timeout: 1.0)
         XCTAssertTrue(handled)
 
         // Verify event was created (for body tap)
@@ -501,7 +474,7 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertNotNil(eventAction, "Should create $opened_push event for body tap")
 
         // Verify button properties are NOT included for body tap
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
+        if case let .enqueueEvent(event) = eventAction! {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
             XCTAssertNil(event.properties["Button ID"], "Should NOT include Button ID for body tap")
             XCTAssertNil(event.properties["Button Label"], "Should NOT include Button Label for body tap")
