@@ -503,8 +503,6 @@ class IAFPresentationManager {
 
         performDismiss(viewController: viewController)
 
-        tokenRefreshTask?.cancel()
-        tokenRefreshTask = nil
         self.viewController = nil
         viewModel = nil
     }
