@@ -14,6 +14,13 @@ import Testing
 
 @Suite
 struct AuthTokenManagerRefreshTests {
+    /// Fixed instant every test pins its clock and tokens to. Using a constant
+    /// (rather than `Date()`) makes the suite immune to real elapsed time: the
+    /// manager's clock only moves when a test moves it, so token validity
+    /// windows and refresh-fire times never depend on how slow or loaded the
+    /// host is. This is what makes the real-time paths below deterministic on CI.
+    private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+
     // MARK: - Scheduling formula (pure-function tests, no real time)
 
     @Test
@@ -78,41 +85,49 @@ struct AuthTokenManagerRefreshTests {
         #expect(target == Date(timeIntervalSince1970: 1005))
     }
 
-    // MARK: - Refresh fires (real-time, end-to-end)
+    // MARK: - Refresh fires (virtual-time, end-to-end)
 
     @Test
     func refreshFiresAtScheduledTimeAndChainsNextSchedule() async throws {
-        // Token lifetime is chosen so the refresh target lands at the lower
-        // clamp (now + 5s). The token must still validate against JWTParser,
-        // which requires `now < exp - 30s`, so exp must be at least ~31s out.
-        // exp=now+40 gives a ~10s validation window for test startup latency.
-        // iat=now-60, exp=now+40 → 100s lifetime, ideal=now+30, upper=now+10,
-        // lower=now+5 → max(now+5, min(now+30, now+10)) = now+10.
-        let nowSeconds = Date().timeIntervalSince1970
+        // iat=ref-60, exp=ref+40 → 100s lifetime; ideal=ref+30, upper=exp-30=
+        // ref+10, lower=ref+5 → refresh target lands at the upper clamp, ref+10.
         let firstToken = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 40,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
             extraClaims: ["sub": "first"]
         )
-        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+        // Long-lived so it validates once the clock has advanced to the fire time.
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let counter = CallCounter()
-        let tokens = TokenBox(firstToken)
 
         await manager.registerProvider {
-            await counter.increment()
-            return await tokens.value
+            let invocation = await counter.increment()
+            return invocation == 1 ? firstToken : secondToken
         }
         try await counter.waitFor(atLeast: 1)
 
-        // Swap the provider's payload so we can observe the next fetch.
-        await tokens.set(secondToken)
+        // The scheduled refresh is armed and parked in the gate (which also
+        // confirms firstToken is cached). Subscribe, then drive virtual time to
+        // the fire point and release the parked sleep.
+        await gate.waitUntilSleeping(atLeast: 1)
+        let stream = await manager.refreshes()
 
-        // Scheduled refresh fires at ~now+10s. Wait for the second invocation.
-        try await counter.waitFor(atLeast: 2)
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
 
-        // The successful refresh wrote secondToken to the cache.
+        // The proactive refresh fetched secondToken and broadcast it...
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == secondToken)
+
+        // ...and wrote it to the cache.
         let cached = try await manager.currentToken(mode: .background)
         #expect(cached == secondToken)
     }
@@ -124,11 +139,13 @@ struct AuthTokenManagerRefreshTests {
         // Hour-long token; foreground transition should be a no-op (refresh
         // is far in the future, cache is healthy). Assert by counting
         // provider invocations: exactly one (initial fetch) is expected.
-        let validToken = try makeJWT()
+        let validToken = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
 
-        let manager = makeManager(lifeCycle: lifecycle)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -136,6 +153,9 @@ struct AuthTokenManagerRefreshTests {
             return validToken
         }
         try await counter.waitFor(atLeast: 1)
+        // Confirm the token is cached and the (far-future) refresh is armed
+        // before we foreground, so the no-op path is what's exercised.
+        await gate.waitUntilSleeping(atLeast: 1)
 
         lifecycleSubject.send(.foregrounded)
 
@@ -152,11 +172,13 @@ struct AuthTokenManagerRefreshTests {
     func nonForegroundLifecycleEventsAreIgnored() async throws {
         // Backgrounded/terminated/reachabilityChanged must not trigger the
         // foreground handler.
-        let token = try makeJWT()
+        let token = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
 
-        let manager = makeManager(lifeCycle: lifecycle)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -164,6 +186,7 @@ struct AuthTokenManagerRefreshTests {
             return token
         }
         try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
 
         lifecycleSubject.send(.backgrounded)
         lifecycleSubject.send(.terminated)
@@ -179,42 +202,46 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func foregroundWithExpiredCachedTokenClearsCacheAndRefetches() async throws {
-        // Token lifetime is just barely past JWTParser's 30s leeway, so it
-        // validates at acquisition but becomes "expired" (per
-        // `isCachedTokenValid`) within a couple of real seconds.
-        //
-        // iat=now-60, exp=now+31 → validates if real wall time < exp-30 = now+1.
-        // After sleeping ~2s, the cached token is stale. Sending .foregrounded
-        // then drives the "expired cached token" branch of
-        // handleForegroundTransition, which clears the cache and triggers an
-        // eager fetch via the swapped TokenBox.
-        let nowSeconds = Date().timeIntervalSince1970
+        // iat=ref-60, exp=ref+31 → validates at the clock's start (ref < exp-30
+        // = ref+1), but becomes stale the moment the clock crosses ref+1.
+        // Advancing the clock to ref+2 makes the cached token expired; sending
+        // .foregrounded then drives the "expired cached token" branch of
+        // handleForegroundTransition, which clears the cache and refetches.
         let shortLivedToken = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 31,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 31,
             extraClaims: ["sub": "expiring"]
         )
-        let freshToken = try makeJWT(extraClaims: ["sub": "fresh"])
+        let freshToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "fresh"]
+        )
 
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
-        let manager = makeManager(lifeCycle: lifecycle)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
         let counter = CallCounter()
-        let tokens = TokenBox(shortLivedToken)
 
         await manager.registerProvider {
-            await counter.increment()
-            return await tokens.value
+            let invocation = await counter.increment()
+            return invocation == 1 ? shortLivedToken : freshToken
         }
         try await counter.waitFor(atLeast: 1)
+        // shortLivedToken is now cached and its refresh armed.
+        await gate.waitUntilSleeping(atLeast: 1)
 
-        // Swap to a long-lived token and wait until the cached token has
-        // crossed the staleness threshold.
-        await tokens.set(freshToken)
-        try await Task.sleep(nanoseconds: UInt64(2 * 1_000_000_000))
-
+        // Advance past the cached token's staleness threshold (exp - 30 = ref+1),
+        // then foreground. The expired-cache branch clears the cache and eagerly
+        // refetches (invocation 2 → freshToken), which caches and arms the next
+        // refresh.
+        clock.set(referenceDate.addingTimeInterval(2))
         lifecycleSubject.send(.foregrounded)
+
         try await counter.waitFor(atLeast: 2)
+        await gate.waitUntilSleeping(atLeast: 2)
 
         let resolved = try await manager.currentToken(mode: .background)
         #expect(resolved == freshToken)
@@ -224,19 +251,25 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func registerProviderCancelsPriorScheduledRefresh() async throws {
-        // Acquire a short-lived token whose refresh would fire at ~now+10s,
-        // then immediately re-register with a long-lived token. Wait past
-        // where the original refresh would have fired; the original provider
-        // must not be called a second time.
-        let nowSeconds = Date().timeIntervalSince1970
+        // Acquire a short-lived token whose refresh would fire at ref+10, then
+        // immediately re-register with a long-lived token. Drive virtual time
+        // past where the original refresh would have fired and release its
+        // (now-cancelled) parked sleep; the original provider must not be called
+        // a second time.
         let firstToken = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 40,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
             extraClaims: ["sub": "first"]
         )
-        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let firstCounter = CallCounter()
         let secondCounter = CallCounter()
 
@@ -245,17 +278,23 @@ struct AuthTokenManagerRefreshTests {
             return firstToken
         }
         try await firstCounter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
 
         await manager.registerProvider {
             await secondCounter.increment()
             return secondToken
         }
         try await secondCounter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 2)
 
-        // Wait past where the original refresh would have fired (~now+10s).
-        // The default proactive timeout (5s) and the original schedule's
-        // lower-clamp (now+5s) are both below 12s, so 12s is safely past.
-        try await Task.sleep(nanoseconds: UInt64(12 * 1_000_000_000))
+        // Move past the original target (ref+10) and wake the oldest parked
+        // sleep — that's the original schedule, which was cancelled by the
+        // re-registration and must exit without refetching.
+        clock.set(referenceDate.addingTimeInterval(40))
+        await gate.release()
+        for _ in 0..<100 {
+            await Task.yield()
+        }
 
         let firstInvocations = await firstCounter.value
         #expect(
@@ -268,31 +307,37 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func refreshesDeliversProactivelyRefreshedTokenToAllSubscribers() async throws {
-        // Reuse the timing from `refreshFiresAtScheduledTimeAndChainsNextSchedule`:
-        // the refresh target lands at ~now+10s (upper clamp = exp-30).
-        let nowSeconds = Date().timeIntervalSince1970
+        // Same timing as `refreshFiresAtScheduledTimeAndChainsNextSchedule`:
+        // the refresh target lands at ref+10 (upper clamp = exp-30).
         let firstToken = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 40,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
             extraClaims: ["sub": "first"]
         )
-        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let counter = CallCounter()
-        let tokens = TokenBox(firstToken)
 
         await manager.registerProvider {
-            await counter.increment()
-            return await tokens.value
+            let invocation = await counter.increment()
+            return invocation == 1 ? firstToken : secondToken
         }
         try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
 
         // Two independent subscribers, both attached before the refresh fires.
         let streamA = await manager.refreshes()
         let streamB = await manager.refreshes()
 
-        await tokens.set(secondToken)
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
 
         // Each subscriber's first delivered element must be the refreshed token.
         async let firstA = firstElement(of: streamA)
@@ -309,19 +354,32 @@ struct AuthTokenManagerRefreshTests {
     func clearTokenStateDropsCachedTokenButRetainsProvider() async throws {
         // Warm the cache, then clear. The next fetch must re-invoke the
         // (retained) provider rather than serve a stale cache — observable by
-        // swapping the provider's output and seeing the new value come back
-        // without any re-registration.
-        let first = try makeJWT(extraClaims: ["sub": "first"])
-        let second = try makeJWT(extraClaims: ["sub": "second"])
-        let tokens = TokenBox(first)
+        // returning a different token on the second invocation and seeing it
+        // come back without any re-registration.
+        let first = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "first"]
+        )
+        let second = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
-        await manager.registerProvider { await tokens.value }
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            return invocation == 1 ? first : second
+        }
 
         let warm = try await manager.currentToken(mode: .background)
         #expect(warm == first)
 
-        await tokens.set(second)
         await manager.clearTokenState()
 
         let afterReset = try await manager.currentToken(mode: .background)
@@ -333,17 +391,19 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func clearTokenStateCancelsScheduledRefresh() async throws {
-        // Acquire a short-lived token whose refresh would fire at ~now+10s,
-        // then immediately clear token state. Wait past where the refresh would
-        // have fired; the provider must not be called a second time.
-        let nowSeconds = Date().timeIntervalSince1970
+        // Acquire a short-lived token whose refresh would fire at ref+10, then
+        // immediately clear token state. Drive virtual time past where the
+        // refresh would have fired and release its (now-cancelled) parked sleep;
+        // the provider must not be called a second time.
         let token = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 40,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
             extraClaims: ["sub": "first"]
         )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -351,12 +411,15 @@ struct AuthTokenManagerRefreshTests {
             return token
         }
         try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
 
         await manager.clearTokenState()
 
-        // Past the original schedule's ~now+10s target (and the 5s proactive
-        // timeout), 12s is safely clear of where the refresh would have fired.
-        try await Task.sleep(nanoseconds: UInt64(12 * 1_000_000_000))
+        clock.set(referenceDate.addingTimeInterval(40))
+        await gate.release()
+        for _ in 0..<100 {
+            await Task.yield()
+        }
 
         let invocations = await counter.value
         #expect(
@@ -377,15 +440,20 @@ struct AuthTokenManagerRefreshTests {
         // the residual window where the fetch *completes* in the instant before
         // the send; that sub-window isn't deterministically reproducible in a
         // unit test, so it isn't asserted directly here.
-        let nowSeconds = Date().timeIntervalSince1970
         let firstToken = try makeJWT(
-            issuedAt: nowSeconds - 60,
-            expiresAt: nowSeconds + 40,
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
             extraClaims: ["sub": "first"]
         )
-        let secondToken = try makeJWT(extraClaims: ["sub": "second"])
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
 
-        let manager = makeManager(lifeCycle: noopLifecycle())
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let counter = CallCounter()
         let refreshStarted = Latch()
         let releaseRefresh = Latch()
@@ -400,6 +468,7 @@ struct AuthTokenManagerRefreshTests {
             return secondToken
         }
         try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
 
         let collector = TokenCollector()
         let consumer = Task {
@@ -407,6 +476,11 @@ struct AuthTokenManagerRefreshTests {
                 await collector.append(token)
             }
         }
+
+        // Fire the scheduled refresh: advance to the target and release the
+        // parked sleep, which kicks off the second fetch.
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
 
         // Wait until the scheduled refresh has entered the provider, then reset
         // while it is suspended and let it return.
@@ -430,6 +504,12 @@ struct AuthTokenManagerRefreshTests {
 
     // MARK: - Test helpers
 
+    /// `referenceDate` as seconds-since-1970, for minting tokens whose `iat`/`exp`
+    /// are expressed relative to the suite's fixed clock.
+    private var refSeconds: TimeInterval {
+        referenceDate.timeIntervalSince1970
+    }
+
     /// Returns the first element a stream delivers (or `nil` if it finishes
     /// without delivering). Each call drives its own iterator, so independent
     /// subscribers can be awaited concurrently.
@@ -445,19 +525,25 @@ struct AuthTokenManagerRefreshTests {
         AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
     }
 
-    /// Builds a manager pinned to the real wall-clock.
+    /// Builds a manager driven by a deterministic clock and sleep gate.
     ///
-    /// The manager's `currentDate` defaults to the *global* `environment.date()`.
-    /// Under Swift Testing's parallel execution, sibling XCTest suites set
-    /// `environment = .test()`, whose clock is frozen to 2009
-    /// (`Date(timeIntervalSince1970: 1_234_567_890)`). Tokens here are minted
-    /// with real `Date()`, so a contaminated global clock leaves the manager
-    /// ~17 years behind the tokens — making `sleepUntilAndRefresh`'s remaining
-    /// duration astronomically large and the scheduled refresh effectively
-    /// never fire. Injecting the real clock keeps the manager's time source
-    /// consistent with the tokens and immune to that cross-suite mutation.
-    private func makeManager(lifeCycle: AppLifeCycleEvents) -> AuthTokenManager {
-        AuthTokenManager(lifeCycle: lifeCycle, currentDate: { Date() })
+    /// The manager's `currentDate` and `sleep` both default to real wall-clock
+    /// sources (`environment.date` / `Task.sleep`). Tests inject a ``TestClock``
+    /// and ``SleepGate`` instead so token validity, refresh scheduling, and
+    /// refresh firing all advance in virtual time under the test's control —
+    /// removing the real-time races that made these paths flaky on slow,
+    /// parallel CI. Injecting also sidesteps the SDK-wide global `environment`,
+    /// which sibling suites mutate concurrently under Swift Testing.
+    private func makeManager(
+        lifeCycle: AppLifeCycleEvents,
+        clock: TestClock,
+        gate: SleepGate
+    ) -> AuthTokenManager {
+        AuthTokenManager(
+            lifeCycle: lifeCycle,
+            currentDate: { clock.now() },
+            sleep: { await gate.sleep($0) }
+        )
     }
 }
 #endif

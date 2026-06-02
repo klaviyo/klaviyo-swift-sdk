@@ -104,21 +104,61 @@ package actor AuthTokenManager {
     private let lifeCycle: AppLifeCycleEvents
 
     /// Wall-clock source. Injected for testability; defaults to the SDK-wide
-    /// `environment.date` closure. Used by both cached-token validity checks
-    /// and the proactive-refresh scheduling formula so a single time source
-    /// drives every clock-sensitive decision the actor makes.
+    /// `environment.date` closure. Used by cached-token validity checks, the JWT
+    /// validation on acquisition, and the proactive-refresh scheduling formula
+    /// so a single time source drives every clock-sensitive decision the actor
+    /// makes.
     private let currentDate: () -> Date
 
+    /// Sleep primitive backing the proactive-refresh loop. Injected for
+    /// testability so tests can drive the schedule deterministically rather than
+    /// waiting on real wall-clock time; defaults to `Task.sleep(nanoseconds:)`.
+    /// Cancellation is observed through the enclosing task's `Task.isCancelled`
+    /// check in ``sleepUntilAndRefresh(target:)``, so the default deliberately
+    /// swallows the `CancellationError` `Task.sleep` throws.
+    private let sleeper: @Sendable (UInt64) async -> Void
+
+    /// Production initializer. Wires the actor to the real SDK-wide clock
+    /// (`environment.date`) and `Task.sleep`. This is the only initializer
+    /// visible to sibling product modules, and is what ``shared`` uses.
+    ///
+    /// - Parameter lifeCycle: Source of foreground/background events. Defaults
+    ///   to `environment.appLifeCycle`.
+    package init(lifeCycle: AppLifeCycleEvents = environment.appLifeCycle) {
+        self.lifeCycle = lifeCycle
+        currentDate = { environment.date() }
+        sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        Task { await self.startLifecycleObserver() }
+    }
+
+    /// Test-only initializer that injects the time sources the production path
+    /// hardcodes, so suites can drive token validity, refresh scheduling, and
+    /// refresh firing in deterministic virtual time.
+    ///
+    /// Deliberately `internal` rather than `package`: it is reachable from the
+    /// test target via `@testable import KlaviyoCore`, but invisible to sibling
+    /// product modules' normal imports — the closest Swift gets to a
+    /// "test-target-only" symbol. It is *not* wrapped in `#if DEBUG`, because the
+    /// suite is also exercised in the release configuration
+    /// (`make CONFIG=release test-library`), where a debug-only initializer
+    /// would fail to compile. The required `currentDate` (no default) keeps this
+    /// from overlapping with the no-argument production initializer above.
+    ///
     /// - Parameters:
-    ///   - lifeCycle: Source of foreground/background events. Defaults to
-    ///     `environment.appLifeCycle`.
-    ///   - currentDate: Wall-clock source. Defaults to `environment.date`.
-    package init(
+    ///   - lifeCycle: Source of foreground/background events.
+    ///   - currentDate: Wall-clock source driving every clock-sensitive decision.
+    ///   - sleep: Sleep primitive for the refresh loop, taking a duration in
+    ///     nanoseconds. Defaults to `Task.sleep(nanoseconds:)`.
+    init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
-        currentDate: @escaping () -> Date = { environment.date() }
+        currentDate: @escaping () -> Date,
+        sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        }
     ) {
         self.lifeCycle = lifeCycle
         self.currentDate = currentDate
+        sleeper = sleep
         Task { await self.startLifecycleObserver() }
     }
 
@@ -291,7 +331,7 @@ package actor AuthTokenManager {
             // been bound to a newer provider.
             try Task.checkCancellation()
 
-            switch JWTParser.parseAndValidate(rawToken) {
+            switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
                 scheduleRefresh(for: validated)
@@ -373,9 +413,9 @@ package actor AuthTokenManager {
     }
 
     /// Sleeps until `target` wall-clock time, then fires
-    /// ``performScheduledRefresh()``. The loop re-reads ``now()`` on every
-    /// wakeup rather than trusting that `Task.sleep` slept the full requested
-    /// duration: when the app is backgrounded, wall time advances but
+    /// ``performScheduledRefresh()``. The loop re-reads ``currentDate()`` on
+    /// every wakeup rather than trusting that the ``sleeper`` slept the full
+    /// requested duration: when the app is backgrounded, wall time advances but
     /// `Task.sleep` does not, so a single sleep would fire late by exactly the
     /// backgrounded duration. Re-checking the clock self-corrects — the next
     /// wakeup observes the post-jump time and exits.
@@ -388,7 +428,7 @@ package actor AuthTokenManager {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
             if remaining <= 0 { break }
-            try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            await sleeper(UInt64(remaining * 1_000_000_000))
         }
         guard !Task.isCancelled else { return }
         refreshAtWallClock = nil
