@@ -176,11 +176,20 @@ class IAFPresentationManager {
     /// via ``IAFWebViewModel/pushAuthToken(_:)`` so onsite always has a fresh
     /// token — whether or not a form is currently on screen.
     ///
-    /// Bound to the WebView's lifetime, not a single form display: started here
-    /// (the single WebView-creation site) and cancelled in ``destroyWebView()``
-    /// (the single destruction site). `self` (the shared manager) is captured
-    /// weakly and re-acquired inside the loop, matching the other observer tasks.
+    /// Bound to the WebView's lifetime, not a single form display: started on
+    /// WebView creation and cancelled in ``destroyWebView()``. `self` (the shared
+    /// manager) is captured weakly and re-acquired inside the loop, matching the
+    /// other observer tasks.
+    ///
+    /// Cancels any existing task before replacing it: `viewController` can be
+    /// cleared without going through ``destroyWebView()`` (e.g. a failed
+    /// presentation in ``presentFormAsModal(viewController:)``), after which a
+    /// reinit can call this again — without this cancel the prior task's handle
+    /// would be overwritten and its `refreshes()` loop would leak (the shared
+    /// manager never deallocates, so the `[weak self]` guard never trips),
+    /// double-pushing every future token.
     private func startTokenRefreshObservation() {
+        tokenRefreshTask?.cancel()
         tokenRefreshTask = Task { [weak self] in
             let stream = await AuthTokenManager.shared.refreshes()
             for await token in stream {
@@ -484,12 +493,16 @@ class IAFPresentationManager {
     // MARK: - Cleanup & Destruction
 
     func destroyWebView() {
+        // Cancel before the guard: `viewController` may already have been cleared
+        // elsewhere (e.g. a failed presentation) while the token-refresh task is
+        // still running, so gating the cancel on `viewController` would leak it.
+        tokenRefreshTask?.cancel()
+        tokenRefreshTask = nil
+
         guard let viewController else { return }
 
         performDismiss(viewController: viewController)
 
-        tokenRefreshTask?.cancel()
-        tokenRefreshTask = nil
         self.viewController = nil
         viewModel = nil
     }
