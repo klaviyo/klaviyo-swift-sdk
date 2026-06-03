@@ -76,6 +76,20 @@ package actor AuthTokenManager {
     /// elapsed-sleep duration alone would fire late.
     private var refreshAtWallClock: Date?
 
+    /// `true` while a proactive refresh has failed for a network reason and the
+    /// manager is waiting for connectivity to be restored before retrying.
+    ///
+    /// This is a single boolean rather than a dedicated task because connectivity
+    /// is observed through the already-running ``lifecycleCancellable`` sink (the
+    /// SDK's existing reachability signal), not a separate per-wait subscription.
+    /// The flag is the "at most one pending wait" guarantee: a network-classified
+    /// refresh failure arms it (see ``performScheduledRefresh()``), the next
+    /// reachable ``Reachability/NetworkStatus`` consumes it (see
+    /// ``handleReachabilityChange(_:)``), and rapid network flapping cannot queue
+    /// multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()`` so a
+    /// provider swap or profile reset drops any pending retry.
+    private var isAwaitingConnectivityRetry = false
+
     /// Long-lived Combine subscription that dispatches foreground transitions to
     /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
     /// ``init`` and survives ``registerProvider(_:)``).
@@ -279,6 +293,7 @@ package actor AuthTokenManager {
         refreshTask?.cancel()
         refreshTask = nil
         refreshAtWallClock = nil
+        isAwaitingConnectivityRetry = false
         cachedToken = nil
     }
 
@@ -439,7 +454,10 @@ package actor AuthTokenManager {
     /// *and* scheduled the next refresh (via the wiring inside that method).
     /// On failure: leaves the cached token in place — the cache only goes
     /// stale at `exp - leeway`, so a foreground transition or user fetch
-    /// before then will retry. Connectivity-driven retry is owned by MAGE-683.
+    /// before then will retry. A *network-classified* failure additionally arms
+    /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
+    /// re-fires this method (see ``handleReachabilityChange(_:)``); other
+    /// failures do not, since waiting for connectivity would not address them.
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
         let task = inFlight?.task ?? startFetch()
@@ -463,26 +481,73 @@ package actor AuthTokenManager {
                     "AuthTokenManager: refresh failed: \(reason, privacy: .public)"
                 )
             }
+            // Network-classified failures are the only ones worth waiting on:
+            // connectivity restoration directly addresses them, whereas HTTP
+            // errors, validation rejections, or host-side bugs would just fail
+            // again. Arming the flag lets the next reachable transition retry.
+            if let urlError = error as? URLError, urlError.isConnectivityError {
+                isAwaitingConnectivityRetry = true
+                if #available(iOS 14.0, *) {
+                    Logger.auth.info(
+                        "AuthTokenManager: network-classified refresh failure, awaiting connectivity"
+                    )
+                }
+            }
         }
     }
 
-    /// Starts the long-lived Combine subscription that drives
-    /// ``handleForegroundTransition()`` on each `.foregrounded` event. Idempotent:
-    /// no-op if the observer is already running, so retry-on-restart paths can
-    /// call this safely.
+    /// Starts the long-lived Combine subscription that drives the actor's
+    /// reactions to app-lifecycle and reachability events. Idempotent: no-op if
+    /// the observer is already running, so retry-on-restart paths can call this
+    /// safely.
+    ///
+    /// Two events are handled:
+    /// - `.foregrounded` → ``handleForegroundTransition()`` (reconciles cache and
+    ///   scheduled-refresh state with wall-clock time after backgrounding).
+    /// - `.reachabilityChanged(status:)` → ``handleReachabilityChange(_:)`` (fires
+    ///   the connectivity-driven retry when a prior proactive refresh failed
+    ///   while offline).
+    ///
+    /// The SDK's existing reachability signal is reused here rather than standing
+    /// up a separate `NWPathMonitor`: the lifecycle publisher already multiplexes
+    /// reachability transitions, and consuming them through this single sink keeps
+    /// the actor's observation surface to one subscription.
     ///
     /// The `sink` closure is non-isolated, so each event hops back onto the actor
-    /// via an unstructured `Task`. Foreground events are not bursty (a
-    /// `.foregrounded` is always preceded by a `.backgrounded`), and the actor
-    /// already serializes the state `handleForegroundTransition()` touches, so the
-    /// lack of cross-event ordering between those tasks is immaterial.
+    /// via an unstructured `Task`. Neither event is bursty, and the actor already
+    /// serializes the state both handlers touch, so the lack of cross-event
+    /// ordering between those tasks is immaterial.
     private func startLifecycleObserver() {
         guard lifecycleCancellable == nil else { return }
         lifecycleCancellable = lifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
-                guard case .foregrounded = event else { return }
-                Task { [weak self] in await self?.handleForegroundTransition() }
+                switch event {
+                case .foregrounded:
+                    Task { [weak self] in await self?.handleForegroundTransition() }
+                case let .reachabilityChanged(status):
+                    Task { [weak self] in await self?.handleReachabilityChange(status) }
+                case .backgrounded, .terminated:
+                    break
+                }
             }
+    }
+
+    /// Fires the connectivity-driven retry when reachability is restored after a
+    /// network-classified proactive-refresh failure.
+    ///
+    /// No-op unless a wait is actually armed (``isAwaitingConnectivityRetry``)
+    /// *and* the new status reports a path. A `.notReachable` transition — or any
+    /// reachability churn while no wait is pending — is ignored. The flag is
+    /// cleared *before* re-firing so a flurry of reachable transitions yields a
+    /// single retry; if that retry fails for a network reason,
+    /// ``performScheduledRefresh()`` re-arms the flag, re-enabling this path.
+    private func handleReachabilityChange(_ status: Reachability.NetworkStatus) async {
+        guard isAwaitingConnectivityRetry, status != .notReachable else { return }
+        isAwaitingConnectivityRetry = false
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: connectivity restored, retrying refresh")
+        }
+        await performScheduledRefresh()
     }
 
     /// Reconciles cache and scheduled-refresh state with wall-clock time when
