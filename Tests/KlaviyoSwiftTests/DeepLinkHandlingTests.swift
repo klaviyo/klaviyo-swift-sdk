@@ -292,13 +292,6 @@ final class DeepLinkHandlingTests: XCTestCase {
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)
     }
 
-    // openWebUrl reducer behavior is verified indirectly via the handle()
-    // routing tests in KlaviyoSDKTests (testHandleBodyTap_OpenUrlActionDispatchesOpenWebUrl,
-    // testHandleActionButtonTap_OpenUrlButton). A direct TestStore test of the
-    // reducer's effect is impractical because the effect calls
-    // UIApplication.shared.open() on MainActor, which the TestStore cannot drain
-    // cleanly in the test runner.
-
     @MainActor
     func testIsDeepLinkHandlerRegisteredConsistencyWithEnvironment() {
         let sdk = KlaviyoSDK()
