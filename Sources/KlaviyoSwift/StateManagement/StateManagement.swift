@@ -136,7 +136,7 @@ enum KlaviyoAction: Equatable {
     case openDeepLink(URL)
 
     /// open an external web URL in the system browser, bypassing any registered deep
-    /// link handler. Used by the `open_url` push action and IAF `openExternalUrl` event.
+    /// link handler. Used by the `open_url` push action.
     case openWebUrl(URL)
 
     /// indicates that deep link processing has completed

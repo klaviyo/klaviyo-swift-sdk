@@ -51,8 +51,8 @@ public class DeepLinkHandler {
     /// Opens an external web URL using `UIApplication.shared.open(_:)`, bypassing any
     /// registered custom deep link handler.
     ///
-    /// Used by the `open_url` push action (and analogous IAF event) where the customer
-    /// explicitly chose to open a URL in the system browser rather than route into the app.
+    /// Used by the `open_url` push action where the customer explicitly chose to open a
+    /// URL in the system browser rather than route into the app.
     package func openExternalURL(_ url: URL) async {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Opening external URL: '\(url.absoluteString, privacy: .public)' (bypassing custom deep link handler)")
