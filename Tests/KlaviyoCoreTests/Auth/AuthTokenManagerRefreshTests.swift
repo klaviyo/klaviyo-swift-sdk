@@ -502,6 +502,285 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
+    // MARK: - Connectivity-driven retry
+
+    @Test
+    func networkFailedRefreshRetriesWhenConnectivityRestored() async throws {
+        // Same timing as the refresh-fires test: the refresh target lands at
+        // ref+10. The scheduled refresh fails offline; the retry only fires once
+        // reachability reports a path again — a `.notReachable` transition in the
+        // meantime must be ignored.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet) // scheduled refresh, offline
+            default: return secondToken // connectivity-driven retry
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        // Subscribe before the retry so the broadcast can be observed.
+        let stream = await manager.refreshes()
+
+        // Fire the scheduled refresh: invocation 2 throws a network error, arming
+        // the connectivity wait. Await the arming deterministically before driving
+        // reachability so the transition can't race ahead of it.
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // A non-satisfied transition must not consume the armed wait.
+        lifecycleSubject.send(.reachabilityChanged(status: .notReachable))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        let invocationsAfterUnreachable = await counter.value
+        #expect(invocationsAfterUnreachable == 2, "`.notReachable` must not trigger the retry")
+
+        // Connectivity restored → retry fires (invocation 3), broadcasts and caches.
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == secondToken)
+
+        let cached = try await manager.currentToken(mode: .background)
+        #expect(cached == secondToken)
+    }
+
+    @Test
+    func nonNetworkRefreshFailureDoesNotAwaitConnectivity() async throws {
+        // A refresh failure that is *not* a network `URLError` must not arm the
+        // connectivity wait — restoring connectivity wouldn't fix it. Note the
+        // failure here is `ProviderTestError.network`: despite the name, it is not
+        // a `URLError`, so it is correctly classified as non-connectivity.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            if invocation == 1 { return firstToken }
+            throw ProviderTestError.network
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2) // scheduled refresh failed (non-network)
+
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 2,
+            "a non-network failure must not arm a connectivity retry, saw \(invocations)"
+        )
+    }
+
+    @Test
+    func clearTokenStateCancelsPendingConnectivityRetry() async throws {
+        // Arm a connectivity wait via a network-failed refresh, then reset. The
+        // pending wait must be dropped so a later reachability restoration does
+        // not retry against the outgoing profile.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet)
+            default: return secondToken
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        // Ensure the wait is genuinely armed before clearing, so the test proves
+        // clearTokenState *cancels* an armed wait rather than racing its arming.
+        await awaitConnectivityWaitArmed(manager)
+
+        await manager.clearTokenState()
+
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 2,
+            "clearTokenState must cancel the pending connectivity retry, saw \(invocations)"
+        )
+    }
+
+    @Test
+    func rapidReachableTransitionsTriggerSingleRetry() async throws {
+        // The manager keeps at most one pending wait. A flurry of satisfied
+        // transitions after a single network-failed refresh must produce exactly
+        // one retry, not one per transition.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet)
+            default: return secondToken
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // Three satisfied transitions in quick succession. Only the first should
+        // consume the armed wait; the rest find it already cleared.
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWWAN))
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        try await counter.waitFor(atLeast: 3)
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 3,
+            "rapid reachable transitions must yield a single retry, saw \(invocations)"
+        )
+    }
+
+    @Test
+    func failedRetryReArmsForNextConnectivityRestoration() async throws {
+        // If the connectivity-driven retry itself fails for a network reason, the
+        // wait is re-armed so the *next* restoration tries again.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2, 3: throw URLError(.networkConnectionLost) // scheduled refresh + first retry
+            default: return secondToken // second retry succeeds
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // First restoration drives a retry (invocation 3) that also fails with a
+        // network error, which re-arms the wait. The wait is cleared before the
+        // retry runs, so awaiting "armed" after invocation 3 enters the provider
+        // observes the *re-arm*, not the prior arming.
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        try await counter.waitFor(atLeast: 3)
+        await awaitConnectivityWaitArmed(manager)
+
+        // Subscribe before the second restoration so the successful retry's
+        // broadcast is observable, then restore connectivity again. Invocation 4
+        // succeeds, proving the wait re-armed and recovered.
+        let stream = await manager.refreshes()
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+
+        let delivered = await firstElement(of: stream)
+        #expect(
+            delivered == secondToken,
+            "a network-failed retry must re-arm and recover on the next restoration"
+        )
+    }
+
     // MARK: - Test helpers
 
     /// `referenceDate` as seconds-since-1970, for minting tokens whose `iat`/`exp`
@@ -523,6 +802,20 @@ struct AuthTokenManagerRefreshTests {
     /// task simply parks on the await without ever firing.
     private func noopLifecycle() -> AppLifeCycleEvents {
         AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
+    }
+
+    /// Suspends until `manager` has armed its connectivity-retry wait. The arming
+    /// lands asynchronously inside the refresh-failure path, so driving a
+    /// reachability transition before it would drop the event against an unarmed
+    /// flag. Unlike a fixed yield count, this adapts to scheduling: under a
+    /// saturated cooperative pool (sibling suites running in parallel) it simply
+    /// iterates more, so it can never under-wait. It only fails to return if the
+    /// wait genuinely never arms — which is itself the bug a caller would want to
+    /// surface.
+    private func awaitConnectivityWaitArmed(_ manager: AuthTokenManager) async {
+        while await manager.isAwaitingConnectivityRetryForTesting == false {
+            await Task.yield()
+        }
     }
 
     /// Builds a manager driven by a deterministic clock and sleep gate.

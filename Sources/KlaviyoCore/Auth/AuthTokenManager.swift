@@ -90,6 +90,15 @@ package actor AuthTokenManager {
     /// provider swap or profile reset drops any pending retry.
     private var isAwaitingConnectivityRetry = false
 
+    /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
+    /// deterministically await the *arming* of the connectivity wait — which
+    /// lands asynchronously inside the refresh-failure path — instead of racing
+    /// it with a fixed number of yields. Reachable from the test target via
+    /// `@testable import`; not part of the package API.
+    var isAwaitingConnectivityRetryForTesting: Bool {
+        isAwaitingConnectivityRetry
+    }
+
     /// Long-lived Combine subscription that dispatches foreground transitions to
     /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
     /// ``init`` and survives ``registerProvider(_:)``).
