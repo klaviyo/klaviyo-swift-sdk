@@ -10,11 +10,11 @@
 
 @testable import KlaviyoSwift
 import ObjectiveC.runtime
-import Testing
 import UIKit
+import XCTest
 
 @MainActor
-struct KlaviyoAppDelegateSwizzlerTests {
+final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
     // MARK: - Test doubles
 
     /// A direct UIApplicationDelegate implementor — mimics the simplest host case where the
@@ -57,40 +57,37 @@ struct KlaviyoAppDelegateSwizzlerTests {
 
     // MARK: - Tests
 
-    @Test
-    func resolveTargetDirectImplementor() {
+    func testResolveTargetDirectImplementor() {
         let delegate = DirectAppDelegate()
         let resolved = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: delegate)
-        #expect(resolved == DirectAppDelegate.self)
+        XCTAssertTrue(resolved == DirectAppDelegate.self)
     }
 
-    @Test
-    func resolveTargetForwardingProxy() {
+    func testResolveTargetForwardingProxy() {
         // The proxy has no `didRegister` IMP of its own; its inner DirectAppDelegate does.
         // The resolver must follow `-forwardingTargetForSelector:` and return the inner class
         // so the IMP exchange intercepts the real implementor rather than the wrapper.
         let inner = DirectAppDelegate()
         let proxy = ForwardingProxyDelegate(inner: inner)
 
-        #expect(
-            class_getInstanceMethod(ForwardingProxyDelegate.self, didRegisterSelector) == nil,
+        XCTAssertNil(
+            class_getInstanceMethod(ForwardingProxyDelegate.self, didRegisterSelector),
             "Proxy class must not have the method in its IMP table; otherwise we're not testing the forwarding path"
         )
-        #expect(
+        XCTAssertTrue(
             proxy.responds(to: didRegisterSelector),
             "Proxy must respond via forwarding for this test to be meaningful"
         )
 
         let resolved = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: proxy)
-        #expect(resolved == DirectAppDelegate.self)
+        XCTAssertTrue(resolved == DirectAppDelegate.self)
     }
 
-    @Test
-    func resolveTargetOpaqueDelegate() {
+    func testResolveTargetOpaqueDelegate() {
         // No forwarding, no IMP — resolver falls back to the initial class so the swizzler
         // can still graft our IMP somewhere and the SDK receives the token.
         let opaque = OpaqueDelegate()
         let resolved = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: opaque)
-        #expect(resolved == OpaqueDelegate.self)
+        XCTAssertTrue(resolved == OpaqueDelegate.self)
     }
 }
