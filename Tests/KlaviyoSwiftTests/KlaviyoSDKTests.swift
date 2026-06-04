@@ -483,16 +483,15 @@ class KlaviyoSDKTests: XCTestCase {
         }
     }
 
-    // MARK: - open_url action Tests
+    // MARK: - web_url tests
 
-    func testHandleBodyTap_OpenUrlActionDispatchesOpenWebUrl() throws {
+    func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() throws {
         let callback = XCTestExpectation(description: "callback is made")
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
 
         let userInfo: [AnyHashable: Any] = [
-            "body": ["_k": "test_open_url"],
-            "open_action": "open_url",
-            "open_url": webURL.absoluteString
+            "body": ["_k": "test_web_url"],
+            "web_url": webURL.absoluteString
         ]
 
         var capturedActions: [KlaviyoAction] = []
@@ -513,16 +512,16 @@ class KlaviyoSDKTests: XCTestCase {
             if case let .openWebUrl(url) = action { return url == webURL }
             return false
         }
-        XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl for open_url action")
+        XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl when web_url is present")
 
         let deepLinkDispatched = capturedActions.contains { action in
             if case .openDeepLink = action { return true }
             return false
         }
-        XCTAssertFalse(deepLinkDispatched, "Should not dispatch .openDeepLink when open_url action is set")
+        XCTAssertFalse(deepLinkDispatched, "Should not dispatch .openDeepLink when web_url is present")
     }
 
-    func testHandleBodyTap_DeepLinkUnchangedWhenOpenActionAbsent() throws {
+    func testHandleBodyTap_DeepLinkUnchangedWhenWebUrlAbsent() throws {
         let callback = XCTestExpectation(description: "callback is made")
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
 
@@ -548,21 +547,19 @@ class KlaviyoSDKTests: XCTestCase {
             if case let .openDeepLink(url) = action { return url == deepURL }
             return false
         }
-        XCTAssertTrue(deepLinkDispatched, "Deep link path must remain unchanged when open_action is absent")
+        XCTAssertTrue(deepLinkDispatched, "Deep link path must remain unchanged when web_url is absent")
     }
 
-    func testHandleBodyTap_OpenUrlActionWithMissingUrlDoesNotFallBackToDeepLink() throws {
-        // When open_action is explicitly "open_url" but the open_url field is missing,
-        // the SDK should not silently dispatch the legacy `url` deep link — the campaign
-        // builder chose an external-browser action. Behavior is: just open the app.
+    func testHandleBodyTap_WebUrlTakesPrecedenceOverDeepLink() throws {
+        // Defensive: if backend ever ships both web_url and url, web_url wins.
         let callback = XCTestExpectation(description: "callback is made")
-        let legacyDeepURL = try XCTUnwrap(URL(string: "myapp://path"))
+        let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
+        let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
 
         let userInfo: [AnyHashable: Any] = [
-            "body": ["_k": "test_open_url_missing"],
-            "open_action": "open_url",
-            // open_url field deliberately omitted
-            "url": legacyDeepURL.absoluteString
+            "body": ["_k": "test_both_present"],
+            "web_url": webURL.absoluteString,
+            "url": deepURL.absoluteString
         ]
 
         var capturedActions: [KlaviyoAction] = []
@@ -577,49 +574,18 @@ class KlaviyoSDKTests: XCTestCase {
         }
 
         wait(for: [callback], timeout: 1.0)
-
-        let deepLinkDispatched = capturedActions.contains { action in
-            if case .openDeepLink = action { return true }
-            return false
-        }
-        XCTAssertFalse(deepLinkDispatched, "open_url action with missing URL must NOT fall back to legacy deep link")
 
         let webUrlDispatched = capturedActions.contains { action in
-            if case .openWebUrl = action { return true }
+            if case let .openWebUrl(url) = action { return url == webURL }
             return false
         }
-        XCTAssertFalse(webUrlDispatched, "open_url action with missing URL must NOT dispatch openWebUrl either")
-    }
-
-    func testHandleBodyTap_OpenUrlActionWithMalformedUrlDoesNotFallBackToDeepLink() throws {
-        let callback = XCTestExpectation(description: "callback is made")
-        let legacyDeepURL = try XCTUnwrap(URL(string: "myapp://path"))
-
-        let userInfo: [AnyHashable: Any] = [
-            "body": ["_k": "test_open_url_malformed"],
-            "open_action": "open_url",
-            "open_url": "ht tp://broken url",
-            "url": legacyDeepURL.absoluteString
-        ]
-
-        var capturedActions: [KlaviyoAction] = []
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            return nil
-        }
-
-        let response = try UNNotificationResponse.with(userInfo: userInfo)
-        _ = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(webUrlDispatched)
 
         let deepLinkDispatched = capturedActions.contains { action in
             if case .openDeepLink = action { return true }
             return false
         }
-        XCTAssertFalse(deepLinkDispatched, "open_url action with malformed URL must NOT fall back to legacy deep link")
+        XCTAssertFalse(deepLinkDispatched)
     }
 
     func testHandleActionButtonTap_OpenUrlButton() throws {

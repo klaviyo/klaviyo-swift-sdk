@@ -198,39 +198,12 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         XCTAssertNil(response.klaviyoDeepLinkURL)
     }
 
-    // MARK: - klaviyoOpenAction Tests
-
-    func testKlaviyoOpenAction_WithOpenUrlValue_ReturnsString() throws {
-        let payload: [AnyHashable: Any] = [
-            "body": ["_k": "some-value"],
-            "open_action": "open_url"
-        ]
-        let response = try UNNotificationResponse.with(userInfo: payload)
-        XCTAssertEqual(response.klaviyoOpenAction, "open_url")
-    }
-
-    func testKlaviyoOpenAction_WhenAbsent_ReturnsNil() throws {
-        let payload: [AnyHashable: Any] = [
-            "body": ["_k": "some-value"]
-        ]
-        let response = try UNNotificationResponse.with(userInfo: payload)
-        XCTAssertNil(response.klaviyoOpenAction)
-    }
-
-    func testKlaviyoOpenAction_WithNonKlaviyoNotification_ReturnsNil() throws {
-        let payload: [AnyHashable: Any] = [
-            "open_action": "open_url"
-        ]
-        let response = try UNNotificationResponse.with(userInfo: payload)
-        XCTAssertNil(response.klaviyoOpenAction)
-    }
-
     // MARK: - klaviyoWebUrl Tests
 
     func testKlaviyoWebUrl_WithValidURL_ReturnsURL() throws {
         let payload: [AnyHashable: Any] = [
             "body": ["_k": "some-value"],
-            "open_url": "https://example.com/sale"
+            "web_url": "https://example.com/sale"
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "https://example.com/sale")
@@ -239,7 +212,16 @@ class UNNotificationResponseExtensionTests: XCTestCase {
     func testKlaviyoWebUrl_WithInvalidURLString_ReturnsNil() throws {
         let payload: [AnyHashable: Any] = [
             "body": ["_k": "some-value"],
-            "open_url": "ht tp://invalid-url"
+            "web_url": "ht tp://invalid-url"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithEmptyString_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": ""
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)
@@ -255,7 +237,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
 
     func testKlaviyoWebUrl_WithNonKlaviyoNotification_ReturnsNil() throws {
         let payload: [AnyHashable: Any] = [
-            "open_url": "https://example.com"
+            "web_url": "https://example.com"
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)
@@ -264,7 +246,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
     func testKlaviyoWebUrl_WithNonStringValue_ReturnsNil() throws {
         let payload: [AnyHashable: Any] = [
             "body": ["_k": "some-value"],
-            "open_url": 12_345
+            "web_url": 12_345
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)

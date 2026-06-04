@@ -226,13 +226,8 @@ public struct KlaviyoSDK {
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties))
-            if notificationResponse.klaviyoOpenAction == ActionType.openUrl.rawValue {
-                // open_url action was explicitly chosen. Only dispatch when the URL is
-                // present and parseable; otherwise just open the app (do not fall back
-                // to the legacy `url` deep link field).
-                if let url = notificationResponse.klaviyoWebUrl {
-                    dispatchOnMainThread(action: .openWebUrl(url))
-                }
+            if let url = notificationResponse.klaviyoWebUrl {
+                dispatchOnMainThread(action: .openWebUrl(url))
             } else if let url = notificationResponse.klaviyoDeepLinkURL {
                 dispatchOnMainThread(action: .openDeepLink(url))
             }
@@ -249,8 +244,8 @@ public struct KlaviyoSDK {
     ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
-    ///     The handler is invoked only for deep links; external web URLs (open_url action) always route
-    ///     through the SDK's external URL opener and bypass this closure.
+    ///     The handler is invoked only for deep links; external web URLs always route through the
+    ///     SDK's external URL opener and bypass this closure.
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
@@ -274,13 +269,10 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties))
-            if notificationResponse.klaviyoOpenAction == ActionType.openUrl.rawValue {
-                // open_url action was explicitly chosen. Only dispatch when the URL is
-                // present and parseable; otherwise just open the app. The deepLinkHandler
-                // closure is intentionally bypassed (it's for deep links only).
-                if let url = notificationResponse.klaviyoWebUrl {
-                    dispatchOnMainThread(action: .openWebUrl(url))
-                }
+            if let url = notificationResponse.klaviyoWebUrl {
+                // External web URL: open in system browser. The deepLinkHandler closure
+                // is intentionally bypassed (it's for deep links only).
+                dispatchOnMainThread(action: .openWebUrl(url))
             } else if let url = notificationResponse.klaviyoDeepLinkURL {
                 if let deepLinkHandler = deepLinkHandler {
                     Task { @MainActor in
