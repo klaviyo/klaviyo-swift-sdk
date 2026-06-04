@@ -86,7 +86,9 @@ extension UNNotificationResponse {
     ///
     /// Reads the `web_url` field. The presence of this field indicates the tap should open
     /// the URL in the system browser rather than route through the app's deep link handler.
-    /// Returns `nil` if the field is absent or the value is not a parseable URL.
+    /// Returns `nil` if the field is absent, the value is not a parseable URL, or the URL's
+    /// scheme is not http(s) — non-web schemes are rejected to prevent routing back into the
+    /// app via the system URL opener.
     var klaviyoWebUrl: URL? {
         guard isKlaviyoNotification else {
             return nil
@@ -99,6 +101,13 @@ extension UNNotificationResponse {
         guard let url = URL(string: urlString) else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning("Unable to convert web_url string '\(urlString)' to a valid URL.")
+            }
+            return nil
+        }
+
+        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("web_url '\(urlString)' has non-web scheme; ignoring.")
             }
             return nil
         }

@@ -251,4 +251,31 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)
     }
+
+    func testKlaviyoWebUrl_WithDeepLinkScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "klaviyotest://forms"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithMailtoScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "mailto:test@example.com"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithHttpScheme_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "http://example.com"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "http://example.com")
+    }
 }

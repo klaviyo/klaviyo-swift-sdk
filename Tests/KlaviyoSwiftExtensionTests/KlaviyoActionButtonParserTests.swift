@@ -328,4 +328,60 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.count, 1, "Should skip open_url button without URL")
         XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
     }
+
+    func testParseActionButtons_SkipsOpenUrlWithNonHttpScheme() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": {},
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.openurl_deeplink",
+                        "label": "Bad",
+                        "action": "open_url",
+                        "url": "klaviyotest://forms"
+                    ],
+                    [
+                        "id": "com.klaviyo.test.openurl_mailto",
+                        "label": "Also Bad",
+                        "action": "open_url",
+                        "url": "mailto:test@example.com"
+                    ],
+                    [
+                        "id": "com.klaviyo.test.valid",
+                        "label": "Valid",
+                        "action": "open_url",
+                        "url": "https://example.com"
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertNotNil(result, "Should return valid buttons")
+        XCTAssertEqual(result?.count, 1, "Should skip open_url buttons with non-http(s) schemes")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+    }
+
+    func testParseActionButtons_AllowsDeepLinkWithHttpScheme() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": {},
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.deeplink_http",
+                        "label": "Deep link with http",
+                        "action": "deep_link",
+                        "url": "https://www.google.com"
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertNotNil(result, "Deep link should accept any URL scheme — customer handler decides")
+        XCTAssertEqual(result?.count, 1)
+        XCTAssertEqual(result?.first?.action, .deepLink)
+    }
 }
