@@ -146,7 +146,10 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             return
         }
         defer { didReceiveGuard.end(requestId) }
-        let wasTracked = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: { once() })
+        let wasTracked = KlaviyoSDK().handle(
+            notificationResponse: response,
+            withCompletionHandler: { once() }
+        )
         if wasTracked {
             markAsAutoTracked(requestId: requestId)
         }
