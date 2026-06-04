@@ -50,6 +50,7 @@ import Testing
 struct KlaviyoNotificationDelegateTests {
     init() {
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        KlaviyoNotificationDelegate.shared.clearAutoTracked()
     }
 
     // MARK: - Injection Wiring

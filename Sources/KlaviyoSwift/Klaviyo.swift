@@ -211,9 +211,7 @@ public struct KlaviyoSDK {
             return false
         }
 
-        let requestId = notificationResponse.notification.request.identifier
-        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
-            Task { @MainActor in completionHandler() }
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
             return true
         }
 
@@ -258,9 +256,7 @@ public struct KlaviyoSDK {
             return false
         }
 
-        let requestId = notificationResponse.notification.request.identifier
-        if KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) {
-            Task { @MainActor in completionHandler() }
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
             return true
         }
 
@@ -291,6 +287,22 @@ public struct KlaviyoSDK {
         Task { @MainActor in
             completionHandler()
         }
+        return true
+    }
+
+    /// MAGE-660: skip if the proxy auto-tracked this open already. The proxy invokes
+    /// `handle(...)` itself, then marks the request ID — so a host call here for the
+    /// same response would emit a duplicate `Opened Push`. The completion handler is
+    /// still invoked on the main thread to preserve the API's documented contract.
+    private func shortCircuitIfAutoTracked(
+        _ notificationResponse: UNNotificationResponse,
+        completionHandler: @escaping () -> Void
+    ) -> Bool {
+        let requestId = notificationResponse.notification.request.identifier
+        guard KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) else {
+            return false
+        }
+        Task { @MainActor in completionHandler() }
         return true
     }
 

@@ -11,8 +11,10 @@ import Foundation
 /// delegate, so a subsequent manual `handle(notificationResponse:)` call can short-circuit
 /// and avoid firing a duplicate `Opened Push` event.
 ///
-/// Bounded at `capacity` entries with FIFO eviction — in practice a host would need to
-/// tap hundreds of push notifications between app foregrounding cycles to reach the cap.
+/// Bounded at `capacity` entries with FIFO eviction. Entries live for the process
+/// lifetime; only FIFO overflow or an explicit `clear()` removes them. The bound exists
+/// purely as a memory ceiling — a host would need to tap hundreds of distinct pushes in
+/// a single process to evict legitimately.
 ///
 /// Thread-safe: `NSLock` serialises all mutations and lookups.
 final class AutoTrackGuard: @unchecked Sendable {
