@@ -226,8 +226,8 @@ public struct KlaviyoSDK {
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties))
-            if let url = notificationResponse.klaviyoWebUrl {
-                dispatchOnMainThread(action: .openWebUrl(url))
+            if let webUrl = notificationResponse.klaviyoWebUrl {
+                dispatchOnMainThread(action: .openWebUrl(webUrl))
             } else if let url = notificationResponse.klaviyoDeepLinkURL {
                 dispatchOnMainThread(action: .openDeepLink(url))
             }
@@ -269,10 +269,10 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties))
-            if let url = notificationResponse.klaviyoWebUrl {
+            if let webUrl = notificationResponse.klaviyoWebUrl {
                 // External web URL: open in system browser. The deepLinkHandler closure
                 // is intentionally bypassed (it's for deep links only).
-                dispatchOnMainThread(action: .openWebUrl(url))
+                dispatchOnMainThread(action: .openWebUrl(webUrl))
             } else if let url = notificationResponse.klaviyoDeepLinkURL {
                 if let deepLinkHandler = deepLinkHandler {
                     Task { @MainActor in

@@ -509,7 +509,7 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(handled)
 
         let webUrlDispatched = capturedActions.contains { action in
-            if case let .openWebUrl(url) = action { return url == webURL }
+            if case let .openWebUrl(dispatchedUrl) = action { return dispatchedUrl == webURL }
             return false
         }
         XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl when web_url is present")
@@ -576,7 +576,7 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [callback], timeout: 1.0)
 
         let webUrlDispatched = capturedActions.contains { action in
-            if case let .openWebUrl(url) = action { return url == webURL }
+            if case let .openWebUrl(dispatchedUrl) = action { return dispatchedUrl == webURL }
             return false
         }
         XCTAssertTrue(webUrlDispatched)
@@ -627,7 +627,7 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(handled)
 
         let webUrlDispatched = capturedActions.contains { action in
-            if case let .openWebUrl(url) = action { return url == actionURL }
+            if case let .openWebUrl(dispatchedUrl) = action { return dispatchedUrl == actionURL }
             return false
         }
         XCTAssertTrue(webUrlDispatched, "Should dispatch .openWebUrl for open_url action button")

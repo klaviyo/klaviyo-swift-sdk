@@ -120,10 +120,10 @@ enum KlaviyoActionButtonParser {
         case .openApp:
             return url == nil
         case .deepLink:
-            guard let url else { return false }
-            return URL(string: url) != nil
+            guard let urlString = url else { return false }
+            return URL(string: urlString) != nil
         case .openUrl:
-            guard let url, let parsedUrl = URL(string: url) else { return false }
+            guard let urlString = url, let parsedUrl = URL(string: urlString) else { return false }
             guard let scheme = parsedUrl.scheme?.lowercased() else { return false }
             return ["http", "https"].contains(scheme)
         }
