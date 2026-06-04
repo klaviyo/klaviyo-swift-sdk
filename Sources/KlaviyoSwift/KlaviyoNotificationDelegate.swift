@@ -96,6 +96,7 @@ final class KlaviyoNotificationDelegate: NSObject {
             return
         }
         shared.inject(into: klaviyoSwiftEnvironment.notificationCenter())
+        KlaviyoAppDelegateSwizzler.swizzleIfPossible()
     }
 
     /// Installs the proxy as the notification center's active delegate and registers
