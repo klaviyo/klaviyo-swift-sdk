@@ -139,6 +139,14 @@ package actor AuthTokenManager {
     /// swallows the `CancellationError` `Task.sleep` throws.
     private let sleeper: @Sendable (UInt64) async -> Void
 
+    /// Current network reachability, consulted when arming a connectivity wait so
+    /// a retry armed *after* the offline→online transition already passed is not
+    /// stranded waiting for a future transition (see ``armConnectivityRetry()``).
+    /// Injected for testability; defaults to the SDK-wide
+    /// `environment.reachabilityStatus`. `nil` means "unknown" and is treated
+    /// conservatively as "no path".
+    private let currentReachability: () -> Reachability.NetworkStatus?
+
     /// Production initializer. Wires the actor to the real SDK-wide clock
     /// (`environment.date`) and `Task.sleep`. This is the only initializer
     /// visible to sibling product modules, and is what ``shared`` uses.
@@ -149,6 +157,7 @@ package actor AuthTokenManager {
         self.lifeCycle = lifeCycle
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        currentReachability = { environment.reachabilityStatus() }
         Task { await self.startLifecycleObserver() }
     }
 
@@ -174,11 +183,13 @@ package actor AuthTokenManager {
         currentDate: @escaping () -> Date,
         sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
             try? await Task.sleep(nanoseconds: nanoseconds)
-        }
+        },
+        reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
     ) {
         self.lifeCycle = lifeCycle
         self.currentDate = currentDate
         sleeper = sleep
+        currentReachability = reachabilityStatus
         Task { await self.startLifecycleObserver() }
     }
 
@@ -493,14 +504,9 @@ package actor AuthTokenManager {
             // Network-classified failures are the only ones worth waiting on:
             // connectivity restoration directly addresses them, whereas HTTP
             // errors, validation rejections, or host-side bugs would just fail
-            // again. Arming the flag lets the next reachable transition retry.
+            // again.
             if let urlError = error as? URLError, urlError.isConnectivityError {
-                isAwaitingConnectivityRetry = true
-                if #available(iOS 14.0, *) {
-                    Logger.auth.info(
-                        "AuthTokenManager: network-classified refresh failure, awaiting connectivity"
-                    )
-                }
+                armConnectivityRetry()
             }
         }
     }
@@ -541,20 +547,59 @@ package actor AuthTokenManager {
             }
     }
 
-    /// Fires the connectivity-driven retry when reachability is restored after a
-    /// network-classified proactive-refresh failure.
+    /// Arms the connectivity-retry wait after a network-classified
+    /// proactive-refresh failure, and kicks the retry immediately when the system
+    /// *already* reports a usable path.
     ///
-    /// No-op unless a wait is actually armed (``isAwaitingConnectivityRetry``)
-    /// *and* the new status reports a path. A `.notReachable` transition — or any
-    /// reachability churn while no wait is pending — is ignored. The flag is
-    /// cleared *before* re-firing so a flurry of reachable transitions yields a
-    /// single retry; if that retry fails for a network reason,
-    /// ``performScheduledRefresh()`` re-arms the flag, re-enabling this path.
+    /// Reachability is observed as a transition stream
+    /// (``LifeCycleEvents/reachabilityChanged(status:)``) with no "current value":
+    /// if connectivity was restored while the failing fetch was still in flight,
+    /// that transition has already passed by the time this arms, and no future
+    /// event would wake the wait until the next flap or cache expiry. Consulting
+    /// ``currentReachability`` here mirrors `NWPathMonitor` delivering the current
+    /// path on subscribe, closing that gap. `nil`/unknown is treated as "no path",
+    /// so the wait simply waits for a transition.
+    ///
+    /// Loop safety: a kicked retry that fails for a network reason re-arms and may
+    /// re-check a still-satisfied path. That recurs only in the contradictory
+    /// state where the system reports a path yet the request returns a genuine
+    /// *offline* `URLError` — which does not realistically persist, and each
+    /// iteration is gated by a full fetch.
+    private func armConnectivityRetry() {
+        isAwaitingConnectivityRetry = true
+        if #available(iOS 14.0, *) {
+            Logger.auth.info(
+                "AuthTokenManager: network-classified refresh failure, awaiting connectivity"
+            )
+        }
+        guard let status = currentReachability(), status != .notReachable else { return }
+        if #available(iOS 14.0, *) {
+            Logger.auth.info(
+                "AuthTokenManager: connectivity already available, retrying without waiting"
+            )
+        }
+        Task { [weak self] in await self?.fireConnectivityRetryIfArmed() }
+    }
+
+    /// Routes a reachability transition into the connectivity-retry path. Only a
+    /// transition reporting a usable path can fire the retry; `.notReachable`
+    /// (and any churn while no wait is armed) is ignored.
     private func handleReachabilityChange(_ status: Reachability.NetworkStatus) async {
-        guard isAwaitingConnectivityRetry, status != .notReachable else { return }
+        guard status != .notReachable else { return }
+        await fireConnectivityRetryIfArmed()
+    }
+
+    /// Consumes an armed connectivity wait and re-fires the proactive refresh
+    /// through the normal dedup/validate/reschedule/broadcast path. No-op when no
+    /// wait is armed. Clearing the flag *before* re-firing collapses concurrent
+    /// triggers (a reachability transition plus the arm-time current-path check)
+    /// into a single retry; a retry that fails for a network reason re-arms via
+    /// ``performScheduledRefresh()``.
+    private func fireConnectivityRetryIfArmed() async {
+        guard isAwaitingConnectivityRetry else { return }
         isAwaitingConnectivityRetry = false
         if #available(iOS 14.0, *) {
-            Logger.auth.info("AuthTokenManager: connectivity restored, retrying refresh")
+            Logger.auth.info("AuthTokenManager: connectivity available, retrying refresh")
         }
         await performScheduledRefresh()
     }

@@ -569,6 +569,60 @@ struct AuthTokenManagerRefreshTests {
     }
 
     @Test
+    func armingWhileAlreadyOnlineRetriesWithoutWaitingForTransition() async throws {
+        // If connectivity is already restored by the time the offline failure is
+        // classified (e.g. the network returned while the failing fetch was still
+        // in flight), the `.reachabilityChanged` transition has already passed —
+        // no future event will wake the wait. The arm-time current-path check
+        // must kick the retry anyway. No reachability event is ever sent here, so
+        // recovery can only come from that check.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        // System reports a usable path throughout, and the lifecycle source emits
+        // nothing — so only the arm-time check can drive the retry.
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(),
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { .reachableViaWiFi }
+        )
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet) // scheduled refresh fails offline...
+            default: return secondToken // ...but the arm-time path check retries at once
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        let stream = await manager.refreshes()
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+
+        let delivered = await firstElement(of: stream)
+        #expect(
+            delivered == secondToken,
+            "an already-online arm must retry without waiting for a reachability transition"
+        )
+    }
+
+    @Test
     func nonNetworkRefreshFailureDoesNotAwaitConnectivity() async throws {
         // A refresh failure that is *not* a network `URLError` must not arm the
         // connectivity wait — restoring connectivity wouldn't fix it. Note the
@@ -830,12 +884,14 @@ struct AuthTokenManagerRefreshTests {
     private func makeManager(
         lifeCycle: AppLifeCycleEvents,
         clock: TestClock,
-        gate: SleepGate
+        gate: SleepGate,
+        reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
     ) -> AuthTokenManager {
         AuthTokenManager(
             lifeCycle: lifeCycle,
             currentDate: { clock.now() },
-            sleep: { await gate.sleep($0) }
+            sleep: { await gate.sleep($0) },
+            reachabilityStatus: reachabilityStatus
         )
     }
 }
