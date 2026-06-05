@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UserNotifications
 
@@ -79,10 +80,10 @@ final class KlaviyoNotificationDelegate: NSObject {
 
     // MARK: - Auto-track guard
 
-    private let autoTrackGuard = AutoTrackGuard()
+    private let autoTrackGuard = BoundedIDSet<String>()
 
-    func markAsAutoTracked(requestId: String) { autoTrackGuard.markTracked(requestId) }
-    func wasAutoTracked(requestId: String) -> Bool { autoTrackGuard.wasTracked(requestId) }
+    func markAsAutoTracked(requestId: String) { autoTrackGuard.insert(requestId) }
+    func wasAutoTracked(requestId: String) -> Bool { autoTrackGuard.contains(requestId) }
     func clearAutoTracked() { autoTrackGuard.clear() }
 
     // MARK: - Injection

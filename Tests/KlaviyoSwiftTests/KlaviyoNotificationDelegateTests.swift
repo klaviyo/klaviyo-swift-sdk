@@ -145,18 +145,24 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
     /// After marking a request ID as auto-tracked, `wasAutoTracked` must return true.
     func testMarkAsAutoTrackedRoundTrip() {
+        // Given
         let delegate = KlaviyoNotificationDelegate.shared
         defer { delegate.clearAutoTracked() }
 
+        // When
         delegate.markAsAutoTracked(requestId: "test-id")
 
+        // Then
         XCTAssertTrue(delegate.wasAutoTracked(requestId: "test-id"))
     }
 
     /// A request ID that was never marked must not appear as auto-tracked.
     func testWasAutoTrackedReturnsFalseForUnmarkedId() {
+        // Given
         let delegate = KlaviyoNotificationDelegate.shared
         defer { delegate.clearAutoTracked() }
+
+        // When / Then
         XCTAssertFalse(delegate.wasAutoTracked(requestId: "never-marked"))
     }
 }
