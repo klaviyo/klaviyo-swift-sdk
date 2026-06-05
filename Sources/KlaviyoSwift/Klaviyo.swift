@@ -290,10 +290,10 @@ public struct KlaviyoSDK {
         return true
     }
 
-    /// MAGE-660: skip if the proxy auto-tracked this open already. The proxy invokes
-    /// `handle(...)` itself, then marks the request ID — so a host call here for the
-    /// same response would emit a duplicate `Opened Push`. The completion handler is
-    /// still invoked on the main thread to preserve the API's documented contract.
+    /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
+    /// already auto-tracked this response. The proxy calls `handle(...)` and marks the
+    /// request ID before forwarding to any host delegate — a subsequent host call for the
+    /// same response would emit a duplicate `Opened Push`.
     private func shortCircuitIfAutoTracked(
         _ notificationResponse: UNNotificationResponse,
         completionHandler: @escaping () -> Void

@@ -6,27 +6,21 @@
 //
 
 @testable import KlaviyoSwift
+import XCTest
 
-#if canImport(Testing)
-import Testing
-
-@Suite
-struct AutoTrackGuardTests {
-    @Test
-    func markThenWasTrackedReturnsTrue() {
+class AutoTrackGuardTests: XCTestCase {
+    func testMarkThenWasTrackedReturnsTrue() {
         let tracker = AutoTrackGuard()
         tracker.markTracked("abc")
-        #expect(tracker.wasTracked("abc"))
+        XCTAssertTrue(tracker.wasTracked("abc"))
     }
 
-    @Test
-    func wasTrackedForUnknownIdReturnsFalse() {
+    func testWasTrackedForUnknownIdReturnsFalse() {
         let tracker = AutoTrackGuard()
-        #expect(!tracker.wasTracked("unknown"))
+        XCTAssertFalse(tracker.wasTracked("unknown"))
     }
 
-    @Test
-    func idempotentInsertDoesNotDuplicateOrder() {
+    func testIdempotentInsertDoesNotDuplicateOrder() {
         let tracker = AutoTrackGuard()
         tracker.markTracked("first")
         tracker.markTracked("first") // duplicate — must not double-count in order
@@ -34,36 +28,33 @@ struct AutoTrackGuardTests {
             tracker.markTracked("id-\(i)")
         }
         // 256 unique IDs total: "first" + 255 others — "first" should still be present
-        #expect(tracker.wasTracked("first"), "double insert must not advance eviction position")
+        XCTAssertTrue(tracker.wasTracked("first"), "double insert must not advance eviction position")
         // one more tips over capacity, evicting "first"
         tracker.markTracked("tip-over")
-        #expect(!tracker.wasTracked("first"), "first should be evicted as oldest")
+        XCTAssertFalse(tracker.wasTracked("first"), "first should be evicted as oldest")
     }
 
-    @Test
-    func fifoEvictionEvictsOldestAtCapacity() {
+    func testFifoEvictionEvictsOldestAtCapacity() {
         let tracker = AutoTrackGuard()
         let first = "id-0"
         for i in 0..<AutoTrackGuard.capacity {
             tracker.markTracked("id-\(i)")
         }
-        #expect(tracker.wasTracked(first))
+        XCTAssertTrue(tracker.wasTracked(first))
         tracker.markTracked("id-overflow")
-        #expect(!tracker.wasTracked(first), "oldest entry should be evicted")
-        #expect(tracker.wasTracked("id-overflow"))
-        #expect(tracker.wasTracked("id-\(AutoTrackGuard.capacity - 1)"))
+        XCTAssertFalse(tracker.wasTracked(first), "oldest entry should be evicted")
+        XCTAssertTrue(tracker.wasTracked("id-overflow"))
+        XCTAssertTrue(tracker.wasTracked("id-\(AutoTrackGuard.capacity - 1)"))
     }
 
-    @Test
-    func clearResetsAllState() {
+    func testClearResetsAllState() {
         let tracker = AutoTrackGuard()
         tracker.markTracked("abc")
         tracker.clear()
-        #expect(!tracker.wasTracked("abc"))
+        XCTAssertFalse(tracker.wasTracked("abc"))
     }
 
-    @Test
-    func concurrentAccessDoesNotCrash() async {
+    func testConcurrentAccessDoesNotCrash() async {
         let tracker = AutoTrackGuard()
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<8 {
@@ -75,4 +66,3 @@ struct AutoTrackGuardTests {
         }
     }
 }
-#endif
