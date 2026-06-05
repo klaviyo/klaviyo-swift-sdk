@@ -1,0 +1,126 @@
+language: en-US
+tone_instructions: "Be concise and direct. Prioritize correctness and API quality over style."
+early_access: false
+
+reviews:
+  profile: assertive
+  high_level_summary: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  poem: false
+  in_progress_fortune: false
+
+  instructions: |
+    This is a multi-module Swift SDK using The Composable Architecture (TCA).
+    SwiftLint and SwiftFormat are enforced in CI and pre-commit — do not flag formatting or style
+    issues already covered by these tools.
+    The test suite is primarily XCTest; a small number of newer files use Swift Testing (@Test,
+    #expect). Both are acceptable — do not flag XCTest patterns as problems.
+    Flag force unwraps (`!`) in Sources/** as errors. Allow them in Tests/** where appropriate.
+    Flag missing actor isolation in async/concurrent code.
+    Flag any breaking changes to public API surface.
+
+  path_filters:
+    - "!Examples/**"
+    - "!Sources/KlaviyoSwift/Vendor/**"
+    - "!Tests/KlaviyoSwiftTests/Vendor/**"
+    - "!**/__Snapshots__/**"
+    - "!**/*.xcodeproj/**"
+    - "!**/*.xcworkspace/**"
+    - "!**/xcshareddata/**"
+    - "!**/Podfile.lock"
+    - "!**/Pods/**"
+    - "!TestResults*/**"
+
+  path_instructions:
+    - path: "Sources/KlaviyoCore/**"
+      instructions: |
+        Shared internal module. Be strict about breaking changes to types or protocols that other
+        modules depend on. Flag any public API additions or removals prominently.
+
+    - path: "Sources/KlaviyoSwift/**"
+      instructions: |
+        Main analytics and push notifications module. Focus on: TCA reducer correctness,
+        thread safety, actor isolation, proper error handling. Flag force unwraps and
+        unhandled async errors.
+
+    - path: "Sources/KlaviyoForms/**"
+      instructions: |
+        In-app messaging UI module. Check for: SwiftUI best practices (correct use of @State,
+        @Binding, @StateObject, @EnvironmentObject), main-thread enforcement, accessibility
+        modifiers, memory leaks via retain cycles in closures.
+
+    - path: "Sources/KlaviyoLocation/**"
+      instructions: |
+        Geofencing module. Focus on: proper CLLocationManager usage, permission handling,
+        background execution correctness, battery impact.
+
+    - path: "Sources/KlaviyoSwiftExtension/**"
+      instructions: |
+        App Extension target. Flag any APIs incompatible with the app extension sandbox
+        (e.g., UIApplication.shared, background tasks not allowed in extensions).
+        Check for missing @available guards.
+
+    - path: "Tests/**"
+      instructions: |
+        Primarily XCTest — do not flag XCTest usage as a problem.
+        Swift Testing (@Test, #expect) is acceptable for new files.
+        Focus on: test isolation, missing assertions, coverage of error/edge-case paths,
+        and snapshot test correctness. Avoid style comments.
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    base_branches:
+      - "master"
+      - "rel/.*"
+
+  tools:
+    swiftlint:
+      enabled: true
+      config_file: ".swiftlint.yml"
+    semgrep:
+      enabled: true
+    shellcheck:
+      enabled: true
+    ruff:
+      enabled: false
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    golangci-lint:
+      enabled: false
+    phpstan:
+      enabled: false
+
+chat:
+  auto_reply: true
+  art: false
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto
+
+code_generation:
+  docstrings:
+    language: en-US
+    path_instructions:
+      - path: "**/*.swift"
+        instructions: "Use Swift doc comment style (/// for single-line, /** */ for multi-line)."
+  unit_tests:
+    path_instructions:
+      - path: "Tests/**"
+        instructions: "The suite is primarily XCTest. Swift Testing (@Test, #expect) is acceptable for new files."
