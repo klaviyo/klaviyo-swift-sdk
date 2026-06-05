@@ -971,15 +971,25 @@ struct AuthTokenManagerRefreshTests {
     /// Suspends until `manager` has armed its connectivity-retry wait. The arming
     /// lands asynchronously inside the refresh-failure path, so driving a
     /// reachability transition before it would drop the event against an unarmed
-    /// flag. Unlike a fixed yield count, this adapts to scheduling: under a
-    /// saturated cooperative pool (sibling suites running in parallel) it simply
-    /// iterates more, so it can never under-wait. It only fails to return if the
-    /// wait genuinely never arms — which is itself the bug a caller would want to
-    /// surface.
-    private func awaitConnectivityWaitArmed(_ manager: AuthTokenManager) async {
-        while await manager.isAwaitingConnectivityRetryForTesting == false {
+    /// flag. Unlike a fixed *small* yield count, this adapts to scheduling: under
+    /// a saturated cooperative pool (sibling suites running in parallel) it simply
+    /// iterates more, so it can't under-wait in the happy path.
+    ///
+    /// The yield budget is a deliberately large safety cap, not a timing knob:
+    /// arming lands within a handful of yields in practice, so the cap is never
+    /// reached unless the wait genuinely never arms (a production regression). In
+    /// that case it records a labeled failure rather than spinning until CI's
+    /// global timeout.
+    private func awaitConnectivityWaitArmed(
+        _ manager: AuthTokenManager,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async {
+        let maxYields = 10_000
+        for _ in 0..<maxYields {
+            if await manager.isAwaitingConnectivityRetryForTesting { return }
             await Task.yield()
         }
+        Issue.record("connectivity retry wait never armed", sourceLocation: sourceLocation)
     }
 
     /// Builds a manager driven by a deterministic clock and sleep gate.
