@@ -666,6 +666,66 @@ struct AuthTokenManagerRefreshTests {
     }
 
     @Test
+    func successfulFetchClearsPendingConnectivityWait() async throws {
+        // A connectivity wait armed by a failed proactive refresh must be dropped
+        // once a fresh token is acquired through *any other* path (here, a
+        // `currentToken` fetch). Otherwise a later reachability transition would
+        // fire a redundant retry against an already-fresh cache.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet) // proactive refresh fails offline → arms wait
+            default: return secondToken // fresh token via another path (currentToken)
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        // Fire the scheduled refresh; it fails offline and arms the wait.
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // A different path acquires a fresh token (firstToken is stale at ref+10),
+        // which must clear the pending wait.
+        let refreshed = try await manager.currentToken(mode: .background)
+        #expect(refreshed == secondToken)
+
+        // Connectivity later transitions to satisfied. The cache is already fresh
+        // and the wait was cleared, so no redundant retry should fire.
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 3,
+            "a successful fetch must clear the pending connectivity wait, saw \(invocations)"
+        )
+    }
+
+    @Test
     func clearTokenStateCancelsPendingConnectivityRetry() async throws {
         // Arm a connectivity wait via a network-failed refresh, then reset. The
         // pending wait must be dropped so a later reachability restoration does

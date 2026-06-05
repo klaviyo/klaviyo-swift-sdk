@@ -364,6 +364,14 @@ package actor AuthTokenManager {
             switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
+                // A fresh token from any acquisition path (interactive fetch,
+                // eager warm-up, foreground recovery, or a proactive/connectivity
+                // retry) obsoletes a pending connectivity wait: there is nothing
+                // left to retry, and the next refresh is scheduled just below.
+                // Leaving it armed would fire a redundant retry — an extra
+                // provider round-trip and `refreshes()` broadcast — on the next
+                // reachability transition.
+                isAwaitingConnectivityRetry = false
                 scheduleRefresh(for: validated)
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(
