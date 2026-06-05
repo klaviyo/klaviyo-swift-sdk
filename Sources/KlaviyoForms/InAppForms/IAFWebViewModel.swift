@@ -27,7 +27,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     let apiKey: String
-    let profileData: ProfileData?
+    let profileData: KlaviyoIdentity?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -119,7 +119,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, apiKey: String, profileData: ProfileData?, assetSource: String? = nil) {
+    init(url: URL, apiKey: String, profileData: KlaviyoIdentity?, assetSource: String? = nil) {
         self.url = url
         self.apiKey = apiKey
         self.profileData = profileData
@@ -201,53 +201,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func subscribeToProfileUpdates() {
-        // Current (requires KlaviyoSwift import):
-        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+        profileUpdatesCancellable = IdentityStore.shared.publisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
+            .sink { [weak self] identity in
                 guard let self else { return }
-                guard case let .success(newProfileData) = result else { return }
-
-                if newProfileData != self.profileData {
+                if identity != self.profileData {
                     if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+                        Logger.webViewLogger.info("Profile data updated; new profile data:\n\(identity.debugDescription)")
                     }
-                    self.handleProfileDataChange(newProfileData)
+                    self.handleProfileDataChange(identity)
                 }
             }
-
-        // TODO: Replace with IdentityStore.shared.publisher once KlaviyoSwift dep is dropped:
-        //
-        // profileUpdatesCancellable = IdentityStore.shared.publisher
-        //     .receive(on: DispatchQueue.main)
-        //     .sink { [weak self] identity in
-        //         guard let self else { return }
-        //         let newProfileData = ProfileData(
-        //             email: identity.email,
-        //             anonymousId: identity.anonymousId,
-        //             phoneNumber: identity.phoneNumber,
-        //             externalId: identity.externalId
-        //         )
-        //         if newProfileData != self.profileData {
-        //             if #available(iOS 14.0, *) {
-        //                 Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
-        //             }
-        //             self.handleProfileDataChange(newProfileData)
-        //         }
-        //     }
-        //
-        // Note: ProfileData would also need to move to KlaviyoCore to fully remove the KlaviyoSwift dependency.
     }
 
     @MainActor
-    private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
+    private func createProfileAttributesScript(from profileData: KlaviyoIdentity) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
         let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
         return profileAttributesScript
     }
 
     @MainActor
-    private func handleProfileDataChange(_ newProfileData: ProfileData) {
+    private func handleProfileDataChange(_ newProfileData: KlaviyoIdentity) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
         }

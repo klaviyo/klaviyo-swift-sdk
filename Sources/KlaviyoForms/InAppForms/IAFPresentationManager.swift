@@ -120,24 +120,20 @@ class IAFPresentationManager {
     }
 
     private func initializeFormWithAPIKey() async throws {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        guard let apiKey = IdentityStore.shared.apiKey else {
+            throw SDKError.notInitialized
+        }
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        // Current (requires KlaviyoSwift import):
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        //
-        // TODO: Replace with IdentityStore.shared.current once KlaviyoSwift dep is dropped:
-        //
-        // let identity = IdentityStore.shared.current
-        // let profileData = ProfileData(identity: identity)  // ProfileData would move to KlaviyoCore
-        createFormWebView(apiKey: apiKey, profileData: profileData)
+        let identity = IdentityStore.shared.current
+        createFormWebView(apiKey: apiKey, profileData: identity)
         setupFormLifecycleListener()
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
+    private func createFormWebView(apiKey: String, profileData: KlaviyoIdentity?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
@@ -471,8 +467,6 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()
         destroyWebView()
     }

@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 class CompanyObserver {
@@ -30,21 +29,20 @@ class CompanyObserver {
 
     func startObserving() {
         guard cancellable == nil else { return }
-        cancellable = KlaviyoInternal.apiKeyPublisher()
+        cancellable = IdentityStore.shared.apiKeyPublisher
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
-            .sink { [weak self] result in
+            .sink { [weak self] apiKey in
                 guard let self else { return }
-                switch result {
-                case let .success(key):
+                if let key = apiKey {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.info("Received API key change. New API key: \(key)")
                     }
                     initializationWarningTask?.cancel()
                     eventsContinuation?.yield(.apiKeyUpdated(key))
-                case let .failure(error):
-                    handleAPIKeyError(error)
-                    eventsContinuation?.yield(.error(error))
+                } else {
+                    handleAPIKeyError(.notInitialized)
+                    eventsContinuation?.yield(.error(.notInitialized))
                 }
             }
     }
