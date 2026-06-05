@@ -159,3 +159,20 @@ code_generation:
     path_instructions:
       - path: "Tests/**"
         instructions: "The suite is primarily XCTest. Swift Testing (@Test, #expect) is acceptable for new files."
+
+# --- Linear integration (disabled) ---
+# Uncomment to wire CodeRabbit up to Linear tickets.
+# When enabled, CodeRabbit cross-references the linked MAGE ticket during PR review
+# and checks whether the implementation covers the issue's acceptance criteria.
+# Requires team_keys to match the Linear team identifier for your org.
+#
+# chat:
+#   integrations:
+#     linear:
+#       usage: auto        # only activates when a Linear ticket is linked to the PR
+#       team_keys: ["MAGE"]
+#
+# knowledge_base:
+#   linear:
+#     usage: auto
+#     team_keys: ["MAGE"]
