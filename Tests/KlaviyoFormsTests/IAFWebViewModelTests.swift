@@ -11,8 +11,8 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
-// Test-specific subclass that overrides navigation policy to allow all navigation
-// This is required to get these unit tests to pass
+/// Test-specific subclass that overrides navigation policy to allow all navigation
+/// This is required to get these unit tests to pass
 private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         .allow
@@ -73,7 +73,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - SDK Attribute Tests
 
     @MainActor
-    func testInjectSdkNameAttribute() async throws {
+    func testInjectSdkNameAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
@@ -83,7 +83,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectSdkVersionAttribute() async throws {
+    func testInjectSdkVersionAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
@@ -95,7 +95,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Environment Tests
 
     @MainActor
-    func testInjectFormsDataEnvironmentAttribute() async throws {
+    func testInjectFormsDataEnvironmentAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
@@ -125,7 +125,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Handshake Tests
 
     @MainActor
-    func testInjectHandshakeAttribute() async throws {
+    func testInjectHandshakeAttribute() throws {
         // When
         viewModel.initializeLoadScripts()
         let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
@@ -179,7 +179,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testAuthTokenScriptNotInjectedWhenTokenIsNil() async throws {
+    func testAuthTokenScriptNotInjectedWhenTokenIsNil() {
         // When (default viewModel from setUp has authToken: nil)
         viewModel.initializeLoadScripts()
         let authTokenScript = viewModel.findScript(containing: "data-klaviyo-jwt")
@@ -191,7 +191,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Klaviyo JS Tests
 
     @MainActor
-    func testInjectKlaviyoJsScript() async throws {
+    func testInjectKlaviyoJsScript() {
         // When
         viewModel.initializeLoadScripts()
         let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
@@ -205,7 +205,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Event Handling Tests
 
     @MainActor
-    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
+    func testFormWillAppearYieldsPresentLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
 
@@ -241,7 +241,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+    func testFormDisappearedYieldsDismissLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
 
@@ -277,10 +277,11 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async {
         // Given
         let expectation = XCTestExpectation(
-            description: "formWillAppear with missing metadata should still yield .present")
+            description: "formWillAppear with missing metadata should still yield .present"
+        )
 
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
@@ -310,10 +311,11 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async {
         // Given
         let expectation = XCTestExpectation(
-            description: "formDisappeared with missing metadata should still yield .dismiss")
+            description: "formDisappeared with missing metadata should still yield .dismiss"
+        )
 
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
@@ -343,7 +345,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testAbortEventYieldsAbortLifecycleEvent() async throws {
+    func testAbortEventYieldsAbortLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
         let abortReason = "test abort reason"
@@ -377,6 +379,41 @@ final class IAFWebViewModelTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
     }
+
+    // MARK: - Token Refresh Tests
+
+    @MainActor
+    func testPushAuthTokenUpdatesWebView() async throws {
+        // Given — a view model with a wired-up delegate
+        let (viewModel, delegate) = try makeTokenViewModel()
+
+        // When — a refreshed token is pushed (driven by the presentation
+        // manager's refresh subscription in production)
+        let refreshedToken = "header.refreshed.signature"
+        await viewModel.pushAuthToken(refreshedToken)
+
+        // Then — it is applied as a data-klaviyo-jwt update carrying the token
+        let script = try XCTUnwrap(tokenScripts(delegate).first)
+        XCTAssertTrue(script.contains(refreshedToken), "Pushed token should update data-klaviyo-jwt with the new value")
+    }
+
+    @MainActor
+    func testPushAuthTokenAppliesUpdatesInOrder() async throws {
+        // Given
+        let (viewModel, delegate) = try makeTokenViewModel()
+
+        // When — two tokens are pushed sequentially
+        let firstToken = "header.first.signature"
+        let secondToken = "header.second.signature"
+        await viewModel.pushAuthToken(firstToken)
+        await viewModel.pushAuthToken(secondToken)
+
+        // Then — both are applied, in order
+        let scripts = tokenScripts(delegate)
+        XCTAssertEqual(scripts.count, 2)
+        XCTAssertTrue(scripts[0].contains(firstToken))
+        XCTAssertTrue(scripts[1].contains(secondToken))
+    }
 }
 
 extension IAFWebViewModel {
@@ -394,5 +431,29 @@ extension IAFWebViewModel {
                 script.source.contains(text)
             }
         }
+    }
+}
+
+// MARK: - Token refresh test helpers
+
+extension IAFWebViewModelTests {
+    /// Builds a view model with a wired-up mock delegate, so `pushAuthToken`
+    /// tests can observe the resulting `evaluateJavaScript` calls.
+    @MainActor
+    private func makeTokenViewModel() throws -> (IAFWebViewModel, MockIAFWebViewDelegate) {
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: "abc123", profileData: nil)
+        let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+        return (viewModel, delegate)
+    }
+
+    /// The auth-token update scripts among everything the delegate has evaluated.
+    /// Filters out the incidental `data-klaviyo-profile` updates that the view
+    /// model's profile subscription emits during setup, isolating the
+    /// token-update behavior under test.
+    @MainActor
+    private func tokenScripts(_ delegate: MockIAFWebViewDelegate) -> [String] {
+        delegate.evaluatedScripts.filter { $0.contains("data-klaviyo-jwt") }
     }
 }

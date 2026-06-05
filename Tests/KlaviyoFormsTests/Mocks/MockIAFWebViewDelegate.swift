@@ -19,7 +19,13 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     let viewModel: IAFWebViewModel
 
     var handshakeResult: HandshakeResult?
-    var evaluateJavaScriptCalled = false
+
+    /// Records every script passed to ``evaluateJavaScript(_:)``, in call order,
+    /// so tests can assert both that an update fired and what it contained.
+    var evaluatedScripts: [String] = []
+    var evaluateJavaScriptCalled: Bool {
+        !evaluatedScripts.isEmpty
+    }
 
     init(viewModel: IAFWebViewModel) {
         self.viewModel = viewModel
@@ -58,7 +64,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     }
 
     func evaluateJavaScript(_ script: String) async throws -> Any? {
-        evaluateJavaScriptCalled = true
+        evaluatedScripts.append(script)
         return true
     }
 
