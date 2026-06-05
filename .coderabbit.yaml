@@ -1,178 +1,51 @@
-# ISO language code for review output (80+ locales supported)
-language: en-US
-# Free-form instruction injected into every review prompt (max 250 chars)
-tone_instructions: "Be concise and direct. Prioritize correctness and API quality over style."
-# Opt-in to experimental CodeRabbit features before general availability
-early_access: false
-
 reviews:
-  # chill = bugs/security only | assertive = full best-practices | followup = assertive + tracks unresolved prior comments
   profile: assertive
-  # Post a plain-English PR description at the top of the walkthrough comment
-  high_level_summary: true
-  # Wrap the file-by-file walkthrough in a <details> block to reduce comment length
-  collapse_walkthrough: true
-  # Generate Mermaid sequence/flow diagrams illustrating the code changes
-  sequence_diagrams: true
-  # Include a complexity score (XS–XL) to help prioritize review effort
-  estimate_code_review_effort: true
-  # Decorative poem in the walkthrough — disabled for a professional context
-  poem: false
-  # "Fortune cookie" message posted while the review is in progress — disabled
-  in_progress_fortune: false
-
-  # Global instructions prepended to every file review prompt.
-  # Tell CodeRabbit about our stack so it doesn't re-flag what CI already enforces.
-  instructions: |
-    This is a multi-module Swift SDK using The Composable Architecture (TCA).
-    SwiftLint and SwiftFormat are enforced in CI and pre-commit — do not flag formatting or style
-    issues already covered by these tools.
-    The test suite is primarily XCTest; a small number of newer files use Swift Testing (@Test,
-    #expect). Both are acceptable — do not flag XCTest patterns as problems.
-    Flag force unwraps (`!`) in Sources/** as errors. Allow them in Tests/** where appropriate.
-    Flag missing actor isolation in async/concurrent code.
-    Flag any breaking changes to public API surface.
-
-  # Minimatch globs — prefix ! to exclude a path from review entirely.
-  # CodeRabbit already auto-excludes binaries, node_modules, lock files, and dist/.
   path_filters:
-    - "!Examples/**"                      # Sample apps — not part of the SDK under review
-    - "!Sources/KlaviyoSwift/Vendor/**"   # Third-party source vendored into the module
+    - "!Examples/**"
+    - "!Sources/KlaviyoSwift/Vendor/**"
     - "!Tests/KlaviyoSwiftTests/Vendor/**"
-    - "!**/__Snapshots__/**"              # Generated snapshot reference images
-    - "!**/*.xcodeproj/**"               # Xcode project files (auto-generated)
+    - "!**/__Snapshots__/**"
+    - "!**/*.xcodeproj/**"
     - "!**/*.xcworkspace/**"
-    - "!**/xcshareddata/**"              # Xcode shared scheme/settings files
-    - "!**/Podfile.lock"                 # CocoaPods lock file
+    - "!**/xcshareddata/**"
+    - "!**/Podfile.lock"
     - "!**/Pods/**"
-    - "!TestResults*/**"                 # .xcresult bundles written by CI
-
-  # Per-path review instructions — layered on top of the global instructions above.
-  # Use these to give CodeRabbit module-specific context it can't infer from code alone.
+    - "!TestResults*/**"
   path_instructions:
     - path: "Sources/KlaviyoCore/**"
       instructions: |
         Shared internal module. Be strict about breaking changes to types or protocols that other
         modules depend on. Flag any public API additions or removals prominently.
-
     - path: "Sources/KlaviyoSwift/**"
       instructions: |
         Main analytics and push notifications module. Focus on: TCA reducer correctness,
         thread safety, actor isolation, proper error handling. Flag force unwraps and
         unhandled async errors.
-
     - path: "Sources/KlaviyoForms/**"
       instructions: |
         In-app messaging UI module. Check for: SwiftUI best practices (correct use of @State,
         @Binding, @StateObject, @EnvironmentObject), main-thread enforcement, accessibility
         modifiers, memory leaks via retain cycles in closures.
-
     - path: "Sources/KlaviyoLocation/**"
       instructions: |
         Geofencing module. Focus on: proper CLLocationManager usage, permission handling,
         background execution correctness, battery impact.
-
     - path: "Sources/KlaviyoSwiftExtension/**"
       instructions: |
         App Extension target. Flag any APIs incompatible with the app extension sandbox
         (e.g., UIApplication.shared, background tasks not allowed in extensions).
         Check for missing @available guards.
-
     - path: "Tests/**"
       instructions: |
-        Primarily XCTest — do not flag XCTest usage as a problem.
+        XCTest is the primary framework — do not flag XCTest usage as a problem.
         Swift Testing (@Test, #expect) is acceptable for new files.
         Focus on: test isolation, missing assertions, coverage of error/edge-case paths,
         and snapshot test correctness. Avoid style comments.
-
   auto_review:
-    enabled: true
-    # Re-review automatically when new commits are pushed to an open PR
-    auto_incremental_review: true
-    # Do not review draft PRs — avoids noise on WIP branches
     drafts: false
-    # PRs whose titles contain these keywords are skipped entirely
-    ignore_title_keywords:
-      - "WIP"
-      - "DO NOT MERGE"
-    # Only review PRs targeting these branches (supports regex)
     base_branches:
-      - "master"
-      - "rel/.*"  # Matches all release branches (e.g. rel/3.2.0)
-
+      - ".*"
   tools:
-    # CodeRabbit runs SwiftLint natively — point it at our existing config.
-    # It auto-deduplicates with CI: if SwiftLint already ran in the pipeline,
-    # CodeRabbit skips re-flagging the same issues.
     swiftlint:
       enabled: true
       config_file: ".swiftlint.yml"
-    # Semgrep runs static analysis rules for security and correctness patterns
-    semgrep:
-      enabled: true
-    # ShellCheck lints the .sh scripts in the repo (e.g. bump-version.sh)
-    shellcheck:
-      enabled: true
-    # Disable linters irrelevant to a Swift-only repo to reduce noise
-    ruff:
-      enabled: false  # Python linter
-    eslint:
-      enabled: false  # JavaScript/TypeScript linter
-    biome:
-      enabled: false  # JS/TS formatter+linter
-    golangci-lint:
-      enabled: false  # Go linter
-    phpstan:
-      enabled: false  # PHP linter
-
-chat:
-  # Respond to @coderabbitai commands automatically without needing a mention trigger
-  auto_reply: true
-  # ASCII/emoji decorative art in chat responses — disabled
-  art: false
-
-knowledge_base:
-  # Set to true to prevent CodeRabbit from learning from this repo's PRs/reviews
-  opt_out: false
-  # Allow CodeRabbit to search the web when answering questions in PR comments
-  web_search:
-    enabled: true
-  # auto = use repo-level learnings when relevant, fall back to org-level learnings
-  learnings:
-    scope: auto
-  # Cross-reference GitHub Issues when reviewing related PRs
-  issues:
-    scope: auto
-  # Reference past PRs when reviewing to surface related patterns or regressions
-  pull_requests:
-    scope: auto
-
-code_generation:
-  # Controls the style CodeRabbit uses when suggesting or generating doc comments
-  docstrings:
-    language: en-US
-    path_instructions:
-      - path: "**/*.swift"
-        instructions: "Use Swift doc comment style (/// for single-line, /** */ for multi-line)."
-  # Controls the style CodeRabbit uses when suggesting or generating unit tests
-  unit_tests:
-    path_instructions:
-      - path: "Tests/**"
-        instructions: "The suite is primarily XCTest. Swift Testing (@Test, #expect) is acceptable for new files."
-
-# --- Linear integration (disabled) ---
-# Uncomment to wire CodeRabbit up to Linear tickets.
-# When enabled, CodeRabbit cross-references the linked MAGE ticket during PR review
-# and checks whether the implementation covers the issue's acceptance criteria.
-# Requires team_keys to match the Linear team identifier for your org.
-#
-# chat:
-#   integrations:
-#     linear:
-#       usage: auto        # only activates when a Linear ticket is linked to the PR
-#       team_keys: ["MAGE"]
-#
-# knowledge_base:
-#   linear:
-#     usage: auto
-#     team_keys: ["MAGE"]
