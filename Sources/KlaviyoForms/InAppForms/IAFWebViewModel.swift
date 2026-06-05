@@ -201,6 +201,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func subscribeToProfileUpdates() {
+        // Current (requires KlaviyoSwift import):
         profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] result in
@@ -214,6 +215,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     self.handleProfileDataChange(newProfileData)
                 }
             }
+
+        // TODO: Replace with IdentityStore.shared.publisher once KlaviyoSwift dep is dropped:
+        //
+        // profileUpdatesCancellable = IdentityStore.shared.publisher
+        //     .receive(on: DispatchQueue.main)
+        //     .sink { [weak self] identity in
+        //         guard let self else { return }
+        //         let newProfileData = ProfileData(
+        //             email: identity.email,
+        //             anonymousId: identity.anonymousId,
+        //             phoneNumber: identity.phoneNumber,
+        //             externalId: identity.externalId
+        //         )
+        //         if newProfileData != self.profileData {
+        //             if #available(iOS 14.0, *) {
+        //                 Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+        //             }
+        //             self.handleProfileDataChange(newProfileData)
+        //         }
+        //     }
+        //
+        // Note: ProfileData would also need to move to KlaviyoCore to fully remove the KlaviyoSwift dependency.
     }
 
     @MainActor

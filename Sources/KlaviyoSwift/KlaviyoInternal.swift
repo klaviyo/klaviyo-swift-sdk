@@ -26,6 +26,8 @@ package enum KlaviyoInternal {
     private static var profileDataCancellable: Cancellable?
     private static let profileDataSubject = CurrentValueSubject<ProfileDataResult, Never>(.failure(.notInitialized))
 
+    private static var identityStoreCancellable: Cancellable?
+
     private static var apiKeyCancellable: Cancellable?
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
 
@@ -120,12 +122,28 @@ package enum KlaviyoInternal {
             .subscribe(profileDataSubject)
     }
 
+    // Publishes identity changes to IdentityStore in KlaviyoCore so other modules can observe
+    // without importing KlaviyoSwift.
+    private static func setupIdentityStore() {
+        guard identityStoreCancellable == nil else { return }
+        identityStoreCancellable = klaviyoSwiftEnvironment.statePublisher()
+            .compactMap { state -> KlaviyoIdentity? in
+                guard state.initalizationState == .initialized else { return nil }
+                return state.identity
+            }
+            .removeDuplicates()
+            .sink { identity in
+                IdentityStore.shared.update(identity)
+            }
+    }
+
     /// Fetches the current profile data once.
     ///
     /// - Returns: The current profile data, if available.
     /// - Throws: `SDKError.notInitialized` if the SDK is not initialized.
     package static func fetchProfileData() async throws -> ProfileData {
         setupProfileDataSubject()
+        setupIdentityStore()
 
         return try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
@@ -146,6 +164,7 @@ package enum KlaviyoInternal {
     package static func profileChangePublisher() -> AnyPublisher<ProfileDataResult, Never> {
         // Set up the subject if it hasn't been set up yet
         setupProfileDataSubject()
+        setupIdentityStore()
         return profileDataSubject.eraseToAnyPublisher()
     }
 
@@ -154,6 +173,9 @@ package enum KlaviyoInternal {
         profileDataCancellable?.cancel()
         profileDataCancellable = nil
         profileDataSubject.send(.failure(.notInitialized))
+        // Reset identity store subscription too
+        identityStoreCancellable?.cancel()
+        identityStoreCancellable = nil
     }
 
     // MARK: - Profile Event methods

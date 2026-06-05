@@ -125,7 +125,13 @@ class IAFPresentationManager {
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
+        // Current (requires KlaviyoSwift import):
         let profileData = try await KlaviyoInternal.fetchProfileData()
+        //
+        // TODO: Replace with IdentityStore.shared.current once KlaviyoSwift dep is dropped:
+        //
+        // let identity = IdentityStore.shared.current
+        // let profileData = ProfileData(identity: identity)  // ProfileData would move to KlaviyoCore
         createFormWebView(apiKey: apiKey, profileData: profileData)
         setupFormLifecycleListener()
     }
