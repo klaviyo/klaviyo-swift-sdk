@@ -161,6 +161,34 @@ final class TestClock: @unchecked Sendable {
     }
 }
 
+/// Manually-set network reachability, injected as the manager's live
+/// `reachabilityStatus` source. Lets a test model the real offline→online flow
+/// the connectivity retry depends on — start `.notReachable` so arming doesn't
+/// immediately kick, then ``set(_:)`` `.reachableViaWiFi` just before sending the
+/// `.reachabilityChanged` transition so the handler's live re-read sees a path.
+/// `NSLock`-guarded because the manager reads it from its actor while the test
+/// mutates it. `nil` models an "unknown" reading.
+final class TestReachability: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Reachability.NetworkStatus?
+
+    init(_ start: Reachability.NetworkStatus? = nil) {
+        value = start
+    }
+
+    func status() -> Reachability.NetworkStatus? {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set(_ status: Reachability.NetworkStatus?) {
+        lock.lock()
+        defer { lock.unlock() }
+        value = status
+    }
+}
+
 /// Gated stand-in for the manager's `sleeper`. Every `sleep(_:)` records its
 /// entry and parks until the test ``release()``s it — so a scheduled refresh
 /// fires exactly when the test advances the clock past its target and releases
