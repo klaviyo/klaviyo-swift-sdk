@@ -45,7 +45,7 @@ struct KlaviyoState: Equatable, Codable {
 
     // state related stuff
     var apiKey: String?
-    var identity: KlaviyoIdentity
+    var identity: ProfileData
     var pushTokenData: PushTokenData?
 
     // Convenience accessors — kept for backward compatibility during this POC so that
@@ -89,7 +89,7 @@ struct KlaviyoState: Equatable, Codable {
         case pushTokenData
     }
 
-    /// Legacy coding keys for migrating state files written before `KlaviyoIdentity` was introduced.
+    /// Legacy coding keys for migrating state files written before `ProfileData` was introduced.
     private enum LegacyCodingKeys: CodingKey {
         case email, anonymousId, phoneNumber, externalId
     }
@@ -100,13 +100,13 @@ struct KlaviyoState: Equatable, Codable {
         pushTokenData = try container.decodeIfPresent(PushTokenData.self, forKey: .pushTokenData)
         queue = try container.decodeIfPresent([KlaviyoRequest].self, forKey: .queue) ?? []
 
-        if let identity = try container.decodeIfPresent(KlaviyoIdentity.self, forKey: .identity) {
+        if let identity = try container.decodeIfPresent(ProfileData.self, forKey: .identity) {
             // New format: identity is a nested object
             self.identity = identity
         } else {
             // Legacy format: identity fields were stored at the top level
             let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
-            self.identity = KlaviyoIdentity(
+            self.identity = ProfileData(
                 email: try legacy.decodeIfPresent(String.self, forKey: .email),
                 phoneNumber: try legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
                 externalId: try legacy.decodeIfPresent(String.self, forKey: .externalId),
@@ -135,7 +135,7 @@ struct KlaviyoState: Equatable, Codable {
         isProcessingDeepLink: Bool = false
     ) {
         self.apiKey = apiKey
-        self.identity = KlaviyoIdentity(
+        self.identity = ProfileData(
             email: email,
             phoneNumber: phoneNumber,
             externalId: externalId,

@@ -27,7 +27,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     let apiKey: String
-    let profileData: KlaviyoIdentity?
+    let profileData: ProfileData?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -119,7 +119,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Initializer
 
     @MainActor
-    init(url: URL, apiKey: String, profileData: KlaviyoIdentity?, assetSource: String? = nil) {
+    init(url: URL, apiKey: String, profileData: ProfileData?, assetSource: String? = nil) {
         self.url = url
         self.apiKey = apiKey
         self.profileData = profileData
@@ -215,14 +215,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
-    private func createProfileAttributesScript(from profileData: KlaviyoIdentity) -> String? {
+    private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
         let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
         return profileAttributesScript
     }
 
     @MainActor
-    private func handleProfileDataChange(_ newProfileData: KlaviyoIdentity) {
+    private func handleProfileDataChange(_ newProfileData: ProfileData) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
         }

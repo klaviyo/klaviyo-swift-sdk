@@ -1,8 +1,8 @@
 //
-//  KlaviyoIdentity+Forms.swift
+//  ProfileData+Forms.swift
 //  klaviyo-swift-sdk
 //
-//  Forms-specific extensions on KlaviyoIdentity: HTML serialization for webview
+//  Forms-specific extensions on ProfileData: HTML serialization for webview
 //  injection and debug formatting. Kept in KlaviyoForms rather than KlaviyoCore
 //  because the encoding format and debug layout are IAF implementation details.
 //
@@ -11,7 +11,7 @@ import Foundation
 import KlaviyoCore
 import OSLog
 
-extension KlaviyoIdentity: CustomDebugStringConvertible {
+extension ProfileData: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
         email: \t\t\t\(email ?? "<no email>")

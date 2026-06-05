@@ -43,10 +43,10 @@ public final class IdentityStore: @unchecked Sendable {
     /// The singleton instance written to by `KlaviyoSwift` and read by consumer modules.
     public static let shared = IdentityStore()
 
-    private let subject: CurrentValueSubject<KlaviyoIdentity, Never>
+    private let subject: CurrentValueSubject<ProfileData, Never>
     private let apiKeySubject: CurrentValueSubject<String?, Never>
 
-    init(initial: KlaviyoIdentity = KlaviyoIdentity(), apiKey: String? = nil) {
+    init(initial: ProfileData = ProfileData(), apiKey: String? = nil) {
         subject = CurrentValueSubject(initial)
         apiKeySubject = CurrentValueSubject(apiKey)
     }
@@ -54,16 +54,16 @@ public final class IdentityStore: @unchecked Sendable {
     // MARK: - Identity
 
     /// The current identity snapshot.
-    public var current: KlaviyoIdentity { subject.value }
+    public var current: ProfileData { subject.value }
 
     /// A Combine publisher that emits the current identity and every subsequent update.
-    public var publisher: AnyPublisher<KlaviyoIdentity, Never> {
+    public var publisher: AnyPublisher<ProfileData, Never> {
         subject.eraseToAnyPublisher()
     }
 
     /// An `AsyncStream` of identity updates. Emits the current value immediately
     /// upon subscription, then continues emitting as identity changes.
-    public func stream() -> AsyncStream<KlaviyoIdentity> {
+    public func stream() -> AsyncStream<ProfileData> {
         AsyncStream { continuation in
             var cancellable: AnyCancellable?
             cancellable = self.subject.sink { identity in
@@ -79,7 +79,7 @@ public final class IdentityStore: @unchecked Sendable {
     ///
     /// - Note: Internal to the SDK. Call sites outside `KlaviyoSwift` should treat this
     ///   store as read-only.
-    public func update(_ identity: KlaviyoIdentity) {
+    public func update(_ identity: ProfileData) {
         guard identity != current else { return }
         subject.send(identity)
     }

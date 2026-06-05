@@ -212,7 +212,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     func testProfileAttributesScriptIsAddedToWebView() async throws {
         // Given
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = KlaviyoIdentity(email: "test@example.com")
+        let profileData = ProfileData(email: "test@example.com")
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewModel.initializeLoadScripts()

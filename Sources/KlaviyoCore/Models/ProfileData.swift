@@ -1,10 +1,10 @@
 import Foundation
 
-/// The identity state shared across Klaviyo SDK modules.
+/// The profile identity state shared across Klaviyo SDK modules.
 ///
-/// Extracted to `KlaviyoCore` so that `KlaviyoForms`, `KlaviyoLocation`,
-/// and other modules can read identity without importing `KlaviyoSwift`.
-public struct KlaviyoIdentity: Equatable, Codable {
+/// Moved to `KlaviyoCore` as a `public` type so that `KlaviyoForms`, `KlaviyoLocation`,
+/// and other modules can observe profile data without importing `KlaviyoSwift`.
+public struct ProfileData: Equatable, Codable {
     public var email: String?
     public var phoneNumber: String?
     public var externalId: String?

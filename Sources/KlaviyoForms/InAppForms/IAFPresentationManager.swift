@@ -133,7 +133,7 @@ class IAFPresentationManager {
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: KlaviyoIdentity?) {
+    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
