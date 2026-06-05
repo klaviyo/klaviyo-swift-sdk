@@ -9,10 +9,9 @@ import Foundation
 
 extension URLError {
     /// `URLError` codes that indicate a genuine offline condition — the only
-    /// failures for which waiting on connectivity restoration is the right
-    /// remedy. HTTP error responses, validation rejections, and generic
-    /// timeouts are deliberately excluded: re-running the same request once a
-    /// path exists would not change their outcome.
+    /// failures for which waiting on connectivity restoration helps. HTTP errors,
+    /// validation rejections, and timeouts are excluded: re-running them once a
+    /// path exists wouldn't change the outcome.
     private static let connectivityCodes: Set<URLError.Code> = [
         .notConnectedToInternet,
         .networkConnectionLost,

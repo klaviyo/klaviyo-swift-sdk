@@ -77,24 +77,17 @@ package actor AuthTokenManager {
     private var refreshAtWallClock: Date?
 
     /// `true` while a proactive refresh has failed for a network reason and the
-    /// manager is waiting for connectivity to be restored before retrying.
-    ///
-    /// This is a single boolean rather than a dedicated task because connectivity
-    /// is observed through the already-running ``lifecycleCancellable`` sink (the
-    /// SDK's existing reachability signal), not a separate per-wait subscription.
-    /// The flag is the "at most one pending wait" guarantee: a network-classified
-    /// refresh failure arms it (see ``performScheduledRefresh()``), the next
-    /// reachable ``Reachability/NetworkStatus`` consumes it (see
-    /// ``handleReachabilityChange()``), and rapid network flapping cannot queue
-    /// multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()`` so a
-    /// provider swap or profile reset drops any pending retry.
+    /// manager is awaiting connectivity before retrying. A single boolean (not a
+    /// task) because connectivity comes through the existing ``lifecycleCancellable``
+    /// reachability sink: a network-classified failure arms it
+    /// (``performScheduledRefresh()``), the next reachable status consumes it
+    /// (``handleReachabilityChange()``), so flapping can't queue multiple retries.
+    /// Cleared by ``cancelInFlightWorkAndClearCache()``.
     private var isAwaitingConnectivityRetry = false
 
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
-    /// deterministically await the *arming* of the connectivity wait — which
-    /// lands asynchronously inside the refresh-failure path — instead of racing
-    /// it with a fixed number of yields. Reachable from the test target via
-    /// `@testable import`; not part of the package API.
+    /// deterministically await the wait being *armed* (which lands asynchronously
+    /// in the failure path) instead of racing it with fixed yields. Not package API.
     var isAwaitingConnectivityRetryForTesting: Bool {
         isAwaitingConnectivityRetry
     }
@@ -139,12 +132,10 @@ package actor AuthTokenManager {
     /// swallows the `CancellationError` `Task.sleep` throws.
     private let sleeper: @Sendable (UInt64) async -> Void
 
-    /// Current network reachability, consulted when arming a connectivity wait so
-    /// a retry armed *after* the offline→online transition already passed is not
-    /// stranded waiting for a future transition (see ``armConnectivityRetry()``).
-    /// Injected for testability; defaults to the SDK-wide
-    /// `environment.reachabilityStatus`. `nil` means "unknown" and is treated
-    /// conservatively as "no path".
+    /// Current network reachability, consulted when arming a connectivity wait so a
+    /// retry armed *after* the offline→online transition already passed isn't
+    /// stranded (see ``armConnectivityRetry()``). Injected for testability; defaults
+    /// to `environment.reachabilityStatus`. `nil`/unknown is treated as "no path".
     private let currentReachability: () -> Reachability.NetworkStatus?
 
     /// Production initializer. Wires the actor to the real SDK-wide clock
@@ -364,12 +355,9 @@ package actor AuthTokenManager {
             switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
-                // A fresh token from any acquisition path (interactive fetch,
-                // eager warm-up, foreground recovery, or a proactive/connectivity
-                // retry) obsoletes a pending connectivity wait: there is nothing
-                // left to retry, and the next refresh is scheduled just below.
-                // Leaving it armed would fire a redundant retry — an extra
-                // provider round-trip and `refreshes()` broadcast — on the next
+                // A fresh token from any path obsoletes a pending connectivity
+                // wait: nothing left to retry, and the next refresh is scheduled
+                // below. Leaving it armed would fire a redundant retry on the next
                 // reachability transition.
                 isAwaitingConnectivityRetry = false
                 scheduleRefresh(for: validated)
@@ -482,10 +470,9 @@ package actor AuthTokenManager {
     /// *and* scheduled the next refresh (via the wiring inside that method).
     /// On failure: leaves the cached token in place — the cache only goes
     /// stale at `exp - leeway`, so a foreground transition or user fetch
-    /// before then will retry. A *network-classified* failure additionally arms
+    /// before then will retry. A *network-classified* failure also arms
     /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
-    /// re-fires this method (see ``handleReachabilityChange()``); other
-    /// failures do not, since waiting for connectivity would not address them.
+    /// re-fires this method (``handleReachabilityChange()``); other failures don't.
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
         let task = inFlight?.task ?? startFetch()
@@ -509,37 +496,27 @@ package actor AuthTokenManager {
                     "AuthTokenManager: refresh failed: \(reason, privacy: .public)"
                 )
             }
-            // Network-classified failures are the only ones worth waiting on:
-            // connectivity restoration directly addresses them, whereas HTTP
-            // errors, validation rejections, or host-side bugs would just fail
-            // again.
+            // Only network failures are worth waiting on — connectivity
+            // restoration addresses them; HTTP/validation/host errors would
+            // just fail again.
             if let urlError = error as? URLError, urlError.isConnectivityError {
                 armConnectivityRetry()
             }
         }
     }
 
-    /// Starts the long-lived Combine subscription that drives the actor's
-    /// reactions to app-lifecycle and reachability events. Idempotent: no-op if
-    /// the observer is already running, so retry-on-restart paths can call this
-    /// safely.
+    /// Starts the long-lived Combine subscription driving the actor's reactions to
+    /// app-lifecycle and reachability events. Idempotent (no-op if already running).
     ///
-    /// Two events are handled:
-    /// - `.foregrounded` → ``handleForegroundTransition()`` (reconciles cache and
-    ///   scheduled-refresh state with wall-clock time after backgrounding).
-    /// - `.reachabilityChanged(status:)` → ``handleReachabilityChange()`` (fires
-    ///   the connectivity-driven retry when a prior proactive refresh failed
-    ///   while offline).
+    /// - `.foregrounded` → ``handleForegroundTransition()`` (reconcile cache/refresh
+    ///   state with wall-clock time after backgrounding).
+    /// - `.reachabilityChanged` → ``handleReachabilityChange()`` (fire the
+    ///   connectivity-driven retry when a prior refresh failed offline).
     ///
-    /// The SDK's existing reachability signal is reused here rather than standing
-    /// up a separate `NWPathMonitor`: the lifecycle publisher already multiplexes
-    /// reachability transitions, and consuming them through this single sink keeps
-    /// the actor's observation surface to one subscription.
-    ///
-    /// The `sink` closure is non-isolated, so each event hops back onto the actor
-    /// via an unstructured `Task`. Neither event is bursty, and the actor already
-    /// serializes the state both handlers touch, so the lack of cross-event
-    /// ordering between those tasks is immaterial.
+    /// Reuses the SDK's existing reachability signal rather than a separate
+    /// `NWPathMonitor`. The `sink` is non-isolated, so each event hops back onto the
+    /// actor via a `Task`; neither event is bursty and the actor serializes the
+    /// shared state, so cross-event ordering is immaterial.
     private func startLifecycleObserver() {
         guard lifecycleCancellable == nil else { return }
         lifecycleCancellable = lifeCycle.lifeCycleEvents()
@@ -555,24 +532,15 @@ package actor AuthTokenManager {
             }
     }
 
-    /// Arms the connectivity-retry wait after a network-classified
-    /// proactive-refresh failure, and kicks the retry immediately when the system
-    /// *already* reports a usable path.
+    /// Arms the connectivity-retry wait after a network-classified refresh failure,
+    /// kicking the retry immediately if the system *already* reports a usable path.
     ///
-    /// Reachability is observed as a transition stream
-    /// (``LifeCycleEvents/reachabilityChanged(status:)``) with no "current value":
-    /// if connectivity was restored while the failing fetch was still in flight,
-    /// that transition has already passed by the time this arms, and no future
-    /// event would wake the wait until the next flap or cache expiry. Consulting
+    /// Reachability is a transition stream with no "current value": if connectivity
+    /// returned while the failing fetch was in flight, that transition has already
+    /// passed and no future event would wake the wait. Consulting
     /// ``currentReachability`` here mirrors `NWPathMonitor` delivering the current
-    /// path on subscribe, closing that gap. `nil`/unknown is treated as "no path",
-    /// so the wait simply waits for a transition.
-    ///
-    /// Loop safety: a kicked retry that fails for a network reason re-arms and may
-    /// re-check a still-satisfied path. That recurs only in the contradictory
-    /// state where the system reports a path yet the request returns a genuine
-    /// *offline* `URLError` — which does not realistically persist, and each
-    /// iteration is gated by a full fetch.
+    /// path on subscribe; `nil`/unknown is treated as "no path". A kicked retry that
+    /// fails for a network reason re-arms, gated by a full fetch each iteration.
     private func armConnectivityRetry() {
         isAwaitingConnectivityRetry = true
         if #available(iOS 14.0, *) {
@@ -590,23 +558,18 @@ package actor AuthTokenManager {
     }
 
     /// Routes a reachability change into the connectivity-retry path. The event is
-    /// treated only as a *trigger* — its payload status is deliberately ignored,
-    /// because ``AppLifeCycleEvents`` coerces an unknown (`nil`) reachability read
-    /// to `.reachableViaWWAN`, so the payload can't distinguish "really online"
-    /// from "unknown". Instead re-read the live status and fire only when it
-    /// genuinely reports a path, matching the conservative `nil` handling in
-    /// ``armConnectivityRetry()``. A retry is a no-op when no wait is armed.
+    /// only a *trigger* — its payload status is ignored because ``AppLifeCycleEvents``
+    /// coerces an unknown read to `.reachableViaWWAN`. Re-reads the live status and
+    /// fires only on a genuine path; a no-op when no wait is armed.
     private func handleReachabilityChange() async {
         guard let status = currentReachability(), status != .notReachable else { return }
         await fireConnectivityRetryIfArmed()
     }
 
-    /// Consumes an armed connectivity wait and re-fires the proactive refresh
-    /// through the normal dedup/validate/reschedule/broadcast path. No-op when no
-    /// wait is armed. Clearing the flag *before* re-firing collapses concurrent
-    /// triggers (a reachability transition plus the arm-time current-path check)
-    /// into a single retry; a retry that fails for a network reason re-arms via
-    /// ``performScheduledRefresh()``.
+    /// Consumes an armed connectivity wait and re-fires the refresh through the
+    /// normal dedup/validate/reschedule/broadcast path. Clearing the flag *before*
+    /// re-firing collapses concurrent triggers (transition + arm-time check) into a
+    /// single retry; a network-failed retry re-arms via ``performScheduledRefresh()``.
     private func fireConnectivityRetryIfArmed() async {
         guard isAwaitingConnectivityRetry else { return }
         isAwaitingConnectivityRetry = false

@@ -525,8 +525,8 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        // Offline at arm time so arming doesn't immediately kick; flipped online
-        // just before the satisfied transition below.
+        // Offline at arm so arming doesn't kick immediately; flipped online just
+        // before the satisfied transition below.
         let reachability = TestReachability(.notReachable)
         let manager = makeManager(
             lifeCycle: lifecycle,
@@ -580,12 +580,10 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func armingWhileAlreadyOnlineRetriesWithoutWaitingForTransition() async throws {
-        // If connectivity is already restored by the time the offline failure is
-        // classified (e.g. the network returned while the failing fetch was still
-        // in flight), the `.reachabilityChanged` transition has already passed —
-        // no future event will wake the wait. The arm-time current-path check
-        // must kick the retry anyway. No reachability event is ever sent here, so
-        // recovery can only come from that check.
+        // If connectivity returned while the failing fetch was still in flight, the
+        // `.reachabilityChanged` transition has already passed — only the arm-time
+        // current-path check can kick the retry. No reachability event is sent here,
+        // so recovery can only come from that check.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 40,
@@ -968,18 +966,12 @@ struct AuthTokenManagerRefreshTests {
         AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
     }
 
-    /// Suspends until `manager` has armed its connectivity-retry wait. The arming
-    /// lands asynchronously inside the refresh-failure path, so driving a
-    /// reachability transition before it would drop the event against an unarmed
-    /// flag. Unlike a fixed *small* yield count, this adapts to scheduling: under
-    /// a saturated cooperative pool (sibling suites running in parallel) it simply
-    /// iterates more, so it can't under-wait in the happy path.
-    ///
-    /// The yield budget is a deliberately large safety cap, not a timing knob:
-    /// arming lands within a handful of yields in practice, so the cap is never
-    /// reached unless the wait genuinely never arms (a production regression). In
-    /// that case it records a labeled failure rather than spinning until CI's
-    /// global timeout.
+    /// Suspends until `manager` has armed its connectivity-retry wait, which lands
+    /// asynchronously in the refresh-failure path — driving a transition before it
+    /// would drop the event against an unarmed flag. Adapts to scheduling rather
+    /// than guessing a yield count. The large cap is a safety net: if it's ever hit
+    /// the wait never armed (a regression), and it records a labeled failure rather
+    /// than spinning to CI's global timeout.
     private func awaitConnectivityWaitArmed(
         _ manager: AuthTokenManager,
         sourceLocation: SourceLocation = #_sourceLocation
