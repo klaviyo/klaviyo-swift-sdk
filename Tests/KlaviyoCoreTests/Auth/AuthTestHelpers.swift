@@ -70,7 +70,8 @@ actor CallCounter {
     private(set) var value = 0
     private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
-    func increment() {
+    @discardableResult
+    func increment() -> Int {
         value += 1
         waiters = waiters.compactMap { waiter in
             if value >= waiter.threshold {
@@ -79,6 +80,7 @@ actor CallCounter {
             }
             return waiter
         }
+        return value
     }
 
     func waitFor(atLeast threshold: Int) async throws {
@@ -104,6 +106,108 @@ actor TokenBox {
     }
 }
 
+/// Accumulates values delivered to a stream subscriber so tests can assert on
+/// what was — or, just as importantly, was not — received.
+actor TokenCollector {
+    private(set) var received: [String] = []
+
+    func append(_ token: String) {
+        received.append(token)
+    }
+}
+
 enum ProviderTestError: Error, Equatable {
     case network
+}
+
+// MARK: - Deterministic clock & sleep
+
+/// Manually-advanced clock with a synchronously-readable `now`, injected as the
+/// manager's `currentDate`. Tests move time explicitly via ``set(_:)`` /
+/// ``advance(by:)`` instead of waiting on the real wall clock, so every
+/// clock-sensitive decision the manager makes is deterministic. `NSLock`-guarded
+/// because the manager reads `now()` from its actor while tests mutate it.
+///
+/// Injecting a clock here is also what keeps the auth suites off the SDK-wide
+/// global `environment.date`, which sibling suites mutate concurrently under
+/// Swift Testing's parallel execution (freezing it to 2009) — a shared global
+/// clock would make acquisition-time validation flaky. This is the canonical
+/// reason every auth suite injects its own time source rather than reaching
+/// for the global environment.
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Date
+
+    init(_ start: Date) {
+        current = start
+    }
+
+    func now() -> Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return current
+    }
+
+    func set(_ date: Date) {
+        lock.lock()
+        defer { lock.unlock() }
+        current = date
+    }
+
+    func advance(by seconds: TimeInterval) {
+        lock.lock()
+        defer { lock.unlock() }
+        current = current.addingTimeInterval(seconds)
+    }
+}
+
+/// Gated stand-in for the manager's `sleeper`. Every `sleep(_:)` records its
+/// entry and parks until the test ``release()``s it — so a scheduled refresh
+/// fires exactly when the test advances the clock past its target and releases
+/// the parked sleep, with no real waiting. ``waitUntilSleeping(atLeast:)`` lets
+/// the test await the manager actually parking (which, because the refresh is
+/// scheduled immediately after the cache is written, also confirms the prior
+/// fetch has cached its token). Sleeps left parked at test end are harmless —
+/// they simply never resume.
+actor SleepGate {
+    private var enteredCount = 0
+    private var parked: [CheckedContinuation<Void, Never>] = []
+    private var pendingReleases = 0
+    private var entryWaiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    /// Injected as the manager's `sleep` closure. Duration is ignored — virtual
+    /// time is driven by the paired ``TestClock``.
+    func sleep(_: UInt64) async {
+        enteredCount += 1
+        entryWaiters = entryWaiters.compactMap { waiter in
+            if enteredCount >= waiter.threshold {
+                waiter.continuation.resume()
+                return nil
+            }
+            return waiter
+        }
+        if pendingReleases > 0 {
+            pendingReleases -= 1
+            return
+        }
+        await withCheckedContinuation { parked.append($0) }
+    }
+
+    /// Suspends until at least `threshold` sleeps have been entered.
+    func waitUntilSleeping(atLeast threshold: Int = 1) async {
+        if enteredCount >= threshold { return }
+        await withCheckedContinuation { continuation in
+            entryWaiters.append((threshold, continuation))
+        }
+    }
+
+    /// Wakes the oldest parked sleeper, or pre-authorizes the next `sleep(_:)`
+    /// if none is parked yet.
+    func release() {
+        if parked.isEmpty {
+            pendingReleases += 1
+        } else {
+            parked.removeFirst().resume()
+        }
+    }
 }

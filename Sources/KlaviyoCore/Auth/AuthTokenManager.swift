@@ -81,26 +81,81 @@ package actor AuthTokenManager {
     /// ``init`` and survives ``registerProvider(_:)``).
     private var lifecycleCancellable: AnyCancellable?
 
+    /// Multicast hub for the proactive-refresh token stream. Each successful
+    /// proactive refresh sends the new token here (see ``performScheduledRefresh()``);
+    /// every active ``refreshes()`` subscriber receives it.
+    ///
+    /// A `PassthroughSubject` rather than a hand-rolled collection of
+    /// `AsyncStream.Continuation`s: the subject natively fans a single
+    /// `send(_:)` out to N subscribers and disposes each subscription via its
+    /// returned cancellable, so there is no continuation bookkeeping for the
+    /// actor to get wrong. ``refreshes()`` bridges it into a per-caller
+    /// `AsyncStream` with the same `sink`-based pattern the lifecycle observer
+    /// uses.
+    ///
+    /// Retained across both ``registerProvider(_:)`` and ``clearTokenState()``
+    /// — see ``clearTokenState()`` for why a live subscription survives a reset.
+    private let refreshSubject = PassthroughSubject<String, Never>()
+
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
     private let lifeCycle: AppLifeCycleEvents
 
     /// Wall-clock source. Injected for testability; defaults to the SDK-wide
-    /// `environment.date` closure. Used by both cached-token validity checks
-    /// and the proactive-refresh scheduling formula so a single time source
-    /// drives every clock-sensitive decision the actor makes.
+    /// `environment.date` closure. Used by cached-token validity checks, the JWT
+    /// validation on acquisition, and the proactive-refresh scheduling formula
+    /// so a single time source drives every clock-sensitive decision the actor
+    /// makes.
     private let currentDate: () -> Date
 
+    /// Sleep primitive backing the proactive-refresh loop. Injected for
+    /// testability so tests can drive the schedule deterministically rather than
+    /// waiting on real wall-clock time; defaults to `Task.sleep(nanoseconds:)`.
+    /// Cancellation is observed through the enclosing task's `Task.isCancelled`
+    /// check in ``sleepUntilAndRefresh(target:)``, so the default deliberately
+    /// swallows the `CancellationError` `Task.sleep` throws.
+    private let sleeper: @Sendable (UInt64) async -> Void
+
+    /// Production initializer. Wires the actor to the real SDK-wide clock
+    /// (`environment.date`) and `Task.sleep`. This is the only initializer
+    /// visible to sibling product modules, and is what ``shared`` uses.
+    ///
+    /// - Parameter lifeCycle: Source of foreground/background events. Defaults
+    ///   to `environment.appLifeCycle`.
+    package init(lifeCycle: AppLifeCycleEvents = environment.appLifeCycle) {
+        self.lifeCycle = lifeCycle
+        currentDate = { environment.date() }
+        sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        Task { await self.startLifecycleObserver() }
+    }
+
+    /// Test-only initializer that injects the time sources the production path
+    /// hardcodes, so suites can drive token validity, refresh scheduling, and
+    /// refresh firing in deterministic virtual time.
+    ///
+    /// `internal` (not `package`) so it reaches the test target via `@testable
+    /// import KlaviyoCore` but stays invisible to sibling product modules.
+    /// Deliberately *not* behind `#if DEBUG`: the suite also runs in the release
+    /// configuration (`make CONFIG=release test-library`), where a debug-only
+    /// initializer would fail to compile. The required `currentDate` (no
+    /// default) disambiguates it from the no-argument production initializer.
+    ///
     /// - Parameters:
-    ///   - lifeCycle: Source of foreground/background events. Defaults to
-    ///     `environment.appLifeCycle`.
-    ///   - currentDate: Wall-clock source. Defaults to `environment.date`.
-    package init(
+    ///   - lifeCycle: Source of foreground/background events.
+    ///   - currentDate: Wall-clock source driving every clock-sensitive decision.
+    ///   - sleep: Sleep primitive for the refresh loop, taking a duration in
+    ///     nanoseconds. See ``sleeper`` for its cancellation contract. Defaults
+    ///     to `Task.sleep(nanoseconds:)`.
+    init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
-        currentDate: @escaping () -> Date = { environment.date() }
+        currentDate: @escaping () -> Date,
+        sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        }
     ) {
         self.lifeCycle = lifeCycle
         self.currentDate = currentDate
+        sleeper = sleep
         Task { await self.startLifecycleObserver() }
     }
 
@@ -113,12 +168,7 @@ package actor AuthTokenManager {
     /// logs ``currentToken(mode:)`` would emit). Calling this again later
     /// replaces the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
-        inFlight?.task.cancel()
-        inFlight = nil
-        refreshTask?.cancel()
-        refreshTask = nil
-        refreshAtWallClock = nil
-        cachedToken = nil
+        cancelInFlightWorkAndClearCache()
         provider = newProvider
 
         if #available(iOS 14.0, *) {
@@ -167,6 +217,71 @@ package actor AuthTokenManager {
         return try await race(fetch: task, timeoutSeconds: mode.rawValue)
     }
 
+    /// Returns a stream of token strings produced by *proactive* refreshes.
+    ///
+    /// Each call returns an independent `AsyncStream` backed by its own
+    /// subscription to ``refreshSubject``; multiple concurrent subscribers are
+    /// supported. Only tokens from the proactive-refresh success path are
+    /// delivered (see ``performScheduledRefresh()``) — interactive
+    /// ``currentToken(mode:)`` fetches and the eager warm-up fetch do not emit
+    /// here. The stream never finishes on its own and never errors; the
+    /// consumer ends it by cancelling its iteration, which tears down the
+    /// underlying Combine subscription via `onTermination`.
+    ///
+    /// The subscription is established synchronously inside the stream's build
+    /// closure, so a refresh that fires immediately after this call is still
+    /// delivered — there is no gap between subscribing and being ready to
+    /// receive. Intended for `KlaviyoForms` to push refreshed tokens into an
+    /// active WebView.
+    ///
+    /// Why a stream and not the ``refreshSubject`` itself: the subject's
+    /// `.send(_:)` write end must never cross the package boundary (a consumer
+    /// could otherwise inject tokens to every subscriber), and an `AsyncStream`
+    /// keeps this surface consistent with the manager's async/await API.
+    package func refreshes() -> AsyncStream<String> {
+        AsyncStream { [refreshSubject] continuation in
+            let cancellable = refreshSubject.sink { continuation.yield($0) }
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
+    }
+
+    /// Clears all token-acquisition state tied to the current user, called from
+    /// `KlaviyoSDK().resetProfile()` (e.g. on logout). Discards the cached
+    /// token, cancels the scheduled proactive refresh and its wall-clock
+    /// target, and cancels any in-flight fetch.
+    ///
+    /// Deliberately *retains* three things:
+    /// - ``provider`` — it is host integration code ("how to ask my auth system
+    ///   for a token"), not user identity. The closure is expected to read the
+    ///   current user fresh on each invocation, so the same provider serves the
+    ///   next profile. The next ``currentToken(mode:)`` call drives the next
+    ///   acquisition; this method does not eagerly re-invoke the provider.
+    /// - ``lifecycleCancellable`` — the foreground observer is safe to leave
+    ///   running across resets.
+    /// - ``refreshSubject`` — active ``refreshes()`` subscriptions (e.g. a form
+    ///   on screen during the reset) stay alive across the reset; the stream
+    ///   simply goes quiet until the next successful refresh produces a token.
+    package func clearTokenState() async {
+        cancelInFlightWorkAndClearCache()
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: token state cleared")
+        }
+    }
+
+    /// Cancels the in-flight fetch and scheduled refresh, then drops the cached
+    /// token. Shared by ``registerProvider(_:)`` (which then installs a new
+    /// provider and warms the cache) and ``clearTokenState()`` (which stops
+    /// there). Does *not* touch ``provider``, ``lifecycleCancellable``, or
+    /// ``refreshSubject`` — callers decide the fate of those.
+    private func cancelInFlightWorkAndClearCache() {
+        inFlight?.task.cancel()
+        inFlight = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
+        cachedToken = nil
+    }
+
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
     /// it. Must be called from actor-isolated context.
     private func startFetch() -> Task<String, Error> {
@@ -211,7 +326,7 @@ package actor AuthTokenManager {
             // been bound to a newer provider.
             try Task.checkCancellation()
 
-            switch JWTParser.parseAndValidate(rawToken) {
+            switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
                 scheduleRefresh(for: validated)
@@ -293,9 +408,9 @@ package actor AuthTokenManager {
     }
 
     /// Sleeps until `target` wall-clock time, then fires
-    /// ``performScheduledRefresh()``. The loop re-reads ``now()`` on every
-    /// wakeup rather than trusting that `Task.sleep` slept the full requested
-    /// duration: when the app is backgrounded, wall time advances but
+    /// ``performScheduledRefresh()``. The loop re-reads ``currentDate()`` on
+    /// every wakeup rather than trusting that the ``sleeper`` slept the full
+    /// requested duration: when the app is backgrounded, wall time advances but
     /// `Task.sleep` does not, so a single sleep would fire late by exactly the
     /// backgrounded duration. Re-checking the clock self-corrects — the next
     /// wakeup observes the post-jump time and exits.
@@ -308,7 +423,7 @@ package actor AuthTokenManager {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
             if remaining <= 0 { break }
-            try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            await sleeper(UInt64(remaining * 1_000_000_000))
         }
         guard !Task.isCancelled else { return }
         refreshAtWallClock = nil
@@ -329,12 +444,18 @@ package actor AuthTokenManager {
         guard provider != nil else { return }
         let task = inFlight?.task ?? startFetch()
         do {
-            _ = try await task.value
+            let token = try await task.value
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: refresh succeeded")
             }
-            // Hook for MAGE-626: emit refresh-stream notification to live
-            // consumers here.
+            // A profile reset (``clearTokenState()``) may have landed on the
+            // actor while this fetch was suspended — `task.value` does not honor
+            // the awaiter's cancellation, so we can resume holding a token that
+            // belongs to the *outgoing* profile. Only broadcast a token that is
+            // still the live cached value; otherwise drop it so stale-profile
+            // tokens never reach live ``refreshes()`` subscribers.
+            guard cachedToken?.rawToken == token else { return }
+            refreshSubject.send(token)
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)
@@ -360,7 +481,7 @@ package actor AuthTokenManager {
         lifecycleCancellable = lifeCycle.lifeCycleEvents()
             .sink { [weak self] event in
                 guard case .foregrounded = event else { return }
-                Task { await self?.handleForegroundTransition() }
+                Task { [weak self] in await self?.handleForegroundTransition() }
             }
     }
 

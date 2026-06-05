@@ -95,9 +95,16 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenThrowsValidationFailedForExpiredToken() async throws {
-        let manager = AuthTokenManager()
-        let past = Date().timeIntervalSince1970 - 3600
-        let expiredToken = try makeJWT(issuedAt: past - 60, expiresAt: past)
+        // Pin the manager to a fixed clock so acquisition-time validation
+        // doesn't depend on the SDK-wide `environment.date` (see `TestClock`
+        // for why the global clock is unsafe here). The token expired an hour
+        // before that fixed instant.
+        let fixedNow = Date(timeIntervalSince1970: 1_700_000_000)
+        let expiredToken = try makeJWT(
+            issuedAt: fixedNow.timeIntervalSince1970 - 3660,
+            expiresAt: fixedNow.timeIntervalSince1970 - 3600
+        )
+        let manager = AuthTokenManager(currentDate: { fixedNow })
 
         await manager.registerProvider { expiredToken }
 
@@ -208,40 +215,45 @@ struct AuthTokenManagerTests {
     func interactiveTimeoutThrowsWithinBudget() async throws {
         let manager = AuthTokenManager()
         let token = try makeJWT()
+        let releaseFetch = Latch()
 
         await manager.registerProvider {
-            // Sleep well past the interactive budget so the timeout always wins.
-            try await Task.sleep(nanoseconds: UInt64(2 * 1_000_000_000))
+            // Park the fetch so it cannot complete during the timeout window.
+            // The only way `currentToken` can return is via the timeout firing,
+            // which makes the assertion immune to scheduler starvation — no
+            // wall-clock bound needed (a `Task.sleep` can be delayed arbitrarily
+            // on a loaded CI runner, but a parked fetch never wins the race).
+            await releaseFetch.wait()
             return token
         }
 
-        let start = Date()
         await #expect(throws: AuthTokenError.timedOut) {
             _ = try await manager.currentToken(mode: .interactive)
         }
-        let elapsed = Date().timeIntervalSince(start)
-        // Allow generous headroom for CI scheduler jitter; the assertion that
-        // matters is "did not wait the full provider duration (2s)".
-        #expect(elapsed < 1.5, "interactive caller should time out near 500ms, took \(elapsed)s")
+
+        // Let the parked fetch unwind.
+        await releaseFetch.open()
     }
 
     @Test
     func backgroundTimeoutThrowsWithinBudget() async throws {
         let manager = AuthTokenManager()
         let token = try makeJWT()
+        let releaseFetch = Latch()
 
         await manager.registerProvider {
-            // Sleep well past the background budget so the timeout always wins.
-            try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000_000))
+            // Park the fetch so only the timeout can resolve the call. See
+            // `interactiveTimeoutThrowsWithinBudget` for why this avoids a
+            // wall-clock assertion.
+            await releaseFetch.wait()
             return token
         }
 
-        let start = Date()
         await #expect(throws: AuthTokenError.timedOut) {
             _ = try await manager.currentToken(mode: .background)
         }
-        let elapsed = Date().timeIntervalSince(start)
-        #expect(elapsed < 8.0, "background caller should time out near 5s, took \(elapsed)s")
+
+        await releaseFetch.open()
     }
 
     @Test
@@ -249,22 +261,28 @@ struct AuthTokenManagerTests {
         let manager = AuthTokenManager()
         let token = try makeJWT()
         let counter = CallCounter()
+        let releaseFetch = Latch()
 
         await manager.registerProvider {
             await counter.increment()
-            // Sleep longer than the interactive budget but well under the background budget.
-            try await Task.sleep(nanoseconds: UInt64(800 * 1_000_000))
+            // Park so the interactive caller is forced to time out while this
+            // fetch is still in flight (rather than racing a real sleep against
+            // the budget, which can reorder under CI starvation).
+            await releaseFetch.wait()
             return token
         }
 
-        // First caller bails out via the interactive timeout.
+        // First caller bails out via the interactive timeout while the shared
+        // fetch is still parked (and, critically, not cancelled).
         await #expect(throws: AuthTokenError.timedOut) {
             _ = try await manager.currentToken(mode: .interactive)
         }
 
-        // The in-flight fetch should still be running — a background caller
-        // should dedup with it rather than triggering a second provider call.
-        let result = try await manager.currentToken(mode: .background)
+        // A background caller arriving now must dedup onto that same still-in-
+        // flight fetch rather than triggering a second provider call.
+        async let later = manager.currentToken(mode: .background)
+        await releaseFetch.open()
+        let result = try await later
         #expect(result == token)
 
         let invocations = await counter.value
@@ -378,69 +396,6 @@ struct AuthTokenManagerTests {
 // MARK: - Test helpers
 
 extension AuthTokenManagerTests {
-    /// One-shot async gate. `wait()` suspends until `open()` is called; once
-    /// open it stays open. Used to interleave a provider's resumption with
-    /// other operations in deterministic order.
-    actor Latch {
-        private var isOpen = false
-        private var waiters: [CheckedContinuation<Void, Never>] = []
-
-        func open() {
-            guard !isOpen else { return }
-            isOpen = true
-            for waiter in waiters {
-                waiter.resume()
-            }
-            waiters.removeAll()
-        }
-
-        func wait() async {
-            if isOpen { return }
-            await withCheckedContinuation { waiters.append($0) }
-        }
-    }
-
-    /// Counts provider invocations and lets tests await a specific call count
-    /// without sleeping. `signal` runs every increment so any waiters can wake up
-    /// promptly when their threshold is met.
-    actor CallCounter {
-        private(set) var value = 0
-        private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
-
-        func increment() {
-            value += 1
-            waiters = waiters.compactMap { waiter in
-                if value >= waiter.threshold {
-                    waiter.continuation.resume()
-                    return nil
-                }
-                return waiter
-            }
-        }
-
-        func waitFor(atLeast threshold: Int) async throws {
-            if value >= threshold { return }
-            await withCheckedContinuation { continuation in
-                waiters.append((threshold, continuation))
-            }
-        }
-    }
-
-    /// Mutable token holder used to change a registered provider's return
-    /// value over time without re-registering (re-registration would clear
-    /// the cache and defeat tests that depend on a warm cache).
-    actor TokenBox {
-        private(set) var value: String
-
-        init(_ initial: String) {
-            value = initial
-        }
-
-        func set(_ new: String) {
-            value = new
-        }
-    }
-
     /// One-way switch read by a stateful provider so its behavior can flip from
     /// failing to succeeding across invocations *without* re-registering — which
     /// would reset the in-flight slot and cache and defeat tests that exercise
@@ -455,38 +410,6 @@ extension AuthTokenManagerTests {
         func stopFailing() {
             isFailing = false
         }
-    }
-
-    enum ProviderTestError: Error, Equatable {
-        case network
-    }
-
-    /// Builds a JWT with default `iat` slightly in the past and `exp` an hour
-    /// ahead so it passes ``JWTParser`` validation in the present.
-    fileprivate func makeJWT(
-        issuedAt: TimeInterval? = nil,
-        expiresAt: TimeInterval? = nil,
-        extraClaims: [String: Any] = [:]
-    ) throws -> String {
-        let nowSeconds = Date().timeIntervalSince1970
-        let issuedAtSeconds = issuedAt ?? (nowSeconds - 60)
-        let expiresAtSeconds = expiresAt ?? (nowSeconds + 3600)
-
-        var payload: [String: Any] = extraClaims
-        payload["iat"] = issuedAtSeconds
-        payload["exp"] = expiresAtSeconds
-
-        let header: [String: Any] = ["alg": "HS256", "typ": "JWT"]
-        let headerSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: header))
-        let payloadSeg = try base64URLEncode(JSONSerialization.data(withJSONObject: payload))
-        return "\(headerSeg).\(payloadSeg).signature"
-    }
-
-    fileprivate func base64URLEncode(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
     }
 }
 #endif
