@@ -212,6 +212,24 @@ package actor AuthTokenManager {
         }
     }
 
+    /// Detaches the registered provider and tears down all associated token
+    /// state. Called from `KlaviyoSDK().unregisterAuthTokenProvider()` — e.g. on
+    /// user logout, where the host expects the full token lifecycle to end.
+    ///
+    /// Clears the provider reference *before* ``clearTokenState()`` so any
+    /// callbacks resolving on the cancelled tasks find no provider to call back
+    /// into. Unlike ``clearTokenState()`` — which retains the provider so the
+    /// next ``currentToken(mode:)`` can drive a fresh acquisition — this also
+    /// drops the provider, so token acquisition stops entirely until a new
+    /// provider is registered.
+    package func unregisterProvider() async {
+        provider = nil
+        await clearTokenState()
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: provider unregistered")
+        }
+    }
+
     /// Returns the current auth token, fetching one via the registered provider
     /// if the cache is empty or has gone stale.
     ///

@@ -30,4 +30,18 @@ extension KlaviyoSDK {
             await AuthTokenManager.shared.registerProvider(provider)
         }
     }
+
+    /// Detaches a previously registered auth token provider — e.g. on user
+    /// logout.
+    ///
+    /// Clears the provider reference and tears down all associated token state:
+    /// the cached token is discarded and any scheduled proactive refresh or
+    /// in-flight fetch is cancelled. After this call, personalized in-app forms
+    /// have no token available until a new provider is registered via
+    /// ``registerAuthTokenProvider(_:)``.
+    public func unregisterAuthTokenProvider() {
+        Task {
+            await AuthTokenManager.shared.unregisterProvider()
+        }
+    }
 }
