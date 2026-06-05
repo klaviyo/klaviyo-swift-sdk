@@ -118,7 +118,7 @@ package enum KlaviyoInternal {
 
     // Publishes identity and API key changes to IdentityStore in KlaviyoCore so other modules
     // can observe without importing KlaviyoSwift.
-    private static func setupIdentityStore() {
+    package static func setupIdentityStore() {
         guard identityStoreCancellable == nil else { return }
         identityStoreCancellable = klaviyoSwiftEnvironment.statePublisher()
             .filter { $0.initalizationState == .initialized }
