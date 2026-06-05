@@ -8,57 +8,6 @@
 import Foundation
 import KlaviyoCore
 
-enum ErrorHandlingConstants {
-    static let maxBackoff = 60 * 3 // 3 minutes
-}
-
-extension KlaviyoEndpoint {
-    var maxRetries: Int {
-        switch self {
-        case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent, .logTrackingLinkClicked:
-            return 50
-        case .resolveDestinationURL, .fetchGeofences:
-            return 1
-        }
-    }
-}
-
-enum InvalidField: Equatable {
-    case email
-    case phone
-
-    /// gets the invalid field based on the source.pointer from klaviyo API.
-    /// this assumes that source.pointer will not change
-    /// Client APIs to have better error codes in the future at which point we should use that instead of source.pointer
-    /// - Parameter sourcePointer: pointers to the source of the error
-    /// - Returns: the field that is invalid else `nil`
-    static func getInvalidField(sourcePointer: String) -> InvalidField? {
-        if sourcePointer.contains("/attributes/phone_number") {
-            return .phone
-        }
-        if sourcePointer.contains("/attributes/email") {
-            return .email
-        }
-
-        return nil
-    }
-}
-
-private func parseError(_ data: Data) -> [InvalidField]? {
-    var invalidFields: [InvalidField]?
-    do {
-        let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-
-        invalidFields = errorResponse.errors.compactMap { error in
-            InvalidField.getInvalidField(sourcePointer: error.source.pointer)
-        }
-    } catch {
-        environment.logger.error("error when decoding error data")
-    }
-
-    return invalidFields
-}
-
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,

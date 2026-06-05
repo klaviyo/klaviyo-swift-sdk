@@ -203,6 +203,18 @@ extension KlaviyoEndpoint {
     }
 }
 
+public extension KlaviyoEndpoint {
+    /// The maximum number of times a request to this endpoint will be retried on failure.
+    var maxRetries: Int {
+        switch self {
+        case .createProfile, .registerPushToken, .unregisterPushToken, .createEvent, .aggregateEvent, .logTrackingLinkClicked:
+            return 50
+        case .resolveDestinationURL, .fetchGeofences:
+            return 1
+        }
+    }
+}
+
 extension ProfilePayload {
     fileprivate func asJSONString() throws -> String {
         do {
