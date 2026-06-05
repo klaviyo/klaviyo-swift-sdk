@@ -95,10 +95,10 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenThrowsValidationFailedForExpiredToken() async throws {
-        // Pin the manager to a fixed clock so acquisition-time validation doesn't
-        // depend on the SDK-wide `environment.date`, which sibling suites freeze
-        // (to 2009) under Swift Testing's parallel execution. The token expired
-        // an hour before that fixed instant.
+        // Pin the manager to a fixed clock so acquisition-time validation
+        // doesn't depend on the SDK-wide `environment.date` (see `TestClock`
+        // for why the global clock is unsafe here). The token expired an hour
+        // before that fixed instant.
         let fixedNow = Date(timeIntervalSince1970: 1_700_000_000)
         let expiredToken = try makeJWT(
             issuedAt: fixedNow.timeIntervalSince1970 - 3660,

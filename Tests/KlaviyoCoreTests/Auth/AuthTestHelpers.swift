@@ -127,6 +127,13 @@ enum ProviderTestError: Error, Equatable {
 /// ``advance(by:)`` instead of waiting on the real wall clock, so every
 /// clock-sensitive decision the manager makes is deterministic. `NSLock`-guarded
 /// because the manager reads `now()` from its actor while tests mutate it.
+///
+/// Injecting a clock here is also what keeps the auth suites off the SDK-wide
+/// global `environment.date`, which sibling suites mutate concurrently under
+/// Swift Testing's parallel execution (freezing it to 2009) — a shared global
+/// clock would make acquisition-time validation flaky. This is the canonical
+/// reason every auth suite injects its own time source rather than reaching
+/// for the global environment.
 final class TestClock: @unchecked Sendable {
     private let lock = NSLock()
     private var current: Date

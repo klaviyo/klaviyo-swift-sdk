@@ -93,10 +93,8 @@ package actor AuthTokenManager {
     /// `AsyncStream` with the same `sink`-based pattern the lifecycle observer
     /// uses.
     ///
-    /// Deliberately retained across both ``registerProvider(_:)`` and
-    /// ``clearTokenState()``: a live form display keeps its subscription across
-    /// provider swaps and profile resets, and the stream simply goes quiet
-    /// until the next successful refresh produces a token to deliver.
+    /// Retained across both ``registerProvider(_:)`` and ``clearTokenState()``
+    /// — see ``clearTokenState()`` for why a live subscription survives a reset.
     private let refreshSubject = PassthroughSubject<String, Never>()
 
     /// Lifecycle event source. Injected for testability; defaults to the
@@ -135,20 +133,19 @@ package actor AuthTokenManager {
     /// hardcodes, so suites can drive token validity, refresh scheduling, and
     /// refresh firing in deterministic virtual time.
     ///
-    /// Deliberately `internal` rather than `package`: it is reachable from the
-    /// test target via `@testable import KlaviyoCore`, but invisible to sibling
-    /// product modules' normal imports — the closest Swift gets to a
-    /// "test-target-only" symbol. It is *not* wrapped in `#if DEBUG`, because the
-    /// suite is also exercised in the release configuration
-    /// (`make CONFIG=release test-library`), where a debug-only initializer
-    /// would fail to compile. The required `currentDate` (no default) keeps this
-    /// from overlapping with the no-argument production initializer above.
+    /// `internal` (not `package`) so it reaches the test target via `@testable
+    /// import KlaviyoCore` but stays invisible to sibling product modules.
+    /// Deliberately *not* behind `#if DEBUG`: the suite also runs in the release
+    /// configuration (`make CONFIG=release test-library`), where a debug-only
+    /// initializer would fail to compile. The required `currentDate` (no
+    /// default) disambiguates it from the no-argument production initializer.
     ///
     /// - Parameters:
     ///   - lifeCycle: Source of foreground/background events.
     ///   - currentDate: Wall-clock source driving every clock-sensitive decision.
     ///   - sleep: Sleep primitive for the refresh loop, taking a duration in
-    ///     nanoseconds. Defaults to `Task.sleep(nanoseconds:)`.
+    ///     nanoseconds. See ``sleeper`` for its cancellation contract. Defaults
+    ///     to `Task.sleep(nanoseconds:)`.
     init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
         currentDate: @escaping () -> Date,
@@ -237,13 +234,10 @@ package actor AuthTokenManager {
     /// receive. Intended for `KlaviyoForms` to push refreshed tokens into an
     /// active WebView.
     ///
-    /// Why a stream and not the ``refreshSubject`` itself: the subject is
-    /// actor-isolated, and its `.send(_:)` write end must never cross the
-    /// package boundary (a consumer could otherwise inject tokens to every
-    /// subscriber). The SDK exposes Combine signals only as erased publishers
-    /// or async streams, never as bare subjects. An `AsyncStream` keeps this
-    /// API consistent with the manager's async/await surface and lets consumers
-    /// iterate with `for await`.
+    /// Why a stream and not the ``refreshSubject`` itself: the subject's
+    /// `.send(_:)` write end must never cross the package boundary (a consumer
+    /// could otherwise inject tokens to every subscriber), and an `AsyncStream`
+    /// keeps this surface consistent with the manager's async/await API.
     package func refreshes() -> AsyncStream<String> {
         AsyncStream { [refreshSubject] continuation in
             let cancellable = refreshSubject.sink { continuation.yield($0) }
@@ -265,7 +259,8 @@ package actor AuthTokenManager {
     /// - ``lifecycleCancellable`` — the foreground observer is safe to leave
     ///   running across resets.
     /// - ``refreshSubject`` — active ``refreshes()`` subscriptions (e.g. a form
-    ///   on screen during the reset) stay alive across the reset.
+    ///   on screen during the reset) stay alive across the reset; the stream
+    ///   simply goes quiet until the next successful refresh produces a token.
     package func clearTokenState() async {
         cancelInFlightWorkAndClearCache()
         if #available(iOS 14.0, *) {

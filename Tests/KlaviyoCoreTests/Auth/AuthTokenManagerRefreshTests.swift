@@ -532,8 +532,8 @@ struct AuthTokenManagerRefreshTests {
     /// and ``SleepGate`` instead so token validity, refresh scheduling, and
     /// refresh firing all advance in virtual time under the test's control —
     /// removing the real-time races that made these paths flaky on slow,
-    /// parallel CI. Injecting also sidesteps the SDK-wide global `environment`,
-    /// which sibling suites mutate concurrently under Swift Testing.
+    /// parallel CI. Injecting also sidesteps the shared global `environment`
+    /// clock (see ``TestClock`` for why that matters).
     private func makeManager(
         lifeCycle: AppLifeCycleEvents,
         clock: TestClock,
