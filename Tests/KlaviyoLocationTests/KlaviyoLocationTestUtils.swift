@@ -160,6 +160,7 @@ enum KlaviyoLocationTestUtils {
     static func setupTestEnvironment(apiKey: String) {
         environment = KlaviyoEnvironment.test()
         KlaviyoInternal.resetAPIKeySubject()
+        IdentityStore.shared.updateAPIKey(apiKey)
 
         let testState = createTestState(apiKey: apiKey)
         let testStore = Store(initialState: testState, reducer: KlaviyoReducer())

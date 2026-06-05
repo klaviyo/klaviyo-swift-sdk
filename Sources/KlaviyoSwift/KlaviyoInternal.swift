@@ -14,7 +14,7 @@ import KlaviyoCore
 /// - Note: Can only be accessed from other modules within the Klaviyo-Swift-SDK package; cannot be accessed from the host app.
 package enum KlaviyoInternal {
     package enum ProfileDataResult: Equatable {
-        case success(ProfileData)
+        case success(KlaviyoIdentity)
         case failure(SDKError)
     }
 
@@ -110,13 +110,7 @@ package enum KlaviyoInternal {
                 if state.initalizationState != .initialized {
                     return .failure(.notInitialized)
                 }
-
-                return .success(ProfileData(
-                    email: state.email,
-                    anonymousId: state.anonymousId,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId
-                ))
+                return .success(state.identity)
             }
             .removeDuplicates()
             .subscribe(profileDataSubject)
@@ -138,7 +132,7 @@ package enum KlaviyoInternal {
     ///
     /// - Returns: The current profile data, if available.
     /// - Throws: `SDKError.notInitialized` if the SDK is not initialized.
-    package static func fetchProfileData() async throws -> ProfileData {
+    package static func fetchProfileData() async throws -> KlaviyoIdentity {
         setupProfileDataSubject()
         setupIdentityStore()
 

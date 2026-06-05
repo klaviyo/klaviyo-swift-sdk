@@ -98,7 +98,6 @@ final class IAFWebViewModelScriptTests: XCTestCase {
 
         // Reset Klaviyo state
         KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
         let testState = KlaviyoState(
             apiKey: "abc123",
             queue: [],
@@ -213,7 +212,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     func testProfileAttributesScriptIsAddedToWebView() async throws {
         // Given
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = ProfileData(email: "test@example.com")
+        let profileData = KlaviyoIdentity(email: "test@example.com")
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewModel.initializeLoadScripts()
