@@ -11,36 +11,6 @@ reviews:
     - "!**/Podfile.lock"
     - "!**/Pods/**"
     - "!TestResults*/**"
-  path_instructions:
-    - path: "Sources/KlaviyoCore/**"
-      instructions: |
-        Shared internal module. Be strict about breaking changes to types or protocols that other
-        modules depend on. Flag any public API additions or removals prominently.
-    - path: "Sources/KlaviyoSwift/**"
-      instructions: |
-        Main analytics and push notifications module. Focus on: TCA reducer correctness,
-        thread safety, actor isolation, proper error handling. Flag force unwraps and
-        unhandled async errors.
-    - path: "Sources/KlaviyoForms/**"
-      instructions: |
-        In-app messaging UI module. Check for: SwiftUI best practices (correct use of @State,
-        @Binding, @StateObject, @EnvironmentObject), main-thread enforcement, accessibility
-        modifiers, memory leaks via retain cycles in closures.
-    - path: "Sources/KlaviyoLocation/**"
-      instructions: |
-        Geofencing module. Focus on: proper CLLocationManager usage, permission handling,
-        background execution correctness, battery impact.
-    - path: "Sources/KlaviyoSwiftExtension/**"
-      instructions: |
-        App Extension target. Flag any APIs incompatible with the app extension sandbox
-        (e.g., UIApplication.shared, background tasks not allowed in extensions).
-        Check for missing @available guards.
-    - path: "Tests/**"
-      instructions: |
-        XCTest is the primary framework — do not flag XCTest usage as a problem.
-        Swift Testing (@Test, #expect) is acceptable for new files.
-        Focus on: test isolation, missing assertions, coverage of error/edge-case paths,
-        and snapshot test correctness. Avoid style comments.
   auto_review:
     drafts: false
     base_branches:
