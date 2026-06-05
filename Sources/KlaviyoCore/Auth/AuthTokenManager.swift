@@ -76,21 +76,9 @@ package actor AuthTokenManager {
     /// elapsed-sleep duration alone would fire late.
     private var refreshAtWallClock: Date?
 
-    /// `true` while ``performScheduledRefresh()`` is mid-flight. Read by the
-    /// foreground "missed refresh" path (case 2 in ``handleForegroundTransition()``)
-    /// so a transition that lands mid-refresh leaves the in-flight refresh to
-    /// finish instead of cancelling and re-driving it.
-    ///
-    /// Why this matters: ``refreshAtWallClock`` is no longer cleared before a
-    /// fired refresh runs, so a foreground transition can match the still-set
-    /// past target while a scheduled refresh is suspended on its fetch. Cancelling
-    /// that refresh's task (as case 2 otherwise does) makes its `await task.value`
-    /// throw and *suppresses its broadcast*; re-driving would then either
-    /// double-broadcast or, with the fetch already cleared, miss it. Letting the
-    /// in-flight refresh complete yields exactly one ``refreshes()`` emission and
-    /// one reschedule. Sequential refreshes each clear the flag via the method's
-    /// `defer` before the next runs, so the failed-then-foreground retry path
-    /// (the actual fix) is unaffected.
+    /// `true` while ``performScheduledRefresh()`` is mid-flight, so the foreground
+    /// "missed refresh" path (case 2 in ``handleForegroundTransition()``) can leave a
+    /// running refresh alone rather than cancelling and re-driving it. Cleared via `defer`.
     private var isPerformingScheduledRefresh = false
 
     /// `true` while a proactive refresh has failed for a network reason and the
@@ -468,12 +456,10 @@ package actor AuthTokenManager {
     /// the entire scheduled window (one long sleep, then a final short
     /// iteration that observes `remaining <= 0` and breaks).
     ///
-    /// ``refreshAtWallClock`` is deliberately *not* cleared before the attempt:
-    /// a refresh that fires and then fails while the cached token is still valid
-    /// must leave the target in place so the next foreground transition can
-    /// retry it (case 2 in ``handleForegroundTransition()``). The target is
-    /// instead replaced by ``scheduleRefresh(for:)`` on a successful refresh, or
-    /// cleared by ``cancelInFlightWorkAndClearCache()`` / the foreground handler.
+    /// ``refreshAtWallClock`` is deliberately *not* cleared before the attempt, so
+    /// a fired refresh that fails while the token is still valid leaves the target
+    /// in place for the next foreground transition to retry (case 2). Success
+    /// replaces it via ``scheduleRefresh(for:)``; resets clear it.
     private func sleepUntilAndRefresh(target: Date) async {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
@@ -498,9 +484,7 @@ package actor AuthTokenManager {
     /// re-fires this method (``handleReachabilityChange()``); other failures don't.
     ///
     /// Sets ``isPerformingScheduledRefresh`` for its duration so a concurrent
-    /// foreground transition can detect an in-flight scheduled refresh and leave
-    /// it to complete rather than cancelling and re-driving it (see case 2 of
-    /// ``handleForegroundTransition()``).
+    /// foreground transition leaves an in-flight refresh to complete (case 2).
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
         isPerformingScheduledRefresh = true
@@ -639,11 +623,8 @@ package actor AuthTokenManager {
             return
         }
         if let scheduled = refreshAtWallClock, currentDate() >= scheduled {
-            // A scheduled refresh already running (its timer fired just before
-            // this transition) is left to finish: cancelling its task would
-            // suppress its in-flight broadcast, and re-driving risks a duplicate.
-            // It reschedules on success or leaves the marker for a later retry on
-            // failure — so the missed-refresh intent is already covered.
+            // An in-flight refresh is left to finish rather than cancelled and
+            // re-driven, which would drop its broadcast or duplicate it.
             guard !isPerformingScheduledRefresh else {
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(
