@@ -249,14 +249,11 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func foregroundRetriesAfterFailedScheduledRefresh() async throws {
-        // Android parity (MAGE-629): a scheduled proactive refresh that fires and
-        // *fails* while the cached token is still valid must be retried on the
-        // next foreground transition (case 2, "missed refresh"). The token is
-        // shaped so its refresh target — the 0.9-of-lifetime point, ref+480 —
-        // lands well before its staleness threshold (exp-30 = ref+510), leaving a
-        // window where the target has passed but the cache is still valid. That
-        // window is exactly what the pre-fix code stranded by nil-ing the
-        // wall-clock target before the (failed) attempt.
+        // Android parity (MAGE-629): a scheduled refresh that fires and *fails*
+        // while the token is still valid must retry on the next foreground (case 2).
+        // The token is shaped so its refresh target (ref+480) lands before the
+        // staleness threshold (exp-30 = ref+510), leaving a valid window — exactly
+        // what the pre-fix code stranded by nil-ing the target before the attempt.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 540,
@@ -289,11 +286,9 @@ struct AuthTokenManagerRefreshTests {
         // Subscribe before the retry so its broadcast is observable.
         let stream = await manager.refreshes()
 
-        // Fire the scheduled refresh past its target: invocation 2 throws. The
-        // failure is network-classified, so it also arms the connectivity wait —
-        // which stays inert here (reachability is unknown and no transition is
-        // sent) but gives a deterministic signal that the failed refresh has fully
-        // settled before we foreground.
+        // Fire the refresh past its target: invocation 2 throws. The network
+        // classification arms the (inert) connectivity wait, which is a
+        // deterministic signal that the failed refresh has settled before we foreground.
         clock.set(referenceDate.addingTimeInterval(485))
         await gate.release()
         try await counter.waitFor(atLeast: 2)
@@ -318,13 +313,10 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func concurrentForegroundDuringInFlightScheduledRefreshBroadcastsOnce() async throws {
-        // An *in-flight* scheduled refresh must not be re-fired (nor have its
-        // broadcast lost) by a foreground transition that lands while it is still
-        // running. Because `refreshAtWallClock` is no longer cleared up front, the
-        // foreground handler's case 2 matches the still-set past target — but the
-        // `isPerformingScheduledRefresh` flag makes it leave the running refresh
-        // alone rather than cancelling and re-driving it. The in-flight refresh
-        // completes and broadcasts the token exactly once.
+        // A foreground transition during an in-flight scheduled refresh must
+        // neither lose its broadcast nor duplicate it. Case 2 matches the still-set
+        // past target, but `isPerformingScheduledRefresh` makes it leave the running
+        // refresh alone, which completes and broadcasts exactly once.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 540,
@@ -366,18 +358,15 @@ struct AuthTokenManagerRefreshTests {
         await gate.release()
         await refreshStarted.wait()
 
-        // Foreground while the refresh is parked in flight: case 2 matches the
-        // still-set past target but sees `isPerformingScheduledRefresh` and leaves
-        // the running refresh alone (no cancel, no re-drive). Yield so the handler
-        // runs (and is gated) before we release the parked fetch.
+        // Foreground while the refresh is parked in flight: case 2 is gated by
+        // `isPerformingScheduledRefresh` and leaves it alone. Yield so the handler
+        // runs before we release the parked fetch.
         lifecycleSubject.send(.foregrounded)
         for _ in 0..<100 {
             await Task.yield()
         }
 
-        // Release the parked fetch: the single in-flight refresh completes and
-        // broadcasts exactly once. The foreground transition neither suppressed
-        // it (no cancel) nor duplicated it (no re-drive).
+        // Release the parked fetch: the refresh completes and broadcasts once.
         await releaseRefresh.open()
         let delivered = await firstElement(of: stream)
         #expect(
@@ -390,10 +379,9 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func foregroundAfterSuccessfulScheduledRefreshDoesNotRefire() async throws {
-        // The flip side of keeping `refreshAtWallClock` set across a fired
-        // refresh: once a scheduled refresh *succeeds*, it reschedules to a future
-        // target, so a later foreground transition must fall through to the
-        // still-valid no-op (case 3) rather than re-firing against a stale marker.
+        // The flip side of keeping `refreshAtWallClock` set: a *succeeded* refresh
+        // reschedules to a future target, so a later foreground falls through to
+        // the still-valid no-op (case 3) rather than re-firing.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 540,
