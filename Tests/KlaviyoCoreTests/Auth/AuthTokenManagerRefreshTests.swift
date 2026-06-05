@@ -247,6 +247,198 @@ struct AuthTokenManagerRefreshTests {
         #expect(resolved == freshToken)
     }
 
+    @Test
+    func foregroundRetriesAfterFailedScheduledRefresh() async throws {
+        // Android parity (MAGE-629): a scheduled proactive refresh that fires and
+        // *fails* while the cached token is still valid must be retried on the
+        // next foreground transition (case 2, "missed refresh"). The token is
+        // shaped so its refresh target — the 0.9-of-lifetime point, ref+480 —
+        // lands well before its staleness threshold (exp-30 = ref+510), leaving a
+        // window where the target has passed but the cache is still valid. That
+        // window is exactly what the pre-fix code stranded by nil-ing the
+        // wall-clock target before the (failed) attempt.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 540,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet) // scheduled refresh fails
+            default: return secondToken // foreground-driven retry succeeds
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        // Subscribe before the retry so its broadcast is observable.
+        let stream = await manager.refreshes()
+
+        // Fire the scheduled refresh past its target: invocation 2 throws. The
+        // failure is network-classified, so it also arms the connectivity wait —
+        // which stays inert here (reachability is unknown and no transition is
+        // sent) but gives a deterministic signal that the failed refresh has fully
+        // settled before we foreground.
+        clock.set(referenceDate.addingTimeInterval(485))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // Foreground while the cache is still valid (ref+485 < exp-30 = ref+510)
+        // but the refresh target (ref+480) has passed → case 2 fires the retry.
+        lifecycleSubject.send(.foregrounded)
+
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == secondToken, "a failed scheduled refresh must be retried on foreground")
+
+        let cached = try await manager.currentToken(mode: .background)
+        #expect(cached == secondToken)
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 3,
+            "expected initial + failed-scheduled + foreground-retry, saw \(invocations)"
+        )
+    }
+
+    @Test
+    func concurrentForegroundDuringInFlightScheduledRefreshBroadcastsOnce() async throws {
+        // An *in-flight* scheduled refresh must not be re-fired (nor have its
+        // broadcast lost) by a foreground transition that lands while it is still
+        // running. Because `refreshAtWallClock` is no longer cleared up front, the
+        // foreground handler's case 2 matches the still-set past target — but the
+        // `isPerformingScheduledRefresh` flag makes it leave the running refresh
+        // alone rather than cancelling and re-driving it. The in-flight refresh
+        // completes and broadcasts the token exactly once.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 540,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+        let refreshStarted = Latch()
+        let releaseRefresh = Latch()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            guard invocation >= 2 else { return firstToken }
+            // The scheduled refresh: park in-flight so a foreground transition can
+            // race it before it completes.
+            await refreshStarted.open()
+            await releaseRefresh.wait()
+            return secondToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        // Subscribe before the refresh completes so its broadcast is observable.
+        let stream = await manager.refreshes()
+
+        // Fire the scheduled refresh past its target and wait until it is parked
+        // in-flight inside the provider.
+        clock.set(referenceDate.addingTimeInterval(485))
+        await gate.release()
+        await refreshStarted.wait()
+
+        // Foreground while the refresh is parked in flight: case 2 matches the
+        // still-set past target but sees `isPerformingScheduledRefresh` and leaves
+        // the running refresh alone (no cancel, no re-drive). Yield so the handler
+        // runs (and is gated) before we release the parked fetch.
+        lifecycleSubject.send(.foregrounded)
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        // Release the parked fetch: the single in-flight refresh completes and
+        // broadcasts exactly once. The foreground transition neither suppressed
+        // it (no cancel) nor duplicated it (no re-drive).
+        await releaseRefresh.open()
+        let delivered = await firstElement(of: stream)
+        #expect(
+            delivered == secondToken,
+            "the in-flight refresh must complete and broadcast despite the concurrent foreground"
+        )
+        let invocations = await counter.value
+        #expect(invocations == 2, "the in-flight fetch must be shared, not re-invoked, saw \(invocations)")
+    }
+
+    @Test
+    func foregroundAfterSuccessfulScheduledRefreshDoesNotRefire() async throws {
+        // The flip side of keeping `refreshAtWallClock` set across a fired
+        // refresh: once a scheduled refresh *succeeds*, it reschedules to a future
+        // target, so a later foreground transition must fall through to the
+        // still-valid no-op (case 3) rather than re-firing against a stale marker.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 540,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            return invocation == 1 ? firstToken : secondToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        // Fire the scheduled refresh; invocation 2 succeeds and reschedules the
+        // next refresh far in the future (secondToken's target).
+        clock.set(referenceDate.addingTimeInterval(485))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await gate.waitUntilSleeping(atLeast: 2)
+
+        // Foreground: cache is fresh and the replaced target is far ahead → no-op.
+        lifecycleSubject.send(.foregrounded)
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 2,
+            "a succeeded scheduled refresh must not be re-fired on foreground, saw \(invocations)"
+        )
+    }
+
     // MARK: - registerProvider cancellation
 
     @Test
