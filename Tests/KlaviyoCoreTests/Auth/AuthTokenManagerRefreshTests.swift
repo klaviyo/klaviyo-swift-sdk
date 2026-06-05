@@ -525,7 +525,15 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Offline at arm time so arming doesn't immediately kick; flipped online
+        // just before the satisfied transition below.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -550,15 +558,17 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 2)
         await awaitConnectivityWaitArmed(manager)
 
-        // A non-satisfied transition must not consume the armed wait.
+        // A change while still offline must not consume the armed wait — the
+        // handler re-reads live status (`.notReachable`) and ignores it.
         lifecycleSubject.send(.reachabilityChanged(status: .notReachable))
         for _ in 0..<100 {
             await Task.yield()
         }
         let invocationsAfterUnreachable = await counter.value
-        #expect(invocationsAfterUnreachable == 2, "`.notReachable` must not trigger the retry")
+        #expect(invocationsAfterUnreachable == 2, "a change while still offline must not trigger the retry")
 
         // Connectivity restored → retry fires (invocation 3), broadcasts and caches.
+        reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
 
         let delivered = await firstElement(of: stream)
@@ -638,7 +648,14 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Online throughout, so a satisfied transition *would* fire a retry if one
+        // were armed — proving the absence is due to the failure not arming a wait.
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { .reachableViaWiFi }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -686,7 +703,15 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Offline at arm so arming doesn't immediately kick; flipped online before
+        // the transition so the only thing suppressing the retry is the cleared wait.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -711,8 +736,10 @@ struct AuthTokenManagerRefreshTests {
         let refreshed = try await manager.currentToken(mode: .background)
         #expect(refreshed == secondToken)
 
-        // Connectivity later transitions to satisfied. The cache is already fresh
-        // and the wait was cleared, so no redundant retry should fire.
+        // Connectivity later transitions to satisfied (and live status agrees). The
+        // cache is already fresh and the wait was cleared, so no redundant retry
+        // should fire.
+        reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
         for _ in 0..<100 {
             await Task.yield()
@@ -745,7 +772,15 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Offline at arm so arming doesn't immediately kick; flipped online before
+        // the transition so the only thing suppressing the retry is the cancelled wait.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -768,6 +803,7 @@ struct AuthTokenManagerRefreshTests {
 
         await manager.clearTokenState()
 
+        reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
         for _ in 0..<100 {
             await Task.yield()
@@ -800,7 +836,15 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Offline at arm so arming doesn't immediately kick; flipped online before
+        // the flurry so the transitions (not the arm-time check) drive the retry.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -821,6 +865,7 @@ struct AuthTokenManagerRefreshTests {
 
         // Three satisfied transitions in quick succession. Only the first should
         // consume the armed wait; the rest find it already cleared.
+        reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWWAN))
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
@@ -855,7 +900,15 @@ struct AuthTokenManagerRefreshTests {
         let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        // Offline at arm so arming doesn't immediately kick; flipped online before
+        // the restoration below.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -874,24 +927,21 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 2)
         await awaitConnectivityWaitArmed(manager)
 
-        // First restoration drives a retry (invocation 3) that also fails with a
-        // network error, which re-arms the wait. The wait is cleared before the
-        // retry runs, so awaiting "armed" after invocation 3 enters the provider
-        // observes the *re-arm*, not the prior arming.
-        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
-        try await counter.waitFor(atLeast: 3)
-        await awaitConnectivityWaitArmed(manager)
-
-        // Subscribe before the second restoration so the successful retry's
-        // broadcast is observable, then restore connectivity again. Invocation 4
-        // succeeds, proving the wait re-armed and recovered.
+        // Subscribe before restoring connectivity so the eventual success broadcast
+        // is observable.
         let stream = await manager.refreshes()
+
+        // Restore connectivity. The transition fires the retry (invocation 3),
+        // which also fails — re-arming the wait. Because the path is still
+        // satisfied, the re-armed wait retries again at once (invocation 4), which
+        // succeeds and broadcasts. This exercises the re-arm-after-failure path.
+        reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
 
         let delivered = await firstElement(of: stream)
         #expect(
             delivered == secondToken,
-            "a network-failed retry must re-arm and recover on the next restoration"
+            "a network-failed retry must re-arm and recover"
         )
     }
 

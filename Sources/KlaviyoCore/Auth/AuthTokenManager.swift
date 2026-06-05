@@ -85,7 +85,7 @@ package actor AuthTokenManager {
     /// The flag is the "at most one pending wait" guarantee: a network-classified
     /// refresh failure arms it (see ``performScheduledRefresh()``), the next
     /// reachable ``Reachability/NetworkStatus`` consumes it (see
-    /// ``handleReachabilityChange(_:)``), and rapid network flapping cannot queue
+    /// ``handleReachabilityChange()``), and rapid network flapping cannot queue
     /// multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()`` so a
     /// provider swap or profile reset drops any pending retry.
     private var isAwaitingConnectivityRetry = false
@@ -484,7 +484,7 @@ package actor AuthTokenManager {
     /// stale at `exp - leeway`, so a foreground transition or user fetch
     /// before then will retry. A *network-classified* failure additionally arms
     /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
-    /// re-fires this method (see ``handleReachabilityChange(_:)``); other
+    /// re-fires this method (see ``handleReachabilityChange()``); other
     /// failures do not, since waiting for connectivity would not address them.
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
@@ -527,7 +527,7 @@ package actor AuthTokenManager {
     /// Two events are handled:
     /// - `.foregrounded` → ``handleForegroundTransition()`` (reconciles cache and
     ///   scheduled-refresh state with wall-clock time after backgrounding).
-    /// - `.reachabilityChanged(status:)` → ``handleReachabilityChange(_:)`` (fires
+    /// - `.reachabilityChanged(status:)` → ``handleReachabilityChange()`` (fires
     ///   the connectivity-driven retry when a prior proactive refresh failed
     ///   while offline).
     ///
@@ -547,8 +547,8 @@ package actor AuthTokenManager {
                 switch event {
                 case .foregrounded:
                     Task { [weak self] in await self?.handleForegroundTransition() }
-                case let .reachabilityChanged(status):
-                    Task { [weak self] in await self?.handleReachabilityChange(status) }
+                case .reachabilityChanged:
+                    Task { [weak self] in await self?.handleReachabilityChange() }
                 case .backgrounded, .terminated:
                     break
                 }
@@ -589,11 +589,15 @@ package actor AuthTokenManager {
         Task { [weak self] in await self?.fireConnectivityRetryIfArmed() }
     }
 
-    /// Routes a reachability transition into the connectivity-retry path. Only a
-    /// transition reporting a usable path can fire the retry; `.notReachable`
-    /// (and any churn while no wait is armed) is ignored.
-    private func handleReachabilityChange(_ status: Reachability.NetworkStatus) async {
-        guard status != .notReachable else { return }
+    /// Routes a reachability change into the connectivity-retry path. The event is
+    /// treated only as a *trigger* — its payload status is deliberately ignored,
+    /// because ``AppLifeCycleEvents`` coerces an unknown (`nil`) reachability read
+    /// to `.reachableViaWWAN`, so the payload can't distinguish "really online"
+    /// from "unknown". Instead re-read the live status and fire only when it
+    /// genuinely reports a path, matching the conservative `nil` handling in
+    /// ``armConnectivityRetry()``. A retry is a no-op when no wait is armed.
+    private func handleReachabilityChange() async {
+        guard let status = currentReachability(), status != .notReachable else { return }
         await fireConnectivityRetryIfArmed()
     }
 
