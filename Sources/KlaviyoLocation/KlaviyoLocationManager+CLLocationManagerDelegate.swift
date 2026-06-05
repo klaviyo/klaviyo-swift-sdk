@@ -96,7 +96,15 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             properties: ["$geofence_id": klaviyoLocationId]
         )
 
-        await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
+        // Validate the geofence company ID against the SDK's current API key before dispatching,
+        // the same way forms validates identity before submitting — no special-cased geofence path.
+        guard IdentityStore.shared.apiKey == klaviyoGeofence.companyId else {
+            if #available(iOS 14.0, *) {
+                Logger.geoservices.warning("⚠️ Geofence company ID does not match SDK API key, skipping event")
+            }
+            return
+        }
+        KlaviyoInternal.create(event: event)
     }
 
     public func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {

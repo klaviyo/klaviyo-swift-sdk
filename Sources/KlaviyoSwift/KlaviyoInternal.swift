@@ -122,18 +122,15 @@ package enum KlaviyoInternal {
             .subscribe(profileDataSubject)
     }
 
-    // Publishes identity changes to IdentityStore in KlaviyoCore so other modules can observe
-    // without importing KlaviyoSwift.
+    // Publishes identity and API key changes to IdentityStore in KlaviyoCore so other modules
+    // can observe without importing KlaviyoSwift.
     private static func setupIdentityStore() {
         guard identityStoreCancellable == nil else { return }
         identityStoreCancellable = klaviyoSwiftEnvironment.statePublisher()
-            .compactMap { state -> KlaviyoIdentity? in
-                guard state.initalizationState == .initialized else { return nil }
-                return state.identity
-            }
-            .removeDuplicates()
-            .sink { identity in
-                IdentityStore.shared.update(identity)
+            .filter { $0.initalizationState == .initialized }
+            .sink { state in
+                IdentityStore.shared.update(state.identity)
+                IdentityStore.shared.updateAPIKey(state.apiKey)
             }
     }
 
