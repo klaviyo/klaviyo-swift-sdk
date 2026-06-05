@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import UserNotifications
+import XCTest
 
 // MARK: - Test Doubles
 
@@ -38,17 +39,13 @@ final class MockNotificationCenter: UserNotificationCenterProtocol {
 
 // MARK: - Tests
 
-#if canImport(Testing)
-import Testing
-
 // Note: the `klaviyo_automatic_push_tracking` plist key itself is verified manually
 // in the example app — `Bundle.main` in the test runner never carries it, and making
 // `Bundle` injectable would add abstraction beyond the current ticket's scope.
 
-@Suite
 @MainActor
-struct KlaviyoNotificationDelegateTests {
-    init() {
+class KlaviyoNotificationDelegateTests: XCTestCase {
+    override func setUpWithError() throws {
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
     }
@@ -57,49 +54,51 @@ struct KlaviyoNotificationDelegateTests {
 
     /// Verifies that `initialize(with:)` calls `injectNotificationDelegate` exactly once,
     /// ensuring proxy installation is always attempted at SDK initialization time.
-    @Test
-    func initializeTriggersNotificationDelegateInjection() {
+    func testInitializeTriggersNotificationDelegateInjection() {
         var callCount = 0
         klaviyoSwiftEnvironment.injectNotificationDelegate = { callCount += 1 }
+        // initialize(with:) dispatches its action asynchronously. Wait for it here so the
+        // action is fully drained before this test returns — otherwise it lands in the next
+        // test's send handler and causes a spurious assertion failure.
+        let actionFired = XCTestExpectation(description: "initialize action dispatched")
+        klaviyoSwiftEnvironment.send = { _ in actionFired.fulfill(); return nil }
 
         KlaviyoSDK().initialize(with: "test-key")
 
-        #expect(callCount == 1)
+        wait(for: [actionFired], timeout: 1.0)
+        XCTAssertEqual(callCount, 1)
     }
 
     // MARK: - Plist Gating
 
     /// When automatic push tracking is disabled (the default), `injectIfEnabled()` must
     /// not install the proxy — the notification center's delegate must remain unchanged.
-    @Test
-    func injectIfEnabledIsNoOpWhenTrackingDisabled() {
+    func testInjectIfEnabledIsNoOpWhenTrackingDisabled() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { false }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
 
-        #expect(mockCenter.delegate == nil)
+        XCTAssertNil(mockCenter.delegate)
     }
 
     // MARK: - inject(into:) Behavior
 
     /// After injection, the proxy must be the center's active delegate.
-    @Test
-    func injectSetsDelegateOnCenter() {
+    func testInjectSetsDelegateOnCenter() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
 
-        #expect(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
+        XCTAssertTrue(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
     }
 
     /// The delegate active at injection time must be captured as `existingDelegate`
     /// so callbacks can be forwarded to it after the proxy handles them.
-    @Test
-    func injectCapturesPriorDelegate() {
+    func testInjectCapturesPriorDelegate() {
         let mockCenter = MockNotificationCenter()
         let priorDelegate = MockUNDelegate()
         mockCenter.delegate = priorDelegate
@@ -108,13 +107,12 @@ struct KlaviyoNotificationDelegateTests {
 
         KlaviyoNotificationDelegate.injectIfEnabled()
 
-        #expect(KlaviyoNotificationDelegate.shared.existingDelegate === priorDelegate)
+        XCTAssertTrue(KlaviyoNotificationDelegate.shared.existingDelegate === priorDelegate)
     }
 
     /// A second `injectIfEnabled()` call while the proxy is already the active delegate
     /// must be a no-op — no duplicate observation tokens, no delegate reassignment.
-    @Test
-    func injectIsIdempotent() {
+    func testInjectIsIdempotent() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
@@ -122,7 +120,7 @@ struct KlaviyoNotificationDelegateTests {
         KlaviyoNotificationDelegate.injectIfEnabled()
         KlaviyoNotificationDelegate.injectIfEnabled()
 
-        #expect(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
+        XCTAssertTrue(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
     }
 
     // MARK: - KVO Re-injection
@@ -130,8 +128,7 @@ struct KlaviyoNotificationDelegateTests {
     /// When the host app overwrites `UNUserNotificationCenter.delegate` after injection
     /// (e.g. SceneDelegate scenario), the proxy must re-install itself and capture the
     /// new host delegate as `existingDelegate`.
-    @Test
-    func observerReinstallsProxyAfterHostReassignment() {
+    func testObserverReinstallsProxyAfterHostReassignment() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
@@ -140,29 +137,26 @@ struct KlaviyoNotificationDelegateTests {
         let newHostDelegate = MockUNDelegate()
         mockCenter.simulateDelegateReassignment(to: newHostDelegate)
 
-        #expect(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
-        #expect(KlaviyoNotificationDelegate.shared.existingDelegate === newHostDelegate)
+        XCTAssertTrue(mockCenter.delegate === KlaviyoNotificationDelegate.shared)
+        XCTAssertTrue(KlaviyoNotificationDelegate.shared.existingDelegate === newHostDelegate)
     }
 
     // MARK: - Auto-track guard passthroughs
 
     /// After marking a request ID as auto-tracked, `wasAutoTracked` must return true.
-    @Test
-    func markAsAutoTrackedRoundTrip() {
+    func testMarkAsAutoTrackedRoundTrip() {
         let delegate = KlaviyoNotificationDelegate.shared
         defer { delegate.clearAutoTracked() }
 
         delegate.markAsAutoTracked(requestId: "test-id")
 
-        #expect(delegate.wasAutoTracked(requestId: "test-id"))
+        XCTAssertTrue(delegate.wasAutoTracked(requestId: "test-id"))
     }
 
     /// A request ID that was never marked must not appear as auto-tracked.
-    @Test
-    func wasAutoTrackedReturnsFalseForUnmarkedId() {
+    func testWasAutoTrackedReturnsFalseForUnmarkedId() {
         let delegate = KlaviyoNotificationDelegate.shared
         defer { delegate.clearAutoTracked() }
-        #expect(!delegate.wasAutoTracked(requestId: "never-marked"))
+        XCTAssertFalse(delegate.wasAutoTracked(requestId: "never-marked"))
     }
 }
-#endif
