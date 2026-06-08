@@ -151,7 +151,7 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             notificationResponse: response,
             withCompletionHandler: { once() }
         )
-        if wasTracked {
+        if wasTracked && response.actionIdentifier != UNNotificationDismissActionIdentifier {
             markAsAutoTracked(requestId: requestId)
         }
         existingDelegate?.userNotificationCenter?(
