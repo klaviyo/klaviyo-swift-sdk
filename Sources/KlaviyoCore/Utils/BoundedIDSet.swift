@@ -22,7 +22,7 @@ import Foundation
 /// `clear()` removes them.
 ///
 /// Thread-safe: `NSLock` serialises all mutations and lookups.
-package final class BoundedIDSet<ID: Hashable>: @unchecked Sendable {
+package final class BoundedIDSet<ID: Hashable & Sendable>: @unchecked Sendable {
     let capacity: Int
 
     private var idSet: Set<ID> = []
