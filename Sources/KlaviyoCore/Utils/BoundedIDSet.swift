@@ -25,36 +25,37 @@ import Foundation
 package final class BoundedIDSet<ID: Hashable>: @unchecked Sendable {
     let capacity: Int
 
-    private var ids: Set<ID> = []
+    private var idSet: Set<ID> = []
     private var order: [ID] = []
     private let lock = NSLock()
 
     package init(capacity: Int = 256) {
+        precondition(capacity > 0, "capacity must be positive")
         self.capacity = capacity
     }
 
     package func insert(_ id: ID) {
         lock.lock()
         defer { lock.unlock() }
-        guard !ids.contains(id) else { return }
-        if ids.count >= capacity, let oldest = order.first {
-            ids.remove(oldest)
+        guard !idSet.contains(id) else { return }
+        if idSet.count >= capacity, let oldest = order.first {
+            idSet.remove(oldest)
             order.removeFirst()
         }
-        ids.insert(id)
+        idSet.insert(id)
         order.append(id)
     }
 
     package func contains(_ id: ID) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return ids.contains(id)
+        return idSet.contains(id)
     }
 
     package func clear() {
         lock.lock()
         defer { lock.unlock() }
-        ids.removeAll()
+        idSet.removeAll()
         order.removeAll()
     }
 }
