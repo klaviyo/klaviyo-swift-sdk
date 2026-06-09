@@ -486,10 +486,18 @@ package actor AuthTokenManager {
     /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
     /// re-fires this method (``handleReachabilityChange()``); other failures don't.
     ///
+    /// Bails if a refresh is already mid-flight (``activeScheduledRefreshID`` set):
+    /// the scheduled fire, the foreground "missed refresh" retry (case 2), and the
+    /// connectivity retry can all target the same still-armed refresh, and a second
+    /// run would await the shared in-flight fetch and broadcast its token a second
+    /// time. The single-flight guard here covers every caller; the foreground path
+    /// keeps its own pre-check so it doesn't tear down a live schedule.
+    ///
     /// Sets ``activeScheduledRefreshID`` for its duration so a concurrent
     /// foreground transition leaves an in-flight refresh to complete (case 2).
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
+        guard activeScheduledRefreshID == nil else { return }
         let refreshID = UUID()
         activeScheduledRefreshID = refreshID
         defer {
