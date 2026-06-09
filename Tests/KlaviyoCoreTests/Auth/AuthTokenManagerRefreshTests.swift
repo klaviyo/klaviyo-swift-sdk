@@ -342,7 +342,18 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
 
+        // Collect *every* emission, not just the first: a broken guard would let the
+        // foreground also drive `performScheduledRefresh()`, and both callers awaiting
+        // the shared fetch would broadcast — a duplicate that reading one element hides.
+        // Subscribe up front (`refreshes()` installs its sink synchronously) so no
+        // broadcast is missed; the stream buffers until the consumer drains it.
         let stream = await manager.refreshes()
+        let collector = TokenCollector()
+        let consumer = Task {
+            for await token in stream {
+                await collector.append(token)
+            }
+        }
 
         // Fire the refresh and wait until it is parked in-flight in the provider.
         clock.set(referenceDate.addingTimeInterval(485))
@@ -357,10 +368,18 @@ struct AuthTokenManagerRefreshTests {
         }
 
         await releaseRefresh.open()
-        let delivered = await firstElement(of: stream)
+
+        // Yield generously so a duplicate broadcast would have reached the subscriber
+        // before we sample, then stop the consumer and assert exactly one emission.
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+        consumer.cancel()
+
+        let delivered = await collector.received
         #expect(
-            delivered == secondToken,
-            "the in-flight refresh must complete and broadcast despite the concurrent foreground"
+            delivered == [secondToken],
+            "the in-flight refresh must broadcast exactly once despite the concurrent foreground, saw \(delivered)"
         )
         let invocations = await counter.value
         #expect(invocations == 2, "the in-flight fetch must be shared, not re-invoked, saw \(invocations)")
