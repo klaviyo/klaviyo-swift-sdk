@@ -1228,6 +1228,243 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
+    // MARK: - unregisterProvider
+
+    @Test
+    func unregisterProviderWhileIdleDropsProvider() async throws {
+        // From a settled state — token cached, refresh scheduled, nothing in
+        // flight — unregister must drop the provider and clear the cache, so the
+        // next fetch throws `.noProviderRegistered` rather than serving a stale
+        // token.
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "first"]
+        )
+
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        try await counter.waitFor(atLeast: 1)
+        // Refresh armed (and parked) ⇒ the eager fetch has settled into the cache.
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        await manager.unregisterProvider()
+
+        await #expect(throws: AuthTokenError.noProviderRegistered) {
+            _ = try await manager.currentToken(mode: .background)
+        }
+    }
+
+    @Test
+    func unregisterProviderCancelsScheduledRefresh() async throws {
+        // Acquire a short-lived token whose refresh would fire at ref+10, then
+        // unregister. Drive virtual time past where the refresh would have fired
+        // and release its (now-cancelled) parked sleep; the provider must not be
+        // called again.
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        await manager.unregisterProvider()
+
+        clock.set(referenceDate.addingTimeInterval(40))
+        await gate.release()
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 1,
+            "unregisterProvider must cancel the scheduled refresh, saw \(invocations) invocations"
+        )
+    }
+
+    @Test
+    func unregisterProviderCancelsPendingConnectivityRetry() async throws {
+        // Arm a connectivity wait via a network-failed refresh, then unregister.
+        // The pending wait must be dropped so a later reachability restoration
+        // does not retry against the detached provider.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "first"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        // Offline at arm so arming doesn't immediately kick; flipped online before
+        // the transition so the only thing suppressing the retry is the dropped wait.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            default: throw URLError(.notConnectedToInternet)
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        // Ensure the wait is genuinely armed before unregistering, so the test
+        // proves unregister *cancels* an armed wait rather than racing its arming.
+        await awaitConnectivityWaitArmed(manager)
+
+        await manager.unregisterProvider()
+
+        reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 2,
+            "unregisterProvider must cancel the pending connectivity retry, saw \(invocations)"
+        )
+    }
+
+    @Test
+    func unregisterProviderCancelsInFlightFetchForConcurrentCaller() async throws {
+        // A caller dedup'd onto an in-flight fetch when unregister lands must not
+        // receive a token — the cancelled fetch propagates a failure to it,
+        // matching the established in-flight failure path.
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "first"]
+        )
+
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let counter = CallCounter()
+        let providerEntered = Latch()
+        let providerRelease = Latch()
+
+        await manager.registerProvider {
+            await counter.increment()
+            await providerEntered.open()
+            await providerRelease.wait()
+            return token
+        }
+        // The eager fetch is now suspended inside the provider, so `inFlight` is
+        // set and a concurrent caller will dedup onto it.
+        await providerEntered.wait()
+
+        // Unstructured task so the caller is not cancelled by the structured
+        // scope when we unregister; it must fail via the in-flight fetch, not
+        // its own cancellation.
+        let dedupedCaller = Task { try await manager.currentToken(mode: .background) }
+        // Let the caller reach the actor and dedup onto the in-flight fetch
+        // before we unregister.
+        for _ in 0..<50 {
+            await Task.yield()
+        }
+
+        await manager.unregisterProvider()
+
+        // Release the parked provider; the fetch's post-`provider()` cancellation
+        // checkpoint trips (the closure itself ignores cancellation), failing the
+        // shared task.
+        await providerRelease.open()
+
+        let callerResult = await dedupedCaller.result
+        #expect(
+            (try? callerResult.get()) == nil,
+            "a caller dedup'd onto a fetch cancelled by unregister must not receive a token"
+        )
+
+        let invocations = await counter.value
+        #expect(
+            invocations == 1,
+            "the concurrent caller must dedup, not start a second fetch; saw \(invocations)"
+        )
+    }
+
+    @Test
+    func reRegisterAfterUnregisterFetchesAndSchedulesAfresh() async throws {
+        // After unregister, registering a new provider must behave like a clean
+        // registration: eager fetch via the new provider and a fresh refresh
+        // schedule.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+
+        let firstCounter = CallCounter()
+        await manager.registerProvider {
+            await firstCounter.increment()
+            return firstToken
+        }
+        try await firstCounter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        await manager.unregisterProvider()
+
+        // Re-register with a distinct provider. The eager fetch must run against
+        // it (fresh invocation) and its token must be what the next call serves.
+        let secondCounter = CallCounter()
+        await manager.registerProvider {
+            await secondCounter.increment()
+            return secondToken
+        }
+        try await secondCounter.waitFor(atLeast: 1)
+        // A fresh refresh is scheduled off the new token (second parked sleep).
+        await gate.waitUntilSleeping(atLeast: 2)
+
+        let result = try await manager.currentToken(mode: .background)
+        #expect(
+            result == secondToken,
+            "re-registration must serve the new provider's token, not a stale one"
+        )
+    }
+
     // MARK: - Test helpers
 
     /// `referenceDate` as seconds-since-1970, for minting tokens whose `iat`/`exp`
