@@ -76,6 +76,13 @@ package actor AuthTokenManager {
     /// elapsed-sleep duration alone would fire late.
     private var refreshAtWallClock: Date?
 
+    /// Names the in-flight ``performScheduledRefresh()`` run, or `nil` when none is
+    /// mid-flight, so the foreground "missed refresh" path (case 2 in
+    /// ``handleForegroundTransition()``) can leave a running refresh alone. Keyed by a
+    /// per-run `id` (like ``inFlight``) so a stale run whose `task.value` never returns
+    /// can't leave the guard stuck or clear a newer generation's run.
+    private var activeScheduledRefreshID: UUID?
+
     /// `true` while a proactive refresh has failed for a network reason and the
     /// manager is awaiting connectivity before retrying. A single boolean (not a
     /// task) because connectivity comes through the existing ``lifecycleCancellable``
@@ -304,6 +311,7 @@ package actor AuthTokenManager {
         refreshTask?.cancel()
         refreshTask = nil
         refreshAtWallClock = nil
+        activeScheduledRefreshID = nil
         isAwaitingConnectivityRetry = false
         cachedToken = nil
     }
@@ -450,6 +458,11 @@ package actor AuthTokenManager {
     /// duration, so in the happy path the body runs at most ~2–3 times across
     /// the entire scheduled window (one long sleep, then a final short
     /// iteration that observes `remaining <= 0` and breaks).
+    ///
+    /// ``refreshAtWallClock`` is deliberately *not* cleared before the attempt, so
+    /// a fired refresh that fails while the token is still valid leaves the target
+    /// in place for the next foreground transition to retry (case 2). Success
+    /// replaces it via ``scheduleRefresh(for:)``; resets clear it.
     private func sleepUntilAndRefresh(target: Date) async {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
@@ -457,7 +470,6 @@ package actor AuthTokenManager {
             await sleeper(UInt64(remaining * 1_000_000_000))
         }
         guard !Task.isCancelled else { return }
-        refreshAtWallClock = nil
         await performScheduledRefresh()
     }
 
@@ -473,8 +485,28 @@ package actor AuthTokenManager {
     /// before then will retry. A *network-classified* failure also arms
     /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
     /// re-fires this method (``handleReachabilityChange()``); other failures don't.
+    ///
+    /// Bails if a refresh is already mid-flight (``activeScheduledRefreshID`` set):
+    /// the scheduled fire, the foreground "missed refresh" retry (case 2), and the
+    /// connectivity retry can all target the same still-armed refresh, and a second
+    /// run would await the shared in-flight fetch and broadcast its token a second
+    /// time. The single-flight guard here covers every caller; the foreground path
+    /// keeps its own pre-check so it doesn't tear down a live schedule.
+    ///
+    /// Sets ``activeScheduledRefreshID`` for its duration so a concurrent
+    /// foreground transition leaves an in-flight refresh to complete (case 2).
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
+        guard activeScheduledRefreshID == nil else { return }
+        let refreshID = UUID()
+        activeScheduledRefreshID = refreshID
+        defer {
+            // Only clear if we still own the generation — a reset (or a newer run)
+            // may have rotated it while this run was suspended on `task.value`.
+            if activeScheduledRefreshID == refreshID {
+                activeScheduledRefreshID = nil
+            }
+        }
         let task = inFlight?.task ?? startFetch()
         do {
             let token = try await task.value
@@ -609,6 +641,16 @@ package actor AuthTokenManager {
             return
         }
         if let scheduled = refreshAtWallClock, currentDate() >= scheduled {
+            // An in-flight refresh is left to finish rather than cancelled and
+            // re-driven, which would drop its broadcast or duplicate it.
+            guard activeScheduledRefreshID == nil else {
+                if #available(iOS 14.0, *) {
+                    Logger.auth.info(
+                        "AuthTokenManager: foreground transition (case=missed-refresh-already-running)"
+                    )
+                }
+                return
+            }
             refreshTask?.cancel()
             refreshTask = nil
             refreshAtWallClock = nil

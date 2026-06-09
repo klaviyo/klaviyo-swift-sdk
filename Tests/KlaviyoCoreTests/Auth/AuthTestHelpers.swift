@@ -107,12 +107,31 @@ actor TokenBox {
 }
 
 /// Accumulates values delivered to a stream subscriber so tests can assert on
-/// what was — or, just as importantly, was not — received.
+/// what was — or, just as importantly, was not — received. ``waitFor(atLeast:)``
+/// lets a test *suspend* until an expected emission lands rather than spinning on
+/// `Task.yield()`: spinning keeps the waiting task runnable and can starve the
+/// consumer draining the stream, dropping the very emission under test.
 actor TokenCollector {
     private(set) var received: [String] = []
+    private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
     func append(_ token: String) {
         received.append(token)
+        waiters = waiters.compactMap { waiter in
+            if received.count >= waiter.threshold {
+                waiter.continuation.resume()
+                return nil
+            }
+            return waiter
+        }
+    }
+
+    /// Suspends until at least `threshold` values have been collected.
+    func waitFor(atLeast threshold: Int) async {
+        if received.count >= threshold { return }
+        await withCheckedContinuation { continuation in
+            waiters.append((threshold, continuation))
+        }
     }
 }
 
