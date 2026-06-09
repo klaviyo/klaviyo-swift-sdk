@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import OSLog
 import UserNotifications
 
@@ -77,6 +78,14 @@ final class KlaviyoNotificationDelegate: NSObject {
     private let didReceiveGuard = ForwardingCycleGuard()
     private let willPresentGuard = ForwardingCycleGuard()
 
+    // MARK: - Auto-track guard
+
+    private let autoTrackGuard = BoundedIDSet<String>()
+
+    func markAsAutoTracked(requestId: String) { autoTrackGuard.insert(requestId) }
+    func wasAutoTracked(requestId: String) -> Bool { autoTrackGuard.contains(requestId) }
+    func clearAutoTracked() { autoTrackGuard.clear() }
+
     // MARK: - Injection
 
     /// Reads the opt-in flag and notification center from `KlaviyoSwiftEnvironment`,
@@ -138,8 +147,13 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             return
         }
         defer { didReceiveGuard.end(requestId) }
-        // MAGE-660: double-track guard (auto + manual paths) is a follow-on ticket.
-        _ = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: { once() })
+        let wasTracked = KlaviyoSDK().handle(
+            notificationResponse: response,
+            withCompletionHandler: { once() }
+        )
+        if wasTracked && response.actionIdentifier != UNNotificationDismissActionIdentifier {
+            markAsAutoTracked(requestId: requestId)
+        }
         existingDelegate?.userNotificationCenter?(
             center, didReceive: response, withCompletionHandler: { once() }
         )

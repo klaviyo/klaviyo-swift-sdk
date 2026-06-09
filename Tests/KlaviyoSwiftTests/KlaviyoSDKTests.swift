@@ -23,6 +23,7 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        KlaviyoNotificationDelegate.shared.clearAutoTracked()
     }
 
     override func tearDown() async throws {
@@ -508,5 +509,160 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertNil(event.properties["Button Action"], "Should NOT include Button Action for body tap")
             XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
         }
+    }
+
+    // MARK: - Double-track guard
+
+    func testHandleShortCircuitsWhenAutoTracked() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testDeprecatedHandleShortCircuitsWhenAutoTracked() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+
+        // When
+        let handled = klaviyo.handle(
+            notificationResponse: response,
+            withCompletionHandler: { callback.fulfill() },
+            deepLinkHandler: nil
+        )
+
+        // Then
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testProxyThenManualHandleEmitsOneEvent() throws {
+        // Given — proxy calls handle then marks the request ID (mirrors didReceive implementation)
+        let proxyCallback = XCTestExpectation(description: "proxy completion fires")
+        let manualCallback = XCTestExpectation(description: "manual completion fires")
+        var enqueueCount = 0
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { enqueueCount += 1 }
+            return nil
+        }
+        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+
+        // When (proxy path)
+        let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
+        XCTAssertTrue(wasTracked)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(
+            requestId: response.notification.request.identifier
+        )
+        wait(for: [proxyCallback], timeout: 1.0)
+
+        // Then — exactly one event emitted on the proxy pass
+        XCTAssertEqual(enqueueCount, 1, "proxy call should emit exactly one _openedPush")
+
+        // When (manual host path for same response)
+        let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
+        XCTAssertTrue(handled2)
+        wait(for: [manualCallback], timeout: 1.0)
+
+        // Then — no second event emitted
+        XCTAssertEqual(enqueueCount, 1, "manual handle must not emit a second event")
+    }
+
+    func testHandleShortCircuitSuppressesDeepLinkDispatch() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noDeepLink = XCTestExpectation(description: "no openDeepLink dispatched")
+        noDeepLink.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .openDeepLink = action { noDeepLink.fulfill() }
+            return nil
+        }
+        let push_body: [AnyHashable: Any] = [
+            "body": ["_k": ["foo": "bar"]],
+            "url": "https://example.com/deeplink"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noDeepLink], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testHandleShortCircuitsForActionButtonTapWhenAutoTracked() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+        let actionId = "com.klaviyo.test.button.dedup"
+        let push_body: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_dedup_action",
+                "action_buttons": [["id": actionId, "label": "Tap Me", "action": "open_app"]]
+            ]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: push_body, actionIdentifier: actionId)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testDeprecatedHandleDoesNotCallDeepLinkHandlerWhenAutoTracked() throws {
+        // Given — host passes a custom deepLinkHandler via the deprecated overload
+        let callback = XCTestExpectation(description: "completion is called")
+        let noDeepLinkHandler = XCTestExpectation(description: "deepLinkHandler must not fire")
+        noDeepLinkHandler.isInverted = true
+        let push_body: [AnyHashable: Any] = [
+            "body": ["_k": ["foo": "bar"]],
+            "url": "https://example.com/deeplink"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: push_body)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
+
+        // When
+        let handled = klaviyo.handle(
+            notificationResponse: response,
+            withCompletionHandler: { callback.fulfill() },
+            deepLinkHandler: { _ in noDeepLinkHandler.fulfill() }
+        )
+
+        // Then — deepLinkHandler is not called; the proxy already handled the URL
+        wait(for: [callback, noDeepLinkHandler], timeout: 1.0)
+        XCTAssertTrue(handled)
     }
 }

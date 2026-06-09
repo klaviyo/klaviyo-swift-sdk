@@ -211,6 +211,10 @@ public struct KlaviyoSDK {
             return false
         }
 
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -252,6 +256,10 @@ public struct KlaviyoSDK {
             return false
         }
 
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -279,6 +287,22 @@ public struct KlaviyoSDK {
         Task { @MainActor in
             completionHandler()
         }
+        return true
+    }
+
+    /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
+    /// already auto-tracked this response. The proxy calls `handle(...)` and marks the
+    /// request ID before forwarding to any host delegate — a subsequent host call for the
+    /// same response would emit a duplicate `Opened Push`.
+    private func shortCircuitIfAutoTracked(
+        _ notificationResponse: UNNotificationResponse,
+        completionHandler: @escaping () -> Void
+    ) -> Bool {
+        let requestId = notificationResponse.notification.request.identifier
+        guard KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) else {
+            return false
+        }
+        Task { @MainActor in completionHandler() }
         return true
     }
 
