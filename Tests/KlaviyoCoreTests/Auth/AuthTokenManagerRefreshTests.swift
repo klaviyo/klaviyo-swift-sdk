@@ -310,7 +310,7 @@ struct AuthTokenManagerRefreshTests {
     func concurrentForegroundDuringInFlightScheduledRefreshBroadcastsOnce() async throws {
         // A foreground transition during an in-flight scheduled refresh must not lose
         // or duplicate its broadcast: case 2 leaves the running refresh alone (gated by
-        // `isPerformingScheduledRefresh`), and it completes and broadcasts exactly once.
+        // `activeScheduledRefreshID`), and it completes and broadcasts exactly once.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 540,
