@@ -369,8 +369,9 @@ struct AuthTokenManagerRefreshTests {
 
         await releaseRefresh.open()
 
-        // Yield generously so a duplicate broadcast would have reached the subscriber
-        // before we sample, then stop the consumer and assert exactly one emission.
+        // Suspend until the broadcast lands (a duplicate would have been buffered at the
+        // same task completion), then drain and assert exactly one emission.
+        await collector.waitFor(atLeast: 1)
         for _ in 0..<200 {
             await Task.yield()
         }
@@ -383,6 +384,103 @@ struct AuthTokenManagerRefreshTests {
         )
         let invocations = await counter.value
         #expect(invocations == 2, "the in-flight fetch must be shared, not re-invoked, saw \(invocations)")
+    }
+
+    @Test
+    func concurrentConnectivityRetryDuringForegroundRetryBroadcastsOnce() async throws {
+        // A failed network refresh leaves `refreshAtWallClock` in the past *and* arms
+        // the connectivity wait — so a foreground transition (case 2) and a reachability
+        // event can both target the same still-armed refresh. The foreground retry parks
+        // a fetch in-flight; the connectivity event must not start a second overlapping
+        // `performScheduledRefresh` that awaits the shared fetch and broadcasts twice.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 540,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        // Offline at arm so the failure doesn't kick the retry immediately; flipped
+        // online below, after the foreground retry is parked in-flight.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
+        let counter = CallCounter()
+        let refreshStarted = Latch()
+        let releaseRefresh = Latch()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken
+            case 2: throw URLError(.notConnectedToInternet) // scheduled refresh fails offline
+            default:
+                // Foreground-driven retry: park in-flight so a reachability event races it.
+                await refreshStarted.open()
+                await releaseRefresh.wait()
+                return secondToken
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        let stream = await manager.refreshes()
+        let collector = TokenCollector()
+        let consumer = Task {
+            for await token in stream {
+                await collector.append(token)
+            }
+        }
+
+        // Fire the scheduled refresh: invocation 2 throws, arming the connectivity wait
+        // (still offline). Await the arming so the foreground transition can't race it.
+        clock.set(referenceDate.addingTimeInterval(485))
+        await gate.release()
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+
+        // Foreground with cache valid + target passed → case 2 starts the retry, which
+        // parks in-flight with the connectivity wait still armed.
+        lifecycleSubject.send(.foregrounded)
+        await refreshStarted.wait()
+
+        // Restore connectivity and fire the transition while the retry is parked: the
+        // connectivity path must defer to the in-flight refresh, not start a second one.
+        reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        await releaseRefresh.open()
+
+        // Suspend until the broadcast lands (a duplicate would have been buffered at the
+        // same task completion), then drain and assert exactly one emission.
+        await collector.waitFor(atLeast: 1)
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+        consumer.cancel()
+
+        let delivered = await collector.received
+        #expect(
+            delivered == [secondToken],
+            "concurrent foreground + connectivity retry must broadcast exactly once, saw \(delivered)"
+        )
+        let invocations = await counter.value
+        #expect(invocations == 3, "the retry fetch must be shared, not re-invoked, saw \(invocations)")
     }
 
     @Test
