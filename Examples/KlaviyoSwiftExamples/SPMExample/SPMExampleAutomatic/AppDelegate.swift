@@ -20,10 +20,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         UserDefaults.standard.object(forKey: "email") as? String
     }
 
-    private var zip: String? {
-        UserDefaults.standard.object(forKey: "zip") as? String
-    }
-
     // MARK: App delegates
 
     var window: UIWindow?
@@ -32,6 +28,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        // Replace YOUR_PUBLIC_API_KEY with your actual Klaviyo public API key
         KlaviyoSDK()
             .initialize(with: "YOUR_PUBLIC_API_KEY")
             .registerForInAppForms()
