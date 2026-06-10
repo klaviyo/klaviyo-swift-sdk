@@ -14,7 +14,7 @@ pod install
 
 ## SPM Example
 
-This [example](SPMExample) demonstrates how to integrate our SDK using SPM. Follow the steps [here](Link to swift SDK instructions) to integrate it in your app.
+This [example](SPMExample) demonstrates how to integrate our SDK using SPM. Follow the steps [here](../../README.md#installation) to integrate it in your app.
 
 ## SPM Example — Automatic Push Tracking
 

@@ -120,6 +120,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } else {
             print("No key_value_pairs found in notification")
         }
+        completionHandler(.noData)
     }
 
     // MARK: Deep linking implementation

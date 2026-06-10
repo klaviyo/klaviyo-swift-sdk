@@ -1,7 +1,6 @@
 reviews:
   profile: assertive
   path_filters:
-    - "!Examples/**"
     - "!Sources/KlaviyoSwift/Vendor/**"
     - "!Tests/KlaviyoSwiftTests/Vendor/**"
     - "!**/__Snapshots__/**"
