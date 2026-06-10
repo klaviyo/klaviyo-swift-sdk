@@ -26,6 +26,22 @@
 		7CC1C85228D74DB60073197F /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84B28D74DB60073197F /* MenuView.swift */; };
 		7CC1C85328D74DB60073197F /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84C28D74DB60073197F /* MapView.swift */; };
 		7CC1C85428D74DB60073197F /* CheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84D28D74DB60073197F /* CheckoutView.swift */; };
+		ABCD0001ABCD0001ABCD0001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD0012ABCD0012ABCD0012 /* AppDelegate.swift */; };
+		ABCD0002ABCD0002ABCD0002 /* DeepLinking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E229CCCD520015991E /* DeepLinking.swift */; };
+		ABCD0003ABCD0003ABCD0003 /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340590E329CCCD520015991E /* DebugViewController.swift */; };
+		ABCD0004ABCD0004ABCD0004 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83028D74DB60073197F /* User.swift */; };
+		ABCD0005ABCD0005ABCD0005 /* Cart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C83528D74DB60073197F /* Cart.swift */; };
+		ABCD0006ABCD0006ABCD0006 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C82E28D74DB60073197F /* MenuItem.swift */; };
+		ABCD0007ABCD0007ABCD0007 /* KLMuncheryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */; };
+		ABCD0008ABCD0008ABCD0008 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84928D74DB60073197F /* ContentView.swift */; };
+		ABCD0009ABCD0009ABCD0009 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84A28D74DB60073197F /* LoginView.swift */; };
+		ABCD000AABCD000AABCD000A /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84B28D74DB60073197F /* MenuView.swift */; };
+		ABCD000BABCD000BABCD000B /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84C28D74DB60073197F /* MapView.swift */; };
+		ABCD000CABCD000CABCD000C /* CheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC1C84D28D74DB60073197F /* CheckoutView.swift */; };
+		ABCD000DABCD000DABCD000D /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7CC1C82C28D74DB60073197F /* Images.xcassets */; };
+		ABCD000EABCD000EABCD000E /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0021ABCD0021ABCD0021 /* KlaviyoForms */; };
+		ABCD000FABCD000FABCD000F /* KlaviyoLocation in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0022ABCD0022ABCD0022 /* KlaviyoLocation */; };
+		ABCD0010ABCD0010ABCD0010 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +105,10 @@
 		7CC1C84B28D74DB60073197F /* MenuView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuView.swift; path = ../../Shared/MenuView.swift; sourceTree = "<group>"; };
 		7CC1C84C28D74DB60073197F /* MapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = ../../Shared/MapView.swift; sourceTree = "<group>"; };
 		7CC1C84D28D74DB60073197F /* CheckoutView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckoutView.swift; path = ../../Shared/CheckoutView.swift; sourceTree = "<group>"; };
+		ABCD0012ABCD0012ABCD0012 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		ABCD0013ABCD0013ABCD0013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ABCD0014ABCD0014ABCD0014 /* SPMExampleAutomatic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SPMExampleAutomatic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABCD0015ABCD0015ABCD0015 /* SPMExampleAutomatic.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExampleAutomatic.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +144,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABCD0017ABCD0017ABCD0017 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ABCD000EABCD000EABCD000E /* KlaviyoForms in Frameworks */,
+				ABCD0010ABCD0010ABCD0010 /* KlaviyoSwift in Frameworks */,
+				ABCD000FABCD000FABCD000F /* KlaviyoLocation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -147,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				7CC1C7FA28D74D810073197F /* SPMExample */,
+				ABCD0018ABCD0018ABCD0018 /* SPMExampleAutomatic */,
 				3425CA0B2A3A635D0019E33A /* NotificationServiceExtension */,
 				7CC1C7F928D74D810073197F /* Products */,
 				3425CA252A44F14E0019E33A /* Frameworks */,
@@ -157,11 +188,22 @@
 			isa = PBXGroup;
 			children = (
 				7CC1C7F828D74D810073197F /* SPMExample.app */,
+				ABCD0014ABCD0014ABCD0014 /* SPMExampleAutomatic.app */,
 				7CC1C80E28D74D840073197F /* SPMExampleTests.xctest */,
 				7CC1C81828D74D840073197F /* SPMExampleUITests.xctest */,
 				3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		ABCD0018ABCD0018ABCD0018 /* SPMExampleAutomatic */ = {
+			isa = PBXGroup;
+			children = (
+				ABCD0012ABCD0012ABCD0012 /* AppDelegate.swift */,
+				ABCD0015ABCD0015ABCD0015 /* SPMExampleAutomatic.entitlements */,
+				ABCD0013ABCD0013ABCD0013 /* Info.plist */,
+			);
+			path = SPMExampleAutomatic;
 			sourceTree = "<group>";
 		};
 		7CC1C7FA28D74D810073197F /* SPMExample */ = {
@@ -270,6 +312,28 @@
 			productReference = 7CC1C81828D74D840073197F /* SPMExampleUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		ABCD0019ABCD0019ABCD0019 /* SPMExampleAutomatic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABCD0020ABCD0020ABCD0020 /* Build configuration list for PBXNativeTarget "SPMExampleAutomatic" */;
+			buildPhases = (
+				ABCD001BABCD001BABCD001B /* Sources */,
+				ABCD0017ABCD0017ABCD0017 /* Frameworks */,
+				ABCD001AABCD001AABCD001A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SPMExampleAutomatic;
+			packageProductDependencies = (
+				ABCD0021ABCD0021ABCD0021 /* KlaviyoForms */,
+				ABCD0022ABCD0022ABCD0022 /* KlaviyoLocation */,
+				ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */,
+			);
+			productName = SPMExampleAutomatic;
+			productReference = ABCD0014ABCD0014ABCD0014 /* SPMExampleAutomatic.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -295,6 +359,9 @@
 						CreatedOnToolsVersion = 13.4.1;
 						TestTargetID = 7CC1C7F728D74D810073197F;
 					};
+					ABCD0019ABCD0019ABCD0019 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 				};
 			};
 			buildConfigurationList = 7CC1C7F328D74D810073197F /* Build configuration list for PBXProject "SPMExample" */;
@@ -314,6 +381,7 @@
 			projectRoot = "";
 			targets = (
 				7CC1C7F728D74D810073197F /* SPMExample */,
+				ABCD0019ABCD0019ABCD0019 /* SPMExampleAutomatic */,
 				7CC1C80D28D74D840073197F /* SPMExampleTests */,
 				7CC1C81728D74D840073197F /* SPMExampleUITests */,
 				3425CA092A3A635D0019E33A /* NotificationServiceExtension */,
@@ -348,6 +416,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABCD001AABCD001AABCD001A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ABCD000DABCD000DABCD000D /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,6 +468,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABCD001BABCD001BABCD001B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ABCD0003ABCD0003ABCD0003 /* DebugViewController.swift in Sources */,
+				ABCD0004ABCD0004ABCD0004 /* User.swift in Sources */,
+				ABCD0001ABCD0001ABCD0001 /* AppDelegate.swift in Sources */,
+				ABCD0002ABCD0002ABCD0002 /* DeepLinking.swift in Sources */,
+				ABCD0005ABCD0005ABCD0005 /* Cart.swift in Sources */,
+				ABCD0006ABCD0006ABCD0006 /* MenuItem.swift in Sources */,
+				ABCD0007ABCD0007ABCD0007 /* KLMuncheryApp.swift in Sources */,
+				ABCD0008ABCD0008ABCD0008 /* ContentView.swift in Sources */,
+				ABCD0009ABCD0009ABCD0009 /* LoginView.swift in Sources */,
+				ABCD000AABCD000AABCD000A /* MenuView.swift in Sources */,
+				ABCD000BABCD000BABCD000B /* MapView.swift in Sources */,
+				ABCD000CABCD000CABCD000C /* CheckoutView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -719,6 +814,67 @@
 			};
 			name = Release;
 		};
+		ABCD001EABCD001EABCD001E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SPMExampleAutomatic/SPMExampleAutomatic.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SPMExampleAutomatic/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 5.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleAutomatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ABCD001FABCD001FABCD001F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SPMExampleAutomatic/SPMExampleAutomatic.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SPMExampleAutomatic/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = armv7;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 5.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleAutomatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -767,6 +923,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		ABCD0020ABCD0020ABCD0020 /* Build configuration list for PBXNativeTarget "SPMExampleAutomatic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABCD001EABCD001EABCD001E /* Debug */,
+				ABCD001FABCD001FABCD001F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -792,6 +957,18 @@
 		1E6B745F2E819B8B00602827 /* KlaviyoSwiftExtension */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KlaviyoSwiftExtension;
+		};
+		ABCD0021ABCD0021ABCD0021 /* KlaviyoForms */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KlaviyoForms;
+		};
+		ABCD0022ABCD0022ABCD0022 /* KlaviyoLocation */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KlaviyoLocation;
+		};
+		ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KlaviyoSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
