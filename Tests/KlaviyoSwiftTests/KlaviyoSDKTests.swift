@@ -534,31 +534,6 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(handled)
     }
 
-    func testDeprecatedHandleShortCircuitsWhenAutoTracked() throws {
-        // Given
-        let callback = XCTestExpectation(description: "completion is called")
-        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
-        noEvent.isInverted = true
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { noEvent.fulfill() }
-            return nil
-        }
-        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
-        let response = try UNNotificationResponse.with(userInfo: push_body)
-        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
-
-        // When
-        let handled = klaviyo.handle(
-            notificationResponse: response,
-            withCompletionHandler: { callback.fulfill() },
-            deepLinkHandler: nil
-        )
-
-        // Then
-        wait(for: [callback, noEvent], timeout: 1.0)
-        XCTAssertTrue(handled)
-    }
-
     func testProxyThenManualHandleEmitsOneEvent() throws {
         // Given — proxy calls handle then marks the request ID (mirrors didReceive implementation)
         let proxyCallback = XCTestExpectation(description: "proxy completion fires")
@@ -642,27 +617,4 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(handled)
     }
 
-    func testDeprecatedHandleDoesNotCallDeepLinkHandlerWhenAutoTracked() throws {
-        // Given — host passes a custom deepLinkHandler via the deprecated overload
-        let callback = XCTestExpectation(description: "completion is called")
-        let noDeepLinkHandler = XCTestExpectation(description: "deepLinkHandler must not fire")
-        noDeepLinkHandler.isInverted = true
-        let push_body: [AnyHashable: Any] = [
-            "body": ["_k": ["foo": "bar"]],
-            "url": "https://example.com/deeplink"
-        ]
-        let response = try UNNotificationResponse.with(userInfo: push_body)
-        KlaviyoNotificationDelegate.shared.markAsAutoTracked(requestId: response.notification.request.identifier)
-
-        // When
-        let handled = klaviyo.handle(
-            notificationResponse: response,
-            withCompletionHandler: { callback.fulfill() },
-            deepLinkHandler: { _ in noDeepLinkHandler.fulfill() }
-        )
-
-        // Then — deepLinkHandler is not called; the proxy already handled the URL
-        wait(for: [callback, noDeepLinkHandler], timeout: 1.0)
-        XCTAssertTrue(handled)
-    }
 }

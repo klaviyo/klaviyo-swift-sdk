@@ -92,7 +92,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
 
         // Assert
         XCTAssertNotNil(response.klaviyoProperties)
-        let properties = response.klaviyoProperties as? [AnyHashable: Any]
+        let properties: [AnyHashable: Any]? = response.klaviyoProperties
         XCTAssertEqual(properties?.count, expectedProperties.count)
         XCTAssertNotNil(properties?["body"])
         XCTAssertEqual(properties?["url"] as? String, "https://example.com")

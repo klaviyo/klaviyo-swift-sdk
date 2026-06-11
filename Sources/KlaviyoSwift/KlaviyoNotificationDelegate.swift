@@ -15,6 +15,7 @@ import UserNotifications
 /// Abstracts the two `UNUserNotificationCenter` members the proxy needs — delegate
 /// assignment and delegate-change observation — so unit tests can supply a lightweight
 /// mock without the app-bundle context that `UNUserNotificationCenter.current()` requires.
+@MainActor
 protocol UserNotificationCenterProtocol: AnyObject {
     var delegate: (any UNUserNotificationCenterDelegate)? { get set }
 
