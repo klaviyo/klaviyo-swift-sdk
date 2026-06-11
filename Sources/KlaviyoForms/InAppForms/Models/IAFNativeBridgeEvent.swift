@@ -22,6 +22,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case lifecycleEvent
     case profileEvent
     case profileMutation
+    case jwtMutation
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -41,6 +42,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case lifecycleEvent
         case profileEvent
         case profileMutation
+        case jwtMutation
     }
 
     init(from decoder: Decoder) throws {
@@ -81,6 +83,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .profileEvent
         case .profileMutation:
             self = .profileMutation
+        case .jwtMutation:
+            self = .jwtMutation
         }
     }
 }
@@ -147,7 +151,8 @@ extension IAFNativeBridgeEvent {
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
-            .profileMutation
+            .profileMutation,
+            .jwtMutation
         ]
     }
 
@@ -165,6 +170,7 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return 1
         case .profileEvent: return 1
         case .profileMutation: return 1
+        case .jwtMutation: return 1
         }
     }
 
@@ -182,6 +188,7 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return "lifecycleEvent"
         case .profileEvent: return "profileEvent"
         case .profileMutation: return "profileMutation"
+        case .jwtMutation: return "jwtMutation"
         }
     }
 }

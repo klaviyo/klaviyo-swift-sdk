@@ -449,6 +449,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .profileMutation:
             ()
+        case .jwtMutation:
+            ()
         }
     }
 }
