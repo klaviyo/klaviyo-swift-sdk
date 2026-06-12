@@ -616,5 +616,4 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [callback, noEvent], timeout: 1.0)
         XCTAssertTrue(handled)
     }
-
 }
