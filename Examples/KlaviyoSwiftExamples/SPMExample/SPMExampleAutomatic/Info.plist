@@ -13,6 +13,8 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<key>klaviyo_app_group</key>
+	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER).shared</string>
 	<key>klaviyo_automatic_push_tracking</key>
 	<true/>
 	<key>CFBundleURLTypes</key>

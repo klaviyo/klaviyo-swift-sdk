@@ -42,6 +42,9 @@
 		ABCD000EABCD000EABCD000E /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0021ABCD0021ABCD0021 /* KlaviyoForms */; };
 		ABCD000FABCD000FABCD000F /* KlaviyoLocation in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0022ABCD0022ABCD0022 /* KlaviyoLocation */; };
 		ABCD0010ABCD0010ABCD0010 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */; };
+		EFEF0003EFEF0003EFEF0003 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
+		EFEF0004EFEF0004EFEF0004 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = EFEF0012EFEF0012EFEF0012 /* KlaviyoSwiftExtension */; };
+		EFEF0005EFEF0005EFEF0005 /* NotificationServiceExtensionAutomatic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +69,13 @@
 			remoteGlobalIDString = 7CC1C7F728D74D810073197F;
 			remoteInfo = SPMExample;
 		};
+		EFEF0006EFEF0006EFEF0006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7CC1C7F028D74D810073197F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EFEF000AEFEF000AEFEF000A;
+			remoteInfo = NotificationServiceExtensionAutomatic;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -80,35 +90,48 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFEF0007EFEF0007EFEF0007 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EFEF0005EFEF0005EFEF0005 /* NotificationServiceExtensionAutomatic.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		340590E229CCCD520015991E /* DeepLinking.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DeepLinking.swift; path = ../../Shared/DeepLinking.swift; sourceTree = "<group>"; };
-		340590E329CCCD520015991E /* DebugViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DebugViewController.swift; path = ../../Shared/DebugViewController.swift; sourceTree = "<group>"; };
+		340590E229CCCD520015991E /* DeepLinking.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DeepLinking.swift; sourceTree = "<group>"; };
+		340590E329CCCD520015991E /* DebugViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DebugViewController.swift; sourceTree = "<group>"; };
 		340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExampleRelease.entitlements; sourceTree = "<group>"; };
 		3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		3425CA0C2A3A635D0019E33A /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		3425CA0C2A3A635D0019E33A /* NotificationService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NotificationService.swift; path = NotificationServiceExtension/NotificationService.swift; sourceTree = SOURCE_ROOT; };
 		3425CA0E2A3A635D0019E33A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7CC1C7F828D74D810073197F /* SPMExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SPMExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C80928D74D830073197F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7CC1C80E28D74D840073197F /* SPMExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SPMExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C81828D74D840073197F /* SPMExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SPMExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SPMExample-Bridging-Header.h"; sourceTree = "<group>"; };
-		7CC1C82C28D74DB60073197F /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ../../Shared/Images.xcassets; sourceTree = "<group>"; };
-		7CC1C82E28D74DB60073197F /* MenuItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuItem.swift; path = ../../Shared/MenuItem.swift; sourceTree = "<group>"; };
-		7CC1C83028D74DB60073197F /* User.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = User.swift; path = ../../Shared/User.swift; sourceTree = "<group>"; };
-		7CC1C83528D74DB60073197F /* Cart.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Cart.swift; path = ../../Shared/Cart.swift; sourceTree = "<group>"; };
+		7CC1C82C28D74DB60073197F /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		7CC1C82E28D74DB60073197F /* MenuItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MenuItem.swift; sourceTree = "<group>"; };
+		7CC1C83028D74DB60073197F /* User.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		7CC1C83528D74DB60073197F /* Cart.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Cart.swift; sourceTree = "<group>"; };
 		7CC1C83728D74DB60073197F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ../../Shared/AppDelegate.swift; sourceTree = "<group>"; };
-		7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = KLMuncheryApp.swift; path = ../../Shared/KLMuncheryApp.swift; sourceTree = "<group>"; };
-		7CC1C84928D74DB60073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../../Shared/ContentView.swift; sourceTree = "<group>"; };
-		7CC1C84A28D74DB60073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = ../../Shared/LoginView.swift; sourceTree = "<group>"; };
-		7CC1C84B28D74DB60073197F /* MenuView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MenuView.swift; path = ../../Shared/MenuView.swift; sourceTree = "<group>"; };
-		7CC1C84C28D74DB60073197F /* MapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = ../../Shared/MapView.swift; sourceTree = "<group>"; };
-		7CC1C84D28D74DB60073197F /* CheckoutView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CheckoutView.swift; path = ../../Shared/CheckoutView.swift; sourceTree = "<group>"; };
+		7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KLMuncheryApp.swift; sourceTree = "<group>"; };
+		7CC1C84928D74DB60073197F /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		7CC1C84A28D74DB60073197F /* LoginView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		7CC1C84B28D74DB60073197F /* MenuView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
+		7CC1C84C28D74DB60073197F /* MapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
+		7CC1C84D28D74DB60073197F /* CheckoutView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CheckoutView.swift; sourceTree = "<group>"; };
 		ABCD0012ABCD0012ABCD0012 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		ABCD0013ABCD0013ABCD0013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABCD0014ABCD0014ABCD0014 /* SPMExampleAutomatic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SPMExampleAutomatic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABCD0015ABCD0015ABCD0015 /* SPMExampleAutomatic.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExampleAutomatic.entitlements; sourceTree = "<group>"; };
+		EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceExtensionAutomatic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EFEF0002EFEF0002EFEF0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +177,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFEF0008EFEF0008EFEF0008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFEF0004EFEF0004EFEF0004 /* KlaviyoSwiftExtension in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -176,9 +207,11 @@
 		7CC1C7EF28D74D810073197F = {
 			isa = PBXGroup;
 			children = (
+				EFEF0009EFEF0009EFEF0009 /* Shared */,
 				7CC1C7FA28D74D810073197F /* SPMExample */,
 				ABCD0018ABCD0018ABCD0018 /* SPMExampleAutomatic */,
 				3425CA0B2A3A635D0019E33A /* NotificationServiceExtension */,
+				EFEF000BEFEF000BEFEF000B /* NotificationServiceExtensionAutomatic */,
 				7CC1C7F928D74D810073197F /* Products */,
 				3425CA252A44F14E0019E33A /* Frameworks */,
 			);
@@ -192,8 +225,20 @@
 				7CC1C80E28D74D840073197F /* SPMExampleTests.xctest */,
 				7CC1C81828D74D840073197F /* SPMExampleUITests.xctest */,
 				3425CA0A2A3A635D0019E33A /* NotificationServiceExtension.appex */,
+				EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7CC1C7FA28D74D810073197F /* SPMExample */ = {
+			isa = PBXGroup;
+			children = (
+				7CC1C83728D74DB60073197F /* AppDelegate.swift */,
+				340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */,
+				7CC1C80928D74D830073197F /* Info.plist */,
+				7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */,
+			);
+			path = SPMExample;
 			sourceTree = "<group>";
 		};
 		ABCD0018ABCD0018ABCD0018 /* SPMExampleAutomatic */ = {
@@ -206,27 +251,32 @@
 			path = SPMExampleAutomatic;
 			sourceTree = "<group>";
 		};
-		7CC1C7FA28D74D810073197F /* SPMExample */ = {
+		EFEF0009EFEF0009EFEF0009 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				7CC1C83528D74DB60073197F /* Cart.swift */,
+				7CC1C84D28D74DB60073197F /* CheckoutView.swift */,
+				7CC1C84928D74DB60073197F /* ContentView.swift */,
 				340590E329CCCD520015991E /* DebugViewController.swift */,
 				340590E229CCCD520015991E /* DeepLinking.swift */,
-				340BCBCB29AD84FF00BD4AE6 /* SPMExampleRelease.entitlements */,
-				7CC1C83728D74DB60073197F /* AppDelegate.swift */,
-				7CC1C83528D74DB60073197F /* Cart.swift */,
 				7CC1C82C28D74DB60073197F /* Images.xcassets */,
+				7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */,
+				7CC1C84A28D74DB60073197F /* LoginView.swift */,
+				7CC1C84C28D74DB60073197F /* MapView.swift */,
+				7CC1C84B28D74DB60073197F /* MenuView.swift */,
 				7CC1C82E28D74DB60073197F /* MenuItem.swift */,
 				7CC1C83028D74DB60073197F /* User.swift */,
-				7CC1C84828D74DB60073197F /* KLMuncheryApp.swift */,
-				7CC1C84928D74DB60073197F /* ContentView.swift */,
-				7CC1C84A28D74DB60073197F /* LoginView.swift */,
-				7CC1C84B28D74DB60073197F /* MenuView.swift */,
-				7CC1C84C28D74DB60073197F /* MapView.swift */,
-				7CC1C84D28D74DB60073197F /* CheckoutView.swift */,
-				7CC1C80928D74D830073197F /* Info.plist */,
-				7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */,
 			);
-			path = SPMExample;
+			name = Shared;
+			path = ../Shared;
+			sourceTree = "<group>";
+		};
+		EFEF000BEFEF000BEFEF000B /* NotificationServiceExtensionAutomatic */ = {
+			isa = PBXGroup;
+			children = (
+				EFEF0002EFEF0002EFEF0002 /* Info.plist */,
+			);
+			path = NotificationServiceExtensionAutomatic;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -319,10 +369,12 @@
 				ABCD001BABCD001BABCD001B /* Sources */,
 				ABCD0017ABCD0017ABCD0017 /* Frameworks */,
 				ABCD001AABCD001AABCD001A /* Resources */,
+				EFEF0007EFEF0007EFEF0007 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				EFEF000EEFEF000EEFEF000E /* PBXTargetDependency */,
 			);
 			name = SPMExampleAutomatic;
 			packageProductDependencies = (
@@ -333,6 +385,26 @@
 			productName = SPMExampleAutomatic;
 			productReference = ABCD0014ABCD0014ABCD0014 /* SPMExampleAutomatic.app */;
 			productType = "com.apple.product-type.application";
+		};
+		EFEF000AEFEF000AEFEF000A /* NotificationServiceExtensionAutomatic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EFEF0011EFEF0011EFEF0011 /* Build configuration list for PBXNativeTarget "NotificationServiceExtensionAutomatic" */;
+			buildPhases = (
+				EFEF000DEFEF000DEFEF000D /* Sources */,
+				EFEF0008EFEF0008EFEF0008 /* Frameworks */,
+				EFEF000CEFEF000CEFEF000C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NotificationServiceExtensionAutomatic;
+			packageProductDependencies = (
+				EFEF0012EFEF0012EFEF0012 /* KlaviyoSwiftExtension */,
+			);
+			productName = NotificationServiceExtensionAutomatic;
+			productReference = EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -362,6 +434,9 @@
 					ABCD0019ABCD0019ABCD0019 = {
 						CreatedOnToolsVersion = 16.0;
 					};
+					EFEF000AEFEF000AEFEF000A = {
+						CreatedOnToolsVersion = 16.0;
+					};
 				};
 			};
 			buildConfigurationList = 7CC1C7F328D74D810073197F /* Build configuration list for PBXProject "SPMExample" */;
@@ -385,6 +460,7 @@
 				7CC1C80D28D74D840073197F /* SPMExampleTests */,
 				7CC1C81728D74D840073197F /* SPMExampleUITests */,
 				3425CA092A3A635D0019E33A /* NotificationServiceExtension */,
+				EFEF000AEFEF000AEFEF000A /* NotificationServiceExtensionAutomatic */,
 			);
 		};
 /* End PBXProject section */
@@ -424,6 +500,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				ABCD000DABCD000DABCD000D /* Images.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFEF000CEFEF000CEFEF000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -490,6 +573,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFEF000DEFEF000DEFEF000D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFEF0003EFEF0003EFEF0003 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -507,6 +598,11 @@
 			isa = PBXTargetDependency;
 			target = 7CC1C7F728D74D810073197F /* SPMExample */;
 			targetProxy = 7CC1C81928D74D840073197F /* PBXContainerItemProxy */;
+		};
+		EFEF000EEFEF000EEFEF000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EFEF000AEFEF000AEFEF000A /* NotificationServiceExtensionAutomatic */;
+			targetProxy = EFEF0006EFEF0006EFEF0006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -875,6 +971,58 @@
 			};
 			name = Release;
 		};
+		EFEF000FEFEF000FEFEF000F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtensionAutomatic/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 5.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleAutomatic.NotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EFEF0010EFEF0010EFEF0010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtensionAutomatic/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 5.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleAutomatic.NotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -932,6 +1080,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		EFEF0011EFEF0011EFEF0011 /* Build configuration list for PBXNativeTarget "NotificationServiceExtensionAutomatic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EFEF000FEFEF000FEFEF000F /* Debug */,
+				EFEF0010EFEF0010EFEF0010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -969,6 +1126,10 @@
 		ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KlaviyoSwift;
+		};
+		EFEF0012EFEF0012EFEF0012 /* KlaviyoSwiftExtension */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KlaviyoSwiftExtension;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
