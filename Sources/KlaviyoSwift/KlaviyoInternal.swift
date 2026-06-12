@@ -111,9 +111,9 @@ package enum KlaviyoInternal {
 
                 return .success(ProfileData(
                     email: state.email,
-                    anonymousId: state.anonymousId,
                     phoneNumber: state.phoneNumber,
-                    externalId: state.externalId
+                    externalId: state.externalId,
+                    anonymousId: state.anonymousId
                 ))
             }
             .removeDuplicates()
