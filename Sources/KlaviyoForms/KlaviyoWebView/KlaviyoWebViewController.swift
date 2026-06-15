@@ -123,8 +123,16 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     @MainActor
     private func loadUrl() {
         configureLoadScripts()
-        let request = URLRequest(url: viewModel.url)
-        webView.load(request)
+
+        // Load the template anchored to the API origin so onsite's authenticated requests are
+        // same-origin, not `Origin: null`. Falls back to a direct load when no base URL is set.
+        if let baseURL = viewModel.baseURL,
+           let html = try? String(contentsOf: viewModel.url, encoding: .utf8) {
+            webView.loadHTMLString(html, baseURL: baseURL)
+        } else {
+            let request = URLRequest(url: viewModel.url)
+            webView.load(request)
+        }
     }
 
     @MainActor
@@ -227,8 +235,10 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        if let url = navigationAction.request.url,
-           !(url.lastPathComponent == "InAppFormsTemplate.html") {
+        // Open user-tapped links in the system browser; let everything else — including the
+        // initial template load — render in-webview. Keyed off navigation type, not the URL.
+        if navigationAction.navigationType == .linkActivated,
+           let url = navigationAction.request.url {
             let didOpenURL = await UIApplication.shared.open(url)
 
             if #available(iOS 14.0, *) {

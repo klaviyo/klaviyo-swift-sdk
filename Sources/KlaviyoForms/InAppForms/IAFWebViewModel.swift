@@ -23,6 +23,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
+
+    /// API host used as the document base URL so onsite's authenticated `/api/profiles/` fetch
+    /// is same-origin, avoiding the `Origin: null` (and CORS preflight) of a `file://` load.
+    var baseURL: URL? {
+        environment.apiURL().url
+    }
+
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 

@@ -188,6 +188,30 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertNil(authTokenScript, "Auth token script should not be injected when authToken is nil")
     }
 
+    // MARK: - Same-origin loading
+
+    @MainActor
+    func testBaseURLMatchesAPIOriginForSameOriginRequests() async throws {
+        // Given the API host onsite calls for the authenticated /api/profiles/ request
+        environment.apiURL = {
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "a.klaviyo.com"
+            return components
+        }
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
+
+        // Then the webview loads anchored to that origin, so onsite's authenticated fetch is
+        // same-origin (no CORS preflight / `Origin: null` → no 401).
+        XCTAssertEqual(
+            viewModel.baseURL,
+            URL(string: "https://a.klaviyo.com"),
+            "Base URL should match the API origin so the profiles fetch is same-origin"
+        )
+    }
+
     // MARK: - Klaviyo JS Tests
 
     @MainActor
