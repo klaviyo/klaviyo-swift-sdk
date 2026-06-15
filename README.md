@@ -297,6 +297,8 @@ KlaviyoSDK().registerDeepLinkHandler { url in
 
 > ℹ️ If you use a custom URL scheme for deep links from other sources (e.g. email, web), you still need to implement `application(_:open:url:options:)` in your app delegate. The SDK only routes notification-triggered deep links through `registerDeepLinkHandler`.
 
+> ℹ️ Silent push (`content-available`) is not intercepted automatically. If you use silent or background pushes, implement `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your app delegate — see [Silent Push Notifications](#silent-push-notifications).
+
 For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics in your Klaviyo dashboard.
