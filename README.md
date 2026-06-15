@@ -18,19 +18,21 @@
   - [Arguments](#arguments)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
-  - [Collecting Push Tokens](#collecting-push-tokens)
-  - [Request Push Notification Permission](#request-push-notification-permission)
-  - [Receiving Push Notifications](#receiving-push-notifications)
-    - [Tracking Open Events](#tracking-open-events)
-    - [Rich Push](#rich-push-images--videos)
-      - [Testing rich push notifications](#testing-rich-push-notifications)
-    - [Badge Count](#badge-count)
-      - [Autoclearing](#autoclearing)
-      - [Handling Other Badging Sources](#handling-other-badging-sources)
-    - [Silent Push Notifications](#silent-push-notifications)
-    - [Handling background notifications (content-available)](#handling-background-notifications-content-available)
-    - [Custom Data](#custom-data)
-    - [Push Action Buttons](#push-action-buttons)
+  - [Option A — Automatic integration](#option-a--automatic-integration)
+  - [Option B — Manual integration](#option-b--manual-integration)
+    - [Collecting Push Tokens](#collecting-push-tokens)
+    - [Request Push Notification Permission](#request-push-notification-permission)
+    - [Receiving Push Notifications](#receiving-push-notifications)
+      - [Tracking Open Events](#tracking-open-events)
+  - [Rich Push (Images & Videos)](#rich-push-images--videos)
+    - [Testing rich push notifications](#testing-rich-push-notifications)
+  - [Badge Count](#badge-count)
+    - [Autoclearing](#autoclearing)
+    - [Handling Other Badging Sources](#handling-other-badging-sources)
+  - [Silent Push Notifications](#silent-push-notifications)
+  - [Handling background notifications (content-available)](#handling-background-notifications-content-available)
+  - [Custom Data](#custom-data)
+  - [Push Action Buttons](#push-action-buttons)
 - [Deep Linking](#deep-linking)
   - [Adding link-handling logic](#adding-link-handling-logic)
   - [Handling URL Schemes](#handling-url-schemes)
@@ -239,7 +241,73 @@ The `create` method takes an event object as an argument. The event can be const
 * An apple developer [account](https://developer.apple.com/).
 * Configure [iOS push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971) in Klaviyo account settings.
 
-### Collecting Push Tokens
+> **Which option should I use?**
+>
+> Choose **Option A** for a minimal-boilerplate integration — the SDK intercepts APNs callbacks and tracks push opens automatically. No `UNUserNotificationCenterDelegate` code required.
+>
+> Choose **Option B** if you need direct control over `willPresent` behavior, are chaining multiple push notification SDKs and want to manage the delegate chain yourself, or have a hybrid flow that requires custom delegate logic.
+
+### Option A — Automatic integration
+
+The SDK can intercept APNs device-token callbacks and `UNUserNotificationCenter` delegate calls automatically, so you don't need to implement `didRegisterForRemoteNotificationsWithDeviceToken` or any `UNUserNotificationCenterDelegate` methods in your app delegate.
+
+**Step 1 — Enable automatic tracking in `Info.plist`:**
+
+```xml
+<key>klaviyo_automatic_push_tracking</key>
+<true/>
+```
+
+**Step 2 — Initialize the SDK and request push authorization:**
+
+```swift
+import KlaviyoSwift
+import UserNotifications
+
+func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+) -> Bool {
+    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+
+    // Request user permission and register with APNs so a device token is issued.
+    // The SDK intercepts the token callback automatically — no delegate code needed.
+    let center = UNUserNotificationCenter.current()
+    let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+    center.requestAuthorization(options: options) { _, error in
+        if let error = error {
+            print("Push authorization error: \(error)")
+        }
+    }
+    UIApplication.shared.registerForRemoteNotifications()
+
+    return true
+}
+```
+
+**Step 3 (optional) — Register a deep link handler:**
+
+If your push notifications contain deep links, register a handler to route them into your app's navigation. The SDK calls this handler when a notification is tapped.
+
+```swift
+KlaviyoSDK().registerDeepLinkHandler { url in
+    // Route `url` to the appropriate screen in your app
+}
+```
+
+> ℹ️ If you use a custom URL scheme for deep links from other sources (e.g. email, web), you still need to implement `application(_:open:url:options:)` in your app delegate. The SDK only routes notification-triggered deep links through `registerDeepLinkHandler`.
+
+For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
+
+Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics in your Klaviyo dashboard.
+
+---
+
+### Option B — Manual integration
+
+Use this path when you need explicit control over the notification delegate chain — for example, to customize `willPresent` behavior, chain multiple notification SDKs manually, or integrate with a hybrid notification flow.
+
+#### Collecting Push Tokens
 
 In order to send push notifications to your users, you must collect their push tokens and register them with Klaviyo.
 This is done via the `KlaviyoSDK().set(pushToken:)` method, which registers a push token and current authorization state
@@ -267,7 +335,7 @@ func application(_ application: UIApplication, didRegisterForRemoteNotifications
 }
 ```
 
-### Request Push Notification Permission
+#### Request Push Notification Permission
 
 Once the push token is obtained, the next step is to request permission from your users to send them push notifications.
 You can add the permission request code anywhere in your application where it makes sense to prompt users for this permission.
@@ -312,9 +380,9 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions lau
 }
 ```
 
-### Receiving Push Notifications
+#### Receiving Push Notifications
 
-#### Tracking Open Events
+##### Tracking Open Events
 
 When a user taps on a push notification, Implement  [`userNotificationCenter:didReceive:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649501-usernotificationcenter)
 and [`userNotificationCenter:willPresent:withCompletionHandler`](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate/1649518-usernotificationcenter) in your application delegate to handle receiving push notifications
@@ -355,7 +423,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics within your Klaviyo dashboard.
 
-#### Rich Push (Images & Videos)
+For runnable reference examples, see [SPMExample](Examples/KlaviyoSwiftExamples/SPMExample) or [CocoapodsExample](Examples/KlaviyoSwiftExamples/CocoapodsExample).
+
+---
+
+### Rich Push (Images & Videos)
 
 >  ℹ️ Rich push notifications are supported in SDK version [2.2.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/2.2.0) and higher
 
@@ -363,7 +435,7 @@ Once your first push notifications are sent and opened, you should start to see 
 in the [Installation](#installation) section are complete, you should have a notification service extension in your
 project setup with the code from the `KlaviyoSwiftExtension`. Below are instructions on how to test rich push notifications.
 
-##### Testing rich push notifications
+#### Testing rich push notifications
 
 * To test rich push notifications, you will need three things:
   * Any push notifications tester like Apple's official [push notification console](https://developer.apple.com/notifications/push-notifications-console/) or a third party software such as [this](https://github.com/onmyway133/PushNotifications).
@@ -405,20 +477,20 @@ project setup with the code from the `KlaviyoSwiftExtension`. Below are instruct
 
 Once you have these three things, you can then use the push notifications tester and send a local push notification to make sure that everything was set up correctly.
 
-#### Badge Count
+### Badge Count
 >  ℹ️ Setting or incrementing the badge count is available in SDK version [4.1.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/4.1.0) and higher
 
 Klaviyo supports setting or incrementing the badge count when you send a push notification. For this functionality to work, you must set up the Notification Service Extension and an App Group as outlined under the [Installation](#installation) section.
 
-##### Autoclearing
+#### Autoclearing
 
 By default, the Klaviyo SDK automatically clears the badge count on app open. If you want to disable this behavior, add a new entry for `klaviyo_badge_autoclearing` as a Boolean set to `NO` in your app's `Info.plist`. You can re-enable automatically clearing badges by setting this value to `YES`.
 
-##### Handling Other Badging Sources
+#### Handling Other Badging Sources
 
 Klaviyo SDK will automatically handle the badge count associated with Klaviyo pushes. If you need to manually update the badge count to account for other notification sources, use the `KlaviyoSDK().setBadgeCount(:)` method, which will update the badge count and keep it in sync with the Klaviyo SDK. This method should be used instead of (rather than in addition to) setting the badge count using `UNUserNotificationCenter` and/or `UIApplication` methods.
 
-#### Silent Push Notifications
+### Silent Push Notifications
 
 Silent push notifications (also known as background pushes) allow your app to receive payloads from Klaviyo without displaying a visible alert to the user. These are typically used to trigger background behavior, such as displaying content, personalizing the app interface, or downloading new information from a server.
 >  ℹ️ Silent push support is available by default. The Klaviyo SDK does not provide specific handling for silent push notifications. See [enable the remote notifications capability](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) and [receive background notifications](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app#Enable-the-remote-notifications-capability) for more details.
@@ -441,7 +513,7 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
 
 >  ℹ️ Silent push notifications are not supported by the iOS simulator. To test silent push notifications, please use a real device.
 
-#### Handling background notifications (content-available)
+### Handling background notifications (content-available)
 
 Klaviyo can send a **standard** push (title, body, and other visible notification UI) whose APNs payload also includes **`content-available: 1`**. That is different from a [silent push](#silent-push-notifications): silent pushes never show an alert, while this is a normal user-visible notification that *additionally* asks iOS to wake your app in the background so you can refresh data or run other work from the same `userInfo`.
 
@@ -449,10 +521,10 @@ You still handle the visible notification through [`UNUserNotificationCenterDele
 
 >  ℹ️ Background wakes are best-effort and may be throttled. As with [silent push notifications](#silent-push-notifications), test this functionality on a physical device because the Simulator does not support the full remote-notification background path.
 
-#### Custom Data
+### Custom Data
 Klaviyo messages can also include key-value pairs (custom data) for both standard and silent push notifications. You can access these key-value pairs using the `key_value_pairs` key on the [`userInfo`](https://developer.apple.com/documentation/foundation/nsnotification/1409222-userinfo) dictionary associated with the notification (for silent pushes, see the example above; for standard pushes, see [`NotificationService.swift`](https://github.com/klaviyo/klaviyo-swift-sdk/blob/master/Examples/KlaviyoSwiftExamples/SPMExample/NotificationServiceExtension/NotificationService.swift) in the example app). This enables you to extract additional information from the push payload and handle it appropriately - for instance, by triggering background processing, logging analytics events, or dynamically updating app content.
 
-#### Push Action Buttons
+### Push Action Buttons
 
 >  ℹ️ Push Action Buttons is supported in SDK version [5.3.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.3.0) and higher
 
