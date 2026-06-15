@@ -193,4 +193,68 @@ final class KlaviyoStateTests: XCTestCase {
         // Fake value to test availability
         XCTAssertEqual(PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .notDetermined)
     }
+
+    // MARK: - enqueueRequest capacity / eviction
+
+    func testEnqueueRequestEvictsOldestWhenAtCapacity() throws {
+        // Arrange: build a state pre-loaded with exactly maxQueueSize requests.
+        let tokenPayload = PushTokenPayload(
+            pushToken: "token",
+            enablement: "AUTHORIZED",
+            background: "AVAILABLE",
+            profile: ProfilePayload(email: nil, phoneNumber: nil, anonymousId: "anon")
+        )
+        let maxSize = StateManagementConstants.maxQueueSize
+
+        var requests = (0..<maxSize).map { _ in
+            KlaviyoRequest(id: UUID().uuidString, endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
+        }
+
+        let firstId = requests[0].id
+        let secondId = requests[1].id
+
+        var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: requests)
+
+        // The new request that should survive and land at the tail.
+        let newRequest = KlaviyoRequest(
+            id: UUID().uuidString, endpoint: .registerPushToken(TEST_API_KEY, tokenPayload)
+        )
+
+        // Act
+        state.enqueueRequest(request: newRequest)
+
+        // Assert: cap is held, oldest is gone, new request is at the tail, formerly-second is now first.
+        XCTAssertEqual(state.queue.count, maxSize, "Queue count must equal maxQueueSize after eviction")
+        XCTAssertFalse(state.queue.contains(where: { $0.id == firstId }), "Oldest request must be evicted")
+        XCTAssertEqual(state.queue.last?.id, newRequest.id, "New request must be at the tail")
+        XCTAssertEqual(state.queue.first?.id, secondId, "Formerly-second request must now be first")
+    }
+
+    func testEnqueueRequestBelowCapacityAppendsWithoutEviction() {
+        // Arrange: state with one fewer than capacity.
+        let tokenPayload = PushTokenPayload(
+            pushToken: "token",
+            enablement: "AUTHORIZED",
+            background: "AVAILABLE",
+            profile: ProfilePayload(email: nil, phoneNumber: nil, anonymousId: "anon")
+        )
+        let belowMax = StateManagementConstants.maxQueueSize - 1
+        let existing = (0..<belowMax).map { _ in
+            KlaviyoRequest(id: UUID().uuidString, endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
+        }
+        let firstId = existing[0].id
+        var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: existing)
+
+        let newRequest = KlaviyoRequest(
+            id: UUID().uuidString, endpoint: .registerPushToken(TEST_API_KEY, tokenPayload)
+        )
+
+        // Act
+        state.enqueueRequest(request: newRequest)
+
+        // Assert: count grew to maxQueueSize, oldest is untouched, new is at tail.
+        XCTAssertEqual(state.queue.count, StateManagementConstants.maxQueueSize)
+        XCTAssertEqual(state.queue.first?.id, firstId, "Oldest request must not be evicted when under cap")
+        XCTAssertEqual(state.queue.last?.id, newRequest.id)
+    }
 }
