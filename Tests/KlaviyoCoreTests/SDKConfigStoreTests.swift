@@ -5,8 +5,8 @@
 //  Created by Isobelle Lim on 6/16/26.
 //
 
-import Combine
 @testable import KlaviyoCore
+import Combine
 import XCTest
 
 final class SDKConfigStoreTests: XCTestCase {
