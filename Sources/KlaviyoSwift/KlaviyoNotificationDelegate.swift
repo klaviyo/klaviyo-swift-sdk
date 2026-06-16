@@ -83,8 +83,8 @@ final class KlaviyoNotificationDelegate: NSObject {
 
     private let autoTrackGuard = BoundedIDSet<String>()
 
-    func markAsAutoTracked(requestId: String) { autoTrackGuard.insert(requestId) }
-    func wasAutoTracked(requestId: String) -> Bool { autoTrackGuard.contains(requestId) }
+    func markAsAutoTracked(dedupKey: String) { autoTrackGuard.insert(dedupKey) }
+    func wasAutoTracked(dedupKey: String) -> Bool { autoTrackGuard.contains(dedupKey) }
     func clearAutoTracked() { autoTrackGuard.clear() }
 
     // MARK: - Injection
@@ -153,7 +153,7 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             withCompletionHandler: { once() }
         )
         if wasTracked && response.actionIdentifier != UNNotificationDismissActionIdentifier {
-            markAsAutoTracked(requestId: requestId)
+            markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
         }
         existingDelegate?.userNotificationCenter?(
             center, didReceive: response, withCompletionHandler: { once() }
