@@ -6,7 +6,6 @@
 //
 
 import Combine
-import Foundation
 
 /// Read-only view of profile identity. Consumers depend on this rather than the
 /// concrete store so the underlying implementation can change (e.g. become an actor).
@@ -24,8 +23,10 @@ public protocol IdentityWriting {
 public final class IdentityStore: IdentityReading, IdentityWriting {
     public static let shared = IdentityStore()
 
-    /// Serializes reads and writes to the backing subject.
-    private let queue = DispatchQueue(label: "com.klaviyo.identity-store")
+    // `CurrentValueSubject` is internally synchronized, so reads and writes are thread-safe
+    // without an external lock. We deliberately avoid wrapping `send` in a lock/queue: Combine
+    // delivers to subscribers synchronously during `send`, so an external lock held across the
+    // emission would deadlock any subscriber that reads `current` in response.
     private let subject: CurrentValueSubject<ProfileData, Never>
 
     init(initialIdentity: ProfileData = ProfileData()) {
@@ -33,7 +34,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     }
 
     public var current: ProfileData {
-        queue.sync { subject.value }
+        subject.value
     }
 
     public var publisher: AnyPublisher<ProfileData, Never> {
@@ -52,6 +53,6 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     }
 
     public func update(_ identity: ProfileData) {
-        queue.sync { subject.send(identity) }
+        subject.send(identity)
     }
 }
