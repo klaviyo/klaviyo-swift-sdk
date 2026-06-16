@@ -125,14 +125,23 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         configureLoadScripts()
 
         // Load the template anchored to the API origin so onsite's authenticated requests are
-        // same-origin, not `Origin: null`. Falls back to a direct load when no base URL is set.
-        if let baseURL = viewModel.baseURL,
-           let html = try? String(contentsOf: viewModel.url, encoding: .utf8) {
-            webView.loadHTMLString(html, baseURL: baseURL)
-        } else {
-            let request = URLRequest(url: viewModel.url)
-            webView.load(request)
+        // same-origin, not `Origin: null`. Falls back to a direct load when no base URL is set,
+        // or — with a warning — if the template contents can't be read, since that fallback
+        // reintroduces the `Origin: null` the base URL exists to avoid.
+        let templateURL = viewModel.url
+        if let baseURL = viewModel.baseURL {
+            do {
+                let html = try String(contentsOf: templateURL, encoding: .utf8)
+                webView.loadHTMLString(html, baseURL: baseURL)
+                return
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Failed to read template at \(templateURL); falling back to direct load: \(error)")
+                }
+            }
         }
+
+        webView.load(URLRequest(url: templateURL))
     }
 
     @MainActor
