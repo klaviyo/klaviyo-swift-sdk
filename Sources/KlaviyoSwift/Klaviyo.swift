@@ -226,10 +226,17 @@ public struct KlaviyoSDK {
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties))
-            if let webUrl = notificationResponse.klaviyoWebUrl {
-                dispatchOnMainThread(action: .openWebUrl(webUrl))
-            } else if let url = notificationResponse.klaviyoDeepLinkURL {
+            // Deep link wins when both are present. The composer enforces a single action
+            // type at creation, so this only matters for direct-API or test-tooling sends.
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+                    Logger.notifications.warning(
+                        "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                    )
+                }
                 dispatchOnMainThread(action: .openDeepLink(url))
+            } else if let webUrl = notificationResponse.klaviyoWebUrl {
+                dispatchOnMainThread(action: .openWebUrl(webUrl))
             }
         }
 
@@ -269,11 +276,14 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties))
-            if let webUrl = notificationResponse.klaviyoWebUrl {
-                // External web URL: open in system browser. The deepLinkHandler closure
-                // is intentionally bypassed (it's for deep links only).
-                dispatchOnMainThread(action: .openWebUrl(webUrl))
-            } else if let url = notificationResponse.klaviyoDeepLinkURL {
+            // Deep link wins when both are present. The composer enforces a single action
+            // type at creation, so this only matters for direct-API or test-tooling sends.
+            if let url = notificationResponse.klaviyoDeepLinkURL {
+                if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+                    Logger.notifications.warning(
+                        "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                    )
+                }
                 if let deepLinkHandler = deepLinkHandler {
                     Task { @MainActor in
                         deepLinkHandler(url)
@@ -281,6 +291,10 @@ public struct KlaviyoSDK {
                 } else {
                     dispatchOnMainThread(action: .openDeepLink(url))
                 }
+            } else if let webUrl = notificationResponse.klaviyoWebUrl {
+                // External web URL: open in system browser. The deepLinkHandler closure
+                // is intentionally bypassed (it's for deep links only).
+                dispatchOnMainThread(action: .openWebUrl(webUrl))
             }
         }
         Task { @MainActor in

@@ -550,8 +550,10 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertTrue(deepLinkDispatched, "Deep link path must remain unchanged when web_url is absent")
     }
 
-    func testHandleBodyTap_WebUrlTakesPrecedenceOverDeepLink() throws {
-        // Defensive: if backend ever ships both web_url and url, web_url wins.
+    func testHandleBodyTap_DeepLinkTakesPrecedenceOverWebUrl() throws {
+        // Defensive: if backend ever ships both web_url and url, the deep link wins so
+        // the user stays in the host app. The composer UI enforces a single action type
+        // at creation, so this only fires via direct-API or test-tooling sends.
         let callback = XCTestExpectation(description: "callback is made")
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
@@ -575,17 +577,17 @@ class KlaviyoSDKTests: XCTestCase {
 
         wait(for: [callback], timeout: 1.0)
 
-        let webUrlDispatched = capturedActions.contains { action in
-            if case let .openWebUrl(dispatchedUrl) = action { return dispatchedUrl == webURL }
-            return false
-        }
-        XCTAssertTrue(webUrlDispatched)
-
         let deepLinkDispatched = capturedActions.contains { action in
-            if case .openDeepLink = action { return true }
+            if case let .openDeepLink(dispatchedUrl) = action { return dispatchedUrl == deepURL }
             return false
         }
-        XCTAssertFalse(deepLinkDispatched)
+        XCTAssertTrue(deepLinkDispatched)
+
+        let webUrlDispatched = capturedActions.contains { action in
+            if case .openWebUrl = action { return true }
+            return false
+        }
+        XCTAssertFalse(webUrlDispatched)
     }
 
     func testHandleActionButtonTap_OpenUrlButton() throws {
