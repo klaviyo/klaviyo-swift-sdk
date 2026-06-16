@@ -6,7 +6,6 @@
 //
 
 import Combine
-import Foundation
 
 /// Read-only view of SDK configuration. Consumers depend on this rather than the
 /// concrete store so the underlying implementation can change (e.g. become an actor).
@@ -23,8 +22,10 @@ public protocol ConfigWriting {
 public final class SDKConfigStore: ConfigReading, ConfigWriting {
     public static let shared = SDKConfigStore()
 
-    /// Serializes reads and writes to the backing subject.
-    private let queue = DispatchQueue(label: "com.klaviyo.sdk-config-store")
+    // `CurrentValueSubject` is internally synchronized, so reads and writes are thread-safe
+    // without an external lock. We deliberately avoid wrapping `send` in a lock/queue: Combine
+    // delivers to subscribers synchronously during `send`, so an external lock held across the
+    // emission would deadlock any subscriber that reads `apiKey` in response.
     private let apiKeySubject: CurrentValueSubject<String?, Never>
 
     init(initialAPIKey: String? = nil) {
@@ -32,7 +33,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     }
 
     public var apiKey: String? {
-        queue.sync { apiKeySubject.value }
+        apiKeySubject.value
     }
 
     public var apiKeyPublisher: AnyPublisher<String?, Never> {
@@ -40,6 +41,6 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     }
 
     public func updateAPIKey(_ apiKey: String?) {
-        queue.sync { apiKeySubject.send(apiKey) }
+        apiKeySubject.send(apiKey)
     }
 }
