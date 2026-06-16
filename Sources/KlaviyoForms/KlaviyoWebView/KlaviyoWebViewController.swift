@@ -136,7 +136,9 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
                 return
             } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to read template at \(templateURL); falling back to direct load: \(error)")
+                    Logger.webViewLogger.warning(
+                        "Failed to read template at \(templateURL); falling back to direct load: \(error)"
+                    )
                 }
             }
         }
