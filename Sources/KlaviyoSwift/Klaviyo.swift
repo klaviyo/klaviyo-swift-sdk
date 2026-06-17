@@ -289,7 +289,7 @@ public struct KlaviyoSDK {
         for notificationResponse: UNNotificationResponse,
         deepLinkHandler: ((URL) -> Void)?
     ) {
-        if let url = notificationResponse.klaviyoDeepLinkURL {
+        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL {
             if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
                 Logger.notifications.warning(
                     "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
@@ -297,10 +297,10 @@ public struct KlaviyoSDK {
             }
             if let deepLinkHandler = deepLinkHandler {
                 Task { @MainActor in
-                    deepLinkHandler(url)
+                    deepLinkHandler(deepLinkURL)
                 }
             } else {
-                dispatchOnMainThread(action: .openDeepLink(url))
+                dispatchOnMainThread(action: .openDeepLink(deepLinkURL))
             }
         } else if let webUrl = notificationResponse.klaviyoWebUrl {
             dispatchOnMainThread(action: .openWebUrl(webUrl))
