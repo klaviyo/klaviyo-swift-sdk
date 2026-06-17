@@ -101,11 +101,28 @@ final class KlaviyoNotificationDelegate: NSObject {
     static func injectIfEnabled() {
         guard klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled() else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.info("Klaviyo automatic push tracking is off.")
+                Logger.notifications.log("Automatic push tracking is off.")
             }
             return
         }
+
+        if #available(iOS 14.0, *) {
+            Logger.notifications.info(
+                "Injecting notification delegate proxy for automatic push tracking."
+            )
+        }
         shared.inject(into: klaviyoSwiftEnvironment.notificationCenter())
+
+        if klaviyoSwiftEnvironment.isAutomaticTokenForwardingDisabled() {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.log("Automatic token forwarding disabled via plist key.")
+            }
+            return
+        }
+
+        if #available(iOS 14.0, *) {
+            Logger.notifications.info("Swizzling app delegate for automatic token registration.")
+        }
         KlaviyoAppDelegateSwizzler.swizzleIfPossible()
     }
 

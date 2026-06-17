@@ -230,6 +230,8 @@ extension KlaviyoSwiftEnvironment {
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         }, isAutomaticPushTrackingEnabled: {
             false
+        }, isAutomaticTokenForwardingDisabled: {
+            false
         }, notificationCenter: {
             MockNotificationCenter()
         })
