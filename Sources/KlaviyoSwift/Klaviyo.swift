@@ -298,8 +298,8 @@ public struct KlaviyoSDK {
         _ notificationResponse: UNNotificationResponse,
         completionHandler: @escaping () -> Void
     ) -> Bool {
-        let requestId = notificationResponse.notification.request.identifier
-        guard KlaviyoNotificationDelegate.shared.wasAutoTracked(requestId: requestId) else {
+        let dedupKey = notificationResponse.klaviyoDedupKey
+        guard KlaviyoNotificationDelegate.shared.wasAutoTracked(dedupKey: dedupKey) else {
             return false
         }
         Task { @MainActor in completionHandler() }

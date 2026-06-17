@@ -82,6 +82,26 @@ extension UNNotificationResponse {
         return url
     }
 
+    // MARK: - Dedup Key
+
+    /// Returns the stable dedup key used by the auto-track guard to prevent double-firing
+    /// the `Opened Push` event when both the Klaviyo proxy delegate and a manual
+    /// `handle(notificationResponse:)` call process the same response.
+    ///
+    /// Preference order:
+    /// 1. `tm` from `_k` — a ULID unique per delivery, present in Klaviyo campaign sends.
+    /// 2. `notification.request.identifier` — OS-assigned request ID, used as a safe
+    ///    fallback if `tm` is absent.
+    var klaviyoDedupKey: String {
+        guard let userInfo = notification.request.content.userInfo as? [String: Any],
+              let klaviyoBody = userInfo["body"] as? [String: Any],
+              let kPayload = klaviyoBody["_k"] as? [String: Any],
+              let deliveryUlid = kPayload["tm"] as? String else {
+            return notification.request.identifier
+        }
+        return deliveryUlid
+    }
+
     // MARK: - Action Button Support
 
     /// Detects if the user tapped an action button (vs tapping the notification body).
