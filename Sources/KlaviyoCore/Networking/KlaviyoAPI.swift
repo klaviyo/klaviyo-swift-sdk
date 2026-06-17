@@ -40,8 +40,12 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        // Consolidated retryable error handling (429 rate limit + 5xx server errors)
-        if [429, 500, 502, 503, 504].contains(httpResponse.statusCode) {
+        // Consolidated retryable error handling (429 rate limit + all 5xx server errors).
+        // The entire 5xx range (500–599) is treated as transient so we also retry CDN/edge
+        // failures such as Cloudflare's 520–527 codes, which originate in front of the origin
+        // servers and were the codes observed during the cannot-access-klaviyo-com incident.
+        // 403 and other 4xx codes are intentionally excluded so the backend can shed load.
+        if httpResponse.statusCode == 429 || (500...599).contains(httpResponse.statusCode) {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             // Check Retry-After header for any retryable error (expected for 429, future-proofing for 5xx)
