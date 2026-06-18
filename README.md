@@ -342,29 +342,8 @@ to request a push token from APNs. This is typically done in the [`application:d
 * Implement the delegate method [`application:didRegisterForRemoteNotificationsWithDeviceToken`](https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428766-application)
 in your application delegate to receive the push token from APNs and register it with Klaviyo.
 
-Below is the code to do both of the above steps:
-```swift
-import KlaviyoSwift
-
-func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-) -> Bool {
-    KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
-
-    UIApplication.shared.registerForRemoteNotifications()
-
-    return true
-}
-
-func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    KlaviyoSDK().set(pushToken: deviceToken)
-}
-```
-
 #### Request Push Notification Permission
 
-Once the push token is obtained, the next step is to request permission from your users to send them push notifications.
 You can add the permission request code anywhere in your application where it makes sense to prompt users for this permission.
 Apple provides some [guidelines](https://developer.apple.com/documentation/usernotifications/asking_permission_to_use_notifications)
 on the best practices for when and how to ask for this permission. The following example demonstrates how to request push permissions
@@ -374,8 +353,8 @@ method in the application delegate file. However, it's worth noting that this ma
 After setting a push token, the Klaviyo SDK will automatically track changes to
 the user's notification permission whenever the application is opened or resumed from the background.
 
-Below is example code to request push notification permission:
 ```swift
+import KlaviyoSwift
 import UserNotifications
 
 func application(
@@ -383,30 +362,37 @@ func application(
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 ) -> Bool {
     KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    registerForPushNotifications()
+    return true
+}
 
+func registerForPushNotifications() {
+    // Register with APNs immediately so a device token is available regardless of
+    // notification permission status. The token is forwarded to Klaviyo via
+    // didRegisterForRemoteNotificationsWithDeviceToken below.
     UIApplication.shared.registerForRemoteNotifications()
 
     let center = UNUserNotificationCenter.current()
-    center.delegate = self as? UNUserNotificationCenterDelegate // the type casting can be removed once the delegate has been implemented
+    center.delegate = self
     let options: UNAuthorizationOptions = [.alert, .sound, .badge]
     // use the below options if you are interested in using provisional push notifications. Note that using this will not
     // show the push notifications prompt to the user.
     // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
-    center.requestAuthorization(options: options) { granted, error in
+    center.requestAuthorization(options: options) { _, error in
         if let error = error {
-            // Handle the error here.
             print("error = ", error)
         }
-
         // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
         // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
         // will make sure that Klaviyo always has the latest push authorization status.
-            DispatchQueue.main.async {
-                UIApplication.shared.registerForRemoteNotifications()
-            }
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
     }
+}
 
-    return true
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    KlaviyoSDK().set(pushToken: deviceToken)
 }
 ```
 
