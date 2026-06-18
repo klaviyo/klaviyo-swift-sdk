@@ -21,6 +21,7 @@
   - [Option A — Automatic integration](#option-a--automatic-integration)
     - [Step 1 — Enable automatic tracking in Info.plist](#step-1--enable-automatic-tracking-in-infoplist)
     - [Step 2 — Initialize the SDK and request push authorization](#step-2--initialize-the-sdk-and-request-push-authorization)
+    - [Advanced: Disable automatic token forwarding](#advanced-disable-automatic-token-forwarding)
   - [Option B — Manual integration](#option-b--manual-integration)
     - [Collecting Push Tokens](#collecting-push-tokens)
     - [Request Push Notification Permission](#request-push-notification-permission)
@@ -271,23 +272,54 @@ func application(
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 ) -> Bool {
     KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
+    registerForPushNotifications()
+    return true
+}
 
-    // Request user permission and register with APNs so a device token is issued.
-    // The SDK intercepts the token callback automatically — no delegate code needed.
+func registerForPushNotifications() {
+    // Register with APNs immediately so a device token is available regardless of
+    // notification permission status. The SDK intercepts the token callback automatically.
+    UIApplication.shared.registerForRemoteNotifications()
+
     let center = UNUserNotificationCenter.current()
     let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+    // use the below options if you are interested in using provisional push notifications. Note that using this will not
+    // show the push notifications prompt to the user.
+    // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
     center.requestAuthorization(options: options) { _, error in
         if let error = error {
             print("Push authorization error: \(error)")
         }
+        // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+        // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+        // will make sure that Klaviyo always has the latest push authorization status.
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
     }
-    UIApplication.shared.registerForRemoteNotifications()
-
-    return true
 }
 ```
 
 > ℹ️ Silent push (`content-available`) is not intercepted automatically. If you use silent or background pushes, implement `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your app delegate — see [Silent Push Notifications](#silent-push-notifications).
+
+#### Advanced: Disable automatic token forwarding
+
+By default, enabling automatic push tracking also handles device token forwarding to Klaviyo automatically. If you need to retain manual control over token forwarding — for example, to share the token with multiple push providers — add the following to your `Info.plist`:
+
+```xml
+<key>klaviyo_automatic_push_tracking</key>
+<true/>
+<key>klaviyo_disable_automatic_token_forwarding</key>
+<true/>
+```
+
+Push open tracking remains active. You are responsible for forwarding the token manually by adding the following to your app delegate:
+
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    KlaviyoSDK().set(pushToken: deviceToken)
+}
+```
 
 For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
 
