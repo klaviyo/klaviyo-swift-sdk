@@ -19,6 +19,8 @@
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Option A — Automatic integration](#option-a--automatic-integration)
+    - [Step 1 — Enable automatic tracking in Info.plist](#step-1--enable-automatic-tracking-in-infoplist)
+    - [Step 2 — Initialize the SDK and request push authorization](#step-2--initialize-the-sdk-and-request-push-authorization)
   - [Option B — Manual integration](#option-b--manual-integration)
     - [Collecting Push Tokens](#collecting-push-tokens)
     - [Request Push Notification Permission](#request-push-notification-permission)
@@ -251,14 +253,14 @@ The `create` method takes an event object as an argument. The event can be const
 
 The SDK can intercept APNs device-token callbacks and `UNUserNotificationCenter` delegate calls automatically, so you don't need to implement `didRegisterForRemoteNotificationsWithDeviceToken` or any `UNUserNotificationCenterDelegate` methods in your app delegate.
 
-**Step 1 — Enable automatic tracking in `Info.plist`:**
+#### Step 1 — Enable automatic tracking in `Info.plist`
 
 ```xml
 <key>klaviyo_automatic_push_tracking</key>
 <true/>
 ```
 
-**Step 2 — Initialize the SDK and request push authorization:**
+#### Step 2 — Initialize the SDK and request push authorization
 
 ```swift
 import KlaviyoSwift
@@ -284,18 +286,6 @@ func application(
     return true
 }
 ```
-
-**Step 3 (optional) — Register a deep link handler:**
-
-If your push notifications contain deep links, register a handler to route them into your app's navigation. The SDK calls this handler when a notification is tapped.
-
-```swift
-KlaviyoSDK().registerDeepLinkHandler { url in
-    // Route `url` to the appropriate screen in your app
-}
-```
-
-> ℹ️ If you use a custom URL scheme for deep links from other sources (e.g. email, web), you still need to implement `application(_:open:url:options:)` in your app delegate. The SDK only routes notification-triggered deep links through `registerDeepLinkHandler`.
 
 > ℹ️ Silent push (`content-available`) is not intercepted automatically. If you use silent or background pushes, implement `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your app delegate — see [Silent Push Notifications](#silent-push-notifications).
 
@@ -324,7 +314,10 @@ Below is the code to do both of the above steps:
 ```swift
 import KlaviyoSwift
 
-func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+) -> Bool {
     KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 
     UIApplication.shared.registerForRemoteNotifications()
@@ -353,7 +346,10 @@ Below is example code to request push notification permission:
 ```swift
 import UserNotifications
 
-func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+) -> Bool {
     KlaviyoSDK().initialize(with: "YOUR_KLAVIYO_PUBLIC_API_KEY")
 
     UIApplication.shared.registerForRemoteNotifications()
