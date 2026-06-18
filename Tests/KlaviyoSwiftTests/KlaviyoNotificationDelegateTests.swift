@@ -39,9 +39,8 @@ final class MockNotificationCenter: UserNotificationCenterProtocol {
 
 // MARK: - Tests
 
-// Note: the `klaviyo_automatic_push_tracking` plist key itself is verified manually
-// in the example app — `Bundle.main` in the test runner never carries it, and making
-// `Bundle` injectable would add abstraction beyond the current ticket's scope.
+// Note: plist key behavior is verified manually in the example app — `Bundle.main` is not
+// available in the test runner, so flag values are controlled via `KlaviyoSwiftEnvironment`.
 
 @MainActor
 class KlaviyoNotificationDelegateTests: XCTestCase {
@@ -71,8 +70,8 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
     // MARK: - Plist Gating
 
-    /// When automatic push tracking is disabled (the default), `injectIfEnabled()` must
-    /// not install the proxy — the notification center's delegate must remain unchanged.
+    /// Default state: push tracking off, token forwarding not disabled.
+    /// `injectIfEnabled()` must be a complete no-op — delegate stays unchanged.
     func testInjectIfEnabledIsNoOpWhenTrackingDisabled() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { false }
