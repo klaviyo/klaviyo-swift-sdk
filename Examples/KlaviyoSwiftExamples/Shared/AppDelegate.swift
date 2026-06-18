@@ -82,22 +82,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: Push Notification implementation
 
     private func howToSetupPushNotifications() {
+        // Register with APNs immediately so a device token is available regardless of
+        // notification permission status.
+        UIApplication.shared.registerForRemoteNotifications()
+
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         let options: UNAuthorizationOptions = [.alert, .sound, .badge]
         // use the below options if you are interested in using provisional push notifications. Note that using this will not
         // show the push notifications prompt to the user.
-        // let options: UNAuthorizationOptions = [.alert, .sound, .badge, provisional]
+        // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
         center.requestAuthorization(options: options) { _, error in
             if let error = error {
                 // Handle the error here.
                 print("error = ", error)
             }
 
-            // Enable or disable features based on the authorization status.
+            // Irrespective of the authorization status call `registerForRemoteNotifications` here so that
+            // the `didRegisterForRemoteNotificationsWithDeviceToken` delegate is called. Doing this
+            // will make sure that Klaviyo always has the latest push authorization status.
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
         }
-
-        UIApplication.shared.registerForRemoteNotifications()
     }
 
     func application(
