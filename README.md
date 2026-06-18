@@ -283,8 +283,7 @@ func registerForPushNotifications() {
 
     let center = UNUserNotificationCenter.current()
     let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-    // use the below options if you are interested in using provisional push notifications. Note that using this will not
-    // show the push notifications prompt to the user.
+    // To use provisional push notifications (no user prompt), use:
     // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
     center.requestAuthorization(options: options) { _, error in
         if let error = error {
@@ -375,8 +374,7 @@ func registerForPushNotifications() {
     let center = UNUserNotificationCenter.current()
     center.delegate = self
     let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-    // use the below options if you are interested in using provisional push notifications. Note that using this will not
-    // show the push notifications prompt to the user.
+    // To use provisional push notifications (no user prompt), use:
     // let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
     center.requestAuthorization(options: options) { _, error in
         if let error = error {
