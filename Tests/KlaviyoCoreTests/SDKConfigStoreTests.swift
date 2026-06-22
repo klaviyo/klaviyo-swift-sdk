@@ -10,6 +10,8 @@ import Combine
 import XCTest
 
 final class SDKConfigStoreTests: XCTestCase {
+    private static let apiKey = "company-123"
+
     func testInitialConfigIsEmpty() {
         let store = SDKConfigStore()
         XCTAssertEqual(store.current, KlaviyoConfig())
@@ -19,9 +21,9 @@ final class SDKConfigStoreTests: XCTestCase {
     func testUpdateReflectsSynchronously() {
         let store = SDKConfigStore()
 
-        store.update(KlaviyoConfig(apiKey: "company-123"))
+        store.update(KlaviyoConfig(apiKey: Self.apiKey))
 
-        XCTAssertEqual(store.current.apiKey, "company-123")
+        XCTAssertEqual(store.current.apiKey, Self.apiKey)
     }
 
     func testUpdateEmitsOnPublisher() {
@@ -31,30 +33,24 @@ final class SDKConfigStoreTests: XCTestCase {
         let cancellable = store.publisher.sink { received.append($0) }
         defer { cancellable.cancel() }
 
-        store.update(KlaviyoConfig(apiKey: "company-123"))
+        store.update(KlaviyoConfig(apiKey: Self.apiKey))
 
         // CurrentValueSubject replays the current value on subscribe, then the update.
-        XCTAssertEqual(received, [KlaviyoConfig(), KlaviyoConfig(apiKey: "company-123")])
+        XCTAssertEqual(received, [KlaviyoConfig(), KlaviyoConfig(apiKey: Self.apiKey)])
     }
 
     func testStreamYieldsCurrentValueThenUpdates() async {
         let store = SDKConfigStore()
+        var iterator = store.stream().makeAsyncIterator()
 
-        let task = Task<[KlaviyoConfig], Never> {
-            var received: [KlaviyoConfig] = []
-            for await config in store.stream() {
-                received.append(config)
-                if received.count == 2 { break }
-            }
-            return received
-        }
+        // The stream replays the current value on subscribe before any update.
+        let initial = await iterator.next()
+        XCTAssertEqual(initial, KlaviyoConfig())
 
-        // Give the stream a moment to subscribe and replay the current value.
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        store.update(KlaviyoConfig(apiKey: "company-123"))
+        store.update(KlaviyoConfig(apiKey: Self.apiKey))
 
-        let received = await task.value
-        XCTAssertEqual(received, [KlaviyoConfig(), KlaviyoConfig(apiKey: "company-123")])
+        let updated = await iterator.next()
+        XCTAssertEqual(updated, KlaviyoConfig(apiKey: Self.apiKey))
     }
 }
 
