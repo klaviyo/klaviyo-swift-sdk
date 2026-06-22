@@ -82,14 +82,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: Push Notification implementation
 
     private func requestPushAuthorization() {
+        // Register with APNs immediately so a device token is available regardless of
+        // notification permission status. The SDK intercepts the token callback automatically.
+        UIApplication.shared.registerForRemoteNotifications()
+
         let center = UNUserNotificationCenter.current()
         let options: UNAuthorizationOptions = [.alert, .sound, .badge]
         center.requestAuthorization(options: options) { _, error in
             if let error = error {
                 print("error = ", error)
             }
+            // Call registerForRemoteNotifications again so Klaviyo always has the latest
+            // push authorization status.
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
         }
-        UIApplication.shared.registerForRemoteNotifications()
     }
 
     func application(
