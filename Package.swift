@@ -18,6 +18,10 @@ let package = Package(
         .library(
             name: "KlaviyoSwiftExtension",
             targets: ["KlaviyoSwiftExtension"]
+        ),
+        .library(
+            name: "KlaviyoEmoji",
+            targets: ["KlaviyoEmoji"]
         )
     ],
     dependencies: [
@@ -91,6 +95,11 @@ let package = Package(
             name: "KlaviyoSwiftExtension",
             dependencies: [],
             path: "Sources/KlaviyoSwiftExtension"
+        ),
+        .target(
+            name: "KlaviyoEmoji",
+            dependencies: ["KlaviyoSwift", "KlaviyoForms", "KlaviyoSwiftExtension"],
+            path: "Sources/KlaviyoEmoji"
         )
     ]
 )
