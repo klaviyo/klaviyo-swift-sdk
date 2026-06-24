@@ -62,6 +62,13 @@ struct KlaviyoState: Equatable, Codable {
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
     var isProcessingDeepLink = false
 
+    // token bucket related stuff
+    // These govern the flush cadence (see `consumeFlushToken(now:)`). They are intentionally
+    // transient — left out of `CodingKeys` below — so the bucket starts full on every launch,
+    // letting the first post-launch flush proceed immediately.
+    var availableFlushTokens = StateManagementConstants.flushTokenBucketCapacity
+    var lastFlushTokenRefill: Date?
+
     enum CodingKeys: CodingKey {
         case apiKey
         case email

@@ -3,12 +3,14 @@
     - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
     - some: "foo"
+  - availableFlushTokens: 5.0
   - email: Optional<String>.none
   - externalId: Optional<String>.none
   - flushInterval: 10.0
   - flushing: false
   - initalizationState: InitializationState.uninitialized
   - isProcessingDeepLink: false
+  - lastFlushTokenRefill: Optional<Date>.none
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   - phoneNumber: Optional<String>.none

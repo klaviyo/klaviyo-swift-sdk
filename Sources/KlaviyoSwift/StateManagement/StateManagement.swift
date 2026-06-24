@@ -24,6 +24,19 @@ enum StateManagementConstants {
     static let wifiFlushInterval = 10.0
     static let maxQueueSize = 200
     static let initialAttempt = 1
+
+    /// Maximum number of flushes the token bucket can hold. Each flush consumes one
+    /// token; tokens refill over time at a rate derived from `flushInterval` (the
+    /// network-aware cadence). A capacity greater than 1 lets the SDK absorb a burst
+    /// of flushes after an idle period while still capping the long-term flush rate at
+    /// the refill rate — see `KlaviyoState.consumeFlushToken(currentTime:)`.
+    static let flushTokenBucketCapacity = 5.0
+
+    /// Queue depth that triggers an early flush attempt instead of waiting for the next
+    /// flush-interval tick. Mirrors the Android SDK's batch flush depth so the burst
+    /// behavior is consistent across platforms. The token bucket still gates whether the
+    /// early flush actually proceeds.
+    static let flushDepth = 25
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
@@ -318,6 +331,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
+            // Gate the flush on the token bucket: this enforces the long-term flush rate
+            // while still allowing bursts immediately after idle periods. If no token is
+            // available we defer — the next flush-interval tick (or queue-depth trigger)
+            // will retry once tokens have refilled.
+            guard state.consumeFlushToken(currentTime: environment.date()) else {
+                return .none
+            }
+
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
             state.flushing = true
@@ -513,7 +534,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.enqueueRequest(request: request)
             }
 
-            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            // Prioritized events flush immediately; otherwise flush early only once the queue
+            // reaches the depth threshold. The token bucket in `.flushQueue` decides whether the
+            // attempt actually proceeds, so this stays within the long-term rate limit.
+            let shouldFlushNow = shouldPrioritize || state.shouldFlushForQueueDepth
+            let baseEffect = shouldFlushNow ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
@@ -531,7 +556,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            return .none
+            return state.shouldFlushForQueueDepth ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState

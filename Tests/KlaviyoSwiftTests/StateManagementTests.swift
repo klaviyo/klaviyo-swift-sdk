@@ -140,6 +140,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -173,6 +174,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -206,6 +208,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -313,6 +316,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
         await store.receive(.sendRequest)
 
@@ -360,6 +364,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
         await store.receive(.sendRequest)
 
@@ -480,6 +485,7 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
             $0.flushing = true
+            $0.expectFlushTokenConsumed()
             $0.pendingProfile = nil
             request = $0.requestsInFlight[0]
             switch request?.endpoint {
@@ -761,6 +767,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
             XCTAssertEqual($0.requestsInFlight.count, 3, "Should have 3 requests in flight")
             actualGeofenceRequest = $0.requestsInFlight[0]
             if case let .createEvent(_, payload) = actualGeofenceRequest!.endpoint {
