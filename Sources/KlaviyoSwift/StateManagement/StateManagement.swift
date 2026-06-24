@@ -33,9 +33,9 @@ enum StateManagementConstants {
     static let flushTokenBucketCapacity = 5.0
 
     /// Queue depth that triggers an early flush attempt instead of waiting for the next
-    /// flush-interval tick. Mirrors the Android SDK's batch flush depth so the burst
-    /// behavior is consistent across platforms. The token bucket still gates whether the
-    /// early flush actually proceeds.
+    /// flush-interval tick. When the queue reaches this size the SDK schedules an immediate
+    /// flush to drain large bursts quickly; the token bucket still gates whether the flush
+    /// actually proceeds, so the long-term rate is preserved.
     static let flushDepth = 25
 }
 
@@ -199,6 +199,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+                // Restore the token bucket to full capacity so the incoming company's
+                // first flush is not throttled by activity from the previous company.
+                state.resetFlushTokenBucket()
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none

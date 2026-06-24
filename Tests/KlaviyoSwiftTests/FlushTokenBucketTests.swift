@@ -147,4 +147,36 @@ final class FlushTokenBucketTests: XCTestCase {
         await store.send(.enqueueAggregateEvent(Data("agg".utf8)))
         await store.receive(.flushQueue)
     }
+
+    // MARK: - token bucket reset on company switch
+
+    /// Verifies that re-initializing with a *different* API key resets the token bucket to
+    /// full capacity, so a depleted bucket from the previous company cannot throttle the
+    /// incoming company's first flush cycle.
+    ///
+    /// When `.initialize` is dispatched against an already-initialized state with a new key,
+    /// the reducer resets profile data and restores the bucket, then returns `.none` (it
+    /// cannot transition to `.initializing` because `initalizationState` is no longer
+    /// `.uninitialized`). The state is verified synchronously via the `send` expectation
+    /// before any async work fires.
+    @MainActor
+    func test_initialize_withNewApiKey_resetsBucketToFull() async {
+        // Start with an already-initialized state whose bucket is fully depleted.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.availableFlushTokens = 0
+        initialState.lastFlushTokenRefill = environment.date()
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        let newApiKey = "new-company-key"
+        await store.send(.initialize(newApiKey)) {
+            // The bucket must be restored to full capacity on a company switch.
+            $0.availableFlushTokens = StateManagementConstants.flushTokenBucketCapacity
+            $0.lastFlushTokenRefill = nil
+            $0.apiKey = newApiKey
+            // initalizationState stays .initialized — the guard in .initialize exits early
+            // because the state is not .uninitialized after the company-switch branch runs.
+        }
+    }
 }

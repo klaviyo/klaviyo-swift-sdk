@@ -13,6 +13,15 @@
 import Foundation
 
 extension KlaviyoState {
+    /// Resets the token bucket to full capacity with no recorded refill timestamp,
+    /// reproducing the cold-launch state. Call this whenever a new API key is set so
+    /// the bucket from the previous company does not throttle the incoming company's
+    /// first flush cycle.
+    mutating func resetFlushTokenBucket() {
+        availableFlushTokens = StateManagementConstants.flushTokenBucketCapacity
+        lastFlushTokenRefill = nil
+    }
+
     /// `true` when the queue has grown large enough to warrant an early flush attempt
     /// rather than waiting for the next flush-interval tick. Suppressed when the
     /// `flushInterval` is non-finite (i.e. offline) so we don't kick off doomed requests.
