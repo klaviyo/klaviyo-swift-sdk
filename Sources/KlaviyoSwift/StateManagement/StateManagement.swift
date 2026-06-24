@@ -334,8 +334,10 @@ struct KlaviyoReducer: ReducerProtocol {
             // Gate the flush on the token bucket: this enforces the long-term flush rate
             // while still allowing bursts immediately after idle periods. If no token is
             // available we defer — the next flush-interval tick (or queue-depth trigger)
-            // will retry once tokens have refilled.
-            guard state.consumeFlushToken(currentTime: environment.date()) else {
+            // will retry once tokens have refilled. Skipped when the governor is disabled,
+            // which restores the legacy "flush on every interval tick" behavior.
+            if FlushGovernorConfig.isEnabled,
+               !state.consumeFlushToken(currentTime: environment.date()) {
                 return .none
             }
 
@@ -537,7 +539,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // Prioritized events flush immediately; otherwise flush early only once the queue
             // reaches the depth threshold. The token bucket in `.flushQueue` decides whether the
             // attempt actually proceeds, so this stays within the long-term rate limit.
-            let shouldFlushNow = shouldPrioritize || state.shouldFlushForQueueDepth
+            let shouldFlushOnDepth = FlushGovernorConfig.isEnabled && state.shouldFlushForQueueDepth
+            let shouldFlushNow = shouldPrioritize || shouldFlushOnDepth
             let baseEffect = shouldFlushNow ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
@@ -556,7 +559,8 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            return state.shouldFlushForQueueDepth ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            let shouldFlush = FlushGovernorConfig.isEnabled && state.shouldFlushForQueueDepth
+            return shouldFlush ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
