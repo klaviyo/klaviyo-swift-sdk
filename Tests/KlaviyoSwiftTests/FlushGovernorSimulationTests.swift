@@ -81,11 +81,11 @@ final class FlushGovernorSimulationTests: XCTestCase {
         KlaviyoRequest(endpoint: .createEvent("foo", CreateEventPayload(data: .init(name: "sim"))))
     }
 
+    // swiftlint:disable function_body_length
     /// Runs the discrete-event simulation.
     /// - Parameters:
     ///   - depthTrigger: flush early when the queue reaches `flushDepth`.
     ///   - tokenBucket: gate every flush through the token bucket.
-    // swiftlint:disable:next function_body_length
     private func simulate(
         arrivals: [TimeInterval],
         flushInterval: TimeInterval,
@@ -160,6 +160,8 @@ final class FlushGovernorSimulationTests: XCTestCase {
         }
         return metrics
     }
+
+    // swiftlint:enable function_body_length
 
     private func report(_ scenario: String, _ columns: [(String, SimMetrics)]) {
         func fmt(_ value: TimeInterval) -> String { String(format: "%.2f", value) }
