@@ -358,7 +358,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
     }
 
-    // MARK: - Allowlisted non-web open_url schemes (PUSH-834)
+    // MARK: - Allowlisted non-web open_url schemes
 
     func testParseActionButtons_AcceptsOpenUrlWithMailtoScheme() {
         let userInfo: [AnyHashable: Any] = [

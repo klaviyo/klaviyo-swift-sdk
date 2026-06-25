@@ -270,7 +270,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "http://example.com")
     }
 
-    // MARK: - Allowlisted non-web schemes (PUSH-834)
+    // MARK: - Allowlisted non-web schemes
 
     func testKlaviyoWebUrl_WithMailtoScheme_ReturnsURL() throws {
         let payload: [AnyHashable: Any] = [
@@ -308,7 +308,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "smsto:+15551234567")
     }
 
-    // MARK: - Blocked schemes (PUSH-834)
+    // MARK: - Blocked schemes
 
     func testKlaviyoWebUrl_WithIntentScheme_ReturnsNil() throws {
         let payload: [AnyHashable: Any] = [

@@ -171,7 +171,7 @@ final class DeepLinkHandlingTests: XCTestCase {
         klaviyoSwiftEnvironment.send = originalSend
     }
 
-    // MARK: - open_url with allowlisted non-web schemes (PUSH-834)
+    // MARK: - open_url with allowlisted non-web schemes
 
     @MainActor
     func testHandleNotificationResponseDispatchesOpenWebUrlForMailtoWebUrl() async throws {
