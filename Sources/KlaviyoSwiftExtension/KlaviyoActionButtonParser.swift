@@ -108,8 +108,8 @@ enum KlaviyoActionButtonParser {
     ///
     /// - `.openApp` actions should not have a URL
     /// - `.deepLink` actions must have a parseable URL
-    /// - `.openUrl` actions must have a parseable URL with an http(s) scheme — non-web
-    ///   schemes are rejected to prevent the system URL opener from routing back into the app
+    /// - `.openUrl` actions must have a parseable URL whose scheme is in ``openUrlAllowedSchemes`` —
+    ///   unlisted schemes (e.g. `javascript:`, `file:`, `intent:`) are rejected silently
     ///
     /// - Parameters:
     ///   - action: The action type to validate
@@ -125,7 +125,7 @@ enum KlaviyoActionButtonParser {
         case .openUrl:
             guard let urlString = url, let parsedUrl = URL(string: urlString) else { return false }
             guard let scheme = parsedUrl.scheme?.lowercased() else { return false }
-            return ["http", "https"].contains(scheme)
+            return openUrlAllowedSchemes.contains(scheme)
         }
     }
 

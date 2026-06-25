@@ -85,10 +85,10 @@ extension UNNotificationResponse {
     /// Returns the external web URL from a Klaviyo notification payload, if present.
     ///
     /// Reads the `web_url` field. The presence of this field indicates the tap should open
-    /// the URL in the system browser rather than route through the app's deep link handler.
+    /// the URL externally rather than route through the app's deep link handler.
     /// Returns `nil` if the field is absent, the value is not a parseable URL, or the URL's
-    /// scheme is not http(s) — non-web schemes are rejected to prevent routing back into the
-    /// app via the system URL opener.
+    /// scheme is not in ``openUrlAllowedSchemes`` — unlisted schemes are dropped silently to
+    /// prevent dangerous schemes (e.g. `javascript:`, `file:`) from being opened.
     var klaviyoWebUrl: URL? {
         guard isKlaviyoNotification else {
             return nil
@@ -105,9 +105,9 @@ extension UNNotificationResponse {
             return nil
         }
 
-        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+        guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("web_url '\(urlString)' has non-web scheme; ignoring.")
+                Logger.notifications.warning("web_url '\(urlString)' has a scheme not in the allowed list; ignoring.")
             }
             return nil
         }
