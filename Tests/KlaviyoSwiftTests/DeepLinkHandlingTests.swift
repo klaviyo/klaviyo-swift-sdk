@@ -171,6 +171,110 @@ final class DeepLinkHandlingTests: XCTestCase {
         klaviyoSwiftEnvironment.send = originalSend
     }
 
+    // MARK: - open_url with allowlisted non-web schemes (PUSH-834)
+
+    @MainActor
+    func testHandleNotificationResponseDispatchesOpenWebUrlForMailtoWebUrl() async throws {
+        let urlString = "mailto:support@example.com"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        let completionCalled = expectation(description: "completion handler called")
+        let actionReceived = expectation(description: "openWebUrl action received for mailto:")
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .openWebUrl(url) = action {
+                XCTAssertEqual(url, expectedURL, "Should dispatch openWebUrl with mailto: URL")
+                actionReceived.fulfill()
+                return nil
+            }
+            return originalSend(action)
+        }
+
+        let sdk = KlaviyoSDK()
+        let result = sdk.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
+
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, actionReceived], timeout: 1.0)
+
+        klaviyoSwiftEnvironment.send = originalSend
+    }
+
+    @MainActor
+    func testHandleNotificationResponseDispatchesOpenWebUrlForTelWebUrl() async throws {
+        let urlString = "tel:+15551234567"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        let completionCalled = expectation(description: "completion handler called")
+        let actionReceived = expectation(description: "openWebUrl action received for tel:")
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .openWebUrl(url) = action {
+                XCTAssertEqual(url, expectedURL, "Should dispatch openWebUrl with tel: URL")
+                actionReceived.fulfill()
+                return nil
+            }
+            return originalSend(action)
+        }
+
+        let sdk = KlaviyoSDK()
+        let result = sdk.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
+
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, actionReceived], timeout: 1.0)
+
+        klaviyoSwiftEnvironment.send = originalSend
+    }
+
+    @MainActor
+    func testHandleNotificationResponseDropsBlockedSchemeWebUrl() async throws {
+        // javascript: is a blocked scheme — the notification should be dropped silently
+        // (handle returns false because there's no recognized URL to act on).
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": "javascript:alert(1)"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        let sdk = KlaviyoSDK()
+
+        var openWebUrlDispatched = false
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { action in
+            if case .openWebUrl = action {
+                openWebUrlDispatched = true
+            }
+            return originalSend(action)
+        }
+
+        _ = sdk.handle(notificationResponse: response, withCompletionHandler: {})
+
+        // Give time for any async dispatch to land
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertFalse(openWebUrlDispatched, "Blocked scheme must not dispatch openWebUrl")
+
+        klaviyoSwiftEnvironment.send = originalSend
+    }
+
     // MARK: - TCA State Management Tests
 
     @MainActor
