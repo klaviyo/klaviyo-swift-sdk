@@ -45,10 +45,29 @@ struct KlaviyoState: Equatable, Codable {
 
     // state related stuff
     var apiKey: String?
-    var email: String?
-    var anonymousId: String?
-    var phoneNumber: String?
-    var externalId: String?
+    var identity: ProfileData
+
+    // Computed shims forwarding to `identity.*` so the rest of KlaviyoSwift compiles unchanged.
+    var email: String? {
+        get { identity.email }
+        set { identity.email = newValue }
+    }
+
+    var phoneNumber: String? {
+        get { identity.phoneNumber }
+        set { identity.phoneNumber = newValue }
+    }
+
+    var externalId: String? {
+        get { identity.externalId }
+        set { identity.externalId = newValue }
+    }
+
+    var anonymousId: String? {
+        get { identity.anonymousId }
+        set { identity.anonymousId = newValue }
+    }
+
     var pushTokenData: PushTokenData?
 
     // queueing related stuff
@@ -64,12 +83,71 @@ struct KlaviyoState: Equatable, Codable {
 
     enum CodingKeys: CodingKey {
         case apiKey
-        case email
-        case anonymousId
-        case phoneNumber
-        case externalId
+        case identity
         case queue
         case pushTokenData
+    }
+
+    /// Legacy coding keys for migrating state files written before identity was composed into `ProfileData`.
+    private enum LegacyCodingKeys: CodingKey {
+        case email, anonymousId, phoneNumber, externalId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
+        pushTokenData = try container.decodeIfPresent(PushTokenData.self, forKey: .pushTokenData)
+        queue = try container.decodeIfPresent([KlaviyoRequest].self, forKey: .queue) ?? []
+
+        if let identity = try container.decodeIfPresent(ProfileData.self, forKey: .identity) {
+            // New format: identity is a nested object.
+            self.identity = identity
+        } else {
+            // Legacy format: identity fields were stored at the top level.
+            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+            self.identity = ProfileData(
+                email: try legacy.decodeIfPresent(String.self, forKey: .email),
+                phoneNumber: try legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
+                externalId: try legacy.decodeIfPresent(String.self, forKey: .externalId),
+                anonymousId: try legacy.decodeIfPresent(String.self, forKey: .anonymousId)
+            )
+        }
+    }
+
+    init(
+        apiKey: String? = nil,
+        email: String? = nil,
+        anonymousId: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        pushTokenData: PushTokenData? = nil,
+        queue: [KlaviyoRequest],
+        requestsInFlight: [KlaviyoRequest] = [],
+        initalizationState: InitializationState = .uninitialized,
+        flushing: Bool = false,
+        flushInterval: Double = StateManagementConstants.wifiFlushInterval,
+        retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
+        pendingRequests: [PendingRequest] = [],
+        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil,
+        isProcessingDeepLink: Bool = false
+    ) {
+        self.apiKey = apiKey
+        identity = ProfileData(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: anonymousId
+        )
+        self.pushTokenData = pushTokenData
+        self.queue = queue
+        self.requestsInFlight = requestsInFlight
+        self.initalizationState = initalizationState
+        self.flushing = flushing
+        self.flushInterval = flushInterval
+        self.retryState = retryState
+        self.pendingRequests = pendingRequests
+        self.pendingProfile = pendingProfile
+        self.isProcessingDeepLink = isProcessingDeepLink
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
