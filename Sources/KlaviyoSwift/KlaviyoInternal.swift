@@ -29,6 +29,8 @@ package enum KlaviyoInternal {
     private static var apiKeyCancellable: Cancellable?
     private static let apiKeySubject = CurrentValueSubject<APIKeyResult, Never>(.failure(.notInitialized))
 
+    private static var sharedStoresCancellable: Cancellable?
+
     private static let profileEventSubject = PassthroughSubject<Event, Never>()
     private static var profileEventCancellable: Cancellable?
     private static let eventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)
@@ -109,15 +111,26 @@ package enum KlaviyoInternal {
                     return .failure(.notInitialized)
                 }
 
-                return .success(ProfileData(
-                    email: state.email,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    anonymousId: state.anonymousId
-                ))
+                return .success(state.identity)
             }
             .removeDuplicates()
             .subscribe(profileDataSubject)
+    }
+
+    /// Mirrors initialized SDK state into the shared `KlaviyoCore` stores so other modules
+    /// (Forms, Location) can observe identity and API key without importing `KlaviyoSwift`.
+    package static func setupSharedStores() {
+        guard sharedStoresCancellable == nil else { return }
+        sharedStoresCancellable = klaviyoSwiftEnvironment.statePublisher()
+            .filter { $0.initalizationState == .initialized }
+            .map { (identity: $0.identity, apiKey: $0.apiKey) }
+            .removeDuplicates(by: { $0.identity == $1.identity && $0.apiKey == $1.apiKey })
+            // TCA dispatches state changes on the main thread, so these two sequential
+            // store writes are observed together rather than torn.
+            .sink { identity, apiKey in
+                IdentityStore.shared.update(identity)
+                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+            }
     }
 
     /// Fetches the current profile data once.
@@ -154,6 +167,11 @@ package enum KlaviyoInternal {
         profileDataCancellable?.cancel()
         profileDataCancellable = nil
         profileDataSubject.send(.failure(.notInitialized))
+        sharedStoresCancellable?.cancel()
+        sharedStoresCancellable = nil
+        // Clear the shared stores so consumers don't read stale identity/config after reset.
+        IdentityStore.shared.update(ProfileData())
+        SDKConfigStore.shared.update(KlaviyoConfig())
     }
 
     // MARK: - Profile Event methods

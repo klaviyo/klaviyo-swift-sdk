@@ -26,6 +26,8 @@ final class KlaviyoInternalTests: XCTestCase {
         KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()
         KlaviyoInternal.clearEventBuffer()
+        IdentityStore.shared.update(ProfileData())
+        SDKConfigStore.shared.update(KlaviyoConfig())
     }
 
     // MARK: - Profile Data Tests
@@ -804,6 +806,71 @@ final class KlaviyoInternalTests: XCTestCase {
         XCTAssertEqual(currentState.apiKey, "EXISTING_KEY", "API key should remain unchanged")
         XCTAssertEqual(currentState.pendingRequests.count, 0, "Event should not be enqueued when API key doesn't match")
         XCTAssertEqual(currentState.queue.count, 0, "Queue should remain empty")
+    }
+
+    // MARK: - Shared store wiring
+
+    @MainActor
+    func testSetupSharedStoresPushesIdentityOnChange() throws {
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        KlaviyoInternal.setupSharedStores()
+
+        _ = testStore.send(.setEmail("wired@example.com"))
+
+        let expectation = XCTestExpectation(description: "IdentityStore reflects email")
+        DispatchQueue.main.async {
+            XCTAssertEqual(IdentityStore.shared.current.email, "wired@example.com")
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    @MainActor
+    func testSetupSharedStoresPushesAPIKeyOnChange() throws {
+        // `.test` state is already `.initialized` with apiKey "foo".
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        let expectation = XCTestExpectation(description: "SDKConfigStore reflects api key")
+        SDKConfigStore.shared.publisher
+            .dropFirst() // skip the CurrentValueSubject's initial emission
+            .sink { config in
+                if config.apiKey == "foo" { expectation.fulfill() }
+            }
+            .store(in: &cancellables)
+
+        KlaviyoInternal.setupSharedStores()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo")
+    }
+
+    @MainActor
+    func testResetClearsSharedStores() throws {
+        // `.test` state is `.initialized` with apiKey "foo"; mirror it into the stores.
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        KlaviyoInternal.setupSharedStores()
+        _ = testStore.send(.setEmail("wired@example.com"))
+
+        // Confirm the stores hold real data before resetting.
+        let propagated = XCTestExpectation(description: "identity mirrored before reset")
+        DispatchQueue.main.async {
+            XCTAssertEqual(IdentityStore.shared.current.email, "wired@example.com")
+            XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo")
+            propagated.fulfill()
+        }
+        wait(for: [propagated], timeout: 1.0)
+
+        KlaviyoInternal.resetProfileDataSubject()
+
+        XCTAssertEqual(IdentityStore.shared.current, ProfileData(),
+                       "reset must clear identity back to empty")
+        XCTAssertNil(SDKConfigStore.shared.current.apiKey,
+                     "reset must clear the API key")
     }
 
     @MainActor
