@@ -107,7 +107,9 @@ extension UNNotificationResponse {
 
         guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("web_url '\(urlString)' has a scheme not in the allowed list; ignoring.")
+                Logger.notifications.warning(
+                    "web_url '\(urlString)' has a scheme not in the allowed list; ignoring."
+                )
             }
             return nil
         }

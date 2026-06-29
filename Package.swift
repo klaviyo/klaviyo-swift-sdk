@@ -99,7 +99,9 @@ let package = Package(
         .testTarget(
             name: "KlaviyoSwiftExtensionTests",
             dependencies: [
-                "KlaviyoSwiftExtension"
+                "KlaviyoSwiftExtension",
+                // Test-only: lets the allowlist parity test compare against the KlaviyoCore copy.
+                "KlaviyoCore"
             ]
         ),
         .target(
