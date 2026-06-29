@@ -105,11 +105,11 @@ struct KlaviyoState: Equatable, Codable {
         } else {
             // Legacy format: identity fields were stored at the top level.
             let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
-            self.identity = ProfileData(
-                email: try legacy.decodeIfPresent(String.self, forKey: .email),
-                phoneNumber: try legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
-                externalId: try legacy.decodeIfPresent(String.self, forKey: .externalId),
-                anonymousId: try legacy.decodeIfPresent(String.self, forKey: .anonymousId)
+            identity = try ProfileData(
+                email: legacy.decodeIfPresent(String.self, forKey: .email),
+                phoneNumber: legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
+                externalId: legacy.decodeIfPresent(String.self, forKey: .externalId),
+                anonymousId: legacy.decodeIfPresent(String.self, forKey: .anonymousId)
             )
         }
     }

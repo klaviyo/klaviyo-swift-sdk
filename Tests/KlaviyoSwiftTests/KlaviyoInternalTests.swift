@@ -874,6 +874,38 @@ final class KlaviyoInternalTests: XCTestCase {
     }
 
     @MainActor
+    func testProfileSubjectSetupRestoresSharedStoresAfterReset() throws {
+        // Simulates In-App Forms teardown + re-init: `resetProfileDataSubject()` tears down the
+        // shared-store mirror, then Forms re-subscribes via the profile publisher (without the
+        // host app calling `initialize(with:)` again). The mirror must come back to life.
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        // Initial wiring, then teardown clears the shared stores.
+        KlaviyoInternal.setupSharedStores()
+        KlaviyoInternal.resetProfileDataSubject()
+        XCTAssertEqual(IdentityStore.shared.current, ProfileData(),
+                       "precondition: reset cleared identity")
+
+        // Re-subscribe the way Forms re-init does — no `initialize(with:)` call.
+        KlaviyoInternal.profileChangePublisher()
+            .sink { _ in }
+            .store(in: &cancellables)
+
+        _ = testStore.send(.setEmail("reinit@example.com"))
+
+        let expectation = XCTestExpectation(description: "shared stores updated after re-subscribe")
+        DispatchQueue.main.async {
+            XCTAssertEqual(IdentityStore.shared.current.email, "reinit@example.com",
+                           "identity mirror must be restored without re-initialize")
+            XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo",
+                           "config mirror must be restored without re-initialize")
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    @MainActor
     func testCreateGeofenceEvent_enqueuesEventWhenAPIKeyMatches() async throws {
         // Given: SDK is initialized with matching API key
         var initialState = INITIALIZED_TEST_STATE()

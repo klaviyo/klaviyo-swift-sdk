@@ -102,6 +102,13 @@ package enum KlaviyoInternal {
 
     // Setup the profile data subject to receive updates from the state publisher
     private static func setupProfileDataSubject() {
+        // Keep the shared-store mirror alive alongside the profile subject. Both are torn
+        // down together in `resetProfileDataSubject()` (e.g. on In-App Forms teardown), so they
+        // must be re-established together — otherwise Forms re-init via `fetchProfileData()`
+        // would resubscribe the profile subject while the shared stores stayed empty until the
+        // host app called `initialize(with:)` again. `setupSharedStores()` is idempotent.
+        setupSharedStores()
+
         // Only set up the subscription if it hasn't already been set up
         guard profileDataCancellable == nil else { return }
 
