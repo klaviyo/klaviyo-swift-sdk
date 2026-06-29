@@ -133,10 +133,12 @@ package enum KlaviyoInternal {
             .map { (identity: $0.identity, apiKey: $0.apiKey) }
             .removeDuplicates(by: { $0.identity == $1.identity && $0.apiKey == $1.apiKey })
             // TCA dispatches state changes on the main thread, so these two sequential
-            // store writes are observed together rather than torn.
+            // store writes are observed together rather than torn. Write the config
+            // before the identity: IdentityStore.update(_:) notifies observers
+            // synchronously, so an identity observer must not see a stale apiKey.
             .sink { identity, apiKey in
-                IdentityStore.shared.update(identity)
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+                IdentityStore.shared.update(identity)
             }
     }
 
@@ -177,8 +179,10 @@ package enum KlaviyoInternal {
         sharedStoresCancellable?.cancel()
         sharedStoresCancellable = nil
         // Clear the shared stores so consumers don't read stale identity/config after reset.
-        IdentityStore.shared.update(ProfileData())
+        // Write the config before the identity to match `setupSharedStores()`:
+        // IdentityStore.update(_:) notifies observers synchronously.
         SDKConfigStore.shared.update(KlaviyoConfig())
+        IdentityStore.shared.update(ProfileData())
     }
 
     // MARK: - Profile Event methods

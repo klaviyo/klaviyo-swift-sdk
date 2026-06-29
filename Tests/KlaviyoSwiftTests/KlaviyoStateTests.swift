@@ -250,11 +250,12 @@ final class KlaviyoStateTests: XCTestCase {
         )
 
         let data = try JSONEncoder().encode(state)
-        let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         XCTAssertNil(object["email"], "identity fields must not be encoded at the top level")
         XCTAssertNil(object["phoneNumber"], "identity fields must not be encoded at the top level")
         XCTAssertNil(object["externalId"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["anonymousId"], "identity fields must not be encoded at the top level")
         let identity = try XCTUnwrap(object["identity"] as? [String: Any])
         XCTAssertEqual(identity["email"] as? String, "a@b.com")
         XCTAssertEqual(identity["anonymousId"] as? String, "anon-1")
