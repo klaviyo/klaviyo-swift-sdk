@@ -1,20 +1,21 @@
 ▿ KlaviyoState
-  ▿ anonymousId: Optional<String>
-    - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
     - some: "foo"
-  ▿ email: Optional<String>
-    - some: "test@test.com"
-  ▿ externalId: Optional<String>
-    - some: "externalId"
   - flushInterval: 10.0
   - flushing: true
+  ▿ identity: ProfileData
+    ▿ anonymousId: Optional<String>
+      - some: "00000000-0000-0000-0000-000000000001"
+    ▿ email: Optional<String>
+      - some: "test@test.com"
+    ▿ externalId: Optional<String>
+      - some: "externalId"
+    ▿ phoneNumber: Optional<String>
+      - some: "phoneNumber"
   - initalizationState: InitializationState.initialized
   - isProcessingDeepLink: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
-  ▿ phoneNumber: Optional<String>
-    - some: "phoneNumber"
   ▿ pushTokenData: Optional<PushTokenData>
     ▿ some: PushTokenData
       ▿ deviceData: MetaData
