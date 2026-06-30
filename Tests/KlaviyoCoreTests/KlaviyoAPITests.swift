@@ -166,6 +166,88 @@ final class KlaviyoAPITests: XCTestCase {
         }
     }
 
+    func testRateLimitUsesRetryAfterWhenGreaterThanBackoff() async throws {
+        // attemptNumber 1 => exponential backoff = 2^1 = 2s; Retry-After 60s wins. Jitter is 0 in tests.
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), Self.retryableResponse(statusCode: 429, retryAfter: "60"))
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50))
+
+        let result = await KlaviyoAPI().send(request, attemptInfo)
+
+        guard case let .failure(.rateLimitError(backOff)) = result else {
+            XCTFail("Expected rateLimitError, got \(result)")
+            return
+        }
+        XCTAssertEqual(backOff, 60)
+    }
+
+    func testRateLimitUsesBackoffWhenGreaterThanRetryAfter() async throws {
+        // attemptNumber 6 => exponential backoff = 2^6 = 64s; Retry-After 10s, so backoff wins.
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), Self.retryableResponse(statusCode: 429, retryAfter: "10"))
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 6, maxAttempts: 50))
+
+        let result = await KlaviyoAPI().send(request, attemptInfo)
+
+        guard case let .failure(.rateLimitError(backOff)) = result else {
+            XCTFail("Expected rateLimitError, got \(result)")
+            return
+        }
+        XCTAssertEqual(backOff, 64)
+    }
+
+    func testServerErrorUsesGreaterOfRetryAfterAndBackoff() async throws {
+        // 503 with Retry-After 30s vs attemptNumber 1 backoff (2s) => Retry-After wins.
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), Self.retryableResponse(statusCode: 503, retryAfter: "30"))
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50))
+
+        let result = await KlaviyoAPI().send(request, attemptInfo)
+
+        guard case let .failure(.serverError(statusCode, backOff)) = result else {
+            XCTFail("Expected serverError, got \(result)")
+            return
+        }
+        XCTAssertEqual(statusCode, 503)
+        XCTAssertEqual(backOff, 30)
+    }
+
+    func testRetryableErrorFallsBackToBackoffWhenNoRetryAfter() async throws {
+        // No Retry-After header => use exponential backoff (2^3 = 8s).
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), Self.retryableResponse(statusCode: 429, retryAfter: nil))
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 3, maxAttempts: 50))
+
+        let result = await KlaviyoAPI().send(request, attemptInfo)
+
+        guard case let .failure(.rateLimitError(backOff)) = result else {
+            XCTFail("Expected rateLimitError, got \(result)")
+            return
+        }
+        XCTAssertEqual(backOff, 8)
+    }
+
+    private static func retryableResponse(statusCode: Int, retryAfter: String?) -> HTTPURLResponse {
+        var headers: [String: String] = [:]
+        if let retryAfter {
+            headers["Retry-After"] = retryAfter
+        }
+        return HTTPURLResponse(
+            url: TEST_URL,
+            statusCode: statusCode,
+            httpVersion: nil,
+            headerFields: headers
+        )!
+    }
+
     func sendAndAssert(with request: KlaviyoRequest,
                        assertion: (Result<Data, KlaviyoAPIError>) -> Void) async throws {
         let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50))

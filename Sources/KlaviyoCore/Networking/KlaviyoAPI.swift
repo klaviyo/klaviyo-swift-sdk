@@ -67,10 +67,14 @@ public struct KlaviyoAPI {
             && code != HTTPStatusCode.httpVersionNotSupported
         if code == HTTPStatusCode.rateLimited || isRetryableServerError {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
+            // Wait the GREATER of the server-provided Retry-After and our exponential backoff
+            // (Retry-After expected for 429, future-proofing for 5xx). Taking the greater of the two
+            // keeps a request deep in a rate-limit storm backing off rather than retrying too soon
+            // just because the server's rate-limit window reset to a short Retry-After.
             var nextBackoff: Int = exponentialBackOff
-            // Check Retry-After header for any retryable error (expected for 429, future-proofing for 5xx)
-            if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After") {
-                nextBackoff = Int(retryAfter) ?? exponentialBackOff
+            if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After"),
+               let retryAfterSeconds = Int(retryAfter) {
+                nextBackoff = max(exponentialBackOff, retryAfterSeconds)
             }
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = nextBackoff + jitter
