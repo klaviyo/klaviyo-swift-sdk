@@ -90,16 +90,18 @@ final class KlaviyoAPITests: XCTestCase {
         try await assertNotRetried(404)
     }
 
-    func testNotImplemented501IsNotRetried() async throws {
-        // 501 (Not Implemented) is a permanent/deterministic error and is excluded from the
-        // retryable 5xx set — it must fall through to a non-retryable httpError.
-        try await assertNotRetried(501)
+    func testNotImplemented501IsRetriedAsServerError() async throws {
+        // 501 (Not Implemented) is in-range and deliberately retried: for the SDK's fixed request
+        // shapes a genuine origin 501 is effectively unreachable, so any 501 we see is edge/CDN
+        // noise during an incident — exactly what we want to retry.
+        try await assertServerErrorRetried(501)
     }
 
-    func testHTTPVersionNotSupported505IsNotRetried() async throws {
-        // 505 (HTTP Version Not Supported) is a permanent/deterministic error and is excluded
-        // from the retryable 5xx set — it must fall through to a non-retryable httpError.
-        try await assertNotRetried(505)
+    func testHTTPVersionNotSupported505IsRetriedAsServerError() async throws {
+        // 505 (HTTP Version Not Supported) is in-range and deliberately retried for the same
+        // reason as 501: a genuine origin 505 is effectively unreachable for the SDK's fixed
+        // request shapes, so any 505 we see is edge/CDN noise during an incident.
+        try await assertServerErrorRetried(505)
     }
 
     func testLowerBound499IsNotRetried() async throws {
