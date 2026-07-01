@@ -121,12 +121,14 @@ class IAFPresentationManager {
     }
 
     private func initializeFormWithAPIKey() async throws {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        guard let apiKey = SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
+            throw SDKError.notInitialized
+        }
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let profileData = IdentityStore.shared.current
         let authToken = await fetchAuthTokenBestEffort()
         createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
         setupFormLifecycleListener()

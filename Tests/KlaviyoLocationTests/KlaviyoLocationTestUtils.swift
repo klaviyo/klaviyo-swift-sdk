@@ -160,6 +160,8 @@ enum KlaviyoLocationTestUtils {
     static func setupTestEnvironment(apiKey: String) {
         environment = KlaviyoEnvironment.test()
         KlaviyoInternal.resetAPIKeySubject()
+        // The migrated observers read the API key from KlaviyoCore's SDKConfigStore, so seed it here.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
 
         let testState = createTestState(apiKey: apiKey)
         let testStore = Store(initialState: testState, reducer: KlaviyoReducer())

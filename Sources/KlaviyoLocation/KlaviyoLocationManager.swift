@@ -9,7 +9,6 @@ import Combine
 import CoreLocation
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 class KlaviyoLocationManager: NSObject {
@@ -63,7 +62,7 @@ class KlaviyoLocationManager: NSObject {
     }
 
     func syncGeofences() async {
-        guard let apiKey = try? await KlaviyoInternal.fetchAPIKey() else {
+        guard let apiKey = SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
             if #available(iOS 14.0, *) {
                 Logger.geoservices.info("SDK is not initialized, skipping geofence refresh")
             }
@@ -152,22 +151,18 @@ class KlaviyoLocationManager: NSObject {
     @MainActor
     private func startObservingAPIKeyChanges() {
         guard apiKeyCancellable == nil else { return }
-        apiKeyCancellable = KlaviyoInternal.apiKeyPublisher()
+        apiKeyCancellable = SDKConfigStore.shared.publisher
+            .map(\.apiKey)
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
-            .sink { [weak self] result in
-                guard let self else { return }
-                switch result {
-                case let .success(apiKey):
-                    if #available(iOS 14.0, *) {
-                        Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
-                    }
-                    Task {
-                        await self.syncGeofences()
-                    }
-                case .failure:
-                    break
+            .sink { [weak self] apiKey in
+                guard let self, let apiKey, !apiKey.isEmpty else { return }
+                if #available(iOS 14.0, *) {
+                    Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
+                }
+                Task {
+                    await self.syncGeofences()
                 }
             }
     }

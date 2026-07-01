@@ -219,11 +219,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func subscribeToProfileUpdates() {
-        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+        profileUpdatesCancellable = IdentityStore.shared.publisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
+            .sink { [weak self] newProfileData in
                 guard let self else { return }
-                guard case let .success(newProfileData) = result else { return }
 
                 if newProfileData != self.profileData {
                     if #available(iOS 14.0, *) {

@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 class CompanyObserver {
@@ -30,21 +29,24 @@ class CompanyObserver {
 
     func startObserving() {
         guard cancellable == nil else { return }
-        cancellable = KlaviyoInternal.apiKeyPublisher()
+        cancellable = SDKConfigStore.shared.publisher
+            .map(\.apiKey)
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
-            .sink { [weak self] result in
+            .sink { [weak self] apiKey in
                 guard let self else { return }
-                switch result {
-                case let .success(key):
+                if let apiKey, !apiKey.isEmpty {
                     if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Received API key change. New API key: \(key)")
+                        Logger.webViewLogger.info("Received API key change. New API key: \(apiKey)")
                     }
                     initializationWarningTask?.cancel()
-                    eventsContinuation?.yield(.apiKeyUpdated(key))
-                case let .failure(error):
-                    handleAPIKeyError(error)
-                    eventsContinuation?.yield(.error(error))
+                    eventsContinuation?.yield(.apiKeyUpdated(apiKey))
+                } else {
+                    // `SDKConfigStore` carries only the value, not the SDK's init state, so a
+                    // missing/empty key can't be distinguished from "not initialized"; treat both
+                    // as not-initialized (the case this observer exists to guard against).
+                    handleAPIKeyError(.notInitialized)
+                    eventsContinuation?.yield(.error(.notInitialized))
                 }
             }
     }
