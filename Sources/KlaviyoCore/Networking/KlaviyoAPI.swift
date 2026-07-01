@@ -40,12 +40,17 @@ public struct KlaviyoAPI {
             return .failure(.missingOrInvalidResponse(response))
         }
 
-        // Consolidated retryable error handling (429 rate limit + all 5xx server errors).
-        // The entire 5xx range (500–599) is treated as transient so we also retry CDN/edge
-        // failures such as Cloudflare's 520–527 codes, which originate in front of the origin
-        // servers and were the codes observed during the cannot-access-klaviyo-com incident.
+        // Consolidated retryable error handling (429 rate limit + transient 5xx server errors).
+        // The 5xx range (500–599) is treated as transient so we also retry CDN/edge failures
+        // such as Cloudflare's 520–527 codes, which originate in front of the origin servers
+        // and were the codes observed during the cannot-access-klaviyo-com incident.
+        // 501 (Not Implemented) and 505 (HTTP Version Not Supported) are excluded because they
+        // are permanent/deterministic errors — retrying them cannot succeed, so they fall
+        // through to the non-retryable .httpError path.
         // 403 and other 4xx codes are intentionally excluded so the backend can shed load.
-        if httpResponse.statusCode == 429 || (500...599).contains(httpResponse.statusCode) {
+        let code = httpResponse.statusCode
+        let isRetryableServerError = (500...599).contains(code) && code != 501 && code != 505
+        if code == 429 || isRetryableServerError {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             // Check Retry-After header for any retryable error (expected for 429, future-proofing for 5xx)
@@ -55,14 +60,13 @@ public struct KlaviyoAPI {
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = nextBackoff + jitter
 
-            if httpResponse.statusCode == 429 {
+            if code == 429 {
                 requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
                 return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
             } else {
-                let status = httpResponse.statusCode
-                let httpError = RequestStatus.error(.httpError(statusCode: status, duration: duration))
+                let httpError = RequestStatus.error(.httpError(statusCode: code, duration: duration))
                 requestHandler(request, urlRequest, httpError)
-                return .failure(.serverError(statusCode: status, backOff: nextBackOffWithJitter))
+                return .failure(.serverError(statusCode: code, backOff: nextBackOffWithJitter))
             }
         }
 

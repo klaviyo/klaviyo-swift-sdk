@@ -131,6 +131,76 @@ final class KlaviyoAPITests: XCTestCase {
         }
     }
 
+    func testNotImplemented501IsNotRetried() async throws {
+        // 501 (Not Implemented) is a permanent/deterministic error and is excluded from the
+        // retryable 5xx set — it must fall through to a non-retryable httpError.
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: 501, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.httpError(statusCode, _)):
+                XCTAssertEqual(statusCode, 501)
+            default:
+                XCTFail("Expected a non-retryable httpError for a 501 response, got \(result)")
+            }
+        }
+    }
+
+    func testHTTPVersionNotSupported505IsNotRetried() async throws {
+        // 505 (HTTP Version Not Supported) is a permanent/deterministic error and is excluded
+        // from the retryable 5xx set — it must fall through to a non-retryable httpError.
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: 505, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.httpError(statusCode, _)):
+                XCTAssertEqual(statusCode, 505)
+            default:
+                XCTFail("Expected a non-retryable httpError for a 505 response, got \(result)")
+            }
+        }
+    }
+
+    func testLowerBound499IsNotRetried() async throws {
+        // 499 sits just below the 5xx range and must remain a non-retryable httpError.
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: 499, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.httpError(statusCode, _)):
+                XCTAssertEqual(statusCode, 499)
+            default:
+                XCTFail("Expected a non-retryable httpError for a 499 response, got \(result)")
+            }
+        }
+    }
+
+    func testUpperBound600IsNotRetried() async throws {
+        // 600 sits just above the 5xx range and must remain a non-retryable httpError.
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: 600, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.httpError(statusCode, _)):
+                XCTAssertEqual(statusCode, 600)
+            default:
+                XCTFail("Expected a non-retryable httpError for a 600 response, got \(result)")
+            }
+        }
+    }
+
     func testSuccessfulResponseWithProfile() async throws {
         environment.networkSession = { NetworkSession.test(data: { request in
             XCTAssertEqual(request.httpMethod, "POST")
