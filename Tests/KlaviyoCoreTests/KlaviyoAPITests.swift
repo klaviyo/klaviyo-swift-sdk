@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 11/16/22.
 //
 
-import KlaviyoCore
+@testable import KlaviyoCore
 import SnapshotTesting
 import XCTest
 
@@ -272,10 +272,27 @@ final class KlaviyoAPITests: XCTestCase {
         XCTAssertEqual(backOff, 600)
     }
 
+    func testRetryableErrorFallsBackToBackoffWhenRetryAfterUnparseable() async throws {
+        // Present-but-unparseable Retry-After (e.g. an HTTP-date) => use exponential backoff (2^3 = 8s).
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), Self.retryableResponse(statusCode: 429, retryAfter: "Wed, 21 Oct 2026 07:28:00 GMT"))
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 3, maxAttempts: 50))
+
+        let result = await KlaviyoAPI().send(request, attemptInfo)
+
+        guard case let .failure(.rateLimitError(backOff)) = result else {
+            XCTFail("Expected rateLimitError, got \(result)")
+            return
+        }
+        XCTAssertEqual(backOff, 8)
+    }
+
     private static func retryableResponse(statusCode: Int, retryAfter: String?) -> HTTPURLResponse {
         var headers: [String: String] = [:]
         if let retryAfter {
-            headers["Retry-After"] = retryAfter
+            headers[RetryBackoffConstants.retryAfterHeader] = retryAfter
         }
         return HTTPURLResponse(
             url: TEST_URL,

@@ -19,13 +19,22 @@ public enum HTTPStatusCode {
     public static let retryableServerErrorRange = 500...599
 }
 
+@usableFromInline
 enum RetryBackoffConstants {
     /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
     ///
     /// Bounds our own backoff so it can't grow unbounded across a long rate-limit storm. Aligns with
     /// comparable SDKs (Segment caps at 300s) per MAGE-500. A server-provided `Retry-After` may still
     /// exceed this ceiling — only the SDK-computed backoff is capped.
+    @usableFromInline
     static let maxBackoffSeconds = 300
+
+    /// The response header the server uses to request a specific retry delay.
+    ///
+    /// Klaviyo's API sends this as delay-seconds (a non-negative integer); the HTTP-date form is not
+    /// emitted, so a non-integer value falls back to exponential backoff.
+    @usableFromInline
+    static let retryAfterHeader = "Retry-After"
 }
 
 public struct KlaviyoAPI {
@@ -82,9 +91,15 @@ public struct KlaviyoAPI {
             // (Retry-After expected for 429, future-proofing for 5xx). Taking the greater of the two
             // keeps a request deep in a rate-limit storm backing off rather than retrying too soon
             // just because the server's rate-limit window reset to a short Retry-After.
+            //
+            // Klaviyo sends Retry-After as delay-seconds; the HTTP-date form is not used, so a
+            // non-integer value falls back to exponential backoff. value(forHTTPHeaderField:) is
+            // case-insensitive, so HTTP/2 lowercase header names are handled.
             var nextBackoff: Int = exponentialBackOff
-            if let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After"),
-               let retryAfterSeconds = Int(retryAfter) {
+            let retryAfterValue = httpResponse.value(
+                forHTTPHeaderField: RetryBackoffConstants.retryAfterHeader
+            )
+            if let retryAfterValue, let retryAfterSeconds = Int(retryAfterValue) {
                 nextBackoff = max(exponentialBackOff, retryAfterSeconds)
             }
             let jitter = environment.randomInt()
