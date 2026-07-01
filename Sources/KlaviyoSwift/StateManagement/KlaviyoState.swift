@@ -76,7 +76,7 @@ struct KlaviyoState: Equatable, Codable {
         if queue.count >= StateManagementConstants.maxQueueSize {
             let maxSize = StateManagementConstants.maxQueueSize
             environment.emitDeveloperWarning(
-                "Klaviyo request queue at capacity (\(maxSize)); evicting oldest request to make room.")
+                "Request queue at capacity (\(maxSize)); evicting oldest request to make room.")
             queue.removeFirst()
         }
         queue.append(request)
