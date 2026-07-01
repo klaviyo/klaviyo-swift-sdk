@@ -21,6 +21,15 @@ public enum HTTPStatusCode {
     public static let retryableServerErrorRange = 500...599
 }
 
+enum RetryBackoffConstants {
+    /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
+    ///
+    /// Bounds our own backoff so it can't grow unbounded across a long rate-limit storm. Aligns with
+    /// comparable SDKs (Segment caps at 300s) per MAGE-500. A server-provided `Retry-After` may still
+    /// exceed this ceiling — only the SDK-computed backoff is capped.
+    static let maxBackoffSeconds = 300
+}
+
 public struct KlaviyoAPI {
     public var send: (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError>
 
@@ -66,7 +75,12 @@ public struct KlaviyoAPI {
             && code != HTTPStatusCode.notImplemented
             && code != HTTPStatusCode.httpVersionNotSupported
         if code == HTTPStatusCode.rateLimited || isRetryableServerError {
-            let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
+            // Cap our exponential backoff at the max retry interval so it can't grow unbounded
+            // across a long rate-limit storm. A server-provided Retry-After may still exceed this.
+            let exponentialBackOff = min(
+                Int(pow(2.0, Double(requestAttemptInfo.attemptNumber))),
+                RetryBackoffConstants.maxBackoffSeconds
+            )
             // Wait the GREATER of the server-provided Retry-After and our exponential backoff
             // (Retry-After expected for 429, future-proofing for 5xx). Taking the greater of the two
             // keeps a request deep in a rate-limit storm backing off rather than retrying too soon
