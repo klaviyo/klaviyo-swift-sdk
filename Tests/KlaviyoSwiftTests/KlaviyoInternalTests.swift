@@ -26,8 +26,9 @@ final class KlaviyoInternalTests: XCTestCase {
         KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()
         KlaviyoInternal.clearEventBuffer()
-        IdentityStore.shared.update(ProfileData())
-        SDKConfigStore.shared.update(KlaviyoConfig())
+        // resetProfileDataSubject() no longer detaches the mirror or clears the stores (MAGE-750);
+        // do it explicitly here so each test starts detached + empty.
+        KlaviyoInternal.resetSharedStores()
     }
 
     // MARK: - Profile Data Tests
@@ -848,61 +849,45 @@ final class KlaviyoInternalTests: XCTestCase {
     }
 
     @MainActor
-    func testResetClearsSharedStores() throws {
-        // `.test` state is `.initialized` with apiKey "foo"; mirror it into the stores.
+    func testResetPreservesSharedStoreMirror() throws {
+        // Regression guard (MAGE-750): In-App Forms teardown calls `resetProfileDataSubject()`,
+        // but the shared-store mirror is global SDK state and must survive it. Consumers
+        // (KlaviyoForms/KlaviyoLocation) now read the stores directly, so if reset cleared them
+        // or detached the mirror, an unregister → re-register cycle would leave forms empty /
+        // not-initialized even though the SDK is still initialized.
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         KlaviyoInternal.setupSharedStores()
         _ = testStore.send(.setEmail("wired@example.com"))
 
-        // Confirm the stores hold real data before resetting.
-        let propagated = XCTestExpectation(description: "identity mirrored before reset")
+        let mirrored = XCTestExpectation(description: "identity mirrored before reset")
         DispatchQueue.main.async {
             XCTAssertEqual(IdentityStore.shared.current.email, "wired@example.com")
             XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo")
-            propagated.fulfill()
+            mirrored.fulfill()
         }
-        wait(for: [propagated], timeout: 1.0)
+        wait(for: [mirrored], timeout: 1.0)
 
+        // Simulate In-App Forms teardown.
         KlaviyoInternal.resetProfileDataSubject()
 
-        XCTAssertEqual(IdentityStore.shared.current, ProfileData(),
-                       "reset must clear identity back to empty")
-        XCTAssertNil(SDKConfigStore.shared.current.apiKey,
-                     "reset must clear the API key")
-    }
+        // The stores must still hold the initialized SDK's state...
+        XCTAssertEqual(IdentityStore.shared.current.email, "wired@example.com",
+                       "reset must NOT clear the shared identity store")
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo",
+                       "reset must NOT clear the shared config store")
 
-    @MainActor
-    func testProfileSubjectSetupRestoresSharedStoresAfterReset() throws {
-        // Simulates In-App Forms teardown + re-init: `resetProfileDataSubject()` tears down the
-        // shared-store mirror, then Forms re-subscribes via the profile publisher (without the
-        // host app calling `initialize(with:)` again). The mirror must come back to life.
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
-        // Initial wiring, then teardown clears the shared stores.
-        KlaviyoInternal.setupSharedStores()
-        KlaviyoInternal.resetProfileDataSubject()
-        XCTAssertEqual(IdentityStore.shared.current, ProfileData(),
-                       "precondition: reset cleared identity")
-
-        // Re-subscribe the way Forms re-init does — no `initialize(with:)` call.
-        KlaviyoInternal.profileChangePublisher()
-            .sink { _ in }
-            .store(in: &cancellables)
-
-        _ = testStore.send(.setEmail("reinit@example.com"))
-
-        let expectation = XCTestExpectation(description: "shared stores updated after re-subscribe")
+        // ...and the mirror must remain attached, reflecting subsequent state changes with no
+        // re-initialize (mimics unregister → re-register while the SDK stays initialized).
+        _ = testStore.send(.setEmail("after-reset@example.com"))
+        let stillLive = XCTestExpectation(description: "mirror still live after reset")
         DispatchQueue.main.async {
-            XCTAssertEqual(IdentityStore.shared.current.email, "reinit@example.com",
-                           "identity mirror must be restored without re-initialize")
-            XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo",
-                           "config mirror must be restored without re-initialize")
-            expectation.fulfill()
+            XCTAssertEqual(IdentityStore.shared.current.email, "after-reset@example.com",
+                           "mirror must remain attached after reset (no re-initialize)")
+            stillLive.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [stillLive], timeout: 1.0)
     }
 
     @MainActor
