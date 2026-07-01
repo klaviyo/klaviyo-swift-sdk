@@ -19,22 +19,21 @@ public enum HTTPStatusCode {
     public static let retryableServerErrorRange = 500...599
 }
 
-@usableFromInline
-enum RetryBackoffConstants {
+/// Public because it is referenced from `KlaviyoAPI.init`'s public default-argument closure;
+/// Swift 5.9 (Xcode 15.2/15.4) requires such symbols to be `public` (not just `@usableFromInline`).
+public enum RetryBackoffConstants {
     /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
     ///
     /// Bounds our own backoff so it can't grow unbounded across a long rate-limit storm. Aligns with
     /// comparable SDKs (Segment caps at 300s) per MAGE-500. A server-provided `Retry-After` may still
     /// exceed this ceiling — only the SDK-computed backoff is capped.
-    @usableFromInline
-    static let maxBackoffSeconds = 300
+    public static let maxBackoffSeconds = 300
 
     /// The response header the server uses to request a specific retry delay.
     ///
     /// Klaviyo's API sends this as delay-seconds (a non-negative integer); the HTTP-date form is not
     /// emitted, so a non-integer value falls back to exponential backoff.
-    @usableFromInline
-    static let retryAfterHeader = "Retry-After"
+    public static let retryAfterHeader = "Retry-After"
 }
 
 public struct KlaviyoAPI {
