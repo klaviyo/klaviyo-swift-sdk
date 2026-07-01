@@ -20,8 +20,7 @@ final class KlaviyoAPITests: XCTestCase {
 
         try await sendAndAssert(with: KlaviyoRequest(
             endpoint: .createProfile("foo", CreateProfilePayload(data: .test))
-        )
-        ) { result in
+        )) { result in
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .description)
@@ -36,7 +35,6 @@ final class KlaviyoAPITests: XCTestCase {
         }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -52,7 +50,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -68,7 +65,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -81,124 +77,39 @@ final class KlaviyoAPITests: XCTestCase {
     func testCloudflare5xxIsRetryedAsServerError() async throws {
         // Cloudflare edge codes (520–527) sit outside the legacy {500,502,503,504} allowlist.
         // They must now be classified as retryable server errors.
-        let cloudflareResponse = HTTPURLResponse(url: TEST_URL, statusCode: 522, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), cloudflareResponse)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.serverError(statusCode, backOff)):
-                XCTAssertEqual(statusCode, 522)
-                XCTAssertGreaterThan(backOff, 0)
-            default:
-                XCTFail("Expected a retryable serverError for a 522 response, got \(result)")
-            }
-        }
+        try await assertServerErrorRetried(522)
     }
 
     func testUpperBound5xxIsRetryedAsServerError() async throws {
         // The widened range is inclusive of the entire 5xx space (500–599).
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 599, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.serverError(statusCode, _)):
-                XCTAssertEqual(statusCode, 599)
-            default:
-                XCTFail("Expected a retryable serverError for a 599 response, got \(result)")
-            }
-        }
+        try await assertServerErrorRetried(599)
     }
 
     func testClientError4xxIsNotRetried() async throws {
         // 4xx codes (including 403 load-shed and 404) must remain non-retryable httpErrors.
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 404, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.httpError(statusCode, _)):
-                XCTAssertEqual(statusCode, 404)
-            default:
-                XCTFail("Expected a non-retryable httpError for a 404 response, got \(result)")
-            }
-        }
+        try await assertNotRetried(404)
     }
 
     func testNotImplemented501IsNotRetried() async throws {
         // 501 (Not Implemented) is a permanent/deterministic error and is excluded from the
         // retryable 5xx set — it must fall through to a non-retryable httpError.
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 501, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.httpError(statusCode, _)):
-                XCTAssertEqual(statusCode, 501)
-            default:
-                XCTFail("Expected a non-retryable httpError for a 501 response, got \(result)")
-            }
-        }
+        try await assertNotRetried(501)
     }
 
     func testHTTPVersionNotSupported505IsNotRetried() async throws {
         // 505 (HTTP Version Not Supported) is a permanent/deterministic error and is excluded
         // from the retryable 5xx set — it must fall through to a non-retryable httpError.
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 505, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.httpError(statusCode, _)):
-                XCTAssertEqual(statusCode, 505)
-            default:
-                XCTFail("Expected a non-retryable httpError for a 505 response, got \(result)")
-            }
-        }
+        try await assertNotRetried(505)
     }
 
     func testLowerBound499IsNotRetried() async throws {
         // 499 sits just below the 5xx range and must remain a non-retryable httpError.
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 499, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.httpError(statusCode, _)):
-                XCTAssertEqual(statusCode, 499)
-            default:
-                XCTFail("Expected a non-retryable httpError for a 499 response, got \(result)")
-            }
-        }
+        try await assertNotRetried(499)
     }
 
     func testUpperBound600IsNotRetried() async throws {
         // 600 sits just above the 5xx range and must remain a non-retryable httpError.
-        let response = HTTPURLResponse(url: TEST_URL, statusCode: 600, httpVersion: nil, headerFields: nil)!
-        environment.networkSession = { NetworkSession.test(data: { _ in
-            (Data(), response)
-        }) }
-        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
-        try await sendAndAssert(with: request) { result in
-            switch result {
-            case let .failure(.httpError(statusCode, _)):
-                XCTAssertEqual(statusCode, 600)
-            default:
-                XCTFail("Expected a non-retryable httpError for a 600 response, got \(result)")
-            }
-        }
+        try await assertNotRetried(600)
     }
 
     func testSuccessfulResponseWithProfile() async throws {
@@ -210,7 +121,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 XCTAssertEqual(data.count, 0)
@@ -247,7 +157,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .registerPushToken("foo", .test))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 XCTAssertEqual(data.count, 0)
@@ -262,5 +171,52 @@ final class KlaviyoAPITests: XCTestCase {
         let attemptInfo = try XCTUnwrap(RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50))
         let result = await KlaviyoAPI().send(request, attemptInfo)
         assertion(result)
+    }
+
+    /// Stubs the network session to return `code` and asserts the request maps to a
+    /// retryable `.serverError` carrying that status code and a positive back-off.
+    func assertServerErrorRetried(_ code: Int,
+                                  file: StaticString = #filePath,
+                                  line: UInt = #line) async throws {
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: code, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.serverError(statusCode, backOff)):
+                XCTAssertEqual(statusCode, code, file: file, line: line)
+                XCTAssertGreaterThan(backOff, 0, file: file, line: line)
+            default:
+                XCTFail(
+                    "Expected a retryable serverError for a \(code) response, got \(result)",
+                    file: file, line: line
+                )
+            }
+        }
+    }
+
+    /// Stubs the network session to return `code` and asserts the request maps to a
+    /// non-retryable `.httpError` carrying that status code.
+    func assertNotRetried(_ code: Int,
+                          file: StaticString = #filePath,
+                          line: UInt = #line) async throws {
+        let response = HTTPURLResponse(url: TEST_URL, statusCode: code, httpVersion: nil, headerFields: nil)!
+        environment.networkSession = { NetworkSession.test(data: { _ in
+            (Data(), response)
+        }) }
+        let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
+        try await sendAndAssert(with: request) { result in
+            switch result {
+            case let .failure(.httpError(statusCode, _)):
+                XCTAssertEqual(statusCode, code, file: file, line: line)
+            default:
+                XCTFail(
+                    "Expected a non-retryable httpError for a \(code) response, got \(result)",
+                    file: file, line: line
+                )
+            }
+        }
     }
 }

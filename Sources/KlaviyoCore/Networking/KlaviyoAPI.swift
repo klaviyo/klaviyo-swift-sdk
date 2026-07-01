@@ -8,6 +8,19 @@
 import AnyCodable
 import Foundation
 
+/// Named HTTP status codes and ranges referenced by the retry logic below.
+///
+/// This enum must be `public` because its members are referenced from the default
+/// value of `KlaviyoAPI.init(send:)` — a `public init`. Swift requires any symbol
+/// referenced from a public function's default argument to also be `public`, so a
+/// `private`/`internal` enum would fail to compile on every toolchain.
+public enum HTTPStatusCode {
+    public static let rateLimited = 429
+    public static let notImplemented = 501
+    public static let httpVersionNotSupported = 505
+    public static let retryableServerErrorRange = 500...599
+}
+
 public struct KlaviyoAPI {
     public var send: (KlaviyoRequest, RequestAttemptInfo) async -> Result<Data, KlaviyoAPIError>
 
@@ -49,8 +62,10 @@ public struct KlaviyoAPI {
         // through to the non-retryable .httpError path.
         // 403 and other 4xx codes are intentionally excluded so the backend can shed load.
         let code = httpResponse.statusCode
-        let isRetryableServerError = (500...599).contains(code) && code != 501 && code != 505
-        if code == 429 || isRetryableServerError {
+        let isRetryableServerError = HTTPStatusCode.retryableServerErrorRange.contains(code)
+            && code != HTTPStatusCode.notImplemented
+            && code != HTTPStatusCode.httpVersionNotSupported
+        if code == HTTPStatusCode.rateLimited || isRetryableServerError {
             let exponentialBackOff = Int(pow(2.0, Double(requestAttemptInfo.attemptNumber)))
             var nextBackoff: Int = exponentialBackOff
             // Check Retry-After header for any retryable error (expected for 429, future-proofing for 5xx)
@@ -60,7 +75,7 @@ public struct KlaviyoAPI {
             let jitter = environment.randomInt()
             let nextBackOffWithJitter = nextBackoff + jitter
 
-            if code == 429 {
+            if code == HTTPStatusCode.rateLimited {
                 requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))
                 return .failure(KlaviyoAPIError.rateLimitError(backOff: nextBackOffWithJitter))
             } else {
