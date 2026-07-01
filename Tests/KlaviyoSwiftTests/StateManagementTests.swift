@@ -373,6 +373,71 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
+    func testFlushQueueHoldsQueueAndReschedulesWhenCircuitBreakerOpen() async throws {
+        let timerSubscribed = expectation(description: "circuit breaker timer subscribed")
+        var requestedInterval: Double?
+        environment.timer = { interval in
+            requestedInterval = interval
+            return Empty(completeImmediately: false)
+                .handleEvents(receiveSubscription: { _ in timerSubscribed.fulfill() })
+                .eraseToAnyPublisher()
+        }
+
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [request]
+        initialState.circuitBreakerState = .open
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.flushQueue)
+
+        await fulfillment(of: [timerSubscribed])
+        XCTAssertEqual(requestedInterval, 30)
+        XCTAssertEqual(store.state.queue, [request])
+        XCTAssertEqual(store.state.requestsInFlight, [])
+        XCTAssertFalse(store.state.flushing)
+    }
+
+    @MainActor
+    func testFlushQueueAllowsHalfOpenProbeAfterCircuitBreakerOpenInterval() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [request]
+        initialState.circuitBreakerState = .open
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(-1)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.flushQueue) {
+            $0.circuitBreakerState = .halfOpen
+            $0.requestsInFlight = [request]
+            $0.queue = []
+            $0.flushing = true
+        }
+        await store.receive(.sendRequest)
+        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.circuitBreakerState = .closed
+            $0.circuitBreakerFailureCount = 0
+            $0.circuitBreakerOpenUntil = nil
+            $0.requestsInFlight = []
+            $0.flushing = false
+        }
+    }
+
+    @MainActor
     func testSendRequestWhenNotFlushing() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
@@ -391,6 +456,72 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.sendRequest) {
             $0.flushing = false
         }
+    }
+
+    @MainActor
+    func testRequestFailedOpensCircuitBreakerAtThreshold() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.requestsInFlight = [request]
+        initialState.queue = []
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold - 1
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.requestFailed(request, .retry(2))) {
+            $0.retryState = .retry(2)
+            $0.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+            $0.circuitBreakerState = .open
+            $0.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+        }
+    }
+
+    @MainActor
+    func testDeQueueCompletedResultsResetsCircuitBreaker() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.requestsInFlight = [request]
+        initialState.queue = []
+        initialState.retryState = .retry(3)
+        initialState.circuitBreakerState = .open
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.deQueueCompletedResults(request)) {
+            $0.requestsInFlight = []
+            $0.retryState = .retry(StateManagementConstants.initialAttempt)
+            $0.circuitBreakerState = .closed
+            $0.circuitBreakerFailureCount = 0
+            $0.circuitBreakerOpenUntil = nil
+            $0.flushing = false
+        }
+    }
+
+    @MainActor
+    func testCircuitBreakerFailureThresholdKillSwitchKeepsBreakerClosed() async throws {
+        let originalThreshold = StateManagementConstants.circuitBreakerFailureThreshold
+        defer {
+            StateManagementConstants.circuitBreakerFailureThreshold = originalThreshold
+        }
+        StateManagementConstants.circuitBreakerFailureThreshold = 0
+
+        var state = INITIALIZED_TEST_STATE()
+        state.recordCircuitBreakerFailure()
+
+        XCTAssertEqual(state.circuitBreakerState, .closed)
+        XCTAssertEqual(state.circuitBreakerFailureCount, 0)
+        XCTAssertNil(state.circuitBreakerOpenUntil)
     }
 
     // MARK: - Network Connectivity Changed

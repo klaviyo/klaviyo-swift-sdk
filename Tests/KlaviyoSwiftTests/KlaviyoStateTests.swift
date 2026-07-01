@@ -150,6 +150,22 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(decodedState, state)
     }
 
+    func testCircuitBreakerStateIsNotPersisted() throws {
+        var state = KlaviyoState(apiKey: "key", anonymousId: "anon-id", queue: [])
+        state.circuitBreakerState = .open
+        state.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        state.circuitBreakerOpenUntil = Date(timeIntervalSince1970: 1_234_567_920)
+
+        let encodedState = try KlaviyoEnvironment.production.encodeJSON(state)
+        let encodedString = String(data: encodedState, encoding: .utf8)
+        let decodedState: KlaviyoState = try KlaviyoEnvironment.production.decoder.decode(encodedState)
+
+        XCTAssertFalse(encodedString?.contains("circuitBreaker") == true)
+        XCTAssertEqual(decodedState.circuitBreakerState, .closed)
+        XCTAssertEqual(decodedState.circuitBreakerFailureCount, 0)
+        XCTAssertNil(decodedState.circuitBreakerOpenUntil)
+    }
+
     func testSaveKlaviyoStateWithMissingApiKeyLogsError() {
         var savedMsg: String?
         environment.logger.error = { msg in savedMsg = msg }

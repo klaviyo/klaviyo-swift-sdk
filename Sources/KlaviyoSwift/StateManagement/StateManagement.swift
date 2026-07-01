@@ -24,6 +24,12 @@ enum StateManagementConstants {
     static let wifiFlushInterval = 10.0
     static let maxQueueSize = 200
     static let initialAttempt = 1
+    static let defaultCircuitBreakerFailureThreshold = 5
+    static let defaultCircuitBreakerBaseOpenInterval = 30.0
+    static let defaultCircuitBreakerMaxOpenInterval = 300.0
+    static var circuitBreakerFailureThreshold = defaultCircuitBreakerFailureThreshold
+    static var circuitBreakerBaseOpenInterval = defaultCircuitBreakerBaseOpenInterval
+    static var circuitBreakerMaxOpenInterval = defaultCircuitBreakerMaxOpenInterval
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
@@ -155,6 +161,7 @@ enum KlaviyoAction: Equatable {
 
 struct RequestId {}
 struct FlushTimer {}
+struct CircuitBreakerTimer {}
 
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
@@ -318,6 +325,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
+            if state.currentCircuitBreakerState() == .open {
+                let remainingOpenInterval = state.circuitBreakerRemainingOpenInterval
+                return environment.timer(remainingOpenInterval)
+                    .map { _ in KlaviyoAction.flushQueue }
+                    .eraseToEffect()
+                    .cancellable(id: CircuitBreakerTimer.self, cancelInFlight: true)
+            }
+
             state.requestsInFlight.append(contentsOf: state.queue)
             state.queue.removeAll()
             state.flushing = true
@@ -329,7 +344,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self, CircuitBreakerTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
                     await send(KlaviyoAction.syncBadgeCount)
@@ -375,6 +390,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 completedRequest.id == inflightRequest.id
             }
             state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
+            state.resetCircuitBreaker()
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -438,7 +454,7 @@ struct KlaviyoReducer: ReducerProtocol {
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = Double.infinity
-                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self, CircuitBreakerTimer.self])
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
@@ -468,6 +484,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     request.id == inflightRequest.id
                 }
             }
+            state.recordCircuitBreakerFailure()
             state.flushing = false
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []

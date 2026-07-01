@@ -149,6 +149,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
             $0.retryState = .retry(2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -170,6 +171,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
             $0.retryState = .retry(2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -194,6 +196,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request2]
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -324,6 +327,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -344,6 +348,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -364,6 +369,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -407,6 +413,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -426,6 +433,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -445,6 +453,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -464,6 +473,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 
@@ -502,6 +512,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
             $0.queue = [request]
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
+            $0.circuitBreakerFailureCount = 1
         }
     }
 

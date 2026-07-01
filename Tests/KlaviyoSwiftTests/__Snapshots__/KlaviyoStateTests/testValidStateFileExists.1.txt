@@ -3,6 +3,9 @@
     - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
     - some: "foo"
+  - circuitBreakerFailureCount: 0
+  - circuitBreakerOpenUntil: Optional<Date>.none
+  - circuitBreakerState: CircuitBreakerState.closed
   ▿ email: Optional<String>
     - some: "test@test.com"
   ▿ externalId: Optional<String>
