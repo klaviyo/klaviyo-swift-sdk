@@ -152,8 +152,8 @@ class KlaviyoLocationManager: NSObject {
     private func startObservingAPIKeyChanges() {
         guard apiKeyCancellable == nil else { return }
         apiKeyCancellable = SDKConfigStore.shared.publisher
-            .compactMap(\.apiKey)
             .dropFirst()
+            .compactMap(\.apiKey)
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] apiKey in
