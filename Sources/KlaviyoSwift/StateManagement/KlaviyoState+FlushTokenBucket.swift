@@ -24,9 +24,24 @@ extension KlaviyoState {
 
     /// `true` when the queue has grown large enough to warrant an early flush attempt
     /// rather than waiting for the next flush-interval tick. Suppressed when the
-    /// `flushInterval` is non-finite (i.e. offline) so we don't kick off doomed requests.
+    /// `flushInterval` is non-finite (i.e. offline) so we don't kick off doomed requests, and
+    /// while a server-mandated `Retry-After` backoff is active — otherwise every enqueued event
+    /// during a large backoff window would independently trigger `.flushQueue`, and each call
+    /// erodes `retryState`'s `currentBackoff` by a full flush interval, eating into the
+    /// server-mandated wait far faster than intended.
     var shouldFlushForQueueDepth: Bool {
-        flushInterval.isFinite && queue.count >= StateManagementConstants.flushDepth
+        guard flushInterval.isFinite else { return false }
+        if case .retryWithBackoff = retryState { return false }
+        return queue.count >= StateManagementConstants.flushDepth
+    }
+
+    /// Consumes the prioritized-flush flag set by an opened-push or geofence event (see
+    /// `pendingPrioritizedFlush`), returning whether the caller should bypass the token-bucket
+    /// gate for this `.flushQueue` attempt. The flag is cleared unconditionally — regardless of
+    /// the returned value — so it never leaks into a later, unrelated flush attempt.
+    mutating func consumePendingPrioritizedFlush() -> Bool {
+        defer { pendingPrioritizedFlush = false }
+        return pendingPrioritizedFlush
     }
 
     /// Refills the flush-token bucket based on the time elapsed since the last refill, then
@@ -54,7 +69,15 @@ extension KlaviyoState {
                 )
             }
         }
-        lastFlushTokenRefill = currentTime
+        // Only ever advance the refill timestamp forward. A backward clock jump (manual clock
+        // change, NTP correction) must not rewind `lastFlushTokenRefill` — otherwise a later call
+        // using the "real" (forward) time would compute an inflated `elapsed` and grant a
+        // windfall refill instead of being correctly denied.
+        if let lastRefill = lastFlushTokenRefill, currentTime < lastRefill {
+            // Clock moved backward: keep the existing (later) timestamp.
+        } else {
+            lastFlushTokenRefill = currentTime
+        }
 
         guard availableFlushTokens >= 1.0 else {
             return false

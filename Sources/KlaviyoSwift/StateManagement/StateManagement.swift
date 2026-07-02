@@ -334,12 +334,17 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
+            // Prioritized engagement events (opened-push/geofence) bypass the token gate
+            // entirely so a depleted bucket never delays them; see `pendingPrioritizedFlush`.
+            let bypassTokenGate = state.consumePendingPrioritizedFlush()
+
             // Gate the flush on the token bucket: this enforces the long-term flush rate
             // while still allowing bursts immediately after idle periods. If no token is
             // available we defer — the next flush-interval tick (or queue-depth trigger)
-            // will retry once tokens have refilled. Skipped when the governor is disabled,
-            // which restores the legacy "flush on every interval tick" behavior.
-            if FlushGovernorConfig.isEnabled,
+            // will retry once tokens have refilled. Skipped when the governor is disabled
+            // (restoring the legacy "flush on every interval tick" behavior) or when this
+            // flush was triggered by a prioritized engagement event.
+            if FlushGovernorConfig.isEnabled, !bypassTokenGate,
                !state.consumeFlushToken(currentTime: environment.date()) {
                 return .none
             }
@@ -535,13 +540,18 @@ struct KlaviyoReducer: ReducerProtocol {
             let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
             if shouldPrioritize {
                 state.queue.insert(request, at: 0)
+                // Flag the next `.flushQueue` to bypass the token-bucket gate: engagement
+                // events are rare and must never wait on a depleted bucket, and they
+                // shouldn't drain it either.
+                state.pendingPrioritizedFlush = true
             } else {
                 state.enqueueRequest(request: request)
             }
 
-            // Prioritized events flush immediately; otherwise flush early only once the queue
-            // reaches the depth threshold. The token bucket in `.flushQueue` decides whether the
-            // attempt actually proceeds, so this stays within the long-term rate limit.
+            // Prioritized events flush immediately, bypassing the token gate (see
+            // `pendingPrioritizedFlush`); otherwise flush early only once the queue reaches the
+            // depth threshold, where the token bucket in `.flushQueue` still decides whether the
+            // attempt actually proceeds, keeping this within the long-term rate limit.
             let shouldFlushOnDepth = FlushGovernorConfig.isEnabled && state.shouldFlushForQueueDepth
             let shouldFlushNow = shouldPrioritize || shouldFlushOnDepth
             let baseEffect = shouldFlushNow ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none

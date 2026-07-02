@@ -11,6 +11,7 @@
   - initalizationState: InitializationState.uninitialized
   - isProcessingDeepLink: false
   - lastFlushTokenRefill: Optional<Date>.none
+  - pendingPrioritizedFlush: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   - phoneNumber: Optional<String>.none

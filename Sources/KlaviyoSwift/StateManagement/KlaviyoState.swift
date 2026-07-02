@@ -63,11 +63,16 @@ struct KlaviyoState: Equatable, Codable {
     var isProcessingDeepLink = false
 
     // token bucket related stuff
-    // These govern the flush cadence (see `consumeFlushToken(now:)`). They are intentionally
+    // These govern the flush cadence (see `consumeFlushToken(currentTime:)`). They are intentionally
     // transient — left out of `CodingKeys` below — so the bucket starts full on every launch,
     // letting the first post-launch flush proceed immediately.
     var availableFlushTokens = StateManagementConstants.flushTokenBucketCapacity
     var lastFlushTokenRefill: Date?
+    // Set by a prioritized engagement event (opened-push/geofence) so the very next
+    // `.flushQueue` bypasses the token-bucket gate instead of possibly waiting on a depleted
+    // bucket. Transient — not persisted — since it only needs to survive until the in-flight
+    // flush effect it triggered is processed. See `consumePendingPrioritizedFlush()`.
+    var pendingPrioritizedFlush = false
 
     enum CodingKeys: CodingKey {
         case apiKey

@@ -9,13 +9,16 @@
 
 import Foundation
 
-/// Runtime switches for the demand-adaptive flush governor (token-bucket gate +
+/// Internal experiment toggle for the demand-adaptive flush governor (token-bucket gate +
 /// queue-depth early-flush trigger).
 ///
-/// This exists so we can:
-/// - A/B the governor against the legacy fixed-interval flush behavior on the same build
-///   (flip `isEnabled` between runs and compare request timing / 429 rate), and
-/// - disable the new behavior at runtime as a kill switch if it ever misbehaves in the field.
+/// `isEnabled` is intentionally `internal`, not `public` — host apps cannot flip this from
+/// outside the SDK. It exists so Klaviyo engineers can A/B the governor against the legacy
+/// fixed-interval flush behavior from test targets or internal debug builds (flip `isEnabled`
+/// and compare request timing / 429 rate). It is not a field-facing kill switch, and it must be
+/// set before the SDK initializes and left untouched for the rest of the process's lifetime —
+/// toggling it mid-session is unsupported, since the token bucket assumes a stable governor
+/// state.
 ///
 /// When `isEnabled` is `false` the reducer skips the token-bucket gate and the queue-depth
 /// trigger entirely, reproducing the previous "flush the whole queue on every interval tick"

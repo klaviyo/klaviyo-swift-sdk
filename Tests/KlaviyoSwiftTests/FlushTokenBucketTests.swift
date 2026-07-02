@@ -84,6 +84,29 @@ final class FlushTokenBucketTests: XCTestCase {
         XCTAssertEqual(state.lastFlushTokenRefill, start.addingTimeInterval(10_000))
     }
 
+    /// A backward clock jump (manual clock change, NTP correction) must not rewind
+    /// `lastFlushTokenRefill`, or a later call using the "real" (forward) time would compute an
+    /// inflated `elapsed` and grant a windfall refill instead of being correctly denied.
+    func test_consumeFlushToken_backwardClockJumpDoesNotGrantWindfallRefill() {
+        var state = KlaviyoState(queue: [])
+        state.flushInterval = StateManagementConstants.wifiFlushInterval // 10s -> 0.1 token/sec
+        state.availableFlushTokens = 0
+        let start = Date(timeIntervalSince1970: 1000)
+        state.lastFlushTokenRefill = start
+
+        // Clock jumps backward: elapsed is negative so no tokens accrue, and the refill
+        // timestamp must NOT rewind to this earlier time.
+        XCTAssertFalse(state.consumeFlushToken(currentTime: start.addingTimeInterval(-500)))
+        XCTAssertEqual(state.availableFlushTokens, 0, accuracy: 0.0001)
+        XCTAssertEqual(state.lastFlushTokenRefill, start)
+
+        // Clock returns to the original time. If the timestamp had rewound to -500s, this call
+        // would see a fabricated 500s elapsed and grant a windfall refill. It must still be denied.
+        XCTAssertFalse(state.consumeFlushToken(currentTime: start))
+        XCTAssertEqual(state.availableFlushTokens, 0, accuracy: 0.0001)
+        XCTAssertEqual(state.lastFlushTokenRefill, start)
+    }
+
     // MARK: - shouldFlushForQueueDepth
 
     func test_shouldFlushForQueueDepth_belowThresholdIsFalse() {
@@ -146,6 +169,68 @@ final class FlushTokenBucketTests: XCTestCase {
         // Enqueuing one more request reaches `flushDepth`, which schedules an early flush.
         await store.send(.enqueueAggregateEvent(Data("agg".utf8)))
         await store.receive(.flushQueue)
+    }
+
+    /// Regression test: while a server-mandated `Retry-After` backoff is active, the queue-depth
+    /// trigger must NOT fire `.flushQueue` at all — each call to `.flushQueue` erodes
+    /// `currentBackoff` by a full flush interval, so a depth trigger firing on every enqueued
+    /// event during high traffic would eat through the backoff window far faster than the
+    /// server intended.
+    @MainActor
+    func test_shouldFlushForQueueDepth_doesNotErodeBackoffOnRepeatedEnqueues() async {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.retryState = .retryWithBackoff(requestCount: 1, totalRetryCount: 1, currentBackoff: 60)
+        initialState.queue = Array(
+            repeating: sampleRequest(name: "filler"),
+            count: StateManagementConstants.flushDepth - 1
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // Each of these enqueues would, pre-fix, reach/exceed `flushDepth` and trigger a
+        // `.flushQueue` cascade that erodes `currentBackoff` by a full flush interval per call.
+        for index in 0..<6 {
+            await store.send(.enqueueAggregateEvent(Data("agg\(index)".utf8)))
+        }
+
+        // No `.flushQueue` should have fired from the depth trigger while backoff is active, so
+        // `currentBackoff` must be untouched.
+        guard case let .retryWithBackoff(_, _, backoff) = store.state.retryState else {
+            XCTFail("Expected retryState to remain .retryWithBackoff")
+            return
+        }
+        XCTAssertEqual(backoff, 60)
+    }
+
+    // MARK: - prioritized (opened-push/geofence) flushes bypass the token gate
+
+    /// Verifies that a prioritized engagement event (opened-push) flushes immediately even when
+    /// the token bucket is fully depleted — engagement events must never wait on the bucket, and
+    /// bypassing the gate means they don't spend a token either.
+    @MainActor
+    func test_openedPushEvent_withDepletedBucket_flushesAnyway() async {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.availableFlushTokens = 0
+        // Refilled "now", so no time elapses before the flush attempt -> no token would accrue
+        // through the normal gate.
+        initialState.lastFlushTokenRefill = environment.date()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        let event = Event(name: ._openedPush)
+        await store.send(.enqueueEvent(event))
+
+        // The prioritized flush bypasses the token gate entirely, so it proceeds despite the
+        // depleted bucket.
+        await store.receive(.flushQueue)
+
+        XCTAssertTrue(store.state.flushing)
+        XCTAssertTrue(store.state.queue.isEmpty)
+        XCTAssertEqual(store.state.requestsInFlight.count, 1)
+        // Bypassing the gate means no token is spent — the bucket stays exactly as depleted.
+        XCTAssertEqual(store.state.availableFlushTokens, 0, accuracy: 0.0001)
     }
 
     // MARK: - token bucket reset on company switch
