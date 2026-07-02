@@ -28,7 +28,7 @@ jobs:
             exit 0
           fi
 
-          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]]; then
+          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]] || [[ "$HEAD_REF" == dependabot/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
             gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
             exit 0
