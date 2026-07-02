@@ -152,12 +152,12 @@ class KlaviyoLocationManager: NSObject {
     private func startObservingAPIKeyChanges() {
         guard apiKeyCancellable == nil else { return }
         apiKeyCancellable = SDKConfigStore.shared.publisher
-            .map(\.apiKey)
+            .compactMap(\.apiKey)
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] apiKey in
-                guard let self, let apiKey, !apiKey.isEmpty else { return }
+                guard let self else { return }
                 if #available(iOS 14.0, *) {
                     Logger.geoservices.info("🔄 Company ID changed. Updating geofences for new company: \(apiKey)")
                 }
