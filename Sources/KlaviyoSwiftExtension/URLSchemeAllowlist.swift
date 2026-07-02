@@ -16,4 +16,8 @@ import Foundation
 /// These schemes are safe to hand off to `UIApplication.shared.open(_:)` directly.
 /// Schemes **not** on this list (e.g. `intent:`, `javascript:`, `file:`, `geo:`)
 /// are silently dropped.
-let openUrlAllowedSchemes: Set<String> = ["http", "https", "mailto", "tel", "sms", "smsto"]
+///
+/// Note: `smsto:` is intentionally excluded (unlike the Android SDK). iOS Messages only
+/// registers `sms:`; `smsto:` has no iOS handler, so `UIApplication.shared.open(_:)` would
+/// no-op. Use `sms:` for SMS on iOS.
+let openUrlAllowedSchemes: Set<String> = ["http", "https", "mailto", "tel", "sms"]

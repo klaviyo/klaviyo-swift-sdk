@@ -299,16 +299,18 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "sms:+15551234567")
     }
 
-    func testKlaviyoWebUrl_WithSmstoScheme_ReturnsURL() throws {
+    // MARK: - Blocked schemes
+
+    func testKlaviyoWebUrl_WithSmstoScheme_ReturnsNil() throws {
+        // smsto: is Android-only; iOS Messages registers sms: but not smsto:, so it is
+        // deliberately absent from the iOS allowlist and dropped here.
         let payload: [AnyHashable: Any] = [
             "body": ["_k": "some-value"],
             "web_url": "smsto:+15551234567"
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
-        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "smsto:+15551234567")
+        XCTAssertNil(response.klaviyoWebUrl)
     }
-
-    // MARK: - Blocked schemes
 
     func testKlaviyoWebUrl_WithIntentScheme_ReturnsNil() throws {
         let payload: [AnyHashable: Any] = [
