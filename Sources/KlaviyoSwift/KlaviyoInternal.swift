@@ -102,11 +102,10 @@ package enum KlaviyoInternal {
 
     // Setup the profile data subject to receive updates from the state publisher
     private static func setupProfileDataSubject() {
-        // Keep the shared-store mirror alive alongside the profile subject. Both are torn
-        // down together in `resetProfileDataSubject()` (e.g. on In-App Forms teardown), so they
-        // must be re-established together — otherwise Forms re-init via `fetchProfileData()`
-        // would resubscribe the profile subject while the shared stores stayed empty until the
-        // host app called `initialize(with:)` again. `setupSharedStores()` is idempotent.
+        // Defensive, idempotent attach of the shared-store mirror. The mirror is normally
+        // established at `initialize(with:)` and left alive for the SDK's lifetime — it is NOT
+        // torn down on In-App Forms teardown (see `resetProfileDataSubject()`), so this is a
+        // safety net rather than a required re-attach hook.
         setupSharedStores()
 
         // Only set up the subscription if it hasn't already been set up
@@ -176,11 +175,21 @@ package enum KlaviyoInternal {
         profileDataCancellable?.cancel()
         profileDataCancellable = nil
         profileDataSubject.send(.failure(.notInitialized))
+        // NOTE: deliberately does NOT tear down the shared-store mirror or clear the stores.
+        // The mirror is global SDK state (established once by `setupSharedStores()` at
+        // initialize) that KlaviyoForms/KlaviyoLocation observe directly. Clearing it on
+        // In-App Forms teardown would leave the stores empty after an unregister → re-register
+        // cycle even while the SDK stays initialized, since consumers now read the stores
+        // directly and no longer re-trigger `setupSharedStores()`. (Broader teardown
+        // decoupling is tracked in MAGE-834.)
+    }
+
+    /// Tears down the shared-store mirror and clears the stores. **Test-only isolation helper** —
+    /// production never tears the mirror down (see `resetProfileDataSubject()`); this exists so
+    /// tests that call `setupSharedStores()` start from a detached, empty state.
+    package static func resetSharedStores() {
         sharedStoresCancellable?.cancel()
         sharedStoresCancellable = nil
-        // Clear the shared stores so consumers don't read stale identity/config after reset.
-        // Write the config before the identity to match `setupSharedStores()`:
-        // IdentityStore.update(_:) notifies observers synchronously.
         SDKConfigStore.shared.update(KlaviyoConfig())
         IdentityStore.shared.update(ProfileData())
     }
