@@ -27,7 +27,7 @@ public enum RetryBackoffConstants {
     /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
     ///
     /// Bounds our own backoff so it can't grow unbounded across a long rate-limit storm. Aligns with
-    /// comparable SDKs (Segment caps at 300s) per MAGE-500. A server-provided `Retry-After` may still
+    /// comparable SDKs (Segment caps at 300s). A server-provided `Retry-After` may still
     /// exceed this ceiling — only the SDK-computed backoff is capped.
     public static let maxBackoffSeconds = 300
 
