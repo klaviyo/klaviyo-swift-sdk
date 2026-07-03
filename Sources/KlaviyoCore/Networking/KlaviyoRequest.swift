@@ -60,8 +60,12 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
         enqueuedAt = try container.decodeIfPresent(Date.self, forKey: .enqueuedAt) ?? .distantPast
     }
 
-    /// Equality intentionally ignores `enqueuedAt` so introducing the timestamp does not
-    /// change dedup or state-comparison semantics — requests are identified by `id` + `endpoint`.
+    /// Equality intentionally ignores `enqueuedAt`, keeping dedup and TCA state-diffing keyed on
+    /// `id` + `endpoint` exactly as before this field existed. This is safe rather than a footgun
+    /// for value-equality consumers: `id` is a unique per-request identifier and `enqueuedAt` is
+    /// set once at creation and never mutated, so any two requests that compare equal already
+    /// carry the same `enqueuedAt` — there is no reachable state where excluding it hides a real
+    /// difference (e.g. a diff that would otherwise trigger a view update).
     public static func ==(lhs: KlaviyoRequest, rhs: KlaviyoRequest) -> Bool {
         lhs.id == rhs.id && lhs.endpoint == rhs.endpoint
     }

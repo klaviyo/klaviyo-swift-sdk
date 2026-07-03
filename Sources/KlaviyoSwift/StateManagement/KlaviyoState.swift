@@ -95,6 +95,12 @@ struct KlaviyoState: Equatable, Codable {
         let maxSize = StateManagementConstants.maxQueueSize
         environment.emitDeveloperWarning(
             "Request queue at capacity (\(maxSize)); evicting oldest request to make room.")
+        // Evict the oldest by wall-clock enqueue time. `min(by:)` returns the first minimal
+        // element, so ties — and legacy `.distantPast` entries carried across an app upgrade —
+        // break by front-most queue position (age order). A backwards clock correction (e.g. an
+        // NTP step) could momentarily mis-order two closely-spaced timestamps, but that only
+        // changes *which* near-oldest request is dropped at overflow; we accept wall-clock here
+        // rather than thread a monotonic sequence counter through every enqueue path.
         if let oldestIndex = queue.indices.min(by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }) {
             queue.remove(at: oldestIndex)
         }
