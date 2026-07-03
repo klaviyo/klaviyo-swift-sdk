@@ -508,7 +508,7 @@ struct KlaviyoReducer: ReducerProtocol {
              */
             let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
             if shouldPrioritize {
-                state.queue.insert(request, at: 0)
+                state.enqueuePriorityRequest(request: request)
             } else {
                 state.enqueueRequest(request: request)
             }
