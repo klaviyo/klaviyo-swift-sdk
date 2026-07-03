@@ -144,7 +144,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.sendRequest)
 
-        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
+        _ = await store.receive(.requestSucceeded(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
@@ -177,7 +177,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.sendRequest)
 
-        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
+        _ = await store.receive(.requestSucceeded(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
             $0.pushTokenData = KlaviyoState.PushTokenData(
@@ -210,7 +210,7 @@ class StateManagementTests: XCTestCase {
 
         await store.receive(.sendRequest)
 
-        _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
+        _ = await store.receive(.requestSucceeded(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
@@ -316,13 +316,13 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request)) {
+        await store.receive(.requestSucceeded(request)) {
             $0.flushing = true
             $0.requestsInFlight = [request2]
             $0.queue = []
         }
         await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request2)) {
+        await store.receive(.requestSucceeded(request2)) {
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
@@ -364,7 +364,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.sendRequest)
 
         // didn't fake uuid since we are not testing this.
-        await store.receive(.deQueueCompletedResults(request)) {
+        await store.receive(.requestSucceeded(request)) {
             $0.flushing = false
             $0.retryState = .retry(1)
             $0.requestsInFlight = []
@@ -414,24 +414,48 @@ class StateManagementTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
-        initialState.queue = [request]
+        let secondRequest = initialState.buildTokenRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!,
+            pushToken: "blob_token",
+            enablement: .authorized
+        )
+        initialState.queue = [request, secondRequest]
         initialState.circuitBreakerState = .open
         initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
         initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(-1)
+        initialState.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
             $0.circuitBreakerState = .halfOpen
             $0.requestsInFlight = [request]
+            $0.queue = [secondRequest]
+            $0.flushing = true
+        }
+        await store.receive(.sendRequest)
+        await store.receive(.requestSucceeded(request), timeout: TIMEOUT_NANOSECONDS) {
+            $0.circuitBreakerState = .closed
+            $0.circuitBreakerFailureCount = 0
+            $0.circuitBreakerOpenUntil = nil
+            $0.retryState = .retry(StateManagementConstants.initialAttempt)
+            $0.requestsInFlight = []
+            $0.flushing = false
+        }
+        await store.receive(.flushQueue) {
+            $0.requestsInFlight = [secondRequest]
             $0.queue = []
             $0.flushing = true
         }
         await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
-            $0.circuitBreakerState = .closed
-            $0.circuitBreakerFailureCount = 0
-            $0.circuitBreakerOpenUntil = nil
+        await store.receive(.requestSucceeded(secondRequest), timeout: TIMEOUT_NANOSECONDS) {
+            $0.pushTokenData = KlaviyoState.PushTokenData(
+                pushToken: "blob_token",
+                pushEnablement: .authorized,
+                pushBackground: .available,
+                deviceData: .init(context: environment.appContextInfo())
+            )
             $0.requestsInFlight = []
             $0.flushing = false
         }
@@ -483,7 +507,33 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
-    func testDeQueueCompletedResultsResetsCircuitBreaker() async throws {
+    func testRequestSucceededResetsCircuitBreaker() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.requestsInFlight = [request]
+        initialState.queue = []
+        initialState.retryState = .retry(3)
+        initialState.circuitBreakerState = .open
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.requestSucceeded(request)) {
+            $0.requestsInFlight = []
+            $0.retryState = .retry(StateManagementConstants.initialAttempt)
+            $0.circuitBreakerState = .closed
+            $0.circuitBreakerFailureCount = 0
+            $0.circuitBreakerOpenUntil = nil
+            $0.flushing = false
+        }
+    }
+
+    @MainActor
+    func testDeQueueCompletedResultsDoesNotResetCircuitBreaker() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(
             apiKey: initialState.apiKey!,
@@ -501,9 +551,6 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.deQueueCompletedResults(request)) {
             $0.requestsInFlight = []
             $0.retryState = .retry(StateManagementConstants.initialAttempt)
-            $0.circuitBreakerState = .closed
-            $0.circuitBreakerFailureCount = 0
-            $0.circuitBreakerOpenUntil = nil
             $0.flushing = false
         }
     }
@@ -639,7 +686,7 @@ class StateManagementTests: XCTestCase {
         }
 
         await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request!)) {
+        await store.receive(.requestSucceeded(request!)) {
             $0.requestsInFlight = $0.queue
             $0.flushing = false
             $0.pendingProfile = nil
@@ -903,7 +950,7 @@ class StateManagementTests: XCTestCase {
             XCTAssertEqual($0.requestsInFlight[2].id, existingRequest2.id, "Third request should be existing request 2")
         }
         await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(actualGeofenceRequest!)) {
+        await store.receive(.requestSucceeded(actualGeofenceRequest!)) {
             $0.requestsInFlight.removeAll { $0.id == actualGeofenceRequest!.id }
             $0.retryState = .retry(1)
             $0.flushing = false

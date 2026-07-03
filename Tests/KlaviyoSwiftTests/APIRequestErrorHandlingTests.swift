@@ -39,6 +39,28 @@ class APIRequestErrorHandlingTests: XCTestCase {
     }
 
     @MainActor
+    func testTerminalHttpFailureDoesNotResetCircuitBreaker() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        initialState.requestsInFlight = [request]
+        initialState.retryState = .retry(3)
+        initialState.circuitBreakerState = .open
+        initialState.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        initialState.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_RETURN_DATA)) }
+
+        _ = await store.send(.sendRequest)
+
+        await store.receive(.deQueueCompletedResults(request)) {
+            $0.flushing = false
+            $0.requestsInFlight = []
+            $0.retryState = .retry(StateManagementConstants.initialAttempt)
+        }
+    }
+
+    @MainActor
     func testSendRequestHttpFailureForPhoneNumberResetsStateAndDequesRequest() async throws {
         var initialState = INITIALIZED_TEST_STATE_INVALID_PHONE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -120,7 +142,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .success(Data()) }
         _ = await store.send(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestSucceeded(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.requestsInFlight = []
             $0.flushing = false
             $0.email = "foo@blob.com      "
