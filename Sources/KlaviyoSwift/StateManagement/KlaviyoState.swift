@@ -29,6 +29,12 @@ struct KlaviyoState: Equatable, Codable {
         case setPhoneNumber(String)
     }
 
+    enum CircuitBreakerState: Equatable {
+        case closed
+        case open
+        case halfOpen
+    }
+
     struct PushTokenData: Equatable, Codable {
         var pushToken: String
         var pushEnablement: PushEnablement
@@ -61,6 +67,9 @@ struct KlaviyoState: Equatable, Codable {
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
     var isProcessingDeepLink = false
+    var circuitBreakerState = CircuitBreakerState.closed
+    var circuitBreakerFailureCount = 0
+    var circuitBreakerOpenUntil: Date?
 
     enum CodingKeys: CodingKey {
         case apiKey
@@ -340,6 +349,71 @@ struct KlaviyoState: Equatable, Codable {
         )
         let endpoint = KlaviyoEndpoint.unregisterPushToken(apiKey, payload)
         return KlaviyoRequest(endpoint: endpoint)
+    }
+}
+
+extension KlaviyoState {
+    var circuitBreakerRemainingOpenInterval: TimeInterval {
+        guard circuitBreakerState == .open,
+              let circuitBreakerOpenUntil else {
+            return 0
+        }
+
+        return max(circuitBreakerOpenUntil.timeIntervalSince(environment.date()), 0)
+    }
+
+    mutating func currentCircuitBreakerState() -> CircuitBreakerState {
+        guard StateManagementConstants.circuitBreakerFailureThreshold > 0 else {
+            resetCircuitBreaker()
+            return .closed
+        }
+
+        guard circuitBreakerState == .open else {
+            return circuitBreakerState
+        }
+
+        guard let circuitBreakerOpenUntil else {
+            resetCircuitBreaker()
+            return .closed
+        }
+
+        if environment.date() >= circuitBreakerOpenUntil {
+            circuitBreakerState = .halfOpen
+        }
+
+        return circuitBreakerState
+    }
+
+    mutating func recordCircuitBreakerFailure() {
+        guard StateManagementConstants.circuitBreakerFailureThreshold > 0 else {
+            resetCircuitBreaker()
+            return
+        }
+
+        circuitBreakerFailureCount += 1
+        if circuitBreakerFailureCount >= StateManagementConstants.circuitBreakerFailureThreshold {
+            openCircuitBreaker()
+        }
+    }
+
+    mutating func resetCircuitBreaker() {
+        circuitBreakerState = .closed
+        circuitBreakerFailureCount = 0
+        circuitBreakerOpenUntil = nil
+    }
+
+    private mutating func openCircuitBreaker() {
+        let threshold = StateManagementConstants.circuitBreakerFailureThreshold
+        let failuresPastThreshold = max(circuitBreakerFailureCount - threshold, 0)
+        let exponentialInterval = StateManagementConstants.circuitBreakerBaseOpenInterval
+            * pow(2.0, Double(failuresPastThreshold))
+        let openInterval = min(
+            exponentialInterval,
+            StateManagementConstants.circuitBreakerMaxOpenInterval
+        ) + TimeInterval(environment.randomInt())
+
+        circuitBreakerState = .open
+        circuitBreakerOpenUntil = environment.date().addingTimeInterval(openInterval)
     }
 }
 
