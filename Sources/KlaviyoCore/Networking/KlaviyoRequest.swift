@@ -18,17 +18,52 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// The API endpoint this request targets.
     public let endpoint: KlaviyoEndpoint
 
+    /// The time at which this request was added to the send queue.
+    ///
+    /// Used to evict the oldest request when the queue reaches capacity. This mirrors
+    /// the Android SDK's `queuedTime`. Defaults to the current time when the request
+    /// is created.
+    public let enqueuedAt: Date
+
     /// Creates a new request to the Klaviyo API.
     ///
     /// - Parameters:
     ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
     ///   - endpoint: The endpoint this request will target.
+    ///   - enqueuedAt: The time this request was enqueued. Defaults to the current time.
     public init(
         id: String = environment.uuid().uuidString,
-        endpoint: KlaviyoEndpoint
+        endpoint: KlaviyoEndpoint,
+        enqueuedAt: Date = environment.date()
     ) {
         self.id = id
         self.endpoint = endpoint
+        self.enqueuedAt = enqueuedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case endpoint
+        case enqueuedAt
+    }
+
+    /// Custom decoding that stays backward compatible with queues persisted before
+    /// `enqueuedAt` existed (e.g. requests carried across an app upgrade). A missing
+    /// timestamp defaults to `Date.distantPast` so these legacy requests sort as the
+    /// oldest and are evicted first under overflow. Because `min(by:)` returns the first
+    /// minimal element, legacy entries tie-break by queue position (front-most first),
+    /// which preserves their original age order.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        endpoint = try container.decode(KlaviyoEndpoint.self, forKey: .endpoint)
+        enqueuedAt = try container.decodeIfPresent(Date.self, forKey: .enqueuedAt) ?? .distantPast
+    }
+
+    /// Equality intentionally ignores `enqueuedAt` so introducing the timestamp does not
+    /// change dedup or state-comparison semantics — requests are identified by `id` + `endpoint`.
+    public static func ==(lhs: KlaviyoRequest, rhs: KlaviyoRequest) -> Bool {
+        lhs.id == rhs.id && lhs.endpoint == rhs.endpoint
     }
 
     /// Converts this Klaviyo request into a URLRequest with proper attempt tracking headers.

@@ -73,13 +73,31 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
-        if queue.count >= StateManagementConstants.maxQueueSize {
-            let maxSize = StateManagementConstants.maxQueueSize
-            environment.emitDeveloperWarning(
-                "Request queue at capacity (\(maxSize)); evicting oldest request to make room.")
-            queue.removeFirst()
-        }
+        evictOldestIfAtCapacity()
         queue.append(request)
+    }
+
+    /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
+    /// geofence events that should flush immediately), enforcing the same capacity cap as
+    /// ``enqueueRequest(request:)``. The oldest request is evicted first (when full) so this
+    /// prioritized request — which carries the newest timestamp — is never the one dropped.
+    mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
+        evictOldestIfAtCapacity()
+        queue.insert(request, at: 0)
+    }
+
+    /// Evicts the oldest queued request (by `enqueuedAt`) when the queue is at or above
+    /// capacity, making room for one more. Call this *before* adding a new request so the
+    /// request being added is never the one evicted. Prioritized events are inserted at the
+    /// front but carry the newest timestamp, so they are never selected as the oldest.
+    mutating func evictOldestIfAtCapacity() {
+        guard queue.count >= StateManagementConstants.maxQueueSize else { return }
+        let maxSize = StateManagementConstants.maxQueueSize
+        environment.emitDeveloperWarning(
+            "Request queue at capacity (\(maxSize)); evicting oldest request to make room.")
+        if let oldestIndex = queue.indices.min(by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }) {
+            queue.remove(at: oldestIndex)
+        }
     }
 
     mutating func updateEmail(email: String) {
