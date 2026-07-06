@@ -31,10 +31,6 @@ package enum KlaviyoInternal {
 
     private static var sharedStoresCancellable: Cancellable?
 
-    private static let profileEventSubject = PassthroughSubject<Event, Never>()
-    private static var profileEventCancellable: Cancellable?
-    private static let eventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)
-
     // MARK: - API Key methods
 
     // Setup the profile data subject to receive updates from the state publisher
@@ -196,41 +192,19 @@ package enum KlaviyoInternal {
 
     // MARK: - Profile Event methods
 
-    /// Publishes an event to subscribers and also buffers it for replay to future subscribers.
-    ///
+    /// Publishes an event to the KlaviyoCore event bus after enriching it with metadata.
     /// - Parameter event: the profile event to publish
     internal static func publishEvent(_ event: Event) {
-        let enrichedEvent = enrichEventWithMetadata(event)
-        eventBuffer.buffer(enrichedEvent)
-        profileEventSubject.send(enrichedEvent)
+        EventBus.shared.publish(enrichEventWithMetadata(event))
     }
 
-    /// A publisher that emits events when they are created.
-    ///
-    /// Replays recently buffered events (up to 10 events or 10 seconds old) to new subscribers,
-    /// then continues emitting new events as they are published. This handles the race condition
-    /// where events may be published before subscribers (e.g., "Opened Push" before forms initialization).
-    ///
-    /// - Returns: A publisher that emits profile events plus any buffered events
-    package static func eventPublisher() -> AnyPublisher<Event, Never> {
-        Deferred {
-            let buffered = eventBuffer.getRecentEvents()
-            return profileEventSubject
-                .prepend(buffered) // guaranteed order: replay first, then live
-        }
-        .eraseToAnyPublisher()
-    }
+    /// No-op. The event-reset mechanism moves onto KlaviyoCore in MAGE-834.
+    // TODO(MAGE-834): fold reset semantics into the KlaviyoCore stores/bus.
+    package static func resetEventSubject() {}
 
-    /// Resets the profile event subject to its initial state.
-    package static func resetEventSubject() {
-        profileEventCancellable?.cancel()
-        profileEventCancellable = nil
-    }
-
-    /// Clears the event buffer to ensure clean state between tests.
-    /// This prevents events from previous tests from being replayed in new tests.
+    /// Clears the event bus replay buffer to ensure clean state between tests.
     package static func clearEventBuffer() {
-        eventBuffer.clear()
+        EventBus.shared.clearBuffer()
     }
 
     /// Enriches an event with metadata (device info, SDK info, etc.)
