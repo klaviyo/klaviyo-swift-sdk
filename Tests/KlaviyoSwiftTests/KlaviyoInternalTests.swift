@@ -431,7 +431,7 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Event Publishing Tests
 
     @MainActor
-    func testEventPublisher_emitsEventWithProperties() throws {
+    func testPublishEvent_emitsEventWithProperties() throws {
         // Given: Set up a mock to capture published events
         var publishedEvents: [Event] = []
         let initialState = KlaviyoState(

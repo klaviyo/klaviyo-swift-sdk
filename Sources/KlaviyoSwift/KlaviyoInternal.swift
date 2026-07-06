@@ -198,8 +198,8 @@ package enum KlaviyoInternal {
         EventBus.shared.publish(enrichEventWithMetadata(event))
     }
 
-    /// No-op. The event-reset mechanism moves onto KlaviyoCore in MAGE-834.
     // TODO(MAGE-834): fold reset semantics into the KlaviyoCore stores/bus.
+    /// No-op. The event-reset mechanism moves onto KlaviyoCore in MAGE-834.
     package static func resetEventSubject() {}
 
     /// Clears the event bus replay buffer to ensure clean state between tests.
