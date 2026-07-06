@@ -189,16 +189,16 @@ final class DeepLinkHandlingTests: XCTestCase {
         let actionReceived = expectation(description: "openWebUrl action received for mailto:")
         let originalSend = klaviyoSwiftEnvironment.send
         klaviyoSwiftEnvironment.send = { action in
-            if case let .openWebUrl(url) = action {
-                XCTAssertEqual(url, expectedURL, "Should dispatch openWebUrl with mailto: URL")
+            if case let .openWebUrl(dispatchedUrl) = action {
+                XCTAssertEqual(dispatchedUrl, expectedURL, "Should dispatch openWebUrl with mailto: URL")
                 actionReceived.fulfill()
                 return nil
             }
             return originalSend(action)
         }
 
-        let sdk = KlaviyoSDK()
-        let result = sdk.handle(notificationResponse: response, withCompletionHandler: {
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
             completionCalled.fulfill()
         })
 
@@ -224,16 +224,16 @@ final class DeepLinkHandlingTests: XCTestCase {
         let actionReceived = expectation(description: "openWebUrl action received for tel:")
         let originalSend = klaviyoSwiftEnvironment.send
         klaviyoSwiftEnvironment.send = { action in
-            if case let .openWebUrl(url) = action {
-                XCTAssertEqual(url, expectedURL, "Should dispatch openWebUrl with tel: URL")
+            if case let .openWebUrl(dispatchedUrl) = action {
+                XCTAssertEqual(dispatchedUrl, expectedURL, "Should dispatch openWebUrl with tel: URL")
                 actionReceived.fulfill()
                 return nil
             }
             return originalSend(action)
         }
 
-        let sdk = KlaviyoSDK()
-        let result = sdk.handle(notificationResponse: response, withCompletionHandler: {
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
             completionCalled.fulfill()
         })
 
