@@ -807,7 +807,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 }
 
 extension Event.EventName: CaseIterable {
-    public static var allCases: [KlaviyoSwift.Event.EventName] {
+    public static var allCases: [KlaviyoCore.Event.EventName] {
         [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
     }
 }
