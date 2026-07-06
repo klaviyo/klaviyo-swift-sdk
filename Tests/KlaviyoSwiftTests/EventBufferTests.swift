@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class EventBufferTests: XCTestCase {
