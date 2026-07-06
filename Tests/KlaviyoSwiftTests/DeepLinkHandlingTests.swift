@@ -171,6 +171,99 @@ final class DeepLinkHandlingTests: XCTestCase {
         klaviyoSwiftEnvironment.send = originalSend
     }
 
+    // MARK: - open_url with allowlisted non-web schemes
+
+    @MainActor
+    func testHandleNotificationResponseDispatchesOpenWebUrlForMailtoWebUrl() async throws {
+        let urlString = "mailto:support@example.com"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        let completionCalled = expectation(description: "completion handler called")
+        let actionReceived = expectation(description: "openWebUrl action received for mailto:")
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .openWebUrl(dispatchedUrl) = action {
+                XCTAssertEqual(dispatchedUrl, expectedURL, "Should dispatch openWebUrl with mailto: URL")
+                actionReceived.fulfill()
+                return nil
+            }
+            return originalSend(action)
+        }
+
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
+
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, actionReceived], timeout: 1.0)
+
+        klaviyoSwiftEnvironment.send = originalSend
+    }
+
+    @MainActor
+    func testHandleNotificationResponseDispatchesOpenWebUrlForTelWebUrl() async throws {
+        let urlString = "tel:+15551234567"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        let completionCalled = expectation(description: "completion handler called")
+        let actionReceived = expectation(description: "openWebUrl action received for tel:")
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .openWebUrl(dispatchedUrl) = action {
+                XCTAssertEqual(dispatchedUrl, expectedURL, "Should dispatch openWebUrl with tel: URL")
+                actionReceived.fulfill()
+                return nil
+            }
+            return originalSend(action)
+        }
+
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
+
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, actionReceived], timeout: 1.0)
+
+        klaviyoSwiftEnvironment.send = originalSend
+    }
+
+    @MainActor
+    func testHandleNotificationResponseDropsBlockedSchemeWebUrl() throws {
+        // javascript: is a blocked scheme — the gate is the synchronous klaviyoWebUrl
+        // property, and resolveOpenAction only dispatches .openWebUrl when it is non-nil
+        // (positive dispatch coverage in the mailto:/tel: tests above). handle still
+        // returns true: it is a valid Klaviyo notification, it just takes no open action.
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": "javascript:alert(1)"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+
+        environment.linkHandler.unregisterCustomHandler()
+
+        XCTAssertNil(response.klaviyoWebUrl, "Blocked scheme must not produce a web URL")
+
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {})
+        XCTAssertTrue(result, "Klaviyo notification is still handled; it just takes no open action")
+    }
+
     // MARK: - TCA State Management Tests
 
     @MainActor

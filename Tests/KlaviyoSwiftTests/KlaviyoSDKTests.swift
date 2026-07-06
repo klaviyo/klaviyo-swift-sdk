@@ -646,4 +646,57 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString)
         }
     }
+
+    func testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionURL = try XCTUnwrap(URL(string: "javascript:alert(1)"))
+        let actionId = "com.klaviyo.test.blocked"
+        let buttonLabel = "Bad Button"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_open_url_blocked",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_url",
+                        "url": actionURL.absoluteString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            return nil
+        }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        let webUrlDispatched = capturedActions.contains { action in
+            if case .openWebUrl = action { return true }
+            return false
+        }
+        XCTAssertFalse(webUrlDispatched, "Should not dispatch .openWebUrl for a blocked scheme")
+
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Tap should still be tracked even when the scheme is blocked")
+    }
 }
