@@ -55,7 +55,7 @@ jobs:
               --field body="${MARKER}
           **:warning: This PR needs to target a release branch before it can merge to \`master\`.**
 
-          All changes — including hotfixes, dependency bumps, and feature work — should flow through a \`rel/*\` branch rather than merging directly to \`master\`. This keeps commit history clean and ensures every change is tied to a release.
+          All changes — including hotfixes and feature work — should flow through a \`rel/*\` branch rather than merging directly to \`master\`. This keeps commit history clean and ensures every change is tied to a release.
 
           **To fix:** change the base branch of this PR to the appropriate \`rel/*\` branch when available. You can do this without closing the PR — use the base branch dropdown at the top of the PR.
 
