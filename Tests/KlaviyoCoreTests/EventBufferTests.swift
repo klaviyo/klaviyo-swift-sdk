@@ -97,8 +97,8 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(Event(name: .customEvent("old_event")))
 
         // When - fill buffer to capacity
-        for i in 1...5 {
-            eventBuffer.buffer(Event(name: .customEvent("event_\(i)")))
+        for iter in 1...5 {
+            eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
         }
 
         // Wait for async buffer operations to complete
@@ -193,8 +193,8 @@ class EventBufferTests: XCTestCase {
 
         // When - write and read concurrently
         DispatchQueue.global().async {
-            for i in 0..<50 {
-                self.eventBuffer.buffer(Event(name: .customEvent("event_\(i)")))
+            for iter in 0..<50 {
+                self.eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
             }
             // Add small delay to allow async buffer operations to settle
             Thread.sleep(forTimeInterval: 0.25)
