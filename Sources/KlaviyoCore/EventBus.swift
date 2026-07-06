@@ -27,7 +27,7 @@ public final class EventBus: EventPublishing, EventBroadcasting {
     private let buffer: EventBuffer
 
     // `init` is accessible so tests exercise a fresh bus rather than mutating `shared`.
-    init(buffer: EventBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 10)) {
+    init(buffer: EventBuffer = EventBuffer()) {
         self.buffer = buffer
     }
 
