@@ -7,7 +7,6 @@
 
 import Combine
 import Foundation
-import KlaviyoCore
 import OSLog
 
 // MARK: - Logger
@@ -19,7 +18,7 @@ extension Logger {
 
 /// Manages a thread-safe buffer of recent events for replay to new subscribers.
 /// This handles race conditions where events may be published before subscribers exist.
-final class EventBuffer {
+package final class EventBuffer {
     // MARK: - Properties
 
     private struct BufferedEvent {
@@ -38,7 +37,7 @@ final class EventBuffer {
     /// - Parameters:
     ///   - maxBufferSize: Maximum number of events to keep (default: 10)
     ///   - maxBufferAge: Maximum age of events to keep in seconds (default: 10)
-    init(maxBufferSize: Int = 10, maxBufferAge: TimeInterval = 10) {
+    package init(maxBufferSize: Int = 10, maxBufferAge: TimeInterval = 10) {
         self.maxBufferSize = maxBufferSize
         self.maxBufferAge = maxBufferAge
     }
@@ -47,7 +46,7 @@ final class EventBuffer {
 
     /// Adds an event to the buffer, maintaining size and age limits.
     /// - Parameter event: The event to buffer
-    func buffer(_ event: Event) {
+    package func buffer(_ event: Event) {
         if #available(iOS 14.0, *) {
             Logger.eventBuffer.info("📤 Buffering event: \(event.metric.name.value, privacy: .public)")
         }
@@ -75,7 +74,7 @@ final class EventBuffer {
 
     /// Gets recent events from the buffer (within maxBufferAge).
     /// - Returns: Array of buffered events that haven't expired
-    func getRecentEvents() -> [Event] {
+    package func getRecentEvents() -> [Event] {
         queue.sync {
             let now = ProcessInfo.processInfo.systemUptime
             let recentEvents = buffer
@@ -96,7 +95,7 @@ final class EventBuffer {
 
     /// Clears all events from the buffer.
     /// This is useful for testing to ensure clean state between tests.
-    func clear() {
+    package func clear() {
         queue.async(flags: .barrier) { [weak self] in
             guard let self else { return }
             self.buffer.removeAll()

@@ -5,9 +5,8 @@
 //  Created by Ajay Subramanya on 10/7/25.
 //
 
-@testable import KlaviyoSwift
+@testable import KlaviyoCore
 import Foundation
-import KlaviyoCore
 import XCTest
 
 class EventBufferTests: XCTestCase {
