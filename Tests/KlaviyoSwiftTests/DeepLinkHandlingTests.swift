@@ -244,9 +244,11 @@ final class DeepLinkHandlingTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleNotificationResponseDropsBlockedSchemeWebUrl() async throws {
-        // javascript: is a blocked scheme — the notification should be dropped silently
-        // (handle returns false because there's no recognized URL to act on).
+    func testHandleNotificationResponseDropsBlockedSchemeWebUrl() throws {
+        // javascript: is a blocked scheme — the gate is the synchronous klaviyoWebUrl
+        // property, and resolveOpenAction only dispatches .openWebUrl when it is non-nil
+        // (positive dispatch coverage in the mailto:/tel: tests above). handle still
+        // returns true: it is a valid Klaviyo notification, it just takes no open action.
         let userInfo: [AnyHashable: Any] = [
             "body": ["_k": "1"],
             "web_url": "javascript:alert(1)"
@@ -255,24 +257,11 @@ final class DeepLinkHandlingTests: XCTestCase {
 
         environment.linkHandler.unregisterCustomHandler()
 
-        let sdk = KlaviyoSDK()
+        XCTAssertNil(response.klaviyoWebUrl, "Blocked scheme must not produce a web URL")
 
-        var openWebUrlDispatched = false
-        let originalSend = klaviyoSwiftEnvironment.send
-        klaviyoSwiftEnvironment.send = { action in
-            if case .openWebUrl = action {
-                openWebUrlDispatched = true
-            }
-            return originalSend(action)
-        }
-
-        _ = sdk.handle(notificationResponse: response, withCompletionHandler: {})
-
-        // Give time for any async dispatch to land
-        try await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertFalse(openWebUrlDispatched, "Blocked scheme must not dispatch openWebUrl")
-
-        klaviyoSwiftEnvironment.send = originalSend
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {})
+        XCTAssertTrue(result, "Klaviyo notification is still handled; it just takes no open action")
     }
 
     // MARK: - TCA State Management Tests
