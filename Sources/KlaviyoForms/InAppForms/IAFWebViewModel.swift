@@ -375,6 +375,52 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     )
                 }
             }
+        case let .openExternalUrl(url, formId, formName, buttonLabel):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Received 'openExternalUrl' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
+            }
+
+            // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
+            guard let url = url, !url.absoluteString.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "CTA clicked but no external URL configured — skipping navigation"
+                    )
+                }
+                return
+            }
+
+            // 2. Validate scheme against allowlist
+            guard URLSchemeAllowlist.isAllowed(scheme: url.scheme) else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)")
+                }
+                return
+            }
+
+            // 3. Open URL in Safari (bypass deep link handler)
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Opening external URL '\(url, privacy: .public)' in Safari")
+            }
+            environment.linkHandler.openExternalURL(url)
+
+            // 4. Invoke lifecycle handler when form identity fields are present
+            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
+            if let formId, !formId.isEmpty,
+               let formName, !formName.isEmpty {
+                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formExternalUrlClicked(
+                    formId: formId,
+                    formName: formName,
+                    buttonLabel: buttonLabel ?? "",
+                    url: url
+                ))
+            } else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "openExternalUrl missing metadata — skipping lifecycle callback"
+                    )
+                }
+            }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'abort' event from KlaviyoJS with reason: \(reason, privacy: .public)")
