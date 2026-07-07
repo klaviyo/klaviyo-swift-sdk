@@ -67,7 +67,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
-        KlaviyoInternal.setupSharedStores()
+        SharedStoreMirror.setup()
         dispatchOnMainThread(action: .initialize(apiKey))
         return self
     }

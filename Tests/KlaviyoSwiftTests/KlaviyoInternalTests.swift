@@ -28,7 +28,7 @@ final class KlaviyoInternalTests: XCTestCase {
         KlaviyoInternal.clearEventBuffer()
         // resetProfileDataSubject() no longer detaches the mirror or clears the stores (MAGE-750);
         // do it explicitly here so each test starts detached + empty.
-        KlaviyoInternal.resetSharedStores()
+        SharedStoreMirror.reset()
     }
 
     // MARK: - Profile Data Tests
@@ -812,43 +812,6 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Shared store wiring
 
     @MainActor
-    func testSetupSharedStoresPushesIdentityOnChange() throws {
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
-        KlaviyoInternal.setupSharedStores()
-
-        _ = testStore.send(.setEmail("wired@example.com"))
-
-        let expectation = XCTestExpectation(description: "IdentityStore reflects email")
-        DispatchQueue.main.async {
-            XCTAssertEqual(IdentityStore.shared.current.email, "wired@example.com")
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    @MainActor
-    func testSetupSharedStoresPushesAPIKeyOnChange() throws {
-        // `.test` state is already `.initialized` with apiKey "foo".
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
-        let expectation = XCTestExpectation(description: "SDKConfigStore reflects api key")
-        SDKConfigStore.shared.publisher
-            .dropFirst() // skip the CurrentValueSubject's initial emission
-            .sink { config in
-                if config.apiKey == "foo" { expectation.fulfill() }
-            }
-            .store(in: &cancellables)
-
-        KlaviyoInternal.setupSharedStores()
-
-        wait(for: [expectation], timeout: 1.0)
-        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "foo")
-    }
-
-    @MainActor
     func testResetPreservesSharedStoreMirror() throws {
         // Regression guard (MAGE-750): In-App Forms teardown calls `resetProfileDataSubject()`,
         // but the shared-store mirror is global SDK state and must survive it. Consumers
@@ -858,7 +821,7 @@ final class KlaviyoInternalTests: XCTestCase {
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        KlaviyoInternal.setupSharedStores()
+        SharedStoreMirror.setup()
         _ = testStore.send(.setEmail("wired@example.com"))
 
         let mirrored = XCTestExpectation(description: "identity mirrored before reset")
