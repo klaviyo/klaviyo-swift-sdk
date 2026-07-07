@@ -280,6 +280,24 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertFalse(middleUResult, "Should return false for path with /u/ in the middle")
     }
 
+    // MARK: - EventDispatcher Registration Tests
+
+    func testKlaviyoSDKInitRegistersAggregateEventDispatch() {
+        _ = KlaviyoSDK() // registration happens in init
+        let payload = Data("agg".utf8)
+        let expectation = setupActionAssertion(expectedAction: .enqueueAggregateEvent(payload))
+        EventDispatcher.shared.dispatch(.aggregateEvent(payload))
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testKlaviyoSDKInitRegistersDeepLinkDispatch() {
+        _ = KlaviyoSDK()
+        let url = URL(string: "https://example.com")!
+        let expectation = setupActionAssertion(expectedAction: .openDeepLink(url))
+        EventDispatcher.shared.dispatch(.deepLink(url))
+        wait(for: [expectation], timeout: 1.0)
+    }
+
     // MARK: - Deep Link Handler Registration Tests
 
     func testRegisterDeepLinkHandler() {
