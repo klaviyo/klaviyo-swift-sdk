@@ -48,7 +48,8 @@ extension KlaviyoSDK {
     /// The handler will be invoked when:
     /// - A form is shown (``FormLifecycleEvent/formShown(formId:formName:)``)
     /// - A form is dismissed (``FormLifecycleEvent/formDismissed(formId:formName:)``)
-    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)`` for deep links or ``FormLifecycleEvent/formExternalUrlClicked(formId:formName:buttonLabel:url:)`` for external URLs)
+    /// - A user taps a deep link CTA (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
+    /// - A user taps an external URL CTA (``FormLifecycleEvent/formExternalUrlClicked(formId:formName:buttonLabel:url:)``)
     ///
     /// Each event case carries contextual data including `formId`, `formName`, and
     /// CTA-specific fields (`buttonLabel`, `deepLinkUrl` or `url`) where applicable.

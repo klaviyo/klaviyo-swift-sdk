@@ -449,17 +449,4 @@ final class FormLifecycleHandlerTests: XCTestCase {
         XCTAssertEqual(event.eventName, "formExternalUrlClicked")
     }
 
-    func testFormExternalUrlClickedEquality() {
-        let url1 = URL(string: "https://example.com")!
-        let url2 = URL(string: "https://example.com")!
-
-        let event1 = FormLifecycleEvent.formExternalUrlClicked(
-            formId: "form1", formName: "Form1", buttonLabel: "Click", url: url1
-        )
-        let event2 = FormLifecycleEvent.formExternalUrlClicked(
-            formId: "form1", formName: "Form1", buttonLabel: "Click", url: url2
-        )
-
-        XCTAssertEqual(event1, event2)
-    }
 }

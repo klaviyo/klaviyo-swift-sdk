@@ -359,25 +359,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
 
             // 3. Invoke lifecycle handler when form identity fields are present
-            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                    formId: formId,
-                    formName: formName,
+            invokeCtaLifecycleHandler(eventName: "openDeepLink", formId: formId, formName: formName) {
+                .formCtaClicked(
+                    formId: $0,
+                    formName: $1,
                     buttonLabel: buttonLabel ?? "",
                     deepLinkUrl: url
-                ))
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "openDeepLink missing metadata — skipping lifecycle callback"
-                    )
-                }
+                )
             }
         case let .openExternalUrl(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openExternalUrl' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
+                Logger.webViewLogger.info(
+                    "Received 'openExternalUrl' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)"
+                )
             }
 
             // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
@@ -391,35 +385,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
 
             // 2. Validate scheme against allowlist
-            guard URLSchemeAllowlist.isAllowed(scheme: url.scheme) else {
+            guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)")
+                    Logger.webViewLogger.warning(
+                        "Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)"
+                    )
                 }
                 return
             }
 
-            // 3. Open URL in Safari (bypass deep link handler)
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Opening external URL '\(url, privacy: .public)' in Safari")
+            // 3. Open URL externally (bypasses any registered deep link handler)
+            Task {
+                await environment.linkHandler.openExternalURL(url)
             }
-            environment.linkHandler.openExternalURL(url)
 
             // 4. Invoke lifecycle handler when form identity fields are present
-            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formExternalUrlClicked(
-                    formId: formId,
-                    formName: formName,
+            invokeCtaLifecycleHandler(eventName: "openExternalUrl", formId: formId, formName: formName) {
+                .formExternalUrlClicked(
+                    formId: $0,
+                    formName: $1,
                     buttonLabel: buttonLabel ?? "",
                     url: url
-                ))
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "openExternalUrl missing metadata — skipping lifecycle callback"
-                    )
-                }
+                )
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
@@ -442,5 +429,26 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .profileMutation:
             ()
         }
+    }
+
+    /// Invokes the form lifecycle handler for a CTA tap when form identity fields are present.
+    /// buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click.
+    @MainActor
+    private func invokeCtaLifecycleHandler(
+        eventName: String,
+        formId: String?,
+        formName: String?,
+        makeEvent: (_ formId: String, _ formName: String) -> FormLifecycleEvent
+    ) {
+        guard let formId, !formId.isEmpty,
+              let formName, !formName.isEmpty else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "\(eventName, privacy: .public) missing metadata — skipping lifecycle callback"
+                )
+            }
+            return
+        }
+        IAFPresentationManager.shared.invokeLifecycleHandler(for: makeEvent(formId, formName))
     }
 }

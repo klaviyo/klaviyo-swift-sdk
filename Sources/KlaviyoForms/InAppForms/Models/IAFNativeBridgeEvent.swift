@@ -71,9 +71,14 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
             self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
         case .openExternalUrl:
-            let payload = try? container.decode(ExternalUrlEventPayload.self, forKey: .data)
+            let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
-            self = .openExternalUrl(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
+            self = .openExternalUrl(
+                url: url,
+                formId: payload?.formId,
+                formName: payload?.formName,
+                buttonLabel: payload?.buttonLabel
+            )
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -103,14 +108,8 @@ extension IAFNativeBridgeEvent {
         let formName: String?
     }
 
+    /// Shared payload shape for CTA link events (`openDeepLink` and `openExternalUrl`).
     struct DeepLinkEventPayload: Decodable {
-        let ios: String?
-        let formId: String?
-        let formName: String?
-        let buttonLabel: String?
-    }
-
-    struct ExternalUrlEventPayload: Decodable {
         let ios: String?
         let formId: String?
         let formName: String?

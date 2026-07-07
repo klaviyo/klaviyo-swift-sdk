@@ -150,7 +150,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"openExternalUrl","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -350,127 +350,95 @@ final class IAFWebViewModelTests: XCTestCase {
         lifecycleTask.cancel()
     }
 
-    @MainActor
-    func testHandleOpenExternalUrlWithValidUrl() async throws {
-        // Given
-        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
-        viewModel.delegate = mockDelegate
-        let expectation = XCTestExpectation(description: "openExternalUrl handled")
-        let externalUrl = "https://example.com"
+    // MARK: - openExternalUrl Tests
 
-        var lifecycleEventFired = false
+    private func makeOpenExternalUrlMessage(
+        ios: String? = "https://example.com",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Learn More"
+    ) -> MockWKScriptMessage {
+        var data: [String: String] = [:]
+        data["ios"] = ios
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openExternalUrl\", \"data\": { \(dataJson) } }"
+        )
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlFiresLifecycleEvent() async throws {
+        // Given
+        var receivedEvent: FormLifecycleEvent?
         IAFPresentationManager.shared.registerFormLifecycleHandler { event in
-            if case let .formExternalUrlClicked(formId, formName, _, _) = event {
-                if formId == "form123" && formName == "Newsletter" {
-                    lifecycleEventFired = true
-                    expectation.fulfill()
-                }
-            }
+            receivedEvent = event
         }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        let scriptMessage = MockWKScriptMessage(
-            name: "KlaviyoNativeBridge",
-            body: """
-            {
-              "type": "openExternalUrl",
-              "data": {
-                "ios": "\(externalUrl)",
-                "android": "\(externalUrl)",
-                "formId": "form123",
-                "formName": "Newsletter",
-                "buttonLabel": "Learn More"
-              }
-            }
-            """
-        )
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
 
-        viewModel.handleScriptMessage(scriptMessage)
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        XCTAssertTrue(lifecycleEventFired, "Lifecycle event should be fired with form metadata")
+        // Then — the handler path is synchronous, so assert immediately
+        guard case let .formExternalUrlClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formExternalUrlClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Learn More")
+        XCTAssertEqual(url, URL(string: "https://example.com"))
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithoutFormMetadata() async throws {
+    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() async throws {
         // Given
-        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
-        viewModel.delegate = mockDelegate
-        let externalUrl = "https://example.com"
-
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
             lifecycleEventFired = true
         }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        let scriptMessage = MockWKScriptMessage(
-            name: "KlaviyoNativeBridge",
-            body: """
-            {
-              "type": "openExternalUrl",
-              "data": {
-                "ios": "\(externalUrl)",
-                "android": "\(externalUrl)"
-              }
-            }
-            """
-        )
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(formId: nil, formName: nil))
 
-        viewModel.handleScriptMessage(scriptMessage)
-
-        // Then - wait briefly to confirm lifecycle event is NOT fired
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
-        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not be fired without form metadata")
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire without form metadata")
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithMissingUrl() async throws {
+    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() async throws {
         // Given
-        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
-        viewModel.delegate = mockDelegate
-
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
             lifecycleEventFired = true
         }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        let scriptMessage = MockWKScriptMessage(
-            name: "KlaviyoNativeBridge",
-            body: """
-            {
-              "type": "openExternalUrl",
-              "data": {
-                "formId": "form123",
-                "formName": "Newsletter"
-              }
-            }
-            """
-        )
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(ios: nil))
 
-        viewModel.handleScriptMessage(scriptMessage)
-
-        // Then - wait briefly to confirm lifecycle event is NOT fired
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
-        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not be fired with nil URL")
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire with nil URL")
     }
 
     @MainActor
-    func testHandshakeIncludesOpenExternalUrl() {
+    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() async throws {
         // Given
-        let handshakeScript = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
-            .findScript(containing: "data-native-bridge-handshake")
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        let handshakeAttribute = handshakeScript?.source ?? ""
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(ios: "javascript://alert(1)"))
 
         // Then
-        XCTAssertTrue(
-            handshakeAttribute.contains("openExternalUrl"),
-            "Handshake should include openExternalUrl event type"
-        )
+        XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 }
 

@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"openExternalUrl","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -711,20 +711,5 @@ struct IAFNativeBridgeEventTests {
         #expect(url == nil)
     }
 
-    @Test
-    func testHandshakeIncludesOpenExternalUrl() async throws {
-        let handshake = IAFNativeBridgeEvent.handshake
-        let data = try #require(handshake.data(using: .utf8))
-
-        struct HandshakeEvent: Codable {
-            let type: String
-            let version: Int
-        }
-
-        let events = try JSONDecoder().decode([HandshakeEvent].self, from: data)
-        let hasOpenExternalUrl = events.contains { $0.type == "openExternalUrl" }
-
-        #expect(hasOpenExternalUrl)
-    }
 }
 #endif
