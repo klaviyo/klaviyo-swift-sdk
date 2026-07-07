@@ -48,10 +48,10 @@ extension KlaviyoSDK {
     /// The handler will be invoked when:
     /// - A form is shown (``FormLifecycleEvent/formShown(formId:formName:)``)
     /// - A form is dismissed (``FormLifecycleEvent/formDismissed(formId:formName:)``)
-    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
+    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)`` for deep links or ``FormLifecycleEvent/formExternalUrlClicked(formId:formName:buttonLabel:url:)`` for external URLs)
     ///
     /// Each event case carries contextual data including `formId`, `formName`, and
-    /// CTA-specific fields (`buttonLabel`, `deepLinkUrl`) where applicable.
+    /// CTA-specific fields (`buttonLabel`, `deepLinkUrl` or `url`) where applicable.
     ///
     /// The handler is called on the main thread.
     ///
@@ -64,9 +64,16 @@ extension KlaviyoSDK {
     ///     case .formDismissed(let formId, let formName):
     ///         Analytics.track("Form Dismissed", properties: ["formId": formId])
     ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
-    ///         Analytics.track("Form CTA Clicked", properties: [
+    ///         Analytics.track("Form CTA Clicked - Deep Link", properties: [
     ///             "formId": formId,
-    ///             "buttonLabel": buttonLabel
+    ///             "buttonLabel": buttonLabel,
+    ///             "url": deepLinkUrl.absoluteString
+    ///         ])
+    ///     case .formExternalUrlClicked(let formId, let formName, let buttonLabel, let url):
+    ///         Analytics.track("Form CTA Clicked - External URL", properties: [
+    ///             "formId": formId,
+    ///             "buttonLabel": buttonLabel,
+    ///             "url": url.absoluteString
     ///         ])
     ///     }
     /// }
