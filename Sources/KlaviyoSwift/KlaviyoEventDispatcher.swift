@@ -12,8 +12,8 @@ struct KlaviyoEventDispatcher: EventDispatching {
         switch command {
         case let .aggregateEvent(payload):
             KlaviyoInternal.create(aggregateEvent: payload)
-        case let .deepLink(url):
-            KlaviyoInternal.handleDeepLink(url: url)
+        case let .deepLink(deepLinkURL):
+            KlaviyoInternal.handleDeepLink(url: deepLinkURL)
         }
     }
 }
