@@ -603,5 +603,128 @@ struct IAFNativeBridgeEventTests {
 
         #expect(aggregateEventDataDecoded == associatedValueDataDecoded)
     }
+
+    @Test
+    func testDecodeOpenExternalUrlWithButtonLabel() async throws {
+        let json = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "ios": "https://example.com",
+            "android": "https://example.com",
+            "formId": "form123",
+            "formName": "Newsletter",
+            "buttonLabel": "Learn More"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
+            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+            return
+        }
+
+        let expectedUrl = try #require(URL(string: "https://example.com"))
+        #expect(url == expectedUrl)
+        #expect(formId == "form123")
+        #expect(formName == "Newsletter")
+        #expect(buttonLabel == "Learn More")
+    }
+
+    @Test
+    func testDecodeOpenExternalUrlMissingButtonLabel() async throws {
+        let json = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "ios": "https://example.com",
+            "android": "https://example.com",
+            "formId": "form123",
+            "formName": "Newsletter"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
+            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+            return
+        }
+
+        let expectedUrl = try #require(URL(string: "https://example.com"))
+        #expect(url == expectedUrl)
+        #expect(formId == "form123")
+        #expect(formName == "Newsletter")
+        #expect(buttonLabel == nil)
+    }
+
+    @Test
+    func testDecodeOpenExternalUrlWithoutFormContext() async throws {
+        let json = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "ios": "https://example.com",
+            "android": "https://example.com"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
+            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+            return
+        }
+
+        let expectedUrl = try #require(URL(string: "https://example.com"))
+        #expect(url == expectedUrl)
+        #expect(formId == nil)
+        #expect(formName == nil)
+        #expect(buttonLabel == nil)
+    }
+
+    @Test
+    func testDecodeOpenExternalUrlEmptyUrlNormalized() async throws {
+        let json = """
+        {
+          "type": "openExternalUrl",
+          "data": {
+            "ios": "",
+            "android": "https://example.com",
+            "formId": "form123",
+            "formName": "Newsletter"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openExternalUrl(url, _, _, _) = event else {
+            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+            return
+        }
+
+        #expect(url == nil)
+    }
+
+    @Test
+    func testHandshakeIncludesOpenExternalUrl() async throws {
+        let handshake = IAFNativeBridgeEvent.handshake
+        let data = try #require(handshake.data(using: .utf8))
+
+        struct HandshakeEvent: Codable {
+            let type: String
+            let version: Int
+        }
+
+        let events = try JSONDecoder().decode([HandshakeEvent].self, from: data)
+        let hasOpenExternalUrl = events.contains { $0.type == "openExternalUrl" }
+
+        #expect(hasOpenExternalUrl)
+    }
 }
 #endif

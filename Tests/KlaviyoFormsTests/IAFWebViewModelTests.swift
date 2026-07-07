@@ -349,6 +349,129 @@ final class IAFWebViewModelTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
     }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithValidUrl() async throws {
+        // Given
+        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
+        viewModel.delegate = mockDelegate
+        let expectation = XCTestExpectation(description: "openExternalUrl handled")
+        let externalUrl = "https://example.com"
+
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            if case let .formExternalUrlClicked(formId, formName, _, _) = event {
+                if formId == "form123" && formName == "Newsletter" {
+                    lifecycleEventFired = true
+                    expectation.fulfill()
+                }
+            }
+        }
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "ios": "\(externalUrl)",
+                "android": "\(externalUrl)",
+                "formId": "form123",
+                "formName": "Newsletter",
+                "buttonLabel": "Learn More"
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 5.0)
+        XCTAssertTrue(lifecycleEventFired, "Lifecycle event should be fired with form metadata")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithoutFormMetadata() async throws {
+        // Given
+        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
+        viewModel.delegate = mockDelegate
+        let externalUrl = "https://example.com"
+
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "ios": "\(externalUrl)",
+                "android": "\(externalUrl)"
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - wait briefly to confirm lifecycle event is NOT fired
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not be fired without form metadata")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithMissingUrl() async throws {
+        // Given
+        let viewModel = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
+        viewModel.delegate = mockDelegate
+
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "openExternalUrl",
+              "data": {
+                "formId": "form123",
+                "formName": "Newsletter"
+              }
+            }
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - wait briefly to confirm lifecycle event is NOT fired
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not be fired with nil URL")
+    }
+
+    @MainActor
+    func testHandshakeIncludesOpenExternalUrl() {
+        // Given
+        let handshakeScript = IAFWebViewModel(url: testURL, apiKey: "test-api-key", profileData: nil)
+            .findScript(containing: "data-native-bridge-handshake")
+
+        // When
+        let handshakeAttribute = handshakeScript?.source ?? ""
+
+        // Then
+        XCTAssertTrue(
+            handshakeAttribute.contains("openExternalUrl"),
+            "Handshake should include openExternalUrl event type"
+        )
+    }
 }
 
 extension IAFWebViewModel {

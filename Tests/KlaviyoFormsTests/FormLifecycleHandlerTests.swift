@@ -405,4 +405,61 @@ final class FormLifecycleHandlerTests: XCTestCase {
         )
         XCTAssertEqual(ctaForEventName.eventName, "formCtaClicked")
     }
+
+    @MainActor
+    func testHandlerCalledForFormExternalUrlClicked() {
+        // Given
+        let expectation = expectation(description: "Handler called for formExternalUrlClicked")
+        var receivedEvent: FormLifecycleEvent?
+
+        presentationManager.registerFormLifecycleHandler { event in
+            if case .formExternalUrlClicked = event {
+                receivedEvent = event
+                expectation.fulfill()
+            }
+        }
+
+        let externalUrl = URL(string: "https://example.com")!
+
+        // When
+        presentationManager.invokeLifecycleHandler(
+            for: .formExternalUrlClicked(formId: "form123", formName: "Newsletter", buttonLabel: "Learn More", url: externalUrl)
+        )
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+        guard case let .formExternalUrlClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Handler should receive formExternalUrlClicked event")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Learn More")
+        XCTAssertEqual(url, externalUrl)
+    }
+
+    func testFormExternalUrlClickedComputedProperties() {
+        let externalUrl = URL(string: "https://example.com")!
+        let event = FormLifecycleEvent.formExternalUrlClicked(
+            formId: "form456", formName: "Promo", buttonLabel: "Shop", url: externalUrl
+        )
+
+        XCTAssertEqual(event.formId, "form456")
+        XCTAssertEqual(event.formName, "Promo")
+        XCTAssertEqual(event.eventName, "formExternalUrlClicked")
+    }
+
+    func testFormExternalUrlClickedEquality() {
+        let url1 = URL(string: "https://example.com")!
+        let url2 = URL(string: "https://example.com")!
+
+        let event1 = FormLifecycleEvent.formExternalUrlClicked(
+            formId: "form1", formName: "Form1", buttonLabel: "Click", url: url1
+        )
+        let event2 = FormLifecycleEvent.formExternalUrlClicked(
+            formId: "form1", formName: "Form1", buttonLabel: "Click", url: url2
+        )
+
+        XCTAssertEqual(event1, event2)
+    }
 }
