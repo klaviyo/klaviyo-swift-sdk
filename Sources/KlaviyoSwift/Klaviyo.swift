@@ -29,9 +29,11 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 ///
 /// From there you can you can call the additional methods below to track events and profile.
 public struct KlaviyoSDK {
+    private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
+
     /// Default initializer for the Klaviyo SDK.
     public init() {
-        EventDispatcher.shared.register(KlaviyoEventDispatcher())
+        _ = Self.registerEventDispatcher
     }
 
     private var state: KlaviyoState {
