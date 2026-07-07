@@ -146,11 +146,11 @@ package enum KlaviyoInternal {
         profileDataCancellable = nil
         profileDataSubject.send(.failure(.notInitialized))
         // NOTE: deliberately does NOT tear down the shared-store mirror or clear the stores.
-        // The mirror is global SDK state (established once by `setupSharedStores()` at
+        // The mirror is global SDK state (established once by `SharedStoreMirror.setup()` at
         // initialize) that KlaviyoForms/KlaviyoLocation observe directly. Clearing it on
         // In-App Forms teardown would leave the stores empty after an unregister → re-register
         // cycle even while the SDK stays initialized, since consumers now read the stores
-        // directly and no longer re-trigger `setupSharedStores()`. (Broader teardown
+        // directly and no longer re-trigger `SharedStoreMirror.setup()`. (Broader teardown
         // decoupling is tracked in MAGE-834.)
     }
 
