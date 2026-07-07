@@ -33,7 +33,9 @@ final class EventDispatcherTests: XCTestCase {
         dispatcher.dispatch(.aggregateEvent(payload))
         dispatcher.dispatch(.deepLink(url))
 
-        XCTAssertEqual(spy.received.count, 2)
+        guard spy.received.count == 2 else {
+            return XCTFail("expected 2 commands, got \(spy.received.count)")
+        }
         guard case let .aggregateEvent(received) = spy.received[0], received == payload else {
             return XCTFail("expected .aggregateEvent(payload)")
         }
@@ -44,6 +46,7 @@ final class EventDispatcherTests: XCTestCase {
 
     func testDispatchWithoutRegistrationWarnsAndDoesNotForward() {
         let dispatcher = EventDispatcher()
+        let spy = SpyDispatcher() // created but intentionally NOT registered
         var warnings: [String] = []
         environment.emitDeveloperWarning = { warnings.append($0) }
 
@@ -51,6 +54,7 @@ final class EventDispatcherTests: XCTestCase {
 
         XCTAssertEqual(warnings.count, 1)
         XCTAssertTrue(warnings[0].contains("dispatch before registration"))
+        XCTAssertTrue(spy.received.isEmpty)
     }
 
     func testReRegisterReplacesTarget() {
