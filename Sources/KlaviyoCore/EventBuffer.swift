@@ -7,14 +7,13 @@
 
 import Combine
 import Foundation
-import KlaviyoCore
 import OSLog
 
 // MARK: - Logger
 
 @available(iOS 14.0, *)
 extension Logger {
-    fileprivate static let eventBuffer = Logger(subsystem: "com.klaviyo.klaviyo-swift-sdk.klaviyoSwift", category: "Event Buffering")
+    fileprivate static let eventBuffer = Logger(subsystem: "com.klaviyo.klaviyo-swift-sdk.klaviyoCore", category: "Event Buffering")
 }
 
 /// Manages a thread-safe buffer of recent events for replay to new subscribers.

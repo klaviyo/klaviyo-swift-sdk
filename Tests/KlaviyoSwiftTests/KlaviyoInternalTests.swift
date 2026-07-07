@@ -431,7 +431,7 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Event Publishing Tests
 
     @MainActor
-    func testEventPublisher_emitsEventWithProperties() throws {
+    func testPublishEvent_emitsEventWithProperties() throws {
         // Given: Set up a mock to capture published events
         var publishedEvents: [Event] = []
         let initialState = KlaviyoState(
@@ -442,7 +442,7 @@ final class KlaviyoInternalTests: XCTestCase {
         )
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 publishedEvents.append(event)
             }
@@ -518,7 +518,7 @@ final class KlaviyoInternalTests: XCTestCase {
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         // Subscribe to events
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
                 expectation.fulfill()
@@ -566,7 +566,7 @@ final class KlaviyoInternalTests: XCTestCase {
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
                 expectation.fulfill()
@@ -620,7 +620,7 @@ final class KlaviyoInternalTests: XCTestCase {
         let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
                 expectation.fulfill()
@@ -653,7 +653,7 @@ final class KlaviyoInternalTests: XCTestCase {
         let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
                 expectation.fulfill()
@@ -696,7 +696,7 @@ final class KlaviyoInternalTests: XCTestCase {
         let newSubscriberExpectation = XCTestExpectation(description: "New subscriber receives enriched event")
         var bufferedEvent: Event?
 
-        KlaviyoInternal.eventPublisher()
+        EventBus.shared.eventPublisher()
             .sink { event in
                 bufferedEvent = event
                 newSubscriberExpectation.fulfill()
