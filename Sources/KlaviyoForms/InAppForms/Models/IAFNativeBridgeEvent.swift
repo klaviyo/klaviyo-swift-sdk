@@ -16,6 +16,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
     case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
+    case openExternalUrl(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -35,6 +36,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case trackProfileEvent
         case trackAggregateEvent
         case openDeepLink
+        case openExternalUrl
         case abort
         case handShook
         case analyticsEvent
@@ -68,6 +70,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
             self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
+        case .openExternalUrl:
+            let payload = try? container.decode(ExternalUrlEventPayload.self, forKey: .data)
+            let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
+            self = .openExternalUrl(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -98,6 +104,13 @@ extension IAFNativeBridgeEvent {
     }
 
     struct DeepLinkEventPayload: Decodable {
+        let ios: String?
+        let formId: String?
+        let formName: String?
+        let buttonLabel: String?
+    }
+
+    struct ExternalUrlEventPayload: Decodable {
         let ios: String?
         let formId: String?
         let formName: String?
@@ -144,6 +157,7 @@ extension IAFNativeBridgeEvent {
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
             .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil),
+            .openExternalUrl(url: nil, formId: nil, formName: nil, buttonLabel: nil),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
@@ -159,6 +173,7 @@ extension IAFNativeBridgeEvent {
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
         case .openDeepLink: return 2
+        case .openExternalUrl: return 1
         case .abort: return 1
         case .handShook: return 1
         case .analyticsEvent: return 1
@@ -176,6 +191,7 @@ extension IAFNativeBridgeEvent {
         case .trackProfileEvent: return "trackProfileEvent"
         case .trackAggregateEvent: return "trackAggregateEvent"
         case .openDeepLink: return "openDeepLink"
+        case .openExternalUrl: return "openExternalUrl"
         case .abort: return "abort"
         case .handShook: return "handShook"
         case .analyticsEvent: return "analyticsEvent"
