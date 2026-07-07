@@ -156,12 +156,6 @@ package enum KlaviyoInternal {
 
     // MARK: - Profile Event methods
 
-    /// Publishes an event to the KlaviyoCore event bus after enriching it with metadata.
-    /// - Parameter event: the profile event to publish
-    internal static func publishEvent(_ event: Event) {
-        EventBus.shared.publish(enrichEventWithMetadata(event))
-    }
-
     // TODO(MAGE-834): fold reset semantics into the KlaviyoCore stores/bus.
     /// No-op. The event-reset mechanism moves onto KlaviyoCore in MAGE-834.
     package static func resetEventSubject() {}
@@ -169,21 +163,6 @@ package enum KlaviyoInternal {
     /// Clears the event bus replay buffer to ensure clean state between tests.
     package static func clearEventBuffer() {
         EventBus.shared.clearBuffer()
-    }
-
-    /// Enriches an event with metadata (device info, SDK info, etc.)
-    /// - Parameter event: The event to enrich
-    /// - Returns: A new Event with metadata appended to properties
-    private static func enrichEventWithMetadata(_ event: Event) -> Event {
-        let enrichedProperties = event.properties.appendMetadataToProperties() ?? event.properties
-        return Event(
-            name: event.metric.name,
-            properties: enrichedProperties,
-            identifiers: event.identifiers,
-            value: event.value,
-            time: event.time,
-            uniqueId: event.uniqueId
-        )
     }
 
     // MARK: - Aggregate Events methods
