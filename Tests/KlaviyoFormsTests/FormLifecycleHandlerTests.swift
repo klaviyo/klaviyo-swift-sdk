@@ -448,5 +448,4 @@ final class FormLifecycleHandlerTests: XCTestCase {
         XCTAssertEqual(event.formName, "Promo")
         XCTAssertEqual(event.eventName, "formExternalUrlClicked")
     }
-
 }

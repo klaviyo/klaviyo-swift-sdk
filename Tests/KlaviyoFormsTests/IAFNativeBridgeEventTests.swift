@@ -710,6 +710,5 @@ struct IAFNativeBridgeEventTests {
 
         #expect(url == nil)
     }
-
 }
 #endif
