@@ -183,28 +183,6 @@ package enum KlaviyoInternal {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
-    // MARK: - Geofence Event
-
-    /// Send a geofence event to Klaviyo.
-    /// If the SDK is not yet initialized, it will automatically initialize using the API key extracted from the geofence.
-    /// If the SDK is already initialized with a different API key, the event will be ignored.
-    ///
-    /// - Parameters:
-    ///   - apiKey: The API key (company ID) extracted from the geofence event
-    ///   - event: The geofence event to be sent
-    @MainActor
-    package static func createGeofenceEvent(event: Event, for apiKey: String) async {
-        if let storedApiKey = try? await fetchAPIKey() {
-            guard storedApiKey == apiKey else {
-                return
-            }
-            dispatchOnMainThread(action: .enqueueEvent(event))
-        } else {
-            dispatchOnMainThread(action: .initialize(apiKey))
-            dispatchOnMainThread(action: .enqueueEvent(event))
-        }
-    }
-
     // MARK: - Deep link handling
 
     /// Handles a deep link according to the handler configured in `klaviyoSwiftEnvironment`
