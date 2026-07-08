@@ -67,8 +67,8 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         mockApiKeyPublisher = nil
         cancellables.removeAll()
         KlaviyoInternal.resetAPIKeySubject()
-        SDKConfigStore.shared.update(KlaviyoConfig())
-        IdentityStore.shared.update(ProfileData())
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
 
         super.tearDown()
     }

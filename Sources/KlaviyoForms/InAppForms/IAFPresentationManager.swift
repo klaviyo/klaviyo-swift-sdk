@@ -322,7 +322,6 @@ class IAFPresentationManager {
         profileEventObserver = nil
         profileEventsTask?.cancel()
         profileEventsTask = nil
-        KlaviyoInternal.resetEventSubject()
 
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
@@ -467,9 +466,6 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
-        KlaviyoInternal.resetEventSubject()
         destroyWebView()
     }
 }
