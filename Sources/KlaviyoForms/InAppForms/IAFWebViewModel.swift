@@ -329,7 +329,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
         case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
+            EventDispatcher.shared.dispatch(.aggregateEvent(data))
         case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
@@ -350,7 +350,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
                 }
-                KlaviyoInternal.handleDeepLink(url: url)
+                EventDispatcher.shared.dispatch(.deepLink(url))
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
