@@ -45,9 +45,10 @@ public final class EventBus: EventPublishing, EventBroadcasting {
         .eraseToAnyPublisher()
     }
 
-    /// Test-support: clears the replay buffer for isolation between tests.
-    /// Not the Forms reset mechanism (that is MAGE-834).
-    package func clearBuffer() {
+    /// Test-support: clears the replay buffer for isolation between tests and for the
+    /// Core reset surface (MAGE-834). Subscribers are held by consumers, not the bus,
+    /// so a reset only clears the bounded replay buffer.
+    public func reset() {
         buffer.clear()
     }
 }

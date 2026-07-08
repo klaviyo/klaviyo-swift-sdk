@@ -63,4 +63,9 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     public func update(_ config: KlaviyoConfig) {
         subject.send(config)
     }
+
+    /// Restores the store to the default config (test-support / Core reset surface, MAGE-834).
+    public func reset() {
+        update(KlaviyoConfig())
+    }
 }

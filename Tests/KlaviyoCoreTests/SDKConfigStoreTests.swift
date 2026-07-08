@@ -39,6 +39,17 @@ final class SDKConfigStoreTests: XCTestCase {
         XCTAssertEqual(received, [KlaviyoConfig(), KlaviyoConfig(apiKey: Self.apiKey)])
     }
 
+    // reset(): store should return to default empty KlaviyoConfig after being updated.
+    func testResetRestoresDefaultConfig() {
+        let store = SDKConfigStore()
+        store.update(KlaviyoConfig(apiKey: "company-123"))
+
+        store.reset()
+
+        XCTAssertEqual(store.current, KlaviyoConfig())
+        XCTAssertNil(store.current.apiKey)
+    }
+
     func testStreamYieldsCurrentValueThenUpdates() async {
         let store = SDKConfigStore()
         var iterator = store.stream().makeAsyncIterator()

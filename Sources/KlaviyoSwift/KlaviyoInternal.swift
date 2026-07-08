@@ -162,7 +162,7 @@ package enum KlaviyoInternal {
 
     /// Clears the event bus replay buffer to ensure clean state between tests.
     package static func clearEventBuffer() {
-        EventBus.shared.clearBuffer()
+        EventBus.shared.reset()
     }
 
     // MARK: - Aggregate Events methods

@@ -43,4 +43,11 @@ public final class EventDispatcher {
             environment.emitDeveloperWarning("EventDispatcher: dispatch before registration")
         }
     }
+
+    /// Unregister the current target (test-support / Core reset surface, MAGE-834).
+    public func reset() {
+        lock.lock()
+        target = nil
+        lock.unlock()
+    }
 }
