@@ -23,6 +23,7 @@ public struct KlaviyoEnvironment {
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
+        sdkFeatures: @escaping () -> SdkFeatures? = { nil },
         getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
@@ -55,6 +56,7 @@ public struct KlaviyoEnvironment {
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
         self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
+        self.sdkFeatures = sdkFeatures
         self.getLocationAuthorizationStatus = getLocationAuthorizationStatus
         self.startReachability = startReachability
         self.stopReachability = stopReachability
@@ -119,6 +121,10 @@ public struct KlaviyoEnvironment {
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
     public var getBadgeAutoClearingSetting: () async -> Bool
+    /// Reads the automatic-push-tracking feature flags for adoption telemetry. Returns `nil` when the
+    /// host app has not set the `klaviyo_automatic_push_tracking` Info.plist key at all, signaling a
+    /// legacy/manual integration that should not be tracked (no header is sent).
+    public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
     public var startReachability: () throws -> Void
@@ -246,6 +252,25 @@ public struct KlaviyoEnvironment {
         },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
+        },
+        sdkFeatures: {
+            // Gate on key *presence*: an absent master key means the host is on a legacy/manual
+            // integration we don't track, so no header is emitted. A present key (even `false`)
+            // means the host opted into the new integration model and should be tracked.
+            guard let rawAutoPushTracking = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
+            ) else {
+                return nil
+            }
+            // Only report token forwarding when the escape-hatch key is actually present; when it is
+            // absent, pass `nil` so the field is omitted from the header (feature not marked as used).
+            let autoTokenForwardingDisabled = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
+            ).map { ($0 as? Bool) ?? false }
+            return SdkFeatures(
+                autoPushTrackingEnabled: (rawAutoPushTracking as? Bool) ?? false,
+                autoTokenForwardingDisabled: autoTokenForwardingDisabled
+            )
         },
         getLocationAuthorizationStatus: {
             if #available(iOS 14.0, *) {

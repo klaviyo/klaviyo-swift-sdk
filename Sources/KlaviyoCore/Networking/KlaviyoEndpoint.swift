@@ -23,12 +23,20 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         static let profileInfo = "X-Klaviyo-Profile-Info"
         static let clickEventTimestamp = "X-Klaviyo-Click-Event-Timestamp"
         static let apiFilters = "X-Klaviyo-API-Filters"
+        static let sdkFeatures = SdkFeatures.headerName
     }
 
     public var headers: [String: String] {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+        case .createProfile, .createEvent, .unregisterPushToken, .aggregateEvent:
             return [:]
+        case .registerPushToken:
+            // Only report SDK-feature adoption when the host has opted into the new integration
+            // model (i.e. set the Info.plist flag). Absent flag => no header, no backend tracking.
+            guard let features = environment.sdkFeatures() else {
+                return [:]
+            }
+            return [HeaderKey.sdkFeatures: features.headerValue]
         case let .fetchGeofences(_, latitude, longitude):
             var headers = [String: String]()
             if let latitude, let longitude {

@@ -57,6 +57,74 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertNotNil(request.httpBody)
     }
 
+    func testRegisterPushTokenAttachesSdkFeaturesHeaderWhenPresent() throws {
+        // Given the host has opted into the new integration model
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: true)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+            "auto_push_tracking=1; auto_push_token_forwarding=0;"
+        )
+    }
+
+    func testRegisterPushTokenHeaderOmitsForwardingWhenEscapeHatchKeyAbsent() throws {
+        // Given the master key is set but the escape-hatch key is absent from Info.plist
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: nil)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then only the master field is present; token forwarding is omitted entirely
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+            "auto_push_tracking=1;"
+        )
+    }
+
+    func testRegisterPushTokenOmitsSdkFeaturesHeaderWhenAbsent() throws {
+        // Given the host has not set the Info.plist flag (legacy/manual integration)
+        environment.sdkFeatures = { nil }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertNil(request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"])
+    }
+
+    func testSdkFeaturesHeaderOnlyAttachesToRegisterPushToken() throws {
+        // Given the host has opted in, so the header would be produced where applicable
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: false)
+        }
+
+        // Then no other endpoint carries the SDK-features header
+        let otherEndpoints: [KlaviyoEndpoint] = [
+            .createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test)),
+            .createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "test_event"))),
+            .unregisterPushToken("test_api_key", UnregisterPushTokenPayload(pushToken: "test_token", anonymousId: "anon-id")),
+            .aggregateEvent("test_api_key", Data("test_payload".utf8))
+        ]
+        for endpoint in otherEndpoints {
+            let request = try endpoint.urlRequest()
+            XCTAssertNil(
+                request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+                "Unexpected SDK-features header on \(endpoint)"
+            )
+        }
+    }
+
     func testUnregisterPushTokenEndpointUrlRequest() throws {
         // Given
         let apiKey = "test_api_key"
