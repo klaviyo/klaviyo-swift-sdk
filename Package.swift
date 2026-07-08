@@ -37,7 +37,9 @@ let package = Package(
     targets: [
         .target(
             name: "KlaviyoCore",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            dependencies: [
+                .product(name: "AnyCodable", package: "AnyCodable")
+            ],
             path: "Sources/KlaviyoCore"
         ),
         .testTarget(
@@ -51,7 +53,10 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwift",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
+            dependencies: [
+                .product(name: "AnyCodable", package: "AnyCodable"),
+                "KlaviyoCore"
+            ],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]
         ),
@@ -71,7 +76,10 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoForms",
-            dependencies: ["KlaviyoSwift"],
+            dependencies: [
+                "KlaviyoSwift",
+                "KlaviyoCore"
+            ],
             path: "Sources/KlaviyoForms",
             resources: [
                 .process("InAppForms/Assets"),
