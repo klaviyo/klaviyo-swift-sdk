@@ -121,9 +121,6 @@ public struct KlaviyoEnvironment {
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
     public var getBadgeAutoClearingSetting: () async -> Bool
-    /// Reads the automatic-push-tracking feature flags for adoption telemetry. Returns `nil` when the
-    /// host app has not set the `klaviyo_automatic_push_tracking` Info.plist key at all, signaling a
-    /// legacy/manual integration that should not be tracked (no header is sent).
     public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
@@ -254,10 +251,6 @@ public struct KlaviyoEnvironment {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },
         sdkFeatures: {
-            // Report adoption whenever the host set ANY SDK-feature Info.plist key. When none are
-            // present the host is on a legacy/manual integration we don't track, so no header is
-            // emitted. Each field is then included only if its own key is present (`.map` keeps the
-            // absent case as `nil` so the field is omitted rather than reported with a default).
             let autoPushTracking = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
             ).map { ($0 as? Bool) ?? false }
