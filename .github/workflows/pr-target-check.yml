@@ -16,6 +16,7 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
           BASE_REF: ${{ github.base_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -30,6 +31,16 @@ jobs:
 
           if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]] || [[ "$HEAD_REF" == dependabot/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
+            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            exit 0
+          fi
+
+          # A conventional-commit PR title is another valid path: ci, chore, docs, or rel
+          # (case-insensitive, optional scope and breaking-change marker, e.g. "ci(workflows)!: ...")
+          TITLE_LC=$(printf '%s' "$PR_TITLE" | tr '[:upper:]' '[:lower:]')
+          TITLE_REGEX='^(ci|chore|docs|rel)(\([^)]*\))?!?:[[:space:]]'
+          if [[ "$TITLE_LC" =~ $TITLE_REGEX ]]; then
+            echo "PR title '$PR_TITLE' has an allowed conventional-commit prefix — allowed to target master."
             gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
@@ -61,6 +72,7 @@ jobs:
 
           - If this is CI/tooling work, rename your branch with a \`ci/\` prefix and this check will pass
           - If this is documentation-only work, rename your branch with a \`docs/\` prefix and this check will pass
+          - Alternatively, give the PR a conventional-commit title prefixed with \`ci:\`, \`chore:\`, \`docs:\`, or \`rel:\` (scopes like \`ci(workflows):\` also work) and this check will pass
 
           > **Override:** In exceptional circumstances, a maintainer may add the \`manual-merge\` label to bypass this check and merge directly to \`master\`. This should be used sparingly — it skips the release branch entirely and may result in changes not being included in a release or loss of commit attribution if not handled carefully.
 
@@ -69,5 +81,5 @@ jobs:
 
           gh pr edit $PR_NUMBER --repo $REPO --add-label "$LABEL"
 
-          echo "Branch '$HEAD_REF' cannot target master directly. Must use rel/*, ci/*, or docs/*. Add the manual-merge label to override."
+          echo "Branch '$HEAD_REF' cannot target master directly. Use a rel/*, ci/*, docs/*, or dependabot/* branch, a ci:/chore:/docs:/rel: PR title, or add the manual-merge label to override."
           exit 1
