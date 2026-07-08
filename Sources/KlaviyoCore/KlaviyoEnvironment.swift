@@ -254,21 +254,21 @@ public struct KlaviyoEnvironment {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },
         sdkFeatures: {
-            // Gate on key *presence*: an absent master key means the host is on a legacy/manual
-            // integration we don't track, so no header is emitted. A present key (even `false`)
-            // means the host opted into the new integration model and should be tracked.
-            guard let rawAutoPushTracking = Bundle.main.object(
+            // Report adoption whenever the host set ANY SDK-feature Info.plist key. When none are
+            // present the host is on a legacy/manual integration we don't track, so no header is
+            // emitted. Each field is then included only if its own key is present (`.map` keeps the
+            // absent case as `nil` so the field is omitted rather than reported with a default).
+            let autoPushTracking = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
-            ) else {
-                return nil
-            }
-            // Only report token forwarding when the escape-hatch key is actually present; when it is
-            // absent, pass `nil` so the field is omitted from the header (feature not marked as used).
+            ).map { ($0 as? Bool) ?? false }
             let autoTokenForwardingDisabled = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
             ).map { ($0 as? Bool) ?? false }
+            guard autoPushTracking != nil || autoTokenForwardingDisabled != nil else {
+                return nil
+            }
             return SdkFeatures(
-                autoPushTrackingEnabled: (rawAutoPushTracking as? Bool) ?? false,
+                autoPushTracking: autoPushTracking,
                 autoTokenForwardingDisabled: autoTokenForwardingDisabled
             )
         },

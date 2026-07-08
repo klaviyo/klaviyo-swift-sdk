@@ -9,43 +9,53 @@
 import XCTest
 
 final class SdkFeaturesTests: XCTestCase {
-    /// Master on, escape hatch present and off: both fields reported, forwarding on (typical opt-in).
+    /// Both keys present, escape hatch off: both fields reported, forwarding on (typical opt-in).
     func testHeaderValueTrackingOnForwardingOn() {
-        let features = SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: false)
-        XCTAssertTrue(features.autoPushTracking)
+        let features = SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: false)
+        XCTAssertEqual(features.autoPushTracking, true)
         XCTAssertEqual(features.autoPushTokenForwarding, true)
         XCTAssertEqual(features.headerValue, "auto_push_tracking=1; auto_push_token_forwarding=1;")
     }
 
-    /// Master on, escape hatch present and set: proxy stays active but forwarding collapses to off.
+    /// Both keys present, escape hatch set: proxy stays active but forwarding collapses to off.
     func testHeaderValueTrackingOnForwardingDisabled() {
-        let features = SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: true)
-        XCTAssertTrue(features.autoPushTracking)
+        let features = SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: true)
+        XCTAssertEqual(features.autoPushTracking, true)
         XCTAssertEqual(features.autoPushTokenForwarding, false)
         XCTAssertEqual(features.headerValue, "auto_push_tracking=1; auto_push_token_forwarding=0;")
     }
 
-    /// Escape-hatch key absent: the token-forwarding field is omitted entirely (not marked as used),
-    /// rather than reported with a default value.
+    /// Escape-hatch key absent: the token-forwarding field is omitted entirely.
     func testHeaderOmitsForwardingWhenEscapeHatchKeyAbsent() {
-        let features = SdkFeatures(autoPushTrackingEnabled: true, autoTokenForwardingDisabled: nil)
-        XCTAssertTrue(features.autoPushTracking)
+        let features = SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: nil)
+        XCTAssertEqual(features.autoPushTracking, true)
         XCTAssertNil(features.autoPushTokenForwarding)
         XCTAssertEqual(features.headerValue, "auto_push_tracking=1;")
     }
 
-    /// Master off, escape-hatch key absent: only the master field is reported.
-    func testHeaderTrackingOffForwardingKeyAbsent() {
-        let features = SdkFeatures(autoPushTrackingEnabled: false, autoTokenForwardingDisabled: nil)
-        XCTAssertFalse(features.autoPushTracking)
-        XCTAssertNil(features.autoPushTokenForwarding)
-        XCTAssertEqual(features.headerValue, "auto_push_tracking=0;")
+    /// Master key absent, escape hatch present and off: the tracking field is omitted, and forwarding
+    /// reports enabled independent of the master flag.
+    func testHeaderOmitsTrackingWhenMasterKeyAbsent() {
+        let features = SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: false)
+        XCTAssertNil(features.autoPushTracking)
+        XCTAssertEqual(features.autoPushTokenForwarding, true)
+        XCTAssertEqual(features.headerValue, "auto_push_token_forwarding=1;")
     }
 
-    /// The escape hatch is a no-op when the master is off; forwarding can never be on without tracking.
-    func testForwardingIsOffWheneverTrackingIsOff() {
-        let features = SdkFeatures(autoPushTrackingEnabled: false, autoTokenForwardingDisabled: false)
+    /// Escape hatch set to disable without the master key (nonsensical but captured as a usage
+    /// signal): only the forwarding field is emitted, reporting disabled.
+    func testHeaderForEscapeHatchWithoutMaster() {
+        let features = SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: true)
+        XCTAssertNil(features.autoPushTracking)
         XCTAssertEqual(features.autoPushTokenForwarding, false)
-        XCTAssertEqual(features.headerValue, "auto_push_tracking=0; auto_push_token_forwarding=0;")
+        XCTAssertEqual(features.headerValue, "auto_push_token_forwarding=0;")
+    }
+
+    /// Neither key present: nothing to report; the header value is empty.
+    func testHeaderValueEmptyWhenNoKeysPresent() {
+        let features = SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: nil)
+        XCTAssertNil(features.autoPushTracking)
+        XCTAssertNil(features.autoPushTokenForwarding)
+        XCTAssertEqual(features.headerValue, "")
     }
 }
