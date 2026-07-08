@@ -66,4 +66,9 @@ extension Logger {
     static var navigation: Logger {
         KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Linking and Navigation") : Logger(OSLog.disabled)
     }
+
+    /// Logger for notification category management
+    static var notifications: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Notifications") : Logger(OSLog.disabled)
+    }
 }

@@ -1,0 +1,19 @@
+reviews:
+  profile: assertive
+  path_filters:
+    - "!Sources/KlaviyoSwift/Vendor/**"
+    - "!Tests/KlaviyoSwiftTests/Vendor/**"
+    - "!**/__Snapshots__/**"
+    - "!**/*.xcworkspace/**"
+    - "!**/xcshareddata/**"
+    - "!**/Podfile.lock"
+    - "!**/Pods/**"
+    - "!TestResults*/**"
+  auto_review:
+    drafts: false
+    base_branches:
+      - ".*"
+  tools:
+    swiftlint:
+      enabled: true
+      config_file: ".swiftlint.yml"

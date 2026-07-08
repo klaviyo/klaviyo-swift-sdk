@@ -5,8 +5,6 @@ on:
     branches:
       - master
   pull_request:
-    branches:
-      - '*'
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +15,9 @@ jobs:
   library-macos-14:
     name: Build and Run Unit Tests
     runs-on: macos-14
+    permissions:
+      contents: read
+      checks: write
     env:
       GITHUB_CI: true
     strategy:
@@ -40,6 +41,9 @@ jobs:
   library-macos-15:
     name: Build and Run Unit Tests
     runs-on: macos-15
+    permissions:
+      contents: read
+      checks: write
     env:
       GITHUB_CI: true
     strategy:

@@ -3,6 +3,10 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v5.3.1
+
+> **Note:** v5.3.0 introduced a dependency on `KlaviyoCore` in `KlaviyoSwiftExtension` that is incompatible with Notification Service Extension targets. If your NSE target has `APPLICATION_EXTENSION_API_ONLY = YES`, skip v5.3.0 and use v5.3.1 or later.
+
 ## Migrating to v5.1.0
 
 ### Deep Linking
