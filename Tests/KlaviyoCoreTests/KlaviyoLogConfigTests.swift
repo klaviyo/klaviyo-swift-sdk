@@ -56,11 +56,13 @@ final class KlaviyoLogConfigTests: XCTestCase {
         let codable = Logger.codable
         let networking = Logger.networking
         let navigation = Logger.navigation
+        let notifications = Logger.notifications
 
         // Verify they don't crash when called
         codable.info("This should be silenced")
         networking.info("This should be silenced")
         navigation.info("This should be silenced")
+        notifications.info("This should be silenced")
     }
 
     // MARK: - Thread Safety

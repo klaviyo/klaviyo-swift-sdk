@@ -70,6 +70,9 @@ public struct KlaviyoSDK {
     /// KlaviyoForms, and KlaviyoLocation is silenced. Re-enabling restores
     /// logging immediately.
     ///
+    /// - Note: This setting does not affect `KlaviyoSwiftExtension`, which runs
+    ///   in a separate app-extension process where this in-memory toggle does
+    ///   not apply.
     /// - Parameter enabled: Pass `true` to enable logging, `false` to disable.
     /// - Returns: The current `KlaviyoSDK` instance, for chaining.
     @discardableResult

@@ -10,7 +10,7 @@ import OSLog
 
 @available(iOS 14.0, *)
 extension Logger {
-    private static var subsystem = Bundle.main.bundleIdentifier ?? ""
+    private static var subsystem = "com.klaviyo.klaviyo-swift-sdk.klaviyoLocation"
 
     /// Logs events related to location services.
     static var geoservices: Logger {
