@@ -22,6 +22,20 @@ class EventBufferTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - Helpers
+
+    /// A buffer whose clock the test controls, so age-based behavior is deterministic
+    /// without sleeping real time. `buffer(_:)` is an async barrier write, so callers
+    /// must `getRecentEvents()` (a synchronous, barrier-flushing read) to pin an event's
+    /// timestamp at the current `currentTime` before advancing the clock.
+    private func makeClockedBuffer(
+        maxBufferSize: Int = 5,
+        maxBufferAge: TimeInterval = 2.0,
+        currentTime: @escaping () -> TimeInterval
+    ) -> EventBuffer {
+        EventBuffer(maxBufferSize: maxBufferSize, maxBufferAge: maxBufferAge, clock: currentTime)
+    }
+
     // MARK: - Basic Functionality Tests
 
     func testBufferStartsEmpty() {
@@ -32,16 +46,13 @@ class EventBufferTests: XCTestCase {
         XCTAssertTrue(events.isEmpty, "Buffer should start empty")
     }
 
-    func testBufferStoresEvent() async throws {
+    func testBufferStoresEvent() {
         // Given
         let event = Event(name: .customEvent("test_event"))
 
-        // When
+        // When — getRecentEvents() is a synchronous, barrier-flushing read, so it observes
+        // the preceding async buffer() write deterministically (no sleep needed).
         eventBuffer.buffer(event)
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
-
         let events = eventBuffer.getRecentEvents()
 
         // Then
@@ -49,7 +60,7 @@ class EventBufferTests: XCTestCase {
         XCTAssertEqual(events.first?.metric.name.value, "test_event")
     }
 
-    func testBufferStoresMultipleEvents() async throws {
+    func testBufferStoresMultipleEvents() {
         // Given
         let event1 = Event(name: .customEvent("event_1"))
         let event2 = Event(name: .customEvent("event_2"))
@@ -59,10 +70,6 @@ class EventBufferTests: XCTestCase {
         eventBuffer.buffer(event1)
         eventBuffer.buffer(event2)
         eventBuffer.buffer(event3)
-
-        // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
-
         let events = eventBuffer.getRecentEvents()
 
         // Then
@@ -74,16 +81,12 @@ class EventBufferTests: XCTestCase {
 
     // MARK: - Buffer Size Limit Tests
 
-    func testBufferRespectsMaxSize() async throws {
+    func testBufferRespectsMaxSize() {
         // Given - buffer with maxSize of 5
         let events = (1...7).map { Event(name: .customEvent("event_\($0)")) }
 
         // When - buffer 7 events
         events.forEach { eventBuffer.buffer($0) }
-
-        // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
-
         let recentEvents = eventBuffer.getRecentEvents()
 
         // Then - should only keep last 5
@@ -92,7 +95,7 @@ class EventBufferTests: XCTestCase {
         XCTAssertEqual(recentEvents[4].metric.name.value, "event_7", "Should keep newest events")
     }
 
-    func testBufferDropsOldestEventsWhenFull() async throws {
+    func testBufferDropsOldestEventsWhenFull() {
         // Given
         eventBuffer.buffer(Event(name: .customEvent("old_event")))
 
@@ -100,10 +103,6 @@ class EventBufferTests: XCTestCase {
         for iter in 1...5 {
             eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
         }
-
-        // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
-
         let events = eventBuffer.getRecentEvents()
 
         // Then
@@ -114,52 +113,54 @@ class EventBufferTests: XCTestCase {
 
     // MARK: - Buffer Age Limit Tests
 
-    func testBufferFiltersOldEvents() async throws {
-        // Given - buffer with 2 second age limit
-        eventBuffer.buffer(Event(name: .customEvent("old_event")))
+    func testBufferFiltersOldEvents() {
+        // Given - a buffer with a 2s age limit and a test-controlled clock
+        var clock: TimeInterval = 0
+        let buffer = makeClockedBuffer(currentTime: { clock })
+        buffer.buffer(Event(name: .customEvent("old_event")))
+        _ = buffer.getRecentEvents() // flush: pins old_event's timestamp at t=0
 
-        // When - wait for event to expire
-        try await Task.sleep(nanoseconds: 2_500_000_000) // 2.5 seconds
-
-        eventBuffer.buffer(Event(name: .customEvent("new_event")))
-        let events = eventBuffer.getRecentEvents()
+        // When - advance the clock past the age limit, then buffer a new event
+        clock = 3.0
+        buffer.buffer(Event(name: .customEvent("new_event")))
+        let events = buffer.getRecentEvents()
 
         // Then
-        XCTAssertEqual(events.count, 1, "Should only return recent event")
+        XCTAssertEqual(events.count, 1, "Should only return the recent event")
         XCTAssertEqual(events.first?.metric.name.value, "new_event")
     }
 
-    func testBufferKeepsRecentEvents() async throws {
+    func testBufferKeepsRecentEvents() {
         // Given
-        eventBuffer.buffer(Event(name: .customEvent("recent_event")))
+        var clock: TimeInterval = 0
+        let buffer = makeClockedBuffer(currentTime: { clock })
+        buffer.buffer(Event(name: .customEvent("recent_event")))
+        _ = buffer.getRecentEvents() // flush: pins recent_event's timestamp at t=0
 
-        // When - wait less than age limit
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        let events = eventBuffer.getRecentEvents()
+        // When - advance less than the age limit
+        clock = 0.5
+        let events = buffer.getRecentEvents()
 
         // Then
         XCTAssertEqual(events.count, 1, "Recent event should still be in buffer")
         XCTAssertEqual(events.first?.metric.name.value, "recent_event")
     }
 
-    func testBufferMixesOldAndNewEvents() async throws {
+    func testBufferMixesOldAndNewEvents() {
         // Given
-        eventBuffer.buffer(Event(name: .customEvent("old_event")))
+        var clock: TimeInterval = 0
+        let buffer = makeClockedBuffer(currentTime: { clock })
+        buffer.buffer(Event(name: .customEvent("old_event")))
+        _ = buffer.getRecentEvents() // flush: pins old_event's timestamp at t=0
 
-        try await Task.sleep(nanoseconds: 2_500_000_000) // 2.5 seconds
-
-        eventBuffer.buffer(Event(name: .customEvent("new_event_1")))
-        eventBuffer.buffer(Event(name: .customEvent("new_event_2")))
-
-        // Wait for async buffer operations to complete
-        try await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
-
-        // When
-        let events = eventBuffer.getRecentEvents()
+        // When - advance past the age limit, then buffer two new events
+        clock = 3.0
+        buffer.buffer(Event(name: .customEvent("new_event_1")))
+        buffer.buffer(Event(name: .customEvent("new_event_2")))
+        let events = buffer.getRecentEvents()
 
         // Then
-        XCTAssertEqual(events.count, 2, "Should only return recent events")
+        XCTAssertEqual(events.count, 2, "Should only return the recent events")
         XCTAssertTrue(events.contains { $0.metric.name.value == "new_event_1" })
         XCTAssertTrue(events.contains { $0.metric.name.value == "new_event_2" })
         XCTAssertFalse(events.contains { $0.metric.name.value == "old_event" })
@@ -196,16 +197,12 @@ class EventBufferTests: XCTestCase {
             for iter in 0..<50 {
                 self.eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
             }
-            // Add small delay to allow async buffer operations to settle
-            Thread.sleep(forTimeInterval: 0.25)
             writeExpectation.fulfill()
         }
 
         DispatchQueue.global().async {
             for _ in 0..<50 {
                 _ = self.eventBuffer.getRecentEvents()
-                // Add tiny delay between reads to prevent tight loop
-                Thread.sleep(forTimeInterval: 0.001)
             }
             readExpectation.fulfill()
         }
@@ -217,44 +214,33 @@ class EventBufferTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testBufferWithZeroMaxSize() async throws {
+    func testBufferWithZeroMaxSize() {
         // Given
         let zeroBuffer = EventBuffer(maxBufferSize: 0, maxBufferAge: 10.0)
 
         // When
         zeroBuffer.buffer(Event(name: .customEvent("event")))
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
-
         let events = zeroBuffer.getRecentEvents()
 
         // Then
         XCTAssertTrue(events.isEmpty, "Buffer with size 0 should not store events")
     }
 
-    func testBufferWithZeroMaxAge() async throws {
+    func testBufferWithZeroMaxAge() {
         // Given
         let zeroAgeBuffer = EventBuffer(maxBufferSize: 10, maxBufferAge: 0.0)
 
         // When
         zeroAgeBuffer.buffer(Event(name: .customEvent("event")))
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
-
         let events = zeroAgeBuffer.getRecentEvents()
 
         // Then
         XCTAssertTrue(events.isEmpty, "Buffer with age 0 should immediately expire events")
     }
 
-    func testGetRecentEventsMultipleTimes() async throws {
+    func testGetRecentEventsMultipleTimes() {
         // Given
         eventBuffer.buffer(Event(name: .customEvent("event")))
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
 
         // When
         let events1 = eventBuffer.getRecentEvents()
@@ -267,17 +253,13 @@ class EventBufferTests: XCTestCase {
         XCTAssertEqual(events3.count, 1)
     }
 
-    func testBufferPreservesEventProperties() async throws {
+    func testBufferPreservesEventProperties() {
         // Given
         let properties = ["key1": "value1", "key2": 123] as [String: Any]
         let event = Event(name: .customEvent("test"), properties: properties)
 
         // When
         eventBuffer.buffer(event)
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
-
         let retrievedEvents = eventBuffer.getRecentEvents()
 
         // Then
@@ -288,17 +270,13 @@ class EventBufferTests: XCTestCase {
         XCTAssertEqual(retrievedEvent.properties["key2"] as? Int, 123)
     }
 
-    func testBufferWithOpenedPushEvent() async throws {
+    func testBufferWithOpenedPushEvent() {
         // Given - simulate real use case
         let pushProperties = ["message_id": "abc123", "campaign_id": "xyz789"] as [String: Any]
         let openedPushEvent = Event(name: ._openedPush, properties: pushProperties)
 
         // When
         eventBuffer.buffer(openedPushEvent)
-
-        // Wait for async buffer operation to complete
-        try await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds
-
         let events = eventBuffer.getRecentEvents()
 
         // Then
