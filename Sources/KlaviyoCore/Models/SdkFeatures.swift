@@ -80,8 +80,8 @@ public struct SdkFeatures: Equatable {
 
     /// The configured state of a feature, or `nil` when the host never set it (the feature is
     /// then omitted from the header, so the backend must treat its absence as "unknown", not `false`).
-    public subscript(key: SdkFeatureKey) -> Bool? {
-        values[key]
+    public subscript(featureKey: SdkFeatureKey) -> Bool? {
+        values[featureKey]
     }
 
     /// Value for the `X-Klaviyo-Sdk-Features` header on requests in the given scope, e.g.
@@ -90,7 +90,7 @@ public struct SdkFeatures: Equatable {
     public func headerValue(for scope: SdkFeatureScope) -> String? {
         let fields = SdkFeatureKey.allCases
             .filter { $0.scope == scope }
-            .compactMap { key in values[key].map { "\(key.rawValue)=\($0 ? 1 : 0)" } }
+            .compactMap { featureKey in values[featureKey].map { "\(featureKey.rawValue)=\($0 ? 1 : 0)" } }
         return fields.isEmpty ? nil : fields.joined(separator: "; ") + ";"
     }
 }

@@ -126,12 +126,27 @@ final class KlaviyoEndpointTests: XCTestCase {
             SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: false)
         }
 
-        // Then no other endpoint carries the SDK-features header
+        // Then no other endpoint carries the SDK-features header (some set their own
+        // headers, so only the SDK-features key is asserted absent)
+        let trackingLink = URL(string: "https://email.klaviyo.com/ct/test")!
         let otherEndpoints: [KlaviyoEndpoint] = [
             .createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test)),
-            .createEvent("test_api_key", CreateEventPayload(data: CreateEventPayload.Event(name: "test_event"))),
-            .unregisterPushToken("test_api_key", UnregisterPushTokenPayload(pushToken: "test_token", anonymousId: "anon-id")),
-            .aggregateEvent("test_api_key", Data("test_payload".utf8))
+            .createEvent(
+                "test_api_key",
+                CreateEventPayload(data: CreateEventPayload.Event(name: "test_event"))
+            ),
+            .unregisterPushToken(
+                "test_api_key",
+                UnregisterPushTokenPayload(pushToken: "test_token", anonymousId: "anon-id")
+            ),
+            .aggregateEvent("test_api_key", Data("test_payload".utf8)),
+            .fetchGeofences("test_api_key", latitude: 42.0, longitude: -71.0),
+            .resolveDestinationURL(trackingLink: trackingLink, profileInfo: ProfilePayload.test),
+            .logTrackingLinkClicked(
+                trackingLink: trackingLink,
+                clickTime: Date(),
+                profileInfo: ProfilePayload.test
+            )
         ]
         for endpoint in otherEndpoints {
             let request = try endpoint.urlRequest()

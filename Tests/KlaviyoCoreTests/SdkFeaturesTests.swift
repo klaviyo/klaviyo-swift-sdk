@@ -87,10 +87,10 @@ final class SdkFeaturesTests: XCTestCase {
         let serialized = SdkFeatureScope.allCases
             .compactMap { allOn.headerValue(for: $0) }
             .joined()
-        for key in SdkFeatureKey.allCases {
+        for featureKey in SdkFeatureKey.allCases {
             XCTAssertEqual(
-                serialized.components(separatedBy: "\(key.rawValue)=").count - 1, 1,
-                "\(key.rawValue) should be serialized in exactly one scope"
+                serialized.components(separatedBy: "\(featureKey.rawValue)=").count - 1, 1,
+                "\(featureKey.rawValue) should be serialized in exactly one scope"
             )
         }
     }
