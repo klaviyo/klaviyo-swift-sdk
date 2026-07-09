@@ -516,7 +516,7 @@ struct KlaviyoReducer: ReducerProtocol {
             let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
-                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+                .fireAndForget { enrichAndPublishEvent(event) }
             ])
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
