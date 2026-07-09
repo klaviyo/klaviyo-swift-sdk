@@ -253,10 +253,10 @@ public struct KlaviyoEnvironment {
         sdkFeatures: {
             let autoPushTracking = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
-            ).map { ($0 as? Bool) ?? false }
+            ) as? Bool
             let autoTokenForwardingDisabled = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
-            ).map { ($0 as? Bool) ?? false }
+            ) as? Bool
             guard autoPushTracking != nil || autoTokenForwardingDisabled != nil else {
                 return nil
             }

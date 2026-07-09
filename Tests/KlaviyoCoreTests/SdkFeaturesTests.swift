@@ -41,7 +41,7 @@ final class SdkFeaturesTests: XCTestCase {
 
     /// Master key absent, escape hatch present and off: the tracking field is omitted, and forwarding
     /// reports enabled independent of the master flag.
-    func testHeaderOmitsTrackingWhenMasterKeyAbsent() {
+    func testHeaderOmitsTrackingWhenPrimaryKeyAbsent() {
         let features = SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: false)
         XCTAssertNil(features[.autoPushTracking])
         XCTAssertEqual(features[.autoPushTokenForwarding], true)
@@ -50,7 +50,7 @@ final class SdkFeaturesTests: XCTestCase {
 
     /// Escape hatch set to disable without the master key (nonsensical but captured as a usage
     /// signal): only the forwarding field is emitted, reporting disabled.
-    func testHeaderForEscapeHatchWithoutMaster() {
+    func testHeaderForEscapeHatchWithoutPrimaryFlag() {
         let features = SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: true)
         XCTAssertNil(features[.autoPushTracking])
         XCTAssertEqual(features[.autoPushTokenForwarding], false)

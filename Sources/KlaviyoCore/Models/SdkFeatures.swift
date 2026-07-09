@@ -59,7 +59,7 @@ public struct SdkFeatures: Equatable {
     /// Configured feature states; only features the host actually configured are present.
     private let values: [SdkFeatureKey: Bool]
 
-    public init(values: [SdkFeatureKey: Bool]) {
+    package init(values: [SdkFeatureKey: Bool]) {
         self.values = values
     }
 

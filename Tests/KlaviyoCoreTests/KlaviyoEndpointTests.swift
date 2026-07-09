@@ -91,7 +91,7 @@ final class KlaviyoEndpointTests: XCTestCase {
         )
     }
 
-    func testRegisterPushTokenHeaderForEscapeHatchWithoutMaster() throws {
+    func testRegisterPushTokenHeaderForEscapeHatchWithoutPrimaryFlag() throws {
         // Given only the escape-hatch key is set (nonsensical config, captured for telemetry)
         environment.sdkFeatures = {
             SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: true)
@@ -111,6 +111,21 @@ final class KlaviyoEndpointTests: XCTestCase {
     func testRegisterPushTokenOmitsSdkFeaturesHeaderWhenAbsent() throws {
         // Given the host has not set the Info.plist flag (legacy/manual integration)
         environment.sdkFeatures = { nil }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertNil(request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"])
+    }
+
+    func testRegisterPushTokenOmitsSdkFeaturesHeaderWhenNoScopedFieldsConfigured() throws {
+        // Given a non-nil SdkFeatures whose scope yields no fields (both keys absent), exercising
+        // the guard-let path where headerValue(for:) itself returns nil rather than sdkFeatures().
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: nil)
+        }
         let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
 
         // When
