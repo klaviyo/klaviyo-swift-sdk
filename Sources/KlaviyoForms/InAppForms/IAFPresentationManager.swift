@@ -7,7 +7,6 @@
 
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import UIKit
 
