@@ -33,10 +33,10 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case .registerPushToken:
             // Only report SDK-feature adoption when the host has opted into the new integration
             // model (i.e. set the Info.plist flag). Absent flag => no header, no backend tracking.
-            guard let features = environment.sdkFeatures() else {
+            guard let value = environment.sdkFeatures()?.headerValue(for: .pushTokenRegistration) else {
                 return [:]
             }
-            return [HeaderKey.sdkFeatures: features.headerValue]
+            return [HeaderKey.sdkFeatures: value]
         case let .fetchGeofences(_, latitude, longitude):
             var headers = [String: String]()
             if let latitude, let longitude {
