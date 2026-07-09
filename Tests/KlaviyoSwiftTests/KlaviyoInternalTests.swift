@@ -10,6 +10,10 @@ import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import KlaviyoCore
 
+// Pre-existing lint debt in this test file (long lines / file & type length) that was never
+// enforced because whole-repo lint excludes `Tests`, but pre-commit lints changed files directly.
+// This file is removed entirely in MAGE-835, so suppressing here rather than restructuring.
+// swiftlint:disable file_length type_body_length line_length
 final class KlaviyoInternalTests: XCTestCase {
     var cancellables = Set<AnyCancellable>()
 
@@ -549,5 +553,6 @@ final class KlaviyoInternalTests: XCTestCase {
         }
         wait(for: [stillLive], timeout: 1.0)
     }
-
 }
+
+// swiftlint:enable type_body_length line_length

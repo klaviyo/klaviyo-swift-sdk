@@ -8,8 +8,8 @@ import Combine
 import KlaviyoCore
 import XCTest
 
+@MainActor
 final class GeofenceEventDispatchTests: XCTestCase {
-    @MainActor
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
@@ -18,7 +18,6 @@ final class GeofenceEventDispatchTests: XCTestCase {
 
     // MARK: - Geofence Event Tests
 
-    @MainActor
     func testCreateGeofenceEvent_initializesSDKAndSendsEventWhenUninitialized() async throws {
         // Given: SDK is uninitialized
         let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)
@@ -31,22 +30,32 @@ final class GeofenceEventDispatchTests: XCTestCase {
         klaviyoSwiftEnvironment.state = { testStore.state.value }
         klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
 
-        // When: Create geofence event
         let geofenceEvent = Event(
             name: .locationEvent(.geofenceEnter),
             properties: ["$geofence_id": "test-location-id"]
         )
         let apiKey = "TEST123"
-        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: apiKey)
-        try await Task.sleep(nanoseconds: 100_000_000)
 
-        // Then: Verify SDK is initialized and event is in pending requests
+        // Expect: the store transitions to initialized with the geofence api key.
+        let initialized = XCTestExpectation(description: "SDK initialized with the geofence api key")
+        initialized.assertForOverFulfill = false
+        let cancellable = testStore.state.sink { state in
+            if state.initalizationState == .initialized, state.apiKey == apiKey {
+                initialized.fulfill()
+            }
+        }
+        defer { cancellable.cancel() }
+
+        // When: dispatch a geofence event while uninitialized
+        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: apiKey)
+        await fulfillment(of: [initialized], timeout: 1.0)
+
+        // Then: SDK is initialized and the api key is set
         let currentState = testStore.state.value
         XCTAssertEqual(currentState.initalizationState, .initialized, "SDK should be initialized")
         XCTAssertEqual(currentState.apiKey, apiKey, "API key should be set")
     }
 
-    @MainActor
     func testCreateGeofenceEvent_flushesQueueWhenQueueHasItems() async throws {
         // Given: SDK is initialized with items in the queue
         var initialState = INITIALIZED_TEST_STATE()
@@ -74,20 +83,33 @@ final class GeofenceEventDispatchTests: XCTestCase {
         klaviyoSwiftEnvironment.state = { testStore.state.value }
         klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
 
-        // When: Create a geofence event with matching API key
         let geofenceEvent = Event(
             name: .locationEvent(.geofenceEnter),
             properties: ["$geofence_id": "test-location-id"]
         )
         let apiKey = initialState.apiKey!
-        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: apiKey)
-        try await Task.sleep(nanoseconds: 500_000_000)
 
-        // Then: Verify queue is flushed (items moved to requestsInFlight and queue is empty)
-        XCTAssertTrue(testStore.state.value.queue.isEmpty, "Queue should be empty after a geofence event forces a flush")
+        // Expect: the prioritized geofence event forces a flush, draining the queue.
+        let flushed = XCTestExpectation(description: "queue flushed after geofence event")
+        flushed.assertForOverFulfill = false
+        let cancellable = testStore.state.sink { state in
+            if state.queue.isEmpty {
+                flushed.fulfill()
+            }
+        }
+        defer { cancellable.cancel() }
+
+        // When: dispatch a geofence event with matching API key
+        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: apiKey)
+        await fulfillment(of: [flushed], timeout: 1.0)
+
+        // Then: queue is flushed (items moved out and queue is empty)
+        XCTAssertTrue(
+            testStore.state.value.queue.isEmpty,
+            "Queue should be empty after a geofence event forces a flush"
+        )
     }
 
-    @MainActor
     func testCreateGeofenceEvent_ignoresEventWhenAPIKeyDoesNotMatch() async throws {
         // Given: SDK is initialized with a different API key
         var initialState = INITIALIZED_TEST_STATE()
@@ -102,23 +124,35 @@ final class GeofenceEventDispatchTests: XCTestCase {
         klaviyoSwiftEnvironment.state = { testStore.state.value }
         klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
 
-        // When: Create a geofence event with a different API key
         let geofenceEvent = Event(
             name: .locationEvent(.geofenceEnter),
             properties: ["$geofence_id": "test-location-id"]
         )
         let differentApiKey = "DIFFERENT_KEY"
-        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: differentApiKey)
-        try await Task.sleep(nanoseconds: 100_000_000)
 
-        // Then: Verify SDK was not re-initialized and event was not enqueued
+        // Expect: NO state change — the api-key mismatch guard returns before any dispatch.
+        // An inverted expectation passes only if the store never emits a change.
+        let noStateChange = XCTestExpectation(description: "no state change when API key does not match")
+        noStateChange.isInverted = true
+        let cancellable = testStore.state
+            .dropFirst() // ignore the CurrentValueSubject replay of the initial state
+            .sink { _ in noStateChange.fulfill() }
+        defer { cancellable.cancel() }
+
+        // When: dispatch a geofence event with a non-matching API key
+        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: differentApiKey)
+        await fulfillment(of: [noStateChange], timeout: 0.5)
+
+        // Then: SDK was not re-initialized and the event was not enqueued
         let currentState = testStore.state.value
         XCTAssertEqual(currentState.apiKey, "EXISTING_KEY", "API key should remain unchanged")
-        XCTAssertEqual(currentState.pendingRequests.count, 0, "Event should not be enqueued when API key doesn't match")
+        XCTAssertEqual(
+            currentState.pendingRequests.count, 0,
+            "Event should not be enqueued when API key doesn't match"
+        )
         XCTAssertEqual(currentState.queue.count, 0, "Queue should remain empty")
     }
 
-    @MainActor
     func testCreateGeofenceEvent_enqueuesEventWhenAPIKeyMatches() async throws {
         // Given: SDK is initialized with matching API key
         var initialState = INITIALIZED_TEST_STATE()
@@ -147,16 +181,27 @@ final class GeofenceEventDispatchTests: XCTestCase {
         klaviyoSwiftEnvironment.state = { testStore.state.value }
         klaviyoSwiftEnvironment.stateChangePublisher = { Empty<KlaviyoAction, Never>().eraseToAnyPublisher() }
 
-        // When: Create a geofence event with matching API key
         let geofenceEvent = Event(
             name: .locationEvent(.geofenceEnter),
             properties: ["$geofence_id": "test-location-id"]
         )
         let matchingApiKey = "MATCHING_KEY"
-        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: matchingApiKey)
-        try await Task.sleep(nanoseconds: 200_000_000)
 
-        // Then: Verify event was enqueued (should trigger flushQueue for prioritized events)
+        // Expect: the event is processed — the forced flush drains the queue into requestsInFlight.
+        let processed = XCTestExpectation(description: "geofence event processed (queued then flushed)")
+        processed.assertForOverFulfill = false
+        let cancellable = testStore.state.sink { state in
+            if state.queue.isEmpty || !state.requestsInFlight.isEmpty {
+                processed.fulfill()
+            }
+        }
+        defer { cancellable.cancel() }
+
+        // When: dispatch a geofence event with matching API key
+        await GeofenceEventDispatch.dispatch(event: geofenceEvent, apiKey: matchingApiKey)
+        await fulfillment(of: [processed], timeout: 1.0)
+
+        // Then: event was processed (either still queued behind the flush or already in flight)
         let currentState = testStore.state.value
         XCTAssertEqual(currentState.apiKey, "MATCHING_KEY", "API key should remain unchanged")
         XCTAssertTrue(
