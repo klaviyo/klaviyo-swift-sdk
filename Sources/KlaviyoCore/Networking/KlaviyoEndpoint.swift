@@ -31,8 +31,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         case .createProfile, .createEvent, .unregisterPushToken, .aggregateEvent:
             return [:]
         case .registerPushToken:
-            // Only report SDK-feature adoption when the host has opted into the new integration
-            // model (i.e. set the Info.plist flag). Absent flag => no header, no backend tracking.
             guard let value = environment.sdkFeatures()?.headerValue(for: .pushTokenRegistration) else {
                 return [:]
             }
