@@ -8,10 +8,10 @@ import Combine
 import KlaviyoCore
 import XCTest
 
+@MainActor
 final class SharedStoreMirrorTests: XCTestCase {
     var cancellables = Set<AnyCancellable>()
 
-    @MainActor
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
@@ -19,7 +19,6 @@ final class SharedStoreMirrorTests: XCTestCase {
         SharedStoreMirror.reset()
     }
 
-    @MainActor
     override func tearDown() {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
@@ -27,7 +26,6 @@ final class SharedStoreMirrorTests: XCTestCase {
         super.tearDown()
     }
 
-    @MainActor
     func testSetupSharedStoresPushesIdentityOnChange() throws {
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
@@ -44,7 +42,6 @@ final class SharedStoreMirrorTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    @MainActor
     func testSetupSharedStoresPushesAPIKeyOnChange() throws {
         // `.test` state is already `.initialized` with apiKey "foo".
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())

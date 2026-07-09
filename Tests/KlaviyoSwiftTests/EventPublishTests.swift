@@ -8,10 +8,10 @@ import Combine
 import KlaviyoCore
 import XCTest
 
+@MainActor
 final class EventPublishTests: XCTestCase {
     var cancellables = Set<AnyCancellable>()
 
-    @MainActor
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
@@ -28,7 +28,6 @@ final class EventPublishTests: XCTestCase {
 
     // MARK: - Event Enrichment Tests
 
-    @MainActor
     func testPublishEvent_EnrichesEventWithMetadata() {
         // Given
         let expectation = XCTestExpectation(description: "Enriched event is received")
@@ -77,7 +76,6 @@ final class EventPublishTests: XCTestCase {
         XCTAssertEqual(properties["original_prop"] as? String, "original_value")
     }
 
-    @MainActor
     func testPublishEvent_PreservesEventAttributes() {
         // Given
         let expectation = XCTestExpectation(description: "Event received with preserved attributes")
@@ -123,7 +121,6 @@ final class EventPublishTests: XCTestCase {
         XCTAssertNotNil(properties["Device ID"])
     }
 
-    @MainActor
     func testPublishEvent_IncludesPushTokenWhenAvailable() {
         // Given
         let expectation = XCTestExpectation(description: "Event received with push token")
@@ -161,7 +158,6 @@ final class EventPublishTests: XCTestCase {
         XCTAssertNotNil(properties["Push Token"], "Push Token field should be present")
     }
 
-    @MainActor
     func testPublishEvent_EmptyPushTokenWhenNotAvailable() {
         // Given
         let expectation = XCTestExpectation(description: "Event received with empty push token")
@@ -192,7 +188,6 @@ final class EventPublishTests: XCTestCase {
         XCTAssertEqual(properties["Push Token"] as? String, "")
     }
 
-    @MainActor
     func testPublishEvent_BuffersEnrichedEvent() {
         // Given
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
