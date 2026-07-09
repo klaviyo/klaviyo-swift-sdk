@@ -6,14 +6,14 @@
 import KlaviyoCore
 
 /// KlaviyoSwift's TCA-backed implementation of the Core `EventDispatching` contract.
-/// Routes inbound commands to the existing `KlaviyoInternal` dispatch methods.
+/// Routes inbound commands to the analytics reducer.
 struct KlaviyoEventDispatcher: EventDispatching {
     func dispatch(_ command: InboundCommand) {
         switch command {
         case let .aggregateEvent(payload):
-            KlaviyoInternal.create(aggregateEvent: payload)
+            dispatchOnMainThread(action: .enqueueAggregateEvent(payload))
         case let .deepLink(deepLinkURL):
-            KlaviyoInternal.handleDeepLink(url: deepLinkURL)
+            dispatchOnMainThread(action: .openDeepLink(deepLinkURL))
         }
     }
 }
