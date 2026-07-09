@@ -23,12 +23,18 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         static let profileInfo = "X-Klaviyo-Profile-Info"
         static let clickEventTimestamp = "X-Klaviyo-Click-Event-Timestamp"
         static let apiFilters = "X-Klaviyo-API-Filters"
+        static let sdkFeatures = SdkFeatures.headerName
     }
 
     public var headers: [String: String] {
         switch self {
-        case .createProfile, .createEvent, .registerPushToken, .unregisterPushToken, .aggregateEvent:
+        case .createProfile, .createEvent, .unregisterPushToken, .aggregateEvent:
             return [:]
+        case .registerPushToken:
+            guard let value = environment.sdkFeatures()?.headerValue(for: .pushTokenRegistration) else {
+                return [:]
+            }
+            return [HeaderKey.sdkFeatures: value]
         case let .fetchGeofences(_, latitude, longitude):
             var headers = [String: String]()
             if let latitude, let longitude {

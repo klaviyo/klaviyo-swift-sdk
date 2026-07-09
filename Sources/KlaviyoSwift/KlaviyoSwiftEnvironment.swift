@@ -75,11 +75,13 @@ struct KlaviyoSwiftEnvironment {
                 }
             },
             isAutomaticPushTrackingEnabled: {
-                Bundle.main.object(forInfoDictionaryKey: "klaviyo_automatic_push_tracking") as? Bool == true
+                Bundle.main.object(
+                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
+                ) as? Bool == true
             },
             isAutomaticTokenForwardingDisabled: {
                 Bundle.main.object(
-                    forInfoDictionaryKey: "klaviyo_disable_automatic_token_forwarding"
+                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
                 ) as? Bool == true
             },
             notificationCenter: {

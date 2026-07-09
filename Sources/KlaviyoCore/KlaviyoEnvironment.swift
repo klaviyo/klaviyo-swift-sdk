@@ -23,6 +23,7 @@ public struct KlaviyoEnvironment {
         getNotificationSettings: @escaping () async -> PushEnablement,
         getBackgroundSetting: @escaping () -> PushBackground,
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
+        sdkFeatures: @escaping () -> SdkFeatures? = { nil },
         getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
         startReachability: @escaping () throws -> Void,
         stopReachability: @escaping () -> Void,
@@ -55,6 +56,7 @@ public struct KlaviyoEnvironment {
         self.getNotificationSettings = getNotificationSettings
         self.getBackgroundSetting = getBackgroundSetting
         self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
+        self.sdkFeatures = sdkFeatures
         self.getLocationAuthorizationStatus = getLocationAuthorizationStatus
         self.startReachability = startReachability
         self.stopReachability = stopReachability
@@ -119,6 +121,7 @@ public struct KlaviyoEnvironment {
     public var getNotificationSettings: () async -> PushEnablement
     public var getBackgroundSetting: () -> PushBackground
     public var getBadgeAutoClearingSetting: () async -> Bool
+    public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
     public var startReachability: () throws -> Void
@@ -246,6 +249,21 @@ public struct KlaviyoEnvironment {
         },
         getBadgeAutoClearingSetting: {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
+        },
+        sdkFeatures: {
+            let autoPushTracking = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
+            ) as? Bool
+            let autoTokenForwardingDisabled = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
+            ) as? Bool
+            guard autoPushTracking != nil || autoTokenForwardingDisabled != nil else {
+                return nil
+            }
+            return SdkFeatures(
+                autoPushTracking: autoPushTracking,
+                autoTokenForwardingDisabled: autoTokenForwardingDisabled
+            )
         },
         getLocationAuthorizationStatus: {
             if #available(iOS 14.0, *) {
