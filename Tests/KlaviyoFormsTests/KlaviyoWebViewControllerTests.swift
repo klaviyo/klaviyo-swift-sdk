@@ -97,10 +97,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         environment = testEnvironment
 
         // Reset Klaviyo state
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
         IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "abc123"))
         let testState = KlaviyoState(
             apiKey: "abc123",
             queue: [],
@@ -113,8 +111,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         }
 
         // Create view model
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewModel.initializeLoadScripts()
@@ -165,8 +163,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         environment = testEnvironment
 
         // Recreate view model with updated environment
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewModel.initializeLoadScripts()
@@ -196,8 +194,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         environment.formsDataEnvironment = { .web }
 
         // Recreate view model with updated environment
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
         viewModel.initializeLoadScripts()
@@ -214,7 +212,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     @MainActor
     func testProfileAttributesScriptIsAddedToWebView() async throws {
         // Given
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = ProfileData(email: "test@example.com")
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)

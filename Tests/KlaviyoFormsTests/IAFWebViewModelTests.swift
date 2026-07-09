@@ -42,10 +42,8 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
         IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "abc123"))
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
@@ -59,9 +57,9 @@ final class IAFWebViewModelTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        // Now fetch profile data with clean state
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        // Read the seeded config/identity from the canonical Core stores
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
@@ -113,7 +111,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
 
         // When
