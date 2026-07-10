@@ -45,7 +45,7 @@ public final class EventDispatcher {
     }
 
     /// Unregister the current target (test-support / Core reset surface).
-    public func reset() {
+    package func reset() {
         lock.lock()
         target = nil
         lock.unlock()

@@ -48,7 +48,7 @@ public final class EventBus: EventPublishing, EventBroadcasting {
     /// Test-support: clears the replay buffer for isolation between tests and for the
     /// Core reset surface. Subscribers are held by consumers, not the bus,
     /// so a reset only clears the bounded replay buffer.
-    public func reset() {
+    package func reset() {
         buffer.clear()
     }
 }

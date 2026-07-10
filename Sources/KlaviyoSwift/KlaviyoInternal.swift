@@ -160,8 +160,8 @@ package enum KlaviyoInternal {
     /// No-op. The event-reset mechanism moves onto KlaviyoCore in MAGE-834.
     package static func resetEventSubject() {}
 
-    /// Clears the event bus replay buffer to ensure clean state between tests.
-    package static func clearEventBuffer() {
+    /// Resets the event bus (clears its replay buffer) to ensure clean state between tests.
+    package static func resetEventBus() {
         EventBus.shared.reset()
     }
 

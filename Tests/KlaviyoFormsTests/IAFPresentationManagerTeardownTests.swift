@@ -17,6 +17,12 @@ final class IAFPresentationManagerTeardownTests: XCTestCase {
         SDKConfigStore.shared.reset()
     }
 
+    override func tearDown() {
+        IdentityStore.shared.reset()
+        SDKConfigStore.shared.reset()
+        super.tearDown()
+    }
+
     func testTeardownDoesNotClobberGlobalIdentityAndConfig() {
         let identity = ProfileData(email: "person@example.com", anonymousId: "anon-1")
         let config = KlaviyoConfig(apiKey: "company-123")
