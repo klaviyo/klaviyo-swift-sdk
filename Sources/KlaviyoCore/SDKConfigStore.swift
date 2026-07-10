@@ -64,7 +64,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
         subject.send(config)
     }
 
-    /// Restores the store to the default config (test-support / Core reset surface, MAGE-834).
+    /// Restores the store to the default config (test-support / Core reset surface).
     public func reset() {
         update(KlaviyoConfig())
     }

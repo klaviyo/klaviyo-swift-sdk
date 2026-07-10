@@ -56,7 +56,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         subject.send(identity)
     }
 
-    /// Restores the store to empty identity (test-support / Core reset surface, MAGE-834).
+    /// Restores the store to empty identity (test-support / Core reset surface).
     public func reset() {
         update(ProfileData())
     }

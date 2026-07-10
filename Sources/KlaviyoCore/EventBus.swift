@@ -46,7 +46,7 @@ public final class EventBus: EventPublishing, EventBroadcasting {
     }
 
     /// Test-support: clears the replay buffer for isolation between tests and for the
-    /// Core reset surface (MAGE-834). Subscribers are held by consumers, not the bus,
+    /// Core reset surface. Subscribers are held by consumers, not the bus,
     /// so a reset only clears the bounded replay buffer.
     public func reset() {
         buffer.clear()

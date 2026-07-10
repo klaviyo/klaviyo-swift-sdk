@@ -7,9 +7,9 @@
 import KlaviyoCore
 import XCTest
 
-/// Regression guard (MAGE-834): In-App Forms teardown must NOT clobber global identity/config.
+/// Regression guard: In-App Forms teardown must NOT clobber global identity/config.
+@MainActor
 final class IAFPresentationManagerTeardownTests: XCTestCase {
-    @MainActor
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
@@ -17,7 +17,6 @@ final class IAFPresentationManagerTeardownTests: XCTestCase {
         SDKConfigStore.shared.reset()
     }
 
-    @MainActor
     func testTeardownDoesNotClobberGlobalIdentityAndConfig() {
         let identity = ProfileData(email: "person@example.com", anonymousId: "anon-1")
         let config = KlaviyoConfig(apiKey: "company-123")
