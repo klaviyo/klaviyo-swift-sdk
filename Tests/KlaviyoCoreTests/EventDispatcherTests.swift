@@ -82,8 +82,8 @@ final class EventDispatcherTests: XCTestCase {
         environment.emitDeveloperWarning = { warnings.append($0) }
         dispatcher.dispatch(.aggregateEvent(Data()))
 
-        XCTAssertTrue(spy.received.isEmpty)           // no forward after reset
-        XCTAssertEqual(warnings.count, 1)             // hits the unregistered path
+        XCTAssertTrue(spy.received.isEmpty) // no forward after reset
+        XCTAssertEqual(warnings.count, 1) // hits the unregistered path
         XCTAssertTrue(warnings[0].contains("dispatch before registration"))
     }
 }
