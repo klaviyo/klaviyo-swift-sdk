@@ -97,8 +97,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         environment = testEnvironment
 
         // Reset Klaviyo state
-        IdentityStore.shared.reset()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "abc123"))
+        seedCoreStores()
         let testState = KlaviyoState(
             apiKey: "abc123",
             queue: [],
