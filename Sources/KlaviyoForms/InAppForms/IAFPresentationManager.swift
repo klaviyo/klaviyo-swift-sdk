@@ -7,7 +7,6 @@
 
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import UIKit
 
@@ -217,7 +216,7 @@ class IAFPresentationManager {
 
     // MARK: - Profile Event Handling
 
-    /// Starts observing profile events from KlaviyoInternal.
+    /// Starts observing profile events from the KlaviyoCore event bus.
     func startProfileObservation() {
         guard profileEventObserver == nil else {
             if #available(iOS 14.0, *) {
