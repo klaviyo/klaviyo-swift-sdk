@@ -142,14 +142,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
 
-        // "Background Processing" pushes still carry a visible alert under aps.alert
-        let alert = (userInfo["aps"] as? [String: Any])?["alert"] as? [String: Any]
-        PushLogStore.shared.record(
-            source: .background,
-            title: alert?["title"] as? String ?? "",
-            body: alert?["body"] as? String ?? "",
-            customData: customData
-        )
+        // When the app is active, `willPresent` already handled the visible alert and logged
+        // this same delivery to the Push Log — avoid double-logging (and mislabeling) it here.
+        if application.applicationState != .active {
+            // "Background Processing" pushes still carry a visible alert under aps.alert
+            let alert = (userInfo["aps"] as? [String: Any])?["alert"] as? [String: Any]
+            PushLogStore.shared.record(
+                source: .background,
+                title: alert?["title"] as? String ?? "",
+                body: alert?["body"] as? String ?? "",
+                customData: customData
+            )
+        }
 
         // Do your background work here (refresh data, etc.), then always call the completion
         // handler so iOS can measure your app's background efficiency.
