@@ -57,7 +57,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     }
 
     /// Restores the store to empty identity (test-support / Core reset surface).
-    public func reset() {
+    package func reset() {
         update(ProfileData())
     }
 }

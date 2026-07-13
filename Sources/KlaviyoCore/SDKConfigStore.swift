@@ -65,7 +65,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     }
 
     /// Restores the store to the default config (test-support / Core reset surface).
-    public func reset() {
+    package func reset() {
         update(KlaviyoConfig())
     }
 }
