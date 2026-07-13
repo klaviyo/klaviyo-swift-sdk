@@ -101,11 +101,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         // STEP5: add the push device token to your Klaviyo user profile.
-        
-        // Print the token as a hex string for debugging
+
+        #if DEBUG
+        // Print the token as a hex string for debugging. The token is a device identifier, so
+        // this is intentionally Debug-only and never runs in a Release build.
         let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
         print("📱 APNs device token: \(tokenString)")
-        
+        #endif
+
         KlaviyoSDK().set(pushToken: deviceToken)
     }
 
@@ -124,35 +127,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // This fires for both silent pushes and "Background Processing" pushes (content-available: 1,
     // enabled from the Behaviors tab of a Klaviyo push message) whether the app is foregrounded,
-    // backgrounded, or not running. Background wakes are best-effort and only testable on a
-    // physical device — the Simulator does not deliver them.
+    // backgrounded, or terminated by the system. Background wakes are best-effort and only
+    // testable on a physical device — the Simulator does not deliver them.
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         // Access custom key-value pairs from the top level
-        let customData = userInfo["key_value_pairs"] as? [String: String] ?? [:]
+        let customData = PushPayload.customData(from: userInfo)
         if customData.isEmpty {
             print("No key_value_pairs found in notification")
         } else {
             // Process your custom key-value pairs here
-            for (key, value) in customData {
-                print("Key: \(key), Value: \(value)")
+            for (pairKey, value) in customData {
+                print("Key: \(pairKey), Value: \(value)")
             }
         }
 
-        // When the app is active, `willPresent` already handled the visible alert and logged
-        // this same delivery to the Push Log — avoid double-logging (and mislabeling) it here.
-        if application.applicationState != .active {
-            // "Background Processing" pushes still carry a visible alert under aps.alert
-            let alert = (userInfo["aps"] as? [String: Any])?["alert"] as? [String: Any]
-            PushLogStore.shared.record(
-                source: .background,
-                title: alert?["title"] as? String ?? "",
-                body: alert?["body"] as? String ?? "",
-                customData: customData
-            )
+        // A visible alert delivered while the app is active also triggers `willPresent`, which
+        // already logs it — skip here to avoid a duplicate entry. Silent pushes (no alert) never
+        // trigger `willPresent`, so they must always be logged from this method regardless of
+        // app state.
+        let hasVisibleAlert = PushPayload.hasVisibleAlert(userInfo)
+        guard hasVisibleAlert, application.applicationState == .active else {
+            let (title, body) = PushPayload.alertTitleAndBody(from: userInfo)
+            // Only call the completion handler once the entry is actually persisted — the app
+            // could be suspended immediately after fetchCompletionHandler runs, and the store's
+            // write happens on an async main-queue hop.
+            PushLogStore.shared.record(source: .background, title: title, body: body, customData: customData) {
+                completionHandler(.newData)
+            }
+            return
         }
 
         // Do your background work here (refresh data, etc.), then always call the completion
@@ -231,7 +237,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             source: .tapped,
             title: content.title,
             body: content.body,
-            customData: content.userInfo["key_value_pairs"] as? [String: String] ?? [:]
+            customData: PushPayload.customData(from: content.userInfo)
         )
 
         // If this notifiation is Klaviyo's notification we'll handle it
@@ -257,7 +263,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             source: .foreground,
             title: title,
             body: body,
-            customData: notification.request.content.userInfo["key_value_pairs"] as? [String: String] ?? [:]
+            customData: PushPayload.customData(from: notification.request.content.userInfo)
         )
 
         if #available(iOS 14.0, *) {

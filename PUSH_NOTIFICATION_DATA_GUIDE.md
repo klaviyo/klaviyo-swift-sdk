@@ -80,7 +80,7 @@ func application(
 
 > ⚠️ **Always call `completionHandler`.** Skipping it risks iOS throttling future background wakes to
 > your app — this method exists specifically so iOS can measure how efficiently you use the time it grants.
-
+>
 > ⚠️ Test on a **physical device**. The Simulator does not deliver silent-push or Background-Processing
 > wakes, so this method will never fire there.
 
@@ -95,6 +95,7 @@ downloads and attaches it before the notification displays.
 Test payloads (send via a real device token — printed from `didRegisterForRemoteNotificationsWithDeviceToken`):
 
 **Image:**
+
 ```json
 {
   "aps": {
@@ -110,6 +111,7 @@ Test payloads (send via a real device token — printed from `didRegisterForRemo
 ```
 
 **Video:**
+
 ```json
 {
   "aps": {

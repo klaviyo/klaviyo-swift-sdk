@@ -45,13 +45,13 @@ class NotificationService: UNNotificationServiceExtension {
         }
 
         // Access key-value pairs
-        let userInfo = request.content.userInfo
-        if let kvPairs = userInfo["key_value_pairs"] as? [String: String] {
-            for (key, value) in kvPairs {
-                print("Key: \(key), Value: \(value)")
-            }
-        } else {
+        let customData = PushPayload.customData(from: request.content.userInfo)
+        if customData.isEmpty {
             print("No key_value_pairs found in notification")
+        } else {
+            for (pairKey, value) in customData {
+                print("Key: \(pairKey), Value: \(value)")
+            }
         }
     }
 

@@ -27,6 +27,8 @@
 		060CAF0DA7714564A8253B08 /* PushLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C63FEC63DB47098A81B00B /* PushLogEntry.swift */; };
 		68D5A40BBABC45A2AB572AD9 /* PushLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27120992E0014EE89AB04941 /* PushLogStore.swift */; };
 		32CAB4F960734BC6A529F407 /* PushLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147CC687D9424DE59357369B /* PushLogView.swift */; };
+		A92BB2E0E97345CA975B6A13 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */; };
+		9B997B2E581A44A48B412876 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,6 +99,7 @@
 		30C63FEC63DB47098A81B00B /* PushLogEntry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogEntry.swift; path = ../../Shared/PushLogEntry.swift; sourceTree = "<group>"; };
 		27120992E0014EE89AB04941 /* PushLogStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogStore.swift; path = ../../Shared/PushLogStore.swift; sourceTree = "<group>"; };
 		147CC687D9424DE59357369B /* PushLogView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogView.swift; path = ../../Shared/PushLogView.swift; sourceTree = "<group>"; };
+		D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushPayload.swift; path = ../../Shared/PushPayload.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +179,7 @@
 				30C63FEC63DB47098A81B00B /* PushLogEntry.swift */,
 				27120992E0014EE89AB04941 /* PushLogStore.swift */,
 				147CC687D9424DE59357369B /* PushLogView.swift */,
+				D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */,
 				7CC1C79928D7492C0073197F /* MenuItem.swift */,
 				7CC1C79728D7492C0073197F /* User.swift */,
 				7CC1C79428D7492B0073197F /* CocoapodsExample-Bridging-Header.h */,
@@ -406,6 +410,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				346621812A44F61500B3576C /* NotificationService.swift in Sources */,
+				9B997B2E581A44A48B412876 /* PushPayload.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -425,6 +430,7 @@
 				7CC1C7B728D7492C0073197F /* MenuView.swift in Sources */,
 				7CC1C7B828D7492C0073197F /* MapView.swift in Sources */,
 				7CC1C7B928D7492C0073197F /* CheckoutView.swift in Sources */,
+				A92BB2E0E97345CA975B6A13 /* PushPayload.swift in Sources */,
 				060CAF0DA7714564A8253B08 /* PushLogEntry.swift in Sources */,
 				68D5A40BBABC45A2AB572AD9 /* PushLogStore.swift in Sources */,
 				32CAB4F960734BC6A529F407 /* PushLogView.swift in Sources */,

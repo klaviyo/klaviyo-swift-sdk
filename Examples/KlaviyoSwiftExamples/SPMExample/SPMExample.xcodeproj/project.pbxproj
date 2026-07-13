@@ -29,6 +29,7 @@
 		207257ABB7EC42C6A237F13D /* PushLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */; };
 		4EEE71B6B8534B218132B37C /* PushLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C91D698DE7404787DBDC2E /* PushLogStore.swift */; };
 		EB72D147AEB5470C98F1989A /* PushLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAECAE6BA05E42F0B67997CA /* PushLogView.swift */; };
+		74F3315CFAA748C8ACBE8918 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BCE370CBBD24755968D191E /* PushPayload.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 		0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogEntry.swift; path = ../../Shared/PushLogEntry.swift; sourceTree = "<group>"; };
 		A2C91D698DE7404787DBDC2E /* PushLogStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogStore.swift; path = ../../Shared/PushLogStore.swift; sourceTree = "<group>"; };
 		FAECAE6BA05E42F0B67997CA /* PushLogView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogView.swift; path = ../../Shared/PushLogView.swift; sourceTree = "<group>"; };
+		3BCE370CBBD24755968D191E /* PushPayload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushPayload.swift; path = ../../Shared/PushPayload.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -190,6 +192,7 @@
 				0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */,
 				A2C91D698DE7404787DBDC2E /* PushLogStore.swift */,
 				FAECAE6BA05E42F0B67997CA /* PushLogView.swift */,
+				3BCE370CBBD24755968D191E /* PushPayload.swift */,
 				7CC1C80928D74D830073197F /* Info.plist */,
 				7CC1C82B28D74DB50073197F /* SPMExample-Bridging-Header.h */,
 			);
@@ -387,6 +390,7 @@
 				7CC1C85228D74DB60073197F /* MenuView.swift in Sources */,
 				7CC1C85328D74DB60073197F /* MapView.swift in Sources */,
 				7CC1C85428D74DB60073197F /* CheckoutView.swift in Sources */,
+				74F3315CFAA748C8ACBE8918 /* PushPayload.swift in Sources */,
 				207257ABB7EC42C6A237F13D /* PushLogEntry.swift in Sources */,
 				4EEE71B6B8534B218132B37C /* PushLogStore.swift in Sources */,
 				EB72D147AEB5470C98F1989A /* PushLogView.swift in Sources */,

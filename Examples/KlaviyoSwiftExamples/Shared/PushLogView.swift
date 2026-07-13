@@ -85,8 +85,8 @@ private struct PushLogRow: View {
 
             if !entry.customData.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(entry.customData.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                        Text("\(key): \(value)")
+                    ForEach(entry.customData.sorted(by: { $0.key < $1.key }), id: \.key) { customKey, value in
+                        Text("\(customKey): \(value)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
