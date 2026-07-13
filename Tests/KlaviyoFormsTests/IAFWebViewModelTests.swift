@@ -44,10 +44,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
-        // resetProfileDataSubject() no longer clears the shared stores (MAGE-750); reset them
-        // explicitly so each test starts from a clean, known identity/config.
-        IdentityStore.shared.update(ProfileData())
-        SDKConfigStore.shared.update(KlaviyoConfig())
+        IdentityStore.shared.reset()
+        SDKConfigStore.shared.reset()
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(

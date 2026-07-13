@@ -16,13 +16,13 @@ final class EventPublishTests: XCTestCase {
         super.setUp()
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        EventBus.shared.clearBuffer()
+        EventBus.shared.reset()
     }
 
     override func tearDown() {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
-        EventBus.shared.clearBuffer()
+        EventBus.shared.reset()
         super.tearDown()
     }
 

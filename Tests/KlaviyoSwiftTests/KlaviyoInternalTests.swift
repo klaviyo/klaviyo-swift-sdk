@@ -29,7 +29,7 @@ final class KlaviyoInternalTests: XCTestCase {
         KlaviyoInternal.resetAPIKeySubject()
         KlaviyoInternal.resetProfileDataSubject()
         KlaviyoInternal.resetEventSubject()
-        KlaviyoInternal.clearEventBuffer()
+        KlaviyoInternal.resetEventBus()
         // resetProfileDataSubject() no longer detaches the mirror or clears the stores (MAGE-750);
         // do it explicitly here so each test starts detached + empty.
         SharedStoreMirror.reset()

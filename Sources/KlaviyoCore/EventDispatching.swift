@@ -32,7 +32,7 @@ public final class EventDispatcher {
     }
 
     /// Forward a command to the registered target. If none is registered, emit a loud
-    /// developer warning rather than silently dropping (buffering deferred to MAGE-833).
+    /// developer warning rather than silently dropping (buffering is deferred follow-up work).
     public func dispatch(_ command: InboundCommand) {
         lock.lock()
         let currentTarget = target
@@ -42,5 +42,12 @@ public final class EventDispatcher {
         } else {
             environment.emitDeveloperWarning("EventDispatcher: dispatch before registration")
         }
+    }
+
+    /// Unregister the current target (test-support / Core reset surface).
+    package func reset() {
+        lock.lock()
+        target = nil
+        lock.unlock()
     }
 }

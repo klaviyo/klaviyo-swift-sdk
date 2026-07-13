@@ -14,7 +14,10 @@ class EventBufferTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        eventBuffer = EventBuffer(maxBufferSize: 5, maxBufferAge: 2.0) // Small limits for testing
+        // Small limits for testing. The clock is frozen at 0 so events can never age out
+        // mid-test on a slow CI runner; tests that exercise age-based behavior build their
+        // own buffer via makeClockedBuffer(currentTime:) and advance the clock explicitly.
+        eventBuffer = EventBuffer(maxBufferSize: 5, maxBufferAge: 2.0, clock: { 0 })
     }
 
     override func tearDown() {

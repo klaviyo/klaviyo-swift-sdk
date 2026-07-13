@@ -69,4 +69,21 @@ final class EventDispatcherTests: XCTestCase {
         XCTAssertTrue(first.received.isEmpty)
         XCTAssertEqual(second.received.count, 1)
     }
+
+    // reset(): after reset(), dispatch should warn and not forward to the previous target.
+    func testResetUnregistersTarget() {
+        let dispatcher = EventDispatcher()
+        let spyDispatcher = SpyDispatcher()
+        dispatcher.register(spyDispatcher)
+
+        dispatcher.reset()
+
+        var warnings: [String] = []
+        environment.emitDeveloperWarning = { warnings.append($0) }
+        dispatcher.dispatch(.aggregateEvent(Data()))
+
+        XCTAssertTrue(spyDispatcher.received.isEmpty) // no forward after reset
+        XCTAssertEqual(warnings.count, 1) // hits the unregistered path
+        XCTAssertTrue(warnings[0].contains("dispatch before registration"))
+    }
 }

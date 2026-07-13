@@ -72,4 +72,22 @@ final class EventBusTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(names, ["e2", "e3"])
     }
+
+    // reset(): events published before reset() must NOT be replayed to new subscribers.
+    func testResetClearsReplayBuffer() {
+        let eventBus = EventBus()
+        eventBus.publish(Event(name: .customEvent("before_reset")))
+        eventBus.reset()
+
+        let expectation = XCTestExpectation(description: "only the post-reset event is delivered")
+        var names: [String] = []
+        eventBus.eventPublisher()
+            .sink { names.append($0.metric.name.value); expectation.fulfill() }
+            .store(in: &cancellables)
+
+        eventBus.publish(Event(name: .customEvent("after_reset")))
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(names, ["after_reset"]) // pre-reset event was NOT replayed
+    }
 }

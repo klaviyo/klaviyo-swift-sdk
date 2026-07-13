@@ -54,6 +54,16 @@ final class IdentityStoreTests: XCTestCase {
         XCTAssertEqual(received, [ProfileData(), identity])
     }
 
+    // reset(): store should return to default empty ProfileData after being updated.
+    func testResetRestoresDefaultProfileData() {
+        let store = IdentityStore()
+        store.update(ProfileData(email: "test@example.com", anonymousId: "anon-1"))
+
+        store.reset()
+
+        XCTAssertEqual(store.current, ProfileData())
+    }
+
     func testStreamDeliversAllUpdatesToConcurrentConsumersNoDrops() async {
         let store = IdentityStore()
         let updates = (0..<100).map { ProfileData(externalId: "id-\($0)") }
