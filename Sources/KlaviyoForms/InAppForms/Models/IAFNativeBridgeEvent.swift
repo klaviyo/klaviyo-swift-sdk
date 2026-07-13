@@ -71,8 +71,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
             self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
         case .openExternalUrl:
-            let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
-            let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
+            // Unlike `openDeepLink` (which carries platform-split `ios`/`android` keys),
+            // the external web URL is sent as a single flat `url` field by onsite.
+            let payload = try? container.decode(ExternalUrlEventPayload.self, forKey: .data)
+            let url = payload?.url.flatMap { $0.isEmpty ? nil : URL(string: $0) }
             self = .openExternalUrl(
                 url: url,
                 formId: payload?.formId,
@@ -108,9 +110,18 @@ extension IAFNativeBridgeEvent {
         let formName: String?
     }
 
-    /// Shared payload shape for CTA link events (`openDeepLink` and `openExternalUrl`).
+    /// Payload for the `openDeepLink` CTA event, which carries platform-split deep link URLs.
     struct DeepLinkEventPayload: Decodable {
         let ios: String?
+        let formId: String?
+        let formName: String?
+        let buttonLabel: String?
+    }
+
+    /// Payload for the `openExternalUrl` CTA event. The external web URL is platform-agnostic,
+    /// so onsite sends it as a single flat `url` field (not the `ios`/`android` split used by deep links).
+    struct ExternalUrlEventPayload: Decodable {
+        let url: String?
         let formId: String?
         let formName: String?
         let buttonLabel: String?

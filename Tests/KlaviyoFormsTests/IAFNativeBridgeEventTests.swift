@@ -610,8 +610,7 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "openExternalUrl",
           "data": {
-            "ios": "https://example.com",
-            "android": "https://example.com",
+            "url": "https://example.com",
             "formId": "form123",
             "formName": "Newsletter",
             "buttonLabel": "Learn More"
@@ -639,8 +638,7 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "openExternalUrl",
           "data": {
-            "ios": "https://example.com",
-            "android": "https://example.com",
+            "url": "https://example.com",
             "formId": "form123",
             "formName": "Newsletter"
           }
@@ -667,8 +665,7 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "openExternalUrl",
           "data": {
-            "ios": "https://example.com",
-            "android": "https://example.com"
+            "url": "https://example.com"
           }
         }
         """
@@ -693,8 +690,7 @@ struct IAFNativeBridgeEventTests {
         {
           "type": "openExternalUrl",
           "data": {
-            "ios": "",
-            "android": "https://example.com",
+            "url": "",
             "formId": "form123",
             "formName": "Newsletter"
           }
