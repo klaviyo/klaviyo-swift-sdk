@@ -136,6 +136,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) {
         // Access custom key-value pairs from the top level
         let customData = PushPayload.customData(from: userInfo)
+        #if DEBUG
         if customData.isEmpty {
             print("No key_value_pairs found in notification")
         } else {
@@ -144,6 +145,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 print("Key: \(pairKey), Value: \(value)")
             }
         }
+        #endif
 
         // A visible alert delivered while the app is active also triggers `willPresent`, which
         // already logs it — skip here to avoid a duplicate entry. Silent pushes (no alert) never
@@ -257,7 +259,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // Extract the visible title/body from a standard (non-silent) push
         let title = notification.request.content.title
         let body = notification.request.content.body
+        #if DEBUG
         print("📬 [Foreground Push] Title: \(title), Body: \(body)")
+        #endif
 
         PushLogStore.shared.record(
             source: .foreground,

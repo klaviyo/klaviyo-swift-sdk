@@ -18,7 +18,16 @@ final class PushLogStore: ObservableObject {
     private let maxEntries = 50
 
     private init() {
-        entries = load()
+        // `shared` can be first touched from a background thread (e.g. didReceiveRemoteNotification),
+        // and `entries` is @Published — only assign it on the main thread.
+        let loadedEntries = load()
+        if Thread.isMainThread {
+            entries = loadedEntries
+        } else {
+            DispatchQueue.main.sync {
+                self.entries = loadedEntries
+            }
+        }
     }
 
     /// `completion` fires only after the entry has been appended and saved — callers that need to
