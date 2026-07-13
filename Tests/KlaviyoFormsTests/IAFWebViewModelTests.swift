@@ -353,13 +353,13 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - openExternalUrl Tests
 
     private func makeOpenExternalUrlMessage(
-        ios: String? = "https://example.com",
+        url: String? = "https://example.com",
         formId: String? = "form123",
         formName: String? = "Newsletter",
         buttonLabel: String? = "Learn More"
     ) -> MockWKScriptMessage {
         var data: [String: String] = [:]
-        data["ios"] = ios
+        data["url"] = url
         data["formId"] = formId
         data["formName"] = formName
         data["buttonLabel"] = buttonLabel
@@ -419,7 +419,7 @@ final class IAFWebViewModelTests: XCTestCase {
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(ios: nil))
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: nil))
 
         // Then
         XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire with nil URL")
@@ -435,7 +435,7 @@ final class IAFWebViewModelTests: XCTestCase {
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // When
-        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(ios: "javascript://alert(1)"))
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: "javascript://alert(1)"))
 
         // Then
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
