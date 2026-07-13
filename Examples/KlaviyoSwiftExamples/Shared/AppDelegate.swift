@@ -8,6 +8,7 @@
 
 import KlaviyoForms
 import KlaviyoLocation
+
 // STEP1: Importing klaviyo SDK modules into your app code
 // `KlaviyoSwift` is for analytics and push notifications and `KlaviyoForms` is for presenting marketing in app forms/messages
 import KlaviyoSwift
@@ -70,7 +71,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    // example of registering for forms to display on the applicationDidBecomeActive lifecycle event (every foreground event)
+    /// example of registering for forms to display on the applicationDidBecomeActive lifecycle event (every foreground event)
     func applicationDidBecomeActive(_ application: UIApplication) {
         KlaviyoSDK().registerForInAppForms()
     }
@@ -228,7 +229,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // STEP6: Add this extension on AppDelegate for additional push notifications handling
 extension AppDelegate: UNUserNotificationCenterDelegate {
-    // below method will be called when the user interacts with the push notification
+    /// below method will be called when the user interacts with the push notification
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -250,7 +251,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
     }
 
-    // below method is called when the app receives push notifications when the app is the foreground
+    /// below method is called when the app receives push notifications when the app is the foreground
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,

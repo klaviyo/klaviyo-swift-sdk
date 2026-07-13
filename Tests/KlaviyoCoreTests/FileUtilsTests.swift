@@ -30,12 +30,12 @@ class FileUtilsTests: XCTestCase {
         removedFile = false
     }
 
-    func testFilePathForData() throws {
+    func testFilePathForData() {
         let eventsResult = filePathForData(apiKey: "mykey", data: "events")
-        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-events.plist")!, eventsResult)
+        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-events.plist"), eventsResult)
 
         let peopleResult = filePathForData(apiKey: "mykey", data: "people")
-        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-people.plist")!, peopleResult)
+        XCTAssertEqual(URL(string: "fake_url/klaviyo-mykey-people.plist"), peopleResult)
     }
 
     func testRemoveItemWithError() {

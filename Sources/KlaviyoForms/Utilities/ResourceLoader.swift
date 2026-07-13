@@ -41,8 +41,7 @@ enum ResourceLoader {
         }
 
         do {
-            let contents = try String(contentsOfFile: resourcePath, encoding: .utf8)
-            return contents
+            return try String(contentsOfFile: resourcePath, encoding: .utf8)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.filesystem.warning("Unable to cast file contents for resource '\(path).\(type)' to type String")
@@ -51,7 +50,7 @@ enum ResourceLoader {
         }
     }
 
-    // Determines the appropriate bundle based on the build system
+    /// Determines the appropriate bundle based on the build system
     private static func resourceBundle() throws -> Bundle {
         #if SWIFT_PACKAGE
         return Bundle.module
@@ -65,7 +64,7 @@ enum ResourceLoader {
     }
 }
 
-// Helper class for locating the resource bundle (CocoaPods)
+/// Helper class for locating the resource bundle (CocoaPods)
 private class BundleLocator {}
 
 extension Bundle {

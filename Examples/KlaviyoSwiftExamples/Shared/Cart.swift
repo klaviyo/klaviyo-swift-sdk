@@ -15,7 +15,7 @@ class Cart {
         initializeCart()
     }
 
-    /*
+    /**
      Returns the quantity of a given item in the cart
      */
     func numberOfItemsInBasket(_ menuItem: MenuItem) -> Int {
@@ -26,7 +26,7 @@ class Cart {
             }
     }
 
-    // Check standard defaults to see what is in the cart
+    /// Check standard defaults to see what is in the cart
     func initializeCart() {
         guard let items = UserDefaults.standard.object(forKey: "cartItems") as? [String]
         else {

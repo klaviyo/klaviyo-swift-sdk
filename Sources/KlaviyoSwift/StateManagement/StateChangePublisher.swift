@@ -24,8 +24,8 @@ public struct StateChangePublisher {
             .eraseToAnyPublisher()
     }
 
-    // publisher to listen for state and persist them on an interval.
-    // does not emit action but mapped that way so it can be used in the store.
+    /// publisher to listen for state and persist them on an interval.
+    /// does not emit action but mapped that way so it can be used in the store.
     var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
         debouncedPublisher(createStatePublisher())
             .flatMap { state -> Empty<KlaviyoAction, Never> in

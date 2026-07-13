@@ -459,7 +459,7 @@ extension Profile {
             zip: zip
         )
 
-        let profile = Profile(
+        return Profile(
             email: email,
             phoneNumber: phoneNumber,
             externalId: externalId,
@@ -471,8 +471,6 @@ extension Profile {
             location: location,
             properties: customProperties
         )
-
-        return profile
     }
 }
 

@@ -38,9 +38,7 @@ enum GeofenceDistanceCalculator {
             sin(deltaLonRad / 2.0) * sin(deltaLonRad / 2.0)
 
         let angularDistanceRadians = 2.0 * atan2(sqrt(haversineValue), sqrt(1.0 - haversineValue))
-        let distance = earthRadiusMeters * angularDistanceRadians
-
-        return distance
+        return earthRadiusMeters * angularDistanceRadians
     }
 
     /// Calculates the distance from a coordinate to a geofence center in meters.

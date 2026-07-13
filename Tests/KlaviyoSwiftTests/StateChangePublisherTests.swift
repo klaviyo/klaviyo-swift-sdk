@@ -19,7 +19,7 @@ final class StateChangePublisherTests: XCTestCase {
     }
 
     @MainActor
-    func testStateChangePublisher() throws {
+    func testStateChangePublisher() {
         let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
         // Third call set email should trigger again
         let setEmailSaveExpectation = XCTestExpectation(description: "Set email should be saved.")
@@ -80,7 +80,7 @@ final class StateChangePublisherTests: XCTestCase {
     }
 
     @MainActor
-    func testStateChangeDuplicateAreRemoved() throws {
+    func testStateChangeDuplicateAreRemoved() {
         let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
         savedCalledExpectation.assertForOverFulfill = true
 
@@ -121,7 +121,7 @@ final class StateChangePublisherTests: XCTestCase {
         wait(for: [savedCalledExpectation], timeout: 1.0)
     }
 
-    func testQuickStateUpdatesTriggerOnlyOneSaves() throws {
+    func testQuickStateUpdatesTriggerOnlyOneSaves() {
         let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
         var count = 0
         environment.fileClient.write = { _, _ in

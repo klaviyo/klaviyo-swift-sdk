@@ -111,14 +111,14 @@ final class GeofenceTests: XCTestCase {
 
         // Then
         XCTAssertEqual(geofences.count, 2)
-        let firstGeofence = geofences.first { $0.locationId == "8db4effa-44f1-45e6-a88d-8e7d50516a0f" }!
+        let firstGeofence = try XCTUnwrap(geofences.first { $0.locationId == "8db4effa-44f1-45e6-a88d-8e7d50516a0f" })
         XCTAssertEqual(firstGeofence.id, "_k:ABC123:8db4effa-44f1-45e6-a88d-8e7d50516a0f")
         XCTAssertEqual(firstGeofence.companyId, "ABC123")
         XCTAssertEqual(firstGeofence.latitude, 40.7128)
         XCTAssertEqual(firstGeofence.longitude, -74.006)
         XCTAssertEqual(firstGeofence.radius, 100)
 
-        let secondGeofence = geofences.first { $0.locationId == "a84011cf-93ef-4e78-b047-c0ce4ea258e4" }!
+        let secondGeofence = try XCTUnwrap(geofences.first { $0.locationId == "a84011cf-93ef-4e78-b047-c0ce4ea258e4" })
         XCTAssertEqual(secondGeofence.id, "_k:ABC123:a84011cf-93ef-4e78-b047-c0ce4ea258e4")
         XCTAssertEqual(secondGeofence.companyId, "ABC123")
         XCTAssertEqual(secondGeofence.latitude, 40.6892)

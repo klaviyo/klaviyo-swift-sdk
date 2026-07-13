@@ -53,8 +53,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Custom Handler Execution Tests
 
     @MainActor
-    func testOpenURLUsesCustomHandlerWhenRegistered() async {
-        let expectedURL = URL(string: "https://example.com/custom")!
+    func testOpenURLUsesCustomHandlerWhenRegistered() async throws {
+        let expectedURL = try XCTUnwrap(URL(string: "https://example.com/custom"))
         let handlerCalled = expectation(description: "custom handler called")
 
         deepLinkHandler.registerCustomHandler { url in
@@ -69,8 +69,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Handler Replacement Tests
 
     @MainActor
-    func testRegisteringNewHandlerReplacesOld() async {
-        let url = URL(string: "https://example.com/test")!
+    func testRegisteringNewHandlerReplacesOld() async throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/test"))
         let firstHandlerCalled = expectation(description: "first handler called")
         let secondHandlerCalled = expectation(description: "second handler called")
         firstHandlerCalled.isInverted = true
@@ -94,8 +94,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     @MainActor
-    func testCustomHandlerCalledOnMainActor() async {
-        let url = URL(string: "https://example.com/main-actor")!
+    func testCustomHandlerCalledOnMainActor() async throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/main-actor"))
         let handlerCalled = expectation(description: "handler called on main actor")
 
         deepLinkHandler.registerCustomHandler { _ in

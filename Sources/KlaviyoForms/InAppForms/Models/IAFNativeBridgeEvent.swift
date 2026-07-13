@@ -110,7 +110,7 @@ extension IAFNativeBridgeEvent {
 }
 
 extension IAFNativeBridgeEvent {
-    public static var handshake: String {
+    static var handshake: String {
         struct HandshakeData: Codable {
             var type: String
             var version: Int

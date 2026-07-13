@@ -20,8 +20,7 @@ final class KlaviyoAPITests: XCTestCase {
 
         try await sendAndAssert(with: KlaviyoRequest(
             endpoint: .createProfile("foo", CreateProfilePayload(data: .test))
-        )
-        ) { result in
+        )) { result in
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .description)
@@ -36,7 +35,6 @@ final class KlaviyoAPITests: XCTestCase {
         }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -52,7 +50,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -68,7 +65,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .failure(error):
                 assertSnapshot(matching: error, as: .dump)
@@ -87,7 +83,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .createProfile("foo", CreateProfilePayload(data: .test)))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 XCTAssertEqual(data.count, 0)
@@ -124,7 +119,6 @@ final class KlaviyoAPITests: XCTestCase {
         }) }
         let request = KlaviyoRequest(endpoint: .registerPushToken("foo", .test))
         try await sendAndAssert(with: request) { result in
-
             switch result {
             case let .success(data):
                 XCTAssertEqual(data.count, 0)
