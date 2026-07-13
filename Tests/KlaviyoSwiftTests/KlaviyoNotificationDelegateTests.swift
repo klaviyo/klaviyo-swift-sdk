@@ -70,11 +70,11 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
     // MARK: - Plist Gating
 
-    /// Default state: push tracking off, token forwarding not disabled.
-    /// `injectIfEnabled()` must be a complete no-op — delegate stays unchanged.
-    func testInjectIfEnabledIsNoOpWhenTrackingDisabled() {
+    /// Both flags off: `injectIfEnabled()` is a no-op and the proxy delegate is never installed.
+    func testInjectIfEnabledIsNoOpWhenBothFlagsDisabled() {
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { false }
+        klaviyoSwiftEnvironment.isAutomaticTokenForwardingEnabled = { false }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()

@@ -89,41 +89,39 @@ final class KlaviyoNotificationDelegate: NSObject {
 
     // MARK: - Injection
 
-    /// Reads the opt-in flag and notification center from `KlaviyoSwiftEnvironment`,
-    /// then installs the proxy when automatic push tracking is enabled.
+    /// Reads the two independent opt-in flags and the notification center from
+    /// `KlaviyoSwiftEnvironment`, then applies each behavior on its own:
+    /// - `klaviyo_automatic_push_tracking` gates proxy injection (automatic push-open tracking).
+    /// - `klaviyo_automatic_token_forwarding` gates app-delegate swizzling (device-token forwarding).
     ///
-    /// Both dependencies are environment-injected so tests can control the plist gate
+    /// Neither flag is a prerequisite for the other, so any combination is honored.
+    ///
+    /// All dependencies are environment-injected so tests can control the plist gates
     /// and substitute a mock center without requiring an app-bundle context.
     ///
     /// Called once from `KlaviyoSDK.initialize(with:)` via
     /// `KlaviyoSwiftEnvironment.injectNotificationDelegate`.
     @MainActor
     static func injectIfEnabled() {
-        guard klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled() else {
+        if klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled() {
             if #available(iOS 14.0, *) {
-                Logger.notifications.log("Automatic push tracking is off.")
+                Logger.notifications.info(
+                    "Injecting notification delegate proxy for automatic push tracking."
+                )
             }
-            return
+            shared.inject(into: klaviyoSwiftEnvironment.notificationCenter())
+        } else if #available(iOS 14.0, *) {
+            Logger.notifications.log("Automatic push tracking is off.")
         }
 
-        if #available(iOS 14.0, *) {
-            Logger.notifications.info(
-                "Injecting notification delegate proxy for automatic push tracking."
-            )
-        }
-        shared.inject(into: klaviyoSwiftEnvironment.notificationCenter())
-
-        if klaviyoSwiftEnvironment.isAutomaticTokenForwardingDisabled() {
+        if klaviyoSwiftEnvironment.isAutomaticTokenForwardingEnabled() {
             if #available(iOS 14.0, *) {
-                Logger.notifications.log("Automatic token forwarding disabled via plist key.")
+                Logger.notifications.info("Swizzling app delegate for automatic token forwarding.")
             }
-            return
+            KlaviyoAppDelegateSwizzler.swizzleIfPossible()
+        } else if #available(iOS 14.0, *) {
+            Logger.notifications.log("Automatic token forwarding is off.")
         }
-
-        if #available(iOS 14.0, *) {
-            Logger.notifications.info("Swizzling app delegate for automatic token registration.")
-        }
-        KlaviyoAppDelegateSwizzler.swizzleIfPossible()
     }
 
     /// Installs the proxy as the notification center's active delegate and registers

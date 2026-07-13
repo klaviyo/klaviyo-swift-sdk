@@ -18,7 +18,7 @@ This [example](SPMExample) demonstrates how to integrate our SDK using SPM. Foll
 
 ## SPM Example — Automatic Push Tracking
 
-This [example](SPMExample/SPMExampleAutomatic) mirrors the SPM Example but opts into automatic push integration via the `klaviyo_automatic_push_tracking` Info.plist key. With this key set, the SDK automatically forwards device tokens and tracks push opens — no `didRegisterForRemoteNotificationsWithDeviceToken` or `UNUserNotificationCenterDelegate` code required in your `AppDelegate`.
+This [example](SPMExample/SPMExampleAutomatic) mirrors the SPM Example but opts into automatic push integration via two independent Info.plist keys: `klaviyo_automatic_push_tracking` (tracks push opens) and `klaviyo_automatic_token_forwarding` (forwards device tokens). With both keys set, the SDK automatically forwards device tokens and tracks push opens, so no `didRegisterForRemoteNotificationsWithDeviceToken` or `UNUserNotificationCenterDelegate` code is required in your `AppDelegate`.
 
 ## Which example should I use?
 
