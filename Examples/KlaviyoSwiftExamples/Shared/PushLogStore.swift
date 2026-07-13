@@ -19,13 +19,17 @@ final class PushLogStore: ObservableObject {
 
     private init() {
         // `shared` can be first touched from a background thread (e.g. didReceiveRemoteNotification),
-        // and `entries` is @Published — only assign it on the main thread.
+        // and `entries` is @Published, so it must only be mutated on the main thread. Hydrate
+        // asynchronously rather than with `DispatchQueue.main.sync` — synchronously blocking here
+        // while still inside `static let shared`'s one-time initialization lock can deadlock
+        // against the main thread if it accesses `shared` at the same moment (it would be waiting
+        // on this lock while this initializer waits on the main thread to be free).
         let loadedEntries = load()
         if Thread.isMainThread {
             entries = loadedEntries
         } else {
-            DispatchQueue.main.sync {
-                self.entries = loadedEntries
+            DispatchQueue.main.async { [weak self] in
+                self?.entries = loadedEntries
             }
         }
     }
