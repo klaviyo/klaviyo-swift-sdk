@@ -267,7 +267,7 @@ For the fully automatic, no-boilerplate integration, enable both:
 <true/>
 ```
 
-Each flag can be enabled on its own; enable only the behavior you want.
+Each flag can be enabled on its own; enable only the behavior you want. If you enable push tracking without token forwarding, you must still collect the device token yourself (see [Option B](#option-b--manual-integration)), otherwise no token is registered with Klaviyo.
 
 #### Step 2 — Initialize the SDK and request push authorization
 
