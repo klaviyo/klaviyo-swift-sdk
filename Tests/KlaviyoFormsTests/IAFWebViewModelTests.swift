@@ -19,6 +19,12 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
+// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+private final class SpyDispatcher: EventDispatching {
+    private(set) var received: [InboundCommand] = []
+    func dispatch(_ command: InboundCommand) { received.append(command) }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Properties
 
@@ -347,6 +353,39 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testTrackProfileEventDispatchesCreateEvent() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When - JS sends a trackProfileEvent bridge message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Viewed Product",
+                "foo": "bar"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .createEvent(event) = spyDispatcher.received[0] else {
+            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
+        }
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertEqual(event.properties["foo"] as? String, "bar")
     }
 }
 

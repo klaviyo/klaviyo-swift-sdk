@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import WebKit
 
@@ -326,7 +325,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
+                EventDispatcher.shared.dispatch(
+                    .createEvent(Event(name: .customEvent(metricName), properties: jsonEventData))
+                )
             }
         case let .trackAggregateEvent(data):
             EventDispatcher.shared.dispatch(.aggregateEvent(data))

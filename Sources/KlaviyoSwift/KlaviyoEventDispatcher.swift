@@ -10,6 +10,8 @@ import KlaviyoCore
 struct KlaviyoEventDispatcher: EventDispatching {
     func dispatch(_ command: InboundCommand) {
         switch command {
+        case let .createEvent(event):
+            dispatchOnMainThread(action: .enqueueEvent(event))
         case let .aggregateEvent(payload):
             dispatchOnMainThread(action: .enqueueAggregateEvent(payload))
         case let .deepLink(deepLinkURL):
