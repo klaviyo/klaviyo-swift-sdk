@@ -44,6 +44,24 @@ final class EventDispatcherTests: XCTestCase {
         }
     }
 
+    func testDispatchForwardsCreateEvent() {
+        let dispatcher = EventDispatcher()
+        let spyDispatcher = SpyDispatcher()
+        dispatcher.register(spyDispatcher)
+
+        let event = Event(name: .customEvent("Viewed Product"), properties: ["foo": "bar"])
+        dispatcher.dispatch(.createEvent(event))
+
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .createEvent(received) = spyDispatcher.received[0] else {
+            return XCTFail("expected .createEvent")
+        }
+        XCTAssertEqual(received.metric.name, .customEvent("Viewed Product"))
+        XCTAssertEqual(received.properties["foo"] as? String, "bar")
+    }
+
     func testDispatchWithoutRegistrationWarnsAndDoesNotForward() {
         let dispatcher = EventDispatcher()
         let spy = SpyDispatcher() // created but intentionally NOT registered

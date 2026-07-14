@@ -7,6 +7,7 @@ import Foundation
 
 /// Closed vocabulary of inbound commands other modules hand to the SDK's analytics engine.
 public enum InboundCommand {
+    case createEvent(Event)
     case aggregateEvent(AggregateEventPayload)
     case deepLink(URL)
 }
