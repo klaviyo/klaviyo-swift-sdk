@@ -53,6 +53,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     print("🖱️  [Form Lifecycle] Form CTA Clicked: \(event.formId)")
                     print("   Form Name: \(event.formName)")
                     print("   Button: \(buttonLabel) → \(deepLinkUrl)")
+                case let .formExternalUrlClicked(_, _, buttonLabel, url):
+                    print("🌐 [Form Lifecycle] Form External URL Clicked: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
+                    print("   Button: \(buttonLabel) → \(url)")
                 }
             }
 
