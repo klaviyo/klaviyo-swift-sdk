@@ -5,8 +5,6 @@
 //  Created by Isobelle Lim on 7/14/26.
 //
 
-import Foundation
-
 /// Marker protocol that anchors public `KlaviyoSDK` API extensions declared in feature modules
 /// (Forms, Location) without those modules importing `KlaviyoSwift`.
 ///
