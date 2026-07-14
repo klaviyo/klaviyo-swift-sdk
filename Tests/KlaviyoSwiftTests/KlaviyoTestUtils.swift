@@ -66,7 +66,10 @@ extension KlaviyoEnvironment {
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T: Decodable>(_: T.Type, from _: Data) throws -> T {
-        KlaviyoState.test as! T
+        guard let state = KlaviyoState.test as? T else {
+            throw KlaviyoDecodingError.invalidType
+        }
+        return state
     }
 }
 

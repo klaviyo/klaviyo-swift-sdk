@@ -70,7 +70,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     @MainActor
     func testRegisteringNewHandlerReplacesOld() async throws {
-        let url = try XCTUnwrap(URL(string: "https://example.com/test"))
+        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
         let firstHandlerCalled = expectation(description: "first handler called")
         let secondHandlerCalled = expectation(description: "second handler called")
         firstHandlerCalled.isInverted = true
@@ -82,11 +82,11 @@ final class DeepLinkHandlerTests: XCTestCase {
 
         // Register second handler (should replace first)
         deepLinkHandler.registerCustomHandler { receivedURL in
-            XCTAssertEqual(receivedURL, url)
+            XCTAssertEqual(receivedURL, testURL)
             secondHandlerCalled.fulfill()
         }
 
-        await deepLinkHandler.openURL(url)
+        await deepLinkHandler.openURL(testURL)
 
         await fulfillment(of: [firstHandlerCalled, secondHandlerCalled], timeout: 1.0)
     }
@@ -95,7 +95,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     @MainActor
     func testCustomHandlerCalledOnMainActor() async throws {
-        let url = try XCTUnwrap(URL(string: "https://example.com/main-actor"))
+        let testURL = try XCTUnwrap(URL(string: "https://example.com/main-actor"))
         let handlerCalled = expectation(description: "handler called on main actor")
 
         deepLinkHandler.registerCustomHandler { _ in
@@ -103,7 +103,7 @@ final class DeepLinkHandlerTests: XCTestCase {
             handlerCalled.fulfill()
         }
 
-        await deepLinkHandler.openURL(url)
+        await deepLinkHandler.openURL(testURL)
         await fulfillment(of: [handlerCalled], timeout: 1.0)
     }
 }

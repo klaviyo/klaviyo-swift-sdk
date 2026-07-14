@@ -175,12 +175,12 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testOpenDeepLinkActionSetsProcessingState() async throws {
-        let url = try XCTUnwrap(URL(string: "https://example.com/test"))
+        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
         let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
 
         environment.linkHandler.registerCustomHandler { _ in }
 
-        await store.send(.openDeepLink(url)) {
+        await store.send(.openDeepLink(testURL)) {
             $0.isProcessingDeepLink = true
         }
 
@@ -191,13 +191,13 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testOpenDeepLinkActionIgnoredWhenAlreadyProcessing() async throws {
-        let url = try XCTUnwrap(URL(string: "https://example.com/test"))
+        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
         var initialState = KlaviyoState(queue: [], requestsInFlight: [])
         initialState.isProcessingDeepLink = true
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        await store.send(.openDeepLink(url))
+        await store.send(.openDeepLink(testURL))
     }
 
     @MainActor

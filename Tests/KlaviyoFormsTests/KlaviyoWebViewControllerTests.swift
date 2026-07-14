@@ -55,8 +55,8 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
         let mockController = MockWKUserContentController()
         config.userContentController = mockController
 
-        let url = try XCTUnwrap(URL(string: "https://www.google.com"))
-        let viewModel = MockIAFWebViewModel(url: url)
+        let testURL = try XCTUnwrap(URL(string: "https://www.google.com"))
+        let viewModel = MockIAFWebViewModel(url: testURL)
         let messageHandlers = Set(["handler1", "handler2"])
         viewModel.messageHandlers = messageHandlers
 
