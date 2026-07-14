@@ -17,6 +17,8 @@
 	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER).shared</string>
 	<key>klaviyo_automatic_push_tracking</key>
 	<true/>
+	<key>klaviyo_automatic_token_forwarding</key>
+	<true/>
 	<key>klaviyo_badge_autoclearing</key>
 	<true/>
 	<key>CFBundleURLTypes</key>

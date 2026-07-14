@@ -58,9 +58,9 @@ final class KlaviyoEndpointTests: XCTestCase {
     }
 
     func testRegisterPushTokenAttachesSdkFeaturesHeaderWhenPresent() throws {
-        // Given the host has opted into the new integration model
+        // Given the host has opted into push tracking but not token forwarding
         environment.sdkFeatures = {
-            SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: true)
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: false)
         }
         let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
 
@@ -74,10 +74,10 @@ final class KlaviyoEndpointTests: XCTestCase {
         )
     }
 
-    func testRegisterPushTokenHeaderOmitsForwardingWhenEscapeHatchKeyAbsent() throws {
-        // Given the master key is set but the escape-hatch key is absent from Info.plist
+    func testRegisterPushTokenHeaderOmitsForwardingWhenForwardingKeyAbsent() throws {
+        // Given the tracking key is set but the forwarding key is absent from Info.plist
         environment.sdkFeatures = {
-            SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: nil)
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: nil)
         }
         let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
 
@@ -91,20 +91,21 @@ final class KlaviyoEndpointTests: XCTestCase {
         )
     }
 
-    func testRegisterPushTokenHeaderForEscapeHatchWithoutPrimaryFlag() throws {
-        // Given only the escape-hatch key is set (nonsensical config, captured for telemetry)
+    func testRegisterPushTokenHeaderForForwardingWithoutTracking() throws {
+        // Given only the forwarding key is set and enabled — the newly valid independent
+        // configuration where token forwarding is opted into without push tracking
         environment.sdkFeatures = {
-            SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: true)
+            SdkFeatures(autoPushTracking: nil, autoTokenForwarding: true)
         }
         let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
 
         // When
         let request = try endpoint.urlRequest()
 
-        // Then only the forwarding field is present; its presence flags the escape-hatch config
+        // Then only the forwarding field is present, reporting enabled
         XCTAssertEqual(
             request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
-            "auto_push_token_forwarding=0;"
+            "auto_push_token_forwarding=1;"
         )
     }
 
@@ -124,7 +125,7 @@ final class KlaviyoEndpointTests: XCTestCase {
         // Given a non-nil SdkFeatures whose scope yields no fields (both keys absent), exercising
         // the guard-let path where headerValue(for:) itself returns nil rather than sdkFeatures().
         environment.sdkFeatures = {
-            SdkFeatures(autoPushTracking: nil, autoTokenForwardingDisabled: nil)
+            SdkFeatures(autoPushTracking: nil, autoTokenForwarding: nil)
         }
         let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
 
@@ -138,7 +139,7 @@ final class KlaviyoEndpointTests: XCTestCase {
     func testSdkFeaturesHeaderOnlyAttachesToRegisterPushToken() throws {
         // Given the host has opted in, so the header would be produced where applicable
         environment.sdkFeatures = {
-            SdkFeatures(autoPushTracking: true, autoTokenForwardingDisabled: false)
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: true)
         }
 
         // Then no other endpoint carries the SDK-features header (some set their own

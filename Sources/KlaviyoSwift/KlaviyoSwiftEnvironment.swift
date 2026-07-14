@@ -29,10 +29,11 @@ struct KlaviyoSwiftEnvironment {
     /// `klaviyo_automatic_push_tracking` Info.plist key.
     /// Injected so tests can enable or disable the feature without modifying `Bundle.main`.
     var isAutomaticPushTrackingEnabled: () -> Bool
-    /// Returns whether the host has opted out of automatic token forwarding via the
-    /// `klaviyo_disable_automatic_token_forwarding` Info.plist key.
-    /// Injected so tests can control the escape hatch without modifying `Bundle.main`.
-    var isAutomaticTokenForwardingDisabled: () -> Bool
+    /// Returns whether the host has opted in to automatic device-token forwarding via the
+    /// `klaviyo_automatic_token_forwarding` Info.plist key. Independent of push tracking; absent
+    /// is treated as `false`.
+    /// Injected so tests can control the flag without modifying `Bundle.main`.
+    var isAutomaticTokenForwardingEnabled: () -> Bool
     /// Provides the notification center for automatic push tracking injection.
     /// Injected so tests can substitute a mock without the app-bundle context that
     /// `UNUserNotificationCenter.current()` requires.
@@ -79,9 +80,9 @@ struct KlaviyoSwiftEnvironment {
                     forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
                 ) as? Bool == true
             },
-            isAutomaticTokenForwardingDisabled: {
+            isAutomaticTokenForwardingEnabled: {
                 Bundle.main.object(
-                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.disableAutomaticTokenForwarding
+                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticTokenForwarding
                 ) as? Bool == true
             },
             notificationCenter: {

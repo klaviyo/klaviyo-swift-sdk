@@ -46,14 +46,14 @@ public struct SdkFeatures: Equatable {
     /// Name of the HTTP header these features are serialized into.
     public static let headerName = "X-Klaviyo-Sdk-Features"
 
-    /// Info.plist keys the host app sets to opt in to automatic push tracking behavior.
+    /// Info.plist keys the host app sets to opt in to SDK behaviors.
     /// Shared so the flag reads stay consistent across modules.
     package enum InfoPlistKey {
-        /// Master flag: when present and `true`, enables proxy delegate injection and token forwarding.
+        /// When present and `true`, enables proxy delegate injection and automatic push-open tracking.
         package static let automaticPushTracking = "klaviyo_automatic_push_tracking"
-        /// Escape hatch: when `true` (and the master is `true`), token forwarding is skipped while the
-        /// proxy stays active.
-        package static let disableAutomaticTokenForwarding = "klaviyo_disable_automatic_token_forwarding"
+        /// When present and `true`, enables automatic device-token forwarding (app-delegate swizzling).
+        /// Absent is treated as `false` (opt-in), independent of `automaticPushTracking`.
+        package static let automaticTokenForwarding = "klaviyo_automatic_token_forwarding"
     }
 
     /// Configured feature states; only features the host actually configured are present.
@@ -64,17 +64,14 @@ public struct SdkFeatures: Equatable {
     }
 
     /// - Parameters:
-    ///   - autoPushTracking: value of the master `klaviyo_automatic_push_tracking` flag, or `nil`
+    ///   - autoPushTracking: value of the `klaviyo_automatic_push_tracking` flag, or `nil`
     ///     when that key is absent from Info.plist.
-    ///   - autoTokenForwardingDisabled: value of the `klaviyo_disable_automatic_token_forwarding`
-    ///     escape hatch, or `nil` when that key is absent from Info.plist.
-    public init(autoPushTracking: Bool?, autoTokenForwardingDisabled: Bool?) {
+    ///   - autoTokenForwarding: value of the independent `klaviyo_automatic_token_forwarding`
+    ///     flag, or `nil` when that key is absent from Info.plist.
+    public init(autoPushTracking: Bool?, autoTokenForwarding: Bool?) {
         var values = [SdkFeatureKey: Bool]()
         values[.autoPushTracking] = autoPushTracking
-        // Report each flag's configured state independently. Token forwarding is considered enabled
-        // unless the escape hatch explicitly disables it; this is decoupled from the master flag so we
-        // capture how the host set each flag rather than a collapsed runtime state.
-        values[.autoPushTokenForwarding] = autoTokenForwardingDisabled.map { !$0 }
+        values[.autoPushTokenForwarding] = autoTokenForwarding
         self.init(values: values)
     }
 

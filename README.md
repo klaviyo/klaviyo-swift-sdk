@@ -19,9 +19,8 @@
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Option A — Automatic integration](#option-a--automatic-integration)
-    - [Step 1 — Enable automatic tracking in Info.plist](#step-1--enable-automatic-tracking-in-infoplist)
+    - [Step 1 — Enable automatic push behavior in Info.plist](#step-1--enable-automatic-push-behavior-in-infoplist)
     - [Step 2 — Initialize the SDK and request push authorization](#step-2--initialize-the-sdk-and-request-push-authorization)
-    - [Advanced: Disable automatic token forwarding](#advanced-disable-automatic-token-forwarding)
   - [Option B — Manual integration](#option-b--manual-integration)
     - [Collecting Push Tokens](#collecting-push-tokens)
     - [Request Push Notification Permission](#request-push-notification-permission)
@@ -254,12 +253,21 @@ The `create` method takes an event object as an argument. The event can be const
 
 The SDK can intercept APNs device-token callbacks and `UNUserNotificationCenter` delegate calls automatically, so you don't need to implement `didRegisterForRemoteNotificationsWithDeviceToken` or any `UNUserNotificationCenterDelegate` methods in your app delegate.
 
-#### Step 1 — Enable automatic tracking in `Info.plist`
+#### Step 1 — Enable automatic push behavior in `Info.plist`
+
+Automatic push tracking and automatic device-token forwarding are two independent opt-in flags.
+For the fully automatic, no-boilerplate integration, enable both:
 
 ```xml
+<!-- Injects a notification-delegate proxy that tracks push opens automatically -->
 <key>klaviyo_automatic_push_tracking</key>
 <true/>
+<!-- Forwards the APNs device token to Klaviyo automatically (no didRegister... code needed) -->
+<key>klaviyo_automatic_token_forwarding</key>
+<true/>
 ```
+
+Each flag can be enabled on its own; enable only the behavior you want. If you enable push tracking without token forwarding, you must still collect the device token yourself and forward it in the `.set(pushToken:)` method (see [Option B](#option-b--manual-integration)), otherwise no token is registered with Klaviyo. Conversely, if you enable token forwarding without push tracking, the device token is forwarded automatically, but you must implement push-open tracking yourself (see [Tracking Open Events](#tracking-open-events)).
 
 #### Step 2 — Initialize the SDK and request push authorization
 
@@ -300,25 +308,6 @@ func registerForPushNotifications() {
 ```
 
 > ℹ️ Silent push (`content-available`) is not intercepted automatically. If you use silent or background pushes, implement `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your app delegate — see [Silent Push Notifications](#silent-push-notifications).
-
-#### Advanced: Disable automatic token forwarding
-
-By default, enabling automatic push tracking also handles device token forwarding to Klaviyo automatically. If you need to retain manual control over token forwarding — for example, to share the token with multiple push providers — add the following to your `Info.plist`:
-
-```xml
-<key>klaviyo_automatic_push_tracking</key>
-<true/>
-<key>klaviyo_disable_automatic_token_forwarding</key>
-<true/>
-```
-
-Push open tracking remains active. You are responsible for forwarding the token manually by adding the following to your app delegate:
-
-```swift
-func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    KlaviyoSDK().set(pushToken: deviceToken)
-}
-```
 
 For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
 
