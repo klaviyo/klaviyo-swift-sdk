@@ -166,6 +166,23 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
+    /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
+    ///
+    /// This method subscribes the currently tracked profile to the specified Klaviyo list.
+    /// The profile must have at least an email address or phone number set (email keys the email
+    /// channel; phone number keys the SMS and WhatsApp channels).
+    ///
+    /// Use ``Subscription/allAvailableMarketing(listId:customSource:)`` to grant MARKETING consent on
+    /// the channels the profile has identifiers for (email and SMS), or the
+    /// ``Subscription/init(listId:channels:customSource:)`` initializer with a ``Subscription/Channels``
+    /// value to name specific channels and sub-types.
+    ///
+    /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
+    ///   for, and an optional `customSource` label.
+    public func create(subscription: Subscription) {
+        dispatchOnMainThread(action: .enqueueSubscription(subscription))
+    }
+
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
