@@ -71,7 +71,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoForms",
-            dependencies: ["KlaviyoSwift"],
+            dependencies: ["KlaviyoCore"],
             path: "Sources/KlaviyoForms",
             resources: [
                 .process("InAppForms/Assets"),
