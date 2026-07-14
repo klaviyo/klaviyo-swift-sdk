@@ -126,10 +126,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // MARK: Silent Push Notification implementation
 
-    // This fires for both silent pushes and "Background Processing" pushes (content-available: 1,
-    // enabled from the Behaviors tab of a Klaviyo push message) whether the app is foregrounded,
-    // backgrounded, or terminated by the system. Background wakes are best-effort and only
-    // testable on a physical device — the Simulator does not deliver them.
+    /// This fires for both silent pushes and "Background Processing" pushes (content-available: 1,
+    /// enabled from the Behaviors tab of a Klaviyo push message) whether the app is foregrounded,
+    /// backgrounded, or terminated by the system. Background wakes are best-effort and only
+    /// testable on a physical device — the Simulator does not deliver them.
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
