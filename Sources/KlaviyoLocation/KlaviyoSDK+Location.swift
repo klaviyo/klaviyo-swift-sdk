@@ -7,14 +7,14 @@
 
 import CoreLocation
 import Foundation
-import KlaviyoSwift
+import KlaviyoCore
 
-extension KlaviyoSDK {
+extension KlaviyoSDKExtending {
     /// Registers app for geofencing. Geofencing will only be set up when "authorized always" permission level is granted.
     /// App will begin listening for geofence events (enter, exit, dwell) according to the geofences configured in your Klaviyo account.
     /// This method returns immediately and performs the registration asynchronously in the background.
     @discardableResult
-    public func registerGeofencing() -> KlaviyoSDK {
+    public func registerGeofencing() -> Self {
         Task { @MainActor in
             await KlaviyoLocationManager.shared.startGeofenceMonitoring()
         }
@@ -25,7 +25,7 @@ extension KlaviyoSDK {
     /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
     /// This method returns immediately and performs the unregistration asynchronously in the background.
     @discardableResult
-    public func unregisterGeofencing() -> KlaviyoSDK {
+    public func unregisterGeofencing() -> Self {
         Task { @MainActor in
             await KlaviyoLocationManager.shared.stopGeofenceMonitoring()
         }
