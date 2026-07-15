@@ -19,8 +19,6 @@ public enum HTTPStatusCode {
     public static let retryableServerErrorRange = 500...599
 }
 
-/// Public because it is referenced from `KlaviyoAPI.init`'s public default-argument closure;
-/// Swift 5.9 (Xcode 15.2/15.4) requires such symbols to be `public` (not just `@usableFromInline`).
 public enum RetryBackoffConstants {
     /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
     ///
