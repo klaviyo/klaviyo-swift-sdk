@@ -323,6 +323,8 @@ public struct KlaviyoSDK {
     }
 }
 
+extension KlaviyoSDK: KlaviyoSDKModule {}
+
 // MARK: - Private Helpers
 
 extension URL {
