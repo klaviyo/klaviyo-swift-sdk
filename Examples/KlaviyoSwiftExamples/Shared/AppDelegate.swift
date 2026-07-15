@@ -122,6 +122,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
+        // STEP7: [OPTIONAL] Build a "mobile inbox" from content-available pushes.
+        //
+        // When a push is sent with `content-available: 1`, iOS delivers it here in
+        // your *app* process (whether the app is in the foreground or background).
+        // That lets you persist the message locally and surface it later in an
+        // in-app inbox — no Notification Service Extension and no App Group shared
+        // container required. See `MobileInbox` below and `InboxView` for the UI.
+        //
+        // Heads up: content-available delivery is best-effort. iOS throttles
+        // background pushes and will NOT wake an app the user has force-quit, so
+        // some messages can be missed. If you must reliably capture every *visible*
+        // notification, use a Notification Service Extension (`mutable-content`)
+        // instead — see the NotificationServiceExtension target in this project.
+        MobileInbox.shared.capture(from: userInfo)
+
         // Access custom key-value pairs from the top level
         if let customData = userInfo["key_value_pairs"] as? [String: String] {
             // Process your custom key-value pairs here
@@ -131,6 +146,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } else {
             print("No key_value_pairs found in notification")
         }
+
+        // Always call the completion handler so iOS knows you're done and keeps
+        // delivering background pushes to your app.
+        completionHandler(.newData)
     }
 
     // MARK: Deep linking implementation
@@ -218,5 +237,105 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         } else {
             completionHandler([.alert])
         }
+    }
+}
+
+// MARK: - Mobile Inbox (content-available example)
+
+/// A single push captured for the in-app inbox.
+struct InboxMessage: Codable, Identifiable, Equatable {
+    let id: UUID
+    let title: String
+    let body: String
+    let receivedAt: Date
+    /// Custom key/value data sent in the push (everything outside the `aps` dict).
+    let data: [String: String]
+    var isRead: Bool
+}
+
+/// A minimal "mobile inbox" backed by locally captured push notifications.
+///
+/// This demonstrates the **content-available** approach to an inbox: silent /
+/// background pushes are delivered to
+/// `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your
+/// app process, so you can persist them straight to local storage (here,
+/// `UserDefaults`) and observe them from SwiftUI. No Notification Service
+/// Extension and no App Group are involved.
+///
+/// Tradeoff to understand before shipping: `content-available` delivery is
+/// **best-effort** — iOS throttles background pushes and will not wake a
+/// force-quit app, so messages can be missed. When you need to reliably capture
+/// every *visible* notification, intercept it in a Notification Service Extension
+/// (`mutable-content`) instead. The two can be combined: NSE for reliable capture,
+/// content-available to sync when the app is merely backgrounded.
+final class MobileInbox: ObservableObject {
+    static let shared = MobileInbox()
+
+    @Published private(set) var messages: [InboxMessage]
+
+    private let storageKey = "klaviyo_mobile_inbox"
+
+    private init() {
+        messages = Self.load(key: storageKey)
+    }
+
+    var unreadCount: Int { messages.lazy.filter { !$0.isRead }.count }
+
+    /// Capture an incoming push payload into the inbox (newest first).
+    ///
+    /// A `content-available` push only carries a title/body when it is sent
+    /// *alongside* an `alert`; a true silent push contains only custom data.
+    func capture(from userInfo: [AnyHashable: Any]) {
+        let aps = userInfo["aps"] as? [AnyHashable: Any]
+        var title = ""
+        var body = ""
+        switch aps?["alert"] {
+        case let alert as [AnyHashable: Any]:
+            title = alert["title"] as? String ?? ""
+            body = alert["body"] as? String ?? ""
+        case let alert as String:
+            body = alert
+        default:
+            break
+        }
+        let data = userInfo.reduce(into: [String: String]()) { result, pair in
+            guard let key = pair.key as? String, key != "aps" else { return }
+            result[key] = String(describing: pair.value)
+        }
+
+        guard !(title.isEmpty && body.isEmpty && data.isEmpty) else { return }
+        let message = InboxMessage(id: UUID(), title: title, body: body, receivedAt: Date(), data: data, isRead: false)
+
+        // App-delegate callbacks are delivered on the main thread, but marshal
+        // explicitly so @Published mutations are always published on main.
+        DispatchQueue.main.async {
+            self.messages.insert(message, at: 0)
+            self.persist()
+        }
+    }
+
+    func markAsRead(_ message: InboxMessage) {
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return }
+        messages[index].isRead = true
+        persist()
+    }
+
+    func clear() {
+        messages = []
+        persist()
+    }
+
+    private func persist() {
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+
+    private static func load(key: String) -> [InboxMessage] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let saved = try? JSONDecoder().decode([InboxMessage].self, from: data) else {
+            return []
+        }
+        return saved
     }
 }

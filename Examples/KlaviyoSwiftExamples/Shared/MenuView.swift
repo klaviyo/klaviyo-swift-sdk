@@ -3,9 +3,11 @@ import SwiftUI
 
 struct MenuView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var inbox = MobileInbox.shared
     @State private var menuItems: [MenuItem] = []
     @State private var showingMap = false
     @State private var showingCheckout = false
+    @State private var showingInbox = false
 
     var body: some View {
         NavigationStack {
@@ -26,6 +28,13 @@ struct MenuView: View {
                     Button("Log Out", systemImage: "rectangle.portrait.and.arrow.right") {
                         logout()
                     }
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingInbox = true }) {
+                        Image(systemName: "bell")
+                    }
+                    .badge(inbox.unreadCount)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -73,6 +82,9 @@ struct MenuView: View {
         }
         .sheet(isPresented: $showingCheckout) {
             CheckoutView(cartItems: $appState.cartItems)
+        }
+        .sheet(isPresented: $showingInbox) {
+            InboxView()
         }
     }
 

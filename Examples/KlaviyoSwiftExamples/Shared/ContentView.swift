@@ -123,3 +123,81 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AppState())
 }
+
+// MARK: - Mobile Inbox UI
+
+/// Displays the messages captured by `MobileInbox` (see AppDelegate.swift).
+/// Present this from anywhere — here it's shown as a sheet from the menu's
+/// toolbar bell button (see `MenuView`).
+struct InboxView: View {
+    @ObservedObject private var inbox = MobileInbox.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if inbox.messages.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "tray")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("No messages yet")
+                            .font(.headline)
+                        Text("Pushes sent with content-available appear here.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else {
+                    List(inbox.messages) { message in
+                        InboxRow(message: message)
+                            .contentShape(Rectangle())
+                            .onTapGesture { inbox.markAsRead(message) }
+                    }
+                }
+            }
+            .navigationTitle("Inbox")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !inbox.messages.isEmpty {
+                        Button("Clear", role: .destructive) { inbox.clear() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct InboxRow: View {
+    let message: InboxMessage
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(message.isRead ? Color.clear : Color.red)
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
+            VStack(alignment: .leading, spacing: 4) {
+                if !message.title.isEmpty {
+                    Text(message.title).font(.headline)
+                }
+                if !message.body.isEmpty {
+                    Text(message.body).font(.subheadline).foregroundColor(.secondary)
+                }
+                if !message.data.isEmpty {
+                    Text(message.data.map { "\($0.key): \($0.value)" }.sorted().joined(separator: "\n"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text(message.receivedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
