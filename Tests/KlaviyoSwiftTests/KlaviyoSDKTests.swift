@@ -12,6 +12,7 @@ import XCTest
 
 // MARK: - KlaviyoSDKTests
 
+@MainActor
 class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
 
@@ -23,10 +24,12 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
     }
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
+        BadgeManager.resetToProduction()
     }
 
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
@@ -148,7 +151,8 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test unhandle push notification
 
     func testUnhandlePushNotification() throws {
-        let expectation = setupActionAssertion(expectedAction: .syncBadgeCount)
+        let syncExpectation = XCTestExpectation(description: "BadgeManager.syncBadgeCount called for unhandled notification")
+        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
         let callback = XCTestExpectation(description: "callback is not made")
         callback.isInverted = true
         let data: [AnyHashable: Any] = [
@@ -164,7 +168,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, expectation], timeout: 1.0)
+        wait(for: [callback, syncExpectation], timeout: 1.0)
         XCTAssertFalse(handled)
     }
 

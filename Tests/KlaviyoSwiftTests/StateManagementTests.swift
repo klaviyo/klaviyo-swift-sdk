@@ -17,12 +17,23 @@ class StateManagementTests: XCTestCase {
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        BadgeManager.resetToProduction()
     }
 
     // MARK: - Initialization
 
     @MainActor
     func testInitialize() async throws {
+        let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
+        BadgeManager.setBadgeCountSpy = { count in
+            if count == 0 { setBadgeExpectation.fulfill() }
+        }
+
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -43,7 +54,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
-        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
     @MainActor
@@ -423,6 +434,9 @@ class StateManagementTests: XCTestCase {
     func testStopWithRequestsInFlight() async throws {
         // This test is a little convoluted but essentially want to make when we stop
         // that we save our state.
+        let syncExpectation = expectation(description: "BadgeManager.syncBadgeCount called on stop")
+        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
+
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
@@ -436,7 +450,7 @@ class StateManagementTests: XCTestCase {
             $0.queue = [request, request2]
             $0.requestsInFlight = []
         }
-        await store.receive(.syncBadgeCount)
+        await fulfillment(of: [syncExpectation], timeout: 1)
     }
 
     // MARK: - Test pending profile
@@ -627,6 +641,11 @@ class StateManagementTests: XCTestCase {
 
     @MainActor
     func testEnqueueEventWhenInitilizingSendsEvent() async throws {
+        let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
+        BadgeManager.setBadgeCountSpy = { count in
+            if count == 0 { setBadgeExpectation.fulfill() }
+        }
+
         let initialState = INITILIZING_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -662,7 +681,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
     // MARK: - Test enqueue aggregate event
@@ -687,6 +706,11 @@ class StateManagementTests: XCTestCase {
 
     @MainActor
     func testEnqueueAggregateEventWhenInitilizingSendsEvent() async throws {
+        let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
+        BadgeManager.setBadgeCountSpy = { count in
+            if count == 0 { setBadgeExpectation.fulfill() }
+        }
+
         let initialState = INITILIZING_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -714,7 +738,7 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
     @MainActor

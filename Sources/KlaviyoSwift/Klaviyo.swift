@@ -93,7 +93,14 @@ public struct KlaviyoSDK {
     /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
     /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
     public func setBadgeCount(_ count: Int) {
-        dispatchOnMainThread(action: .setBadgeCount(count))
+        // No initialization gate: setting the badge is a purely local operation
+        // (OS badge + app-group UserDefaults) with no dependency on the SDK's API
+        // key, profile, or store state. Gating on initialization only created an
+        // ordering race with the async `initialize(with:)`, so we apply the badge
+        // unconditionally. When no app group is configured this is a no-op.
+        Task {
+            await BadgeManager.setBadgeCount(count)
+        }
     }
 
     /// Set the current user's email.
@@ -211,7 +218,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
-            dispatchOnMainThread(action: .syncBadgeCount)
+            Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
 
@@ -252,7 +259,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
-            dispatchOnMainThread(action: .syncBadgeCount)
+            Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
 
