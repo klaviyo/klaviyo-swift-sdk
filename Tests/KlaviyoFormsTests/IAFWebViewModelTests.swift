@@ -382,9 +382,10 @@ final class IAFWebViewModelTests: XCTestCase {
         // When
         viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
 
-        // Then — the handler path is synchronous, so assert immediately
-        guard case let .formExternalUrlClicked(formId, formName, buttonLabel, url) = receivedEvent else {
-            XCTFail("Expected formExternalUrlClicked, got \(String(describing: receivedEvent))")
+        // Then — the handler path is synchronous, so assert immediately.
+        // External URL clicks surface through the same formCtaClicked event as deep links.
+        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
             return
         }
         XCTAssertEqual(formId, "form123")

@@ -47,32 +47,25 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     case formDismissed(formId: String, formName: String)
 
     /// Triggered when a user taps a call-to-action (CTA) button in a form
-    /// that has a deep link URL configured.
+    /// that has a URL configured — either an in-app deep link or an external
+    /// (web) URL.
     ///
-    /// Fired after the SDK has initiated deep link navigation. Not emitted
-    /// if no deep link URL is configured for the CTA.
+    /// Fired after the SDK has initiated navigation (deep link routing, or
+    /// opening the URL externally). Not emitted if no URL is configured for
+    /// the CTA.
     ///
     /// - `buttonLabel`: The label text of the tapped button.
-    /// - `deepLinkUrl`: The deep link URL associated with the CTA.
+    /// - `deepLinkUrl`: The URL associated with the CTA. For historical reasons
+    ///   this parameter is named `deepLinkUrl`, but it also carries external
+    ///   web URLs.
     case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
-
-    /// Triggered when a user taps a call-to-action (CTA) button in a form
-    /// that has an external (web) URL configured.
-    ///
-    /// Fired after the SDK has initiated opening the URL in Safari. Not emitted
-    /// if no external URL is configured for the CTA.
-    ///
-    /// - `buttonLabel`: The label text of the tapped button.
-    /// - `url`: The external URL associated with the CTA.
-    case formExternalUrlClicked(formId: String, formName: String, buttonLabel: String, url: URL)
 
     /// The unique identifier of the form that triggered this event.
     public var formId: String {
         switch self {
         case let .formShown(formId, _),
              let .formDismissed(formId, _),
-             let .formCtaClicked(formId, _, _, _),
-             let .formExternalUrlClicked(formId, _, _, _):
+             let .formCtaClicked(formId, _, _, _):
             return formId
         }
     }
@@ -82,8 +75,7 @@ public enum FormLifecycleEvent: Equatable, Sendable {
         switch self {
         case let .formShown(_, formName),
              let .formDismissed(_, formName),
-             let .formCtaClicked(_, formName, _, _),
-             let .formExternalUrlClicked(_, formName, _, _):
+             let .formCtaClicked(_, formName, _, _):
             return formName
         }
     }
@@ -94,7 +86,6 @@ public enum FormLifecycleEvent: Equatable, Sendable {
         case .formShown: return "formShown"
         case .formDismissed: return "formDismissed"
         case .formCtaClicked: return "formCtaClicked"
-        case .formExternalUrlClicked: return "formExternalUrlClicked"
         }
     }
 }

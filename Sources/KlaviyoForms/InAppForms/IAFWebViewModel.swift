@@ -399,13 +399,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 await environment.linkHandler.openExternalURL(url)
             }
 
-            // 4. Invoke lifecycle handler when form identity fields are present
+            // 4. Invoke lifecycle handler when form identity fields are present.
+            //    External URL clicks are surfaced through the same formCtaClicked
+            //    event as deep link clicks; the URL rides in the deepLinkUrl field.
             invokeCtaLifecycleHandler(eventName: "openExternalUrl", formId: formId, formName: formName) {
-                .formExternalUrlClicked(
+                .formCtaClicked(
                     formId: $0,
                     formName: $1,
                     buttonLabel: buttonLabel ?? "",
-                    url: url
+                    deepLinkUrl: url
                 )
             }
         case let .abort(reason):
