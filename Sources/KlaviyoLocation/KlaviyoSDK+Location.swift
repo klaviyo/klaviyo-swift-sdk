@@ -9,7 +9,7 @@ import CoreLocation
 import Foundation
 import KlaviyoCore
 
-extension KlaviyoSDKExtending {
+extension KlaviyoSDKModule {
     /// Registers app for geofencing. Geofencing will only be set up when "authorized always" permission level is granted.
     /// App will begin listening for geofence events (enter, exit, dwell) according to the geofences configured in your Klaviyo account.
     /// This method returns immediately and performs the registration asynchronously in the background.

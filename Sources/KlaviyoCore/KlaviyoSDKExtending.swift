@@ -1,5 +1,5 @@
 //
-//  KlaviyoSDKExtending.swift
+//  KlaviyoSDKModule.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Isobelle Lim on 7/14/26.
@@ -9,7 +9,7 @@
 /// (Forms, Location) without those modules importing `KlaviyoSwift`.
 ///
 /// `KlaviyoSwift` conforms `KlaviyoSDK` to this protocol. Feature modules extend
-/// `KlaviyoSDKExtending` instead of `KlaviyoSDK` directly, depending only on `KlaviyoCore` for the
+/// `KlaviyoSDKModule` instead of `KlaviyoSDK` directly, depending only on `KlaviyoCore` for the
 /// type anchor. At a concrete call site the extension member resolves and `Self` binds to
 /// `KlaviyoSDK`, so the public API and method chaining are preserved.
-public protocol KlaviyoSDKExtending {}
+public protocol KlaviyoSDKModule {}

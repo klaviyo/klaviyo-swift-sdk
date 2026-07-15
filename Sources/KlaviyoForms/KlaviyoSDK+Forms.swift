@@ -8,7 +8,7 @@
 import Foundation
 import KlaviyoCore
 
-extension KlaviyoSDKExtending {
+extension KlaviyoSDKModule {
     /// Registers app to receive and display In-App Forms from Klaviyo.
     ///
     /// This will load forms data and establish ongoing listeners to present a form to the user
