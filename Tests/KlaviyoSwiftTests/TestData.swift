@@ -222,8 +222,6 @@ extension KlaviyoSwiftEnvironment {
             Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
         }, stateChangePublisher: {
             Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
-        }, setBadgeCount: { _ in
-            nil
         }, pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         })

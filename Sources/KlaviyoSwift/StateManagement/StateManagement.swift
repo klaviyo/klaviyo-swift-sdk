@@ -16,8 +16,6 @@ import Combine
 import Foundation
 import KlaviyoCore
 import OSLog
-import UIKit
-import UserNotifications
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -70,12 +68,6 @@ enum KlaviyoAction: Equatable {
 
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
-
-    /// call to set the app badge count as well as update the stored value in the User Defaults suite
-    case setBadgeCount(Int)
-
-    /// call to sync the stored value in the User Defaults suite with the currently displayed badge count provided by `UIApplication.shared.applicationIconBadgeNumber`
-    case syncBadgeCount
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
@@ -144,10 +136,10 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -332,7 +324,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
-                    await send(KlaviyoAction.syncBadgeCount)
+                    await MainActor.run { BadgeManager.syncBadgeCount() }
                 }))
 
         case .start:
@@ -346,9 +338,9 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(KlaviyoAction.setPushEnablement(settings))
                     let autoclearing = await environment.getBadgeAutoClearingSetting()
                     if autoclearing {
-                        await send(KlaviyoAction.setBadgeCount(0))
+                        await BadgeManager.setBadgeCount(0)
                     } else {
-                        await send(KlaviyoAction.syncBadgeCount)
+                        await MainActor.run { BadgeManager.syncBadgeCount() }
                     }
                 },
                 environment.timer(state.flushInterval)
@@ -599,21 +591,6 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.enqueueRequest(request: request)
 
-            return .none
-
-        case let .setBadgeCount(count):
-            return .run { _ in
-                _ = klaviyoSwiftEnvironment.setBadgeCount(count)
-            }
-
-        case .syncBadgeCount:
-            Task {
-                await MainActor.run {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String) {
-                        userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
-                    }
-                }
-            }
             return .none
 
         case .resetProfile:

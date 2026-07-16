@@ -8,8 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import UIKit
-import UserNotifications
 
 var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
 
@@ -18,7 +16,6 @@ struct KlaviyoSwiftEnvironment {
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
     var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
-    var setBadgeCount: (Int) -> Task<Void, Never>?
     var pruneCategory: (String) -> Void
 
     static let production: KlaviyoSwiftEnvironment = {
@@ -31,22 +28,6 @@ struct KlaviyoSwiftEnvironment {
             state: { store.state.value },
             statePublisher: { store.state.eraseToAnyPublisher() },
             stateChangePublisher: StateChangePublisher().publisher,
-            setBadgeCount: { count in
-                Task {
-                    guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String,
-                          let userDefaults = UserDefaults(suiteName: appGroup) else {
-                        return
-                    }
-                    if #available(iOS 16.0, *) {
-                        try? await UNUserNotificationCenter.current().setBadgeCount(count)
-                    } else {
-                        await MainActor.run {
-                            UIApplication.shared.applicationIconBadgeNumber = count
-                        }
-                    }
-                    userDefaults.set(count, forKey: "badgeCount")
-                }
-            },
             pruneCategory: { categoryIdentifier in
                 KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
             }
