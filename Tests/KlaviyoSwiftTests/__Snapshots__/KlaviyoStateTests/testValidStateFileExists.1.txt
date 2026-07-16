@@ -13,7 +13,6 @@
     ▿ phoneNumber: Optional<String>
       - some: "phoneNumber"
   - initalizationState: InitializationState.initialized
-  - isProcessingDeepLink: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   ▿ pushTokenData: Optional<PushTokenData>

@@ -79,7 +79,6 @@ struct KlaviyoState: Equatable, Codable {
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
-    var isProcessingDeepLink = false
 
     enum CodingKeys: CodingKey {
         case apiKey
@@ -128,8 +127,7 @@ struct KlaviyoState: Equatable, Codable {
         flushInterval: Double = StateManagementConstants.wifiFlushInterval,
         retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
         pendingRequests: [PendingRequest] = [],
-        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil,
-        isProcessingDeepLink: Bool = false
+        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
     ) {
         self.apiKey = apiKey
         identity = ProfileData(
@@ -147,7 +145,6 @@ struct KlaviyoState: Equatable, Codable {
         self.retryState = retryState
         self.pendingRequests = pendingRequests
         self.pendingProfile = pendingProfile
-        self.isProcessingDeepLink = isProcessingDeepLink
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {

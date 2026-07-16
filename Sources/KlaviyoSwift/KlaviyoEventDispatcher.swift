@@ -15,7 +15,7 @@ struct KlaviyoEventDispatcher: EventDispatching {
         case let .aggregateEvent(payload):
             dispatchOnMainThread(action: .enqueueAggregateEvent(payload))
         case let .deepLink(deepLinkURL):
-            dispatchOnMainThread(action: .openDeepLink(deepLinkURL))
+            Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
         }
     }
 }
