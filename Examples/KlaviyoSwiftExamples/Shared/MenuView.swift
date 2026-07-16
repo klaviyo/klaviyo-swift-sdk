@@ -6,6 +6,7 @@ struct MenuView: View {
     @State private var menuItems: [MenuItem] = []
     @State private var showingMap = false
     @State private var showingCheckout = false
+    @State private var showingPushLog = false
 
     var body: some View {
         NavigationStack {
@@ -25,6 +26,12 @@ struct MenuView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Log Out", systemImage: "rectangle.portrait.and.arrow.right") {
                         logout()
+                    }
+                }
+
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Push Log", systemImage: "bell") {
+                        showingPushLog = true
                     }
                 }
 
@@ -73,6 +80,9 @@ struct MenuView: View {
         }
         .sheet(isPresented: $showingCheckout) {
             CheckoutView(cartItems: $appState.cartItems)
+        }
+        .sheet(isPresented: $showingPushLog) {
+            PushLogView()
         }
     }
 
