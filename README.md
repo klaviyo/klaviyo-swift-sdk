@@ -260,10 +260,10 @@ For the fully automatic, no-boilerplate integration, enable both:
 
 ```xml
 <!-- Injects a notification-delegate proxy that tracks push opens automatically -->
-<key>klaviyo_automatic_push_tracking</key>
+<key>klaviyo_automatic_push_open_tracking</key>
 <true/>
 <!-- Forwards the APNs device token to Klaviyo automatically (no didRegister... code needed) -->
-<key>klaviyo_automatic_token_forwarding</key>
+<key>klaviyo_automatic_push_token_forwarding</key>
 <true/>
 ```
 

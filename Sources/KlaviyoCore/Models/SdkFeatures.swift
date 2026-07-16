@@ -50,10 +50,10 @@ public struct SdkFeatures: Equatable {
     /// Shared so the flag reads stay consistent across modules.
     package enum InfoPlistKey {
         /// When present and `true`, enables proxy delegate injection and automatic push-open tracking.
-        package static let automaticPushTracking = "klaviyo_automatic_push_tracking"
+        package static let automaticPushOpenTracking = "klaviyo_automatic_push_open_tracking"
         /// When present and `true`, enables automatic device-token forwarding (app-delegate swizzling).
-        /// Absent is treated as `false` (opt-in), independent of `automaticPushTracking`.
-        package static let automaticTokenForwarding = "klaviyo_automatic_token_forwarding"
+        /// Absent is treated as `false` (opt-in), independent of `automaticPushOpenTracking`.
+        package static let automaticPushTokenForwarding = "klaviyo_automatic_push_token_forwarding"
     }
 
     /// Configured feature states; only features the host actually configured are present.
@@ -64,9 +64,9 @@ public struct SdkFeatures: Equatable {
     }
 
     /// - Parameters:
-    ///   - autoPushTracking: value of the `klaviyo_automatic_push_tracking` flag, or `nil`
+    ///   - autoPushTracking: value of the `klaviyo_automatic_push_open_tracking` flag, or `nil`
     ///     when that key is absent from Info.plist.
-    ///   - autoTokenForwarding: value of the independent `klaviyo_automatic_token_forwarding`
+    ///   - autoTokenForwarding: value of the independent `klaviyo_automatic_push_token_forwarding`
     ///     flag, or `nil` when that key is absent from Info.plist.
     public init(autoPushTracking: Bool?, autoTokenForwarding: Bool?) {
         var values = [SdkFeatureKey: Bool]()

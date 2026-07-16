@@ -3,8 +3,8 @@
 //  SPMExampleAutomatic
 //
 // Automatic push integration: no token-forwarding or notification-delegate code needed.
-// The SDK handles all of that when both `klaviyo_automatic_push_tracking` and
-// `klaviyo_automatic_token_forwarding` are set in Info.plist. The two flags are independent;
+// The SDK handles all of that when both `klaviyo_automatic_push_open_tracking` and
+// `klaviyo_automatic_push_token_forwarding` are set in Info.plist. The two flags are independent;
 // this target opts into both for the fully automatic experience.
 // For the manual integration reference (STEP1–STEP6) see Shared/AppDelegate.swift.
 //

@@ -15,9 +15,9 @@
 	</array>
 	<key>klaviyo_app_group</key>
 	<string>group.$(PRODUCT_BUNDLE_IDENTIFIER).shared</string>
-	<key>klaviyo_automatic_push_tracking</key>
+	<key>klaviyo_automatic_push_open_tracking</key>
 	<true/>
-	<key>klaviyo_automatic_token_forwarding</key>
+	<key>klaviyo_automatic_push_token_forwarding</key>
 	<true/>
 	<key>klaviyo_badge_autoclearing</key>
 	<true/>
