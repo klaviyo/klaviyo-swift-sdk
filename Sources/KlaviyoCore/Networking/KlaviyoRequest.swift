@@ -46,10 +46,10 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     }
 
     /// Custom decoding for backward compatibility with queues persisted before
-    /// `enqueuedAt` existed (e.g. requests carried across an app upgrade). 
+    /// `enqueuedAt` existed (e.g. requests carried across an app upgrade).
     ///
     /// A missing timestamp defaults to `Date.distantPast` so legacy requests sort as the
-    /// oldest and are evicted first under overflow. 
+    /// oldest and are evicted first under overflow.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)

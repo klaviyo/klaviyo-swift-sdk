@@ -79,7 +79,7 @@ struct KlaviyoState: Equatable, Codable {
 
     /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
     /// geofence events that should flush immediately), enforcing the same capacity cap as
-    /// ``enqueueRequest(request:)``. 
+    /// ``enqueueRequest(request:)``.
     mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
         evictOldestIfAtCapacity()
         queue.insert(request, at: 0)
