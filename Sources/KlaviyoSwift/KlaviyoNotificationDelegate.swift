@@ -91,8 +91,8 @@ final class KlaviyoNotificationDelegate: NSObject {
 
     /// Reads the two independent opt-in flags and the notification center from
     /// `KlaviyoSwiftEnvironment`, then applies each behavior on its own:
-    /// - `klaviyo_automatic_push_tracking` gates proxy injection (automatic push-open tracking).
-    /// - `klaviyo_automatic_token_forwarding` gates app-delegate swizzling (device-token forwarding).
+    /// - `klaviyo_automatic_push_open_tracking` gates proxy injection (automatic push-open tracking).
+    /// - `klaviyo_automatic_push_token_forwarding` gates app-delegate swizzling (device-token forwarding).
     ///
     /// Neither flag is a prerequisite for the other, so any combination is honored.
     ///
@@ -103,7 +103,7 @@ final class KlaviyoNotificationDelegate: NSObject {
     /// `KlaviyoSwiftEnvironment.injectNotificationDelegate`.
     @MainActor
     static func injectIfEnabled() {
-        if klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled() {
+        if klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled() {
             if #available(iOS 14.0, *) {
                 Logger.notifications.info(
                     "Injecting notification delegate proxy for automatic push tracking."
@@ -114,7 +114,7 @@ final class KlaviyoNotificationDelegate: NSObject {
             Logger.notifications.log("Automatic push tracking is off.")
         }
 
-        if klaviyoSwiftEnvironment.isAutomaticTokenForwardingEnabled() {
+        if klaviyoSwiftEnvironment.isAutomaticPushTokenForwardingEnabled() {
             if #available(iOS 14.0, *) {
                 Logger.notifications.info("Swizzling app delegate for automatic token forwarding.")
             }

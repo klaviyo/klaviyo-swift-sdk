@@ -26,14 +26,14 @@ struct KlaviyoSwiftEnvironment {
     /// real notification center.
     var injectNotificationDelegate: () -> Void
     /// Returns whether the host has opted in to automatic push open tracking via the
-    /// `klaviyo_automatic_push_tracking` Info.plist key.
+    /// `klaviyo_automatic_push_open_tracking` Info.plist key.
     /// Injected so tests can enable or disable the feature without modifying `Bundle.main`.
-    var isAutomaticPushTrackingEnabled: () -> Bool
+    var isAutomaticPushOpenTrackingEnabled: () -> Bool
     /// Returns whether the host has opted in to automatic device-token forwarding via the
-    /// `klaviyo_automatic_token_forwarding` Info.plist key. Independent of push tracking; absent
+    /// `klaviyo_automatic_push_token_forwarding` Info.plist key. Independent of push tracking; absent
     /// is treated as `false`.
     /// Injected so tests can control the flag without modifying `Bundle.main`.
-    var isAutomaticTokenForwardingEnabled: () -> Bool
+    var isAutomaticPushTokenForwardingEnabled: () -> Bool
     /// Provides the notification center for automatic push tracking injection.
     /// Injected so tests can substitute a mock without the app-bundle context that
     /// `UNUserNotificationCenter.current()` requires.
@@ -75,14 +75,14 @@ struct KlaviyoSwiftEnvironment {
                     KlaviyoNotificationDelegate.injectIfEnabled()
                 }
             },
-            isAutomaticPushTrackingEnabled: {
+            isAutomaticPushOpenTrackingEnabled: {
                 Bundle.main.object(
-                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTracking
+                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
                 ) as? Bool == true
             },
-            isAutomaticTokenForwardingEnabled: {
+            isAutomaticPushTokenForwardingEnabled: {
                 Bundle.main.object(
-                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticTokenForwarding
+                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
                 ) as? Bool == true
             },
             notificationCenter: {

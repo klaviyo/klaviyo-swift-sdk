@@ -73,8 +73,8 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     /// Both flags off: `injectIfEnabled()` is a no-op and the proxy delegate is never installed.
     func testInjectIfEnabledIsNoOpWhenBothFlagsDisabled() {
         let mockCenter = MockNotificationCenter()
-        klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { false }
-        klaviyoSwiftEnvironment.isAutomaticTokenForwardingEnabled = { false }
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { false }
+        klaviyoSwiftEnvironment.isAutomaticPushTokenForwardingEnabled = { false }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
@@ -87,7 +87,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     /// After injection, the proxy must be the center's active delegate.
     func testInjectSetsDelegateOnCenter() {
         let mockCenter = MockNotificationCenter()
-        klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
@@ -101,7 +101,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         let mockCenter = MockNotificationCenter()
         let priorDelegate = MockUNDelegate()
         mockCenter.delegate = priorDelegate
-        klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
@@ -113,7 +113,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     /// must be a no-op — no duplicate observation tokens, no delegate reassignment.
     func testInjectIsIdempotent() {
         let mockCenter = MockNotificationCenter()
-        klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
 
         KlaviyoNotificationDelegate.injectIfEnabled()
@@ -129,7 +129,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     /// new host delegate as `existingDelegate`.
     func testObserverReinstallsProxyAfterHostReassignment() {
         let mockCenter = MockNotificationCenter()
-        klaviyoSwiftEnvironment.isAutomaticPushTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
         KlaviyoNotificationDelegate.injectIfEnabled()
 
