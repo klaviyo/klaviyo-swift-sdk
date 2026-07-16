@@ -79,18 +79,15 @@ struct KlaviyoState: Equatable, Codable {
 
     /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
     /// geofence events that should flush immediately), enforcing the same capacity cap as
-    /// ``enqueueRequest(request:)``. The oldest request is evicted first (when full) so this
-    /// prioritized request — which carries the newest timestamp — is never the one dropped.
+    /// ``enqueueRequest(request:)``. 
     mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
         evictOldestIfAtCapacity()
         queue.insert(request, at: 0)
     }
 
     /// Evicts the oldest queued request (by `enqueuedAt`) when the queue is at or above
-    /// capacity, making room for one more. Call this *before* adding a new request so the
-    /// request being added is never the one evicted. Prioritized events are inserted at the
-    /// front but carry the newest timestamp, so they are never selected as the oldest.
-    mutating func evictOldestIfAtCapacity() {
+    /// capacity, making room for one more.
+    private mutating func evictOldestIfAtCapacity() {
         guard queue.count >= StateManagementConstants.maxQueueSize else { return }
         let maxSize = StateManagementConstants.maxQueueSize
         environment.emitDeveloperWarning(
