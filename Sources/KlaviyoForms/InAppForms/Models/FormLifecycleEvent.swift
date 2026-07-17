@@ -1,8 +1,8 @@
 //
-//  FormLifecycleEvent.swift
+// FormLifecycleEvent.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Ajay Subramanya on 2026-02-20.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

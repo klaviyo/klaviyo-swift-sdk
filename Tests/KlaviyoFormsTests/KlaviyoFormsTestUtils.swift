@@ -1,8 +1,8 @@
 //
-//  KlaviyoFormsTestUtils.swift
-//  klaviyo-swift-sdk
+// KlaviyoFormsTestUtils.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 5/6/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

@@ -1,8 +1,8 @@
 //
-//  EventTests.swift
+// EventTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Andrew Balmer on 9/3/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift

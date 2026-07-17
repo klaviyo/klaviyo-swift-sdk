@@ -1,8 +1,8 @@
 //
-//  KlaviyoStateTests.swift
+// KlaviyoStateTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 12/1/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift

@@ -5,12 +5,14 @@
 
 # rules
 --enable isEmpty
+--enable fileHeader
 --disable andOperator
 --disable wrapMultilineStatementBraces
 
 # format options
 
---exclude Sources/KlaviyoSwift/Vendor,Tests/KlaviyoSwiftTests/Vendor,Tests/KlaviyoSwiftTests/__Snapshots__
+--exclude Sources/KlaviyoSwift/Vendor,Sources/KlaviyoCore/Vendor,Tests/KlaviyoSwiftTests/Vendor,Tests/KlaviyoSwiftTests/__Snapshots__
+--header //\n//  {file}\n//  Klaviyo Swift SDK\n//\n//  Copyright © {year} Klaviyo, Inc. Licensed under the MIT License.\n//
 --closingparen balanced
 --commas inline
 --comments indent

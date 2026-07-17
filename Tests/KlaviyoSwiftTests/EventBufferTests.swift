@@ -1,8 +1,8 @@
 //
-//  EventBufferTests.swift
-//  klaviyo-swift-sdk
+// EventBufferTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Ajay Subramanya on 10/7/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift

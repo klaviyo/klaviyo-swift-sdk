@@ -102,3 +102,29 @@ Other style guidelines:
 - Extract common logic into extensions or utility classes
 - Use value types (structs) for models and enums for options
 - Avoid magic strings/numbers, preferring constants, enums and static properties
+
+#### File Headers
+
+Every `.swift` file starts with this exact header, enforced by SwiftFormat's `fileHeader`
+rule (see the `--header` option in `.swiftformat`):
+
+```swift
+//
+// FileName.swift
+// Klaviyo Swift SDK
+//
+// Copyright © <year> Klaviyo, Inc. Licensed under the MIT License.
+//
+```
+
+- `FileName.swift` and `<year>` are filled in automatically by SwiftFormat from the
+  `{file}` and `{year}` tokens, so never hand-write or hand-edit them.
+- Do NOT add `// Created by <author> on <date>` lines. Authorship and dates live in git
+  history, and the `fileHeader` rule strips them.
+- The comment prefix is a single space (`// FileName.swift`), not the two-space Xcode
+  default, because SwiftFormat's config-file parser collapses repeated spaces.
+- Vendored third-party code under `Sources/KlaviyoSwift/Vendor`,
+  `Sources/KlaviyoCore/Vendor`, and `Tests/KlaviyoSwiftTests/Vendor` is excluded and keeps
+  its own upstream license blocks. Any new vendored code must be added to `--exclude` too.
+- If a file needs descriptive documentation, put it below the header (e.g. as a doc comment
+  on the type), not inside the header block, or the rule will overwrite it.

@@ -1,8 +1,8 @@
 //
-//  ProfileData.swift
-//  klaviyo-swift-sdk
+// ProfileData.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 4/21/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

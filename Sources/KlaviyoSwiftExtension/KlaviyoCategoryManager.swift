@@ -1,5 +1,8 @@
 //
-//  KlaviyoCategoryManager.swift
+// KlaviyoCategoryManager.swift
+// Klaviyo Swift SDK
+//
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 // NOTE: KlaviyoCore carries the authoritative copy of this class

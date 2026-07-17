@@ -1,8 +1,8 @@
 //
-//  StateChangePublisherTests.swift
+// StateChangePublisherTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 12/21/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

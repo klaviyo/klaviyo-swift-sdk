@@ -1,8 +1,8 @@
 //
-//  MockIAFWebViewDelegate.swift
-//  klaviyo-swift-sdk
+// MockIAFWebViewDelegate.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 2/12/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoForms

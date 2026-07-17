@@ -1,11 +1,8 @@
 //
-//  UNNotificationResponseExtensionTests.swift
-//  KlaviyoSwiftTests
+// UNNotificationResponseExtensionTests.swift
+// Klaviyo Swift SDK
 //
-//  Created for Klaviyo
-//
-//  Copyright (c) 2025 Klaviyo
-//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift

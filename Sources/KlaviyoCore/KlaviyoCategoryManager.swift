@@ -1,8 +1,8 @@
 //
-//  KlaviyoCategoryManager.swift
+// KlaviyoCategoryManager.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Belle Lim on 1/20/26.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 // NOTE: pruneCategory is intentionally not duplicated in KlaviyoSwiftExtension.

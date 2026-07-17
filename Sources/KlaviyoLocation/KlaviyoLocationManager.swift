@@ -1,8 +1,8 @@
 //
-//  KlaviyoLocationManager.swift
-//  klaviyo-swift-sdk
+// KlaviyoLocationManager.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 10/7/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

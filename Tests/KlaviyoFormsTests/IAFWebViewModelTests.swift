@@ -1,8 +1,8 @@
 //
-//  IAFWebViewModelTests.swift
-//  klaviyo-swift-sdk
+// IAFWebViewModelTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 2/6/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoForms

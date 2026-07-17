@@ -1,8 +1,8 @@
 //
-//  ActionType.swift
+// ActionType.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Belle Lim on 1/20/26.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 // NOTE: KlaviyoSwiftExtension carries an internal copy of this enum

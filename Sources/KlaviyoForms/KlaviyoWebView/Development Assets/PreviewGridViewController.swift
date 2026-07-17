@@ -1,8 +1,8 @@
 //
-//  PreviewGridViewController.swift
-//  klaviyo-swift-sdk
+// PreviewGridViewController.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 10/23/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 #if DEBUG

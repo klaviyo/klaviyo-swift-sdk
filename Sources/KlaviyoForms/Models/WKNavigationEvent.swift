@@ -1,8 +1,8 @@
 //
-//  WKNavigationEvent.swift
-//  klaviyo-swift-sdk
+// WKNavigationEvent.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 9/30/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 enum WKNavigationEvent: String {

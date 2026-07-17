@@ -1,8 +1,8 @@
 //
-//  SDKError.swift
-//  klaviyo-swift-sdk
+// SDKError.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 5/28/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 package enum SDKError: Error {

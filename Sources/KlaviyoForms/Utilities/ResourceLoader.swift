@@ -1,8 +1,8 @@
 //
-//  ResourceLoader.swift
-//  KlaviyoSwiftUIWebView
+// ResourceLoader.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 9/27/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

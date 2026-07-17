@@ -1,8 +1,8 @@
 //
-//  InAppWindowManager.swift
-//  klaviyo-swift-sdk
+// InAppWindowManager.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 1/22/26.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import UIKit

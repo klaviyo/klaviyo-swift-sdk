@@ -1,14 +1,15 @@
 //
-//  KlaviyoEndpoint.swift
-//  Internal models typically used at the networking layer.
-//  NOTE: Ensure that new request types are equatable and encodable.
+// KlaviyoEndpoint.swift
+// Klaviyo Swift SDK
 //
-//  Created by Noah Durell on 11/25/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation
 import OSLog
 
+//  Internal models typically used at the networking layer.
+//  NOTE: Ensure that new request types are equatable and encodable.
 public enum KlaviyoEndpoint: Equatable, Codable {
     case createProfile(_ apiKey: String, _ payload: CreateProfilePayload)
     case createEvent(_ apiKey: String, _ payload: CreateEventPayload)

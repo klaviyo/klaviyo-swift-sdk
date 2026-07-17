@@ -1,8 +1,8 @@
 //
-//  PreviewTabViewController.swift
-//  klaviyo-swift-sdk
+// PreviewTabViewController.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 10/23/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 #if DEBUG

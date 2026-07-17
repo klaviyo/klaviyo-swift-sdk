@@ -1,8 +1,8 @@
 //
-//  DebugViewController.swift
-//  SPMExample
+// DebugViewController.swift
+// Klaviyo Swift SDK
 //
-//  Created by Ajay Subramanya on 2/28/23.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import UIKit

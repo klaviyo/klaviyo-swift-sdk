@@ -1,9 +1,8 @@
 //
-//  AppDelegate.swift
-//  KlaviyoSwift
+// AppDelegate.swift
+// Klaviyo Swift SDK
 //
-//  Created by Katy Keuper on 10/05/2015.
-//  Copyright (c) 2015 Katy Keuper. All rights reserved.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import KlaviyoForms

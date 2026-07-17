@@ -1,8 +1,8 @@
 //
-//  DeepLinkHandlerTests.swift
-//  klaviyo-swift-sdk
+// DeepLinkHandlerTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Claude on 9/17/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

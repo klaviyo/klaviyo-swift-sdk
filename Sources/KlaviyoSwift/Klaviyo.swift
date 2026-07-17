@@ -1,8 +1,8 @@
 //
-//  Klaviyo.swift
+// Klaviyo.swift
+// Klaviyo Swift SDK
 //
-//  Created by Katherine Keuper on 9/14/15.
-//  Copyright (c) 2022 Klaviyo. All rights reserved.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import AnyCodable

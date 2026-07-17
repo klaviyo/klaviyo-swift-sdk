@@ -1,8 +1,8 @@
 //
-//  LoggerClient.swift
-//  KlaviyoSwift
+// LoggerClient.swift
+// Klaviyo Swift SDK
 //
-//  Created by Noah Durell on 10/21/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

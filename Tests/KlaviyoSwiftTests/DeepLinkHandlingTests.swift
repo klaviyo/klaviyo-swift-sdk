@@ -1,7 +1,8 @@
 //
-//  DeepLinkHandlingTests.swift
+// DeepLinkHandlingTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Cursor AI on 8/11/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

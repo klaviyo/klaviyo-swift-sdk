@@ -1,8 +1,8 @@
 //
-//  IAFNativeBridgeEvent.swift
-//  TestApp
+// IAFNativeBridgeEvent.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 2/3/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import AnyCodable

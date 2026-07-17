@@ -1,8 +1,8 @@
 //
-//  AggregateEventPayload.swift
-//  klaviyo-swift-sdk
+// AggregateEventPayload.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 1/31/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

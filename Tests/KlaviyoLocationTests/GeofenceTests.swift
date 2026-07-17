@@ -1,8 +1,8 @@
 //
-//  GeofenceTests.swift
-//  klaviyo-swift-sdk
+// GeofenceTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 1/27/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoLocation

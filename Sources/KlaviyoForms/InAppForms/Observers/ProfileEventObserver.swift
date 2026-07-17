@@ -1,8 +1,8 @@
 //
-//  ProfileEventObserver.swift
-//  klaviyo-swift-sdk
+// ProfileEventObserver.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 9/22/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

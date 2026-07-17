@@ -1,8 +1,8 @@
 //
-//  InAppWindowManagerTests.swift
-//  klaviyo-swift-sdk
+// InAppWindowManagerTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Evan Masseau on 4/22/26.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoForms

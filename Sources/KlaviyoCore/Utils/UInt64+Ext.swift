@@ -1,8 +1,8 @@
 //
-//  UInt64+Ext.swift
-//  klaviyo-swift-sdk
+// UInt64+Ext.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 4/10/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

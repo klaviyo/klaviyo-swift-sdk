@@ -1,8 +1,8 @@
 //
-//  RequestAttemptInfo.swift
-//  klaviyo-swift-sdk
+// RequestAttemptInfo.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 7/23/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import OSLog

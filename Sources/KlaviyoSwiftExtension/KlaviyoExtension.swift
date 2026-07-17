@@ -1,8 +1,8 @@
 //
-//  KlaviyoExtension.swift
+// KlaviyoExtension.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Ajay Subramanya on 6/23/23.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

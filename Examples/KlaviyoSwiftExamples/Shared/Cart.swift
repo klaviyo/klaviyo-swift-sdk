@@ -1,9 +1,8 @@
 //
-//  Cart.swift
-//  klMunchery
+// Cart.swift
+// Klaviyo Swift SDK
 //
-//  Created by Katherine Keuper on 9/28/15.
-//  Copyright © 2015 Katherine Keuper. All rights reserved.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

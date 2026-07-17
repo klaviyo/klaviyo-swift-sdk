@@ -1,8 +1,8 @@
 //
-//  KlaviyoSDK+Forms.swift
-//  klaviyo-swift-sdk
+// KlaviyoSDK+Forms.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 2/20/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

@@ -1,8 +1,8 @@
 //
-//  AppLifeCycleEvents.swift
+// AppLifeCycleEvents.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 12/13/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

@@ -1,8 +1,8 @@
 //
-//  CLLocationManager+LocationManagerProtocol.swift
-//  klaviyo-swift-sdk
+// CLLocationManager+LocationManagerProtocol.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 9/24/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import CoreLocation

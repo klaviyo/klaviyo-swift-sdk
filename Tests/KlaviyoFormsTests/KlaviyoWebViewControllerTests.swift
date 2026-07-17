@@ -1,3 +1,10 @@
+//
+// KlaviyoWebViewControllerTests.swift
+// Klaviyo Swift SDK
+//
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
+//
+
 @testable import KlaviyoForms
 @testable import KlaviyoSwift
 import KlaviyoCore

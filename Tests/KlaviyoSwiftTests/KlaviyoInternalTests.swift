@@ -1,8 +1,8 @@
 //
-//  KlaviyoInternalTests.swift
-//  klaviyo-swift-sdk
+// KlaviyoInternalTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 4/22/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

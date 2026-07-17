@@ -1,8 +1,8 @@
 //
-//  UIApplication+Ext.swift
-//  klaviyo-swift-sdk
+// UIApplication+Ext.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 12/4/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

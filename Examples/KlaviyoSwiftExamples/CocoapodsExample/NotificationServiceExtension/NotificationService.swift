@@ -1,8 +1,8 @@
 //
-//  NotificationService.swift
-//  NotificationServiceExtension
+// NotificationService.swift
+// Klaviyo Swift SDK
 //
-//  Created by Ajay Subramanya on 6/22/23.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import KlaviyoSwiftExtension

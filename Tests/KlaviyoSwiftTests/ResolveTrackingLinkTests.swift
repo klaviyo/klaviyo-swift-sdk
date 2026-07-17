@@ -1,8 +1,8 @@
 //
-//  ResolveTrackingLinkTests.swift
-//  klaviyo-swift-sdk
+// ResolveTrackingLinkTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Claude on 8/4/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

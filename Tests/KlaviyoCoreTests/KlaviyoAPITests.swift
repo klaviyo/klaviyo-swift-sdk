@@ -1,8 +1,8 @@
 //
-//  KlaviyoAPITests.swift
+// KlaviyoAPITests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 11/16/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import KlaviyoCore

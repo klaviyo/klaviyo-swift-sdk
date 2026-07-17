@@ -1,8 +1,8 @@
 //
-//  KlaviyoWebViewModeling.swift
-//  klaviyo-swift-sdk
+// KlaviyoWebViewModeling.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 10/1/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

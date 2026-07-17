@@ -1,8 +1,8 @@
 //
-//  UnregisterPushTokenPayload.swift
+// UnregisterPushTokenPayload.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Ajay Subramanya on 8/5/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

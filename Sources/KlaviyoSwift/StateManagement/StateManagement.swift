@@ -1,14 +1,8 @@
 //
-//  StateManagement.swift
+// StateManagement.swift
+// Klaviyo Swift SDK
 //
-//  Klaviyo Swift SDK
-//
-//  Created by Noah Durell on 12/6/22.
-//
-//  Description: This file contains the state management logic and actions for the Klaviyo Swift SDK.
-//
-//  Copyright (c) 2023 Klaviyo
-//  Licensed under the MIT License. See LICENSE file in the project root for full license information.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import AnyCodable
@@ -18,6 +12,8 @@ import KlaviyoCore
 import OSLog
 import UIKit
 import UserNotifications
+
+//  Description: This file contains the state management logic and actions for the Klaviyo Swift SDK.
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0

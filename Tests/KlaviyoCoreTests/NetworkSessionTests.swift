@@ -1,8 +1,8 @@
 //
-//  NetworkSessionTests.swift
+// NetworkSessionTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 11/18/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

@@ -1,8 +1,8 @@
 //
-//  EncodableTests.swift
+// EncodableTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 11/14/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import KlaviyoCore

@@ -1,8 +1,8 @@
 //
-//  IAFLifecycleEvent.swift
-//  klaviyo-swift-sdk
+// IAFLifecycleEvent.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 4/11/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 enum IAFLifecycleEvent {

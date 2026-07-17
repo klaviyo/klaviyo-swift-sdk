@@ -1,8 +1,8 @@
 //
-//  LifecycleEventsExtension.swift
+// LifecycleEventsExtension.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Ajay Subramanya on 8/13/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

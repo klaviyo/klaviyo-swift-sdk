@@ -1,8 +1,8 @@
 //
-//  Dictionary+Metadata.swift
-//  klaviyo-swift-sdk
+// Dictionary+Metadata.swift
+// Klaviyo Swift SDK
 //
-//  Created by Ajay Subramanya on 10/9/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Foundation

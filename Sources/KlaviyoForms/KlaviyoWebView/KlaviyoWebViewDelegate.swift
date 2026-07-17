@@ -1,8 +1,8 @@
 //
-//  KlaviyoWebViewDelegate.swift
-//  klaviyo-swift-sdk
+// KlaviyoWebViewDelegate.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 9/30/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import Combine

@@ -1,8 +1,8 @@
 //
-//  TestUtils.swift
+// TestUtils.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Ajay Subramanya on 8/15/24.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoCore

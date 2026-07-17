@@ -1,8 +1,8 @@
 //
-//  StateManagementEdgeCaseTests.swift
-//  Move some state management that feel edge casey over here. These are less likely to happen but still want to cover the code.
+// StateManagementEdgeCaseTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Noah Durell on 12/15/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift

@@ -1,8 +1,8 @@
 //
-//  Geofence.swift
-//  klaviyo-swift-sdk
+// Geofence.swift
+// Klaviyo Swift SDK
 //
-//  Created by Isobelle Lim on 9/5/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import CoreLocation

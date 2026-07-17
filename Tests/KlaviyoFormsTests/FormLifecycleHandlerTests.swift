@@ -1,8 +1,8 @@
 //
-//  FormLifecycleHandlerTests.swift
-//  klaviyo-swift-sdk
+// FormLifecycleHandlerTests.swift
+// Klaviyo Swift SDK
 //
-//  Created by Klaviyo SDK Team on 2026-02-20.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoForms

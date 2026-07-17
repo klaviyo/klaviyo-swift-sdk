@@ -1,8 +1,8 @@
 //
-//  DeepLinkHandler.swift
-//  klaviyo-swift-sdk
+// DeepLinkHandler.swift
+// Klaviyo Swift SDK
 //
-//  Created by Andrew Balmer on 9/15/25.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import OSLog

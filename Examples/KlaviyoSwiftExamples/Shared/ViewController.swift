@@ -1,9 +1,8 @@
 //
-//  ViewController.swift
-//  KlaviyoSwift
+// ViewController.swift
+// Klaviyo Swift SDK
 //
-//  Created by Katherine Keuper on 10/5/15.
-//  Copyright © 2015 CocoaPods. All rights reserved.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 import KlaviyoSwift

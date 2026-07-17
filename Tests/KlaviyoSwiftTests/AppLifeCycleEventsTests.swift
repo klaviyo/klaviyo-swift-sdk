@@ -1,8 +1,8 @@
 //
-//  AppLifeCycleEventsTests.swift
+// AppLifeCycleEventsTests.swift
+// Klaviyo Swift SDK
 //
-//
-//  Created by Noah Durell on 12/15/22.
+// Copyright © 2026 Klaviyo, Inc. Licensed under the MIT License.
 //
 
 @testable import KlaviyoSwift
