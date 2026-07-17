@@ -303,6 +303,31 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(state.queue.last?.id, "new", "New request must be appended at the tail")
     }
 
+    func testEnqueueRequestDrainsQueueAlreadyOverCapacity() {
+        // Arrange: a queue that is already ABOVE capacity — reachable via init-time queue
+        // merging or in-flight requests reinserted at the front. A single eviction per enqueue
+        // would never restore the bound; eviction must drain all the way down in one call.
+        let maxSize = StateManagementConstants.maxQueueSize
+        let overCapacity = maxSize + 25
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let requests = (0..<overCapacity).map { index in
+            makeTokenRequest(id: "req-\(index)", enqueuedAt: base.addingTimeInterval(TimeInterval(index)))
+        }
+        var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: requests)
+
+        // Act: one enqueue.
+        let newRequest = makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(999_999))
+        state.enqueueRequest(request: newRequest)
+
+        // Assert: drained to exactly the cap in a single call, dropping the oldest requests
+        // (req-0 through req-25) and keeping the rest plus the newcomer at the tail.
+        XCTAssertEqual(state.queue.count, maxSize, "A single enqueue must drain an over-capacity queue back to the cap")
+        XCTAssertFalse(state.queue.contains { $0.id == "req-0" }, "Oldest requests must be evicted first")
+        XCTAssertFalse(state.queue.contains { $0.id == "req-25" }, "Eviction must drain enough of the oldest to reach the cap")
+        XCTAssertTrue(state.queue.contains { $0.id == "req-26" }, "Requests newer than the drained window must survive")
+        XCTAssertEqual(state.queue.last?.id, "new", "New request must be appended at the tail")
+    }
+
     func testEnqueuePriorityRequestInsertsAtFrontAndStaysBounded() {
         // Arrange: a full queue of older requests.
         let maxSize = StateManagementConstants.maxQueueSize
