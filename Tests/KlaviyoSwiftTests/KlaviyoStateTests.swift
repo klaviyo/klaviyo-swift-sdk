@@ -319,13 +319,17 @@ final class KlaviyoStateTests: XCTestCase {
         let newRequest = makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(999_999))
         state.enqueueRequest(request: newRequest)
 
-        // Assert: drained to exactly the cap in a single call, dropping the oldest requests
-        // (req-0 through req-25) and keeping the rest plus the newcomer at the tail.
-        XCTAssertEqual(state.queue.count, maxSize, "A single enqueue must drain an over-capacity queue back to the cap")
-        XCTAssertFalse(state.queue.contains { $0.id == "req-0" }, "Oldest requests must be evicted first")
-        XCTAssertFalse(state.queue.contains { $0.id == "req-25" }, "Eviction must drain enough of the oldest to reach the cap")
-        XCTAssertTrue(state.queue.contains { $0.id == "req-26" }, "Requests newer than the drained window must survive")
-        XCTAssertEqual(state.queue.last?.id, "new", "New request must be appended at the tail")
+        // Assert the exact resulting contents: the oldest 26 (req-0…req-25) are evicted, the
+        // rest survive in their original order, and the newcomer is at the tail. Comparing the
+        // full id list proves oldest-first draining — a spot-check could pass while removing
+        // arbitrary entries.
+        let expectedIds = (26..<overCapacity).map { "req-\($0)" } + ["new"]
+        XCTAssertEqual(
+            state.queue.map(\.id),
+            expectedIds,
+            "One enqueue must drain an over-capacity queue to the cap, evicting the oldest first"
+        )
+        XCTAssertEqual(state.queue.count, maxSize)
     }
 
     func testEnqueuePriorityRequestInsertsAtFrontAndStaysBounded() {
