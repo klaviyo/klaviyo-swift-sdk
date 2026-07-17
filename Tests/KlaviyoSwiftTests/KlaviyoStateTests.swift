@@ -346,10 +346,14 @@ final class KlaviyoStateTests: XCTestCase {
         state.enqueuePriorityRequest(request: priority)
 
         // Assert: cap is held, priority event is at the front and survived, oldest was evicted.
-        XCTAssertEqual(state.queue.count, maxSize, "Priority path must keep the queue bounded at maxQueueSize")
+        XCTAssertEqual(
+            state.queue.count, maxSize, "Priority path must keep the queue bounded at maxQueueSize"
+        )
         XCTAssertEqual(state.queue.first?.id, "priority", "Prioritized request must be inserted at the front")
         XCTAssertTrue(state.queue.contains { $0.id == "priority" }, "Prioritized request must not be evicted")
-        XCTAssertFalse(state.queue.contains { $0.id == "old-0" }, "Oldest request must be evicted to make room")
+        XCTAssertFalse(
+            state.queue.contains { $0.id == "old-0" }, "Oldest request must be evicted to make room"
+        )
     }
 
     func testFreshPriorityRequestSurvivesSubsequentNormalOverflow() {
@@ -368,7 +372,9 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(state.queue.count, maxSize)
 
         // Act: a normal enqueue now overflows the queue.
-        state.enqueueRequest(request: makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(20_000)))
+        state.enqueueRequest(
+            request: makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(20_000))
+        )
 
         // Assert: the freshly front-inserted priority event is protected; an older request is evicted.
         XCTAssertEqual(state.queue.count, maxSize)
@@ -391,7 +397,9 @@ final class KlaviyoStateTests: XCTestCase {
         let decoded = try decoder.decode(KlaviyoRequest.self, from: data)
 
         XCTAssertEqual(decoded.id, "current")
-        XCTAssertEqual(decoded.enqueuedAt, Date(timeIntervalSince1970: 999), "Present enqueuedAt must round-trip")
+        XCTAssertEqual(
+            decoded.enqueuedAt, Date(timeIntervalSince1970: 999), "Present enqueuedAt must round-trip"
+        )
     }
 
     func testKlaviyoRequestDecodesMissingEnqueuedAtAsDistantPast() throws {
@@ -432,7 +440,9 @@ final class KlaviyoStateTests: XCTestCase {
             KlaviyoRequest.self,
             from: JSONSerialization.data(withJSONObject: seedJSON)
         )
-        XCTAssertEqual(legacyRequest.enqueuedAt, .distantPast, "Precondition: legacy request decodes to distantPast")
+        XCTAssertEqual(
+            legacyRequest.enqueuedAt, .distantPast, "Precondition: legacy request decodes to distantPast"
+        )
 
         // Fill the queue to capacity with newer, real-timestamped requests, placing the legacy
         // request at an interior position (not the front) to prove eviction keys on timestamp.
@@ -447,7 +457,9 @@ final class KlaviyoStateTests: XCTestCase {
         var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: requests)
 
         // Act: a normal enqueue overflows the queue.
-        state.enqueueRequest(request: makeTokenRequest(id: "newest", enqueuedAt: base.addingTimeInterval(99_999)))
+        state.enqueueRequest(
+            request: makeTokenRequest(id: "newest", enqueuedAt: base.addingTimeInterval(99_999))
+        )
 
         // Assert: the legacy (distantPast) request is evicted before any newer request.
         XCTAssertEqual(state.queue.count, maxSize)
