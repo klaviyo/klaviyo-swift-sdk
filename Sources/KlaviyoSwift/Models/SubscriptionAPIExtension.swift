@@ -18,29 +18,38 @@ extension Subscription.Channels {
     var needsPhone: Bool {
         sms?.isEmpty == false || whatsapp?.isEmpty == false
     }
+}
 
+extension EmailConsent {
+    /// Maps the requested EMAIL sub-types to the API consent object, or `nil` when none were named.
+    init?(_ options: Subscription.Channels.Email) {
+        guard !options.isEmpty else { return nil }
+        self.init(
+            marketing: options.contains(.marketing) ? .subscribed : nil,
+            openTracking: options.contains(.openTracking) ? .subscribed : nil
+        )
+    }
+}
+
+extension MarketingTransactionalConsent {
+    /// Maps the requested SMS/WhatsApp sub-types to the API consent object, or `nil` when none were named.
+    init?(_ options: Subscription.Channels.Messaging) {
+        guard !options.isEmpty else { return nil }
+        self.init(
+            marketing: options.contains(.marketing) ? .subscribed : nil,
+            transactional: options.contains(.transactional) ? .subscribed : nil
+        )
+    }
+}
+
+extension SubscriptionChannels {
     /// Maps the requested channels to the API's `subscriptions` object, or `nil` when no sub-types
     /// were named (nothing to send).
-    var toAPIModel: SubscriptionChannels? {
-        let emailConsent = email.flatMap { set -> EmailConsent? in
-            guard !set.isEmpty else { return nil }
-            return EmailConsent(
-                marketing: set.contains(.marketing) ? .subscribed : nil,
-                openTracking: set.contains(.openTracking) ? .subscribed : nil
-            )
-        }
-        let smsConsent = messagingConsent(sms)
-        let whatsappConsent = messagingConsent(whatsapp)
-
-        guard emailConsent != nil || smsConsent != nil || whatsappConsent != nil else { return nil }
-        return SubscriptionChannels(email: emailConsent, sms: smsConsent, whatsapp: whatsappConsent)
-    }
-
-    private func messagingConsent(_ set: Messaging?) -> MarketingTransactionalConsent? {
-        guard let set, !set.isEmpty else { return nil }
-        return MarketingTransactionalConsent(
-            marketing: set.contains(.marketing) ? .subscribed : nil,
-            transactional: set.contains(.transactional) ? .subscribed : nil
-        )
+    init?(_ channels: Subscription.Channels) {
+        let email = channels.email.flatMap(EmailConsent.init)
+        let sms = channels.sms.flatMap(MarketingTransactionalConsent.init)
+        let whatsapp = channels.whatsapp.flatMap(MarketingTransactionalConsent.init)
+        guard email != nil || sms != nil || whatsapp != nil else { return nil }
+        self.init(email: email, sms: sms, whatsapp: whatsapp)
     }
 }

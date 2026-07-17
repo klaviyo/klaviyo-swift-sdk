@@ -627,8 +627,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext")
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(
+                            Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
+                            anonymousId: $0.anonymousId!
+                        )
                     )
                 )
             )
@@ -657,7 +659,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.enqueueProfile(profile)) {
             // No reset (same email), so anonymousId unchanged
             // A createProfile request should be enqueued with the updated attributes
-            let profilePayload = profile.toAPIModel(
+            let profilePayload = ProfilePayload(
+                profile,
                 email: $0.email,
                 phoneNumber: $0.phoneNumber,
                 externalId: $0.externalId,
@@ -704,8 +707,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "different@email.com", phoneNumber: "+15555555555")
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(
+                            Profile(email: "different@email.com", phoneNumber: "+15555555555"),
+                            anonymousId: $0.anonymousId!
+                        )
                     )
                 )
             )
@@ -751,7 +756,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: profile.toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(profile, anonymousId: $0.anonymousId!)
                     )
                 )
             )
@@ -796,8 +801,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile()
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(Profile(), anonymousId: $0.anonymousId!)
                     )
                 )
             )
