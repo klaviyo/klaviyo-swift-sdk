@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class KlaviyoModelsTest: XCTestCase {
@@ -88,7 +89,8 @@ class KlaviyoModelsTest: XCTestCase {
         let anonymousId = "C10H15N"
         let apiProfile = ProfilePayload(
             profile,
-            anonymousId: anonymousId)
+            anonymousId: anonymousId
+        )
 
         XCTAssertNil(apiProfile.attributes.email)
         XCTAssertNil(apiProfile.attributes.phoneNumber)
