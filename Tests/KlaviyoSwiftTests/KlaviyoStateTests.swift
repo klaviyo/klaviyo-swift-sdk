@@ -70,14 +70,14 @@ final class KlaviyoStateTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
     }
 
-    func testLoadNewKlaviyoState() {
+    func testLoadNewKlaviyoState() throws {
         environment.fileClient.fileExists = { _ in false }
         environment.archiverClient.unarchivedMutableArray = { _ in [] }
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
         assertSnapshot(matching: state, as: .dump)
     }
 
-    func testStateFileExistsInvalidData() {
+    func testStateFileExistsInvalidData() throws {
         environment.fileClient.fileExists = { _ in
             true
         }
@@ -93,7 +93,7 @@ final class KlaviyoStateTests: XCTestCase {
         assertSnapshot(matching: state, as: .dump)
     }
 
-    func testStateFileExistsInvalidJSON() {
+    func testStateFileExistsInvalidJSON() throws {
         environment.fileClient.fileExists = { _ in
             true
         }
@@ -108,7 +108,7 @@ final class KlaviyoStateTests: XCTestCase {
         assertSnapshot(matching: state, as: .dump)
     }
 
-    func testValidStateFileExists() {
+    func testValidStateFileExists() throws {
         environment.fileClient.fileExists = { _ in
             true
         }
@@ -161,7 +161,7 @@ final class KlaviyoStateTests: XCTestCase {
 
     // MARK: test background and authorization states
 
-    func testBackgroundStates() throws {
+    func testBackgroundStates() {
         let backgroundStates = [
             UIBackgroundRefreshStatus.available: PushBackground.available,
             .denied: .denied,
@@ -173,11 +173,11 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         // Fake value to test availability
-        XCTAssertEqual(try PushBackground.create(from: XCTUnwrap(UIBackgroundRefreshStatus(rawValue: 20))), .available)
+        XCTAssertEqual(PushBackground.create(from: UIBackgroundRefreshStatus(rawValue: 20)!), .available)
     }
 
     @available(iOS 14.0, *)
-    func testPushEnablementStates() throws {
+    func testPushEnablementStates() {
         let enablementStates = [
             UNAuthorizationStatus.authorized: PushEnablement.authorized,
             .denied: .denied,
@@ -191,6 +191,6 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         // Fake value to test availability
-        XCTAssertEqual(try PushEnablement.create(from: XCTUnwrap(UNAuthorizationStatus(rawValue: 50))), .notDetermined)
+        XCTAssertEqual(PushEnablement.create(from: UNAuthorizationStatus(rawValue: 50)!), .notDetermined)
     }
 }

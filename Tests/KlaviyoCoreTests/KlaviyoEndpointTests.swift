@@ -92,7 +92,7 @@ final class KlaviyoEndpointTests: XCTestCase {
 
     func testResolveDestinationURLEndpointUrlRequest() throws {
         // Given
-        let trackingLink = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        let trackingLink = URL(string: "https://email.klaviyo.com/tracking/link")!
         let profileInfo = ProfilePayload(email: "test@example.com", phoneNumber: "+15551234567", externalId: "user-123", anonymousId: "anon-456")
         let endpoint = KlaviyoEndpoint.resolveDestinationURL(trackingLink: trackingLink, profileInfo: profileInfo)
 
@@ -117,15 +117,15 @@ final class KlaviyoEndpointTests: XCTestCase {
             }
 
             // Compare JSON objects instead of string representations to avoid order issues
-            let profileJson = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(profileDataString.utf8), options: []) as? [String: Any])
-            let headerJson = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(decodedJsonString.utf8), options: []) as? [String: Any])
+            let profileJson = try JSONSerialization.jsonObject(with: Data(profileDataString.utf8), options: []) as! [String: Any]
+            let headerJson = try JSONSerialization.jsonObject(with: Data(decodedJsonString.utf8), options: []) as! [String: Any]
 
             // Compare the type
             XCTAssertEqual(profileJson["type"] as? String, headerJson["type"] as? String)
 
             // Compare attributes as dictionaries
-            let profileAttrs = try XCTUnwrap(profileJson["attributes"] as? [String: Any])
-            let headerAttrs = try XCTUnwrap(headerJson["attributes"] as? [String: Any])
+            let profileAttrs = profileJson["attributes"] as! [String: Any]
+            let headerAttrs = headerJson["attributes"] as! [String: Any]
 
             XCTAssertEqual(profileAttrs["email"] as? String, headerAttrs["email"] as? String)
             XCTAssertEqual(profileAttrs["phone_number"] as? String, headerAttrs["phone_number"] as? String)

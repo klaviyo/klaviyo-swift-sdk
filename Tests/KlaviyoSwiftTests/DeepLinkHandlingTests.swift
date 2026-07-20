@@ -45,7 +45,7 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testOpenDeepLinkActionCallsLinkHandler() async throws {
-        let expectedURL = try XCTUnwrap(URL(string: "https://example.com/path"))
+        let expectedURL = URL(string: "https://example.com/path")!
         let called = expectation(description: "linkHandler.openURL called")
         var handlerCalled = false
 
@@ -71,7 +71,7 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testRegisterDeepLinkHandlerOverridesEnvironmentFallback() async throws {
-        let expectedURL = try XCTUnwrap(URL(string: "https://example.com/override"))
+        let expectedURL = URL(string: "https://example.com/override")!
 
         let customCalled = expectation(description: "custom handler called")
         KlaviyoSDK().registerDeepLinkHandler { url in
@@ -175,12 +175,12 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testOpenDeepLinkActionSetsProcessingState() async throws {
-        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
+        let url = URL(string: "https://example.com/test")!
         let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
 
         environment.linkHandler.registerCustomHandler { _ in }
 
-        await store.send(.openDeepLink(testURL)) {
+        await store.send(.openDeepLink(url)) {
             $0.isProcessingDeepLink = true
         }
 
@@ -191,17 +191,17 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testOpenDeepLinkActionIgnoredWhenAlreadyProcessing() async throws {
-        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
+        let url = URL(string: "https://example.com/test")!
         var initialState = KlaviyoState(queue: [], requestsInFlight: [])
         initialState.isProcessingDeepLink = true
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        await store.send(.openDeepLink(testURL))
+        await store.send(.openDeepLink(url))
     }
 
     @MainActor
-    func testDeepLinkProcessingCompletedResetsState() async {
+    func testDeepLinkProcessingCompletedResetsState() async throws {
         var initialState = KlaviyoState(queue: [], requestsInFlight: [])
         initialState.isProcessingDeepLink = true
 
@@ -214,8 +214,8 @@ final class DeepLinkHandlingTests: XCTestCase {
 
     @MainActor
     func testSequentialDeepLinkProcessing() async throws {
-        let url1 = try XCTUnwrap(URL(string: "https://example.com/test1"))
-        let url2 = try XCTUnwrap(URL(string: "https://example.com/test2"))
+        let url1 = URL(string: "https://example.com/test1")!
+        let url2 = URL(string: "https://example.com/test2")!
 
         let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
 

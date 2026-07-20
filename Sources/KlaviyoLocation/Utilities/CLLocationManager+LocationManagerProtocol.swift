@@ -31,7 +31,7 @@ protocol LocationManagerProtocol {
 extension CLLocationManager: LocationManagerProtocol {
     var currentAuthorizationStatus: CLAuthorizationStatus {
         if #available(iOS 14.0, *) {
-            return authorizationStatus
+            return self.authorizationStatus
         } else {
             return CLLocationManager.authorizationStatus()
         }

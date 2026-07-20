@@ -53,8 +53,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Custom Handler Execution Tests
 
     @MainActor
-    func testOpenURLUsesCustomHandlerWhenRegistered() async throws {
-        let expectedURL = try XCTUnwrap(URL(string: "https://example.com/custom"))
+    func testOpenURLUsesCustomHandlerWhenRegistered() async {
+        let expectedURL = URL(string: "https://example.com/custom")!
         let handlerCalled = expectation(description: "custom handler called")
 
         deepLinkHandler.registerCustomHandler { url in
@@ -69,8 +69,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Handler Replacement Tests
 
     @MainActor
-    func testRegisteringNewHandlerReplacesOld() async throws {
-        let testURL = try XCTUnwrap(URL(string: "https://example.com/test"))
+    func testRegisteringNewHandlerReplacesOld() async {
+        let url = URL(string: "https://example.com/test")!
         let firstHandlerCalled = expectation(description: "first handler called")
         let secondHandlerCalled = expectation(description: "second handler called")
         firstHandlerCalled.isInverted = true
@@ -82,11 +82,11 @@ final class DeepLinkHandlerTests: XCTestCase {
 
         // Register second handler (should replace first)
         deepLinkHandler.registerCustomHandler { receivedURL in
-            XCTAssertEqual(receivedURL, testURL)
+            XCTAssertEqual(receivedURL, url)
             secondHandlerCalled.fulfill()
         }
 
-        await deepLinkHandler.openURL(testURL)
+        await deepLinkHandler.openURL(url)
 
         await fulfillment(of: [firstHandlerCalled, secondHandlerCalled], timeout: 1.0)
     }
@@ -94,8 +94,8 @@ final class DeepLinkHandlerTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     @MainActor
-    func testCustomHandlerCalledOnMainActor() async throws {
-        let testURL = try XCTUnwrap(URL(string: "https://example.com/main-actor"))
+    func testCustomHandlerCalledOnMainActor() async {
+        let url = URL(string: "https://example.com/main-actor")!
         let handlerCalled = expectation(description: "handler called on main actor")
 
         deepLinkHandler.registerCustomHandler { _ in
@@ -103,7 +103,7 @@ final class DeepLinkHandlerTests: XCTestCase {
             handlerCalled.fulfill()
         }
 
-        await deepLinkHandler.openURL(testURL)
+        await deepLinkHandler.openURL(url)
         await fulfillment(of: [handlerCalled], timeout: 1.0)
     }
 }

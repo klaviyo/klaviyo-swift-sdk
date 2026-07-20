@@ -496,8 +496,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken
-                )
-            )
+                ))
 
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
             let request = KlaviyoRequest(endpoint: endpoint)
@@ -519,7 +518,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
             ])
-
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey
