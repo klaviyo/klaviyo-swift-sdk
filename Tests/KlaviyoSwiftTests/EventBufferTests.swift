@@ -167,7 +167,7 @@ class EventBufferTests: XCTestCase {
 
     // MARK: - Thread Safety Tests
 
-    func testConcurrentBuffering() async {
+    func testConcurrentBuffering() async throws {
         // Given
         let expectation = XCTestExpectation(description: "All events buffered")
         expectation.expectedFulfillmentCount = 100
@@ -186,7 +186,7 @@ class EventBufferTests: XCTestCase {
         XCTAssertLessThanOrEqual(events.count, 5, "Should respect max buffer size")
     }
 
-    func testConcurrentReadingAndWriting() async {
+    func testConcurrentReadingAndWriting() async throws {
         // Given
         let writeExpectation = XCTestExpectation(description: "Writing complete")
         let readExpectation = XCTestExpectation(description: "Reading complete")
@@ -282,7 +282,7 @@ class EventBufferTests: XCTestCase {
 
         // Then
         XCTAssertEqual(retrievedEvents.count, 1)
-        let retrievedEvent = try XCTUnwrap(retrievedEvents.first)
+        let retrievedEvent = retrievedEvents.first!
         XCTAssertEqual(retrievedEvent.metric.name.value, "test")
         XCTAssertEqual(retrievedEvent.properties["key1"] as? String, "value1")
         XCTAssertEqual(retrievedEvent.properties["key2"] as? Int, 123)

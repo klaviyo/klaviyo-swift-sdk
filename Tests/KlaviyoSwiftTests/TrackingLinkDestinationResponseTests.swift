@@ -37,7 +37,7 @@ final class TrackingLinkDestinationResponseTests: XCTestCase {
             "original_destination": ""
         }
         """
-        let jsonData = try XCTUnwrap(json.data(using: .utf8))
+        let jsonData = json.data(using: .utf8)!
 
         // When/Then
         XCTAssertThrowsError(try JSONDecoder().decode(TrackingLinkDestinationResponse.self, from: jsonData)) { error in
@@ -59,7 +59,7 @@ final class TrackingLinkDestinationResponseTests: XCTestCase {
     func testDecodingMissingField() throws {
         // Given
         let json = "{}"
-        let jsonData = try XCTUnwrap(json.data(using: .utf8))
+        let jsonData = json.data(using: .utf8)!
 
         // When/Then
         XCTAssertThrowsError(try JSONDecoder().decode(TrackingLinkDestinationResponse.self, from: jsonData)) { error in

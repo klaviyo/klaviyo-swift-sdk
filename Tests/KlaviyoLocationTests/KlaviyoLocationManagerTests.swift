@@ -141,7 +141,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
 
     // MARK: - Klaviyo Geofence Isolation Tests
 
-    func test_syncGeofences_only_removes_klaviyo_geofences() async {
+    func test_syncGeofences_only_removes_klaviyo_geofences() async throws {
         // GIVEN - Set up test environment with API key
         let apiKey = "ABC123"
         KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
@@ -198,14 +198,14 @@ final class KlaviyoLocationManagerTests: XCTestCase {
 
         // Mock GeofenceService to return new Klaviyo geofences
         let mockGeofenceService = MockGeofenceService()
-        mockGeofenceService.mockGeofences = try [
-            Geofence(
+        mockGeofenceService.mockGeofences = [
+            try! Geofence(
                 id: "_k:\(apiKey):new-uuid-1",
                 longitude: 1.0,
                 latitude: 1.0,
                 radius: 100.0
             ),
-            Geofence(
+            try! Geofence(
                 id: "_k:\(apiKey):new-uuid-2",
                 longitude: 2.0,
                 latitude: 2.0,
@@ -233,7 +233,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         XCTAssertTrue(addedIds.contains("_k:\(apiKey):new-uuid-2"))
     }
 
-    func test_syncGeofences_does_not_affect_non_klaviyo_regions_when_exceeding_limit() async {
+    func test_syncGeofences_does_not_affect_non_klaviyo_regions_when_exceeding_limit() async throws {
         // GIVEN - Set up test environment with API key
         let apiKey = "ABC123"
         KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)
@@ -280,7 +280,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(klaviyoRegions.count, 0, "Should attempt to add Klaviyo geofences")
     }
 
-    func test_getActiveGeofences_only_returns_klaviyo_geofences() async {
+    func test_getActiveGeofences_only_returns_klaviyo_geofences() async throws {
         // GIVEN - Set up test environment with API key
         let apiKey = "ABC123"
         KlaviyoLocationTestUtils.setupTestEnvironment(apiKey: apiKey)

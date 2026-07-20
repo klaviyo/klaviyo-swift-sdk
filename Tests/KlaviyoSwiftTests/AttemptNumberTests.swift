@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class AttemptNumberTests: XCTestCase {
-    func testFirstRequestStartsAtOne() async {
+    func testFirstRequestStartsAtOne() async throws {
         var capturedAttempt: Int?
         environment.klaviyoAPI.send = { _, attemptInfo in
             capturedAttempt = attemptInfo.attemptNumber

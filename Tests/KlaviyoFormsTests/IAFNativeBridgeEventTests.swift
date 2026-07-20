@@ -14,7 +14,7 @@ import Testing
 
 struct IAFNativeBridgeEventTests {
     @Test
-    func handshakeCreated() throws {
+    func testHandshakeCreated() async throws {
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
             var version: Int
@@ -32,7 +32,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testHandShook() throws {
+    func testHandShook() async throws {
         let json = """
         {
           "type": "handShook",
@@ -46,7 +46,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testAbort() throws {
+    func testAbort() async throws {
         let json = """
         {
           "type": "abort",
@@ -67,7 +67,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkMissingButtonLabel() throws {
+    func testDecodeOpenDeepLinkMissingButtonLabel() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -95,7 +95,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkWithButtonLabel() throws {
+    func testDecodeOpenDeepLinkWithButtonLabel() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -124,7 +124,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkWithoutFormContext() throws {
+    func testDecodeOpenDeepLinkWithoutFormContext() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -150,7 +150,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormWillAppear() throws {
+    func testDecodeFormWillAppear() async throws {
         let json = """
         {
           "type": "formWillAppear",
@@ -161,7 +161,7 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
@@ -172,7 +172,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormWillAppearMissingFormName() throws {
+    func testDecodeFormWillAppearMissingFormName() async throws {
         let json = """
         {
           "type": "formWillAppear",
@@ -182,7 +182,7 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
@@ -193,7 +193,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormDisappeared() throws {
+    func testDecodeFormDisappeared() async throws {
         let json = """
         {
           "type": "formDisappeared",
@@ -204,7 +204,7 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formDisappeared(formId, formName) = event else {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
@@ -215,7 +215,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormDisappearedWithoutPayload() throws {
+    func testDecodeFormDisappearedWithoutPayload() async throws {
         let json = """
         {
           "type": "formDisappeared",
@@ -223,7 +223,7 @@ struct IAFNativeBridgeEventTests {
         }
         """
 
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formDisappeared(formId, formName) = event else {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
@@ -234,7 +234,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeTrackProfileEvent() throws {
+    func testDecodeTrackProfileEvent() async throws {
         let json = """
         {
           "type": "trackProfileEvent",
@@ -274,7 +274,7 @@ struct IAFNativeBridgeEventTests {
     // MARK: - Missing Metadata Fields (parsing is permissive, nil for missing/empty)
 
     @Test
-    func decodeFormWillAppearMissingFormId() throws {
+    func testDecodeFormWillAppearMissingFormId() async throws {
         let json = """
         {
           "type": "formWillAppear",
@@ -283,7 +283,7 @@ struct IAFNativeBridgeEventTests {
           }
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
@@ -294,14 +294,14 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormWillAppearEmptyData() throws {
+    func testDecodeFormWillAppearEmptyData() async throws {
         let json = """
         {
           "type": "formWillAppear",
           "data": {}
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
@@ -312,7 +312,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormDisappearedMissingFormId() throws {
+    func testDecodeFormDisappearedMissingFormId() async throws {
         let json = """
         {
           "type": "formDisappeared",
@@ -321,7 +321,7 @@ struct IAFNativeBridgeEventTests {
           }
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formDisappeared(formId, formName) = event else {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
@@ -332,7 +332,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormDisappearedMissingFormName() throws {
+    func testDecodeFormDisappearedMissingFormName() async throws {
         let json = """
         {
           "type": "formDisappeared",
@@ -341,7 +341,7 @@ struct IAFNativeBridgeEventTests {
           }
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formDisappeared(formId, formName) = event else {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
@@ -352,7 +352,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkMissingFormId() throws {
+    func testDecodeOpenDeepLinkMissingFormId() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -377,7 +377,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkMissingFormName() throws {
+    func testDecodeOpenDeepLinkMissingFormName() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -402,7 +402,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkEmptyData() throws {
+    func testDecodeOpenDeepLinkEmptyData() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -422,7 +422,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkWithoutIosUrl() throws {
+    func testDecodeOpenDeepLinkWithoutIosUrl() async throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -447,13 +447,13 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormWillAppearMissingDataKey() throws {
+    func testDecodeFormWillAppearMissingDataKey() async throws {
         let json = """
         {
           "type": "formWillAppear"
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formWillAppear(formId, formName, _) = event else {
             Issue.record("event type should be .formWillAppear but was '.\(event)'")
@@ -464,13 +464,13 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeFormDisappearedMissingDataKey() throws {
+    func testDecodeFormDisappearedMissingDataKey() async throws {
         let json = """
         {
           "type": "formDisappeared"
         }
         """
-        let data = try #require(json.data(using: .utf8))
+        let data = json.data(using: .utf8)!
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         guard case let .formDisappeared(formId, formName) = event else {
             Issue.record("event type should be .formDisappeared but was '.\(event)'")
@@ -481,7 +481,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeOpenDeepLinkMissingDataKey() throws {
+    func testDecodeOpenDeepLinkMissingDataKey() async throws {
         let json = """
         {
           "type": "openDeepLink"
@@ -500,7 +500,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func decodeAggregateEvent() throws {
+    func testDecodeAggregateEvent() async throws {
         let json = """
         {
           "type": "trackAggregateEvent",

@@ -18,7 +18,7 @@ public struct Event: Equatable {
         case locationEvent(LocationEvent)
         case customEvent(String)
 
-        static var _openedPush: EventName {
+        internal static var _openedPush: EventName {
             EventName.customEvent("_openedPush")
         }
 
@@ -43,12 +43,12 @@ public struct Event: Equatable {
     }
 
     struct Identifiers: Equatable {
-        let email: String?
-        let phoneNumber: String?
-        let externalId: String?
-        init(email: String? = nil,
-             phoneNumber: String? = nil,
-             externalId: String? = nil) {
+        public let email: String?
+        public let phoneNumber: String?
+        public let externalId: String?
+        public init(email: String? = nil,
+                    phoneNumber: String? = nil,
+                    externalId: String? = nil) {
             self.email = email
             self.phoneNumber = phoneNumber
             self.externalId = externalId

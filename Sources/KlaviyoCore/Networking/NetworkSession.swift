@@ -52,7 +52,7 @@ public struct NetworkSession {
 
     public static var defaultUserAgent: String = defaultUserAgent(bundle: .main)
 
-    static func defaultUserAgent(bundle: Bundle) -> String {
+    internal static func defaultUserAgent(bundle: Bundle) -> String {
         let appContext = environment.appContextInfo()
         let klaivyoSDKVersion = "klaviyo-\(environment.sdkName())/\(environment.sdkVersion())"
         var userAgent = "\(appContext.executable)/\(appContext.appVersion) (\(appContext.bundleId); build:\(appContext.appBuild); \(appContext.osVersionName)) \(klaivyoSDKVersion)"
@@ -68,6 +68,7 @@ public struct NetworkSession {
         let session = createEmphemeralSession()
 
         return NetworkSession(data: { request async throws -> (Data, URLResponse) in
+
             session.configuration.protocolClasses = URLProtocolOverrides.protocolClasses
             if #available(iOS 15, *) {
                 return try await session.data(for: request)

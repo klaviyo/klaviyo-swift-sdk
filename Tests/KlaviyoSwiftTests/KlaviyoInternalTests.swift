@@ -31,7 +31,7 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Profile Data Tests
 
     @MainActor
-    func testProfileChangePublisherEmitsCorrectData() {
+    func testProfileChangePublisherEmitsCorrectData() throws {
         let expectation = XCTestExpectation(description: "Profile data is emitted")
         var receivedResult: KlaviyoInternal.ProfileDataResult?
 
@@ -428,7 +428,7 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Event Publishing Tests
 
     @MainActor
-    func testEventPublisher_emitsEventWithProperties() {
+    func testEventPublisher_emitsEventWithProperties() throws {
         // Given: Set up a mock to capture published events
         var publishedEvents: [Event] = []
         let initialState = KlaviyoState(
@@ -462,7 +462,7 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Integration Tests
 
     @MainActor
-    func testBothPublishersWorkIndependently() async {
+    func testBothPublishersWorkIndependently() async throws {
         // Set up test environment
         let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
         klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
@@ -749,8 +749,8 @@ final class KlaviyoInternalTests: XCTestCase {
         initialState.flushing = false
 
         // Add some existing requests to the queue
-        let existingRequest1 = try initialState.buildProfileRequest(apiKey: XCTUnwrap(initialState.apiKey), anonymousId: XCTUnwrap(initialState.anonymousId))
-        let existingRequest2 = try initialState.buildTokenRequest(apiKey: XCTUnwrap(initialState.apiKey), anonymousId: XCTUnwrap(initialState.anonymousId), pushToken: "token1", enablement: .authorized)
+        let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
         initialState.queue = [existingRequest1, existingRequest2]
 
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
@@ -767,7 +767,7 @@ final class KlaviyoInternalTests: XCTestCase {
             name: .locationEvent(.geofenceEnter),
             properties: ["$geofence_id": "test-location-id"]
         )
-        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let apiKey = initialState.apiKey!
         await KlaviyoInternal.createGeofenceEvent(event: geofenceEvent, for: apiKey)
         try await Task.sleep(nanoseconds: 500_000_000)
 
@@ -814,8 +814,8 @@ final class KlaviyoInternalTests: XCTestCase {
         initialState.flushing = false
 
         // Add some existing requests to the queue
-        let existingRequest1 = try initialState.buildProfileRequest(apiKey: XCTUnwrap(initialState.apiKey), anonymousId: XCTUnwrap(initialState.anonymousId))
-        let existingRequest2 = try initialState.buildTokenRequest(apiKey: XCTUnwrap(initialState.apiKey), anonymousId: XCTUnwrap(initialState.anonymousId), pushToken: "token1", enablement: .authorized)
+        let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
+        let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
         initialState.queue = [existingRequest1, existingRequest2]
 
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())

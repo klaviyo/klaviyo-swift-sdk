@@ -49,14 +49,14 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
-    func testScriptMessageHandlersAreRemovedOnDeallocation() throws {
+    func testScriptMessageHandlersAreRemovedOnDeallocation() async throws {
         // Given
         let config = WKWebViewConfiguration()
         let mockController = MockWKUserContentController()
         config.userContentController = mockController
 
-        let testURL = try XCTUnwrap(URL(string: "https://www.google.com"))
-        let viewModel = MockIAFWebViewModel(url: testURL)
+        let url = URL(string: "https://www.google.com")!
+        let viewModel = MockIAFWebViewModel(url: url)
         let messageHandlers = Set(["handler1", "handler2"])
         viewModel.messageHandlers = messageHandlers
 
@@ -135,7 +135,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     // MARK: - Tests
 
     @MainActor
-    func testKlaviyoJsScriptIsAddedToWebView() {
+    func testKlaviyoJsScriptIsAddedToWebView() async throws {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -145,7 +145,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testSdkNameScriptIsAddedToWebView() {
+    func testSdkNameScriptIsAddedToWebView() async throws {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -179,7 +179,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testHandshakeScriptIsAddedToWebView() {
+    func testHandshakeScriptIsAddedToWebView() async throws {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -227,7 +227,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testScriptMessageHandlerDeduplication() {
+    func testScriptMessageHandlerDeduplication() async throws {
         // Given
         let viewController = createWebViewController()
 

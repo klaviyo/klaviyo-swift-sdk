@@ -32,14 +32,14 @@ class ArchivalUtilsTests: XCTestCase {
         removedFile = false
     }
 
-    func testArchiveUnarchive() {
+    func testArchiveUnarchive() throws {
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
 
         XCTAssert(wroteToFile)
         XCTAssertEqual(ARCHIVED_RETURNED_DATA, dataToWrite)
     }
 
-    func testArchiveFails() {
+    func testArchiveFails() throws {
         environment.archiverClient.archivedData = { _, _ in throw FakeFileError.fake }
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
 
@@ -47,7 +47,7 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertNil(dataToWrite)
     }
 
-    func testArchiveWriteFails() {
+    func testArchiveWriteFails() throws {
         environment.fileClient.write = { _, _ in throw FakeFileError.fake }
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
 
@@ -55,14 +55,14 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertNil(dataToWrite)
     }
 
-    func testUnarchive() {
+    func testUnarchive() throws {
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
 
         XCTAssertEqual(SAMPLE_DATA, archiveResult)
         XCTAssertTrue(removedFile)
     }
 
-    func testUnarchiveInvalidData() {
+    func testUnarchiveInvalidData() throws {
         environment.dataFromUrl = { _ in throw FakeFileError.fake }
 
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
@@ -70,7 +70,7 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertNil(archiveResult)
     }
 
-    func testUnarchiveUnarchiveFails() {
+    func testUnarchiveUnarchiveFails() throws {
         environment.archiverClient.unarchivedMutableArray = { _ in throw FakeFileError.fake }
 
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
@@ -78,7 +78,7 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertNil(archiveResult)
     }
 
-    func testUnarchiveUnableToRemoveFile() {
+    func testUnarchiveUnableToRemoveFile() throws {
         var firstCall = true
         environment.fileClient.fileExists = { _ in
             if firstCall {
@@ -93,7 +93,7 @@ class ArchivalUtilsTests: XCTestCase {
         XCTAssertFalse(removedFile)
     }
 
-    func testUnarchiveWhereFileDoesNotExist() {
+    func testUnarchiveWhereFileDoesNotExist() throws {
         environment.fileClient.fileExists = { _ in false }
         let archiveResult = unarchiveFromFile(fileURL: TEST_URL)
 
@@ -110,7 +110,7 @@ class ArchivalSystemTest: XCTestCase {
         try? FileManager.default.removeItem(atPath: TEST_URL.path)
     }
 
-    /** This will attempt to actually archive and unarchive a queue. */
+    /* This will attempt to actually archive and unarchive a queue. */
     func testArchiveUnarchive() {
         archiveQueue(queue: SAMPLE_DATA, to: TEST_URL)
         let result = unarchiveFromFile(fileURL: filePathForData(apiKey: "foo", data: "people"))

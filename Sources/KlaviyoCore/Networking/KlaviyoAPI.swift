@@ -74,6 +74,6 @@ public struct KlaviyoAPI {
         self.send = send
     }
 
-    /// For internal testing use only
+    // For internal testing use only
     public static var requestHandler: (KlaviyoRequest, URLRequest?, RequestStatus) -> Void = { _, _, _ in }
 }

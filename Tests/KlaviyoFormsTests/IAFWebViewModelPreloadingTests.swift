@@ -1,5 +1,5 @@
 //
-//  IAFWebViewModelPreloadingTests.swift
+//  IAFWebViewModelTests.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 2/6/25.

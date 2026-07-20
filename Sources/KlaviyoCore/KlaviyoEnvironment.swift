@@ -166,7 +166,7 @@ public struct KlaviyoEnvironment {
             .eraseToAnyPublisher()
     }
 
-    /// Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
+    // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
     package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
 
     private static let wrapperSDKConfig: [String: AnyObject] = {

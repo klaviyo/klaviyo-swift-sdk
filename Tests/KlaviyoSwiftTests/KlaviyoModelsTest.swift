@@ -10,7 +10,7 @@ import Foundation
 import XCTest
 
 class KlaviyoModelsTest: XCTestCase {
-    func testProfileModelConvertsToAPIModel() throws {
+    func testProfileModelConvertsToAPIModel() {
         let profile = Profile(
             email: "walter.white@breakingbad.com",
             phoneNumber: "1800-better-call-saul",
@@ -46,10 +46,10 @@ class KlaviyoModelsTest: XCTestCase {
         XCTAssertEqual(apiProfile.attributes.location?.zip, profile.location?.zip)
         XCTAssertEqual(apiProfile.attributes.location?.timezone, profile.location?.timezone)
 
-        let apiProps = try XCTUnwrap(apiProfile.attributes.properties.value as? [String: Any])
-        let orderAmount = try XCTUnwrap(apiProps["order amount"] as? String)
+        let apiProps = apiProfile.attributes.properties.value as! [String: Any]
+        let orderAmount = apiProps["order amount"] as! String
 
-        XCTAssertEqual(orderAmount, profile.properties["order amount"] as? String)
+        XCTAssertEqual(orderAmount, profile.properties["order amount"] as! String)
         XCTAssertEqual(apiProfile.attributes.anonymousId, anonymousId)
     }
 
@@ -86,8 +86,7 @@ class KlaviyoModelsTest: XCTestCase {
         )
         let anonymousId = "C10H15N"
         let apiProfile = profile.toAPIModel(
-            anonymousId: anonymousId
-        )
+            anonymousId: anonymousId)
 
         XCTAssertNil(apiProfile.attributes.email)
         XCTAssertNil(apiProfile.attributes.phoneNumber)
