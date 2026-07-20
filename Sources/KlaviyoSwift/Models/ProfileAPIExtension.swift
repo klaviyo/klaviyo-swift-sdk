@@ -9,7 +9,7 @@ import Foundation
 import KlaviyoCore
 
 extension String {
-    internal func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
+    func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {
         let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedString.isEmpty ? nil : trimmedString
     }

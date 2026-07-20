@@ -63,12 +63,11 @@ extension Geofence {
     /// Converts this geofence to a Core Location circular region
     /// - Returns: A CLCircularRegion instance
     func toCLCircularRegion() -> CLCircularRegion {
-        let region = CLCircularRegion(
+        CLCircularRegion(
             center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
             radius: radius,
             identifier: id
         )
-        return region
     }
 }
 

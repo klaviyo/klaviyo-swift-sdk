@@ -19,7 +19,9 @@ class InAppWindowManager {
     /// Exposes the form's overlay window so callers that enumerate scene windows can
     /// filter it out — e.g. `DeviceInfo.current()` must not read bounds/insets from
     /// our own overlay (which becomes key while the user interacts with the form).
-    var currentFormWindow: UIWindow? { window }
+    var currentFormWindow: UIWindow? {
+        window
+    }
 
     /// Tracks the most-recently-reported keyboard end frame so that layout
     /// is keyboard-aware even when a form is presented while the keyboard is

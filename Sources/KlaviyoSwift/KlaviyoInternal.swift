@@ -1,5 +1,5 @@
 //
-//  KlaviyoSDK.swift
+//  KlaviyoInternal.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 2/4/25.
@@ -35,7 +35,7 @@ package enum KlaviyoInternal {
 
     // MARK: - API Key methods
 
-    // Setup the profile data subject to receive updates from the state publisher
+    /// Setup the profile data subject to receive updates from the state publisher
     private static func setupAPIKeySubject() {
         // Only set up the subscription if it hasn't already been set up
         guard apiKeyCancellable == nil else { return }
@@ -59,7 +59,7 @@ package enum KlaviyoInternal {
     /// A publisher that monitors the API key (aka Company ID) and emits valid API keys.
     ///
     /// - Returns: A publisher that emits valid API keys (non-nil, non-empty strings),
-    //             or a failure if the API is not initialized or the API key is empty or nil
+    ///             or a failure if the API is not initialized or the API key is empty or nil
     package static func apiKeyPublisher() -> AnyPublisher<APIKeyResult, Never> {
         // Set up the subject if it hasn't been set up yet
         setupAPIKeySubject()
@@ -98,7 +98,7 @@ package enum KlaviyoInternal {
 
     // MARK: - Profile Data methods
 
-    // Setup the profile data subject to receive updates from the state publisher
+    /// Setup the profile data subject to receive updates from the state publisher
     private static func setupProfileDataSubject() {
         // Only set up the subscription if it hasn't already been set up
         guard profileDataCancellable == nil else { return }
@@ -161,7 +161,7 @@ package enum KlaviyoInternal {
     /// Publishes an event to subscribers and also buffers it for replay to future subscribers.
     ///
     /// - Parameter event: the profile event to publish
-    internal static func publishEvent(_ event: Event) {
+    static func publishEvent(_ event: Event) {
         let enrichedEvent = enrichEventWithMetadata(event)
         eventBuffer.buffer(enrichedEvent)
         profileEventSubject.send(enrichedEvent)

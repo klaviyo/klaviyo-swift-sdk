@@ -11,8 +11,8 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
-// Test-specific subclass that overrides navigation policy to allow all navigation
-// This is required to get these unit tests to pass
+/// Test-specific subclass that overrides navigation policy to allow all navigation
+/// This is required to get these unit tests to pass
 private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         .allow
@@ -73,7 +73,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - SDK Attribute Tests
 
     @MainActor
-    func testInjectSdkNameAttribute() async throws {
+    func testInjectSdkNameAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
@@ -83,7 +83,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectSdkVersionAttribute() async throws {
+    func testInjectSdkVersionAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
@@ -95,7 +95,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Environment Tests
 
     @MainActor
-    func testInjectFormsDataEnvironmentAttribute() async throws {
+    func testInjectFormsDataEnvironmentAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
@@ -125,7 +125,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Handshake Tests
 
     @MainActor
-    func testInjectHandshakeAttribute() async throws {
+    func testInjectHandshakeAttribute() throws {
         // When
         viewModel.initializeLoadScripts()
         let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
@@ -163,7 +163,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Klaviyo JS Tests
 
     @MainActor
-    func testInjectKlaviyoJsScript() async throws {
+    func testInjectKlaviyoJsScript() {
         // When
         viewModel.initializeLoadScripts()
         let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
@@ -177,7 +177,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Event Handling Tests
 
     @MainActor
-    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
+    func testFormWillAppearYieldsPresentLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
 
@@ -213,7 +213,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+    func testFormDisappearedYieldsDismissLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
 
@@ -249,10 +249,11 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async {
         // Given
         let expectation = XCTestExpectation(
-            description: "formWillAppear with missing metadata should still yield .present")
+            description: "formWillAppear with missing metadata should still yield .present"
+        )
 
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
@@ -282,10 +283,11 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async {
         // Given
         let expectation = XCTestExpectation(
-            description: "formDisappeared with missing metadata should still yield .dismiss")
+            description: "formDisappeared with missing metadata should still yield .dismiss"
+        )
 
         let lifecycleTask = Task {
             for await event in viewModel.formLifecycleStream {
@@ -315,7 +317,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testAbortEventYieldsAbortLifecycleEvent() async throws {
+    func testAbortEventYieldsAbortLifecycleEvent() async {
         // Given
         let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
         let abortReason = "test abort reason"

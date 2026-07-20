@@ -7,9 +7,20 @@
 
 import Foundation
 
-package extension UInt64 {
-    var seconds: TimeInterval { Double(self) / 1_000_000_000 }
-    var milliseconds: TimeInterval { Double(self) / 1_000_000 }
-    var microseconds: TimeInterval { Double(self) / 1000 }
-    var nanoseconds: TimeInterval { Double(self) }
+extension UInt64 {
+    package var seconds: TimeInterval {
+        Double(self) / 1_000_000_000
+    }
+
+    package var milliseconds: TimeInterval {
+        Double(self) / 1_000_000
+    }
+
+    package var microseconds: TimeInterval {
+        Double(self) / 1000
+    }
+
+    package var nanoseconds: TimeInterval {
+        Double(self)
+    }
 }

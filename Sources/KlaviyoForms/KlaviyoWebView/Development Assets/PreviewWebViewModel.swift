@@ -11,7 +11,7 @@ import Foundation
 import KlaviyoCore
 import WebKit
 
-// ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.
+/// ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.
 class PreviewWebViewModel: KlaviyoWebViewModeling {
     private enum MessageHandler: String, CaseIterable {
         case toggleMessageHandler
@@ -55,7 +55,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     ///
     /// The caller of this method should `await` completion of this method, then present the ViewController.
     /// - Parameter timeout: the amount of time, in milliseconds, to wait before throwing a `timeout` error.
-    public func preloadWebsite(timeout: TimeInterval) async throws {
+    func preloadWebsite(timeout: TimeInterval) async throws {
         guard let delegate else { return }
 
         await delegate.preloadUrl()
@@ -90,7 +90,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: handle WKWebView events
 
-    public func handleNavigationEvent(_ event: WKNavigationEvent) {
+    func handleNavigationEvent(_ event: WKNavigationEvent) {
         navEventContinuation.yield(event)
     }
 

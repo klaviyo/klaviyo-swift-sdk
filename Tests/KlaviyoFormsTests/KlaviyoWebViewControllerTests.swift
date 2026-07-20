@@ -49,13 +49,13 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
-    func testScriptMessageHandlersAreRemovedOnDeallocation() async throws {
+    func testScriptMessageHandlersAreRemovedOnDeallocation() throws {
         // Given
         let config = WKWebViewConfiguration()
         let mockController = MockWKUserContentController()
         config.userContentController = mockController
 
-        let url = URL(string: "https://www.google.com")!
+        let url = try XCTUnwrap(URL(string: "https://www.google.com"))
         let viewModel = MockIAFWebViewModel(url: url)
         let messageHandlers = Set(["handler1", "handler2"])
         viewModel.messageHandlers = messageHandlers
@@ -135,7 +135,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     // MARK: - Tests
 
     @MainActor
-    func testKlaviyoJsScriptIsAddedToWebView() async throws {
+    func testKlaviyoJsScriptIsAddedToWebView() {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -145,7 +145,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testSdkNameScriptIsAddedToWebView() async throws {
+    func testSdkNameScriptIsAddedToWebView() {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -179,7 +179,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testHandshakeScriptIsAddedToWebView() async throws {
+    func testHandshakeScriptIsAddedToWebView() {
         // When
         _ = createWebViewController()
         let userScripts = config.userContentController.userScripts
@@ -227,7 +227,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
-    func testScriptMessageHandlerDeduplication() async throws {
+    func testScriptMessageHandlerDeduplication() {
         // Given
         let viewController = createWebViewController()
 

@@ -48,6 +48,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             Task {
                 await stopGeofenceMonitoring()
             }
+
         @unknown default:
             return
         }

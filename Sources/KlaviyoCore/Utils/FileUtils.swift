@@ -47,8 +47,7 @@ public struct FileClient {
 public func filePathForData(apiKey: String, data: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-\(data).plist"
     let directory = environment.fileClient.libraryDirectory()
-    let filePath = directory.appendingPathComponent(fileName, isDirectory: false)
-    return filePath
+    return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 
 /**

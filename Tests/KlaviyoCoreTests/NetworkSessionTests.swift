@@ -107,7 +107,7 @@ class NetworkSessionTests: XCTestCase {
     }
 }
 
-// Mock Bundle class for testing
+/// Mock Bundle class for testing
 private class MockBundle: Bundle {
     private let mockPlistURL: URL?
 
