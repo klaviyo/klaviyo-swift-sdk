@@ -124,12 +124,6 @@ enum KlaviyoAction: Equatable {
     /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 
-    /// open a deep link URL originating from a Klaviyo notification
-    case openDeepLink(URL)
-
-    /// indicates that deep link processing has completed
-    case deepLinkProcessingCompleted
-
     var requiresInitialization: Bool {
         switch self {
         // if event metric is opened push or geofence events we DON'T require initialization
@@ -139,7 +133,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -671,8 +665,8 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case let .trackingLinkDestinationResolved(url):
-            return .run { send in
-                await send(.openDeepLink(url))
+            return .run { _ in
+                await DeepLinkManager.openDeepLink(url)
             }
 
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
@@ -692,25 +686,6 @@ struct KlaviyoReducer: ReducerProtocol {
             )
             state.enqueueRequest(request: request)
 
-            return .none
-
-        case let .openDeepLink(url):
-            guard !state.isProcessingDeepLink else {
-                if #available(iOS 14.0, *) {
-                    Logger.navigation.log("Already processing a deep link; skipping.")
-                }
-                return .none
-            }
-
-            state.isProcessingDeepLink = true
-
-            return .run { send in
-                await environment.linkHandler.openURL(url)
-                await send(.deepLinkProcessingCompleted)
-            }
-
-        case .deepLinkProcessingCompleted:
-            state.isProcessingDeepLink = false
             return .none
         }
     }

@@ -25,11 +25,13 @@ class KlaviyoSDKTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
     }
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
         BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
     }
 
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
@@ -294,12 +296,16 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    func testKlaviyoSDKInitRegistersDeepLinkDispatch() {
+    func testKlaviyoSDKInitRegistersDeepLinkDispatch() async {
         _ = KlaviyoSDK()
         let url = URL(string: "https://example.com")!
-        let expectation = setupActionAssertion(expectedAction: .openDeepLink(url))
+        let opened = expectation(description: "openDeepLink invoked with URL")
+        DeepLinkManager.openDeepLinkSpy = { dispatchedURL in
+            XCTAssertEqual(dispatchedURL, url)
+            opened.fulfill()
+        }
         EventDispatcher.shared.dispatch(.deepLink(url))
-        wait(for: [expectation], timeout: 1.0)
+        await fulfillment(of: [opened], timeout: 1.0)
     }
 
     // MARK: - Deep Link Handler Registration Tests

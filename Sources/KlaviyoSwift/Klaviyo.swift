@@ -239,7 +239,7 @@ public struct KlaviyoSDK {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties))
             if let url = notificationResponse.klaviyoDeepLinkURL {
-                dispatchOnMainThread(action: .openDeepLink(url))
+                Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
             }
         }
 
@@ -283,7 +283,7 @@ public struct KlaviyoSDK {
                         deepLinkHandler(url)
                     }
                 } else {
-                    dispatchOnMainThread(action: .openDeepLink(url))
+                    Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
                 }
             }
         }
@@ -322,7 +322,7 @@ public struct KlaviyoSDK {
 
         if let url = notificationResponse.actionButtonURL, notificationResponse.actionButtonType == .deepLink {
             actionProperties["Button Link"] = url.absoluteString
-            dispatchOnMainThread(action: .openDeepLink(url))
+            Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
         }
 
         // Track action button event
