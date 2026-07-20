@@ -48,6 +48,7 @@
   - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
+  - [Logging](#logging)
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
 - [Contributing](#contributing)
@@ -935,6 +936,20 @@ Klaviyo's SDK will determine and store the environment that your push token belo
 allowing your tokens to route sends to the correct environments. There is no additional setup needed.
 As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend,
 the ability to send and receive push on these Sandbox applications should work out-of-the-box.
+
+### Logging
+The SDK logs diagnostic information to the system console via `os.Logger`. Logging is enabled by default
+and can be toggled at runtime:
+
+```swift
+KlaviyoSDK().setLoggingEnabled(false) // silence all SDK logging
+KlaviyoSDK().setLoggingEnabled(true)  // re-enable logging
+KlaviyoSDK().isLoggingEnabled         // check the current setting
+```
+
+Disabling logging silences all log output from the `KlaviyoSwift`, `KlaviyoCore`, `KlaviyoForms`,
+and `KlaviyoLocation` modules. It does not affect `KlaviyoSwiftExtension`, which runs in a separate
+app-extension process.
 
 ### SDK Data Transfer
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.
