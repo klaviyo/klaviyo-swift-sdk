@@ -117,9 +117,6 @@ enum KlaviyoAction: Equatable {
     /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
     case trackingLinkReceived(URL)
 
-    /// when we've successfully resolved the tracking link into a destination link
-    case trackingLinkDestinationResolved(URL)
-
     /// when the attempt to resolve the tracking link into a destination link fails.
     /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
@@ -133,7 +130,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -622,6 +619,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .task { .deQueueCompletedResults(request) }
 
         case let .trackingLinkReceived(trackingLinkURL):
+            // Thin entry point: the resolution work lives in `TrackingLinkManager`.
+            // This case only remains in the reducer to read identity and (on
+            // failure) enqueue; it will fold into the manager once identity and the
+            // queue are canonical in KlaviyoCore. See `TrackingLinkManager`.
             let clickTime = environment.date()
 
             if #available(iOS 14.0, *) {
@@ -636,45 +637,22 @@ struct KlaviyoReducer: ReducerProtocol {
             )
 
             return .run { send in
-                do {
-                    let endpoint = KlaviyoEndpoint.resolveDestinationURL(
-                        trackingLink: trackingLinkURL,
-                        profileInfo: profileInfo
-                    )
-                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
-                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
-                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
-
-                    switch result {
-                    case let .success(data):
-                        let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
-                        let destinationURL = response.destinationLink
-
-                        if #available(iOS 14.0, *) {
-                            Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
-                        }
-
-                        await send(.trackingLinkDestinationResolved(destinationURL))
-                    case let .failure(error):
-                        if #available(iOS 14.0, *) {
-                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
-                        }
-                        await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
-                    }
-                } catch {
-                    if #available(iOS 14.0, *) {
-                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
-                    }
+                let outcome = await TrackingLinkManager.resolveDestination(
+                    trackingLink: trackingLinkURL,
+                    profileInfo: profileInfo
+                )
+                switch outcome {
+                case let .resolved(destinationURL):
+                    await DeepLinkManager.openDeepLink(destinationURL)
+                case .failed:
                     await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
                 }
             }
 
-        case let .trackingLinkDestinationResolved(url):
-            return .run { _ in
-                await DeepLinkManager.openDeepLink(url)
-            }
-
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
+            // Kept in the reducer only for the enqueue below (a state mutation).
+            // Folds into `TrackingLinkManager` once the queue is canonical in
+            // KlaviyoCore.
             let profileInfo = ProfilePayload(
                 email: state.email,
                 phoneNumber: state.phoneNumber,
