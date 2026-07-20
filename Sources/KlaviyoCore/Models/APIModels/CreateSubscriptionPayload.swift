@@ -15,7 +15,7 @@ public struct CreateSubscriptionPayload: Equatable, Codable {
     }
 
     public struct SubscriptionData: Equatable, Codable {
-        public var type = "subscription"
+        public let type = "subscription"
         public let attributes: Attributes
         public let relationships: Relationships
 
@@ -45,7 +45,7 @@ public struct CreateSubscriptionPayload: Equatable, Codable {
                 public let data: ListData
 
                 public struct ListData: Equatable, Codable {
-                    public var type = "list"
+                    public let type = "list"
                     public let id: String
                 }
             }

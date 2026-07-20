@@ -8,7 +8,7 @@
 import Foundation
 
 /// Represents a subscription request to subscribe a profile to a Klaviyo list.
-public struct Subscription: Equatable {
+public struct Subscription: Equatable, Sendable {
     /// The ID of the Klaviyo list to subscribe the profile to.
     public let listId: String
 
@@ -26,7 +26,7 @@ public struct Subscription: Equatable {
     /// exposes only the consent sub-types it supports, so invalid combinations (transactional email,
     /// open-tracking SMS) don't compile. Combine sub-types with array-literal syntax, e.g.
     /// `.init(sms: [.marketing, .transactional])`.
-    public struct Channels: Equatable {
+    public struct Channels: Equatable, Sendable {
         /// Consent sub-types to request on the EMAIL channel.
         public let email: Email?
         /// Consent sub-types to request on the SMS channel.
@@ -41,7 +41,7 @@ public struct Subscription: Equatable {
         }
 
         /// Consent sub-types supported on the EMAIL channel.
-        public struct Email: OptionSet, Equatable {
+        public struct Email: OptionSet, Equatable, Sendable {
             public let rawValue: Int
             public init(rawValue: Int) { self.rawValue = rawValue }
 
@@ -52,7 +52,7 @@ public struct Subscription: Equatable {
         }
 
         /// Consent sub-types supported on the SMS and WhatsApp channels.
-        public struct Messaging: OptionSet, Equatable {
+        public struct Messaging: OptionSet, Equatable, Sendable {
             public let rawValue: Int
             public init(rawValue: Int) { self.rawValue = rawValue }
 
