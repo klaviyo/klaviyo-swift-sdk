@@ -424,14 +424,6 @@ private func removeStateFile(at file: URL) {
     }
 }
 
-private func logDevWarning(for identifier: String) {
-    environment.emitDeveloperWarning("""
-    \(identifier) is either empty or same as what is already set earlier.
-    The SDK will ignore this change, please use resetProfile for
-    resetting profile identifiers
-    """)
-}
-
 /// Loads SDK state from disk
 /// - Parameter apiKey: the API key that uniquely identiifies the company
 /// - Returns: an instance of the `KlaviyoState`
@@ -466,98 +458,4 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
-}
-
-extension Profile {
-    fileprivate static func updateProfileWithProperties(
-        email: String? = nil,
-        phoneNumber: String? = nil,
-        externalId: String? = nil,
-        dict: [Profile.ProfileKey: AnyEncodable]
-    ) -> Self {
-        var firstName: String?
-        var lastName: String?
-        var address1: String?
-        var address2: String?
-        var title: String?
-        var organization: String?
-        var city: String?
-        var region: String?
-        var country: String?
-        var zip: String?
-        var image: String?
-        var latitude: Double?
-        var longitude: Double?
-        var customProperties: [String: Any] = [:]
-
-        for (key, value) in dict {
-            switch key {
-            case .firstName:
-                firstName = value.value as? String
-            case .lastName:
-                lastName = value.value as? String
-            case .address1:
-                address1 = value.value as? String
-            case .address2:
-                address2 = value.value as? String
-            case .title:
-                title = value.value as? String
-            case .organization:
-                organization = value.value as? String
-            case .city:
-                city = value.value as? String
-            case .region:
-                region = value.value as? String
-            case .country:
-                country = value.value as? String
-            case .zip:
-                zip = value.value as? String
-            case .image:
-                image = value.value as? String
-            case .latitude:
-                latitude = value.value as? Double
-            case .longitude:
-                longitude = value.value as? Double
-            case let .custom(customKey: customKey):
-                customProperties[customKey] = value.value
-            }
-        }
-
-        let location = Profile.Location(
-            address1: address1,
-            address2: address2,
-            city: city,
-            country: country,
-            latitude: latitude,
-            longitude: longitude,
-            region: region,
-            zip: zip
-        )
-
-        let profile = Profile(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            firstName: firstName,
-            lastName: lastName,
-            organization: organization,
-            title: title,
-            image: image,
-            location: location,
-            properties: customProperties
-        )
-
-        return profile
-    }
-}
-
-extension String {
-    fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
-        let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
-        if incoming.isEmpty || incoming == state {
-            logDevWarning(for: identifier)
-        }
-
-        return !incoming.isEmpty && incoming != state
-    }
 }
