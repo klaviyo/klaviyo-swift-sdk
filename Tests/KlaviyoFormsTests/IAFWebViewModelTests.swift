@@ -150,7 +150,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"openExternalUrl","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -350,7 +350,7 @@ final class IAFWebViewModelTests: XCTestCase {
         lifecycleTask.cancel()
     }
 
-    // MARK: - openExternalUrl Tests
+    // MARK: - External URL Tests (openDeepLink with openExternally: true)
 
     private func makeOpenExternalUrlMessage(
         url: String? = "https://example.com",
@@ -358,15 +358,19 @@ final class IAFWebViewModelTests: XCTestCase {
         formName: String? = "Newsletter",
         buttonLabel: String? = "Learn More"
     ) -> MockWKScriptMessage {
+        // External web URLs ride the openDeepLink message with openExternally: true;
+        // the URL is sent in the platform-split `ios`/`android` keys.
         var data: [String: String] = [:]
-        data["url"] = url
+        data["ios"] = url
+        data["android"] = url
         data["formId"] = formId
         data["formName"] = formName
         data["buttonLabel"] = buttonLabel
         let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        let dataBody = dataJson.isEmpty ? "\"openExternally\": true" : "\(dataJson), \"openExternally\": true"
         return MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
-            body: "{ \"type\": \"openExternalUrl\", \"data\": { \(dataJson) } }"
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataBody) } }"
         )
     }
 

@@ -331,46 +331,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
         case let .trackAggregateEvent(data):
             KlaviyoInternal.create(aggregateEvent: data)
-        case let .openDeepLink(url, formId, formName, buttonLabel):
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
-            }
-
-            // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
-            guard let url = url, !url.absoluteString.isEmpty else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "CTA clicked but no deep link URL configured — skipping navigation"
-                    )
-                }
-                return
-            }
-
-            // 2. Handle deep link navigation before validating lifecycle metadata
-            if UIApplication.shared.canOpenURL(url) {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
-                }
-                KlaviyoInternal.handleDeepLink(url: url)
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
-                }
-            }
-
-            // 3. Invoke lifecycle handler when form identity fields are present
-            invokeCtaLifecycleHandler(eventName: "openDeepLink", formId: formId, formName: formName) {
-                .formCtaClicked(
-                    formId: $0,
-                    formName: $1,
-                    buttonLabel: buttonLabel ?? "",
-                    deepLinkUrl: url
-                )
-            }
-        case let .openExternalUrl(url, formId, formName, buttonLabel):
+        case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info(
-                    "Received 'openExternalUrl' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)"
+                    "Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public), openExternally: \(openExternally, privacy: .public)"
                 )
             }
 
@@ -378,31 +342,47 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "CTA clicked but no external URL configured — skipping navigation"
+                        "CTA clicked but no URL configured — skipping navigation"
                     )
                 }
                 return
             }
 
-            // 2. Validate scheme against allowlist
-            guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)"
-                    )
+            // 2. Route by `openExternally`. Deep links and external URLs ride the same
+            //    bridge message (onsite openDeepLink v3); the flag — not the scheme —
+            //    decides how to open, preserving the marketer's chosen action.
+            if openExternally {
+                // External web/system URL: open via the system, bypassing any registered
+                // deep link handler, gated by the on-device scheme allowlist.
+                guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.warning(
+                            "Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)"
+                        )
+                    }
+                    return
                 }
-                return
+                Task {
+                    await environment.linkHandler.openExternalURL(url)
+                }
+            } else {
+                // In-app deep link: route to the host app's registered deep link handler.
+                if UIApplication.shared.canOpenURL(url) {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
+                    }
+                    KlaviyoInternal.handleDeepLink(url: url)
+                } else {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
+                    }
+                }
             }
 
-            // 3. Open URL externally (bypasses any registered deep link handler)
-            Task {
-                await environment.linkHandler.openExternalURL(url)
-            }
-
-            // 4. Invoke lifecycle handler when form identity fields are present.
-            //    External URL clicks are surfaced through the same formCtaClicked
-            //    event as deep link clicks; the URL rides in the deepLinkUrl field.
-            invokeCtaLifecycleHandler(eventName: "openExternalUrl", formId: formId, formName: formName) {
+            // 3. Invoke lifecycle handler when form identity fields are present. Both deep
+            //    links and external URLs surface through the same formCtaClicked event; the
+            //    URL rides in the deepLinkUrl field.
+            invokeCtaLifecycleHandler(eventName: "openDeepLink", formId: formId, formName: formName) {
                 .formCtaClicked(
                     formId: $0,
                     formName: $1,

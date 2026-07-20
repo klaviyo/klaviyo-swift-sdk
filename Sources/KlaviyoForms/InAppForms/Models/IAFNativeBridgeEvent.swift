@@ -15,8 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
-    case openExternalUrl(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
+    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?, openExternally: Bool)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -36,7 +35,6 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case trackProfileEvent
         case trackAggregateEvent
         case openDeepLink
-        case openExternalUrl
         case abort
         case handShook
         case analyticsEvent
@@ -69,17 +67,12 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .openDeepLink:
             let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
-            self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
-        case .openExternalUrl:
-            // Unlike `openDeepLink` (which carries platform-split `ios`/`android` keys),
-            // the external web URL is sent as a single flat `url` field by onsite.
-            let payload = try? container.decode(ExternalUrlEventPayload.self, forKey: .data)
-            let url = payload?.url.flatMap { $0.isEmpty ? nil : URL(string: $0) }
-            self = .openExternalUrl(
+            self = .openDeepLink(
                 url: url,
                 formId: payload?.formId,
                 formName: payload?.formName,
-                buttonLabel: payload?.buttonLabel
+                buttonLabel: payload?.buttonLabel,
+                openExternally: payload?.openExternally ?? false
             )
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
@@ -110,21 +103,18 @@ extension IAFNativeBridgeEvent {
         let formName: String?
     }
 
-    /// Payload for the `openDeepLink` CTA event, which carries platform-split deep link URLs.
+    /// Payload for the `openDeepLink` CTA event. Carries both in-app deep links and external
+    /// web/system URLs; `openExternally` distinguishes them (onsite `openDeepLink` v3). The URL
+    /// rides in the platform-split `ios`/`android` keys — for external URLs both hold the same
+    /// value, so reading `ios` suffices.
     struct DeepLinkEventPayload: Decodable {
         let ios: String?
         let formId: String?
         let formName: String?
         let buttonLabel: String?
-    }
-
-    /// Payload for the `openExternalUrl` CTA event. The external web URL is platform-agnostic,
-    /// so onsite sends it as a single flat `url` field (not the `ios`/`android` split used by deep links).
-    struct ExternalUrlEventPayload: Decodable {
-        let url: String?
-        let formId: String?
-        let formName: String?
-        let buttonLabel: String?
+        /// `true`: open the URL via the system (bypassing any registered deep link handler),
+        /// gated by the on-device scheme allowlist. `false`: route to the deep link handler.
+        let openExternally: Bool?
     }
 
     struct AbortPayload: Decodable {
@@ -166,8 +156,7 @@ extension IAFNativeBridgeEvent {
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil),
-            .openExternalUrl(url: nil, formId: nil, formName: nil, buttonLabel: nil),
+            .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil, openExternally: false),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
@@ -182,8 +171,7 @@ extension IAFNativeBridgeEvent {
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
-        case .openDeepLink: return 2
-        case .openExternalUrl: return 1
+        case .openDeepLink: return 3
         case .abort: return 1
         case .handShook: return 1
         case .analyticsEvent: return 1
@@ -201,7 +189,6 @@ extension IAFNativeBridgeEvent {
         case .trackProfileEvent: return "trackProfileEvent"
         case .trackAggregateEvent: return "trackAggregateEvent"
         case .openDeepLink: return "openDeepLink"
-        case .openExternalUrl: return "openExternalUrl"
         case .abort: return "abort"
         case .handShook: return "handShook"
         case .analyticsEvent: return "analyticsEvent"
