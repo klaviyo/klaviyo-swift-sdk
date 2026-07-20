@@ -43,18 +43,6 @@ class NotificationService: UNNotificationServiceExtension {
                 contentHandler: contentHandler
             )
         }
-
-        #if DEBUG
-        // Access key-value pairs
-        let customData = PushPayload.customData(from: request.content.userInfo)
-        if customData.isEmpty {
-            print("No key_value_pairs found in notification")
-        } else {
-            for (pairKey, value) in customData {
-                print("Key: \(pairKey), Value: \(value)")
-            }
-        }
-        #endif
     }
 
     override func serviceExtensionTimeWillExpire() {
