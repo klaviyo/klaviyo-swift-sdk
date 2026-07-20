@@ -124,7 +124,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
             clickTime
         }
 
-        let trackingLinkURL = URL(string: "https://email.klaviyo.com/tracking/link")!
+        let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
 
         // Mock API failure
         environment.klaviyoAPI.send = { _, _ in

@@ -43,11 +43,23 @@ class NotificationService: UNNotificationServiceExtension {
                 contentHandler: contentHandler
             )
         }
+
+        #if DEBUG
+        // Access key-value pairs
+        let customData = PushPayload.customData(from: request.content.userInfo)
+        if customData.isEmpty {
+            print("No key_value_pairs found in notification")
+        } else {
+            for (pairKey, value) in customData {
+                print("Key: \(pairKey), Value: \(value)")
+            }
+        }
+        #endif
     }
 
     override func serviceExtensionTimeWillExpire() {
-        /// Called just before the extension will be terminated by the system.
-        /// Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
+        // Called just before the extension will be terminated by the system.
+        // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
         if let contentHandler = contentHandler,
            let bestAttemptContent = bestAttemptContent {
             KlaviyoExtensionSDK.handleNotificationServiceExtensionTimeWillExpireRequest(

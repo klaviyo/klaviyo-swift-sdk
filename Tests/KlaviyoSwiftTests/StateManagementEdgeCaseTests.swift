@@ -20,7 +20,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - initialization
 
     @MainActor
-    func testInitializeWhileInitializing() async throws {
+    func testInitializeWhileInitializing() async {
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -48,7 +48,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Using the same key shouldn't do much
-        _ = await store.send(.initialize(initialState.apiKey!))
+        _ = try await store.send(.initialize(XCTUnwrap(initialState.apiKey)))
 
         let newApiKey = "new-api-key"
         // Using a new key should update the key and generate two requests
@@ -62,7 +62,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Send Request
 
     @MainActor
-    func testSendRequestBeforeInitialization() async throws {
+    func testSendRequestBeforeInitialization() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -77,7 +77,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Complete Initialization
 
     @MainActor
-    func testCompleteInitializationWhileAlreadyInitialized() async throws {
+    func testCompleteInitializationWhileAlreadyInitialized() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -94,7 +94,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testCompleteInitializationWithExistingIdentifiers() async throws {
+    func testCompleteInitializationWithExistingIdentifiers() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
@@ -120,7 +120,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Email
 
     @MainActor
-    func testSetEmailUninitializedDoesNotAddToPendingRequest() async throws {
+    func testSetEmailUninitializedDoesNotAddToPendingRequest() async {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
             // Would really fatalError - not happening because we can't do that in tests so we fake it.
@@ -141,7 +141,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
+    func testSetEmailMissingAnonymousIdStillSetsEmail() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -156,7 +156,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmptyEmail() async throws {
+    func testSetEmptyEmail() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -164,7 +164,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmailWithWhiteSpace() async throws {
+    func testSetEmailWithWhiteSpace() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -172,7 +172,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmailWithTrailingWhiteSpace() async throws {
+    func testSetEmailWithTrailingWhiteSpace() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -188,7 +188,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set External Id
 
     @MainActor
-    func testSetExternalIdUninitializedDoesNotAddToPendingRequest() async throws {
+    func testSetExternalIdUninitializedDoesNotAddToPendingRequest() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
@@ -202,7 +202,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
+    func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -217,7 +217,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmptyExternalId() async throws {
+    func testSetEmptyExternalId() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -225,7 +225,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetExternalIdWithWhiteSpaces() async throws {
+    func testSetExternalIdWithWhiteSpaces() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -233,7 +233,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetExternalIdWithTrailingWhiteSpace() async throws {
+    func testSetExternalIdWithTrailingWhiteSpace() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -249,7 +249,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Phone number
 
     @MainActor
-    func testSetPhoneNumberUninitializedDoesNotAddToPendingRequest() async throws {
+    func testSetPhoneNumberUninitializedDoesNotAddToPendingRequest() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
@@ -263,7 +263,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
+    func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
                                         queue: [],
                                         requestsInFlight: [],
@@ -277,7 +277,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetEmptyPhoneNumber() async throws {
+    func testSetEmptyPhoneNumber() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -285,7 +285,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetPhoneNumberWithWhiteSpaces() async throws {
+    func testSetPhoneNumberWithWhiteSpaces() async {
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
@@ -293,7 +293,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetPhoneNumberWithTrailingWhiteSpace() async throws {
+    func testSetPhoneNumberWithTrailingWhiteSpace() async {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
                                         queue: [],
                                         requestsInFlight: [],
@@ -309,7 +309,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Push Token
 
     @MainActor
-    func testSetPushTokenUninitializedDoesNotAddToPendingRequest() async throws {
+    func testSetPushTokenUninitializedDoesNotAddToPendingRequest() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
@@ -323,7 +323,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetPushTokenWithMissingAnonymousId() async throws {
+    func testSetPushTokenWithMissingAnonymousId() async {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         queue: [],
@@ -387,7 +387,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Default Badge Clearing
 
     @MainActor
-    func testDefaultBadgeClearingOn() async throws {
+    func testDefaultBadgeClearingOn() async {
         let apiKey = "fake-key"
         environment.getBadgeAutoClearingSetting = { true }
         let expectation = XCTestExpectation(description: "Should set badge to 0")
@@ -489,7 +489,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - set enqueue event uninitialized
 
     @MainActor
-    func testOpenedPushEventUninitializedAddsToPendingRequests() async throws {
+    func testOpenedPushEventUninitializedAddsToPendingRequests() async {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
         let event = Event(name: ._openedPush)
         _ = await store.send(.enqueueEvent(event)) {
@@ -498,7 +498,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testEnqueueNonOpenedPushEventUninitializedDoesNotAddToPendingRequest() async throws {
+    func testEnqueueNonOpenedPushEventUninitializedDoesNotAddToPendingRequest() async {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
             // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
@@ -519,7 +519,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - set profile uninitialized
 
     @MainActor
-    func testSetProfileUnitialized() async throws {
+    func testSetProfileUnitialized() async {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
             // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
@@ -532,7 +532,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfileWithEmptyStringIdentifiers() async throws {
+    func testSetProfileWithEmptyStringIdentifiers() async {
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,
             email: "foo@bar.com",
@@ -563,7 +563,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - enqueueProfile: conditional reset (push-token storm fix)
 
     @MainActor
-    func testSetProfileSameIdentifiersDoesNotReset() async throws {
+    func testSetProfileSameIdentifiersDoesNotReset() async {
         // When setProfile is called with the same identifiers that are already on state,
         // reset() should NOT fire — anonymousId stays the same, no spurious push-token request.
         let initialState = KlaviyoState(
@@ -591,7 +591,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfileDifferentIdentifiersResetsState() async throws {
+    func testSetProfileDifferentIdentifiersResetsState() async {
         // When setProfile is called with different identifiers, reset() SHOULD fire,
         // regenerating the anonymousId and clearing pushTokenData.
         let initialState = KlaviyoState(
@@ -637,7 +637,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
+    func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async {
         // Same identifiers but different non-identifier attributes (e.g. firstName) —
         // should NOT reset, but attributes should still be sent in the profile request.
         let initialState = KlaviyoState(
@@ -671,7 +671,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfilePartialIdentifierMatchStillResets() async throws {
+    func testSetProfilePartialIdentifierMatchStillResets() async {
         // If only one identifier changes (e.g. email changes, phone stays same),
         // reset should still fire.
         let initialState = KlaviyoState(
@@ -714,7 +714,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
+    func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async {
         // All-nil incoming identifiers differ from non-nil state identifiers,
         // so reset fires — preserving the old "clobbering" setProfile behavior.
         let initialState = KlaviyoState(
@@ -760,7 +760,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testResetProfileStillClobbersAllState() async throws {
+    func testResetProfileStillClobbersAllState() async {
         // resetProfile() should always clobber all state, regardless of identifiers.
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,

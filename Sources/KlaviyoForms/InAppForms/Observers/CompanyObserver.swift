@@ -22,7 +22,9 @@ class CompanyObserver {
     private var eventsContinuation: AsyncStream<Event>.Continuation?
     private let stream: AsyncStream<Event>
 
-    var eventsStream: AsyncStream<Event> { stream }
+    var eventsStream: AsyncStream<Event> {
+        stream
+    }
 
     init() {
         (stream, eventsContinuation) = AsyncStream.makeStream(of: Event.self)

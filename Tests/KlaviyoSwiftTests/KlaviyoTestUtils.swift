@@ -65,13 +65,16 @@ extension KlaviyoEnvironment {
 }
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
+    override func decode<T: Decodable>(_: T.Type, from _: Data) throws -> T {
+        guard let state = KlaviyoState.test as? T else {
+            throw KlaviyoDecodingError.invalidType
+        }
+        return state
     }
 }
 
 class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
+    override func decode<T: Decodable>(_: T.Type, from _: Data) throws -> T {
         throw KlaviyoDecodingError.invalidType
     }
 }
@@ -148,8 +151,13 @@ extension StateChangePublisher {
 }
 
 private final class KeyedArchiver: NSKeyedArchiver {
-    override func decodeObject(forKey _: String) -> Any { "" }
-    override func decodeInt64(forKey _: String) -> Int64 { 0 }
+    override func decodeObject(forKey _: String) -> Any {
+        ""
+    }
+
+    override func decodeInt64(forKey _: String) -> Int64 {
+        0
+    }
 }
 
 extension UNNotificationResponse {

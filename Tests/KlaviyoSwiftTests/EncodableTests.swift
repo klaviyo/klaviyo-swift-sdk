@@ -5,10 +5,9 @@
 //  Created by Ajay Subramanya on 8/15/24.
 //
 
-import Foundation
-
 @testable import KlaviyoCore
 @testable import KlaviyoSwift
+import Foundation
 import SnapshotTesting
 import XCTest
 
@@ -20,7 +19,7 @@ final class EncodableTests: XCTestCase {
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
-    func testKlaviyoState() throws {
+    func testKlaviyoState() {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",

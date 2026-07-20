@@ -219,8 +219,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
-        return profileAttributesScript
+        return "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
     }
 
     @MainActor
@@ -302,11 +301,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formShown(formId: formId, formName: formName))
+                    for: .formShown(formId: formId, formName: formName)
+                )
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formWillAppear missing metadata — skipping lifecycle callback")
+                        "formWillAppear missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .formDisappeared(formId, formName):
@@ -317,11 +318,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formDismissed(formId: formId, formName: formName))
+                    for: .formDismissed(formId: formId, formName: formName)
+                )
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formDisappeared missing metadata — skipping lifecycle callback")
+                        "formDisappeared missing metadata — skipping lifecycle callback"
+                    )
                 }
             }
         case let .trackProfileEvent(data):

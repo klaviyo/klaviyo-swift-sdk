@@ -165,7 +165,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     }
 
     @MainActor
-    func testHandlerCalledForFormCtaClicked() {
+    func testHandlerCalledForFormCtaClicked() throws {
         // Given
         let expectation = expectation(description: "Handler called for formCtaClicked")
         var receivedEvent: FormLifecycleEvent?
@@ -176,11 +176,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
         }
 
         // When
-        presentationManager.invokeLifecycleHandler(for: .formCtaClicked(
+        try presentationManager.invokeLifecycleHandler(for: .formCtaClicked(
             formId: "",
             formName: "",
             buttonLabel: "",
-            deepLinkUrl: URL(string: "myapp://test")!
+            deepLinkUrl: XCTUnwrap(URL(string: "myapp://test"))
         ))
 
         // Then
@@ -193,11 +193,11 @@ final class FormLifecycleHandlerTests: XCTestCase {
     }
 
     @MainActor
-    func testCtaEventCarriesButtonLabelAndUrl() {
+    func testCtaEventCarriesButtonLabelAndUrl() throws {
         // Given
         let expectation = expectation(description: "formCtaClicked carries buttonLabel and deepLinkUrl")
         var receivedEvent: FormLifecycleEvent?
-        let deepLink = URL(string: "myapp://checkout")!
+        let deepLink = try XCTUnwrap(URL(string: "myapp://checkout"))
 
         presentationManager.registerFormLifecycleHandler { event in
             receivedEvent = event
@@ -225,7 +225,7 @@ final class FormLifecycleHandlerTests: XCTestCase {
     }
 
     @MainActor
-    func testMultipleEventsInSequence() {
+    func testMultipleEventsInSequence() throws {
         // Given
         let expectation = expectation(description: "Handler called for all events")
         expectation.expectedFulfillmentCount = 3
@@ -238,8 +238,8 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
         // When
         presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
-        presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!)
+        try presentationManager.invokeLifecycleHandler(
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test")))
         )
         presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
 
@@ -260,14 +260,14 @@ final class FormLifecycleHandlerTests: XCTestCase {
     // MARK: - Edge Case Tests
 
     @MainActor
-    func testInvokeWithoutHandler() {
+    func testInvokeWithoutHandler() throws {
         // Given - No handler registered
 
         // When/Then - Should not crash
         presentationManager.invokeLifecycleHandler(for: .formShown(formId: "", formName: ""))
         presentationManager.invokeLifecycleHandler(for: .formDismissed(formId: "", formName: ""))
-        presentationManager.invokeLifecycleHandler(
-            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!)
+        try presentationManager.invokeLifecycleHandler(
+            for: .formCtaClicked(formId: "", formName: "", buttonLabel: "", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test")))
         )
 
         // Test passes if no crash occurs
@@ -352,27 +352,27 @@ final class FormLifecycleHandlerTests: XCTestCase {
 
     // MARK: - FormLifecycleEvent Computed Property Tests
 
-    func testFormIdComputedProperty() {
+    func testFormIdComputedProperty() throws {
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "abc", formName: "").formId, "abc")
         XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "def", formName: "").formId, "def")
-        let ctaEvent = FormLifecycleEvent.formCtaClicked(
-            formId: "ghi", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
+        let ctaEvent = try FormLifecycleEvent.formCtaClicked(
+            formId: "ghi", formName: "", buttonLabel: "", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test"))
         )
         XCTAssertEqual(ctaEvent.formId, "ghi")
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formId, "")
     }
 
-    func testFormNameComputedProperty() {
+    func testFormNameComputedProperty() throws {
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "Form A").formName, "Form A")
         XCTAssertEqual(FormLifecycleEvent.formDismissed(formId: "", formName: "Form B").formName, "Form B")
-        let ctaEventC = FormLifecycleEvent.formCtaClicked(
-            formId: "", formName: "Form C", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
+        let ctaEventC = try FormLifecycleEvent.formCtaClicked(
+            formId: "", formName: "Form C", buttonLabel: "", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test"))
         )
         XCTAssertEqual(ctaEventC.formName, "Form C")
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").formName, "")
     }
 
-    func testFormLifecycleEventEquality() {
+    func testFormLifecycleEventEquality() throws {
         XCTAssertEqual(
             FormLifecycleEvent.formShown(formId: "abc", formName: "Test"),
             FormLifecycleEvent.formShown(formId: "abc", formName: "Test")
@@ -381,8 +381,8 @@ final class FormLifecycleHandlerTests: XCTestCase {
             FormLifecycleEvent.formDismissed(formId: "", formName: ""),
             FormLifecycleEvent.formDismissed(formId: "", formName: "")
         )
-        let ctaBuy = FormLifecycleEvent.formCtaClicked(
-            formId: "x", formName: "y", buttonLabel: "Buy", deepLinkUrl: URL(string: "myapp://test")!
+        let ctaBuy = try FormLifecycleEvent.formCtaClicked(
+            formId: "x", formName: "y", buttonLabel: "Buy", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test"))
         )
         XCTAssertEqual(ctaBuy, ctaBuy)
         XCTAssertNotEqual(
@@ -395,13 +395,13 @@ final class FormLifecycleHandlerTests: XCTestCase {
         )
     }
 
-    func testEventNameProperty() {
+    func testEventNameProperty() throws {
         XCTAssertEqual(FormLifecycleEvent.formShown(formId: "", formName: "").eventName, "formShown")
         XCTAssertEqual(
             FormLifecycleEvent.formDismissed(formId: "", formName: "").eventName, "formDismissed"
         )
-        let ctaForEventName = FormLifecycleEvent.formCtaClicked(
-            formId: "", formName: "", buttonLabel: "", deepLinkUrl: URL(string: "myapp://test")!
+        let ctaForEventName = try FormLifecycleEvent.formCtaClicked(
+            formId: "", formName: "", buttonLabel: "", deepLinkUrl: XCTUnwrap(URL(string: "myapp://test"))
         )
         XCTAssertEqual(ctaForEventName.eventName, "formCtaClicked")
     }

@@ -17,18 +17,18 @@ final class EncodableTests: XCTestCase {
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
-    func testProfilePayload() throws {
+    func testProfilePayload() {
         let payload = CreateProfilePayload(data: .test)
         assertSnapshot(matching: payload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testEventPayload() throws {
+    func testEventPayload() {
         let payloadData = CreateEventPayload.Event(name: "test", properties: SAMPLE_PROPERTIES, anonymousId: "anon-id")
         let createEventPayload = CreateEventPayload(data: payloadData)
         assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testTokenPayload() throws {
+    func testTokenPayload() {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
@@ -38,7 +38,7 @@ final class EncodableTests: XCTestCase {
         assertSnapshot(matching: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
-    func testUnregisterTokenPayload() throws {
+    func testUnregisterTokenPayload() {
         let tokenPayload = UnregisterPushTokenPayload(
             pushToken: "foo",
             email: "foo",
@@ -48,7 +48,7 @@ final class EncodableTests: XCTestCase {
         assertSnapshot(matching: tokenPayload, as: .json)
     }
 
-    func testKlaviyoRequest() throws {
+    func testKlaviyoRequest() {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",
             enablement: "AUTHORIZED",
