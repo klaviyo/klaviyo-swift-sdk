@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"openExternalUrl","version":1},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -82,7 +82,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -111,7 +111,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -137,7 +137,7 @@ struct IAFNativeBridgeEventTests {
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -365,7 +365,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -390,7 +390,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -411,7 +411,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -436,7 +436,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -489,7 +489,7 @@ struct IAFNativeBridgeEventTests {
         """
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openDeepLink(url, formId, formName, buttonLabel) = event else {
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, _) = event else {
             Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
@@ -605,23 +605,26 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeOpenExternalUrlWithButtonLabel() async throws {
+    func testDecodeExternalUrlWithButtonLabel() async throws {
+        // External web URLs now ride the openDeepLink message with openExternally: true.
         let json = """
         {
-          "type": "openExternalUrl",
+          "type": "openDeepLink",
           "data": {
-            "url": "https://example.com",
+            "ios": "https://example.com",
+            "android": "https://example.com",
             "formId": "form123",
             "formName": "Newsletter",
-            "buttonLabel": "Learn More"
+            "buttonLabel": "Learn More",
+            "openExternally": true
           }
         }
         """
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
-            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, openExternally) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
 
@@ -630,25 +633,28 @@ struct IAFNativeBridgeEventTests {
         #expect(formId == "form123")
         #expect(formName == "Newsletter")
         #expect(buttonLabel == "Learn More")
+        #expect(openExternally == true)
     }
 
     @Test
-    func testDecodeOpenExternalUrlMissingButtonLabel() async throws {
+    func testDecodeExternalUrlMissingButtonLabel() async throws {
         let json = """
         {
-          "type": "openExternalUrl",
+          "type": "openDeepLink",
           "data": {
-            "url": "https://example.com",
+            "ios": "https://example.com",
+            "android": "https://example.com",
             "formId": "form123",
-            "formName": "Newsletter"
+            "formName": "Newsletter",
+            "openExternally": true
           }
         }
         """
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
-            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, openExternally) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
 
@@ -657,23 +663,25 @@ struct IAFNativeBridgeEventTests {
         #expect(formId == "form123")
         #expect(formName == "Newsletter")
         #expect(buttonLabel == nil)
+        #expect(openExternally == true)
     }
 
     @Test
-    func testDecodeOpenExternalUrlWithoutFormContext() async throws {
+    func testDecodeExternalUrlWithoutFormContext() async throws {
         let json = """
         {
-          "type": "openExternalUrl",
+          "type": "openDeepLink",
           "data": {
-            "url": "https://example.com"
+            "ios": "https://example.com",
+            "openExternally": true
           }
         }
         """
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openExternalUrl(url, formId, formName, buttonLabel) = event else {
-            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+        guard case let .openDeepLink(url, formId, formName, buttonLabel, openExternally) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
 
@@ -682,29 +690,58 @@ struct IAFNativeBridgeEventTests {
         #expect(formId == nil)
         #expect(formName == nil)
         #expect(buttonLabel == nil)
+        #expect(openExternally == true)
     }
 
     @Test
-    func testDecodeOpenExternalUrlEmptyUrlNormalized() async throws {
+    func testDecodeExternalUrlEmptyUrlNormalized() async throws {
         let json = """
         {
-          "type": "openExternalUrl",
+          "type": "openDeepLink",
           "data": {
-            "url": "",
+            "ios": "",
             "formId": "form123",
-            "formName": "Newsletter"
+            "formName": "Newsletter",
+            "openExternally": true
           }
         }
         """
 
         let data = try #require(json.data(using: .utf8))
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        guard case let .openExternalUrl(url, _, _, _) = event else {
-            Issue.record("event type should be .openExternalUrl but was '.\(event)'")
+        guard case let .openDeepLink(url, _, _, _, openExternally) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
             return
         }
 
         #expect(url == nil)
+        #expect(openExternally == true)
+    }
+
+    @Test
+    func testDecodeOpenDeepLinkDefaultsOpenExternallyFalse() async throws {
+        // A deep link CTA omits `openExternally`; it must default to false so the SDK
+        // routes it through the in-app deep link handler, not the system opener.
+        let json = """
+        {
+          "type": "openDeepLink",
+          "data": {
+            "ios": "klaviyotest://settings",
+            "android": "klaviyotest://settings",
+            "formId": "form456",
+            "formName": "CTA Form"
+          }
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .openDeepLink(_, _, _, _, openExternally) = event else {
+            Issue.record("event type should be .openDeepLink but was '.\(event)'")
+            return
+        }
+
+        #expect(openExternally == false)
     }
 }
 #endif
