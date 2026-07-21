@@ -104,9 +104,7 @@ extension IAFNativeBridgeEvent {
     }
 
     /// Payload for the `openDeepLink` CTA event. Carries both in-app deep links and external
-    /// web/system URLs; `openExternally` distinguishes them (onsite `openDeepLink` v3). The URL
-    /// rides in the platform-split `ios`/`android` keys — for external URLs both hold the same
-    /// value, so reading `ios` suffices.
+    /// web/system URLs, distinguished by `openExternally` (onsite `openDeepLink` v3).
     struct DeepLinkEventPayload: Decodable {
         let ios: String?
         let formId: String?
