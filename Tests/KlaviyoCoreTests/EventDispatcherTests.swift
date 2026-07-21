@@ -23,13 +23,13 @@ final class EventDispatcherTests: XCTestCase {
         super.tearDown()
     }
 
-    func testDispatchForwardsToRegisteredTarget() {
+    func testDispatchForwardsToRegisteredTarget() throws {
         let dispatcher = EventDispatcher()
         let spy = SpyDispatcher()
         dispatcher.register(spy)
 
         let payload = Data("agg".utf8)
-        let url = URL(string: "https://example.com")!
+        let url = try XCTUnwrap(URL(string: "https://example.com"))
         dispatcher.dispatch(.aggregateEvent(payload))
         dispatcher.dispatch(.deepLink(url))
 
@@ -62,13 +62,13 @@ final class EventDispatcherTests: XCTestCase {
         XCTAssertEqual(received.properties["foo"] as? String, "bar")
     }
 
-    func testDispatchWithoutRegistrationWarnsAndDoesNotForward() {
+    func testDispatchWithoutRegistrationWarnsAndDoesNotForward() throws {
         let dispatcher = EventDispatcher()
         let spy = SpyDispatcher() // created but intentionally NOT registered
         var warnings: [String] = []
         environment.emitDeveloperWarning = { warnings.append($0) }
 
-        dispatcher.dispatch(.deepLink(URL(string: "https://example.com")!))
+        dispatcher.dispatch(.deepLink(try XCTUnwrap(URL(string: "https://example.com"))))
 
         XCTAssertEqual(warnings.count, 1)
         XCTAssertTrue(warnings[0].contains("dispatch before registration"))
