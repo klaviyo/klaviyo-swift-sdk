@@ -7,7 +7,6 @@
 
 import Combine
 import Foundation
-import KlaviyoCore
 import OSLog
 
 // MARK: - Logger
@@ -15,7 +14,7 @@ import OSLog
 @available(iOS 14.0, *)
 extension Logger {
     fileprivate static var eventBuffer: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(subsystem: "com.klaviyo.klaviyo-swift-sdk.klaviyoSwift", category: "Event Buffering") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(subsystem: "com.klaviyo.klaviyo-swift-sdk.klaviyoCore", category: "Event Buffering") : Logger(OSLog.disabled)
     }
 }
 
@@ -32,6 +31,7 @@ final class EventBuffer {
     private var buffer: [BufferedEvent] = []
     private let maxBufferSize: Int
     private let maxBufferAge: TimeInterval
+    private let clock: () -> TimeInterval
     private let queue = DispatchQueue(label: "com.klaviyo.eventBuffer", attributes: .concurrent)
 
     // MARK: - Initialization
@@ -40,9 +40,16 @@ final class EventBuffer {
     /// - Parameters:
     ///   - maxBufferSize: Maximum number of events to keep (default: 10)
     ///   - maxBufferAge: Maximum age of events to keep in seconds (default: 10)
-    init(maxBufferSize: Int = 10, maxBufferAge: TimeInterval = 10) {
+    ///   - clock: Monotonic clock source. Injectable so tests can advance time deterministically;
+    ///     defaults to `ProcessInfo.processInfo.systemUptime`.
+    init(
+        maxBufferSize: Int = 10,
+        maxBufferAge: TimeInterval = 10,
+        clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    ) {
         self.maxBufferSize = maxBufferSize
         self.maxBufferAge = maxBufferAge
+        self.clock = clock
     }
 
     // MARK: - Public Methods
@@ -56,13 +63,13 @@ final class EventBuffer {
 
         queue.async(flags: .barrier) { [weak self] in
             guard let self else { return }
-            let now = ProcessInfo.processInfo.systemUptime
+            let currentTime = self.clock()
 
             // Clean old events from buffer (using monotonic clock to avoid issues with device clock changes)
-            self.buffer = self.buffer.filter { now - $0.timestamp < self.maxBufferAge }
+            self.buffer = self.buffer.filter { currentTime - $0.timestamp < self.maxBufferAge }
 
             // Add new event
-            self.buffer.append(BufferedEvent(event: event, timestamp: now))
+            self.buffer.append(BufferedEvent(event: event, timestamp: currentTime))
 
             // Keep only last N events
             if self.buffer.count > self.maxBufferSize {
@@ -79,16 +86,19 @@ final class EventBuffer {
     /// - Returns: Array of buffered events that haven't expired
     func getRecentEvents() -> [Event] {
         queue.sync {
-            let now = ProcessInfo.processInfo.systemUptime
+            let currentTime = clock()
             let recentEvents = buffer
-                .filter { now - $0.timestamp < maxBufferAge }
+                .filter { currentTime - $0.timestamp < maxBufferAge }
                 .map(\.event)
 
             if #available(iOS 14.0, *) {
                 if recentEvents.isEmpty {
                     Logger.eventBuffer.info("📭 Event buffer is empty - no events to replay")
                 } else {
-                    Logger.eventBuffer.info("📬 Replaying \(recentEvents.count) buffered event(s): \(recentEvents.map(\.metric.name.value).joined(separator: ", "), privacy: .public)")
+                    let names = recentEvents.map(\.metric.name.value).joined(separator: ", ")
+                    Logger.eventBuffer.info(
+                        "📬 Replaying \(recentEvents.count) buffered event(s): \(names, privacy: .public)"
+                    )
                 }
             }
 

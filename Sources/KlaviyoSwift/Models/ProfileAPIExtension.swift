@@ -13,6 +13,22 @@ extension String {
         let trimmedString = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedString.isEmpty ? nil : trimmedString
     }
+
+    /// Returns `true` when the trimmed string is non-empty and differs from the
+    /// currently stored value. Emits a developer warning (and returns `false`)
+    /// when the incoming value is empty or unchanged.
+    internal func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
+        let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
+        if incoming.isEmpty || incoming == state {
+            environment.emitDeveloperWarning("""
+            \(identifier) is either empty or same as what is already set earlier.
+            The SDK will ignore this change, please use resetProfile for
+            resetting profile identifiers
+            """)
+        }
+
+        return !incoming.isEmpty && incoming != state
+    }
 }
 
 extension Profile {

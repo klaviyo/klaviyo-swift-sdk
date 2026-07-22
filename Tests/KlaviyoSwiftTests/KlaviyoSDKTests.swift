@@ -12,6 +12,7 @@ import XCTest
 
 // MARK: - KlaviyoSDKTests
 
+@MainActor
 class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
 
@@ -23,10 +24,14 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
     }
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
+        BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
         klaviyo.setLoggingEnabled(true)
     }
 
@@ -149,7 +154,8 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test unhandle push notification
 
     func testUnhandlePushNotification() throws {
-        let expectation = setupActionAssertion(expectedAction: .syncBadgeCount)
+        let syncExpectation = XCTestExpectation(description: "BadgeManager.syncBadgeCount called for unhandled notification")
+        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
         let callback = XCTestExpectation(description: "callback is not made")
         callback.isInverted = true
         let data: [AnyHashable: Any] = [
@@ -165,7 +171,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, expectation], timeout: 1.0)
+        wait(for: [callback, syncExpectation], timeout: 1.0)
         XCTAssertFalse(handled)
     }
 
@@ -279,6 +285,28 @@ class KlaviyoSDKTests: XCTestCase {
         let middleUURL = try XCTUnwrap(URL(string: "https://example.com/api/u/track"))
         let middleUResult = klaviyo.handleUniversalTrackingLink(middleUURL)
         XCTAssertFalse(middleUResult, "Should return false for path with /u/ in the middle")
+    }
+
+    // MARK: - EventDispatcher Registration Tests
+
+    func testKlaviyoSDKInitRegistersAggregateEventDispatch() {
+        _ = KlaviyoSDK() // registration happens in init
+        let payload = Data("agg".utf8)
+        let expectation = setupActionAssertion(expectedAction: .enqueueAggregateEvent(payload))
+        EventDispatcher.shared.dispatch(.aggregateEvent(payload))
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testKlaviyoSDKInitRegistersDeepLinkDispatch() async {
+        _ = KlaviyoSDK()
+        let url = URL(string: "https://example.com")!
+        let opened = expectation(description: "openDeepLink invoked with URL")
+        DeepLinkManager.openDeepLinkSpy = { dispatchedURL in
+            XCTAssertEqual(dispatchedURL, url)
+            opened.fulfill()
+        }
+        EventDispatcher.shared.dispatch(.deepLink(url))
+        await fulfillment(of: [opened], timeout: 1.0)
     }
 
     // MARK: - Deep Link Handler Registration Tests
