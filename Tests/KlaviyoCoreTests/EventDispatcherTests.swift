@@ -68,7 +68,7 @@ final class EventDispatcherTests: XCTestCase {
         var warnings: [String] = []
         environment.emitDeveloperWarning = { warnings.append($0) }
 
-        dispatcher.dispatch(.deepLink(try XCTUnwrap(URL(string: "https://example.com"))))
+        try dispatcher.dispatch(.deepLink(XCTUnwrap(URL(string: "https://example.com"))))
 
         XCTAssertEqual(warnings.count, 1)
         XCTAssertTrue(warnings[0].contains("dispatch before registration"))
