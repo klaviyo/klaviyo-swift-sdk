@@ -201,10 +201,11 @@ That way, you can collect push tokens and track events prior to collecting profi
 When an identifier is provided, Klaviyo will merge the anonymous user with an identified user.
 
 > **Automatic push token forwarding:** If you enable the `klaviyo_automatic_push_token_forwarding`
-> opt-in flag (see the [Migration Guide](./MIGRATION_GUIDE.md#migrating-to-v540)), the SDK will
-> register a push token on behalf of the user as soon as APNs delivers a device token — before you
-> call `setProfile`, `setEmail`, or `setPhoneNumber`. This results in an anonymous profile being
-> created in Klaviyo until you provide identifying information. This is expected behavior.
+> opt-in flag (see the [Migration Guide](./MIGRATION_GUIDE.md#migrating-to-v540)), the SDK forwards
+> the device push token to Klaviyo automatically once APNs delivers it to your app — which only
+> happens after your app calls `registerForRemoteNotifications()`. Because this can occur before you
+> call `setProfile`, `setEmail`, or `setPhoneNumber`, an anonymous profile will be created in Klaviyo
+> until you provide identifying information. This is expected behavior.
 
 ## Event tracking
 

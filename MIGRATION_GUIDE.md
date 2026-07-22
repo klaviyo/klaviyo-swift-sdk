@@ -5,7 +5,7 @@ This guide outlines how developers can migrate from older versions of our SDK to
 
 ## Migrating to v5.4.0
 
-### Automatic Push Tracking Flags (opt-in)
+### Automatic Push Integration Flags (opt-in)
 
 SDK 5.4.0 introduces two new opt-in behaviors for push notifications, controlled via your app's
 `Info.plist`. Both flags default to **off**; no action is required to preserve existing behavior.
