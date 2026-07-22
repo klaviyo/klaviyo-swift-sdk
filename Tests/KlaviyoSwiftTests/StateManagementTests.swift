@@ -565,7 +565,8 @@ class StateManagementTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile.test.toAPIModel(
+                        profile: ProfilePayload(
+                            Profile.test,
                             anonymousId: initialState.anonymousId!
                         )
                     )
@@ -593,8 +594,10 @@ class StateManagementTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "foo@blob.com", phoneNumber: "+19999999999", externalId: "abcdefg")
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(
+                            Profile(email: "foo@blob.com", phoneNumber: "+19999999999", externalId: "abcdefg"),
+                            anonymousId: $0.anonymousId!
+                        )
                     )
                 )
             )
