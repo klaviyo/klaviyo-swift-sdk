@@ -56,6 +56,31 @@ public struct KlaviyoSDK {
         state.pushTokenData?.pushToken
     }
 
+    /// Whether logging is currently enabled for the Klaviyo SDK.
+    ///
+    /// Logging is enabled by default. When disabled, all `os.Logger` output,
+    /// legacy `LoggerClient` error logging, and runtime warnings are silenced.
+    public var isLoggingEnabled: Bool {
+        KlaviyoLogConfig.shared.isLoggingEnabled
+    }
+
+    /// Enable or disable logging for the Klaviyo SDK.
+    ///
+    /// When disabled, all log output across KlaviyoCore, KlaviyoSwift,
+    /// KlaviyoForms, and KlaviyoLocation is silenced. Re-enabling restores
+    /// logging immediately.
+    ///
+    /// - Note: This setting does not affect `KlaviyoSwiftExtension`, which runs
+    ///   in a separate app-extension process where this in-memory toggle does
+    ///   not apply.
+    /// - Parameter enabled: Pass `true` to enable logging, `false` to disable.
+    /// - Returns: The current `KlaviyoSDK` instance, for chaining.
+    @discardableResult
+    public func setLoggingEnabled(_ enabled: Bool) -> KlaviyoSDK {
+        KlaviyoLogConfig.shared.isLoggingEnabled = enabled
+        return self
+    }
+
     /// Initialize the swift SDK with the given api key.
     /// NOTE: if the SDK has been initialized previously this will result in the profile
     /// information being reset and the token data being reassigned (see ``resetProfile()`` for details.)
@@ -139,6 +164,23 @@ public struct KlaviyoSDK {
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
         dispatchOnMainThread(action: .enqueueEvent(event))
+    }
+
+    /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
+    ///
+    /// This method subscribes the currently tracked profile to the specified Klaviyo list.
+    /// The profile must have at least an email address or phone number set (email keys the email
+    /// channel; phone number keys the SMS and WhatsApp channels).
+    ///
+    /// Use ``Subscription/allAvailableMarketing(listId:customSource:)`` to grant MARKETING consent on
+    /// the channels the profile has identifiers for (email and SMS), or the
+    /// ``Subscription/init(listId:channels:customSource:)`` initializer with a ``Subscription/Channels``
+    /// value to name specific channels and sub-types.
+    ///
+    /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
+    ///   for, and an optional `customSource` label.
+    public func create(subscription: Subscription) {
+        dispatchOnMainThread(action: .enqueueSubscription(subscription))
     }
 
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.

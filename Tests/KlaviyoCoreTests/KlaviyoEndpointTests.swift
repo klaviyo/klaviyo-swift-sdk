@@ -283,4 +283,138 @@ final class KlaviyoEndpointTests: XCTestCase {
         let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
         XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
     }
+
+    // MARK: - Create Subscription Tests
+
+    func testCreateSubscriptionEndpointUrlRequest() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+
+        let body = try XCTUnwrap(request.httpBody)
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        XCTAssertNil(attributes["custom_source"])
+
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        XCTAssertNil(
+            profileAttrs["subscriptions"],
+            "omitting channels must omit subscriptions so the API can default to MARKETING"
+        )
+    }
+
+    func testCreateSubscriptionEndpointWithChannels() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.testWithChannels
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+
+        let body = try XCTUnwrap(request.httpBody, "createSubscription request must include an httpBody")
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+
+        let relationships = try XCTUnwrap(data["relationships"] as? [String: Any])
+        let list = try XCTUnwrap(relationships["list"] as? [String: Any])
+        let listData = try XCTUnwrap(list["data"] as? [String: Any])
+        XCTAssertEqual(listData["type"] as? String, "list")
+        XCTAssertEqual(listData["id"] as? String, "test-list-id")
+
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        XCTAssertNil(attributes["list_id"], "list must be a relationship, not a flat attribute")
+        XCTAssertNil(
+            attributes["subscriptions"],
+            "consent must be nested inside the profile, not at top level"
+        )
+        XCTAssertEqual(attributes["custom_source"] as? String, "unit-test")
+
+        // attributes.profile.data.attributes.subscriptions.email.marketing.consent == "SUBSCRIBED"
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        let subscriptions = try XCTUnwrap(profileAttrs["subscriptions"] as? [String: Any])
+
+        // Email: marketing + open_tracking.
+        let email = try XCTUnwrap(subscriptions["email"] as? [String: Any])
+        XCTAssertEqual((email["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((email["open_tracking"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+
+        // SMS: marketing + transactional.
+        let sms = try XCTUnwrap(subscriptions["sms"] as? [String: Any])
+        XCTAssertEqual((sms["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((sms["transactional"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+
+        // WhatsApp: marketing + transactional.
+        let whatsapp = try XCTUnwrap(subscriptions["whatsapp"] as? [String: Any])
+        XCTAssertEqual((whatsapp["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((whatsapp["transactional"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+    }
+
+    func testCreateSubscriptionEndpointWithPartialChannels() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.testWithPartialChannels
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        let body = try XCTUnwrap(request.httpBody, "createSubscription request must include an httpBody")
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        let subscriptions = try XCTUnwrap(profileAttrs["subscriptions"] as? [String: Any])
+
+        // Only the requested sub-type is present.
+        let sms = try XCTUnwrap(subscriptions["sms"] as? [String: Any])
+        XCTAssertEqual((sms["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertNil(sms["transactional"], "unrequested sms.transactional must be absent from the payload")
+
+        // Unrequested channels are entirely absent.
+        XCTAssertNil(subscriptions["email"], "unrequested email channel must be absent from the payload")
+        XCTAssertNil(subscriptions["whatsapp"], "unrequested whatsapp channel must be absent from the payload")
+    }
+
+    func testCreateSubscriptionEndpointRevision() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
+        let request = KlaviyoRequest(endpoint: endpoint)
+
+        // When
+        let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
+
+        // Then
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+    }
 }

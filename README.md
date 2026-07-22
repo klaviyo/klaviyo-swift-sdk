@@ -16,6 +16,8 @@
   - [Anonymous Tracking Notice](#anonymous-tracking-notice)
 - [Event tracking](#event-tracking)
   - [Arguments](#arguments)
+- [List Subscriptions](#list-subscriptions)
+  - [Arguments](#arguments-1)
 - [Push Notifications](#push-notifications)
   - [Prerequisites](#prerequisites)
   - [Collecting Push Tokens](#collecting-push-tokens)
@@ -48,6 +50,7 @@
   - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
+  - [Logging](#logging)
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
 - [Contributing](#contributing)
@@ -231,6 +234,51 @@ The `create` method takes an event object as an argument. The event can be const
 - [required] `name`: The name of the event you want to track, as a `EventName` enum. A list of common Klaviyo defined event metrics can be found in `Event.EventName`. You can also create custom events by using the `CustomEvent` enum case of `Event.EventName`
 - `properties`: A dictionary of properties that are specific to the event. This argument is optional.
 - `value`: A numeric value (`Double`) to associate with this event. For example, the dollar amount of a purchase.
+
+## List Subscriptions
+
+The SDK can create a subscription and consent record for email, SMS, and Whatsapp channels based on the profile's email and phone number attributes — via the [Create Client Subscription API](https://developers.klaviyo.com/en/reference/create_client_subscription). One of either email or phone number must be provided. WhatsApp BSUID support is coming soon.
+
+Set the profile's email and/or phone number **before** subscribing. A subscribe call that requests a channel whose identifier has not been set is not enqueued (a developer warning is logged).
+
+Profiles can be opted into multiple channels — for example email marketing, SMS marketing, and SMS transactional. Specify the channel(s) to subscribe by providing a `channels` value on `Subscription`. If you include `channels`, only those channels will be subscribed. If you use `Subscription.allAvailableMarketing` (no `subscriptions` object is sent), subscriptions are defaulted to `MARKETING`.
+
+Subscriptions to push notifications are not created through this API — use the existing [`set(pushToken:)`](#collecting-push-tokens) registration path instead.
+
+```swift
+KlaviyoSDK().set(email: "johnpork@demo.com")
+KlaviyoSDK().set(phoneNumber: "+15005550006")
+
+// Subscribe to a list, defaulting to MARKETING consent for every channel
+// available from the identifiers you've set:
+KlaviyoSDK().create(subscription: .allAvailableMarketing(listId: "XXXXXX"))
+
+// Or request specific channels and consent types:
+let subscription = Subscription(
+    listId: "XXXXXX",
+    channels: .init(
+        email: .marketing,
+        sms: [.marketing, .transactional],
+        whatsapp: [.marketing, .transactional]
+    ),
+    customSource: "iOS in-app form"
+)
+KlaviyoSDK().create(subscription: subscription)
+```
+### Arguments
+
+The `create(subscription:)` method takes a `Subscription`. Construct one with either:
+
+- `Subscription.allAvailableMarketing(listId:customSource:)` — omits the `subscriptions` object so the API defaults to `MARKETING` consent for every channel available from the profile's identifiers.
+- `Subscription(listId:channels:customSource:)` — sends a `subscriptions` object for only the channels you name. `channels` is required on this initializer so a broad grant is never the result of an omitted argument.
+
+`Subscription.Channels` takes optional `email`, `sms`, and `whatsapp` values. Each channel exposes only the consent sub-types the API supports for it — pass one value (e.g. `.marketing`) or multiple (e.g. `[.marketing, .transactional]`):
+
+The consent types per channel include:
+- `email`: `.marketing`, `.openTracking`
+- `sms` / `whatsapp`: `.marketing`, `.transactional`
+
+`customSource` is an optional free-text label describing where the signup originated (e.g. a form or screen name), stored as the consent record's source.
 
 ## Push Notifications
 
@@ -935,6 +983,20 @@ Klaviyo's SDK will determine and store the environment that your push token belo
 allowing your tokens to route sends to the correct environments. There is no additional setup needed.
 As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend,
 the ability to send and receive push on these Sandbox applications should work out-of-the-box.
+
+### Logging
+The SDK logs diagnostic information to the system console via `os.Logger`. Logging is enabled by default
+and can be toggled at runtime:
+
+```swift
+KlaviyoSDK().setLoggingEnabled(false) // silence all SDK logging
+KlaviyoSDK().setLoggingEnabled(true)  // re-enable logging
+KlaviyoSDK().isLoggingEnabled         // check the current setting
+```
+
+Disabling logging silences all log output from the `KlaviyoSwift`, `KlaviyoCore`, `KlaviyoForms`,
+and `KlaviyoLocation` modules. It does not affect `KlaviyoSwiftExtension`, which runs in a separate
+app-extension process.
 
 ### SDK Data Transfer
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.

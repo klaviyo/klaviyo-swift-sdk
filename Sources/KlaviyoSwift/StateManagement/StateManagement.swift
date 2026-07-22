@@ -113,6 +113,9 @@ enum KlaviyoAction: Equatable {
     /// when there is an profile to be sent to klaviyo it's added to the queue
     case enqueueProfile(Profile)
 
+    /// when there is a subscription to be sent to klaviyo it's added to the queue
+    case enqueueSubscription(Subscription)
+
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
@@ -144,10 +147,37 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent,
+             .enqueueEvent,
+             .enqueueProfile,
+             .enqueueSubscription,
+             .resetProfile,
+             .resetStateAndDequeue,
+             .setBadgeCount,
+             .setEmail,
+             .setExternalId,
+             .setPhoneNumber,
+             .setProfileProperty,
+             .setPushEnablement,
+             .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests,
+             .completeInitialization,
+             .deQueueCompletedResults,
+             .flushQueue,
+             .initialize,
+             .networkConnectivityChanged,
+             .requestFailed,
+             .sendRequest,
+             .start,
+             .stop,
+             .syncBadgeCount,
+             .trackingLinkReceived,
+             .trackingLinkDestinationResolved,
+             .trackingLinkResolutionFailed,
+             .openDeepLink,
+             .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -237,6 +267,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.setExternalId(externalId))
                     case let .setPhoneNumber(phoneNumber):
                         await send(.setPhoneNumber(phoneNumber))
+                    case let .subscription(subscription):
+                        await send(.enqueueSubscription(subscription))
                     }
                 }
                 await send(.start)
@@ -518,6 +550,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
             ])
+
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey
@@ -596,6 +629,26 @@ struct KlaviyoReducer: ReducerProtocol {
                 request = KlaviyoRequest(
                     endpoint: KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: profilePayload))
                 )
+            }
+            state.enqueueRequest(request: request)
+
+            return .none
+
+        case let .enqueueSubscription(subscription):
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
+                state.pendingRequests.append(.subscription(subscription))
+                return .none
+            }
+
+            guard let request = state.buildSubscriptionRequest(
+                apiKey: apiKey,
+                anonymousId: anonymousId,
+                subscription: subscription
+            ) else {
+                return .none
             }
             state.enqueueRequest(request: request)
 
