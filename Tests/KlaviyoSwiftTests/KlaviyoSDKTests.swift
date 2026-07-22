@@ -487,6 +487,11 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() throws {
         let callback = XCTestExpectation(description: "callback is made")
+        // Each dispatched action (event track + openWebUrl) is scheduled on its own
+        // Task by `dispatchOnMainThread`, independently of the completion handler's Task,
+        // so waiting on `callback` alone races with those dispatches landing.
+        let dispatched = XCTestExpectation(description: "actions dispatched")
+        dispatched.expectedFulfillmentCount = 2
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
 
         let userInfo: [AnyHashable: Any] = [
@@ -497,6 +502,7 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
+            dispatched.fulfill()
             return nil
         }
 
@@ -505,7 +511,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, dispatched], timeout: 1.0)
         XCTAssertTrue(handled)
 
         let webUrlDispatched = capturedActions.contains { action in
@@ -523,6 +529,9 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleBodyTap_DeepLinkUnchangedWhenWebUrlAbsent() throws {
         let callback = XCTestExpectation(description: "callback is made")
+        // See testHandleBodyTap_WebUrlDispatchesOpenWebUrl re: why we wait for both.
+        let dispatched = XCTestExpectation(description: "actions dispatched")
+        dispatched.expectedFulfillmentCount = 2
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
 
         let userInfo: [AnyHashable: Any] = [
@@ -533,6 +542,7 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
+            dispatched.fulfill()
             return nil
         }
 
@@ -541,7 +551,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, dispatched], timeout: 1.0)
 
         let deepLinkDispatched = capturedActions.contains { action in
             if case let .openDeepLink(url) = action { return url == deepURL }
@@ -555,6 +565,9 @@ class KlaviyoSDKTests: XCTestCase {
         // the user stays in the host app. The composer UI enforces a single action type
         // at creation, so this only fires via direct-API or test-tooling sends.
         let callback = XCTestExpectation(description: "callback is made")
+        // See testHandleBodyTap_WebUrlDispatchesOpenWebUrl re: why we wait for both.
+        let dispatched = XCTestExpectation(description: "actions dispatched")
+        dispatched.expectedFulfillmentCount = 2
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
 
@@ -567,6 +580,7 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
+            dispatched.fulfill()
             return nil
         }
 
@@ -575,7 +589,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, dispatched], timeout: 1.0)
 
         let deepLinkDispatched = capturedActions.contains { action in
             if case let .openDeepLink(dispatchedUrl) = action { return dispatchedUrl == deepURL }
@@ -592,6 +606,9 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleActionButtonTap_OpenUrlButton() throws {
         let callback = XCTestExpectation(description: "callback is made")
+        // See testHandleBodyTap_WebUrlDispatchesOpenWebUrl re: why we wait for both.
+        let dispatched = XCTestExpectation(description: "actions dispatched")
+        dispatched.expectedFulfillmentCount = 2
         let actionURL = try XCTUnwrap(URL(string: "https://example.com/promo"))
         let actionId = "com.klaviyo.test.web"
         let buttonLabel = "Visit Site"
@@ -613,6 +630,7 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
+            dispatched.fulfill()
             return nil
         }
 
@@ -625,7 +643,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, dispatched], timeout: 1.0)
         XCTAssertTrue(handled)
 
         let webUrlDispatched = capturedActions.contains { action in
@@ -649,6 +667,11 @@ class KlaviyoSDKTests: XCTestCase {
 
     func testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch() throws {
         let callback = XCTestExpectation(description: "callback is made")
+        // Only the event track dispatches here (the blocked scheme short-circuits before
+        // dispatchOnMainThread(.openWebUrl)) — see testHandleBodyTap_WebUrlDispatchesOpenWebUrl
+        // re: why we wait for dispatch count rather than just the completion callback.
+        let dispatched = XCTestExpectation(description: "actions dispatched")
+        dispatched.expectedFulfillmentCount = 1
         let actionURL = try XCTUnwrap(URL(string: "javascript:alert(1)"))
         let actionId = "com.klaviyo.test.blocked"
         let buttonLabel = "Bad Button"
@@ -670,6 +693,7 @@ class KlaviyoSDKTests: XCTestCase {
         var capturedActions: [KlaviyoAction] = []
         klaviyoSwiftEnvironment.send = { action in
             capturedActions.append(action)
+            dispatched.fulfill()
             return nil
         }
 
@@ -682,7 +706,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback], timeout: 1.0)
+        wait(for: [callback, dispatched], timeout: 1.0)
         XCTAssertTrue(handled)
 
         let webUrlDispatched = capturedActions.contains { action in
