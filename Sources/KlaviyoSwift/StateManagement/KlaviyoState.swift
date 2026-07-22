@@ -238,7 +238,7 @@ struct KlaviyoState: Equatable, Codable {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: Profile().toAPIModel(anonymousId: anonymousId)
+                    profile: ProfilePayload(Profile(), anonymousId: anonymousId)
                 )
 
                 let request = KlaviyoRequest(
@@ -298,7 +298,7 @@ struct KlaviyoState: Equatable, Codable {
             pushToken: pushToken,
             enablement: enablement.rawValue,
             background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId)
+            profile: ProfilePayload(profile, anonymousId: anonymousId)
         )
         let endpoint = KlaviyoEndpoint.registerPushToken(apiKey, payload)
         return KlaviyoRequest(endpoint: endpoint)
@@ -335,7 +335,7 @@ struct KlaviyoState: Equatable, Codable {
                 return nil
             }
 
-            guard let mappedChannels = requestedChannels.toAPIModel else {
+            guard let mappedChannels = SubscriptionChannels(requestedChannels) else {
                 environment.emitDeveloperWarning(
                     "Subscription channels were provided but none were enabled; request was not enqueued."
                 )

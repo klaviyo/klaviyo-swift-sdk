@@ -608,7 +608,8 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             let request: KlaviyoRequest!
 
-            let profilePayload = profile.toAPIModel(
+            let profilePayload = ProfilePayload(
+                profile,
                 email: state.email,
                 phoneNumber: state.phoneNumber,
                 externalId: state.externalId,
