@@ -802,4 +802,275 @@ class StateManagementTests: XCTestCase {
             $0.flushing = false
         }
     }
+
+    // MARK: - enqueueSubscription
+
+    @MainActor
+    func testEnqueueSubscription() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.email = "test@example.com"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription.allAvailableMarketing(listId: "list-123")
+        let payload = CreateSubscriptionPayload(
+            listId: "list-123",
+            profile: ProfilePayload(email: "test@example.com", anonymousId: anonymousId)
+        )
+        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.enqueueRequest(request: request)
+        }
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionWithChannels() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.email = "test@example.com"
+        initialState.phoneNumber = "+15005550006"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription(
+            listId: "list-123",
+            channels: .init(email: .marketing, sms: .marketing)
+        )
+        let payload = CreateSubscriptionPayload(
+            listId: "list-123",
+            profile: ProfilePayload(
+                email: "test@example.com",
+                phoneNumber: "+15005550006",
+                subscriptions: SubscriptionChannels(
+                    email: EmailConsent(marketing: .subscribed),
+                    sms: MarketingTransactionalConsent(marketing: .subscribed)
+                ),
+                anonymousId: anonymousId
+            )
+        )
+        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.enqueueRequest(request: request)
+        }
+    }
+
+    /// Overrides `environment.emitDeveloperWarning` with an expectation that fulfills only when a
+    /// warning containing `fragment` fires, pinning down which guard in enqueueSubscription was taken.
+    @MainActor
+    private func expectSubscriptionWarning(
+        containing fragment: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        let expectation = XCTestExpectation(description: "developer warning containing: \(fragment)")
+        environment.emitDeveloperWarning = { message in
+            XCTAssertTrue(
+                message.contains(fragment),
+                "expected warning containing \"\(fragment)\" but got \"\(message)\"",
+                file: file,
+                line: line
+            )
+            expectation.fulfill()
+        }
+        return expectation
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionWhenInitializingReplaysAfterCompleteInitialization() async throws {
+        var initialState = INITILIZING_TEST_STATE()
+        initialState.email = "test@example.com"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription.allAvailableMarketing(listId: "list-123")
+        let payload = CreateSubscriptionPayload(
+            listId: "list-123",
+            profile: ProfilePayload(email: "test@example.com", anonymousId: anonymousId)
+        )
+        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.pendingRequests = [.subscription(subscription)]
+        }
+
+        await store.send(.completeInitialization(initialState)) {
+            $0.pendingRequests = []
+            $0.initalizationState = .initialized
+        }
+
+        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
+            $0.enqueueRequest(request: request)
+        }
+
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionMissingIdentifiersDoesNotEnqueue() async throws {
+        let expectation = expectSubscriptionWarning(containing: "at least one identifier")
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.enqueueSubscription(Subscription.allAvailableMarketing(listId: "list-123")))
+        await fulfillment(of: [expectation])
+        XCTAssertTrue(store.state.queue.isEmpty)
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionPendingSetEmailBeforeSubscriptionSucceedsOnReplay() async throws {
+        let initialState = INITILIZING_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let email = "test@example.com"
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription.allAvailableMarketing(listId: "list-123")
+
+        var stateWithEmail = initialState
+        stateWithEmail.email = email
+        let profileRequest = stateWithEmail.buildProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
+        let subscriptionPayload = CreateSubscriptionPayload(
+            listId: "list-123",
+            profile: ProfilePayload(email: email, anonymousId: anonymousId)
+        )
+        let subscriptionRequest = KlaviyoRequest(
+            endpoint: .createSubscription(apiKey, subscriptionPayload)
+        )
+
+        await store.send(.setEmail(email)) {
+            $0.pendingRequests = [.setEmail(email)]
+        }
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.pendingRequests = [.setEmail(email), .subscription(subscription)]
+        }
+
+        await store.send(.completeInitialization(initialState)) {
+            $0.pendingRequests = []
+            $0.initalizationState = .initialized
+        }
+
+        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
+            $0.email = email
+            $0.enqueueRequest(request: profileRequest)
+        }
+
+        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
+            $0.enqueueRequest(request: subscriptionRequest)
+        }
+
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionPendingSubscriptionBeforeSetEmailDropsSubscriptionOnReplay() async throws {
+        let expectation = expectSubscriptionWarning(containing: "at least one identifier")
+        let initialState = INITILIZING_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let email = "test@example.com"
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription.allAvailableMarketing(listId: "list-123")
+
+        var stateWithEmail = initialState
+        stateWithEmail.email = email
+        let profileRequest = stateWithEmail.buildProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
+
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.pendingRequests = [.subscription(subscription)]
+        }
+        await store.send(.setEmail(email)) {
+            $0.pendingRequests = [.subscription(subscription), .setEmail(email)]
+        }
+
+        await store.send(.completeInitialization(initialState)) {
+            $0.pendingRequests = []
+            $0.initalizationState = .initialized
+        }
+
+        // FIFO: subscription replays before setEmail, so identifier validation fails.
+        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS)
+        await fulfillment(of: [expectation])
+
+        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
+            $0.email = email
+            $0.enqueueRequest(request: profileRequest)
+        }
+
+        XCTAssertFalse(
+            store.state.queue.contains { request in
+                if case .createSubscription = request.endpoint { return true }
+                return false
+            }
+        )
+
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.setBadgeCount(0))
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionAllAvailableMarketingWithPhoneOnly() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "+15005550006"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let subscription = Subscription.allAvailableMarketing(listId: "list-123")
+        let payload = CreateSubscriptionPayload(
+            listId: "list-123",
+            profile: ProfilePayload(phoneNumber: "+15005550006", anonymousId: anonymousId)
+        )
+        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+
+        await store.send(.enqueueSubscription(subscription)) {
+            $0.enqueueRequest(request: request)
+        }
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionEmptyChannelsDoesNotEnqueue() async throws {
+        let expectation = expectSubscriptionWarning(containing: "none were enabled")
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.email = "test@example.com"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init())))
+        await fulfillment(of: [expectation])
+        XCTAssertTrue(store.state.queue.isEmpty)
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionEmailChannelWithoutEmailDoesNotEnqueue() async throws {
+        let expectation = expectSubscriptionWarning(containing: "requires an email")
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.phoneNumber = "+15005550006"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(email: .marketing))))
+        await fulfillment(of: [expectation])
+        XCTAssertTrue(store.state.queue.isEmpty)
+    }
+
+    @MainActor
+    func testEnqueueSubscriptionPhoneChannelWithoutPhoneDoesNotEnqueue() async throws {
+        let expectation = expectSubscriptionWarning(containing: "requires a phone number")
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.email = "test@example.com"
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(sms: .marketing))))
+        await fulfillment(of: [expectation])
+        XCTAssertTrue(store.state.queue.isEmpty)
+    }
 }
