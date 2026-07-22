@@ -19,6 +19,19 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
+/// Installs a `klaviyoSwiftEnvironment.send` that fulfills `expectation` on `.openDeepLink`
+/// and passes every other action through to the original closure. Returns a closure that
+/// restores the original `send`, which callers must invoke (e.g. via `defer`).
+private func interceptDeepLinkDispatch(failing expectation: XCTestExpectation) -> () -> Void {
+    let originalSend = klaviyoSwiftEnvironment.send
+    klaviyoSwiftEnvironment.send = { action in
+        guard case .openDeepLink = action else { return originalSend(action) }
+        expectation.fulfill()
+        return nil
+    }
+    return { klaviyoSwiftEnvironment.send = originalSend }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Properties
 
@@ -383,13 +396,11 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
-        // A spurious .openDeepLink dispatch (via dispatchOnMainThread's own Task) would
-        // mean the deep-link path ran instead — fulfilling this would be the regression.
+        // A spurious .openDeepLink dispatch would mean the deep-link path ran instead.
         let noDeepLink = XCTestExpectation(description: "no .openDeepLink dispatched")
         noDeepLink.isInverted = true
-        let originalSend = klaviyoSwiftEnvironment.send
-        klaviyoSwiftEnvironment.send = { if case .openDeepLink = $0 { noDeepLink.fulfill() }; return nil }
-        defer { klaviyoSwiftEnvironment.send = originalSend }
+        let restoreSend = interceptDeepLinkDispatch(failing: noDeepLink)
+        defer { restoreSend() }
 
         // When
         viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
