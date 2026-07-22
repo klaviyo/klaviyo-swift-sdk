@@ -10,17 +10,6 @@ This guide outlines how developers can migrate from older versions of our SDK to
 SDK 5.4.0 introduces two new opt-in behaviors for push notifications, controlled via your app's
 `Info.plist`. Both flags default to **off**; no action is required to preserve existing behavior.
 
-#### `klaviyo_automatic_push_token_forwarding`
-
-When set to `true`, the SDK automatically swizzles your app delegate to capture APNs device tokens
-and forward them to Klaviyo — eliminating the need to call `KlaviyoSDK().set(pushToken:)` manually.
-
-```xml
-<!-- Info.plist -->
-<key>klaviyo_automatic_push_token_forwarding</key>
-<true/>
-```
-
 #### `klaviyo_automatic_push_open_tracking`
 
 When set to `true`, the SDK injects a proxy `UNUserNotificationCenterDelegate` to automatically
@@ -33,12 +22,23 @@ record push-open events — eliminating the need to call
 <true/>
 ```
 
+#### `klaviyo_automatic_push_token_forwarding`
+
+When set to `true`, the SDK automatically swizzles your app delegate to capture APNs device tokens
+and forward them to Klaviyo — eliminating the need to call `KlaviyoSDK().set(pushToken:)` manually.
+
+```xml
+<!-- Info.plist -->
+<key>klaviyo_automatic_push_token_forwarding</key>
+<true/>
+```
+
 #### Rollout summary
 
 | Behavior | This release (5.4.0) | Future major release |
 |---|---|---|
-| `klaviyo_automatic_push_token_forwarding` | Opt-in (default off) | Default on (opt-out) |
 | `klaviyo_automatic_push_open_tracking` | Opt-in (default off) | Default on (opt-out) |
+| `klaviyo_automatic_push_token_forwarding` | Opt-in (default off) | Default on (opt-out) |
 
 > **Note:** If you enable `klaviyo_automatic_push_token_forwarding`, the SDK will register an
 > anonymous profile with Klaviyo as soon as a device token is obtained, before any call to
