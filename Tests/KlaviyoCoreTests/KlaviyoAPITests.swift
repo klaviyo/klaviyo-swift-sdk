@@ -90,6 +90,13 @@ final class KlaviyoAPITests: XCTestCase {
         try await assertNotRetried(404)
     }
 
+    func testLoadShed403IsNotRetried() async throws {
+        // 403 is the backend's deliberate load-shed signal: it intentionally returns 403 to force
+        // noisy SDKs to drop their queues and shed load during an incident. It MUST stay a
+        // non-retryable httpError so retrying never defeats that control valve.
+        try await assertNotRetried(403)
+    }
+
     func testNotImplemented501IsRetriedAsServerError() async throws {
         // 501 (Not Implemented) is in-range and deliberately retried: for the SDK's fixed request
         // shapes a genuine origin 501 is effectively unreachable, so any 501 we see is edge/CDN
