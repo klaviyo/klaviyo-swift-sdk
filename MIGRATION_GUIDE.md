@@ -44,7 +44,7 @@ and forward them to Klaviyo — eliminating the need to call `KlaviyoSDK().set(p
 > anonymous profile with Klaviyo as soon as a device token is obtained, before any call to
 > `setProfile`, `setEmail`, or `setPhoneNumber`. This is expected behavior — the anonymous
 > profile is merged with the identified profile once you provide identifiers.
-> See the [Anonymous Tracking Notice](#anonymous-tracking-notice) in the README.
+> See the [Anonymous Tracking Notice](README.md#anonymous-tracking-notice) in the README.
 
 ## Migrating to v5.3.1
 
