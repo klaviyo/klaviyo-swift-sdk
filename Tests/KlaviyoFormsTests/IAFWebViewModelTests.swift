@@ -383,9 +383,13 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
-        // A spurious .openDeepLink dispatch would mean the deep-link path ran instead.
-        var capturedActions: [KlaviyoAction] = []
-        klaviyoSwiftEnvironment.send = { action in capturedActions.append(action); return nil }
+        // A spurious .openDeepLink dispatch (via dispatchOnMainThread's own Task) would
+        // mean the deep-link path ran instead — fulfilling this would be the regression.
+        let noDeepLink = XCTestExpectation(description: "no .openDeepLink dispatched")
+        noDeepLink.isInverted = true
+        let originalSend = klaviyoSwiftEnvironment.send
+        klaviyoSwiftEnvironment.send = { if case .openDeepLink = $0 { noDeepLink.fulfill() }; return nil }
+        defer { klaviyoSwiftEnvironment.send = originalSend }
 
         // When
         viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
@@ -400,10 +404,9 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(formName, "Newsletter")
         XCTAssertEqual(buttonLabel, "Learn More")
         XCTAssertEqual(url, URL(string: "https://example.com"))
-        XCTAssertFalse(
-            capturedActions.contains { if case .openDeepLink = $0 { return true }; return false },
-            "openExternally: true must not route through the deep-link path"
-        )
+
+        // Give the deep-link path's Task a real window to run before concluding absence.
+        await fulfillment(of: [noDeepLink], timeout: 0.3)
     }
 
     @MainActor
