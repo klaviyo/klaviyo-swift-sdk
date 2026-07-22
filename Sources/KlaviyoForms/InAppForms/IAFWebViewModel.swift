@@ -334,7 +334,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info(
-                    "Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public), openExternally: \(openExternally, privacy: .public)"
+                    """
+                    Received 'openDeepLink' event from KlaviyoJS with url: \
+                    \(url?.absoluteString ?? "nil", privacy: .private), \
+                    openExternally: \(openExternally, privacy: .public)
+                    """
                 )
             }
 
