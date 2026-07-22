@@ -34,6 +34,7 @@ extension Event {
                      identifiers: identifiers,
                      value: value,
                      time: time,
-                     uniqueId: uniqueId)
+                     uniqueId: uniqueId,
+                     priority: priority)
     }
 }

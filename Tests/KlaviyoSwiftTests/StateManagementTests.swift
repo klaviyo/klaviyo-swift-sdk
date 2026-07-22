@@ -611,29 +611,42 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         for eventName in Event.EventName.allCases {
-            let event = Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
+            // High-priority events use the package init so that priority flows onto the request.
+            let isHighPriority = eventName == ._openedPush
+            let event = isHighPriority
+                ? Event(
+                    name: eventName,
+                    properties: ["push_token": initialState.pushTokenData!.pushToken],
+                    priority: .high
+                )
+                : Event(name: eventName, properties: ["push_token": initialState.pushTokenData!.pushToken])
+            let expectedPriority: RequestPriority = isHighPriority ? .high : .standard
             await store.send(.enqueueEvent(event)) {
-                try $0.enqueueRequest(
-                    request: KlaviyoRequest(
-                        endpoint: .createEvent(
-                            XCTUnwrap($0.apiKey),
-                            CreateEventPayload(
-                                data: CreateEventPayload.Event(
-                                    name: eventName.value,
-                                    properties: event.properties,
-                                    phoneNumber: $0.phoneNumber,
-                                    anonymousId: initialState.anonymousId!,
-                                    time: event.time,
-                                    pushToken: initialState.pushTokenData!.pushToken
-                                )
+                let request = try KlaviyoRequest(
+                    endpoint: .createEvent(
+                        XCTUnwrap($0.apiKey),
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: eventName.value,
+                                properties: event.properties,
+                                phoneNumber: $0.phoneNumber,
+                                anonymousId: initialState.anonymousId!,
+                                time: event.time,
+                                pushToken: initialState.pushTokenData!.pushToken
                             )
                         )
-                    )
+                    ),
+                    priority: expectedPriority
                 )
+                if isHighPriority {
+                    $0.queue.insert(request, at: 0)
+                } else {
+                    $0.enqueueRequest(request: request)
+                }
             }
 
-            // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
-            if eventName == ._openedPush {
+            // High-priority events trigger an immediate flush; all others flush on the regular interval.
+            if isHighPriority {
                 await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
             }
         }
@@ -753,10 +766,12 @@ class StateManagementTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Test geofence event is inserted at front
+        // Test geofence event is inserted at front.
+        // Geofence events set priority: .high at the producer site; mirror that here.
         let geofenceEvent = Event(
             name: .locationEvent(.geofenceEnter),
-            properties: ["$geofence_id": "test-location-id"]
+            properties: ["$geofence_id": "test-location-id"],
+            priority: .high
         )
 
         var geofenceRequest: KlaviyoRequest?
@@ -775,7 +790,8 @@ class StateManagementTests: XCTestCase {
                             pushToken: $0.pushTokenData?.pushToken
                         )
                     )
-                )
+                ),
+                priority: .high
             )
             $0.queue.insert(geofenceRequest!, at: 0)
         }
@@ -801,5 +817,104 @@ class StateManagementTests: XCTestCase {
             $0.retryState = .retry(1)
             $0.flushing = false
         }
+    }
+
+    // MARK: - Request priority
+
+    @MainActor
+    func testOpenedPushEventProducesHighPriorityRequestAtQueueFront() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        // Seed a standard-priority request so front-insertion is observable.
+        let existingRequest = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [existingRequest]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        // Assert only the priority/front-insert/flush contract; the full network flush
+        // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
+        store.exhaustivity = .off
+
+        let event = Event(name: ._openedPush, properties: ["foo": "bar"], priority: .high)
+        await store.send(.enqueueEvent(event))
+
+        XCTAssertEqual(store.state.queue.count, 2, "Existing + new request should be queued")
+        XCTAssertEqual(
+            store.state.queue[0].priority,
+            .high,
+            "Opened-push request must carry .high priority and be inserted at the front"
+        )
+
+        await store.receive(.flushQueue)
+    }
+
+    @MainActor
+    func testGeofenceEventProducesHighPriorityRequestAtQueueFront() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        // Seed a standard-priority request so front-insertion is observable.
+        let existingRequest = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [existingRequest]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        // Assert only the priority/front-insert/flush contract; the full network flush
+        // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
+        store.exhaustivity = .off
+
+        let event = Event(
+            name: .locationEvent(.geofenceEnter),
+            properties: ["$geofence_id": "region-123"],
+            priority: .high
+        )
+        await store.send(.enqueueEvent(event))
+
+        XCTAssertEqual(store.state.queue.count, 2, "Existing + new request should be queued")
+        XCTAssertEqual(
+            store.state.queue[0].priority,
+            .high,
+            "Geofence request must carry .high priority and be inserted at the front"
+        )
+
+        await store.receive(.flushQueue)
+    }
+
+    @MainActor
+    func testStandardEventProducesStandardPriorityRequestAppendedToQueue() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        let existingRequest = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [existingRequest]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let event = Event(name: .openedAppMetric)
+        await store.send(.enqueueEvent(event)) {
+            let request = try KlaviyoRequest(
+                endpoint: .createEvent(
+                    XCTUnwrap($0.apiKey),
+                    CreateEventPayload(
+                        data: CreateEventPayload.Event(
+                            name: Event.EventName.openedAppMetric.value,
+                            properties: event.properties,
+                            phoneNumber: $0.phoneNumber,
+                            anonymousId: initialState.anonymousId!,
+                            time: event.time,
+                            pushToken: $0.pushTokenData?.pushToken
+                        )
+                    )
+                ),
+                priority: .standard
+            )
+            // Standard request is appended; existing request stays at front
+            $0.queue.append(request)
+            XCTAssertEqual($0.queue[0].id, existingRequest.id, "Existing request should remain at queue[0]")
+            XCTAssertEqual($0.queue.last?.priority, .standard, "Standard event produces .standard request")
+        }
+        // No flushQueue emitted for standard-priority events
     }
 }

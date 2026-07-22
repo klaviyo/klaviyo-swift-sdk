@@ -496,16 +496,17 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - set enqueue event uninitialized
 
     @MainActor
-    func testOpenedPushEventUninitializedAddsToPendingRequests() async throws {
+    func testHighPriorityEventUninitializedAddsToPendingRequests() async throws {
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let event = Event(name: ._openedPush)
+        // High-priority events bypass the initialization gate and are held as pending.
+        let event = Event(name: ._openedPush, priority: .high)
         _ = await store.send(.enqueueEvent(event)) {
             $0.pendingRequests = [.event(event)]
         }
     }
 
     @MainActor
-    func testEnqueueNonOpenedPushEventUninitializedDoesNotAddToPendingRequest() async throws {
+    func testStandardPriorityEventUninitializedEmitsWarning() async throws {
         let expection = XCTestExpectation(description: "fatal error expected")
         environment.emitDeveloperWarning = { _ in
             // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
@@ -513,10 +514,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
         let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
 
-        let nonOpenedPushEvents = Event.EventName.allCases.filter { $0 != ._openedPush }
-
-        for event in nonOpenedPushEvents {
-            let event = Event(name: event)
+        // Standard-priority events (including ._openedPush created without .high) require initialization.
+        for eventName in Event.EventName.allCases {
+            let event = Event(name: eventName)
             _ = await store.send(.enqueueEvent(event))
         }
 
