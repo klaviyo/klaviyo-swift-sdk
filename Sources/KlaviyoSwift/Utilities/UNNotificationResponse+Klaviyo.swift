@@ -100,15 +100,18 @@ extension UNNotificationResponse {
 
         guard let url = URL(string: urlString) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Unable to convert web_url string '\(urlString)' to a valid URL.")
+                Logger.notifications.warning("Unable to convert web_url string '\(urlString, privacy: .private)' to a valid URL.")
             }
             return nil
         }
 
-        guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
+        guard url.hasAllowedOpenUrlScheme else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.warning(
-                    "web_url '\(urlString)' has a scheme not in the allowed list; ignoring."
+                    """
+                    web_url '\(urlString, privacy: .private)' has a scheme not in the \
+                    allowed list; ignoring.
+                    """
                 )
             }
             return nil

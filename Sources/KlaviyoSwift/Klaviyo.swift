@@ -375,7 +375,7 @@ public struct KlaviyoSDK {
                 Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
             case .openUrl:
                 actionProperties["Button Link"] = url.absoluteString
-                guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
+                guard url.hasAllowedOpenUrlScheme else {
                     if #available(iOS 14.0, *) {
                         Logger.notifications.warning(
                             "Action button open_url scheme not in the allowed list; ignoring."

@@ -710,7 +710,7 @@ class KlaviyoSDKTests: XCTestCase {
             return false
         }
         XCTAssertNotNil(eventAction)
-        if case let .enqueueEvent(event) = eventAction! {
+        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
             XCTAssertEqual(event.properties["Button Action"] as? String, "Open URL")
             XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString)
         }

@@ -47,8 +47,8 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     case formDismissed(formId: String, formName: String)
 
     /// Triggered when a user taps a call-to-action (CTA) button in a form
-    /// that has a URL configured — either an in-app deep link or an external
-    /// (web) URL.
+    /// that has a URL configured — either an in-app deep link or a supported
+    /// external/system URL (`http(s)`, `mailto:`, `tel:`, `sms:`).
     ///
     /// Fired after the SDK has initiated navigation (deep link routing, or
     /// opening the URL externally). Not emitted if no URL is configured for
@@ -56,8 +56,8 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     ///
     /// - `buttonLabel`: The label text of the tapped button.
     /// - `deepLinkUrl`: The URL associated with the CTA. For historical reasons
-    ///   this parameter is named `deepLinkUrl`, but it also carries external
-    ///   web URLs.
+    ///   this parameter is named `deepLinkUrl`, but it also carries external/
+    ///   system URLs.
     case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
     /// The unique identifier of the form that triggered this event.
