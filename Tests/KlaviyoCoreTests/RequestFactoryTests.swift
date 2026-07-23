@@ -63,6 +63,7 @@ final class RequestFactoryTests: XCTestCase {
         XCTAssertEqual(apiKey, "key")
         XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "a@b.com")
         XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anon")
-        XCTAssertEqual(payload.data.attributes.properties.value as? [String: Any] != nil, true)
+        let props = payload.data.attributes.properties.value as? [String: Any]
+        XCTAssertEqual(props?["Push Token"] as? String, "tok")
     }
 }
