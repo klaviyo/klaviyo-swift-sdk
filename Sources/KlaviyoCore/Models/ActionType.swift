@@ -17,11 +17,13 @@ import Foundation
 public enum ActionType: String, Equatable {
     case openApp = "open_app"
     case deepLink = "deep_link"
+    case openUrl = "open_url"
 
     public func displayName() -> String {
         switch self {
         case .openApp: return "Open App"
         case .deepLink: return "Deep Link"
+        case .openUrl: return "Open URL"
         }
     }
 }

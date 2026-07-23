@@ -263,9 +263,7 @@ public struct KlaviyoSDK {
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties))
-            if let url = notificationResponse.klaviyoDeepLinkURL {
-                Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
-            }
+            resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
         }
 
         Task { @MainActor in
@@ -279,6 +277,8 @@ public struct KlaviyoSDK {
     ///   - remoteNotification: the remote notification that was opened
     ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
     ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
+    ///     The handler is invoked only for deep links; external web URLs always route through the
+    ///     SDK's external URL opener and bypass this closure.
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
@@ -302,15 +302,7 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties))
-            if let url = notificationResponse.klaviyoDeepLinkURL {
-                if let deepLinkHandler = deepLinkHandler {
-                    Task { @MainActor in
-                        deepLinkHandler(url)
-                    }
-                } else {
-                    Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
-                }
-            }
+            resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
             completionHandler()
@@ -318,11 +310,42 @@ public struct KlaviyoSDK {
         return true
     }
 
+    /// Resolves the open action for a body tap: deep link, web URL, or neither.
+    ///
+    /// Deep link wins when both are present. The composer enforces a single action
+    /// type at creation, so this only matters for direct-API or test-tooling sends.
+    ///
+    /// When `deepLinkHandler` is non-nil, the deep link is delivered to that closure
+    /// instead of being routed through `DeepLinkManager`. External web URLs always
+    /// route through `DeepLinkManager.openExternalURL` and intentionally bypass the closure.
+    private func resolveOpenAction(
+        for notificationResponse: UNNotificationResponse,
+        deepLinkHandler: ((URL) -> Void)?
+    ) {
+        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL {
+            if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+                Logger.notifications.warning(
+                    "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                )
+            }
+            if let deepLinkHandler = deepLinkHandler {
+                Task { @MainActor in
+                    deepLinkHandler(deepLinkURL)
+                }
+            } else {
+                Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
+            }
+        } else if let webUrl = notificationResponse.klaviyoWebUrl {
+            Task { @MainActor in await DeepLinkManager.openExternalURL(webUrl) }
+        }
+    }
+
     /// Handles action button tap events.
     ///
     /// This method:
     /// - Tracks a `$opened_push` event with button properties (Button Label, Button Action, Button Link)
-    /// - Handles action-specific deep links (or falls back to default notification URL)
+    /// - Handles action-specific deep links or `open_url` external URLs (or falls back to default
+    ///   notification URL)
     ///
     /// - Parameters:
     ///   - notificationResponse: The notification response containing action info
@@ -345,9 +368,25 @@ public struct KlaviyoSDK {
             actionProperties["Button Action"] = actionType.displayName()
         }
 
-        if let url = notificationResponse.actionButtonURL, notificationResponse.actionButtonType == .deepLink {
-            actionProperties["Button Link"] = url.absoluteString
-            Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
+        if let url = notificationResponse.actionButtonURL {
+            switch notificationResponse.actionButtonType {
+            case .deepLink:
+                actionProperties["Button Link"] = url.absoluteString
+                Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
+            case .openUrl:
+                actionProperties["Button Link"] = url.absoluteString
+                guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
+                    if #available(iOS 14.0, *) {
+                        Logger.notifications.warning(
+                            "Action button open_url scheme not in the allowed list; ignoring."
+                        )
+                    }
+                    break
+                }
+                Task { @MainActor in await DeepLinkManager.openExternalURL(url) }
+            case .openApp, .none:
+                break
+            }
         }
 
         // Track action button event

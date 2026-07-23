@@ -562,4 +562,210 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
         }
     }
+
+    // MARK: - web_url tests
+
+    // Deep link / web URL resolution now routes through `DeepLinkManager`
+    // (`openDeepLinkSpy`/`openExternalURLSpy`), not a dispatched `KlaviyoAction` — only
+    // the `$opened_push` event track still goes through `klaviyoSwiftEnvironment.send`.
+
+    func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let eventDispatched = XCTestExpectation(description: "event action dispatched")
+        let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "test_web_url"],
+            "web_url": webURL.absoluteString
+        ]
+
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { eventDispatched.fulfill() }
+            return nil
+        }
+        let externalUrlInvoked = XCTestExpectation(description: "openExternalURL invoked")
+        DeepLinkManager.openExternalURLSpy = { dispatchedUrl in
+            XCTAssertEqual(dispatchedUrl, webURL)
+            externalUrlInvoked.fulfill()
+        }
+
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, eventDispatched, externalUrlInvoked], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testHandleBodyTap_DeepLinkUnchangedWhenWebUrlAbsent() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let eventDispatched = XCTestExpectation(description: "event action dispatched")
+        let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "test_deep_link_regression"],
+            "url": deepURL.absoluteString
+        ]
+
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { eventDispatched.fulfill() }
+            return nil
+        }
+        let deepLinkInvoked = XCTestExpectation(description: "openDeepLink invoked")
+        DeepLinkManager.openDeepLinkSpy = { dispatchedUrl in
+            XCTAssertEqual(dispatchedUrl, deepURL)
+            deepLinkInvoked.fulfill()
+        }
+
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        _ = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, eventDispatched, deepLinkInvoked], timeout: 1.0)
+    }
+
+    func testHandleBodyTap_DeepLinkTakesPrecedenceOverWebUrl() throws {
+        // Defensive: if backend ever ships both web_url and url, the deep link wins so
+        // the user stays in the host app. The composer UI enforces a single action type
+        // at creation, so this only fires via direct-API or test-tooling sends.
+        let callback = XCTestExpectation(description: "callback is made")
+        let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
+        let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "test_both_present"],
+            "web_url": webURL.absoluteString,
+            "url": deepURL.absoluteString
+        ]
+
+        let deepLinkInvoked = XCTestExpectation(description: "openDeepLink invoked")
+        DeepLinkManager.openDeepLinkSpy = { dispatchedUrl in
+            XCTAssertEqual(dispatchedUrl, deepURL)
+            deepLinkInvoked.fulfill()
+        }
+        let externalUrlNotInvoked = XCTestExpectation(description: "openExternalURL must not be invoked")
+        externalUrlNotInvoked.isInverted = true
+        DeepLinkManager.openExternalURLSpy = { _ in externalUrlNotInvoked.fulfill() }
+
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        _ = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, deepLinkInvoked], timeout: 1.0)
+        wait(for: [externalUrlNotInvoked], timeout: 0.3)
+    }
+
+    func testHandleActionButtonTap_OpenUrlButton() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionURL = try XCTUnwrap(URL(string: "https://example.com/promo"))
+        let actionId = "com.klaviyo.test.web"
+        let buttonLabel = "Visit Site"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_open_url_button",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_url",
+                        "url": actionURL.absoluteString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        let eventDispatched = XCTestExpectation(description: "event action dispatched")
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            if case .enqueueEvent = action { eventDispatched.fulfill() }
+            return nil
+        }
+        let externalUrlInvoked = XCTestExpectation(description: "openExternalURL invoked")
+        DeepLinkManager.openExternalURLSpy = { dispatchedUrl in
+            XCTAssertEqual(dispatchedUrl, actionURL)
+            externalUrlInvoked.fulfill()
+        }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, eventDispatched, externalUrlInvoked], timeout: 1.0)
+        XCTAssertTrue(handled)
+
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction)
+        if case let .enqueueEvent(event) = eventAction! {
+            XCTAssertEqual(event.properties["Button Action"] as? String, "Open URL")
+            XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString)
+        }
+    }
+
+    func testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let actionURL = try XCTUnwrap(URL(string: "javascript:alert(1)"))
+        let actionId = "com.klaviyo.test.blocked"
+        let buttonLabel = "Bad Button"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_open_url_blocked",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": buttonLabel,
+                        "action": "open_url",
+                        "url": actionURL.absoluteString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        let eventDispatched = XCTestExpectation(description: "event action dispatched")
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            if case .enqueueEvent = action { eventDispatched.fulfill() }
+            return nil
+        }
+        let externalUrlNotInvoked = XCTestExpectation(description: "openExternalURL must not be invoked for blocked scheme")
+        externalUrlNotInvoked.isInverted = true
+        DeepLinkManager.openExternalURLSpy = { _ in externalUrlNotInvoked.fulfill() }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, eventDispatched], timeout: 1.0)
+        wait(for: [externalUrlNotInvoked], timeout: 0.3)
+        XCTAssertTrue(handled)
+
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Tap should still be tracked even when the scheme is blocked")
+    }
 }
