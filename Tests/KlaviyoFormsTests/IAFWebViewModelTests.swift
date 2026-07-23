@@ -19,6 +19,12 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
+// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+private final class SpyDispatcher: EventDispatching {
+    private(set) var received: [InboundCommand] = []
+    func dispatch(_ command: InboundCommand) { received.append(command) }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Properties
 
@@ -42,8 +48,7 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
+        seedCoreStores()
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
@@ -57,9 +62,9 @@ final class IAFWebViewModelTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        // Now fetch profile data with clean state
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        // Read the seeded config/identity from the canonical Core stores
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
@@ -111,7 +116,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
 
         // When
@@ -348,6 +353,39 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
+    }
+
+    @MainActor
+    func testTrackProfileEventDispatchesCreateEvent() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When - JS sends a trackProfileEvent bridge message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Viewed Product",
+                "foo": "bar"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .createEvent(event) = spyDispatcher.received[0] else {
+            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
+        }
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertEqual(event.properties["foo"] as? String, "bar")
     }
 }
 

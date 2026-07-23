@@ -12,6 +12,7 @@ import XCTest
 
 // MARK: - KlaviyoSDKTests
 
+@MainActor
 class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
 
@@ -24,10 +25,15 @@ class KlaviyoSDKTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
+        BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
     }
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
+        BadgeManager.resetToProduction()
+        DeepLinkManager.resetToProduction()
+        klaviyo.setLoggingEnabled(true)
     }
 
     func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
@@ -149,7 +155,8 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test unhandle push notification
 
     func testUnhandlePushNotification() throws {
-        let expectation = setupActionAssertion(expectedAction: .syncBadgeCount)
+        let syncExpectation = XCTestExpectation(description: "BadgeManager.syncBadgeCount called for unhandled notification")
+        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
         let callback = XCTestExpectation(description: "callback is not made")
         callback.isInverted = true
         let data: [AnyHashable: Any] = [
@@ -165,7 +172,7 @@ class KlaviyoSDKTests: XCTestCase {
             callback.fulfill()
         }
 
-        wait(for: [callback, expectation], timeout: 1.0)
+        wait(for: [callback, syncExpectation], timeout: 1.0)
         XCTAssertFalse(handled)
     }
 
@@ -281,6 +288,28 @@ class KlaviyoSDKTests: XCTestCase {
         XCTAssertFalse(middleUResult, "Should return false for path with /u/ in the middle")
     }
 
+    // MARK: - EventDispatcher Registration Tests
+
+    func testKlaviyoSDKInitRegistersAggregateEventDispatch() {
+        _ = KlaviyoSDK() // registration happens in init
+        let payload = Data("agg".utf8)
+        let expectation = setupActionAssertion(expectedAction: .enqueueAggregateEvent(payload))
+        EventDispatcher.shared.dispatch(.aggregateEvent(payload))
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testKlaviyoSDKInitRegistersDeepLinkDispatch() async {
+        _ = KlaviyoSDK()
+        let url = URL(string: "https://example.com")!
+        let opened = expectation(description: "openDeepLink invoked with URL")
+        DeepLinkManager.openDeepLinkSpy = { dispatchedURL in
+            XCTAssertEqual(dispatchedURL, url)
+            opened.fulfill()
+        }
+        EventDispatcher.shared.dispatch(.deepLink(url))
+        await fulfillment(of: [opened], timeout: 1.0)
+    }
+
     // MARK: - Deep Link Handler Registration Tests
 
     func testRegisterDeepLinkHandler() {
@@ -304,6 +333,30 @@ class KlaviyoSDKTests: XCTestCase {
     func testIsDeepLinkHandlerRegisteredInitialState() {
         let freshSDK = KlaviyoSDK()
         XCTAssertFalse(freshSDK.isDeepLinkHandlerRegistered, "New SDK instance should have no handler registered")
+    }
+
+    // MARK: - Logging Toggle Tests
+
+    func testLoggingEnabledByDefault() {
+        XCTAssertTrue(klaviyo.isLoggingEnabled, "Logging should be enabled by default")
+    }
+
+    func testSetLoggingDisabled() {
+        klaviyo.setLoggingEnabled(false)
+        XCTAssertFalse(klaviyo.isLoggingEnabled, "Logging should be disabled after setLoggingEnabled(false)")
+    }
+
+    func testSetLoggingReEnabled() {
+        klaviyo.setLoggingEnabled(false)
+        XCTAssertFalse(klaviyo.isLoggingEnabled)
+
+        klaviyo.setLoggingEnabled(true)
+        XCTAssertTrue(klaviyo.isLoggingEnabled, "Logging should be re-enabled after setLoggingEnabled(true)")
+    }
+
+    func testSetLoggingEnabledIsChainable() {
+        let result = klaviyo.setLoggingEnabled(false)
+        XCTAssertNotNil(result, "setLoggingEnabled should return a KlaviyoSDK instance for chaining")
     }
 
     // MARK: - Push Action Button Tests

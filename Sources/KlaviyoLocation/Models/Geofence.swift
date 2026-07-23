@@ -8,7 +8,6 @@
 import CoreLocation
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 
 /// Represents a Klaviyo geofence
 struct Geofence: Equatable, Hashable, Codable {

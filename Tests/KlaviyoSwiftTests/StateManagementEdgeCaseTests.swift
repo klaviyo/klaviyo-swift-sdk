@@ -15,6 +15,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        BadgeManager.resetToProduction()
     }
 
     // MARK: - initialization
@@ -95,6 +101,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testCompleteInitializationWithExistingIdentifiers() async throws {
+        let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
+        BadgeManager.setBadgeCountSpy = { count in
+            if count == 0 { setBadgeExpectation.fulfill() }
+        }
+
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
@@ -114,7 +125,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
-        await store.receive(.setBadgeCount(0))
+        await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
     // MARK: - Set Email
@@ -390,10 +401,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testDefaultBadgeClearingOn() async throws {
         let apiKey = "fake-key"
         environment.getBadgeAutoClearingSetting = { true }
-        let expectation = XCTestExpectation(description: "Should set badge to 0")
-        klaviyoSwiftEnvironment.setBadgeCount = { _ in
-            expectation.fulfill()
-            return nil
+        let setBadgeExpectation = XCTestExpectation(description: "Should set badge to 0")
+        BadgeManager.setBadgeCountSpy = { count in
+            if count == 0 { setBadgeExpectation.fulfill() }
         }
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
@@ -413,8 +423,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
-        await store.receive(.setBadgeCount(0))
-        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
+        await fulfillment(of: [setBadgeExpectation], timeout: 1, enforceOrder: true)
     }
 
     // MARK: - Default Badge Clearing Turned Off
@@ -423,12 +432,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testDefaultBadgeClearingOff() async {
         let apiKey = "fake-key"
         environment.getBadgeAutoClearingSetting = { false }
-        let expectation = XCTestExpectation(description: "Should not set badge to 0")
-        expectation.isInverted = true
-        klaviyoSwiftEnvironment.setBadgeCount = { _ in
-            expectation.fulfill()
-            return nil
-        }
+        let notCalledExpectation = XCTestExpectation(description: "Should not set badge to 0")
+        notCalledExpectation.isInverted = true
+        let syncExpectation = XCTestExpectation(description: "Should sync badge count")
+        BadgeManager.setBadgeCountSpy = { _ in notCalledExpectation.fulfill() }
+        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
                                         requestsInFlight: [],
@@ -447,8 +455,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await store.receive(.start)
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
-        await store.receive(.syncBadgeCount)
-        await fulfillment(of: [expectation], timeout: 1, enforceOrder: true)
+        await fulfillment(of: [notCalledExpectation, syncExpectation], timeout: 1, enforceOrder: true)
     }
 
     // MARK: - Network Status Changed
@@ -807,7 +814,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 }
 
 extension Event.EventName: CaseIterable {
-    public static var allCases: [KlaviyoSwift.Event.EventName] {
+    public static var allCases: [KlaviyoCore.Event.EventName] {
         [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
     }
 }
