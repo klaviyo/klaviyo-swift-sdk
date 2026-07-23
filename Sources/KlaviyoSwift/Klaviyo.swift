@@ -29,8 +29,12 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 ///
 /// From there you can you can call the additional methods below to track events and profile.
 public struct KlaviyoSDK {
+    private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
+
     /// Default initializer for the Klaviyo SDK.
-    public init() {}
+    public init() {
+        _ = Self.registerEventDispatcher
+    }
 
     private var state: KlaviyoState {
         klaviyoSwiftEnvironment.state()
@@ -56,6 +60,31 @@ public struct KlaviyoSDK {
         state.pushTokenData?.pushToken
     }
 
+    /// Whether logging is currently enabled for the Klaviyo SDK.
+    ///
+    /// Logging is enabled by default. When disabled, all `os.Logger` output,
+    /// legacy `LoggerClient` error logging, and runtime warnings are silenced.
+    public var isLoggingEnabled: Bool {
+        KlaviyoLogConfig.shared.isLoggingEnabled
+    }
+
+    /// Enable or disable logging for the Klaviyo SDK.
+    ///
+    /// When disabled, all log output across KlaviyoCore, KlaviyoSwift,
+    /// KlaviyoForms, and KlaviyoLocation is silenced. Re-enabling restores
+    /// logging immediately.
+    ///
+    /// - Note: This setting does not affect `KlaviyoSwiftExtension`, which runs
+    ///   in a separate app-extension process where this in-memory toggle does
+    ///   not apply.
+    /// - Parameter enabled: Pass `true` to enable logging, `false` to disable.
+    /// - Returns: The current `KlaviyoSDK` instance, for chaining.
+    @discardableResult
+    public func setLoggingEnabled(_ enabled: Bool) -> KlaviyoSDK {
+        KlaviyoLogConfig.shared.isLoggingEnabled = enabled
+        return self
+    }
+
     /// Initialize the swift SDK with the given api key.
     /// NOTE: if the SDK has been initialized previously this will result in the profile
     /// information being reset and the token data being reassigned (see ``resetProfile()`` for details.)
@@ -63,6 +92,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
+        SharedStoreMirror.setup()
         dispatchOnMainThread(action: .initialize(apiKey))
         return self
     }
@@ -88,7 +118,14 @@ public struct KlaviyoSDK {
     /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
     /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
     public func setBadgeCount(_ count: Int) {
-        dispatchOnMainThread(action: .setBadgeCount(count))
+        // No initialization gate: setting the badge is a purely local operation
+        // (OS badge + app-group UserDefaults) with no dependency on the SDK's API
+        // key, profile, or store state. Gating on initialization only created an
+        // ordering race with the async `initialize(with:)`, so we apply the badge
+        // unconditionally. When no app group is configured this is a no-op.
+        Task {
+            await BadgeManager.setBadgeCount(count)
+        }
     }
 
     /// Set the current user's email.
@@ -206,7 +243,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
-            dispatchOnMainThread(action: .syncBadgeCount)
+            Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
 
@@ -247,7 +284,7 @@ public struct KlaviyoSDK {
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
-            dispatchOnMainThread(action: .syncBadgeCount)
+            Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
 
@@ -273,18 +310,14 @@ public struct KlaviyoSDK {
         return true
     }
 
-    /// Handles action button tap events.
-    ///
-    /// This method:
-    /// - Tracks a `$opened_push` event with button properties (Button Label, Button Action, Button Link)
     /// Resolves the open action for a body tap: deep link, web URL, or neither.
     ///
     /// Deep link wins when both are present. The composer enforces a single action
     /// type at creation, so this only matters for direct-API or test-tooling sends.
     ///
     /// When `deepLinkHandler` is non-nil, the deep link is delivered to that closure
-    /// instead of being dispatched as an `.openDeepLink` action. External web URLs
-    /// always route through `.openWebUrl` and intentionally bypass the closure.
+    /// instead of being routed through `DeepLinkManager`. External web URLs always
+    /// route through `DeepLinkManager.openExternalURL` and intentionally bypass the closure.
     private func resolveOpenAction(
         for notificationResponse: UNNotificationResponse,
         deepLinkHandler: ((URL) -> Void)?
@@ -300,14 +333,19 @@ public struct KlaviyoSDK {
                     deepLinkHandler(deepLinkURL)
                 }
             } else {
-                dispatchOnMainThread(action: .openDeepLink(deepLinkURL))
+                Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
             }
         } else if let webUrl = notificationResponse.klaviyoWebUrl {
-            dispatchOnMainThread(action: .openWebUrl(webUrl))
+            Task { @MainActor in await DeepLinkManager.openExternalURL(webUrl) }
         }
     }
 
-    /// - Handles action-specific deep links (or falls back to default notification URL)
+    /// Handles action button tap events.
+    ///
+    /// This method:
+    /// - Tracks a `$opened_push` event with button properties (Button Label, Button Action, Button Link)
+    /// - Handles action-specific deep links or `open_url` external URLs (or falls back to default
+    ///   notification URL)
     ///
     /// - Parameters:
     ///   - notificationResponse: The notification response containing action info
@@ -334,7 +372,7 @@ public struct KlaviyoSDK {
             switch notificationResponse.actionButtonType {
             case .deepLink:
                 actionProperties["Button Link"] = url.absoluteString
-                dispatchOnMainThread(action: .openDeepLink(url))
+                Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
             case .openUrl:
                 actionProperties["Button Link"] = url.absoluteString
                 guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
@@ -345,7 +383,7 @@ public struct KlaviyoSDK {
                     }
                     break
                 }
-                dispatchOnMainThread(action: .openWebUrl(url))
+                Task { @MainActor in await DeepLinkManager.openExternalURL(url) }
             case .openApp, .none:
                 break
             }
@@ -355,6 +393,8 @@ public struct KlaviyoSDK {
         create(event: Event(name: ._openedPush, properties: actionProperties))
     }
 }
+
+extension KlaviyoSDK: KlaviyoSDKModule {}
 
 // MARK: - Private Helpers
 

@@ -16,8 +16,6 @@ import Combine
 import Foundation
 import KlaviyoCore
 import OSLog
-import UIKit
-import UserNotifications
 
 enum StateManagementConstants {
     static let cellularFlushInterval = 30.0
@@ -71,12 +69,6 @@ enum KlaviyoAction: Equatable {
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
 
-    /// call to set the app badge count as well as update the stored value in the User Defaults suite
-    case setBadgeCount(Int)
-
-    /// call to sync the stored value in the User Defaults suite with the currently displayed badge count provided by `UIApplication.shared.applicationIconBadgeNumber`
-    case syncBadgeCount
-
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
@@ -125,22 +117,9 @@ enum KlaviyoAction: Equatable {
     /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
     case trackingLinkReceived(URL)
 
-    /// when we've successfully resolved the tracking link into a destination link
-    case trackingLinkDestinationResolved(URL)
-
     /// when the attempt to resolve the tracking link into a destination link fails.
     /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
-
-    /// open a deep link URL originating from a Klaviyo notification
-    case openDeepLink(URL)
-
-    /// open an external web URL in the system browser, bypassing any registered deep
-    /// link handler. Used by the `open_url` push action.
-    case openWebUrl(URL)
-
-    /// indicates that deep link processing has completed
-    case deepLinkProcessingCompleted
 
     var requiresInitialization: Bool {
         switch self {
@@ -148,10 +127,10 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .openWebUrl, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -336,7 +315,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
-                    await send(KlaviyoAction.syncBadgeCount)
+                    await MainActor.run { BadgeManager.syncBadgeCount() }
                 }))
 
         case .start:
@@ -350,9 +329,9 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(KlaviyoAction.setPushEnablement(settings))
                     let autoclearing = await environment.getBadgeAutoClearingSetting()
                     if autoclearing {
-                        await send(KlaviyoAction.setBadgeCount(0))
+                        await BadgeManager.setBadgeCount(0)
                     } else {
-                        await send(KlaviyoAction.syncBadgeCount)
+                        await MainActor.run { BadgeManager.syncBadgeCount() }
                     }
                 },
                 environment.timer(state.flushInterval)
@@ -486,7 +465,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            event = event.updateEventWithState(state: &state)
+            event = event.updateEventWithIdentifiers(
+                email: state.email,
+                phoneNumber: state.phoneNumber,
+                externalId: state.externalId,
+                pushToken: state.pushTokenData?.pushToken
+            )
 
             let payload = CreateEventPayload(
                 data: CreateEventPayload.Event(
@@ -520,7 +504,7 @@ struct KlaviyoReducer: ReducerProtocol {
             let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
-                .fireAndForget { KlaviyoInternal.publishEvent(event) }
+                .fireAndForget { enrichAndPublishEvent(event) }
             ])
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
@@ -605,21 +589,6 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
 
-        case let .setBadgeCount(count):
-            return .run { _ in
-                _ = klaviyoSwiftEnvironment.setBadgeCount(count)
-            }
-
-        case .syncBadgeCount:
-            Task {
-                await MainActor.run {
-                    if let userDefaults = UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "klaviyo_app_group") as? String) {
-                        userDefaults.set(UIApplication.shared.applicationIconBadgeNumber, forKey: "badgeCount")
-                    }
-                }
-            }
-            return .none
-
         case .resetProfile:
             guard case .initialized = state.initalizationState
             else {
@@ -650,6 +619,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .task { .deQueueCompletedResults(request) }
 
         case let .trackingLinkReceived(trackingLinkURL):
+            // Thin entry point: the resolution work lives in `TrackingLinkManager`.
+            // This case only remains in the reducer to read identity and (on
+            // failure) enqueue; it will fold into the manager once identity and the
+            // queue are canonical in KlaviyoCore. See `TrackingLinkManager`.
             let clickTime = environment.date()
 
             if #available(iOS 14.0, *) {
@@ -664,45 +637,22 @@ struct KlaviyoReducer: ReducerProtocol {
             )
 
             return .run { send in
-                do {
-                    let endpoint = KlaviyoEndpoint.resolveDestinationURL(
-                        trackingLink: trackingLinkURL,
-                        profileInfo: profileInfo
-                    )
-                    let klaviyoRequest = KlaviyoRequest(endpoint: endpoint)
-                    let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: endpoint.maxRetries)
-                    let result = await environment.klaviyoAPI.send(klaviyoRequest, attemptInfo)
-
-                    switch result {
-                    case let .success(data):
-                        let response: TrackingLinkDestinationResponse = try environment.decoder.decode(data)
-                        let destinationURL = response.destinationLink
-
-                        if #available(iOS 14.0, *) {
-                            Logger.stateLogger.info("Successfully resolved tracking link destination. Destination URL: '\(destinationURL.absoluteString)'")
-                        }
-
-                        await send(.trackingLinkDestinationResolved(destinationURL))
-                    case let .failure(error):
-                        if #available(iOS 14.0, *) {
-                            Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
-                        }
-                        await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
-                    }
-                } catch {
-                    if #available(iOS 14.0, *) {
-                        Logger.stateLogger.warning("Unable to resolve tracking link destination; error:\n'\(error)'")
-                    }
+                let outcome = await TrackingLinkManager.resolveDestination(
+                    trackingLink: trackingLinkURL,
+                    profileInfo: profileInfo
+                )
+                switch outcome {
+                case let .resolved(destinationURL):
+                    await DeepLinkManager.openDeepLink(destinationURL)
+                case .failed:
                     await send(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime))
                 }
             }
 
-        case let .trackingLinkDestinationResolved(url):
-            return .run { send in
-                await send(.openDeepLink(url))
-            }
-
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
+            // Kept in the reducer only for the enqueue below (a state mutation).
+            // Folds into `TrackingLinkManager` once the queue is canonical in
+            // KlaviyoCore.
             let profileInfo = ProfilePayload(
                 email: state.email,
                 phoneNumber: state.phoneNumber,
@@ -720,30 +670,6 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
-
-        case let .openDeepLink(url):
-            guard !state.isProcessingDeepLink else {
-                if #available(iOS 14.0, *) {
-                    Logger.navigation.log("Already processing a deep link; skipping.")
-                }
-                return .none
-            }
-
-            state.isProcessingDeepLink = true
-
-            return .run { send in
-                await environment.linkHandler.openURL(url)
-                await send(.deepLinkProcessingCompleted)
-            }
-
-        case let .openWebUrl(url):
-            return .run { _ in
-                await environment.linkHandler.openExternalURL(url)
-            }
-
-        case .deepLinkProcessingCompleted:
-            state.isProcessingDeepLink = false
-            return .none
         }
     }
 }
@@ -753,25 +679,4 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
         initialState: KlaviyoState(queue: [], requestsInFlight: []),
         reducer: KlaviyoReducer()
     )
-}
-
-extension Event {
-    func updateEventWithState(state: inout KlaviyoState) -> Event {
-        let identifiers = Identifiers(
-            email: state.email,
-            phoneNumber: state.phoneNumber,
-            externalId: state.externalId
-        )
-        var properties = properties
-        if metric.name == EventName._openedPush,
-           let pushToken = state.pushTokenData?.pushToken {
-            properties["push_token"] = pushToken
-        }
-        return Event(name: metric.name,
-                     properties: properties,
-                     identifiers: identifiers,
-                     value: value,
-                     time: time,
-                     uniqueId: uniqueId)
-    }
 }

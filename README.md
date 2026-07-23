@@ -41,12 +41,14 @@
   - [Setup](#setup-1)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
   - [Setup](#setup-2)
   - [Unregistering from Geofencing](#unregistering-from-geofencing)
 - [Additional Details](#additional-details)
   - [Sandbox Support](#sandbox-support)
+  - [Logging](#logging)
   - [SDK Data Transfer](#sdk-data-transfer)
   - [Retries](#retries)
 - [Contributing](#contributing)
@@ -793,6 +795,49 @@ KlaviyoSDK().unregisterFromInAppForms()
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
 
+### Monitoring Form Lifecycle Events
+
+> ℹ️ Form lifecycle events are available in SDK version 5.3.0 and higher
+
+You can register a handler to track when forms are shown, dismissed, or when users tap call-to-action buttons. This is useful for sending form engagement data to third-party analytics platforms like Amplitude, Segment, or Mixpanel.
+
+```swift
+import KlaviyoForms
+
+KlaviyoSDK().registerFormLifecycleHandler { event in
+    switch event {
+    case .formShown(let formId, let formName):
+        // Track when a form is displayed
+        Analytics.track("Klaviyo Form Shown", properties: [
+            "formId": formId,
+            "formName": formName
+        ])
+    case .formDismissed(let formId, let formName):
+        // Track when a form is dismissed
+        Analytics.track("Klaviyo Form Dismissed", properties: [
+            "formId": formId,
+            "formName": formName
+        ])
+    case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
+        // Track when a user taps a call-to-action button
+        Analytics.track("Klaviyo Form CTA Clicked", properties: [
+            "formId": formId,
+            "formName": formName,
+            "buttonLabel": buttonLabel,
+            "deepLinkUrl": deepLinkUrl.absoluteString
+        ])
+    }
+}
+```
+
+The handler is called on the main thread and will receive events for all form interactions. To unregister the handler:
+
+```swift
+KlaviyoSDK().unregisterFormLifecycleHandler()
+```
+
+**Note:** The handler is optional and does not affect normal form functionality. Forms will continue to display and track analytics in Klaviyo regardless of whether a handler is registered.
+
 ## Geofencing
 
 >  Geofencing support is available in SDK version 5.2.0 and higher.
@@ -891,6 +936,20 @@ Klaviyo's SDK will determine and store the environment that your push token belo
 allowing your tokens to route sends to the correct environments. There is no additional setup needed.
 As long as you have deployed your application to Sandbox with our SDK employed to transmit push tokens to our backend,
 the ability to send and receive push on these Sandbox applications should work out-of-the-box.
+
+### Logging
+The SDK logs diagnostic information to the system console via `os.Logger`. Logging is enabled by default
+and can be toggled at runtime:
+
+```swift
+KlaviyoSDK().setLoggingEnabled(false) // silence all SDK logging
+KlaviyoSDK().setLoggingEnabled(true)  // re-enable logging
+KlaviyoSDK().isLoggingEnabled         // check the current setting
+```
+
+Disabling logging silences all log output from the `KlaviyoSwift`, `KlaviyoCore`, `KlaviyoForms`,
+and `KlaviyoLocation` modules. It does not affect `KlaviyoSwiftExtension`, which runs in a separate
+app-extension process.
 
 ### SDK Data Transfer
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.

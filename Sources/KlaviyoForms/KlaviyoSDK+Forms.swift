@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import KlaviyoSwift
+import KlaviyoCore
 
-extension KlaviyoSDK {
+extension KlaviyoSDKModule {
     /// Registers app to receive and display In-App Forms from Klaviyo.
     ///
     /// This will load forms data and establish ongoing listeners to present a form to the user
@@ -21,7 +21,7 @@ extension KlaviyoSDK {
     /// - Note: a public API key is required, so ``KlaviyoSDK().initialize(with:)`` must be called first. If the API key changes, the session will be re-initialized automatically with the new key.
     @MainActor
     @discardableResult
-    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> KlaviyoSDK {
+    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
@@ -33,7 +33,7 @@ extension KlaviyoSDK {
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
     @discardableResult
-    public func unregisterFromInAppForms() -> KlaviyoSDK {
+    public func unregisterFromInAppForms() -> Self {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.destroyWebviewAndListeners()
@@ -78,7 +78,7 @@ extension KlaviyoSDK {
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> KlaviyoSDK {
+    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> Self {
         IAFPresentationManager.shared.registerFormLifecycleHandler(handler)
         return self
     }
@@ -88,7 +88,7 @@ extension KlaviyoSDK {
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func unregisterFormLifecycleHandler() -> KlaviyoSDK {
+    public func unregisterFormLifecycleHandler() -> Self {
         IAFPresentationManager.shared.unregisterFormLifecycleHandler()
         return self
     }

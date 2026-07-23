@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import WebKit
 
@@ -201,11 +200,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func subscribeToProfileUpdates() {
-        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+        profileUpdatesCancellable = IdentityStore.shared.publisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
+            .sink { [weak self] newProfileData in
                 guard let self else { return }
-                guard case let .success(newProfileData) = result else { return }
 
                 if newProfileData != self.profileData {
                     if #available(iOS 14.0, *) {
@@ -327,10 +325,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
+                EventDispatcher.shared.dispatch(
+                    .createEvent(Event(name: .customEvent(metricName), properties: jsonEventData))
+                )
             }
         case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
+            EventDispatcher.shared.dispatch(.aggregateEvent(data))
         case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info(
@@ -375,7 +375,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
                     }
-                    KlaviyoInternal.handleDeepLink(url: url)
+                    EventDispatcher.shared.dispatch(.deepLink(url))
                 } else {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")

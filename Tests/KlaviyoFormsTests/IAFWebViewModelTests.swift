@@ -19,17 +19,10 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
-/// Installs a `klaviyoSwiftEnvironment.send` that fulfills `expectation` on `.openDeepLink`
-/// and passes every other action through to the original closure. Returns a closure that
-/// restores the original `send`, which callers must invoke (e.g. via `defer`).
-private func interceptDeepLinkDispatch(failing expectation: XCTestExpectation) -> () -> Void {
-    let originalSend = klaviyoSwiftEnvironment.send
-    klaviyoSwiftEnvironment.send = { action in
-        guard case .openDeepLink = action else { return originalSend(action) }
-        expectation.fulfill()
-        return nil
-    }
-    return { klaviyoSwiftEnvironment.send = originalSend }
+// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+private final class SpyDispatcher: EventDispatching {
+    private(set) var received: [InboundCommand] = []
+    func dispatch(_ command: InboundCommand) { received.append(command) }
 }
 
 final class IAFWebViewModelTests: XCTestCase {
@@ -55,8 +48,7 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
+        seedCoreStores()
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
@@ -70,9 +62,9 @@ final class IAFWebViewModelTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        // Now fetch profile data with clean state
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        // Read the seeded config/identity from the canonical Core stores
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
@@ -124,7 +116,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
 
         // When
@@ -396,11 +388,12 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
-        // A spurious .openDeepLink dispatch would mean the deep-link path ran instead.
-        let noDeepLink = XCTestExpectation(description: "no .openDeepLink dispatched")
-        noDeepLink.isInverted = true
-        let restoreSend = interceptDeepLinkDispatch(failing: noDeepLink)
-        defer { restoreSend() }
+        // A spurious dispatch through EventDispatcher would mean the deep-link path ran
+        // instead. IAFWebViewModel's deep-link branch calls EventDispatcher.shared.dispatch
+        // synchronously (no Task), so checking immediately after is reliable — no race.
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
 
         // When
         viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
@@ -415,9 +408,10 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(formName, "Newsletter")
         XCTAssertEqual(buttonLabel, "Learn More")
         XCTAssertEqual(url, URL(string: "https://example.com"))
-
-        // Give the deep-link path's Task a real window to run before concluding absence.
-        await fulfillment(of: [noDeepLink], timeout: 0.3)
+        XCTAssertTrue(
+            spyDispatcher.received.isEmpty,
+            "openExternally: true must not route through EventDispatcher's deep-link path"
+        )
     }
 
     @MainActor
@@ -466,6 +460,39 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
+    }
+
+    @MainActor
+    func testTrackProfileEventDispatchesCreateEvent() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When - JS sends a trackProfileEvent bridge message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Viewed Product",
+                "foo": "bar"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .createEvent(event) = spyDispatcher.received[0] else {
+            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
+        }
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertEqual(event.properties["foo"] as? String, "bar")
     }
 }
 
