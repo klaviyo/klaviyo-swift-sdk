@@ -55,7 +55,7 @@ public class DeepLinkHandler {
     /// URL in the system browser rather than route into the app.
     package func openExternalURL(_ url: URL) async {
         if #available(iOS 14.0, *) {
-            Logger.navigation.info("Opening external URL: '\(url.absoluteString, privacy: .public)' (bypassing custom deep link handler)")
+            Logger.navigation.info("Opening external URL: '\(url.absoluteString, privacy: .private)' (bypassing custom deep link handler)")
         }
         await Self.openWithUIApplicationAPI(url)
     }
