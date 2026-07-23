@@ -1,7 +1,9 @@
 {
-  "anonymousId" : "foo",
-  "email" : "foo",
-  "phoneNumber" : "foo",
+  "identity" : {
+    "anonymousId" : "foo",
+    "email" : "foo",
+    "phoneNumber" : "foo"
+  },
   "pushTokenData" : {
     "deviceData" : {
       "app_build" : "1",

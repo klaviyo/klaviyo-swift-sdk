@@ -45,10 +45,29 @@ struct KlaviyoState: Equatable, Codable {
 
     // state related stuff
     var apiKey: String?
-    var email: String?
-    var anonymousId: String?
-    var phoneNumber: String?
-    var externalId: String?
+    var identity: ProfileData
+
+    // Computed shims forwarding to `identity.*` so the rest of KlaviyoSwift compiles unchanged.
+    var email: String? {
+        get { identity.email }
+        set { identity.email = newValue }
+    }
+
+    var phoneNumber: String? {
+        get { identity.phoneNumber }
+        set { identity.phoneNumber = newValue }
+    }
+
+    var externalId: String? {
+        get { identity.externalId }
+        set { identity.externalId = newValue }
+    }
+
+    var anonymousId: String? {
+        get { identity.anonymousId }
+        set { identity.anonymousId = newValue }
+    }
+
     var pushTokenData: PushTokenData?
 
     // queueing related stuff
@@ -60,16 +79,72 @@ struct KlaviyoState: Equatable, Codable {
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
-    var isProcessingDeepLink = false
 
     enum CodingKeys: CodingKey {
         case apiKey
-        case email
-        case anonymousId
-        case phoneNumber
-        case externalId
+        case identity
         case queue
         case pushTokenData
+    }
+
+    /// Legacy coding keys for migrating state files written before identity was composed into `ProfileData`.
+    private enum LegacyCodingKeys: CodingKey {
+        case email, anonymousId, phoneNumber, externalId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
+        pushTokenData = try container.decodeIfPresent(PushTokenData.self, forKey: .pushTokenData)
+        queue = try container.decodeIfPresent([KlaviyoRequest].self, forKey: .queue) ?? []
+
+        if let identity = try container.decodeIfPresent(ProfileData.self, forKey: .identity) {
+            // New format: identity is a nested object.
+            self.identity = identity
+        } else {
+            // Legacy format: identity fields were stored at the top level.
+            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+            identity = try ProfileData(
+                email: legacy.decodeIfPresent(String.self, forKey: .email),
+                phoneNumber: legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
+                externalId: legacy.decodeIfPresent(String.self, forKey: .externalId),
+                anonymousId: legacy.decodeIfPresent(String.self, forKey: .anonymousId)
+            )
+        }
+    }
+
+    init(
+        apiKey: String? = nil,
+        email: String? = nil,
+        anonymousId: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        pushTokenData: PushTokenData? = nil,
+        queue: [KlaviyoRequest],
+        requestsInFlight: [KlaviyoRequest] = [],
+        initalizationState: InitializationState = .uninitialized,
+        flushing: Bool = false,
+        flushInterval: Double = StateManagementConstants.wifiFlushInterval,
+        retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
+        pendingRequests: [PendingRequest] = [],
+        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+    ) {
+        self.apiKey = apiKey
+        identity = ProfileData(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: anonymousId
+        )
+        self.pushTokenData = pushTokenData
+        self.queue = queue
+        self.requestsInFlight = requestsInFlight
+        self.initalizationState = initalizationState
+        self.flushing = flushing
+        self.flushInterval = flushInterval
+        self.retryState = retryState
+        self.pendingRequests = pendingRequests
+        self.pendingProfile = pendingProfile
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
@@ -379,14 +454,6 @@ private func removeStateFile(at file: URL) {
     }
 }
 
-private func logDevWarning(for identifier: String) {
-    environment.emitDeveloperWarning("""
-    \(identifier) is either empty or same as what is already set earlier.
-    The SDK will ignore this change, please use resetProfile for
-    resetting profile identifiers
-    """)
-}
-
 /// Loads SDK state from disk
 /// - Parameter apiKey: the API key that uniquely identiifies the company
 /// - Returns: an instance of the `KlaviyoState`
@@ -421,98 +488,4 @@ private func createAndStoreInitialState(with apiKey: String, at file: URL) -> Kl
     let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
-}
-
-extension Profile {
-    fileprivate static func updateProfileWithProperties(
-        email: String? = nil,
-        phoneNumber: String? = nil,
-        externalId: String? = nil,
-        dict: [Profile.ProfileKey: AnyEncodable]
-    ) -> Self {
-        var firstName: String?
-        var lastName: String?
-        var address1: String?
-        var address2: String?
-        var title: String?
-        var organization: String?
-        var city: String?
-        var region: String?
-        var country: String?
-        var zip: String?
-        var image: String?
-        var latitude: Double?
-        var longitude: Double?
-        var customProperties: [String: Any] = [:]
-
-        for (key, value) in dict {
-            switch key {
-            case .firstName:
-                firstName = value.value as? String
-            case .lastName:
-                lastName = value.value as? String
-            case .address1:
-                address1 = value.value as? String
-            case .address2:
-                address2 = value.value as? String
-            case .title:
-                title = value.value as? String
-            case .organization:
-                organization = value.value as? String
-            case .city:
-                city = value.value as? String
-            case .region:
-                region = value.value as? String
-            case .country:
-                country = value.value as? String
-            case .zip:
-                zip = value.value as? String
-            case .image:
-                image = value.value as? String
-            case .latitude:
-                latitude = value.value as? Double
-            case .longitude:
-                longitude = value.value as? Double
-            case let .custom(customKey: customKey):
-                customProperties[customKey] = value.value
-            }
-        }
-
-        let location = Profile.Location(
-            address1: address1,
-            address2: address2,
-            city: city,
-            country: country,
-            latitude: latitude,
-            longitude: longitude,
-            region: region,
-            zip: zip
-        )
-
-        let profile = Profile(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            firstName: firstName,
-            lastName: lastName,
-            organization: organization,
-            title: title,
-            image: image,
-            location: location,
-            properties: customProperties
-        )
-
-        return profile
-    }
-}
-
-extension String {
-    fileprivate func isNotEmptyOrSame(as state: String?, identifier: String) -> Bool {
-        let incoming = trimmingCharacters(in: .whitespacesAndNewlines)
-        if incoming.isEmpty || incoming == state {
-            logDevWarning(for: identifier)
-        }
-
-        return !incoming.isEmpty && incoming != state
-    }
 }

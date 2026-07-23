@@ -7,7 +7,6 @@
 
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import UIKit
 
@@ -120,12 +119,14 @@ class IAFPresentationManager {
     }
 
     private func initializeFormWithAPIKey() async throws {
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        guard let apiKey = SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
+            throw SDKError.notInitialized
+        }
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let profileData = IdentityStore.shared.current
         createFormWebView(apiKey: apiKey, profileData: profileData)
         setupFormLifecycleListener()
     }
@@ -215,7 +216,7 @@ class IAFPresentationManager {
 
     // MARK: - Profile Event Handling
 
-    /// Starts observing profile events from KlaviyoInternal.
+    /// Starts observing profile events from the KlaviyoCore event bus.
     func startProfileObservation() {
         guard profileEventObserver == nil else {
             if #available(iOS 14.0, *) {
@@ -320,7 +321,6 @@ class IAFPresentationManager {
         profileEventObserver = nil
         profileEventsTask?.cancel()
         profileEventsTask = nil
-        KlaviyoInternal.resetEventSubject()
 
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
@@ -465,9 +465,6 @@ class IAFPresentationManager {
         delayedPresentationTask?.cancel()
         formEventTask = nil
         delayedPresentationTask = nil
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
-        KlaviyoInternal.resetEventSubject()
         destroyWebView()
     }
 }

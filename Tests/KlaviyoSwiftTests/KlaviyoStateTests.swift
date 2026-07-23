@@ -470,4 +470,71 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertTrue(state.queue.contains { $0.id == "new-0" }, "Real-timestamped requests must survive")
         XCTAssertEqual(state.queue.last?.id, "newest")
     }
+
+    // MARK: - ProfileData migration
+
+    func testDecodesLegacyFlatIdentityJSON() throws {
+        let jsonString = """
+        {
+          "apiKey": "company-id",
+          "email": "a@b.com",
+          "phoneNumber": "+15555555555",
+          "externalId": "ext-1",
+          "anonymousId": "anon-1",
+          "queue": []
+        }
+        """
+        let json = Data(jsonString.utf8)
+
+        let state = try JSONDecoder().decode(KlaviyoState.self, from: json)
+
+        XCTAssertEqual(state.identity.email, "a@b.com")
+        XCTAssertEqual(state.identity.phoneNumber, "+15555555555")
+        XCTAssertEqual(state.identity.externalId, "ext-1")
+        XCTAssertEqual(state.identity.anonymousId, "anon-1")
+        XCTAssertEqual(state.apiKey, "company-id")
+    }
+
+    func testDecodesNewNestedIdentityJSON() throws {
+        let jsonString = """
+        {
+          "apiKey": "company-id",
+          "identity": {
+            "email": "a@b.com",
+            "phoneNumber": "+15555555555",
+            "externalId": "ext-1",
+            "anonymousId": "anon-1"
+          },
+          "queue": []
+        }
+        """
+        let json = Data(jsonString.utf8)
+
+        let state = try JSONDecoder().decode(KlaviyoState.self, from: json)
+
+        XCTAssertEqual(state.identity.email, "a@b.com")
+        XCTAssertEqual(state.identity.phoneNumber, "+15555555555")
+        XCTAssertEqual(state.identity.externalId, "ext-1")
+        XCTAssertEqual(state.identity.anonymousId, "anon-1")
+    }
+
+    func testEncodesIdentityAsNestedObject() throws {
+        let state = KlaviyoState(
+            apiKey: "company-id",
+            email: "a@b.com",
+            anonymousId: "anon-1",
+            queue: []
+        )
+
+        let data = try JSONEncoder().encode(state)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertNil(object["email"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["phoneNumber"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["externalId"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["anonymousId"], "identity fields must not be encoded at the top level")
+        let identity = try XCTUnwrap(object["identity"] as? [String: Any])
+        XCTAssertEqual(identity["email"] as? String, "a@b.com")
+        XCTAssertEqual(identity["anonymousId"] as? String, "anon-1")
+    }
 }
