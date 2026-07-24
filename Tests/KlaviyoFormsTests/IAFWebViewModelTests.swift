@@ -68,6 +68,10 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+
+        // Flush the IdentityStore CurrentValueSubject delivery queued by subscribeToProfileUpdates()
+        // and prime the main-actor Task scheduler so test-body Tasks start promptly.
+        await Task.yield()
     }
 
     override func tearDown() {

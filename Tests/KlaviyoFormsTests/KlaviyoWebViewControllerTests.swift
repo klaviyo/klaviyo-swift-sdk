@@ -118,6 +118,10 @@ final class IAFWebViewModelScriptTests: XCTestCase {
 
         // Create web view configuration
         config = WKWebViewConfiguration()
+
+        // Flush the IdentityStore CurrentValueSubject delivery queued by subscribeToProfileUpdates()
+        // and prime the main-actor Task scheduler so test-body Tasks start promptly.
+        await Task.yield()
     }
 
     // MARK: - Helper Methods
