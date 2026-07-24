@@ -191,27 +191,24 @@ class EventBufferTests: XCTestCase {
     }
 
     func testConcurrentReadingAndWriting() async throws {
-        // Given
-        let writeExpectation = XCTestExpectation(description: "Writing complete")
-        let readExpectation = XCTestExpectation(description: "Reading complete")
-
-        // When - write and read concurrently
-        DispatchQueue.global().async {
-            for iter in 0..<50 {
-                self.eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
+        // When - write and read concurrently via structured concurrency so both legs
+        // complete before the test body continues (DispatchQueue.async + XCTestExpectation
+        // only waits for the dispatches to be *scheduled*, not for the barrier writes
+        // inside buffer() to actually finish, causing flaky timeouts on loaded CI runners).
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for iter in 0..<50 {
+                    self.eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
+                }
             }
-            writeExpectation.fulfill()
-        }
-
-        DispatchQueue.global().async {
-            for _ in 0..<50 {
-                _ = self.eventBuffer.getRecentEvents()
+            group.addTask {
+                for _ in 0..<50 {
+                    _ = self.eventBuffer.getRecentEvents()
+                }
             }
-            readExpectation.fulfill()
         }
 
         // Then - should not crash
-        await fulfillment(of: [writeExpectation, readExpectation], timeout: 10.0)
         XCTAssertNoThrow(eventBuffer.getRecentEvents())
     }
 
