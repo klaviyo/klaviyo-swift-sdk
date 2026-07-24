@@ -329,7 +329,7 @@ func saveKlaviyoState(state: KlaviyoState) {
 
 private func klaviyoStateFile(apiKey: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-state.json"
-    let directory = environment.fileClient.libraryDirectory()
+    let directory = migrateFilesIfNeeded(apiKey: apiKey)
     return directory.appendingPathComponent(fileName, isDirectory: false)
 }
 

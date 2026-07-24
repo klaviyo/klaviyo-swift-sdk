@@ -16,24 +16,36 @@ public struct FileClient {
         write: @escaping (Data, URL) throws -> Void,
         fileExists: @escaping (String) -> Bool,
         removeItem: @escaping (String) throws -> Void,
-        libraryDirectory: @escaping () -> URL
+        libraryDirectory: @escaping () -> URL,
+        createDirectory: @escaping (URL, Bool) throws -> Void,
+        copyItem: @escaping (String, String) throws -> Void
     ) {
         self.write = write
         self.fileExists = fileExists
         self.removeItem = removeItem
         self.libraryDirectory = libraryDirectory
+        self.createDirectory = createDirectory
+        self.copyItem = copyItem
     }
 
     public var write: (Data, URL) throws -> Void
     public var fileExists: (String) -> Bool
     public var removeItem: (String) throws -> Void
     public var libraryDirectory: () -> URL
+    public var createDirectory: (URL, Bool) throws -> Void
+    public var copyItem: (String, String) throws -> Void
 
     public static let production = FileClient(
         write: write(data:url:),
         fileExists: FileManager.default.fileExists(atPath:),
         removeItem: FileManager.default.removeItem(atPath:),
-        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! }
+        libraryDirectory: { FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first! },
+        createDirectory: { url, withIntermediateDirectories in
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: withIntermediateDirectories, attributes: nil)
+        },
+        copyItem: { atPath, toPath in
+            try FileManager.default.copyItem(atPath: atPath, toPath: toPath)
+        }
     )
 }
 
