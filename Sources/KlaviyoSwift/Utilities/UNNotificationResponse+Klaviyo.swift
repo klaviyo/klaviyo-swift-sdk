@@ -82,6 +82,44 @@ extension UNNotificationResponse {
         return url
     }
 
+    /// Returns the external web URL from a Klaviyo notification payload, if present.
+    ///
+    /// Reads the `web_url` field. The presence of this field indicates the tap should open
+    /// the URL externally rather than route through the app's deep link handler.
+    /// Returns `nil` if the field is absent, the value is not a parseable URL, or the URL's
+    /// scheme is not in ``openUrlAllowedSchemes`` — unlisted schemes are dropped silently to
+    /// prevent dangerous schemes (e.g. `javascript:`, `file:`) from being opened.
+    var klaviyoWebUrl: URL? {
+        guard isKlaviyoNotification else {
+            return nil
+        }
+
+        guard let urlString = klaviyoProperties?["web_url"] as? String, !urlString.isEmpty else {
+            return nil
+        }
+
+        guard let url = URL(string: urlString) else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Unable to convert web_url string '\(urlString, privacy: .private)' to a valid URL.")
+            }
+            return nil
+        }
+
+        guard url.hasAllowedOpenUrlScheme else {
+            if #available(iOS 14.0, *) {
+                Logger.notifications.warning(
+                    """
+                    web_url '\(urlString, privacy: .private)' has a scheme not in the \
+                    allowed list; ignoring.
+                    """
+                )
+            }
+            return nil
+        }
+
+        return url
+    }
+
     // MARK: - Action Button Support
 
     /// Detects if the user tapped an action button (vs tapping the notification body).
