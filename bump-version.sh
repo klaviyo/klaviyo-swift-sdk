@@ -50,6 +50,7 @@ echo "Updating podspecs..."
 
 for podspec in *.podspec; do
   sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "$podspec"
+  # matches any s.dependency 'Klaviyo<Module>', '~> <version>' pin
   sed -i '' "s/'Klaviyo\([A-Za-z]*\)', '~> $currentVersion'/'Klaviyo\1', '~> $newVersion'/g" "$podspec"
 done
 
