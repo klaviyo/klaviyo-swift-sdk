@@ -159,7 +159,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -357,6 +357,113 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
         lifecycleTask.cancel()
+    }
+
+    // MARK: - External URL Tests (openDeepLink with openExternally: true)
+
+    private func makeOpenExternalUrlMessage(
+        url: String? = "https://example.com",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Learn More"
+    ) -> MockWKScriptMessage {
+        // External web URLs ride the openDeepLink message with openExternally: true;
+        // the URL is sent in the platform-split `ios`/`android` keys.
+        var data: [String: String] = [:]
+        data["ios"] = url
+        data["android"] = url
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        let dataBody = dataJson.isEmpty ? "\"openExternally\": true" : "\(dataJson), \"openExternally\": true"
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataBody) } }"
+        )
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlFiresLifecycleEvent() async throws {
+        // Given
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // A spurious dispatch through EventDispatcher would mean the deep-link path ran
+        // instead. IAFWebViewModel's deep-link branch calls EventDispatcher.shared.dispatch
+        // synchronously (no Task), so checking immediately after is reliable — no race.
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
+
+        // Then — the handler path is synchronous, so assert immediately.
+        // External URL clicks surface through the same formCtaClicked event as deep links.
+        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Learn More")
+        XCTAssertEqual(url, URL(string: "https://example.com"))
+        XCTAssertTrue(
+            spyDispatcher.received.isEmpty,
+            "openExternally: true must not route through EventDispatcher's deep-link path"
+        )
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(formId: nil, formName: nil))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire without form metadata")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: nil))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire with nil URL")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: "javascript://alert(1)"))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 
     @MainActor
