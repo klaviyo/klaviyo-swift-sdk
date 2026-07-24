@@ -35,10 +35,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     private typealias HandshakeContinuation = CheckedContinuation<Void, Error>
 
-    /// Pending continuation for an in-flight ``establishHandshake(timeout:)`` call. Resumed exactly
-    /// once, either by the `.handShook` bridge event or by the timeout task below — whichever
-    /// happens first clears this so the other is a no-op instead of a double-resume.
-    private var handshakeContinuation: HandshakeContinuation?
+    /// Thread-safe, actor-agnostic holder for the pending ``establishHandshake(timeout:)``
+    /// continuation. Deliberately doesn't require `@MainActor` to touch: the timeout side resumes
+    /// it from a plain, non-actor-isolated `Task`, so unblocking on timeout never needs the main
+    /// actor to schedule more work onto itself while `establishHandshake` is already suspended on it.
+    private final class HandshakeContinuationBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: HandshakeContinuation?
+
+        func exchange(_ newValue: HandshakeContinuation?) -> HandshakeContinuation? {
+            lock.lock()
+            defer { lock.unlock() }
+            let previous = continuation
+            continuation = newValue
+            return previous
+        }
+    }
+
+    private let handshakeBox = HandshakeContinuationBox()
 
     // MARK: - Scripts
 
@@ -185,19 +199,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         delegate.preloadUrl()
 
         do {
-            try await withCheckedThrowingContinuation { [weak self] (continuation: HandshakeContinuation) in
-                guard let self else {
-                    continuation.resume(throwing: ObjectStateError.objectDeallocated)
-                    return
-                }
+            try await withCheckedThrowingContinuation { [handshakeBox] (cont: HandshakeContinuation) in
+                _ = handshakeBox.exchange(cont)
 
-                handshakeContinuation = continuation
-
-                Task { @MainActor [weak self] in
+                Task {
                     try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    guard let self, let pending = handshakeContinuation else { return }
-                    handshakeContinuation = nil
-                    pending.resume(throwing: TimeoutError.timeout)
+                    if let pending = handshakeBox.exchange(nil) {
+                        pending.resume(throwing: TimeoutError.timeout)
+                    }
                 }
             }
         } catch let error as TimeoutError {
@@ -401,8 +410,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
-            if let pending = handshakeContinuation {
-                handshakeContinuation = nil
+            if let pending = handshakeBox.exchange(nil) {
                 pending.resume()
             }
             formLifecycleContinuation.yield(.handShook)
