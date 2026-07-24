@@ -180,10 +180,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         // AsyncStream.next() does not respond to cooperative task cancellation on all Swift
         // runtimes, so withThrowingTaskGroup cannot reliably unblock it. Instead, finish the
-        // stream after `timeout` seconds from an unstructured task; stream termination naturally
-        // unblocks the first(where:) await below on every build configuration.
+        // stream after `timeout` seconds from a detached task (off the main actor) so the
+        // timer is never blocked by main-actor contention in release builds.
         let handshakeContinuation = handshakeContinuation
-        let timeoutTask = Task {
+        let timeoutTask = Task.detached {
             try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
             handshakeContinuation.finish()
         }
