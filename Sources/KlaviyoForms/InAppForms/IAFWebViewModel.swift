@@ -178,29 +178,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         delegate.preloadUrl()
 
-        // Capture before suspending so the timeout task can call finish() from any context.
-        let continuation = handshakeContinuation
-
-        // An unstructured Task avoids withThrowingTaskGroup's implicit "wait for all children"
-        // behavior. When the sleep fires, continuation.finish() terminates the stream and unblocks
-        // the await below — no cancellation handler needed, works reliably on all supported runtimes.
-        let timeoutTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                continuation.finish()
-            } catch {
-                // Cancelled because the handshake arrived first; nothing to do.
+        do {
+            try await withTimeout(seconds: timeout) { [weak self] in
+                guard let self else { throw ObjectStateError.objectDeallocated }
+                await self.handshakeStream.first { _ in true }
             }
-        }
-
-        let result = await handshakeStream.first { _ in true }
-        timeoutTask.cancel()
-
-        if result == nil {
+        } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
-            throw TimeoutError.timeout
+            throw error
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error establishing handshake: \(error)")
+            }
+            throw error
         }
     }
 
@@ -225,7 +217,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        return "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
+        let profileAttributesScript = "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
+        return profileAttributesScript
     }
 
     @MainActor
@@ -307,13 +300,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formShown(formId: formId, formName: formName)
-                )
+                    for: .formShown(formId: formId, formName: formName))
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formWillAppear missing metadata — skipping lifecycle callback"
-                    )
+                        "formWillAppear missing metadata — skipping lifecycle callback")
                 }
             }
         case let .formDisappeared(formId, formName):
@@ -324,13 +315,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let formId, !formId.isEmpty,
                let formName, !formName.isEmpty {
                 IAFPresentationManager.shared.invokeLifecycleHandler(
-                    for: .formDismissed(formId: formId, formName: formName)
-                )
+                    for: .formDismissed(formId: formId, formName: formName))
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "formDisappeared missing metadata — skipping lifecycle callback"
-                    )
+                        "formDisappeared missing metadata — skipping lifecycle callback")
                 }
             }
         case let .trackProfileEvent(data):
