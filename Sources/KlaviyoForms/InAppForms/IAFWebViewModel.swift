@@ -178,28 +178,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         delegate.preloadUrl()
 
-        // Capture on the main actor before suspending so onCancel can call finish() from any thread.
+        // Capture before suspending so the timeout task can call finish() from any context.
         let continuation = handshakeContinuation
 
-        do {
-            try await withTimeout(seconds: timeout) { [weak self] in
-                guard let self else { throw ObjectStateError.objectDeallocated }
-                _ = await withTaskCancellationHandler {
-                    await self.handshakeStream.first { _ in true }
-                } onCancel: {
-                    continuation.finish()
-                }
+        // An unstructured Task avoids withThrowingTaskGroup's implicit "wait for all children"
+        // behavior. When the sleep fires, continuation.finish() terminates the stream and unblocks
+        // the await below — no cancellation handler needed, works reliably on all supported runtimes.
+        let timeoutTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                continuation.finish()
+            } catch {
+                // Cancelled because the handshake arrived first; nothing to do.
             }
-        } catch let error as TimeoutError {
+        }
+
+        let result = await handshakeStream.first { _ in true }
+        timeoutTask.cancel()
+
+        if result == nil {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
             }
-            throw error
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error establishing handshake: \(error)")
-            }
-            throw error
+            throw TimeoutError.timeout
         }
     }
 
