@@ -32,7 +32,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
-    private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
+
+    private typealias HandshakeContinuation = CheckedContinuation<Void, Error>
+
+    /// Pending continuation for an in-flight ``establishHandshake(timeout:)`` call. Resumed exactly
+    /// once, either by the `.handShook` bridge event or by the timeout task below — whichever
+    /// happens first clears this so the other is a no-op instead of a double-resume.
+    private var handshakeContinuation: HandshakeContinuation?
 
     // MARK: - Scripts
 
@@ -179,9 +185,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         delegate.preloadUrl()
 
         do {
-            try await withTimeout(seconds: timeout) { [weak self] in
-                guard let self else { throw ObjectStateError.objectDeallocated }
-                await self.handshakeStream.first { _ in true }
+            try await withCheckedThrowingContinuation { [weak self] (continuation: HandshakeContinuation) in
+                guard let self else {
+                    continuation.resume(throwing: ObjectStateError.objectDeallocated)
+                    return
+                }
+
+                handshakeContinuation = continuation
+
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    guard let self, let pending = handshakeContinuation else { return }
+                    handshakeContinuation = nil
+                    pending.resume(throwing: TimeoutError.timeout)
+                }
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
@@ -384,8 +401,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
-            handshakeContinuation.yield()
-            handshakeContinuation.finish()
+            if let pending = handshakeContinuation {
+                handshakeContinuation = nil
+                pending.resume()
+            }
             formLifecycleContinuation.yield(.handShook)
         case .analyticsEvent:
             ()
