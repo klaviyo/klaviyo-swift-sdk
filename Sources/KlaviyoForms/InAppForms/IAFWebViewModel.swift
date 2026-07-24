@@ -181,7 +181,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         do {
             try await withTimeout(seconds: timeout) { [weak self] in
                 guard let self else { throw ObjectStateError.objectDeallocated }
-                await self.handshakeStream.first { _ in true }
+                let continuation = self.handshakeContinuation
+                await withTaskCancellationHandler {
+                    _ = await self.handshakeStream.first { _ in true }
+                } onCancel: {
+                    continuation.finish()
+                }
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
