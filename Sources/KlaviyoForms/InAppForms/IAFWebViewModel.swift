@@ -32,7 +32,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
-    private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
+    private var pendingHandshake: CheckedContinuation<Void, Error>?
+    private var handshakeTimeoutTask: Task<Void, any Error>?
 
     // MARK: - Scripts
 
@@ -178,22 +179,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         delegate.preloadUrl()
 
-        // AsyncStream.next() does not respond to cooperative task cancellation on all Swift
-        // runtimes, so withThrowingTaskGroup cannot reliably unblock it. Instead, finish the
-        // stream after `timeout` seconds from a detached task (off the main actor) so the
-        // timer is never blocked by main-actor contention in release builds.
-        let handshakeContinuation = handshakeContinuation
-        let timeoutTask = Task.detached {
-            try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-            handshakeContinuation.finish()
-        }
-        defer { timeoutTask.cancel() }
-
-        guard await handshakeStream.first(where: { _ in true }) != nil else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+        // withCheckedThrowingContinuation provides a reliable one-shot rendezvous: either
+        // the handshake delivery or the timeout resumes the continuation — whichever runs
+        // first on the main actor wins, and the guard-let in the timeout body prevents a
+        // double-resume. This avoids AsyncStream.next()'s unreliable cancellation behaviour
+        // across build configurations.
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            pendingHandshake = cont
+            handshakeTimeoutTask = Task { [weak self] in
+                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                guard let self, let cont = pendingHandshake else { return }
+                pendingHandshake = nil
+                handshakeTimeoutTask = nil
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
+                }
+                cont.resume(throwing: TimeoutError.timeout)
             }
-            throw TimeoutError.timeout
         }
     }
 
@@ -407,8 +409,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
-            handshakeContinuation.yield()
-            handshakeContinuation.finish()
+            handshakeTimeoutTask?.cancel()
+            handshakeTimeoutTask = nil
+            pendingHandshake?.resume()
+            pendingHandshake = nil
             formLifecycleContinuation.yield(.handShook)
         case .analyticsEvent:
             ()
