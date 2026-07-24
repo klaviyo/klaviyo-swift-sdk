@@ -24,6 +24,19 @@ enum StateManagementConstants {
     static let wifiFlushInterval = 10.0
     static let maxQueueSize = 200
     static let initialAttempt = 1
+
+    /// Maximum number of flushes the token bucket can hold. Each flush consumes one
+    /// token; tokens refill over time at a rate derived from `flushInterval` (the
+    /// network-aware cadence). A capacity greater than 1 lets the SDK absorb a burst
+    /// of flushes after an idle period while still capping the long-term flush rate at
+    /// the refill rate — see `KlaviyoState.consumeFlushToken(currentTime:)`.
+    static let flushTokenBucketCapacity = 5.0
+
+    /// Queue depth that triggers an early flush attempt instead of waiting for the next
+    /// flush-interval tick. When the queue reaches this size the SDK schedules an immediate
+    /// flush to drain large bursts quickly; the token bucket still gates whether the flush
+    /// actually proceeds, so the long-term rate is preserved.
+    static let flushDepth = 25
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
@@ -186,6 +199,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+                // Restore the token bucket to full capacity so the incoming company's
+                // first flush is not throttled by activity from the previous company.
+                state.resetFlushTokenBucket()
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
@@ -315,6 +331,21 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             if state.queue.isEmpty {
+                return .none
+            }
+
+            // Prioritized engagement events (opened-push/geofence) bypass the token gate
+            // entirely so a depleted bucket never delays them; see `pendingPrioritizedFlush`.
+            let bypassTokenGate = state.consumePendingPrioritizedFlush()
+
+            // Gate the flush on the token bucket: this enforces the long-term flush rate
+            // while still allowing bursts immediately after idle periods. If no token is
+            // available we defer — the next flush-interval tick (or queue-depth trigger)
+            // will retry once tokens have refilled. Skipped when the governor is disabled
+            // (restoring the legacy "flush on every interval tick" behavior) or when this
+            // flush was triggered by a prioritized engagement event.
+            if FlushGovernorConfig.isEnabled, !bypassTokenGate,
+               !state.consumeFlushToken(currentTime: environment.date()) {
                 return .none
             }
 
@@ -509,11 +540,21 @@ struct KlaviyoReducer: ReducerProtocol {
             let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
             if shouldPrioritize {
                 state.queue.insert(request, at: 0)
+                // Flag the next `.flushQueue` to bypass the token-bucket gate: engagement
+                // events are rare and must never wait on a depleted bucket, and they
+                // shouldn't drain it either.
+                state.pendingPrioritizedFlush = true
             } else {
                 state.enqueueRequest(request: request)
             }
 
-            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            // Prioritized events flush immediately, bypassing the token gate (see
+            // `pendingPrioritizedFlush`); otherwise flush early only once the queue reaches the
+            // depth threshold, where the token bucket in `.flushQueue` still decides whether the
+            // attempt actually proceeds, keeping this within the long-term rate limit.
+            let shouldFlushOnDepth = FlushGovernorConfig.isEnabled && state.shouldFlushForQueueDepth
+            let shouldFlushNow = shouldPrioritize || shouldFlushOnDepth
+            let baseEffect = shouldFlushNow ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { KlaviyoInternal.publishEvent(event) }
@@ -531,7 +572,8 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            return .none
+            let shouldFlush = FlushGovernorConfig.isEnabled && state.shouldFlushForQueueDepth
+            return shouldFlush ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState

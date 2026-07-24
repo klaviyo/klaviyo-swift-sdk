@@ -140,6 +140,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -173,6 +174,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -206,6 +208,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
 
         await store.receive(.sendRequest)
@@ -313,6 +316,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
         await store.receive(.sendRequest)
 
@@ -360,6 +364,7 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            $0.expectFlushTokenConsumed()
         }
         await store.receive(.sendRequest)
 
@@ -480,6 +485,7 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
             $0.flushing = true
+            $0.expectFlushTokenConsumed()
             $0.pendingProfile = nil
             request = $0.requestsInFlight[0]
             switch request?.endpoint {
@@ -616,6 +622,11 @@ class StateManagementTests: XCTestCase {
                         )
                     )
                 )
+                // Opened-push is prioritized: it flags the next `.flushQueue` to bypass the
+                // token-bucket gate (see `pendingPrioritizedFlush`).
+                if eventName == ._openedPush {
+                    $0.pendingPrioritizedFlush = true
+                }
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -754,6 +765,8 @@ class StateManagementTests: XCTestCase {
                 )
             )
             $0.queue.insert(geofenceRequest!, at: 0)
+            // Geofence/opened-push events flag the next `.flushQueue` to bypass the token gate.
+            $0.pendingPrioritizedFlush = true
         }
 
         var actualGeofenceRequest: KlaviyoRequest?
@@ -761,6 +774,9 @@ class StateManagementTests: XCTestCase {
             $0.flushing = true
             $0.requestsInFlight = $0.queue
             $0.queue = []
+            // The prioritized flag is consumed (and the token gate bypassed), so no token is
+            // spent on this flush — unlike a scheduled/depth-triggered flush.
+            $0.pendingPrioritizedFlush = false
             XCTAssertEqual($0.requestsInFlight.count, 3, "Should have 3 requests in flight")
             actualGeofenceRequest = $0.requestsInFlight[0]
             if case let .createEvent(_, payload) = actualGeofenceRequest!.endpoint {

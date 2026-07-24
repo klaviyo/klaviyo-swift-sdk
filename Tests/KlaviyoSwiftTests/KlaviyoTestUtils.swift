@@ -92,6 +92,16 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
+extension KlaviyoState {
+    /// Mirrors the token-bucket mutation performed by a single successful `.flushQueue`:
+    /// one token is consumed and the refill timestamp is advanced to "now". Use inside
+    /// `TestStore` expectation closures to keep flush assertions DRY.
+    mutating func expectFlushTokenConsumed() {
+        availableFlushTokens -= 1
+        lastFlushTokenRefill = environment.date()
+    }
+}
+
 extension FileClient {
     static let test = FileClient(
         write: { _, _ in },
