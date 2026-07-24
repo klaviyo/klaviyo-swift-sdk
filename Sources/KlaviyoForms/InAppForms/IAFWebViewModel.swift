@@ -39,16 +39,50 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// continuation. Deliberately doesn't require `@MainActor` to touch: the timeout side resumes
     /// it from a plain, non-actor-isolated `Task`, so unblocking on timeout never needs the main
     /// actor to schedule more work onto itself while `establishHandshake` is already suspended on it.
+    ///
+    /// Tracks a generation token so a stale timeout task from a superseded call can never resume
+    /// a newer one's continuation -- it only fires if its own token still matches the box's
+    /// current generation.
     private final class HandshakeContinuationBox: @unchecked Sendable {
         private let lock = NSLock()
         private var continuation: HandshakeContinuation?
+        private var generation = 0
 
-        func exchange(_ newValue: HandshakeContinuation?) -> HandshakeContinuation? {
+        /// Stores `newValue`, returning a token for the timeout task to check back in with.
+        /// Any still-pending prior continuation is resumed with `error` rather than dropped.
+        func store(_ newValue: HandshakeContinuation, supersedingWith error: Error) -> Int {
             lock.lock()
-            defer { lock.unlock() }
             let previous = continuation
             continuation = newValue
-            return previous
+            generation += 1
+            let token = generation
+            lock.unlock()
+            previous?.resume(throwing: error)
+            return token
+        }
+
+        /// Resumes the pending continuation with `error`, but only if `token` still matches the
+        /// most recently stored continuation's generation -- otherwise a newer call has already
+        /// superseded it and this is a no-op.
+        func resumeIfCurrent(token: Int, throwing error: Error) {
+            lock.lock()
+            guard generation == token, let pending = continuation else {
+                lock.unlock()
+                return
+            }
+            continuation = nil
+            lock.unlock()
+            pending.resume(throwing: error)
+        }
+
+        /// Resumes the pending continuation successfully. The `.handShook` bridge event always
+        /// pertains to the most recently stored wait, so no token check is needed here.
+        func resumeSuccess() {
+            lock.lock()
+            let pending = continuation
+            continuation = nil
+            lock.unlock()
+            pending?.resume()
         }
     }
 
@@ -200,13 +234,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         do {
             try await withCheckedThrowingContinuation { [handshakeBox] (cont: HandshakeContinuation) in
-                _ = handshakeBox.exchange(cont)
+                let token = handshakeBox.store(cont, supersedingWith: ObjectStateError.objectDeallocated)
 
                 Task {
                     try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    if let pending = handshakeBox.exchange(nil) {
-                        pending.resume(throwing: TimeoutError.timeout)
-                    }
+                    handshakeBox.resumeIfCurrent(token: token, throwing: TimeoutError.timeout)
                 }
             }
         } catch let error as TimeoutError {
@@ -410,9 +442,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
-            if let pending = handshakeBox.exchange(nil) {
-                pending.resume()
-            }
+            handshakeBox.resumeSuccess()
             formLifecycleContinuation.yield(.handShook)
         case .analyticsEvent:
             ()
