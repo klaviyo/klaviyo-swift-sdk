@@ -48,16 +48,8 @@ sed -i '' "s/__klaviyoSwiftVersion = \"$currentVersion\"/__klaviyoSwiftVersion =
 # 2. Update podspecs
 echo "Updating podspecs..."
 
-# Update every root-level podspec: bump s.version and any inter-Klaviyo dependency pin.
-# Using a loop avoids hardcoding which module depends on which, so the script stays
-# correct when the dependency graph changes (e.g. KlaviyoForms moving from KlaviyoSwift
-# to KlaviyoCore in the iOS modularization).
 for podspec in *.podspec; do
-  # Bump the podspec's own version declaration
   sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "$podspec"
-  # Bump any inter-Klaviyo dependency pin regardless of which module it names.
-  # The capture group preserves the module name so this works even when the
-  # dependency graph changes (e.g. KlaviyoForms moving from KlaviyoSwift to KlaviyoCore).
   sed -i '' "s/'Klaviyo\([A-Za-z]*\)', '~> $currentVersion'/'Klaviyo\1', '~> $newVersion'/g" "$podspec"
 done
 
