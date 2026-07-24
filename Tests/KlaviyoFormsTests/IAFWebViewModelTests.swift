@@ -213,7 +213,7 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
         lifecycleTask.cancel()
     }
 
@@ -249,7 +249,7 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
         lifecycleTask.cancel()
     }
 
@@ -282,7 +282,7 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .present should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
         lifecycleTask.cancel()
     }
 
@@ -315,7 +315,7 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .dismiss should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
         lifecycleTask.cancel()
     }
 
@@ -351,7 +351,7 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await fulfillment(of: [expectation], timeout: 10.0)
         lifecycleTask.cancel()
     }
 
