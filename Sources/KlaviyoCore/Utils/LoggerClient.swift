@@ -19,7 +19,6 @@ public struct LoggerClient {
     public static let production = Self(error: { message in os_log("%{public}s", type: .error, message) })
 }
 
-@usableFromInline
 @inline(__always)
 func runtimeWarn(
     _ message: @autoclosure () -> String,

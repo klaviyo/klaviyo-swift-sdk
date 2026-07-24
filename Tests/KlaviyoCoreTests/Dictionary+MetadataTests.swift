@@ -5,7 +5,7 @@
 //  Created by Ajay Subramanya on 10/10/25.
 //
 
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import XCTest
 
 final class DictionaryMetadataTests: XCTestCase {

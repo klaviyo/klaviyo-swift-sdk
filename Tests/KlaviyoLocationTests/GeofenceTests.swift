@@ -9,7 +9,7 @@
 @testable import KlaviyoSwift
 import CoreLocation
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import XCTest
 
 final class GeofenceTests: XCTestCase {

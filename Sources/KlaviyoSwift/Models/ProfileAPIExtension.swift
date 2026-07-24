@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 extension String {
     internal func trimWhiteSpaceOrReturnNilIfEmpty() -> String? {

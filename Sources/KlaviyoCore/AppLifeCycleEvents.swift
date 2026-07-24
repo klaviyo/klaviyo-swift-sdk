@@ -23,6 +23,7 @@ public enum LifeCycleEvents {
 public struct AppLifeCycleEvents {
     public var lifeCycleEvents: () -> AnyPublisher<LifeCycleEvents, Never>
 
+    @_spi(KlaviyoPrivate)
     public init(lifeCycleEvents: @escaping () -> AnyPublisher<LifeCycleEvents, Never> = {
         let terminated = environment
             .notificationCenterPublisher(UIApplication.willTerminateNotification)

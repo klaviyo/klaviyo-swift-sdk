@@ -7,7 +7,7 @@
 
 @testable import KlaviyoSwift
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import XCTest
 
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds

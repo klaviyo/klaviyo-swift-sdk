@@ -14,7 +14,7 @@
 import AnyCodable
 import Combine
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import OSLog
 import UIKit
 import UserNotifications

@@ -1,4 +1,4 @@
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 import XCTest
 
 final class WithTimeoutTests: XCTestCase {

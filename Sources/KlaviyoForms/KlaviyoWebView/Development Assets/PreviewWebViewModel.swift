@@ -8,7 +8,7 @@
 #if DEBUG
 import Combine
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import WebKit
 
 // ViewModel for testing the KlaviyoWebViewController & KlaviyoWebViewModeling protocol in Xcode previews only.

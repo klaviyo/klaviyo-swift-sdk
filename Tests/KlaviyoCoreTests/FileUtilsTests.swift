@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 9/29/22.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 import XCTest
 
 class FileUtilsTests: XCTestCase {

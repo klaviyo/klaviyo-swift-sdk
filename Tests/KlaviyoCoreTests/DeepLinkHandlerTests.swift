@@ -5,7 +5,7 @@
 //  Created by Claude on 9/17/25.
 //
 
-@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoCore
 import XCTest
 
 final class DeepLinkHandlerTests: XCTestCase {

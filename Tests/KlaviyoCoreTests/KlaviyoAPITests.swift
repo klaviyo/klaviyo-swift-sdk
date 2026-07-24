@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 11/16/22.
 //
 
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 import SnapshotTesting
 import XCTest
 

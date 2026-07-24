@@ -7,7 +7,7 @@
 
 import AnyCodable
 import Foundation
-import KlaviyoCore
+@_spi(KlaviyoPrivate) import KlaviyoCore
 
 public struct Event: Equatable {
     public enum EventName: Equatable, Hashable {
