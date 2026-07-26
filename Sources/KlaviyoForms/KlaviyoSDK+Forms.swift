@@ -48,7 +48,8 @@ extension KlaviyoSDKModule {
     /// The handler will be invoked when:
     /// - A form is shown (``FormLifecycleEvent/formShown(formId:formName:)``)
     /// - A form is dismissed (``FormLifecycleEvent/formDismissed(formId:formName:)``)
-    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
+    /// - A user taps a CTA in a form, whether it opens an in-app deep link or an external/system
+    ///   URL (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
     ///
     /// Each event case carries contextual data including `formId`, `formName`, and
     /// CTA-specific fields (`buttonLabel`, `deepLinkUrl`) where applicable.
@@ -66,7 +67,8 @@ extension KlaviyoSDKModule {
     ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
     ///         Analytics.track("Form CTA Clicked", properties: [
     ///             "formId": formId,
-    ///             "buttonLabel": buttonLabel
+    ///             "buttonLabel": buttonLabel,
+    ///             "url": deepLinkUrl.absoluteString
     ///         ])
     ///     }
     /// }

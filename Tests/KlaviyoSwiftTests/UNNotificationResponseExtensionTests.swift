@@ -235,4 +235,145 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         let response = try UNNotificationResponse.with(userInfo: userInfo)
         XCTAssertEqual(response.klaviyoDedupKey, response.notification.request.identifier)
     }
+
+    // MARK: - klaviyoWebUrl Tests
+
+    func testKlaviyoWebUrl_WithValidURL_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "https://example.com/sale"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "https://example.com/sale")
+    }
+
+    func testKlaviyoWebUrl_WithInvalidURLString_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "ht tp://invalid-url"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithEmptyString_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": ""
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WhenAbsent_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithNonKlaviyoNotification_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "web_url": "https://example.com"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithNonStringValue_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": 12_345
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithDeepLinkScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "klaviyotest://forms"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithHttpScheme_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "http://example.com"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "http://example.com")
+    }
+
+    // MARK: - Allowlisted non-web schemes
+
+    func testKlaviyoWebUrl_WithMailtoScheme_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "mailto:test@example.com"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "mailto:test@example.com")
+    }
+
+    func testKlaviyoWebUrl_WithTelScheme_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "tel:+15551234567"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "tel:+15551234567")
+    }
+
+    func testKlaviyoWebUrl_WithSmsScheme_ReturnsURL() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "sms:+15551234567"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertEqual(response.klaviyoWebUrl?.absoluteString, "sms:+15551234567")
+    }
+
+    // MARK: - Blocked schemes
+
+    func testKlaviyoWebUrl_WithSmstoScheme_ReturnsNil() throws {
+        // smsto: is Android-only; iOS Messages registers sms: but not smsto:, so it is
+        // deliberately absent from the iOS allowlist and dropped here.
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "smsto:+15551234567"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithIntentScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "intent://scan/#Intent;scheme=zxing;package=com.example;end"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithJavascriptScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "javascript:alert(1)"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    func testKlaviyoWebUrl_WithFileScheme_ReturnsNil() throws {
+        let payload: [AnyHashable: Any] = [
+            "body": ["_k": "some-value"],
+            "web_url": "file:///etc/passwd"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
+        XCTAssertNil(response.klaviyoWebUrl)
+    }
 }

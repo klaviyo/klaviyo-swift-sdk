@@ -148,10 +148,40 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
-        guard queue.count + 1 < StateManagementConstants.maxQueueSize else {
-            return
-        }
+        evictOldestIfAtCapacity()
         queue.append(request)
+    }
+
+    /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
+    /// geofence events that should flush immediately), enforcing the same capacity cap as
+    /// ``enqueueRequest(request:)``.
+    mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
+        evictOldestIfAtCapacity()
+        queue.insert(request, at: 0)
+    }
+
+    /// Evicts the oldest queued request (by `enqueuedAt`) when the queue is at or above
+    /// capacity, making room for one more.
+    private mutating func evictOldestIfAtCapacity() {
+        guard queue.count >= StateManagementConstants.maxQueueSize else { return }
+        let maxSize = StateManagementConstants.maxQueueSize
+        environment.emitDeveloperWarning(
+            "Request queue at capacity (\(maxSize)); evicting oldest request(s) to make room.")
+        // Evict the oldest by wall-clock enqueue time. `min(by:)` returns the first minimal
+        // element, so ties — and legacy `.distantPast` entries carried across an app upgrade —
+        // break by front-most queue position (age order). A backwards clock correction (e.g. an
+        // NTP step) could momentarily mis-order two closely-spaced timestamps, but that only
+        // changes *which* near-oldest request is dropped at overflow; we accept wall-clock here
+        // rather than thread a monotonic sequence counter through every enqueue path.
+        //
+        // Loop rather than evict once: the queue can already be over capacity (e.g. init-time
+        // queue merging or in-flight requests reinserted at the front), and a single removal
+        // would leave it permanently above the bound. Drain to maxSize - 1 so the caller's
+        // append/insert lands the queue at exactly the cap.
+        while queue.count >= maxSize,
+              let oldestIndex = queue.indices.min(by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }) {
+            queue.remove(at: oldestIndex)
+        }
     }
 
     mutating func updateEmail(email: String) {

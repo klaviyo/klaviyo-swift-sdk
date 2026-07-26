@@ -41,6 +41,19 @@ enum DeepLinkManager {
         await environment.linkHandler.openURL(url)
         isProcessingDeepLink = false
     }
+
+    /// Opens an external web/system URL via the shared environment link handler,
+    /// bypassing any registered custom deep link handler. Used by the `open_url`
+    /// push action where the customer explicitly chose to open a URL in the
+    /// system browser rather than route into the app. Unlike `openDeepLink`,
+    /// this has no reentrancy guard — concurrent external opens are harmless.
+    static func openExternalURL(_ url: URL) async {
+        if let spy = openExternalURLSpy {
+            spy(url)
+            return
+        }
+        await environment.linkHandler.openExternalURL(url)
+    }
 }
 
 // MARK: - Test-only hooks
@@ -52,10 +65,15 @@ extension DeepLinkManager {
     /// Reset to nil after each test via `resetToProduction()`.
     static var openDeepLinkSpy: ((URL) -> Void)?
 
-    /// Resets the spy and the transient processing flag.
-    /// Call this in `setUp` and `tearDown` of any test that installs the spy.
+    /// When non-nil, called by `openExternalURL(_:)` instead of the production path.
+    /// Reset to nil after each test via `resetToProduction()`.
+    static var openExternalURLSpy: ((URL) -> Void)?
+
+    /// Resets the spies and the transient processing flag.
+    /// Call this in `setUp` and `tearDown` of any test that installs a spy.
     static func resetToProduction() {
         openDeepLinkSpy = nil
+        openExternalURLSpy = nil
         isProcessingDeepLink = false
     }
 }
