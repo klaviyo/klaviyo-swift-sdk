@@ -624,10 +624,7 @@ class KlaviyoSDKTests: XCTestCase {
         let callback = XCTestExpectation(description: "completion is called")
         let noDeepLink = XCTestExpectation(description: "no openDeepLink dispatched")
         noDeepLink.isInverted = true
-        klaviyoSwiftEnvironment.send = { action in
-            if case .openDeepLink = action { noDeepLink.fulfill() }
-            return nil
-        }
+        DeepLinkManager.openDeepLinkSpy = { _ in noDeepLink.fulfill() }
         let push_body: [AnyHashable: Any] = [
             "body": ["_k": ["foo": "bar"]],
             "url": "https://example.com/deeplink"
