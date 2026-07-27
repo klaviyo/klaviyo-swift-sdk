@@ -5,6 +5,7 @@ struct LoginView: View {
     @State private var email: String = ""
     @State private var zipcode: String = ""
     @State private var rememberMe: Bool = true
+    @State private var subscribeToMarketing: Bool = false
 
     var body: some View {
         ScrollView {
@@ -69,6 +70,20 @@ struct LoginView: View {
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
                     }
 
+                    // Collect marketing consent at signup, shown only when a list ID is configured
+                    if AppDelegate.subscriptionListId != nil {
+                        HStack {
+                            Text("Subscribe to email marketing")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Toggle("", isOn: $subscribeToMarketing)
+                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        }
+                    }
+
                     Button(action: login) {
                         Text("Get Started")
                             .font(.headline)
@@ -96,6 +111,11 @@ struct LoginView: View {
 
     private func login() {
         appState.login(email: email, zipcode: zipcode)
+
+        // Subscribe after login so the profile already has the email set
+        if subscribeToMarketing, let listId = AppDelegate.subscriptionListId {
+            appState.subscribeToList(listId: listId)
+        }
     }
 
     private var isFormInvalid: Bool {
