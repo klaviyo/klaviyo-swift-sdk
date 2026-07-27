@@ -72,16 +72,12 @@ struct LoginView: View {
 
                     // Collect marketing consent at signup, shown only when a list ID is configured
                     if AppDelegate.subscriptionListId != nil {
-                        HStack {
+                        Toggle(isOn: $subscribeToMarketing) {
                             Text("Subscribe to email marketing")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-
-                            Spacer()
-
-                            Toggle("", isOn: $subscribeToMarketing)
-                                .toggleStyle(SwitchToggleStyle(tint: .blue))
                         }
+                        .toggleStyle(SwitchToggleStyle(tint: .blue))
                     }
 
                     Button(action: login) {
