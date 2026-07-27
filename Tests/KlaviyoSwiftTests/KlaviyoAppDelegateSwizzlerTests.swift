@@ -83,7 +83,7 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
 
         XCTAssertNil(
             class_getInstanceMethod(ForwardingProxyDelegate.self, didRegisterSelector),
-            "Proxy class must not have the method in its IMP table; otherwise we're not testing the forwarding path"
+            "Proxy class must not have the method in its IMP table"
         )
         XCTAssertTrue(
             proxy.responds(to: didRegisterSelector),
@@ -105,7 +105,7 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
     func testResolveTargetSubclassWithInheritedMethod() {
         // Resolver returns the concrete subclass even when the method is only inherited,
         // so performSwizzle can graft rather than exchange the superclass IMP.
-        let sub = SubclassAppDelegate()
+        let delegate = SubclassAppDelegate()
 
         XCTAssertNotNil(
             class_getInstanceMethod(SubclassAppDelegate.self, didRegisterSelector),
@@ -118,7 +118,7 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertFalse(ownSelectors.contains(didRegisterSelector),
                        "Precondition: subclass must not own the method")
 
-        let resolved: AnyClass = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: sub)
+        let resolved: AnyClass = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: delegate)
         XCTAssertTrue(resolved == SubclassAppDelegate.self)
     }
 }
