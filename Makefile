@@ -1,6 +1,11 @@
 CONFIG = debug
 XCODE = 15.2
-PLATFORM_IOS = iOS Simulator,id=$(call udid_for,iOS,iPhone \d\+ Pro [^M])
+# Pin the simulator runtime. Left unpinned, the macOS-15 runner picks its newest
+# installed simulator (currently iOS 26), where Swift-concurrency code hangs under
+# release optimization. iOS 18 is present on every CI runner image and passes
+# consistently. Bump this as the runner images move forward.
+IOS_RUNTIME = iOS 18
+PLATFORM_IOS = iOS Simulator,id=$(call udid_for,$(IOS_RUNTIME),iPhone \d\+ Pro [^M])
 
 
 default: test-all
@@ -16,7 +21,10 @@ test-library:
 			-enableCodeCoverage YES \
 			-configuration=$(CONFIG) \
 			-scheme klaviyo-swift-sdk-Package \
-			-destination platform="$$platform" || exit 1; \
+			-destination platform="$$platform" \
+			-test-timeouts-enabled YES \
+			-default-test-execution-time-allowance 120 \
+			-maximum-test-execution-time-allowance 300 || exit 1; \
 	done;
 
 define udid_for
