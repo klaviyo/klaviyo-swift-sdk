@@ -85,10 +85,11 @@ class AppState: ObservableObject {
 
     /// Grants marketing consent on every channel the tracked profile has an identifier for.
     func subscribeToList(listId: String) {
-        KlaviyoSDK().create(subscription: .allAvailableMarketing(
-            listId: listId,
-            customSource: "KLMunchery Sample App"
-        ))
+        KlaviyoSDK().create(
+            subscription: .allAvailableMarketing(
+                listId: listId
+            )
+        )
     }
 
     func removeFromCart(_ item: MenuItem) {
