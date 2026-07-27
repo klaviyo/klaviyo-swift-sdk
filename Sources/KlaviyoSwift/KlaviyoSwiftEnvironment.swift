@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import KlaviyoCore
+import UserNotifications
 
 var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
 
