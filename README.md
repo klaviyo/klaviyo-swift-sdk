@@ -516,8 +516,10 @@ func application(_ application: UIApplication, didReceiveRemoteNotification user
     for (key, value) in customData {
         print("Key: \(key), Value: \(value)")
     }
+    completionHandler(.newData)
   } else {
       print("No key_value_pairs found in notification")
+      completionHandler(.noData)
   }
 }
 ```

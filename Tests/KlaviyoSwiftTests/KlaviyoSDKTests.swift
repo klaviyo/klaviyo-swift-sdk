@@ -575,8 +575,8 @@ class KlaviyoSDKTests: XCTestCase {
             if case .enqueueEvent = action { noEvent.fulfill() }
             return nil
         }
-        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
-        let response = try UNNotificationResponse.with(userInfo: push_body)
+        let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
         // When
@@ -596,8 +596,8 @@ class KlaviyoSDKTests: XCTestCase {
             if case .enqueueEvent = action { enqueueCount += 1 }
             return nil
         }
-        let push_body: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
-        let response = try UNNotificationResponse.with(userInfo: push_body)
+        let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
 
         // When (proxy path)
         let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
@@ -625,11 +625,11 @@ class KlaviyoSDKTests: XCTestCase {
         let noDeepLink = XCTestExpectation(description: "no openDeepLink dispatched")
         noDeepLink.isInverted = true
         DeepLinkManager.openDeepLinkSpy = { _ in noDeepLink.fulfill() }
-        let push_body: [AnyHashable: Any] = [
+        let pushBody: [AnyHashable: Any] = [
             "body": ["_k": ["foo": "bar"]],
             "url": "https://example.com/deeplink"
         ]
-        let response = try UNNotificationResponse.with(userInfo: push_body)
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
         // When
@@ -684,13 +684,13 @@ class KlaviyoSDKTests: XCTestCase {
             return nil
         }
         let actionId = "com.klaviyo.test.button.dedup"
-        let push_body: [AnyHashable: Any] = [
+        let pushBody: [AnyHashable: Any] = [
             "body": [
                 "_k": "test_dedup_action",
                 "action_buttons": [["id": actionId, "label": "Tap Me", "action": "open_app"]]
             ]
         ]
-        let response = try UNNotificationResponse.with(userInfo: push_body, actionIdentifier: actionId)
+        let response = try UNNotificationResponse.with(userInfo: pushBody, actionIdentifier: actionId)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
         // When
