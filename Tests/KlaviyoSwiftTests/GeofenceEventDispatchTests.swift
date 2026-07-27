@@ -33,7 +33,13 @@ final class GeofenceEventDispatchTests: XCTestCase {
     }
 
     private func makeGeofenceEvent() -> Event {
-        Event(name: .locationEvent(.geofenceEnter), properties: ["$geofence_id": "test-location-id"])
+        // Mirror the priority set by the real producer in
+        // KlaviyoLocationManager+CLLocationManagerDelegate.
+        Event(
+            name: .locationEvent(.geofenceEnter),
+            properties: ["$geofence_id": "test-location-id"],
+            priority: .high
+        )
     }
 
     /// An initialized state seeded with a couple of queued requests, for the flush/enqueue cases.

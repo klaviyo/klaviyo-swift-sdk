@@ -20,6 +20,7 @@ private func enrichEventWithMetadata(_ event: Event) -> Event {
         identifiers: event.identifiers,
         value: event.value,
         time: event.time,
-        uniqueId: event.uniqueId
+        uniqueId: event.uniqueId,
+        priority: event.priority
     )
 }

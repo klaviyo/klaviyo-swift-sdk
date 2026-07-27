@@ -141,7 +141,9 @@ class KlaviyoSDKTests: XCTestCase {
                 "foo": "bar"
             ]
         ]]
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body)))
+        let expectation = setupActionAssertion(
+            expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body, priority: .high))
+        )
         let response = try UNNotificationResponse.with(userInfo: push_body)
         let handled = klaviyo.handle(notificationResponse: response) {
             callback.fulfill()
@@ -421,6 +423,7 @@ class KlaviyoSDKTests: XCTestCase {
         // Verify event properties
         if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertEqual(event.priority, .high, "Opened-push event must be high priority")
             XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
             XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
             XCTAssertEqual(event.properties["Button Action"] as? String, "Deep Link", "Should include Button Action with correct value")
@@ -491,6 +494,7 @@ class KlaviyoSDKTests: XCTestCase {
         // Verify event properties
         if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertEqual(event.priority, .high, "Opened-push event must be high priority")
             XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
             XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
             XCTAssertEqual(event.properties["Button Action"] as? String, "Open App", "Should include Button Action with correct value")
@@ -556,6 +560,7 @@ class KlaviyoSDKTests: XCTestCase {
         // Verify button properties are NOT included for body tap
         if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
             XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
+            XCTAssertEqual(event.priority, .high, "Opened-push event must be high priority")
             XCTAssertNil(event.properties["Button ID"], "Should NOT include Button ID for body tap")
             XCTAssertNil(event.properties["Button Label"], "Should NOT include Button Label for body tap")
             XCTAssertNil(event.properties["Button Action"], "Should NOT include Button Action for body tap")

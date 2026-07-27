@@ -65,18 +65,27 @@ public struct Event: Equatable {
     public let uniqueId: String
     package let identifiers: Identifiers?
 
+    /// The priority level for this event, which controls queue ordering and flush behavior.
+    ///
+    /// `.high` events are front-inserted in the queue and trigger an immediate flush.
+    /// This is set by SDK-internal producers (e.g. opened-push, geofence) and is not
+    /// exposed through the public `Event` init.
+    package let priority: RequestPriority
+
     package init(name: EventName,
                  properties: [String: Any]? = nil,
                  identifiers: Identifiers? = nil,
                  value: Double? = nil,
                  time: Date = environment.date(),
-                 uniqueId: String = environment.uuid().uuidString) {
+                 uniqueId: String = environment.uuid().uuidString,
+                 priority: RequestPriority = .standard) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.time = time
         self.value = value
         self.uniqueId = uniqueId
         self.identifiers = identifiers
+        self.priority = priority
     }
 
     /// Create a new event to track a profile's activity, the SDK will associate the event with any identified/anonymous profile in the SDK state
@@ -95,6 +104,7 @@ public struct Event: Equatable {
         self.value = value
         time = environment.date()
         self.uniqueId = uniqueId ?? environment.uuid().uuidString
+        priority = .standard
     }
 }
 
