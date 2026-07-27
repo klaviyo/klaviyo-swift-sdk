@@ -129,9 +129,14 @@ enum KlaviyoAction: Equatable {
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 
     var requiresInitialization: Bool {
+        // NOTE (transitional): this gate drops pre-init actions with a developer warning,
+        // exempting high-priority events so they buffer into `pendingRequests` and replay
+        // after init instead of being dropped. Once the ungated Core QueueStore + durable
+        // pre-init buffer land, all requests buffer pre-init rather than drop — at which
+        // point this gate and its high-priority exemption both become vestigial and collapse.
         switch self {
-        // if event metric is opened push or geofence events we DON'T require initialization
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
+        // High-priority events (e.g. opened-push, geofence) don't require initialization
+        case let .enqueueEvent(event) where event.priority == .high:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
@@ -520,14 +525,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 ))
 
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
-            let request = KlaviyoRequest(endpoint: endpoint)
+            let request = KlaviyoRequest(endpoint: endpoint, priority: event.priority)
 
             /*
-             if we receive an opened push event or geofence event we want to enqueue it at the front and
-             flush the queue right away so that we don't miss any user engagement events. In all other
-             cases we will flush the queue using the flush intervals defined above in `StateManagementConstants`
+             High-priority requests (e.g. opened-push, geofence events) are front-inserted and
+             trigger an immediate flush so that user engagement events are not delayed. All other
+             requests are appended and flushed on the regular intervals defined in `StateManagementConstants`.
              */
-            let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
+            let shouldPrioritize = request.priority == .high
             if shouldPrioritize {
                 state.enqueuePriorityRequest(request: request)
             } else {

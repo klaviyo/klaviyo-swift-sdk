@@ -93,7 +93,8 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
         let event = Event(
             name: .locationEvent(eventType),
-            properties: ["$geofence_id": klaviyoLocationId]
+            properties: ["$geofence_id": klaviyoLocationId],
+            priority: .high
         )
 
         GeofenceEventDispatch.dispatch(event: event, apiKey: klaviyoGeofence.companyId)
