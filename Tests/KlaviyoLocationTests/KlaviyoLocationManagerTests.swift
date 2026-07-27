@@ -148,6 +148,49 @@ final class KlaviyoLocationManagerTests: XCTestCase {
                        "syncGeofences should be called once after foreground")
     }
 
+    // MARK: - Diagnostic: dropFirst() key race (Cursor #650, High)
+
+    /// Demonstrates the race flagged on PR #650. `syncGeofences()` reads the api key synchronously
+    /// from `SDKConfigStore` and early-exits when it's absent. `startObservingAPIKeyChanges()` then
+    /// subscribes with `.dropFirst()`, which — because `SDKConfigStore.publisher` is a
+    /// `CurrentValueSubject` — drops whatever key is already present at subscribe time. If the key
+    /// lands in the window between the startup sync and the observer subscribing (e.g. the async
+    /// `initialize` chain completing during the `@MainActor` hop), it is swallowed and geofences
+    /// never sync.
+    ///
+    /// Semantics: `fetchCallCount == 0` PASSES while the bug is present (the arriving key was
+    /// dropped, so no sync ever fetched). Contrast with
+    /// `test_startGeofenceMonitoring_called_when_receiving_new_api_key`, where the key arrives
+    /// strictly AFTER subscribe and is correctly caught. A fix (drop `dropFirst()`, or re-read
+    /// `SDKConfigStore.current` after subscribing) makes `fetchCallCount >= 1`.
+    func test_diagnostic_startGeofenceMonitoring_dropsKeyArrivingDuringSubscribe() async {
+        // GIVEN: authorized, key ABSENT when the startup sync reads it (setUp cleared the store).
+        mockAuthorizationStatus = .authorizedAlways
+        SDKConfigStore.shared.update(KlaviyoConfig())
+
+        let mockGeofenceService = MockGeofenceService()
+        mockGeofenceService.mockGeofences = []
+        locationManager.geofenceService = mockGeofenceService
+
+        // Simulate the key landing during the hop between the startup sync and the observer
+        // subscribing: set it the instant the first syncGeofences returns (one-shot).
+        locationManager.onSyncReturn = { [weak locationManager] in
+            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "ABC123"))
+            locationManager?.onSyncReturn = nil
+        }
+
+        // WHEN
+        await locationManager.startGeofenceMonitoring()
+        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s for the observer to (not) fire
+
+        // THEN: with dropFirst(), the already-present key is swallowed and no sync ever fetches.
+        XCTAssertEqual(
+            mockGeofenceService.fetchCallCount, 0,
+            "BUG CONFIRMED: key present at subscribe was dropped by dropFirst(); geofences never synced. "
+                + "A fix makes this >= 1."
+        )
+    }
+
     // MARK: - Klaviyo Geofence Isolation Tests
 
     func test_syncGeofences_only_removes_klaviyo_geofences() async throws {
@@ -370,6 +413,10 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
         stopGeofenceMonitoringCallCount > 0
     }
 
+    /// Fires immediately after `syncGeofences()` returns. Used to inject state changes into the
+    /// window between the startup sync and `startObservingAPIKeyChanges()` subscribing.
+    var onSyncReturn: (() -> Void)?
+
     override init(locationManager: LocationManagerProtocol? = nil, geofenceService: GeofenceServiceProvider? = nil) {
         super.init(locationManager: locationManager, geofenceService: geofenceService)
     }
@@ -377,6 +424,7 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
     override func syncGeofences() async {
         syncGeofencesCallCount += 1
         await super.syncGeofences()
+        onSyncReturn?()
     }
 
     @MainActor
@@ -393,8 +441,10 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
 
 private final class MockGeofenceService: GeofenceServiceProvider {
     var mockGeofences: Set<Geofence> = []
+    private(set) var fetchCallCount = 0
 
     func fetchGeofences(apiKey: String, latitude: Double?, longitude: Double?) async -> Set<KlaviyoLocation.Geofence> {
-        mockGeofences
+        fetchCallCount += 1
+        return mockGeofences
     }
 }

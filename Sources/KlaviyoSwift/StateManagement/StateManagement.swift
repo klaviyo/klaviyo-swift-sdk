@@ -122,9 +122,15 @@ enum KlaviyoAction: Equatable {
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 
     var requiresInitialization: Bool {
+        // NOTE (transitional): this gate drops pre-init actions with a developer warning,
+        // exempting high-priority events so they buffer into `pendingRequests` and replay
+        // after init instead of being dropped. Once the ungated Core QueueStore (MAGE-950)
+        // + durable pre-init buffer (MAGE-951) land, all requests buffer pre-init rather
+        // than drop — at which point this gate and its high-priority exemption both become
+        // vestigial and collapse.
         switch self {
-        // if event metric is opened push or geofence events we DON'T require initialization
-        case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
+        // High-priority events (e.g. opened-push, geofence) don't require initialization
+        case let .enqueueEvent(event) where event.priority == .high:
             return false
 
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
@@ -160,8 +166,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 if let apiKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
-                    let request = RequestFactory.unregisterRequest(
-                        identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+                    let request = state.buildUnregisterRequest(
+                        apiKey: apiKey,
+                        anonymousId: anonymousId,
                         pushToken: tokenData.pushToken
                     )
                     state.enqueueRequest(request: request)
@@ -259,22 +266,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let profile: Profile
-            if let pendingProfile = state.pendingProfile {
-                profile = Profile.updateProfileWithProperties(
-                    email: state.email, phoneNumber: state.phoneNumber,
-                    externalId: state.externalId, dict: pendingProfile)
-                state.pendingProfile = nil
-            } else {
-                profile = Profile(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
-            }
-            let request = RequestFactory.tokenRequest(
-                apiKey: apiKey,
-                pushToken: pushToken,
-                enablement: enablement,
-                background: environment.getBackgroundSetting().rawValue,
-                profile: profile.toAPIModel(anonymousId: anonymousId)
-            )
+            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
             state.enqueueRequest(request: request)
             return .none
 
@@ -486,18 +478,29 @@ struct KlaviyoReducer: ReducerProtocol {
                 pushToken: state.pushTokenData?.pushToken
             )
 
-            let request = RequestFactory.eventRequest(
-                identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
-                event: event,
-                pushToken: state.pushTokenData?.pushToken
-            )
+            let payload = CreateEventPayload(
+                data: CreateEventPayload.Event(
+                    name: event.metric.name.value,
+                    properties: event.properties,
+                    email: event.identifiers?.email,
+                    phoneNumber: event.identifiers?.phoneNumber,
+                    externalId: event.identifiers?.externalId,
+                    anonymousId: anonymousId,
+                    value: event.value,
+                    time: event.time,
+                    uniqueId: event.uniqueId,
+                    pushToken: state.pushTokenData?.pushToken
+                ))
+
+            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
+            let request = KlaviyoRequest(endpoint: endpoint, priority: event.priority)
 
             /*
-             if we receive an opened push event or geofence event we want to enqueue it at the front and
-             flush the queue right away so that we don't miss any user engagement events. In all other
-             cases we will flush the queue using the flush intervals defined above in `StateManagementConstants`
+             High-priority requests (e.g. opened-push, geofence events) are front-inserted and
+             trigger an immediate flush so that user engagement events are not delayed. All other
+             requests are appended and flushed on the regular intervals defined in `StateManagementConstants`.
              */
-            let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
+            let shouldPrioritize = request.priority == .high
             if shouldPrioritize {
                 state.enqueuePriorityRequest(request: request)
             } else {

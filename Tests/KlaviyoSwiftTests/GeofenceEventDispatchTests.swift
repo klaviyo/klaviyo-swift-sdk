@@ -160,4 +160,52 @@ final class GeofenceEventDispatchTests: XCTestCase {
             "Event should be processed (either in queue or in flight)"
         )
     }
+
+    // MARK: - Diagnostic: SharedStoreMirror bootstrap gap (Cursor #650, Medium)
+
+    /// Demonstrates the coupling gap flagged on PR #650: `GeofenceEventDispatch.dispatch`
+    /// initializes the reducer directly, bypassing `KlaviyoSDK.initialize(with:)` — the only
+    /// place `SharedStoreMirror.setup()` runs. So the reducer becomes `.initialized` while the
+    /// KlaviyoCore shared stores that other modules read (`SDKConfigStore`/`IdentityStore`) stay
+    /// empty.
+    ///
+    /// Semantics: this test PASSES while the bug is present (shared store empty despite an
+    /// initialized reducer). A fix — calling `SharedStoreMirror.setup()` inside `dispatch` before
+    /// the `.initialize` send — makes the final assertion fail; flip it to
+    /// `XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)` at that point.
+    func test_diagnostic_geofenceBootstrap_leavesSharedStoresEmpty() async throws {
+        // Given: mirror detached + shared stores cleared; host never called initialize(with:)
+        SharedStoreMirror.reset()
+        defer { SharedStoreMirror.reset() } // don't leak the mirror/store state into other tests
+
+        let apiKey = "TEST123"
+        let testStore = makeTestStore(
+            initialState: KlaviyoState(queue: [], initalizationState: .uninitialized)
+        )
+
+        // Expect the reducer to reach .initialized purely via the geofence bootstrap path.
+        let initialized = XCTestExpectation(description: "reducer initialized via geofence bootstrap")
+        initialized.assertForOverFulfill = false
+        let cancellable = testStore.state.sink { state in
+            if state.initalizationState == .initialized, state.apiKey == apiKey {
+                initialized.fulfill()
+            }
+        }
+        defer { cancellable.cancel() }
+
+        // When: SDK is bootstrapped ONLY through the geofence entry point
+        GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
+        await fulfillment(of: [initialized], timeout: 1.0)
+
+        // Then: reducer is initialized...
+        XCTAssertEqual(testStore.state.value.initalizationState, .initialized)
+        XCTAssertEqual(testStore.state.value.apiKey, apiKey)
+
+        // ...but the shared store other modules read is still empty → gap confirmed.
+        XCTAssertNil(
+            SDKConfigStore.shared.current.apiKey,
+            "BUG CONFIRMED: geofence bootstrap initialized the reducer but never set up SharedStoreMirror, "
+                + "so SDKConfigStore stays empty for KlaviyoLocation/KlaviyoForms."
+        )
+    }
 }
