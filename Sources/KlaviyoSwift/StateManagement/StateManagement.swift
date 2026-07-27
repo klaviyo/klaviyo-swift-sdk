@@ -124,10 +124,9 @@ enum KlaviyoAction: Equatable {
     var requiresInitialization: Bool {
         // NOTE (transitional): this gate drops pre-init actions with a developer warning,
         // exempting high-priority events so they buffer into `pendingRequests` and replay
-        // after init instead of being dropped. Once the ungated Core QueueStore (MAGE-950)
-        // + durable pre-init buffer (MAGE-951) land, all requests buffer pre-init rather
-        // than drop — at which point this gate and its high-priority exemption both become
-        // vestigial and collapse.
+        // after init instead of being dropped. Once the ungated Core QueueStore + durable
+        // pre-init buffer land, all requests buffer pre-init rather than drop — at which
+        // point this gate and its high-priority exemption both become vestigial and collapse.
         switch self {
         // High-priority events (e.g. opened-push, geofence) don't require initialization
         case let .enqueueEvent(event) where event.priority == .high:

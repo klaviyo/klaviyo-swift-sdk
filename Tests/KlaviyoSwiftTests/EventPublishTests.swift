@@ -121,6 +121,37 @@ final class EventPublishTests: XCTestCase {
         XCTAssertNotNil(properties["Device ID"])
     }
 
+    func testPublishEvent_PreservesHighPriority() {
+        // Regression: enrichment rebuilds the Event, and must carry `priority` through so
+        // high-priority opened-push/geofence events are not silently downgraded to `.standard`
+        // on the EventBus copy.
+        let expectation = XCTestExpectation(description: "Enriched event preserves .high priority")
+        var receivedEvent: Event?
+
+        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+
+        EventBus.shared.eventPublisher()
+            .sink { event in
+                receivedEvent = event
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        // When - publish a high-priority event (as opened-push/geofence producers do)
+        let originalEvent = Event(name: ._openedPush, priority: .high)
+        enrichAndPublishEvent(originalEvent)
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertEqual(
+            receivedEvent?.priority,
+            .high,
+            "Enrichment must preserve high priority on the EventBus copy"
+        )
+    }
+
     func testPublishEvent_IncludesPushTokenWhenAvailable() {
         // Given
         let expectation = XCTestExpectation(description: "Event received with push token")

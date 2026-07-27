@@ -821,17 +821,30 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - Request priority
 
+    /// Concrete `TestStore` type produced by ``makePriorityTestStore()``.
+    private typealias PriorityTestStore = TestStore<
+        KlaviyoState, KlaviyoAction, KlaviyoState, KlaviyoAction, Void
+    >
+
+    /// Builds a non-flushing store seeded with a single standard-priority queued request,
+    /// so front-insertion (high priority) vs. append (standard) is observable. Returns the
+    /// store together with the seeded request for identity assertions.
     @MainActor
-    func testOpenedPushEventProducesHighPriorityRequestAtQueueFront() async throws {
+    private func makePriorityTestStore() -> (store: PriorityTestStore, seededRequest: KlaviyoRequest) {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
-        // Seed a standard-priority request so front-insertion is observable.
         let existingRequest = initialState.buildProfileRequest(
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
         initialState.queue = [existingRequest]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        return (store, existingRequest)
+    }
+
+    @MainActor
+    func testOpenedPushEventProducesHighPriorityRequestAtQueueFront() async throws {
+        let (store, _) = makePriorityTestStore()
         // Assert only the priority/front-insert/flush contract; the full network flush
         // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
         store.exhaustivity = .off
@@ -851,15 +864,7 @@ class StateManagementTests: XCTestCase {
 
     @MainActor
     func testGeofenceEventProducesHighPriorityRequestAtQueueFront() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
-        // Seed a standard-priority request so front-insertion is observable.
-        let existingRequest = initialState.buildProfileRequest(
-            apiKey: initialState.apiKey!,
-            anonymousId: initialState.anonymousId!
-        )
-        initialState.queue = [existingRequest]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let (store, _) = makePriorityTestStore()
         // Assert only the priority/front-insert/flush contract; the full network flush
         // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
         store.exhaustivity = .off
@@ -883,14 +888,7 @@ class StateManagementTests: XCTestCase {
 
     @MainActor
     func testStandardEventProducesStandardPriorityRequestAppendedToQueue() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
-        let existingRequest = initialState.buildProfileRequest(
-            apiKey: initialState.apiKey!,
-            anonymousId: initialState.anonymousId!
-        )
-        initialState.queue = [existingRequest]
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let (store, existingRequest) = makePriorityTestStore()
 
         let event = Event(name: .openedAppMetric)
         await store.send(.enqueueEvent(event)) {
@@ -902,7 +900,7 @@ class StateManagementTests: XCTestCase {
                             name: Event.EventName.openedAppMetric.value,
                             properties: event.properties,
                             phoneNumber: $0.phoneNumber,
-                            anonymousId: initialState.anonymousId!,
+                            anonymousId: $0.anonymousId!,
                             time: event.time,
                             pushToken: $0.pushTokenData?.pushToken
                         )
