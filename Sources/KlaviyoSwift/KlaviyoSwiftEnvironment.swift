@@ -51,16 +51,13 @@ struct KlaviyoSwiftEnvironment {
                 KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
             },
             injectNotificationDelegate: {
-                // `UNUserNotificationCenter.delegate` is main-thread-only. Call synchronously
-                // when already on the main thread (the common path from didFinishLaunching) to
-                // avoid a Task hop that could race a notification-tap cold start; otherwise
-                // dispatch to the main actor.
-                if Thread.isMainThread {
+                // Dispatched onto the main actor because `UNUserNotificationCenter.delegate`
+                // is main-thread-only; `initialize(with:)` may be called from any thread.
+                // iOS guarantees that queued notification callbacks (didReceive/willPresent)
+                // are not delivered until after app launch completes, so this Task always
+                // executes before any notification arrives on a cold start.
+                Task { @MainActor in
                     KlaviyoNotificationDelegate.injectIfEnabled()
-                } else {
-                    Task { @MainActor in
-                        KlaviyoNotificationDelegate.injectIfEnabled()
-                    }
                 }
             },
             isAutomaticPushOpenTrackingEnabled: {
