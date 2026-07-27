@@ -194,13 +194,22 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             return
         }
         defer { willPresentGuard.end(requestId) }
+        // Honour the host's options when it responds synchronously. Async hosts that call
+        // back after this method returns will find `once` consumed; that is a known
+        // limitation — a timeout-based fix is deferred to a follow-up.
+        var hostResponded = false
         existingDelegate?.userNotificationCenter?(
-            center, willPresent: notification, withCompletionHandler: { once($0) }
+            center, willPresent: notification, withCompletionHandler: {
+                hostResponded = true
+                once($0)
+            }
         )
-        if #available(iOS 14.0, *) {
-            once([.list, .banner, .badge, .sound])
-        } else {
-            once([.alert, .badge, .sound])
+        if !hostResponded {
+            if #available(iOS 14.0, *) {
+                once([.list, .banner, .badge, .sound])
+            } else {
+                once([.alert, .badge, .sound])
+            }
         }
     }
 }

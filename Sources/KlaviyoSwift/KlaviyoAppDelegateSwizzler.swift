@@ -193,12 +193,8 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         return initialClass
     }
 
-    /// Installs the donor IMP on `hostClass` using one of two strategies:
-    /// - **Exchange**: host already implements the method — swap IMPs so the original selector
-    ///   hits our donor first, then the donor forwards to the host's original (now under
-    ///   `swizzledSelector`).
-    /// - **Add**: host has no implementation — install our donor directly under the original
-    ///   selector; no forwarding needed since there is no original to chain to.
+    /// Installs the donor IMP on `hostClass`: exchanges IMPs if the class owns the method,
+    /// grafts (adds) if the class has no own implementation (absent or inherited only).
     @MainActor
     private static func performSwizzle(on hostClass: AnyClass) {
         let originalSelector = #selector(
@@ -227,10 +223,12 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         // Always add the swizzled selector to the host class so we have a stable forwarding target.
         class_addMethod(hostClass, swizzledSelector, donorIMP, donorTypes)
 
-        if let hostOriginal = class_getInstanceMethod(hostClass, originalSelector),
+        // Only exchange if hostClass owns the method; class_getInstanceMethod walks the
+        // superclass chain and exchanging an inherited IMP mutates the ancestor class.
+        if classOwnsMethod(hostClass, selector: originalSelector),
+           let hostOriginal = class_getInstanceMethod(hostClass, originalSelector),
            let hostSwizzled = class_getInstanceMethod(hostClass, swizzledSelector) {
-            // Host implements the original — exchange so calls to the original selector hit our
-            // IMP, and our forwarding call (swizzled selector) hits the host's original IMP.
+            // Own implementation: exchange originalSelector ↔ swizzledSelector.
             method_exchangeImplementations(hostOriginal, hostSwizzled)
             state.insertSwappedClass(ObjectIdentifier(hostClass))
             if #available(iOS 14.0, *) {
@@ -238,9 +236,20 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
                     "Swizzled didRegisterForRemoteNotificationsWithDeviceToken on \(hostClass)."
                 )
             }
+        } else if let inheritedMethod = class_getInstanceMethod(hostClass, originalSelector),
+                  let swizzledMethod = class_getInstanceMethod(hostClass, swizzledSelector) {
+            // Inherited implementation: graft donorIMP under originalSelector and redirect
+            // swizzledSelector to the inherited IMP so the donor can forward to it.
+            method_setImplementation(swizzledMethod, method_getImplementation(inheritedMethod))
+            class_addMethod(hostClass, originalSelector, donorIMP, donorTypes)
+            state.insertSwappedClass(ObjectIdentifier(hostClass))
+            if #available(iOS 14.0, *) {
+                Logger.notifications.info(
+                    "Grafted (inherited) didRegisterForRemoteNotificationsWithDeviceToken onto \(hostClass)."
+                )
+            }
         } else {
-            // Host does not implement the method — graft our IMP under the original selector
-            // directly. No forwarding required (there is no original to call).
+            // No implementation anywhere — graft donorIMP, no forwarding needed.
             class_addMethod(hostClass, originalSelector, donorIMP, donorTypes)
             if #available(iOS 14.0, *) {
                 Logger.notifications.info(
@@ -248,6 +257,17 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
                 )
             }
         }
+    }
+
+    /// Returns `true` if `cls` declares `selector` in its own IMP table, not via superclass.
+    private static func classOwnsMethod(_ cls: AnyClass, selector: Selector) -> Bool {
+        var count: UInt32 = 0
+        guard let methods = class_copyMethodList(cls, &count) else { return false }
+        defer { free(methods) }
+        for i in 0..<Int(count) {
+            if method_getName(methods[i]) == selector { return true }
+        }
+        return false
     }
 
     /// Donor method installed onto the host AppDelegate class by `performSwizzle(on:)`.
