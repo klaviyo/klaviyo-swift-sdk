@@ -46,6 +46,20 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
+    func testBadJWT() async throws {
+        let json = """
+        {
+          "type": "badJWT",
+          "data": {}
+        }
+        """
+
+        let data = try #require(json.data(using: .utf8))
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event == .badJWT)
+    }
+
+    @Test
     func testAbort() async throws {
         let json = """
         {
