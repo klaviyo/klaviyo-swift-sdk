@@ -83,6 +83,15 @@ class AppState: ObservableObject {
         KlaviyoSDK().create(event: .init(name: .addedToCartMetric, properties: propertiesDictionary))
     }
 
+    /// Grants marketing consent on every channel the tracked profile has an identifier for.
+    func subscribeToList(listId: String) {
+        KlaviyoSDK().create(
+            subscription: .allAvailableMarketing(
+                listId: listId
+            )
+        )
+    }
+
     func removeFromCart(_ item: MenuItem) {
         if let index = cartItems.firstIndex(where: { $0.id == item.id }) {
             cartItems.remove(at: index)
