@@ -49,6 +49,17 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
     /// Mirrors the fallback case where the SDK should still graft onto the wrapper class.
     private final class OpaqueDelegate: NSObject, UIApplicationDelegate {}
 
+    /// Base class that owns the device-token method.
+    private class BaseAppDelegate: NSObject, UIApplicationDelegate {
+        func application(
+            _ application: UIApplication,
+            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+        ) {}
+    }
+
+    /// Subclass that only inherits the method from `BaseAppDelegate` without overriding it.
+    private final class SubclassAppDelegate: BaseAppDelegate {}
+
     // MARK: - Helpers
 
     private let didRegisterSelector = #selector(
@@ -72,7 +83,7 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
 
         XCTAssertNil(
             class_getInstanceMethod(ForwardingProxyDelegate.self, didRegisterSelector),
-            "Proxy class must not have the method in its IMP table; otherwise we're not testing the forwarding path"
+            "Proxy class must not have the method in its IMP table"
         )
         XCTAssertTrue(
             proxy.responds(to: didRegisterSelector),
@@ -89,5 +100,25 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         let opaque = OpaqueDelegate()
         let resolved: AnyClass = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: opaque)
         XCTAssertTrue(resolved == OpaqueDelegate.self)
+    }
+
+    func testResolveTargetSubclassWithInheritedMethod() {
+        // Resolver returns the concrete subclass even when the method is only inherited,
+        // so performSwizzle can graft rather than exchange the superclass IMP.
+        let delegate = SubclassAppDelegate()
+
+        XCTAssertNotNil(
+            class_getInstanceMethod(SubclassAppDelegate.self, didRegisterSelector),
+            "Precondition: method reachable via superclass chain"
+        )
+        var count: UInt32 = 0
+        let ownMethods = class_copyMethodList(SubclassAppDelegate.self, &count)
+        let ownSelectors = (0..<Int(count)).map { method_getName(ownMethods![$0]) }
+        free(ownMethods)
+        XCTAssertFalse(ownSelectors.contains(didRegisterSelector),
+                       "Precondition: subclass must not own the method")
+
+        let resolved: AnyClass = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: delegate)
+        XCTAssertTrue(resolved == SubclassAppDelegate.self)
     }
 }
