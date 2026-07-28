@@ -156,7 +156,8 @@ extension IAFNativeBridgeEvent {
             .lifecycleEvent,
             .profileEvent,
             .profileMutation,
-            .jwtMutation
+            .jwtMutation,
+            .badJWT
         ]
     }
 
