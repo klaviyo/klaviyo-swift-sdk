@@ -448,7 +448,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExample.NotificationServiceExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -474,7 +474,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExample.NotificationServiceExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -625,7 +625,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -657,7 +657,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -675,7 +675,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -693,7 +693,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -709,7 +709,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -725,7 +725,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 5.3.1;
+				MARKETING_VERSION = 5.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.klaviyo.spm.example.SPMExampleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
