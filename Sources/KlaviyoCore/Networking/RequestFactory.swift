@@ -84,7 +84,7 @@ public enum RequestFactory {
                 uniqueId: stamped.uniqueId,
                 pushToken: pushToken
             ))
-        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload))
+        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: stamped.priority)
     }
 
     public static func unregisterRequest(

@@ -165,9 +165,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 if let apiKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
-                    let request = state.buildUnregisterRequest(
-                        apiKey: apiKey,
-                        anonymousId: anonymousId,
+                    let request = RequestFactory.unregisterRequest(
+                        identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
                         pushToken: tokenData.pushToken
                     )
                     state.enqueueRequest(request: request)
@@ -265,7 +264,23 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+            let profile: Profile
+            if let pendingProfile = state.pendingProfile {
+                profile = Profile.updateProfileWithProperties(
+                    email: state.email, phoneNumber: state.phoneNumber,
+                    externalId: state.externalId, dict: pendingProfile
+                )
+                state.pendingProfile = nil
+            } else {
+                profile = Profile(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
+            }
+            let request = RequestFactory.tokenRequest(
+                apiKey: apiKey,
+                pushToken: pushToken,
+                enablement: enablement,
+                background: environment.getBackgroundSetting().rawValue,
+                profile: profile.toAPIModel(anonymousId: anonymousId)
+            )
             state.enqueueRequest(request: request)
             return .none
 
@@ -477,22 +492,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 pushToken: state.pushTokenData?.pushToken
             )
 
-            let payload = CreateEventPayload(
-                data: CreateEventPayload.Event(
-                    name: event.metric.name.value,
-                    properties: event.properties,
-                    email: event.identifiers?.email,
-                    phoneNumber: event.identifiers?.phoneNumber,
-                    externalId: event.identifiers?.externalId,
-                    anonymousId: anonymousId,
-                    value: event.value,
-                    time: event.time,
-                    uniqueId: event.uniqueId,
-                    pushToken: state.pushTokenData?.pushToken
-                ))
-
-            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
-            let request = KlaviyoRequest(endpoint: endpoint, priority: event.priority)
+            let request = RequestFactory.eventRequest(
+                identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+                event: event,
+                pushToken: state.pushTokenData?.pushToken
+            )
 
             /*
              High-priority requests (e.g. opened-push, geofence events) are front-inserted and
