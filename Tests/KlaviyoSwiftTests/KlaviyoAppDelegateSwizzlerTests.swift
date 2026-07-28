@@ -157,11 +157,17 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
 
     // MARK: - resolveSwizzleTargetClass tests
 
+    // App delegate directly implements `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
+    // Resolver must return the delegate's own class with no forwarding probe needed.
     func testResolveTargetDirectImplementor() {
         let delegate = DirectAppDelegate()
         XCTAssertTrue(KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: delegate) == DirectAppDelegate.self)
     }
 
+    // SwiftUI `@UIApplicationDelegateAdaptor` pattern: the visible delegate is a proxy that
+    // has no IMP of its own but forwards the selector to an inner real delegate via
+    // `-forwardingTargetForSelector:`. Resolver must follow the forwarding chain and return
+    // the inner class so we swizzle the class that actually runs the method.
     func testResolveTargetForwardingProxy() {
         let inner = DirectAppDelegate()
         let proxy = ForwardingProxyDelegate(inner: inner)
@@ -179,12 +185,17 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertTrue(resolved == DirectAppDelegate.self)
     }
 
+    // Delegate implements no device-token method and has no forwarding target. Resolver must
+    // fall back to the delegate's own class so `performSwizzle` can graft the donor IMP onto it.
     func testResolveTargetOpaqueDelegate() {
         let opaque = OpaqueDelegate()
         let resolved = KlaviyoAppDelegateSwizzler.resolveSwizzleTargetClass(for: opaque)
         XCTAssertTrue(resolved == OpaqueDelegate.self)
     }
 
+    // Delegate subclass inherits the method from its superclass but doesn't override it.
+    // Resolver must return the subclass (not the superclass) so `performSwizzle` targets the
+    // concrete runtime type and uses the inherited-graft path rather than mutating the superclass.
     func testResolveTargetSubclassWithInheritedMethod() {
         let delegate = SubclassAppDelegate()
 
@@ -203,6 +214,10 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
 
     // MARK: - performSwizzle tests
 
+    // Host class owns the device-token method in its own IMP table (most common case).
+    // Swizzler must exchange IMPs so `originalSelector` points to the donor and `swizzledSelector`
+    // holds the host's original, and must record the class in `swappedClasses` so the donor
+    // knows to forward after calling `KlaviyoSDK().set(pushToken:)`.
     func testExchangePathSwapsIMPOnHostClass() {
         // ExchangeDelegate owns the method — swizzler must exchange IMPs on the class itself.
         let donorMethod = class_getInstanceMethod(
@@ -220,6 +235,9 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertTrue(KlaviyoAppDelegateSwizzler._isSwappedForTesting(ObjectIdentifier(ExchangeDelegate.self)))
     }
 
+    // Host class has no device-token method at all — neither owned nor inherited. Swizzler
+    // must add the donor IMP directly under `originalSelector` with no forwarding setup, and
+    // must NOT record the class in `swappedClasses` (donor would recurse if it tried to forward).
     func testGraftPathAddsIMPWithoutForwarding() {
         // GraftDelegate has no implementation — swizzler must graft without marking as swapped.
         XCTAssertFalse(
@@ -237,6 +255,11 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertFalse(KlaviyoAppDelegateSwizzler._isSwappedForTesting(ObjectIdentifier(GraftDelegate.self)))
     }
 
+    // Host subclass inherits the method from its superclass without overriding it. Swizzler
+    // must graft the donor onto the subclass only — `originalSelector` and `swizzledSelector`
+    // are added to the subclass's own IMP table, and the superclass method table must remain
+    // byte-for-byte unchanged. This prevents other subclasses and direct superclass instances
+    // from having their behavior altered as a side effect of our swizzle.
     func testInheritedPathGraftsOnSubclassLeavingSuperclassUnchanged() {
         // Capture the superclass IMP before swizzle.
         let baseMethod = class_getInstanceMethod(InheritedBaseDelegate.self, originalSelector)!
@@ -271,6 +294,10 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         )
     }
 
+    // After the exchange path, calling `originalSelector` on the host must invoke the donor
+    // (which records the token with Klaviyo) AND chain through to the host's original
+    // implementation. Verifies the forwarding leg of the donor IMP — without it, the host's
+    // push-token handling would be silently dropped.
     func testDonorIMPForwardsToHostOriginalAfterExchange() {
         KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: ExchangeForwardingDelegate.self)
 
@@ -282,6 +309,10 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertEqual(delegate.hostCallCount, 1, "Donor IMP must forward to host's original implementation")
     }
 
+    // After the inherited-graft path, calling `originalSelector` on the subclass must invoke
+    // the donor AND chain through to the inherited base implementation. The donor's forwarding
+    // target is `swizzledSelector`, which was redirected to the inherited IMP at swizzle time
+    // rather than being left pointing at the donor (which would recurse).
     func testDonorIMPForwardsToInheritedOriginalAfterGraftOnSubclass() {
         KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: InheritedForwardingSubDelegate.self)
 
@@ -291,6 +322,9 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         XCTAssertEqual(delegate.hostCallCount, 1, "Donor IMP must forward to the inherited base implementation")
     }
 
+    // `swizzleIfPossible` can be called more than once (e.g. host calls `initialize` twice).
+    // Only the first call must install the donor IMP; subsequent calls must be no-ops that
+    // leave the IMP pointer and method table unchanged.
     func testSwizzleIsIdempotentWithinSingleClaim() {
         // First swizzle installs the donor IMP at originalSelector.
         KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: IdempotencyDelegate.self)
