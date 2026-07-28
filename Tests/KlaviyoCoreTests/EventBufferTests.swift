@@ -190,29 +190,22 @@ class EventBufferTests: XCTestCase {
         XCTAssertLessThanOrEqual(events.count, 5, "Should respect max buffer size")
     }
 
-    func testConcurrentReadingAndWriting() async throws {
-        // Given
-        let writeExpectation = XCTestExpectation(description: "Writing complete")
-        let readExpectation = XCTestExpectation(description: "Reading complete")
-
-        // When - write and read concurrently
-        DispatchQueue.global().async {
-            for iter in 0..<50 {
-                self.eventBuffer.buffer(Event(name: .customEvent("event_\(iter)")))
+    func testConcurrentReadingAndWriting() {
+        // Stress the reader/writer lock from many real threads: even iterations issue
+        // barrier writes, odd iterations issue reads. `concurrentPerform` fully joins
+        // all iterations before returning, so no work outlives the test.
+        DispatchQueue.concurrentPerform(iterations: 100) { index in
+            if index.isMultiple(of: 2) {
+                eventBuffer.buffer(Event(name: .customEvent("event_\(index)")))
+            } else {
+                _ = eventBuffer.getRecentEvents()
             }
-            writeExpectation.fulfill()
         }
 
-        DispatchQueue.global().async {
-            for _ in 0..<50 {
-                _ = self.eventBuffer.getRecentEvents()
-            }
-            readExpectation.fulfill()
-        }
-
-        // Then - should not crash
-        await fulfillment(of: [writeExpectation, readExpectation], timeout: 10.0)
-        XCTAssertNoThrow(eventBuffer.getRecentEvents())
+        // Concurrent access is safe and the size limit still holds. This final read is
+        // a barrier-flushing `queue.sync`, so it observes every enqueued write.
+        let events = eventBuffer.getRecentEvents()
+        XCTAssertLessThanOrEqual(events.count, 5, "Should respect max buffer size under concurrent access")
     }
 
     // MARK: - Edge Cases
