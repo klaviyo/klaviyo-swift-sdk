@@ -87,6 +87,22 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
             lock.lock(); defer { lock.unlock() }
             return swappedClasses.contains(identifier)
         }
+
+        #if DEBUG
+        /// Resets logical swizzle state for test isolation.
+        /// ObjC runtime method exchanges are permanent — callers must use a unique class per test.
+        func reset() {
+            lock.lock()
+            didSwizzle = false
+            swappedClasses = []
+            let observer = didFinishLaunchingObserver
+            didFinishLaunchingObserver = nil
+            lock.unlock()
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+        #endif
     }
 
     private static let state = State()
@@ -269,6 +285,30 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         }
         return false
     }
+
+    #if DEBUG
+
+    // MARK: - Test hooks
+
+    /// Calls `performSwizzle(on:)` directly, bypassing the delegate-availability guard.
+    @MainActor
+    static func _performSwizzleForTesting(on hostClass: AnyClass) {
+        performSwizzle(on: hostClass)
+    }
+
+    /// Resets logical swizzle state so each test starts clean.
+    static func _resetStateForTesting() { state.reset() }
+
+    static func _isSwappedForTesting(_ identifier: ObjectIdentifier) -> Bool {
+        state.isSwapped(identifier)
+    }
+
+    /// Exposes the donor selector so tests can inspect the swizzled method table slot
+    /// without needing visibility into the private `klaviyo_application` method.
+    static var _swizzledSelectorForTesting: Selector {
+        #selector(klaviyo_application(_:didRegisterForRemoteNotificationsWithDeviceToken:))
+    }
+    #endif
 
     /// Donor method installed onto the host AppDelegate class by `performSwizzle(on:)`.
     /// Invoked by the Obj-C runtime on the main thread when iOS delivers the device-token
