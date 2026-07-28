@@ -95,12 +95,8 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
             lock.lock()
             didSwizzle = false
             swappedClasses = []
-            let observer = didFinishLaunchingObserver
-            didFinishLaunchingObserver = nil
             lock.unlock()
-            if let observer {
-                NotificationCenter.default.removeObserver(observer)
-            }
+            clearObserver()
         }
         #endif
     }
