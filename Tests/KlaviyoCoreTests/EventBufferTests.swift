@@ -202,10 +202,11 @@ class EventBufferTests: XCTestCase {
             }
         }
 
-        // Concurrent access is safe and the size limit still holds. This final read is
-        // a barrier-flushing `queue.sync`, so it observes every enqueued write.
+        // The 50 writes all landed and the size limit held. This final read is a
+        // barrier-flushing `queue.sync`, so it observes every enqueued write; with a
+        // frozen clock (nothing ages out) the buffer settles at exactly maxBufferSize.
         let events = eventBuffer.getRecentEvents()
-        XCTAssertLessThanOrEqual(events.count, 5, "Should respect max buffer size under concurrent access")
+        XCTAssertEqual(events.count, 5, "50 concurrent writes should fill the buffer to its max size")
     }
 
     // MARK: - Edge Cases
