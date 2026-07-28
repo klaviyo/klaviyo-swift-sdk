@@ -183,19 +183,6 @@ final class IAFWebViewModelTests: XCTestCase {
 
     @MainActor
     func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .present = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a form will appear script message
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -213,25 +200,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
+            if case .present = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .dismiss = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a form disappeared script message with formId and formName
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -249,25 +225,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
+            if case .dismiss = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
-        // Given
-        let expectation = XCTestExpectation(
-            description: "formWillAppear with missing metadata should still yield .present")
-
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .present = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a formWillAppear with empty data (no formId/formName)
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -282,25 +247,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .present should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
+            if case .present = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
-        // Given
-        let expectation = XCTestExpectation(
-            description: "formDisappeared with missing metadata should still yield .dismiss")
-
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .dismiss = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a formDisappeared with empty data
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -315,25 +269,16 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .dismiss should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
+            if case .dismiss = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testAbortEventYieldsAbortLifecycleEvent() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
         let abortReason = "test abort reason"
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .abort = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
 
         // When - simulate an abort script message
         let scriptMessage = MockWKScriptMessage(
@@ -351,8 +296,10 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("abort", from: viewModel.formLifecycleStream) { event in
+            if case .abort = event { return true }
+            return false
+        }
     }
 
     // MARK: - External URL Tests (openDeepLink with openExternally: true)
