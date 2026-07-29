@@ -808,6 +808,17 @@ class StateManagementTests: XCTestCase {
 
     // MARK: - enqueueSubscription
 
+    /// Builds the `KlaviyoRequest` a subscription enqueue is expected to produce.
+    private func expectedSubscriptionRequest(
+        apiKey: String,
+        listId: String = "list-123",
+        profile: ProfilePayload
+    ) -> KlaviyoRequest {
+        KlaviyoRequest(
+            endpoint: .createSubscription(apiKey, CreateSubscriptionPayload(listId: listId, profile: profile))
+        )
+    }
+
     @MainActor
     func testEnqueueSubscription() async throws {
         var initialState = INITIALIZED_TEST_STATE()
@@ -817,11 +828,10 @@ class StateManagementTests: XCTestCase {
         let apiKey = try XCTUnwrap(initialState.apiKey)
         let anonymousId = try XCTUnwrap(initialState.anonymousId)
         let subscription = Subscription.allAvailableMarketing(listId: "list-123")
-        let payload = CreateSubscriptionPayload(
-            listId: "list-123",
+        let request = expectedSubscriptionRequest(
+            apiKey: apiKey,
             profile: ProfilePayload(email: "test@example.com", anonymousId: anonymousId)
         )
-        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
 
         await store.send(.enqueueSubscription(subscription)) {
             $0.enqueueRequest(request: request)
@@ -841,8 +851,8 @@ class StateManagementTests: XCTestCase {
             listId: "list-123",
             channels: .init(email: .marketing, sms: .marketing)
         )
-        let payload = CreateSubscriptionPayload(
-            listId: "list-123",
+        let request = expectedSubscriptionRequest(
+            apiKey: apiKey,
             profile: ProfilePayload(
                 email: "test@example.com",
                 phoneNumber: "+15005550006",
@@ -853,7 +863,6 @@ class StateManagementTests: XCTestCase {
                 anonymousId: anonymousId
             )
         )
-        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
 
         await store.send(.enqueueSubscription(subscription)) {
             $0.enqueueRequest(request: request)
@@ -890,11 +899,10 @@ class StateManagementTests: XCTestCase {
         let apiKey = try XCTUnwrap(initialState.apiKey)
         let anonymousId = try XCTUnwrap(initialState.anonymousId)
         let subscription = Subscription.allAvailableMarketing(listId: "list-123")
-        let payload = CreateSubscriptionPayload(
-            listId: "list-123",
+        let request = expectedSubscriptionRequest(
+            apiKey: apiKey,
             profile: ProfilePayload(email: "test@example.com", anonymousId: anonymousId)
         )
-        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
 
         await store.send(.enqueueSubscription(subscription)) {
             $0.pendingRequests = [.subscription(subscription)]
@@ -912,7 +920,6 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setBadgeCount(0))
     }
 
     @MainActor
@@ -938,12 +945,9 @@ class StateManagementTests: XCTestCase {
         var stateWithEmail = initialState
         stateWithEmail.email = email
         let profileRequest = stateWithEmail.buildProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
-        let subscriptionPayload = CreateSubscriptionPayload(
-            listId: "list-123",
+        let subscriptionRequest = expectedSubscriptionRequest(
+            apiKey: apiKey,
             profile: ProfilePayload(email: email, anonymousId: anonymousId)
-        )
-        let subscriptionRequest = KlaviyoRequest(
-            endpoint: .createSubscription(apiKey, subscriptionPayload)
         )
 
         await store.send(.setEmail(email)) {
@@ -970,7 +974,6 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setBadgeCount(0))
     }
 
     @MainActor
@@ -1018,7 +1021,6 @@ class StateManagementTests: XCTestCase {
         await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
-        await store.receive(.setBadgeCount(0))
     }
 
     @MainActor
@@ -1030,11 +1032,10 @@ class StateManagementTests: XCTestCase {
         let apiKey = try XCTUnwrap(initialState.apiKey)
         let anonymousId = try XCTUnwrap(initialState.anonymousId)
         let subscription = Subscription.allAvailableMarketing(listId: "list-123")
-        let payload = CreateSubscriptionPayload(
-            listId: "list-123",
+        let request = expectedSubscriptionRequest(
+            apiKey: apiKey,
             profile: ProfilePayload(phoneNumber: "+15005550006", anonymousId: anonymousId)
         )
-        let request = KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
 
         await store.send(.enqueueSubscription(subscription)) {
             $0.enqueueRequest(request: request)

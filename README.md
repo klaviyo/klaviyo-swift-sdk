@@ -250,7 +250,7 @@ The `create` method takes an event object as an argument. The event can be const
 
 The SDK can create a subscription and consent record for email, SMS, and Whatsapp channels based on the profile's email and phone number attributes — via the [Create Client Subscription API](https://developers.klaviyo.com/en/reference/create_client_subscription). One of either email or phone number must be provided. WhatsApp BSUID support is coming soon.
 
-Set the profile's email and/or phone number **before** subscribing. A subscribe call that requests a channel whose identifier has not been set is not enqueued (a developer warning is logged).
+Set the profile's email and/or phone number **before** subscribing. A subscribe call that requests a channel whose identifier has not been set is not sent and is dropped at replay time (a developer warning is logged).
 
 Profiles can be opted into multiple channels — for example email marketing, SMS marketing, and SMS transactional. Specify the channel(s) to subscribe by providing a `channels` value on `Subscription`. If you include `channels`, only those channels will be subscribed. If you use `Subscription.allAvailableMarketing` (no `subscriptions` object is sent), subscriptions are defaulted to `MARKETING`.
 

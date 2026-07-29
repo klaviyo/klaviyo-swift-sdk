@@ -73,7 +73,7 @@ struct LoginView: View {
                     // Collect marketing consent at signup, shown only when a list ID is configured
                     if AppDelegate.subscriptionListId != nil {
                         Toggle(isOn: $subscribeToMarketing) {
-                            Text("Subscribe to email marketing")
+                            Text("Subscribe to marketing")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
