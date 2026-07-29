@@ -451,6 +451,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .jwtMutation:
             ()
+        case .badJWT:
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("KlaviyoJS rejected the injected auth token (BadJWT)")
+            }
         }
     }
 }
