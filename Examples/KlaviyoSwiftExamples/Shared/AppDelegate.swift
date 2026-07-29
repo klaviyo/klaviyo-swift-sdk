@@ -19,8 +19,8 @@ import SwiftUI
 import UIKit
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    // [OPTIONAL] To demo list subscriptions, set a list ID from your account.
-    // Leave `nil` to hide the subscribe toggle entirely.
+    // STEP2D: [OPTIONAL] To demo list subscriptions, set a list ID from your account.
+    // Leave `nil` to hide the Subscribe button entirely.
     static let subscriptionListId: String? = nil
 
     // MARK: - Private members
