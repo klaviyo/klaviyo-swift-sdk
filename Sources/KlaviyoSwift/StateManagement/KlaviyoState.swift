@@ -27,6 +27,7 @@ struct KlaviyoState: Equatable, Codable {
         case setEmail(String)
         case setExternalId(String)
         case setPhoneNumber(String)
+        case subscription(Subscription)
     }
 
     struct PushTokenData: Equatable, Codable {
@@ -342,7 +343,7 @@ struct KlaviyoState: Equatable, Codable {
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement.rawValue,
                     background: tokenData.pushBackground.rawValue,
-                    profile: Profile().toAPIModel(anonymousId: anonymousId)
+                    profile: ProfilePayload(Profile(), anonymousId: anonymousId)
                 )
 
                 let request = KlaviyoRequest(
@@ -402,7 +403,7 @@ struct KlaviyoState: Equatable, Codable {
             pushToken: pushToken,
             enablement: enablement.rawValue,
             background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId)
+            profile: ProfilePayload(profile, anonymousId: anonymousId)
         )
         let endpoint = KlaviyoEndpoint.registerPushToken(apiKey, payload)
         return KlaviyoRequest(endpoint: endpoint)
@@ -417,6 +418,63 @@ struct KlaviyoState: Equatable, Codable {
             anonymousId: anonymousId
         )
         let endpoint = KlaviyoEndpoint.unregisterPushToken(apiKey, payload)
+        return KlaviyoRequest(endpoint: endpoint)
+    }
+
+    /// Validates the requested channels against the profile's identifiers and builds the create-subscription
+    /// request. Emits a developer warning and returns `nil` when the request should not be enqueued.
+    func buildSubscriptionRequest(apiKey: String, anonymousId: String, subscription: Subscription) -> KlaviyoRequest? {
+        let channels: SubscriptionChannels?
+        if let requestedChannels = subscription.channels {
+            if requestedChannels.needsEmail, email == nil {
+                environment.emitDeveloperWarning(
+                    "Subscription requires an email for the requested channels, but email is not set."
+                )
+                return nil
+            }
+            if requestedChannels.needsPhone, phoneNumber == nil {
+                environment.emitDeveloperWarning(
+                    "Subscription requires a phone number for the requested channels, " +
+                        "but phone number is not set."
+                )
+                return nil
+            }
+
+            guard let mappedChannels = SubscriptionChannels(requestedChannels) else {
+                environment.emitDeveloperWarning(
+                    "Subscription channels were provided but none were enabled; request was not enqueued."
+                )
+                return nil
+            }
+            channels = mappedChannels
+        } else {
+            // allAvailableMarketing: omit the subscriptions object so the server defaults to marketing;
+            // requires at least one identifier to key channels on.
+            guard email != nil || phoneNumber != nil else {
+                environment.emitDeveloperWarning(
+                    "Subscription requires at least one identifier the API can key channels on, " +
+                        "but no identifiers are set."
+                )
+                return nil
+            }
+            channels = nil
+        }
+
+        let profile = ProfilePayload(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            subscriptions: channels,
+            anonymousId: anonymousId
+        )
+
+        let payload = CreateSubscriptionPayload(
+            listId: subscription.listId,
+            profile: profile,
+            customSource: subscription.customSource
+        )
+
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
         return KlaviyoRequest(endpoint: endpoint)
     }
 }
