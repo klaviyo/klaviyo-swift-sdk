@@ -41,15 +41,24 @@ public enum RequestFactory {
         identity: RequestIdentity,
         properties: [String: Any] = [:]
     ) -> KlaviyoRequest {
-        let payload = ProfilePayload(
+        profileRequest(apiKey: identity.apiKey,
+                       payload: profilePayload(identity: identity, properties: properties))
+    }
+
+    /// Builds a `CreateProfilePayload` from identity + properties without wrapping it in a request,
+    /// so callers can resolve/merge it (e.g. a pending-profile merge) before turning it into a
+    /// request via ``profileRequest(apiKey:payload:)``.
+    public static func profilePayload(
+        identity: RequestIdentity,
+        properties: [String: Any] = [:]
+    ) -> CreateProfilePayload {
+        CreateProfilePayload(data: ProfilePayload(
             email: identity.email,
             phoneNumber: identity.phoneNumber,
             externalId: identity.externalId,
             properties: properties,
             anonymousId: identity.anonymousId
-        )
-        return profileRequest(apiKey: identity.apiKey,
-                              payload: CreateProfilePayload(data: payload))
+        ))
     }
 
     /// Wraps an already-resolved `CreateProfilePayload` (e.g. after a pending-profile merge).

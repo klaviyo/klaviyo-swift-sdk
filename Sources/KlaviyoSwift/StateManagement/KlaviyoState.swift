@@ -251,12 +251,9 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func enqueueProfileRequest(apiKey: String, anonymousId: String) {
-        let identity = requestIdentity(apiKey: apiKey, anonymousId: anonymousId)
-        let baseRequest = RequestFactory.profileRequest(identity: identity)
-        guard case let .createProfile(_, payload) = baseRequest.endpoint else {
-            environment.raiseFatalError("Unexpected request type. \(baseRequest.endpoint)")
-            return
-        }
+        let payload = RequestFactory.profilePayload(
+            identity: requestIdentity(apiKey: apiKey, anonymousId: anonymousId)
+        )
         let updatedPayload = updateRequestAndStateWithPendingProfile(profile: payload)
         enqueueRequest(request: RequestFactory.profileRequest(apiKey: apiKey, payload: updatedPayload))
     }
@@ -383,57 +380,6 @@ struct KlaviyoState: Equatable, Codable {
         )
 
         return pushTokenData != newPushTokenData
-    }
-
-    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoRequest {
-        let payload = ProfilePayload(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            properties: properties,
-            anonymousId: anonymousId
-        )
-
-        let endpoint = KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: payload))
-
-        return KlaviyoRequest(endpoint: endpoint)
-    }
-
-    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
-        var profile: Profile
-
-        if let pendingProfile = pendingProfile {
-            profile = Profile.updateProfileWithProperties(
-                email: email,
-                phoneNumber: phoneNumber,
-                externalId: externalId,
-                dict: pendingProfile
-            )
-            self.pendingProfile = nil
-        } else {
-            profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
-        }
-
-        let payload = PushTokenPayload(
-            pushToken: pushToken,
-            enablement: enablement.rawValue,
-            background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId)
-        )
-        let endpoint = KlaviyoEndpoint.registerPushToken(apiKey, payload)
-        return KlaviyoRequest(endpoint: endpoint)
-    }
-
-    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
-        let payload = UnregisterPushTokenPayload(
-            pushToken: pushToken,
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            anonymousId: anonymousId
-        )
-        let endpoint = KlaviyoEndpoint.unregisterPushToken(apiKey, payload)
-        return KlaviyoRequest(endpoint: endpoint)
     }
 }
 
