@@ -224,6 +224,14 @@ extension KlaviyoSwiftEnvironment {
             Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
         }, pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
+        }, injectNotificationDelegate: {
+            // no-op: UNUserNotificationCenter.current() is unavailable in test runner
+        }, isAutomaticPushOpenTrackingEnabled: {
+            false
+        }, isAutomaticPushTokenForwardingEnabled: {
+            false
+        }, notificationCenter: {
+            MockNotificationCenter()
         })
     }
 }

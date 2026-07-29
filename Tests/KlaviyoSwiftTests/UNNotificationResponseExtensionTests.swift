@@ -92,7 +92,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
 
         // Assert
         XCTAssertNotNil(response.klaviyoProperties)
-        let properties = response.klaviyoProperties as? [AnyHashable: Any]
+        let properties: [AnyHashable: Any]? = response.klaviyoProperties
         XCTAssertEqual(properties?.count, expectedProperties.count)
         XCTAssertNotNil(properties?["body"])
         XCTAssertEqual(properties?["url"] as? String, "https://example.com")
@@ -196,6 +196,44 @@ class UNNotificationResponseExtensionTests: XCTestCase {
 
         // Assert
         XCTAssertNil(response.klaviyoDeepLinkURL)
+    }
+
+    // MARK: - klaviyoDedupKey Tests
+
+    func testDedupKey_UsesTmFromKPayload() throws {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": [
+                    "tm": "01KV8CN3SH8N7MM5ZYNX40QCFH",
+                    "m": "01KT4QQ8QPYH4EN7BH3BH259TD",
+                    "$message": "01KT4QQ8QPYH4EN7BH3BH259TD"
+                ]
+            ]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        XCTAssertEqual(response.klaviyoDedupKey, "01KV8CN3SH8N7MM5ZYNX40QCFH")
+    }
+
+    func testDedupKey_FallsBackToRequestIdentifierWhenTmAbsent() throws {
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": ["m": "01KT4QQ8QPYH4EN7BH3BH259TD", "t": 1_718_500_000]]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        XCTAssertEqual(response.klaviyoDedupKey, response.notification.request.identifier)
+    }
+
+    func testDedupKey_FallsBackToRequestIdentifierWhenNoKlaviyoMetadata() throws {
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": ["some_field": "value"]]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        XCTAssertEqual(response.klaviyoDedupKey, response.notification.request.identifier)
+    }
+
+    func testDedupKey_FallsBackToRequestIdentifierForNonKlaviyoPayload() throws {
+        let userInfo: [AnyHashable: Any] = ["data": ["type": "OTHER"]]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
+        XCTAssertEqual(response.klaviyoDedupKey, response.notification.request.identifier)
     }
 
     // MARK: - klaviyoWebUrl Tests

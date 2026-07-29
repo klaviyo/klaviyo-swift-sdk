@@ -14,7 +14,19 @@ pod install
 
 ## SPM Example
 
-This [example](SPMExample) demonstrates how to integrate our SDK using SPM. Follow the steps [here](Link to swift SDK instructions) to integrate it in your app.
+This [example](SPMExample) demonstrates how to integrate our SDK using SPM. Follow the [installation steps](../../README.md#installation) to integrate it in your app.
+
+## SPM Example — Automatic Push Tracking
+
+This [example](SPMExample/SPMExampleAutomatic) mirrors the SPM Example but opts into automatic push integration via two independent Info.plist keys: `klaviyo_automatic_push_open_tracking` (tracks push opens) and `klaviyo_automatic_push_token_forwarding` (forwards device tokens). With both keys set, the SDK automatically forwards device tokens and tracks push opens, so no `didRegisterForRemoteNotificationsWithDeviceToken` or `UNUserNotificationCenterDelegate` code is required in your `AppDelegate`.
+
+## Which example should I use?
+
+| Example | Integration style | When to choose |
+|---|---|---|
+| `SPMExample` | Manual (STEP1–STEP6) | You want full control over push delegate callbacks, or you need to handle non-Klaviyo notifications alongside Klaviyo ones. |
+| `CocoapodsExample` | Manual (CocoaPods) | Same as above, but your project uses CocoaPods instead of SPM. |
+| `SPMExampleAutomatic` | Automatic (plist opt-in) | You want zero push code in your `AppDelegate` and are happy for the SDK to handle token registration and open tracking automatically. |
 
 ## Authors
 

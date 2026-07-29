@@ -71,6 +71,8 @@ class AppState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "email")
         UserDefaults.standard.removeObject(forKey: "zip")
         UserDefaults.standard.removeObject(forKey: "cartItems")
+
+        KlaviyoSDK().resetProfile()
     }
 
     func addToCart(_ item: MenuItem) {

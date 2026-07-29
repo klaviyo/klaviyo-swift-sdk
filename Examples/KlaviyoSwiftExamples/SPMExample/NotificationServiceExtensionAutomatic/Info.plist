@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>klaviyo_app_group</key>
-	<string>group.com.klaviyo.spm.example.SPMExample.shared</string>
+	<string>group.com.klaviyo.spm.example.SPMExampleAutomatic.shared</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
