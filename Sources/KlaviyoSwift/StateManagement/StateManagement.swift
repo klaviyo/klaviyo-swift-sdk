@@ -264,22 +264,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let profile: Profile
-            if let pendingProfile = state.pendingProfile {
-                profile = Profile.updateProfileWithProperties(
-                    email: state.email, phoneNumber: state.phoneNumber,
-                    externalId: state.externalId, dict: pendingProfile
-                )
-                state.pendingProfile = nil
-            } else {
-                profile = Profile(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
-            }
-            let request = RequestFactory.tokenRequest(
+            let request = state.tokenRequest(
                 apiKey: apiKey,
+                anonymousId: anonymousId,
                 pushToken: pushToken,
-                enablement: enablement,
-                background: environment.getBackgroundSetting().rawValue,
-                profile: profile.toAPIModel(anonymousId: anonymousId)
+                enablement: enablement
             )
             state.enqueueRequest(request: request)
             return .none

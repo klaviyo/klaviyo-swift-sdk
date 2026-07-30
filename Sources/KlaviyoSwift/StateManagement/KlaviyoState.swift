@@ -215,6 +215,28 @@ struct KlaviyoState: Equatable, Codable {
         )
     }
 
+    /// Resolves the profile for a token request, folding in and consuming any pending profile.
+    mutating func resolveProfileConsumingPending() -> Profile {
+        let profile = pendingProfile.map {
+            Profile.updateProfileWithProperties(
+                email: email, phoneNumber: phoneNumber, externalId: externalId, dict: $0
+            )
+        } ?? Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
+        pendingProfile = nil
+        return profile
+    }
+
+    /// Builds a push-token registration request, resolving (and consuming) any pending profile.
+    mutating func tokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+        RequestFactory.tokenRequest(
+            apiKey: apiKey,
+            pushToken: pushToken,
+            enablement: enablement,
+            background: environment.getBackgroundSetting().rawValue,
+            profile: resolveProfileConsumingPending().toAPIModel(anonymousId: anonymousId)
+        )
+    }
+
     mutating func enqueueProfileOrTokenRequest() {
         guard let apiKey = apiKey,
               let anonymousId = anonymousId else {
@@ -225,28 +247,15 @@ struct KlaviyoState: Equatable, Codable {
         // we want to associate the token with the new email.
         if let pushTokenData = pushTokenData {
             self.pushTokenData = nil
-            let profile: Profile
-            if let pendingProfile {
-                profile = Profile.updateProfileWithProperties(
-                    email: email, phoneNumber: phoneNumber, externalId: externalId, dict: pendingProfile
-                )
-                self.pendingProfile = nil
-            } else {
-                profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
-            }
-            let request = RequestFactory.tokenRequest(
+            let request = tokenRequest(
                 apiKey: apiKey,
+                anonymousId: anonymousId,
                 pushToken: pushTokenData.pushToken,
-                enablement: pushTokenData.pushEnablement,
-                background: environment.getBackgroundSetting().rawValue,
-                profile: profile.toAPIModel(anonymousId: anonymousId)
+                enablement: pushTokenData.pushEnablement
             )
             enqueueRequest(request: request)
         } else {
-            enqueueProfileRequest(
-                apiKey: apiKey,
-                anonymousId: anonymousId
-            )
+            enqueueProfileRequest(apiKey: apiKey, anonymousId: anonymousId)
         }
     }
 

@@ -33,9 +33,6 @@ public struct RequestIdentity: Equatable {
 }
 
 /// Pure construction of `KlaviyoRequest` values from domain inputs.
-///
-/// Reads no store and does not touch `environment`. Byte-identical to the
-/// construction previously inlined in `KlaviyoState` / the reducer.
 public enum RequestFactory {
     public static func profileRequest(
         identity: RequestIdentity,

@@ -158,22 +158,7 @@ extension KlaviyoState {
     }
 
     mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
-        let profile: Profile
-        if let pendingProfile {
-            profile = Profile.updateProfileWithProperties(
-                email: email, phoneNumber: phoneNumber, externalId: externalId, dict: pendingProfile
-            )
-            self.pendingProfile = nil
-        } else {
-            profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
-        }
-        return RequestFactory.tokenRequest(
-            apiKey: apiKey,
-            pushToken: pushToken,
-            enablement: enablement,
-            background: environment.getBackgroundSetting().rawValue,
-            profile: profile.toAPIModel(anonymousId: anonymousId)
-        )
+        tokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
     }
 
     func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
