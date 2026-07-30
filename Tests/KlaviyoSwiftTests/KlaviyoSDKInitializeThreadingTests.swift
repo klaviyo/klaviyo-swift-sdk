@@ -16,10 +16,12 @@ import XCTest
 /// during `initialize` must be routed to the main thread regardless of the caller's thread.
 @MainActor
 final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
+    private var savedCoreEnvironment: KlaviyoEnvironment!
     private var savedEnvironment: KlaviyoSwiftEnvironment!
 
     override func setUp() {
         super.setUp()
+        savedCoreEnvironment = environment
         savedEnvironment = klaviyoSwiftEnvironment
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
@@ -28,13 +30,16 @@ final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
 
     override func tearDown() {
         SharedStoreMirror.reset()
+        environment = savedCoreEnvironment
         klaviyoSwiftEnvironment = savedEnvironment
         super.tearDown()
     }
 
     /// Initializing from a background thread must still route store-touching work
     /// (`SharedStoreMirror.setup()`'s `statePublisher` subscription and the `.initialize` send)
-    /// to the main thread, since `Store` is main-thread-only.
+    /// to the main thread, since `Store` is main-thread-only. The stubbed `send`/`statePublisher`
+    /// keep the shared `testStore` untouched, and the `wait(for:)` drains both scheduled main-actor
+    /// hops before the test returns so nothing leaks into later tests.
     func testInitializeFromBackgroundThreadTouchesStoreOnMainThread() {
         let statePublisherExpectation = expectation(description: "statePublisher invoked")
         let sendExpectation = expectation(description: "send invoked")
@@ -66,25 +71,51 @@ final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
         XCTAssertTrue(sendOnMain, "initialize action must be sent on the main thread")
     }
 
-    /// The notification-delegate injection must complete synchronously before `initialize`
-    /// returns when called on the main thread — the delegate has to be in place before the app
-    /// finishes launching. This exercises the real production closure (the synchronous
-    /// main-thread path), not a stub, so a regression that made injection async would fail here.
-    func testInitializeOnMainThreadInjectsDelegateSynchronouslyBeforeReturning() {
-        // Restore the production injection closure (setUp swaps in the no-op test stub) so we
-        // test the actual threading behavior, but enable auto-tracking against a mock center so
-        // no real UNUserNotificationCenter is touched.
+    /// The notification-delegate injection must complete synchronously when invoked on the main
+    /// thread — `initialize(with:)` relies on this so the delegate is in place before the app
+    /// finishes launching. Exercises the real production closure directly (not through
+    /// `initialize`, which would leak an undrained `.initialize` send + `setup()` Task into the
+    /// next test) against a mock center.
+    ///
+    /// The synchronous guarantee only holds on iOS 17+, where the closure uses
+    /// `MainActor.assumeIsolated`; on earlier OSes it hops via `Task` and the delegate is installed
+    /// asynchronously, so the assertion is scoped to iOS 17+.
+    func testInjectNotificationDelegateInstallsDelegateSynchronouslyOnMain() throws {
+        guard #available(iOS 17.0, *) else {
+            throw XCTSkip("Synchronous injection is only guaranteed on iOS 17+; earlier OSes hop via Task.")
+        }
+
         let mockCenter = MockNotificationCenter()
         klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
-        klaviyoSwiftEnvironment.injectNotificationDelegate =
-            KlaviyoSwiftEnvironment.production.injectNotificationDelegate
 
-        _ = KlaviyoSDK().initialize(with: "test-api-key")
+        KlaviyoSwiftEnvironment.production.injectNotificationDelegate()
 
         XCTAssertTrue(
             mockCenter.delegate === KlaviyoNotificationDelegate.shared,
-            "injectNotificationDelegate must install the delegate synchronously before initialize returns on main"
+            "injectNotificationDelegate must install the delegate synchronously on the main thread"
+        )
+    }
+
+    /// The mirror must observe the initialized state regardless of whether its subscription is
+    /// attached before or after the `.initialize` action lands, since `initialize(with:)` schedules
+    /// `SharedStoreMirror.setup()` and the `.initialize` send as two independent main-actor hops
+    /// with no ordering guarantee. This exercises the "subscribes late" ordering: the publisher is
+    /// already emitting an initialized state (as if `.initialize` had processed first). Because
+    /// `statePublisher` is a current-value publisher, `setup()` still receives that state on attach
+    /// and mirrors it into `SDKConfigStore`.
+    func testSharedStoreMirrorPicksUpAlreadyInitializedStateOnLateSubscribe() {
+        var state = INITIALIZED_TEST_STATE()
+        state.apiKey = "late-subscribe-key"
+        let subject = CurrentValueSubject<KlaviyoState, Never>(state)
+        klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
+
+        SharedStoreMirror.setup()
+
+        XCTAssertEqual(
+            SDKConfigStore.shared.current.apiKey,
+            "late-subscribe-key",
+            "mirror must pick up an already-initialized state when subscribing after the fact"
         )
     }
 }
