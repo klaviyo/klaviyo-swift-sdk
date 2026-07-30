@@ -165,9 +165,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 if let apiKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
-                    let request = state.buildUnregisterRequest(
-                        apiKey: apiKey,
-                        anonymousId: anonymousId,
+                    let request = RequestFactory.unregisterRequest(
+                        identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
                         pushToken: tokenData.pushToken
                     )
                     state.enqueueRequest(request: request)
@@ -265,7 +264,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let request = state.buildTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+            let request = state.resolvedTokenRequest(
+                apiKey: apiKey,
+                anonymousId: anonymousId,
+                pushToken: pushToken,
+                enablement: enablement
+            )
             state.enqueueRequest(request: request)
             return .none
 
@@ -477,22 +481,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 pushToken: state.pushTokenData?.pushToken
             )
 
-            let payload = CreateEventPayload(
-                data: CreateEventPayload.Event(
-                    name: event.metric.name.value,
-                    properties: event.properties,
-                    email: event.identifiers?.email,
-                    phoneNumber: event.identifiers?.phoneNumber,
-                    externalId: event.identifiers?.externalId,
-                    anonymousId: anonymousId,
-                    value: event.value,
-                    time: event.time,
-                    uniqueId: event.uniqueId,
-                    pushToken: state.pushTokenData?.pushToken
-                ))
-
-            let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
-            let request = KlaviyoRequest(endpoint: endpoint, priority: event.priority)
+            let request = RequestFactory.eventRequest(
+                identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+                event: event,
+                pushToken: state.pushTokenData?.pushToken
+            )
 
             /*
              High-priority requests (e.g. opened-push, geofence events) are front-inserted and
@@ -566,8 +559,6 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let request: KlaviyoRequest!
-
             let profilePayload = profile.toAPIModel(
                 email: state.email,
                 phoneNumber: state.phoneNumber,
@@ -575,19 +566,19 @@ struct KlaviyoReducer: ReducerProtocol {
                 anonymousId: anonymousId
             )
 
+            let request: KlaviyoRequest
             if let tokenData = pushTokenData {
-                let payload = PushTokenPayload(
+                request = RequestFactory.tokenRequest(
+                    apiKey: apiKey,
                     pushToken: tokenData.pushToken,
-                    enablement: tokenData.pushEnablement.rawValue,
+                    enablement: tokenData.pushEnablement,
                     background: tokenData.pushBackground.rawValue,
                     profile: profilePayload
                 )
-                request = KlaviyoRequest(
-                    endpoint: KlaviyoEndpoint.registerPushToken(apiKey, payload)
-                )
             } else {
-                request = KlaviyoRequest(
-                    endpoint: KlaviyoEndpoint.createProfile(apiKey, CreateProfilePayload(data: profilePayload))
+                request = RequestFactory.profileRequest(
+                    apiKey: apiKey,
+                    payload: CreateProfilePayload(data: profilePayload)
                 )
             }
             state.enqueueRequest(request: request)
