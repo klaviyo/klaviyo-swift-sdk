@@ -92,8 +92,10 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
-        SharedStoreMirror.setup()
-        dispatchOnMainThread(action: .initialize(apiKey))
+        Task {
+            @MainActor in SharedStoreMirror.setup()
+            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
+        }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
