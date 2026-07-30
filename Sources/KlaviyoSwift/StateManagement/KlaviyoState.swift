@@ -216,13 +216,16 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     /// Resolves the profile for a token request, folding in and consuming any pending profile.
-    mutating func resolveProfileConsumingPending() -> Profile {
-        let profile = pendingProfile.map {
-            Profile.updateProfileWithProperties(
-                email: email, phoneNumber: phoneNumber, externalId: externalId, dict: $0
+    private mutating func resolveProfileConsumingPending() -> Profile {
+        let profile: Profile
+        if let pendingProfile {
+            profile = Profile.updateProfileWithProperties(
+                email: email, phoneNumber: phoneNumber, externalId: externalId, dict: pendingProfile
             )
-        } ?? Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
-        pendingProfile = nil
+            self.pendingProfile = nil
+        } else {
+            profile = Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
+        }
         return profile
     }
 
