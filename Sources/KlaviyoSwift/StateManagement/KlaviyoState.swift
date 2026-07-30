@@ -230,7 +230,8 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     /// Builds a push-token registration request, resolving (and consuming) any pending profile.
-    mutating func tokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+    /// The `resolved` prefix marks the state-sourcing layer over the pure `RequestFactory.tokenRequest`.
+    mutating func resolvedTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
         RequestFactory.tokenRequest(
             apiKey: apiKey,
             pushToken: pushToken,
@@ -250,7 +251,7 @@ struct KlaviyoState: Equatable, Codable {
         // we want to associate the token with the new email.
         if let pushTokenData = pushTokenData {
             self.pushTokenData = nil
-            let request = tokenRequest(
+            let request = resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: pushTokenData.pushToken,

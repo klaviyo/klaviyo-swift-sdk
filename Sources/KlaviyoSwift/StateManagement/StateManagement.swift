@@ -264,7 +264,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            let request = state.tokenRequest(
+            let request = state.resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: pushToken,
