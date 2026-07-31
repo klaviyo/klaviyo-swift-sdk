@@ -23,9 +23,9 @@ enum SharedStoreMirror {
             // TCA dispatches state changes on the main thread, so the two writes are observed
             // together. Write config before identity: IdentityStore.update(_:) notifies observers
             // synchronously, so an identity observer must not see a stale apiKey.
-            .sink { identity, apiKey in
-                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-                IdentityStore.shared.update(identity)
+            .sink { result in
+                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: result.apiKey))
+                IdentityStore.shared.update(result.identity)
             }
     }
 
