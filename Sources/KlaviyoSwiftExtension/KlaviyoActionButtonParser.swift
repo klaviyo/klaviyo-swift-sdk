@@ -39,6 +39,15 @@ enum KlaviyoActionButtonParser {
 
     /// Parses action button definitions from a push notification payload.
     ///
+    /// A button is renderable when it has an `id`, a `label`, and a recognized `action` —
+    /// nothing more. A problem with its `url` degrades the button's *action*, not the button
+    /// itself: the tap falls through to the `.foreground` option and opens the app. Dropping
+    /// the button instead would silently discard what the sender configured, and would take
+    /// every other button on the notification with it whenever no button survives.
+    ///
+    /// The `open_url` scheme allowlist is therefore enforced at dispatch time, in
+    /// `KlaviyoSDK.handleActionButtonTap`, and not here.
+    ///
     /// - Parameter userInfo: The notification's userInfo dictionary
     /// - Returns: Array of parsed button definitions, or nil if none found
     static func parseActionButtons(from userInfo: [AnyHashable: Any]) -> [ActionButtonDefinition]? {
@@ -68,12 +77,14 @@ enum KlaviyoActionButtonParser {
 
             let url = buttonData["url"] as? String
 
-            // Validate action-url combinations
-            guard isValidActionURLCombination(action: action, url: url) else {
-                if #available(iOS 14.0, *) {
-                    Logger.actionButtons.warning("Button url is incompatible with its action. Skipping button: \(buttonData.description)")
-                }
-                continue
+            // Surface url/action mismatches without dropping the button — the tap will
+            // fall through to opening the app rather than resolving the intended action.
+            // `issue` embeds the sender-configured url, so it is marked private to match the
+            // equivalent `web_url` rejection warning in `UNNotificationResponse.klaviyoWebUrl`.
+            if let issue = urlIssue(for: action, url: url), #available(iOS 14.0, *) {
+                Logger.actionButtons.warning(
+                    "Button '\(id, privacy: .public)' will only open the app: \(issue, privacy: .private)"
+                )
             }
 
             definitions.append(ActionButtonDefinition(
@@ -104,28 +115,34 @@ enum KlaviyoActionButtonParser {
 
     // MARK: - Private Methods
 
-    /// Validates that an action type has the correct URL configuration.
+    /// Describes why `url` cannot satisfy `action`, or `nil` when the pairing is usable.
     ///
-    /// - `.openApp` actions should not have a URL
-    /// - `.deepLink` actions must have a parseable URL
-    /// - `.openUrl` actions must have a parseable URL whose scheme is in ``openUrlAllowedSchemes`` —
-    ///   unlisted schemes (e.g. `javascript:`, `file:`, `intent:`) are rejected silently
+    /// Purely diagnostic — this never decides whether a button renders. See the discussion in
+    /// ``parseActionButtons(from:)``.
     ///
     /// - Parameters:
-    ///   - action: The action type to validate
+    ///   - action: The button's action type
     ///   - url: The optional URL string
-    /// - Returns: `true` if the combination is valid, `false` otherwise
-    private static func isValidActionURLCombination(action: ActionType, url: String?) -> Bool {
+    /// - Returns: A message explaining the mismatch, or `nil` if there is none
+    private static func urlIssue(for action: ActionType, url: String?) -> String? {
         switch action {
         case .openApp:
-            return url == nil
+            return url == nil ? nil : "open_app buttons ignore the 'url' field"
         case .deepLink:
-            guard let urlString = url else { return false }
-            return URL(string: urlString) != nil
+            guard let urlString = url else { return "deep_link buttons require a 'url'" }
+            return URL(string: urlString) == nil ? "'\(urlString)' is not a parseable URL" : nil
         case .openUrl:
-            guard let urlString = url, let parsedUrl = URL(string: urlString) else { return false }
-            guard let scheme = parsedUrl.scheme?.lowercased() else { return false }
-            return openUrlAllowedSchemes.contains(scheme)
+            guard let urlString = url else { return "open_url buttons require a 'url'" }
+            guard let parsedUrl = URL(string: urlString) else {
+                return "'\(urlString)' is not a parseable URL"
+            }
+            guard let scheme = parsedUrl.scheme?.lowercased() else {
+                return "'\(urlString)' has no scheme; open_url needs a complete URL"
+            }
+            guard openUrlAllowedSchemes.contains(scheme) else {
+                return "scheme '\(scheme)' is not in the allowed list \(openUrlAllowedSchemes.sorted())"
+            }
+            return nil
         }
     }
 

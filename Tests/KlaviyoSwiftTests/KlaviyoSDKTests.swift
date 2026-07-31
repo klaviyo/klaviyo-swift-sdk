@@ -906,4 +906,67 @@ class KlaviyoSDKTests: XCTestCase {
         }
         XCTAssertNotNil(eventAction, "Tap should still be tracked even when the scheme is blocked")
     }
+
+    /// A scheme-less `open_url` (e.g. `www.cnn.com`) now renders a tappable button, so the
+    /// dispatch path must be the thing that refuses it: the tap is tracked, the app comes to
+    /// the foreground, and nothing is handed to the external URL opener.
+    func testHandleActionButtonTap_OpenUrlButtonWithSchemelessURLDoesNotDispatch() throws {
+        let callback = XCTestExpectation(description: "callback is made")
+        let urlString = "www.cnn.com"
+        let actionId = "com.klaviyo.test.schemeless"
+
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_open_url_schemeless",
+                "action_buttons": [
+                    [
+                        "id": actionId,
+                        "label": "Read More",
+                        "action": "open_url",
+                        "url": urlString
+                    ]
+                ]
+            ]
+        ]
+
+        var capturedActions: [KlaviyoAction] = []
+        let eventDispatched = XCTestExpectation(description: "event action dispatched")
+        klaviyoSwiftEnvironment.send = { action in
+            capturedActions.append(action)
+            if case .enqueueEvent = action { eventDispatched.fulfill() }
+            return nil
+        }
+        let externalUrlNotInvoked = XCTestExpectation(
+            description: "openExternalURL must not be invoked for a scheme-less URL"
+        )
+        externalUrlNotInvoked.isInverted = true
+        DeepLinkManager.openExternalURLSpy = { _ in externalUrlNotInvoked.fulfill() }
+
+        let response = try UNNotificationResponse.with(
+            userInfo: userInfo,
+            actionIdentifier: actionId
+        )
+
+        let handled = klaviyo.handle(notificationResponse: response) {
+            callback.fulfill()
+        }
+
+        wait(for: [callback, eventDispatched], timeout: 1.0)
+        wait(for: [externalUrlNotInvoked], timeout: 0.3)
+        XCTAssertTrue(handled)
+
+        let eventAction = capturedActions.first { action in
+            if case let .enqueueEvent(event) = action {
+                return event.metric.name == ._openedPush
+            }
+            return false
+        }
+        XCTAssertNotNil(eventAction, "Tap should still be tracked even when the URL has no scheme")
+        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
+            XCTAssertEqual(
+                event.properties["Button Link"] as? String, urlString,
+                "The raw URL is still reported for analytics"
+            )
+        }
+    }
 }

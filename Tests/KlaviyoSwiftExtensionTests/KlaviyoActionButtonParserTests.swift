@@ -184,7 +184,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertNil(result, "Should return nil when all buttons are invalid")
     }
 
-    func testParseActionButtons_SkipsOpenAppWithURL() {
+    func testParseActionButtons_RendersOpenAppWithStrayURL() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -193,7 +193,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
                         "id": "com.klaviyo.test.openapp_with_url",
                         "label": "Open App",
                         "action": "open_app",
-                        "url": "myapp://invalid" // openApp should not have URL
+                        "url": "myapp://invalid" // openApp ignores the url field
                     ],
                     [
                         "id": "com.klaviyo.test.valid",
@@ -207,12 +207,11 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertNotNil(result, "Should return valid buttons")
-        XCTAssertEqual(result?.count, 1, "Should skip openApp button with URL")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid", "Should return only valid button")
+        XCTAssertEqual(result?.count, 2, "A stray url on open_app must not delete the button")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.openapp_with_url")
     }
 
-    func testParseActionButtons_SkipsDeepLinkWithoutURL() {
+    func testParseActionButtons_RendersDeepLinkWithoutURL() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -221,13 +220,12 @@ class KlaviyoActionButtonParserTests: XCTestCase {
                         "id": "com.klaviyo.test.deeplink_without_url",
                         "label": "Deep Link",
                         "action": "deep_link"
-                        // Missing URL - deepLink should have URL
+                        // Missing URL — the tap falls through to opening the app
                     ],
                     [
                         "id": "com.klaviyo.test.valid",
                         "label": "Valid Button",
                         "action": "open_app"
-                        // No URL for openApp is valid
                     ]
                 ]
             ]
@@ -235,9 +233,9 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertNotNil(result, "Should return valid buttons")
-        XCTAssertEqual(result?.count, 1, "Should skip deepLink button without URL")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid", "Should return only valid button")
+        XCTAssertEqual(result?.count, 2, "A missing deep_link url must not delete the button")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.deeplink_without_url")
+        XCTAssertNil(result?.first?.url)
     }
 
     // MARK: - Valid Button Tests
@@ -301,7 +299,36 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.first?.url, "https://example.com/sale")
     }
 
-    func testParseActionButtons_SkipsOpenUrlWithoutURL() {
+    // MARK: - Render eligibility is independent of URL validity
+
+    /// A URL the SDK cannot open must not delete the button the marketer configured.
+    /// `URL(string: "www.cnn.com")` parses but has a nil scheme, so the allowlist check
+    /// used to reject it and — when it was the only button — the notification rendered
+    /// with no buttons at all.
+    func testParseActionButtons_RendersOpenUrlButtonWithSchemelessURL() {
+        let userInfo: [AnyHashable: Any] = [
+            "body": [
+                "_k": {},
+                "action_buttons": [
+                    [
+                        "id": "com.klaviyo.test.schemeless",
+                        "label": "Read More",
+                        "action": "open_url",
+                        "url": "www.cnn.com"
+                    ]
+                ]
+            ]
+        ]
+
+        let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
+
+        XCTAssertEqual(result?.count, 1, "A scheme-less URL must not delete the button")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.schemeless")
+        XCTAssertEqual(result?.first?.label, "Read More")
+        XCTAssertEqual(result?.first?.url, "www.cnn.com", "The raw URL is preserved, not normalized")
+    }
+
+    func testParseActionButtons_RendersOpenUrlWithoutURL() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -310,7 +337,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
                         "id": "com.klaviyo.test.openurl_no_url",
                         "label": "Visit Site",
                         "action": "open_url"
-                        // Missing URL - open_url must have URL
+                        // Missing URL — the tap falls through to opening the app
                     ],
                     [
                         "id": "com.klaviyo.test.valid",
@@ -324,13 +351,14 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertNotNil(result, "Should return valid buttons")
-        XCTAssertEqual(result?.count, 1, "Should skip open_url button without URL")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+        XCTAssertEqual(result?.count, 2, "A missing open_url url must not delete the button")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.openurl_no_url")
     }
 
-    func testParseActionButtons_SkipsOpenUrlWithBlockedScheme() {
-        // Custom app schemes and other non-allowlisted schemes must be rejected.
+    /// A blocked scheme must still render the button — the allowlist is enforced at dispatch
+    /// time, so the tap opens the app instead of the URL. See
+    /// `KlaviyoSDKTests.testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch`.
+    func testParseActionButtons_RendersOpenUrlWithBlockedScheme() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -353,9 +381,8 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertNotNil(result, "Should return valid buttons")
-        XCTAssertEqual(result?.count, 1, "Should skip open_url buttons with blocked schemes")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+        XCTAssertEqual(result?.count, 2, "A blocked scheme must not delete the button")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.openurl_custom_scheme")
     }
 
     // MARK: - Allowlisted non-web open_url schemes
@@ -428,7 +455,7 @@ class KlaviyoActionButtonParserTests: XCTestCase {
         XCTAssertEqual(result?.first?.id, "com.klaviyo.test.sms")
     }
 
-    func testParseActionButtons_SkipsOpenUrlWithIntentScheme() {
+    func testParseActionButtons_RendersOpenUrlWithIntentScheme() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -451,11 +478,11 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertEqual(result?.count, 1, "intent: should be blocked")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+        XCTAssertEqual(result?.count, 2, "intent: is blocked at dispatch time, not at render time")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.intent")
     }
 
-    func testParseActionButtons_SkipsOpenUrlWithJavascriptScheme() {
+    func testParseActionButtons_RendersOpenUrlWithJavascriptScheme() {
         let userInfo: [AnyHashable: Any] = [
             "body": [
                 "_k": {},
@@ -478,8 +505,8 @@ class KlaviyoActionButtonParserTests: XCTestCase {
 
         let result = KlaviyoActionButtonParser.parseActionButtons(from: userInfo)
 
-        XCTAssertEqual(result?.count, 1, "javascript: should be blocked")
-        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.valid")
+        XCTAssertEqual(result?.count, 2, "javascript: is blocked at dispatch time, not at render time")
+        XCTAssertEqual(result?.first?.id, "com.klaviyo.test.js")
     }
 
     func testParseActionButtons_AllowsDeepLinkWithHttpScheme() {
