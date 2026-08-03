@@ -285,6 +285,11 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.flushing {
                 return .none
             }
+            // The priority path can dispatch `.flushQueue` while offline, where `flushInterval` is
+            // `.infinity` — the backoff below would trap on `Int()`, and draining is pointless.
+            guard state.flushInterval.isFinite else {
+                return .none
+            }
             if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
                 if newBackOff > 0 {
