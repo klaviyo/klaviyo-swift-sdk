@@ -500,6 +500,32 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.flushQueue)
     }
 
+    @MainActor
+    func testFlushQueueWhileOfflineWithoutBackoffDoesNotDrainQueue() async {
+        // The guard sits above the backoff block, so it also stops the non-backoff `.retry` path —
+        // which never crashed, but draining while offline only burns attempts. Pins that half:
+        // the queue must stay put rather than moving into requestsInFlight.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryState = .retry(1)
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        _ = await store.receive(.cancelInFlightRequests) {
+            $0.flushing = false
+        }
+
+        // Queue is non-empty on purpose — with an empty queue `.flushQueue` returns early anyway
+        // and this test would pass with or without the guard.
+        _ = await store.send(.flushQueue)
+    }
+
     // MARK: - Missing api key for token request
 
     @MainActor

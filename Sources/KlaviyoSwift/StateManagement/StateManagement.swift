@@ -285,8 +285,8 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.flushing {
                 return .none
             }
-            // Offline parks `flushInterval` at `.infinity`, which the backoff below would trap
-            // converting to `Int`. No point draining the queue with no network anyway.
+            // The priority path can dispatch `.flushQueue` while offline, where `flushInterval` is
+            // `.infinity` — the backoff below would trap on `Int()`, and draining is pointless.
             guard state.flushInterval.isFinite else {
                 return .none
             }
