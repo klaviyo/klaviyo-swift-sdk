@@ -478,12 +478,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testFlushQueueWhileOfflineDuringBackoffDoesNotTrap() async {
-        // Going offline parks `flushInterval` at `.infinity` and cancels the flush timer — but the
-        // priority path (opened push / geofence) dispatches `.flushQueue` unconditionally, so we can
-        // still land in `.flushQueue` while offline. With `retryState` in backoff, the countdown
-        // computes `backOff - Int(state.flushInterval)`, and `Int(Double.infinity)` traps in Swift,
-        // taking down the host app. `.flushQueue` must no-op instead, leaving the backoff intact so
-        // it resumes when connectivity returns.
+        // Offline + backoff: the priority path can dispatch `.flushQueue` while `flushInterval` is
+        // `.infinity`, where the backoff countdown used to trap converting it to `Int`.
         var initialState = INITIALIZED_TEST_STATE()
         initialState.retryState = .retryWithBackoff(
             requestCount: 1,
@@ -495,8 +491,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
         }
-        // Also clears `flushing`, so the `if state.flushing` bail-out below does NOT mask the
-        // conversion — without the guard this test reaches the trap.
+        // Also clears `flushing` — otherwise `.flushQueue` bails early and this test is vacuous.
         _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false
         }
