@@ -1,14 +1,14 @@
 CONFIG = debug
-XCODE = 15.2
-# Pin the simulator runtime. Left unpinned, the macOS-15 runner picks its newest
-# installed simulator (currently iOS 26), where Swift-concurrency code hangs under
-# release optimization. iOS 18 is installed on both the macOS-14 and macOS-15 CI
-# runner images (independent of the selected Xcode — `xcode-select` does not remove
-# other installed runtimes), so all matrix jobs run on it consistently. Bump this
-# as the runner images move forward; the `test-library` guard below fails loudly if
-# the pinned runtime is ever missing.
+XCODE = 15.4
+# Simulator runtime *major family* to test against. Default is for local runs; CI
+# overrides per matrix row (macos-14 -> iOS 17, macos-15 -> iOS 18, macos-26 -> iOS 26)
+# so each runner tests its own OS generation. Resolved to the newest installed minor
+# (e.g. "iOS 26" -> "iOS 26.5") below, so the choice is deterministic when several
+# minors are installed. The test-library guard fails loudly if none is installed.
+# Bump the CI majors in .github/workflows/swift.yml as runner images move forward.
 IOS_RUNTIME = iOS 18
-IOS_UDID = $(call udid_for,$(IOS_RUNTIME),iPhone \d\+ Pro [^M])
+IOS_RUNTIME_RESOLVED = $(call newest_ios_runtime,$(IOS_RUNTIME))
+IOS_UDID = $(call udid_for,$(IOS_RUNTIME_RESOLVED),iPhone \d\+ Pro [^M])
 PLATFORM_IOS = iOS Simulator,id=$(IOS_UDID)
 
 
@@ -18,8 +18,13 @@ test-all: $(MAKE) CONFIG=debug test-library
 	$(MAKE) CONFIG=release test-library
 
 test-library:
+	@if [ -z "$(IOS_RUNTIME_RESOLVED)" ]; then \
+		echo "ERROR: no '$(IOS_RUNTIME)' runtime installed on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
+		xcrun simctl list runtimes available; \
+		exit 1; \
+	fi
 	@if [ -z "$(IOS_UDID)" ]; then \
-		echo "ERROR: no '$(IOS_RUNTIME)' iPhone Pro simulator on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
+		echo "ERROR: no 'iPhone Pro' simulator for '$(IOS_RUNTIME_RESOLVED)' (family '$(IOS_RUNTIME)') on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
 		xcrun simctl list runtimes; \
 		exit 1; \
 	fi
@@ -38,4 +43,8 @@ test-library:
 
 define udid_for
 $(shell xcrun simctl list devices available '$(1)' | grep '$(2)' | sort -r | head -1 | awk -F '[()]' '{ print $$(NF-3) }')
+endef
+
+define newest_ios_runtime
+$(shell xcrun simctl list runtimes available | grep -oE '$(1)\.[0-9]+' | sort -V | tail -1)
 endef
