@@ -15,7 +15,6 @@ jobs:
   library:
     name: Build and Run Unit Tests
     runs-on: ${{ matrix.runner }}
-    continue-on-error: ${{ matrix.continue_on_error }}
     permissions:
       contents: read
       checks: write
@@ -30,15 +29,12 @@ jobs:
           - xcode: '15.4'
             runner: macos-14
             ios_runtime: 'iOS 17'
-            continue_on_error: false
           - xcode: '16.4'
             runner: macos-15
             ios_runtime: 'iOS 18'
-            continue_on_error: false
           - xcode: '26.5'
             runner: macos-26
             ios_runtime: 'iOS 26'
-            continue_on_error: true
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode ${{ matrix.xcode }}
