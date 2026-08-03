@@ -18,6 +18,11 @@ test-all: $(MAKE) CONFIG=debug test-library
 	$(MAKE) CONFIG=release test-library
 
 test-library:
+	@if [ -z "$(IOS_RUNTIME_RESOLVED)" ]; then \
+		echo "ERROR: no '$(IOS_RUNTIME)' runtime installed on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
+		xcrun simctl list runtimes available; \
+		exit 1; \
+	fi
 	@if [ -z "$(IOS_UDID)" ]; then \
 		echo "ERROR: no 'iPhone Pro' simulator for '$(IOS_RUNTIME_RESOLVED)' (family '$(IOS_RUNTIME)') on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
 		xcrun simctl list runtimes; \
