@@ -12,53 +12,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  library-macos-14:
+  library:
     name: Build and Run Unit Tests
-    runs-on: macos-14
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.continue_on_error }}
     permissions:
       contents: read
       checks: write
     env:
       GITHUB_CI: true
     strategy:
+      fail-fast: false
       matrix:
-        xcode: ['15.2', '15.4']
+        xcode: ['15.4', '16.4', '26.5']
         config: ['debug', 'release']
+        include:
+          - xcode: '15.4'
+            runner: macos-14
+            ios_runtime: 'iOS 17'
+            continue_on_error: false
+          - xcode: '16.4'
+            runner: macos-15
+            ios_runtime: 'iOS 18'
+            continue_on_error: false
+          - xcode: '26.5'
+            runner: macos-26
+            ios_runtime: 'iOS 26'
+            continue_on_error: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Select Xcode ${{ matrix.xcode }}
         run: sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
       - name: Environment Variables
         run: env | grep GITHUB_CI
       - name: Run ${{ matrix.config }} tests
-        run: make XCODE=${{ matrix.xcode }} CONFIG=${{ matrix.config }} test-library
-
-      - uses: slidoapp/xcresulttool@v3.1.0
-        with:
-          path: TestResults-${{ matrix.xcode }}-${{ matrix.config }}.xcresult
-        if: success() || failure()
-
-  library-macos-15:
-    name: Build and Run Unit Tests
-    runs-on: macos-15
-    permissions:
-      contents: read
-      checks: write
-    env:
-      GITHUB_CI: true
-    strategy:
-      matrix:
-        xcode: ['16.4']
-        config: ['debug', 'release']
-    steps:
-      - uses: actions/checkout@v3
-      - name: Select Xcode ${{ matrix.xcode }}
-        run: sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
-      - name: Environment Variables
-        run: env | grep GITHUB_CI
-      - name: Run ${{ matrix.config }} tests
-        run: make XCODE=${{ matrix.xcode }} CONFIG=${{ matrix.config }} test-library
-
+        run: make XCODE=${{ matrix.xcode }} CONFIG=${{ matrix.config }} IOS_RUNTIME="${{ matrix.ios_runtime }}" test-library
       - uses: slidoapp/xcresulttool@v3.1.0
         with:
           path: TestResults-${{ matrix.xcode }}-${{ matrix.config }}.xcresult
