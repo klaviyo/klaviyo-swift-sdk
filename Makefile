@@ -1,5 +1,5 @@
 CONFIG = debug
-XCODE = 15.2
+XCODE = 15.4
 # Simulator runtime *major family* to test against. Default is for local runs; CI
 # overrides per matrix row (macos-14 -> iOS 17, macos-15 -> iOS 18, macos-26 -> iOS 26)
 # so each runner tests its own OS generation. Resolved to the newest installed minor
@@ -19,7 +19,7 @@ test-all: $(MAKE) CONFIG=debug test-library
 
 test-library:
 	@if [ -z "$(IOS_UDID)" ]; then \
-		echo "ERROR: no '$(IOS_RUNTIME)' iPhone Pro simulator on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
+		echo "ERROR: no 'iPhone Pro' simulator for '$(IOS_RUNTIME_RESOLVED)' (family '$(IOS_RUNTIME)') on this runner. Bump IOS_RUNTIME to an installed runtime:"; \
 		xcrun simctl list runtimes; \
 		exit 1; \
 	fi
