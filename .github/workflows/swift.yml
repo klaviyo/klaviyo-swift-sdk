@@ -47,7 +47,11 @@ jobs:
         run: env | grep GITHUB_CI
       - name: Run ${{ matrix.config }} tests
         run: make XCODE=${{ matrix.xcode }} CONFIG=${{ matrix.config }} IOS_RUNTIME="${{ matrix.ios_runtime }}" test-library
+      # slidoapp/xcresulttool@v3.1.0 shells out to the legacy `xcrun xcresulttool`
+      # commands that Xcode 26 removed (xcrun exits 64), so it can't parse the Xcode 26
+      # result bundle. Skip result parsing on the Xcode 26 line — the raw test output
+      # is still in the job log. Revisit if the action gains Xcode 26 support.
       - uses: slidoapp/xcresulttool@v3.1.0
         with:
           path: TestResults-${{ matrix.xcode }}-${{ matrix.config }}.xcresult
-        if: success() || failure()
+        if: (success() || failure()) && !startsWith(matrix.xcode, '26')
