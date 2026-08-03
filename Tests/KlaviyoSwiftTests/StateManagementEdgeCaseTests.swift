@@ -474,6 +474,37 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN))
     }
 
+    // MARK: - Flush queue while offline during retry backoff
+
+    @MainActor
+    func testFlushQueueWhileOfflineDuringBackoffDoesNotTrap() async {
+        // Going offline parks `flushInterval` at `.infinity` and cancels the flush timer — but the
+        // priority path (opened push / geofence) dispatches `.flushQueue` unconditionally, so we can
+        // still land in `.flushQueue` while offline. With `retryState` in backoff, the countdown
+        // computes `backOff - Int(state.flushInterval)`, and `Int(Double.infinity)` traps in Swift,
+        // taking down the host app. `.flushQueue` must no-op instead, leaving the backoff intact so
+        // it resumes when connectivity returns.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryState = .retryWithBackoff(
+            requestCount: 1,
+            totalRetryCount: 1,
+            currentBackoff: 30
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        // Also clears `flushing`, so the `if state.flushing` bail-out below does NOT mask the
+        // conversion — without the guard this test reaches the trap.
+        _ = await store.receive(.cancelInFlightRequests) {
+            $0.flushing = false
+        }
+
+        // No state mutation and no follow-on effect: notably `retryState` keeps its backoff.
+        _ = await store.send(.flushQueue)
+    }
+
     // MARK: - Missing api key for token request
 
     @MainActor

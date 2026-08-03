@@ -285,6 +285,14 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.flushing {
                 return .none
             }
+            // Offline parks `flushInterval` at `.infinity` (see `.networkConnectivityChanged`),
+            // which also cancels the flush timer — but the priority path (opened push, geofence)
+            // dispatches `.flushQueue` unconditionally, so we can still land here while offline.
+            // Bail out: there is nothing to gain from draining the queue with no network, and it
+            // keeps a non-finite interval out of the `Int` conversion below, which would trap.
+            guard state.flushInterval.isFinite else {
+                return .none
+            }
             if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
                 if newBackOff > 0 {
