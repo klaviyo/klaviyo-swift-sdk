@@ -435,7 +435,7 @@ package actor AuthTokenManager {
             // every acquisition path — the eager warm-up fetch, an interactive
             // `currentToken(mode:)` call, and `performScheduledRefresh()` —
             // funnels through this method, and it only ever runs when there is
-            // no valid cached token to serve (MAGE-883).
+            // no valid cached token to serve.
             if let urlError = error as? URLError, urlError.isConnectivityError {
                 armConnectivityRetry()
             }

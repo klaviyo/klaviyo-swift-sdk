@@ -1228,13 +1228,13 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
-    // MARK: - Initial-acquisition connectivity retry (MAGE-883)
+    // MARK: - Initial-acquisition connectivity retry
 
     @Test
     func warmUpFetchFailureRetriesWhenConnectivityRestored() async throws {
-        // MAGE-883 repro: the very FIRST token fetch (registerProvider's eager
-        // warm-up) fails offline. Before the fix, nothing armed the connectivity
-        // wait for this path, so restoring connectivity did nothing. After the
+        // Repro: the very FIRST token fetch (registerProvider's eager warm-up)
+        // fails offline. Before the fix, nothing armed the connectivity wait
+        // for this path, so restoring connectivity did nothing. After the
         // fix, `runFetch` itself arms the wait regardless of which caller drove
         // the failing fetch — no scheduled refresh ever ran here.
         let secondToken = try makeJWT(
@@ -1282,11 +1282,11 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func interactiveFetchFailureAlsoArmsConnectivityRetry() async throws {
-        // Confirms the uniform-arming decision from MAGE-883: an interactive
-        // (form-display) fetch failure arms the wait exactly like the warm-up
-        // and scheduled-refresh paths, since `runFetch` cannot distinguish its
-        // caller and any connectivity failure there means the manager currently
-        // has nothing cached to serve. Warms the cache via a normal
+        // Confirms the uniform-arming decision: an interactive (form-display)
+        // fetch failure arms the wait exactly like the warm-up and
+        // scheduled-refresh paths, since `runFetch` cannot distinguish its
+        // caller and any connectivity failure there means the manager
+        // currently has nothing cached to serve. Warms the cache via a normal
         // registration first, then clears it (retaining the provider) so a
         // subsequent *interactive* `currentToken(mode:)` call — not the
         // warm-up — is the one observing the failure.
