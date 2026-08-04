@@ -60,6 +60,18 @@ public func loadPersisted<T: Decodable>(_ type: T.Type, fileName: String) -> T? 
     return value
 }
 
+/// Removes the named file from the library directory if it exists.
+/// Logs on failure; never throws to the caller.
+func removePersisted(fileName: String) {
+    let fileURL = storeFileURL(fileName)
+    guard environment.fileClient.fileExists(fileURL.path) else { return }
+    do {
+        try environment.fileClient.removeItem(fileURL.path)
+    } catch {
+        environment.logger.error("Unable to remove \(fileName).")
+    }
+}
+
 /// Persists an encodable value to the named file in the library directory.
 /// Logs on failure; never throws to the caller.
 public func savePersisted(_ value: some Encodable, fileName: String) {

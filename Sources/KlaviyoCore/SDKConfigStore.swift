@@ -92,9 +92,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
         os_unfair_lock_lock(&lock)
         hydrated = false
         os_unfair_lock_unlock(&lock)
-        let fileURL = environment.fileClient.libraryDirectory()
-            .appendingPathComponent(StoreFile.config, isDirectory: false)
-        try? environment.fileClient.removeItem(fileURL.path)
+        removePersisted(fileName: StoreFile.config)
         subject.send(KlaviyoConfig())
     }
 }
