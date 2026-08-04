@@ -83,13 +83,15 @@ package actor AuthTokenManager {
     /// can't leave the guard stuck or clear a newer generation's run.
     private var activeScheduledRefreshID: UUID?
 
-    /// `true` while a proactive refresh has failed for a network reason and the
+    /// `true` while a token fetch has failed for a network reason and the
     /// manager is awaiting connectivity before retrying. A single boolean (not a
     /// task) because connectivity comes through the existing ``lifecycleCancellable``
-    /// reachability sink: a network-classified failure arms it
-    /// (``performScheduledRefresh()``), the next reachable status consumes it
-    /// (``handleReachabilityChange()``), so flapping can't queue multiple retries.
-    /// Cleared by ``cancelInFlightWorkAndClearCache()``.
+    /// reachability sink: a network-classified failure arms it — inside
+    /// ``runFetch(fetchID:)``, so every acquisition path shares the same arming
+    /// logic (the eager warm-up fetch, an interactive ``currentToken(mode:)``
+    /// call, and ``performScheduledRefresh()`` alike) — the next reachable
+    /// status consumes it (``handleReachabilityChange()``), so flapping can't
+    /// queue multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()``.
     private var isAwaitingConnectivityRetry = false
 
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
@@ -197,8 +199,11 @@ package actor AuthTokenManager {
     ///
     /// The eager fetch is fire-and-forget so registration call sites stay
     /// responsive — failures during the warm-up surface only as logs (the same
-    /// logs ``currentToken(mode:)`` would emit). Calling this again later
-    /// replaces the previous provider.
+    /// logs ``currentToken(mode:)`` would emit). A connectivity-classified
+    /// warm-up failure still arms the connectivity retry despite being
+    /// fire-and-forget, since that classification lives in the shared
+    /// ``runFetch(fetchID:)`` this call eventually reaches. Calling this again
+    /// later replaces the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
         cancelInFlightWorkAndClearCache()
         provider = newProvider
@@ -351,6 +356,15 @@ package actor AuthTokenManager {
     /// the manager once it finishes — but only if it is still the *current*
     /// fetch (a swap via ``registerProvider(_:)`` may have installed a newer
     /// one in the meantime).
+    ///
+    /// This is the single choke point every acquisition path shares — the eager
+    /// warm-up fetch in ``registerProvider(_:)``, an interactive
+    /// ``currentToken(mode:)`` call, and ``performScheduledRefresh()`` all reach
+    /// a fetch via ``startFetch()``, which only ever runs here. Because none of
+    /// them run unless the caller already determined there is no valid cached
+    /// token to serve, a connectivity-classified failure means the same thing
+    /// regardless of which path triggered it — hence connectivity-retry arming
+    /// is classified once here rather than at each call site.
     private func runFetch(fetchID: UUID) async throws -> String {
         defer {
             if inFlight?.id == fetchID {
@@ -416,6 +430,14 @@ package actor AuthTokenManager {
                 Logger.auth.error(
                     "AuthTokenManager: provider error: \(reason, privacy: .public)"
                 )
+            }
+            // Classified and armed here (rather than at each call site) because
+            // every acquisition path — the eager warm-up fetch, an interactive
+            // `currentToken(mode:)` call, and `performScheduledRefresh()` —
+            // funnels through this method, and it only ever runs when there is
+            // no valid cached token to serve (MAGE-883).
+            if let urlError = error as? URLError, urlError.isConnectivityError {
+                armConnectivityRetry()
             }
             throw error
         }
@@ -501,8 +523,9 @@ package actor AuthTokenManager {
     /// On failure: leaves the cached token in place — the cache only goes
     /// stale at `exp - leeway`, so a foreground transition or user fetch
     /// before then will retry. A *network-classified* failure also arms
-    /// ``isAwaitingConnectivityRetry`` so the next reachability restoration
-    /// re-fires this method (``handleReachabilityChange()``); other failures don't.
+    /// ``isAwaitingConnectivityRetry`` — inside ``runFetch(fetchID:)`` itself,
+    /// not here — so the next reachability restoration re-fires this method
+    /// (``handleReachabilityChange()``); other failures don't.
     ///
     /// Bails if a refresh is already mid-flight (``activeScheduledRefreshID`` set):
     /// the scheduled fire, the foreground "missed refresh" retry (case 2), and the
@@ -546,12 +569,9 @@ package actor AuthTokenManager {
                     "AuthTokenManager: refresh failed: \(reason, privacy: .public)"
                 )
             }
-            // Only network failures are worth waiting on — connectivity
-            // restoration addresses them; HTTP/validation/host errors would
-            // just fail again.
-            if let urlError = error as? URLError, urlError.isConnectivityError {
-                armConnectivityRetry()
-            }
+            // Connectivity-classified failures are already armed inside
+            // `runFetch` itself (its terminal catch), which this method reaches
+            // via `startFetch()`/`task.value` — nothing further to do here.
         }
     }
 
@@ -582,8 +602,10 @@ package actor AuthTokenManager {
             }
     }
 
-    /// Arms the connectivity-retry wait after a network-classified refresh failure,
-    /// kicking the retry immediately if the system *already* reports a usable path.
+    /// Arms the connectivity-retry wait after a network-classified token-fetch
+    /// failure — called from ``runFetch(fetchID:)``'s terminal catch, so every
+    /// acquisition path arms the same way — kicking the retry immediately if the
+    /// system *already* reports a usable path.
     ///
     /// Reachability is a transition stream with no "current value": if connectivity
     /// returned while the failing fetch was in flight, that transition has already

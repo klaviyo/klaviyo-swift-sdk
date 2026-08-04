@@ -1228,6 +1228,118 @@ struct AuthTokenManagerRefreshTests {
         )
     }
 
+    // MARK: - Initial-acquisition connectivity retry (MAGE-883)
+
+    @Test
+    func warmUpFetchFailureRetriesWhenConnectivityRestored() async throws {
+        // MAGE-883 repro: the very FIRST token fetch (registerProvider's eager
+        // warm-up) fails offline. Before the fix, nothing armed the connectivity
+        // wait for this path, so restoring connectivity did nothing. After the
+        // fix, `runFetch` itself arms the wait regardless of which caller drove
+        // the failing fetch — no scheduled refresh ever ran here.
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        // Offline at registration so the warm-up fetch fails; flipped online
+        // just before the transition below.
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            if invocation == 1 { throw URLError(.notConnectedToInternet) } // warm-up, offline
+            return secondToken // connectivity-driven retry
+        }
+        try await counter.waitFor(atLeast: 1)
+        await awaitConnectivityWaitArmed(manager)
+
+        // Subscribe before restoring connectivity so the eventual broadcast is
+        // observable.
+        let stream = await manager.refreshes()
+
+        reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == secondToken, "an offline warm-up failure must retry once connectivity returns")
+
+        let cached = try await manager.currentToken(mode: .background)
+        #expect(cached == secondToken)
+    }
+
+    @Test
+    func interactiveFetchFailureAlsoArmsConnectivityRetry() async throws {
+        // Confirms the uniform-arming decision from MAGE-883: an interactive
+        // (form-display) fetch failure arms the wait exactly like the warm-up
+        // and scheduled-refresh paths, since `runFetch` cannot distinguish its
+        // caller and any connectivity failure there means the manager currently
+        // has nothing cached to serve. Warms the cache via a normal
+        // registration first, then clears it (retaining the provider) so a
+        // subsequent *interactive* `currentToken(mode:)` call — not the
+        // warm-up — is the one observing the failure.
+        let firstToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "first"]
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            switch invocation {
+            case 1: return firstToken // warm-up succeeds
+            case 2: throw URLError(.notConnectedToInternet) // interactive call, offline
+            default: return secondToken // connectivity-driven retry
+            }
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1) // confirms warm-up cached firstToken
+
+        await manager.clearTokenState() // drops cache, retains provider
+
+        await #expect(throws: URLError.self) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+        await awaitConnectivityWaitArmed(manager)
+
+        let stream = await manager.refreshes()
+        reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == secondToken, "an interactive fetch failure must retry once connectivity returns")
+    }
+
     // MARK: - unregisterProvider
 
     @Test
