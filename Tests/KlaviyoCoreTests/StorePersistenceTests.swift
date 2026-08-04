@@ -3,14 +3,17 @@ import XCTest
 @testable import KlaviyoCore
 
 final class StorePersistenceTests: XCTestCase {
+    private var fileIO: FileIODouble!
+
     override func setUp() {
         super.setUp()
-        environment = FileIODouble.make()
+        fileIO = FileIODouble()
+        environment = fileIO.makeEnvironment()
     }
 
     override func tearDown() {
-        FileIODouble.reset()
-        environment = KlaviyoEnvironment.production
+        environment = KlaviyoEnvironment.test()
+        fileIO = nil
         super.tearDown()
     }
 

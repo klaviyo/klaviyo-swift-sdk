@@ -5,25 +5,28 @@
 // the same fixture.  Start from KlaviyoEnvironment.test() and override
 // only the persistence-relevant closures.
 //
+// Each instance owns its own byte store — test classes hold an instance
+// property, eliminating static-state cross-test-class contamination.
+//
 @testable import KlaviyoCore
 import Foundation
 
-enum FileIODouble {
-    // MARK: - Storage
+final class FileIODouble {
+    // MARK: - Storage (instance-scoped)
 
-    private static var store: [String: Data] = [:]
+    private var store: [String: Data] = [:]
 
-    private static let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-tests")
+    private let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-tests")
 
     // MARK: - Encoder / decoder (real JSON round-trip)
 
-    private static let jsonEncoder: JSONEncoder = {
+    private let jsonEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return encoder
     }()
 
-    private static let jsonDecoder: JSONDecoder = {
+    private let jsonDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
@@ -31,43 +34,42 @@ enum FileIODouble {
 
     // MARK: - Factory
 
-    /// Returns a fresh KlaviyoEnvironment backed by the shared in-memory dict.
-    static func make() -> KlaviyoEnvironment {
+    /// Returns a KlaviyoEnvironment whose file I/O and JSON codecs are backed
+    /// by this instance's in-memory byte store (real round-trip, not the
+    /// no-op TestUtils stubs). Closures capture `self`, so each test object
+    /// gets isolated state.
+    func makeEnvironment() -> KlaviyoEnvironment {
         var result = KlaviyoEnvironment.test()
 
         result.fileClient = FileClient(
-            write: { data, fileURL in
-                store[fileURL.path] = data
+            write: { [weak self] data, fileURL in
+                self?.store[fileURL.path] = data
             },
-            fileExists: { path in
-                store[path] != nil
+            fileExists: { [weak self] path in
+                self?.store[path] != nil
             },
-            removeItem: { path in
-                store.removeValue(forKey: path)
+            removeItem: { [weak self] path in
+                self?.store.removeValue(forKey: path)
             },
-            libraryDirectory: { libraryRoot }
+            libraryDirectory: { [weak self] in
+                self?.libraryRoot ?? URL(fileURLWithPath: "/tmp/klaviyo-tests")
+            }
         )
 
-        result.encodeJSON = { encodable in
-            try jsonEncoder.encode(encodable)
+        result.encodeJSON = { [weak self] encodable in
+            guard let self else { throw CocoaError(.fileNoSuchFile) }
+            return try self.jsonEncoder.encode(encodable)
         }
 
         result.decoder = DataDecoder(jsonDecoder: jsonDecoder)
 
-        result.dataFromUrl = { fileURL in
-            guard let data = store[fileURL.path] else {
+        result.dataFromUrl = { [weak self] fileURL in
+            guard let data = self?.store[fileURL.path] else {
                 throw CocoaError(.fileNoSuchFile)
             }
             return data
         }
 
         return result
-    }
-
-    // MARK: - Teardown
-
-    /// Clears the shared in-memory file store between tests.
-    static func reset() {
-        store.removeAll()
     }
 }
