@@ -352,7 +352,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 let requestData = payload.data.attributes
                 let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = KlaviyoState.PushTokenData(
+                state.pushTokenData = PushTokenData(
                     pushToken: requestData.token,
                     pushEnablement: enablement,
                     pushBackground: backgroundStatus,

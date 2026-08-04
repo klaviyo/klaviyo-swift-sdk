@@ -158,7 +158,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
     }
 
@@ -191,7 +191,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(
+            $0.pushTokenData = PushTokenData(
                 pushToken: initialState.pushTokenData!.pushToken,
                 pushEnablement: .authorized,
                 pushBackground: initialState.pushTokenData!.pushBackground,
@@ -224,7 +224,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
         _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
@@ -334,7 +334,7 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
         await store.receive(.deQueueCompletedResults(request2)) {
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
             $0.queue = []

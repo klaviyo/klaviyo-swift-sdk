@@ -10,7 +10,8 @@ import Foundation
 import KlaviyoCore
 import UIKit
 
-typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
+// KlaviyoState.PushTokenData now lives in KlaviyoCore; alias keeps call sites unchanged.
+typealias PushTokenData = KlaviyoCore.PushTokenData
 
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
@@ -27,20 +28,6 @@ struct KlaviyoState: Equatable, Codable {
         case setEmail(String)
         case setExternalId(String)
         case setPhoneNumber(String)
-    }
-
-    struct PushTokenData: Equatable, Codable {
-        var pushToken: String
-        var pushEnablement: PushEnablement
-        var pushBackground: PushBackground
-        var deviceData: DeviceMetadata
-
-        enum CodingKeys: CodingKey {
-            case pushToken
-            case pushEnablement
-            case pushBackground
-            case deviceData
-        }
     }
 
     // state related stuff
