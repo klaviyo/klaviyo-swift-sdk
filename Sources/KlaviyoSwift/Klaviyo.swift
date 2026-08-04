@@ -12,8 +12,8 @@ import OSLog
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
-    Task { @MainActor in
-        klaviyoSwiftEnvironment.send(action)
+    DispatchQueue.main.async {
+        _ = klaviyoSwiftEnvironment.send(action)
     }
 }
 
