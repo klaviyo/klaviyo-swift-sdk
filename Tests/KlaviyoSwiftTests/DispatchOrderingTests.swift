@@ -63,6 +63,38 @@ final class DispatchOrderingTests: XCTestCase {
             )
         }
     }
+
+    /// `initialize(with:)` sends `.initialize` from inside a `Task`, so a synchronous
+    /// `dispatchOnMainThread` would let a following `set(email:)` reduce first — and
+    /// `.setEmail` requires initialization, so it would be dropped.
+    func testDispatchAfterInitializeIsNotReorderedBeforeInitialize() async {
+        let bothReduced = expectation(description: "initialize and setEmail both reduced")
+        let lock = NSLock()
+        var observed: [String] = []
+
+        klaviyoSwiftEnvironment.send = { action in
+            lock.lock()
+            switch action {
+            case .initialize: observed.append("initialize")
+            case .setEmail: observed.append("setEmail")
+            default: break
+            }
+            let done = observed.count == 2
+            lock.unlock()
+            if done { bothReduced.fulfill() }
+            return nil
+        }
+
+        _ = KlaviyoSDK().initialize(with: "test-key")
+        _ = KlaviyoSDK().set(email: "a@b.com")
+
+        await fulfillment(of: [bothReduced], timeout: 2.0)
+
+        lock.lock()
+        let result = observed
+        lock.unlock()
+        XCTAssertEqual(result, ["initialize", "setEmail"], "setEmail must not reduce before initialize")
+    }
 }
 
 extension KlaviyoAction {
