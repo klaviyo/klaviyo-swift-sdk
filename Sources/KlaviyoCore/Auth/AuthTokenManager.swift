@@ -554,6 +554,15 @@ package actor AuthTokenManager {
             // may have rotated it while this run was suspended on `task.value`.
             if activeScheduledRefreshID == refreshID {
                 activeScheduledRefreshID = nil
+                // A connectivity-retry kick may have raced ahead of this guard
+                // clearing (see `fireConnectivityRetryIfArmed()`'s matching guard)
+                // and backed off without consuming the wait. Now that the guard is
+                // genuinely clear, give a still-armed wait a fresh, correctly-gated
+                // chance to fire instead of leaving it stranded until an unrelated
+                // reachability transition.
+                if isAwaitingConnectivityRetry {
+                    kickConnectivityRetryIfReachable()
+                }
             }
         }
         let task = inFlight?.task ?? startFetch()
@@ -612,15 +621,9 @@ package actor AuthTokenManager {
 
     /// Arms the connectivity-retry wait after a network-classified token-fetch
     /// failure — called from ``runFetch(fetchID:)``'s terminal catch, so every
-    /// acquisition path arms the same way — kicking the retry immediately if the
-    /// system *already* reports a usable path.
-    ///
-    /// Reachability is a transition stream with no "current value": if connectivity
-    /// returned while the failing fetch was in flight, that transition has already
-    /// passed and no future event would wake the wait. Consulting
-    /// ``currentReachability`` here mirrors `NWPathMonitor` delivering the current
-    /// path on subscribe; `nil`/unknown is treated as "no path". A kicked retry that
-    /// fails for a network reason re-arms, gated by a full fetch each iteration.
+    /// acquisition path arms the same way — then defers to
+    /// ``kickConnectivityRetryIfReachable()`` to retry immediately if the system
+    /// *already* reports a usable path.
     private func armConnectivityRetry() {
         isAwaitingConnectivityRetry = true
         if #available(iOS 14.0, *) {
@@ -628,6 +631,26 @@ package actor AuthTokenManager {
                 "AuthTokenManager: network-classified refresh failure, awaiting connectivity"
             )
         }
+        kickConnectivityRetryIfReachable()
+    }
+
+    /// Fires ``fireConnectivityRetryIfArmed()`` immediately if the system already
+    /// reports a usable path, without waiting for a future reachability transition.
+    ///
+    /// Reachability is a transition stream with no "current value": if connectivity
+    /// returned while the failing fetch was in flight, that transition has already
+    /// passed and no future event would wake the wait. Consulting
+    /// ``currentReachability`` here mirrors `NWPathMonitor` delivering the current
+    /// path on subscribe; `nil`/unknown is treated as "no path".
+    ///
+    /// Called both from ``armConnectivityRetry()`` (a fresh failure) and from
+    /// ``performScheduledRefresh()``'s `defer` (a kick that raced ahead of that
+    /// method's single-flight guard and backed off — see
+    /// ``fireConnectivityRetryIfArmed()`` — gets a fresh, correctly-gated attempt
+    /// once the guard genuinely clears). Deliberately does not re-log the "failure"
+    /// message ``armConnectivityRetry()`` does — a re-kick isn't a new failure, just
+    /// a delayed retry of one already logged.
+    private func kickConnectivityRetryIfReachable() {
         guard let status = currentReachability(), status != .notReachable else { return }
         if #available(iOS 14.0, *) {
             Logger.auth.info(
@@ -650,8 +673,20 @@ package actor AuthTokenManager {
     /// normal dedup/validate/reschedule/broadcast path. Clearing the flag *before*
     /// re-firing collapses concurrent triggers (transition + arm-time check) into a
     /// single retry; a network-failed retry re-arms via ``performScheduledRefresh()``.
+    ///
+    /// Backs off *without* consuming the wait while ``activeScheduledRefreshID`` is
+    /// set: that guard being up means some ``performScheduledRefresh()`` run's own
+    /// fetch may have *just* failed and armed this wait (via ``runFetch(fetchID:)``)
+    /// but not yet unwound past its `defer` — since that arm now happens in a
+    /// decoupled child task (the fetch's own `Task`, not `performScheduledRefresh`
+    /// itself), this call can race ahead of that `defer` clearing the guard.
+    /// Consuming the wait here regardless would silently drop it without ever
+    /// retrying, because the `performScheduledRefresh()` call below would just
+    /// bounce off its own still-set guard. Backing off instead leaves the wait
+    /// armed for that method's `defer` to re-kick once its guard is genuinely clear.
     private func fireConnectivityRetryIfArmed() async {
         guard isAwaitingConnectivityRetry else { return }
+        guard activeScheduledRefreshID == nil else { return }
         isAwaitingConnectivityRetry = false
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: connectivity available, retrying refresh")
