@@ -1340,6 +1340,86 @@ struct AuthTokenManagerRefreshTests {
         #expect(delivered == secondToken, "an interactive fetch failure must retry once connectivity returns")
     }
 
+    @Test
+    func providerReplacedWhileFetchInFlightDoesNotArmStaleConnectivityRetry() async throws {
+        // Same reentrancy race as `providerReplacedWhileFetchInFlightDoesNotPoisonCache`
+        // (AuthTokenManagerTests.swift), but for the connectivity-retry arm rather
+        // than the cache write. A stale fetch from a replaced provider that
+        // eventually fails with a connectivity error must not arm the retry once
+        // a newer fetch already succeeded — `runFetch`'s failure path guards on
+        // the same `inFlight?.id == fetchID` generation check the success path
+        // and the `defer` both rely on.
+        //
+        // Reachability is injected `.notReachable` (unlike the sibling cache
+        // test, which uses the production initializer) so a spurious arm isn't
+        // immediately self-consumed by `armConnectivityRetry`'s already-reachable
+        // kick — that auto-consume would clear the flag regardless of whether
+        // the generation guard actually held, masking the very regression this
+        // test exists to catch. The final provider-invocation count is the
+        // second, independent signal: a masked spurious arm would still drive an
+        // extra fetch even if the flag read back `false` by the time we sample it.
+        let lifecycle = noopLifecycle()
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let reachability = TestReachability(.notReachable)
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: clock,
+            gate: gate,
+            reachabilityStatus: { reachability.status() }
+        )
+        let secondToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "second"]
+        )
+
+        let firstProviderEntered = Latch()
+        let firstProviderRelease = Latch()
+
+        await manager.registerProvider {
+            await firstProviderEntered.open()
+            await firstProviderRelease.wait()
+            throw URLError(.notConnectedToInternet)
+        }
+        // Wait until the eager fetch has captured the first provider and is
+        // suspended inside `provider()` — precondition for the reentrancy race.
+        await firstProviderEntered.wait()
+
+        // Swap in a new provider. The new eager fetch caches `secondToken`.
+        let secondProviderCounter = CallCounter()
+        await manager.registerProvider {
+            await secondProviderCounter.increment()
+            return secondToken
+        }
+        try await secondProviderCounter.waitFor(atLeast: 1)
+
+        // Give the second (successful) fetch's completion time to land before
+        // releasing the stale first provider.
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        // Release the stale first provider. Its in-flight fetch now throws a
+        // connectivity-classified error — without the generation guard this
+        // would arm a spurious retry even though the manager already has a
+        // healthy cached token from the newer generation.
+        await firstProviderRelease.open()
+
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        let isArmed = await manager.isAwaitingConnectivityRetryForTesting
+        #expect(isArmed == false, "a stale fetch's failure must not arm a retry after a newer fetch already succeeded")
+
+        let finalInvocations = await secondProviderCounter.value
+        #expect(finalInvocations == 1, "a spurious retry would invoke the second provider again")
+
+        let result = try await manager.currentToken(mode: .background)
+        #expect(result == secondToken)
+    }
+
     // MARK: - unregisterProvider
 
     @Test

@@ -391,60 +391,6 @@ struct AuthTokenManagerTests {
         let result = try await manager.currentToken(mode: .background)
         #expect(result == secondToken)
     }
-
-    @Test
-    func providerReplacedWhileFetchInFlightDoesNotArmStaleConnectivityRetry() async throws {
-        // Same reentrancy race as `providerReplacedWhileFetchInFlightDoesNotPoisonCache`,
-        // but for the connectivity-retry arm rather than the cache write. A stale
-        // fetch from a replaced provider that eventually fails with a connectivity
-        // error must not arm the retry once a newer fetch already succeeded —
-        // `runFetch`'s failure path guards on the same `inFlight?.id == fetchID`
-        // generation check the success path and the `defer` both rely on.
-        let manager = AuthTokenManager()
-        let secondToken = try makeJWT(extraClaims: ["sub": "user-b"])
-
-        let firstProviderEntered = Latch()
-        let firstProviderRelease = Latch()
-
-        await manager.registerProvider {
-            await firstProviderEntered.open()
-            await firstProviderRelease.wait()
-            throw URLError(.notConnectedToInternet)
-        }
-        // Wait until the eager fetch has captured the first provider and is
-        // suspended inside `provider()` — precondition for the reentrancy race.
-        await firstProviderEntered.wait()
-
-        // Swap in a new provider. The new eager fetch caches `secondToken`.
-        let secondProviderCounter = CallCounter()
-        await manager.registerProvider {
-            await secondProviderCounter.increment()
-            return secondToken
-        }
-        try await secondProviderCounter.waitFor(atLeast: 1)
-
-        // Give the second (successful) fetch's completion time to land before
-        // releasing the stale first provider.
-        for _ in 0..<10 {
-            await Task.yield()
-        }
-
-        // Release the stale first provider. Its in-flight fetch now throws a
-        // connectivity-classified error — without the generation guard this
-        // would arm a spurious retry even though the manager already has a
-        // healthy cached token from the newer generation.
-        await firstProviderRelease.open()
-
-        for _ in 0..<10 {
-            await Task.yield()
-        }
-
-        let isArmed = await manager.isAwaitingConnectivityRetryForTesting
-        #expect(isArmed == false, "a stale fetch's failure must not arm a retry after a newer fetch already succeeded")
-
-        let result = try await manager.currentToken(mode: .background)
-        #expect(result == secondToken)
-    }
 }
 
 // MARK: - Test helpers
