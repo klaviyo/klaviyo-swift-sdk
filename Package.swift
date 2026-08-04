@@ -8,6 +8,10 @@ let package = Package(
     platforms: [.iOS(.v13)],
     products: [
         .library(
+            name: "KlaviyoCore",
+            targets: ["KlaviyoCore"]
+        ),
+        .library(
             name: "KlaviyoSwift",
             targets: ["KlaviyoSwift"]
         ),
