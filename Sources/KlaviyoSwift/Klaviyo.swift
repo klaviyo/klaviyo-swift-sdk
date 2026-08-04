@@ -90,8 +90,11 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
-        Task {
-            @MainActor in SharedStoreMirror.setup()
+        // Dispatched the same way as every other action so `.initialize` stays ordered ahead of
+        // calls that require it — a `Task` hop and a main-queue hop have no ordering guarantee
+        // relative to each other.
+        DispatchQueue.main.async {
+            SharedStoreMirror.setup()
             _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
         }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
