@@ -21,6 +21,13 @@ public protocol IdentityReading {
 public protocol IdentityWriting {
     func update(_ identity: ProfileData)
     func updatePushToken(_ token: PushTokenData?)
+
+    /// Mints a fresh `anonymousId`, persists it, and returns the new value. This is the ONLY
+    /// public mint seam — used by `KlaviyoSwift`'s profile-reset flow, which must force a fresh
+    /// anonymous id synchronously (so a cleared, formerly-identified profile becomes a distinct
+    /// anonymous profile). Minting otherwise happens lazily on first hydrate.
+    @discardableResult
+    func mintNewAnonymousId() -> String
 }
 
 public final class IdentityStore: IdentityReading, IdentityWriting {
@@ -106,6 +113,20 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         os_unfair_lock_unlock(&lock)
         // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
         subject.send(identity)
+    }
+
+    @discardableResult
+    public func mintNewAnonymousId() -> String {
+        hydrateIfNeeded()
+        let newId = environment.uuid().uuidString
+        os_unfair_lock_lock(&lock)
+        var profile = subject.value
+        profile.anonymousId = newId
+        persistLocked(profile: profile)
+        os_unfair_lock_unlock(&lock)
+        // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
+        subject.send(profile)
+        return newId
     }
 
     public func updatePushToken(_ token: PushTokenData?) {

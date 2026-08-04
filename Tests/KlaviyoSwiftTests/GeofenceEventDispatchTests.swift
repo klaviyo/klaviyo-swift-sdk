@@ -13,6 +13,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
     }
 

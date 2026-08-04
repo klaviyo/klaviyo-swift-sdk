@@ -57,6 +57,29 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)?.pushToken, token)
     }
 
+    func testMintNewAnonymousIdReplacesPersistsAndEmits() {
+        // Start from a persisted, known anonymousId so we can observe the mint replacing it.
+        savePersisted(
+            PersistedIdentity(version: 1, profile: ProfileData(email: "keep@me.com", anonymousId: "old"), pushToken: nil),
+            fileName: StoreFile.identity)
+        let store = IdentityStore()
+        XCTAssertEqual(store.current.anonymousId, "old")
+
+        var emitted: ProfileData?
+        let cancellable = store.publisher.sink { emitted = $0 }
+        defer { cancellable.cancel() }
+
+        let minted = store.mintNewAnonymousId()
+
+        XCTAssertEqual(minted, Self.mintedAnonId, "mint uses environment.uuid")
+        XCTAssertEqual(store.current.anonymousId, minted, "in-memory value updated")
+        XCTAssertEqual(store.current.email, "keep@me.com", "other identity fields are preserved")
+        XCTAssertEqual(emitted?.anonymousId, minted, "subscribers receive the new anonymousId")
+        XCTAssertEqual(
+            loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)?.profile.anonymousId,
+            minted, "minted anonymousId is persisted")
+    }
+
     // Push token minted anonymousId survives a token write (profile side survives token update).
     func testProfileSurvivesPushTokenUpdate() {
         let store = IdentityStore()

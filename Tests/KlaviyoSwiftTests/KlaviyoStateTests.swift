@@ -68,6 +68,7 @@ final class KlaviyoStateTests: XCTestCase {
 
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
     }
 
     func testLoadNewKlaviyoState() throws {
@@ -147,7 +148,11 @@ final class KlaviyoStateTests: XCTestCase {
         let encodedState = try KlaviyoEnvironment.production.encodeJSON(state)
         let decodedState: KlaviyoState = try KlaviyoEnvironment.production.decoder.decode(encodedState)
 
-        XCTAssertEqual(decodedState, state)
+        // The persisted blob is queue-only (MAGE-894): `apiKey`/`identity`/`pushToken` are owned by
+        // the Core stores and are not round-tripped through the state file. The queue must survive
+        // intact.
+        XCTAssertEqual(decodedState.queue, state.queue)
+        XCTAssertNil(decodedState.apiKey, "apiKey is no longer persisted in the state blob")
     }
 
     func testSaveKlaviyoStateWithMissingApiKeyLogsError() {
@@ -518,23 +523,64 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(state.identity.anonymousId, "anon-1")
     }
 
-    func testEncodesIdentityAsNestedObject() throws {
+    // MARK: - queue-only persistence (MAGE-894)
+
+    func testPersistedStateContainsQueueOnly() throws {
+        // The persisted blob no longer carries identity / apiKey / pushToken — those live in the
+        // canonical KlaviyoCore stores. Only `queue` is serialized.
+        let tokenPayload = PushTokenPayload(
+            pushToken: "tok",
+            enablement: "AUTHORIZED",
+            background: "AVAILABLE",
+            profile: ProfilePayload(email: "a@b.com", anonymousId: "anon-1")
+        )
+        let request = KlaviyoRequest(id: "req-1", endpoint: .registerPushToken("company-id", tokenPayload))
         let state = KlaviyoState(
             apiKey: "company-id",
             email: "a@b.com",
             anonymousId: "anon-1",
-            queue: []
+            phoneNumber: "+15555555555",
+            externalId: "ext-1",
+            pushTokenData: PushTokenData(
+                pushToken: "tok",
+                pushEnablement: .authorized,
+                pushBackground: .available,
+                deviceData: DeviceMetadata(context: environment.appContextInfo())
+            ),
+            queue: [request]
         )
 
         let data = try JSONEncoder().encode(state)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        XCTAssertNil(object["email"], "identity fields must not be encoded at the top level")
-        XCTAssertNil(object["phoneNumber"], "identity fields must not be encoded at the top level")
-        XCTAssertNil(object["externalId"], "identity fields must not be encoded at the top level")
-        XCTAssertNil(object["anonymousId"], "identity fields must not be encoded at the top level")
-        let identity = try XCTUnwrap(object["identity"] as? [String: Any])
-        XCTAssertEqual(identity["email"] as? String, "a@b.com")
-        XCTAssertEqual(identity["anonymousId"] as? String, "anon-1")
+        XCTAssertNotNil(object["queue"], "queue must be persisted")
+        XCTAssertEqual((object["queue"] as? [Any])?.count, 1)
+        XCTAssertNil(object["apiKey"], "apiKey must NOT be persisted (owned by SDKConfigStore)")
+        XCTAssertNil(object["identity"], "identity must NOT be persisted (owned by IdentityStore)")
+        XCTAssertNil(object["email"], "identity fields must NOT be persisted")
+        XCTAssertNil(object["phoneNumber"], "identity fields must NOT be persisted")
+        XCTAssertNil(object["externalId"], "identity fields must NOT be persisted")
+        XCTAssertNil(object["anonymousId"], "identity fields must NOT be persisted")
+        XCTAssertNil(object["pushTokenData"], "pushTokenData must NOT be persisted (owned by IdentityStore)")
+    }
+
+    func testQueueOnlyBlobRoundTripsQueue() throws {
+        // A queue-only blob decodes its queue and leaves identity/apiKey empty (the Core stores
+        // own those; `.initialize` re-hydrates them into the projection).
+        let tokenPayload = PushTokenPayload(
+            pushToken: "tok",
+            enablement: "AUTHORIZED",
+            background: "AVAILABLE",
+            profile: ProfilePayload(email: nil, anonymousId: "anon")
+        )
+        let request = KlaviyoRequest(id: "req-1", endpoint: .registerPushToken("company-id", tokenPayload))
+        let state = KlaviyoState(apiKey: "company-id", anonymousId: "anon", queue: [request])
+
+        let data = try KlaviyoEnvironment.encoder.encode(state)
+        let decoded: KlaviyoState = try KlaviyoEnvironment.production.decoder.decode(data)
+
+        XCTAssertEqual(decoded.queue.map(\.id), ["req-1"])
+        XCTAssertNil(decoded.apiKey)
+        XCTAssertNil(decoded.identity.anonymousId)
     }
 }

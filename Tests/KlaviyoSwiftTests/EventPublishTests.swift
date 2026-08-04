@@ -15,6 +15,7 @@ final class EventPublishTests: XCTestCase {
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         EventBus.shared.reset()
     }
