@@ -436,7 +436,15 @@ package actor AuthTokenManager {
             // `currentToken(mode:)` call, and `performScheduledRefresh()` —
             // funnels through this method, and it only ever runs when there is
             // no valid cached token to serve.
-            if let urlError = error as? URLError, urlError.isConnectivityError {
+            //
+            // Guarded by the same `inFlight?.id == fetchID` generation check the
+            // `defer` above uses: a fetch cancelled by a `registerProvider(_:)`
+            // swap keeps running if the host's provider closure doesn't honor
+            // cancellation (see this method's doc), and could otherwise still
+            // arm a retry for a generation that's no longer current — including
+            // after a newer fetch already succeeded — spuriously re-invoking the
+            // provider on the next reachability change.
+            if inFlight?.id == fetchID, let urlError = error as? URLError, urlError.isConnectivityError {
                 armConnectivityRetry()
             }
             throw error
