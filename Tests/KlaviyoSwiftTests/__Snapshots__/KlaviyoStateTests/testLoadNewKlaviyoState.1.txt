@@ -4,8 +4,7 @@
   - flushInterval: 10.0
   - flushing: false
   ▿ identity: ProfileData
-    ▿ anonymousId: Optional<String>
-      - some: "00000000-0000-0000-0000-000000000001"
+    - anonymousId: Optional<String>.none
     - email: Optional<String>.none
     - externalId: Optional<String>.none
     - phoneNumber: Optional<String>.none

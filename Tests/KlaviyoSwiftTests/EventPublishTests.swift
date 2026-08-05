@@ -15,6 +15,7 @@ final class EventPublishTests: XCTestCase {
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         EventBus.shared.reset()
     }
@@ -159,7 +160,7 @@ final class EventPublishTests: XCTestCase {
 
         // Set up state with push token
         var testState = KlaviyoState.test
-        testState.pushTokenData = KlaviyoState.PushTokenData(
+        testState.pushTokenData = PushTokenData(
             pushToken: "test_push_token_abc123",
             pushEnablement: .authorized,
             pushBackground: .available,

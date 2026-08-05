@@ -155,6 +155,27 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
         }
 
+        // MAGE-894 write-through choke point: `apiKey` / `identity` / `pushTokenData` are canonical
+        // in the KlaviyoCore stores; `KlaviyoState` holds an in-memory projection. Capture the
+        // projection before the action runs and, on any mutation, write it back to the Core stores
+        // so identity/apiKey/pushToken are persisted synchronously (the debounced state save is
+        // queue-only). `defer` fires on every return path, so no mutation site can silently drop a
+        // write. Value-equality guards avoid redundant emits (e.g. hydration reading its own value).
+        let previousApiKey = state.apiKey
+        let previousIdentity = state.identity
+        let previousPushTokenData = state.pushTokenData
+        defer {
+            if state.apiKey != previousApiKey {
+                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey))
+            }
+            if state.identity != previousIdentity {
+                IdentityStore.shared.update(state.identity)
+            }
+            if state.pushTokenData != previousPushTokenData {
+                IdentityStore.shared.updatePushToken(state.pushTokenData)
+            }
+        }
+
         switch action {
         case let .initialize(apiKey):
             if case .initialized = state.initalizationState {
@@ -179,8 +200,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.initalizationState = .initializing
+            // Set the confirmed apiKey on the projection; the reducer write-through `defer` is the
+            // SOLE writer to `SDKConfigStore` (one persist + one emit per initialize). The disk
+            // lookup below uses the local `apiKey` parameter, not the store, so it does not depend
+            // on the write-through having run yet.
             state.apiKey = apiKey
             return .run { send in
+                // The persisted blob is queue-only (MAGE-894); identity/apiKey/pushToken are
+                // hydrated from the Core stores in `.completeInitialization`.
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
@@ -189,6 +216,14 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initializing = state.initalizationState else {
                 return .none
             }
+            // Hydrate identity + push token from the canonical Core stores. `anonymousId` is
+            // guaranteed present (IdentityStore mints on first access). The apiKey was already
+            // confirmed + written through in `.initialize`, so carry it over from `state` (the
+            // loaded queue-only blob has no apiKey). Any identity fields set on the SDK-level
+            // state before init completed are carried over on top.
+            initialState.identity = IdentityStore.shared.current
+            initialState.pushTokenData = IdentityStore.shared.pushToken
+            initialState.apiKey = state.apiKey
             if let email = state.email {
                 initialState.email = email
             }
@@ -352,7 +387,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 let requestData = payload.data.attributes
                 let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = KlaviyoState.PushTokenData(
+                state.pushTokenData = PushTokenData(
                     pushToken: requestData.token,
                     pushEnablement: enablement,
                     pushBackground: backgroundStatus,
