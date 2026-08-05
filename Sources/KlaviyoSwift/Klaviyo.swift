@@ -12,10 +12,8 @@ import OSLog
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
-    Task {
-        await MainActor.run {
-            klaviyoSwiftEnvironment.send(action)
-        }
+    DispatchQueue.main.async {
+        _ = klaviyoSwiftEnvironment.send(action)
     }
 }
 
@@ -92,8 +90,8 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
-        Task {
-            @MainActor in SharedStoreMirror.setup()
+        DispatchQueue.main.async {
+            SharedStoreMirror.setup()
             _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
         }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
