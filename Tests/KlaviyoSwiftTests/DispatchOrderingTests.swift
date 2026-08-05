@@ -66,9 +66,8 @@ final class DispatchOrderingTests: XCTestCase {
         }
     }
 
-    /// `initialize(with:)` sends `.initialize` from inside a `Task`, so a synchronous
-    /// `dispatchOnMainThread` would let a following `set(email:)` reduce first — and
-    /// `.setEmail` requires initialization, so it would be dropped.
+    /// `initialize` and `dispatchOnMainThread` share `DispatchQueue.main`, so FIFO ordering
+    /// keeps `.initialize` ahead of a following `set(email:)`, which requires initialization.
     func testDispatchAfterInitializeIsNotReorderedBeforeInitialize() async {
         let bothReduced = expectation(description: "initialize and setEmail both reduced")
         let lock = NSLock()
