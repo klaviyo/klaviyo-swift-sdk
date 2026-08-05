@@ -22,10 +22,13 @@ public protocol IdentityWriting {
     func update(_ identity: ProfileData)
     func updatePushToken(_ token: PushTokenData?)
 
-    /// Mints a fresh `anonymousId`, persists it, and returns the new value. This is the ONLY
-    /// public mint seam — used by `KlaviyoSwift`'s profile-reset flow, which must force a fresh
-    /// anonymous id synchronously (so a cleared, formerly-identified profile becomes a distinct
-    /// anonymous profile). Minting otherwise happens lazily on first hydrate.
+    /// Mints a fresh `anonymousId` in memory and returns it, WITHOUT persisting or emitting.
+    /// This is the ONLY public mint seam — used by `KlaviyoSwift`'s profile-reset flow, which must
+    /// force a fresh anonymous id synchronously (so a cleared, formerly-identified profile becomes a
+    /// distinct anonymous profile). The caller (reducer write-through) then does the single
+    /// `update(_:)` that persists + emits the fully-cleared identity carrying this new id, so the
+    /// store never emits a phantom intermediate (old email + new anon). Minting otherwise happens
+    /// lazily on first hydrate.
     @discardableResult
     func mintNewAnonymousId() -> String
 }
@@ -42,6 +45,11 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     private var lock = os_unfair_lock_s()
     private var hydrated = false
     private var pushTokenValue: PushTokenData?
+    // In-memory anon minted by `mintNewAnonymousId` that has not yet been committed via `update`.
+    // Held here (never through `subject`) so minting does not emit a phantom intermediate identity
+    // to subscribers; `current` overlays it so callers observe the fresh anon before the reducer
+    // write-through persists + emits the final cleared identity. Cleared on any `update`.
+    private var pendingMintedAnonymousId: String?
 
     init(initialIdentity: ProfileData = ProfileData()) {
         subject = CurrentValueSubject(initialIdentity)
@@ -79,7 +87,14 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
 
     public var current: ProfileData {
         hydrateIfNeeded()
-        return subject.value
+        os_unfair_lock_lock(&lock)
+        let pending = pendingMintedAnonymousId
+        os_unfair_lock_unlock(&lock)
+        var value = subject.value
+        if let pending = pending {
+            value.anonymousId = pending
+        }
+        return value
     }
 
     public var pushToken: PushTokenData? {
@@ -109,6 +124,8 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     public func update(_ identity: ProfileData) {
         hydrateIfNeeded()
         os_unfair_lock_lock(&lock)
+        // A committed identity supersedes any uncommitted minted anon.
+        pendingMintedAnonymousId = nil
         persistLocked(profile: identity)
         os_unfair_lock_unlock(&lock)
         // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
@@ -118,14 +135,14 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     @discardableResult
     public func mintNewAnonymousId() -> String {
         hydrateIfNeeded()
+        // Mint the UUID here so IdentityStore stays the single minter, but do NOT persist or emit:
+        // set only the in-memory value under the lock. The reducer write-through's subsequent
+        // `update(_:)` (with the fully-cleared identity + this new anon) is the one-and-only persist
+        // + emission, avoiding a phantom intermediate (old email paired with the new anon).
         let newId = environment.uuid().uuidString
         os_unfair_lock_lock(&lock)
-        var profile = subject.value
-        profile.anonymousId = newId
-        persistLocked(profile: profile)
+        pendingMintedAnonymousId = newId
         os_unfair_lock_unlock(&lock)
-        // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
-        subject.send(profile)
         return newId
     }
 
@@ -144,6 +161,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         os_unfair_lock_lock(&lock)
         hydrated = false
         pushTokenValue = nil
+        pendingMintedAnonymousId = nil
         os_unfair_lock_unlock(&lock)
         removePersisted(fileName: StoreFile.identity)
         subject.send(ProfileData())

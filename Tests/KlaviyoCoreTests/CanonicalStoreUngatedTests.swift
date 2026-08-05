@@ -26,12 +26,14 @@ final class CanonicalStoreUngatedTests: XCTestCase {
 
     // MARK: - Fresh install (launch 1, no persisted files, no initialize)
 
-    func testStoresReadableWithoutInitialize() {
+    func testStoresReadableWithoutInitialize() throws {
         // Fresh install, launch 1: no files → IdentityStore mints, ConfigStore empty.
         let identity = IdentityStore()
         let config = SDKConfigStore()
-        XCTAssertNotNil(identity.current.anonymousId) // minted ungated
-        XCTAssertNil(config.current.apiKey)           // config never self-mints
+        let anonymousId = try XCTUnwrap(identity.current.anonymousId) // minted ungated
+        XCTAssertFalse(anonymousId.isEmpty)
+        XCTAssertNotNil(UUID(uuidString: anonymousId)) // minted value is a valid UUID
+        XCTAssertNil(config.current.apiKey)            // config never self-mints
     }
 
     // MARK: - Relaunch (launch 2, files present, no initialize)

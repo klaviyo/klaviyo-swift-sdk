@@ -200,10 +200,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.initalizationState = .initializing
-            // Write the confirmed apiKey through to the canonical config store (defer also mirrors
-            // this, but doing it here makes the file lookup below use the canonical value).
+            // Set the confirmed apiKey on the projection; the reducer write-through `defer` is the
+            // SOLE writer to `SDKConfigStore` (one persist + one emit per initialize). The disk
+            // lookup below uses the local `apiKey` parameter, not the store, so it does not depend
+            // on the write-through having run yet.
             state.apiKey = apiKey
-            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
             return .run { send in
                 // The persisted blob is queue-only (MAGE-894); identity/apiKey/pushToken are
                 // hydrated from the Core stores in `.completeInitialization`.

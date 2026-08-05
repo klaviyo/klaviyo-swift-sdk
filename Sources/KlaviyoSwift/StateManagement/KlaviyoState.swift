@@ -328,7 +328,9 @@ struct KlaviyoState: Equatable, Codable {
         if isIdentified {
             // A formerly-identified profile is being cleared: mint a FRESH anonymous id (via the
             // canonical minter in `IdentityStore`) so the resulting anonymous profile is distinct.
-            // We keep the projection in sync here; the reducer write-through re-persists identity.
+            // `mintNewAnonymousId` only mints in memory — it neither persists nor emits — so the
+            // reducer write-through's single `IdentityStore.update(identity)` is the one-and-only
+            // persist + emit for the reset (no phantom old-email/new-anon intermediate).
             anonymousId = IdentityStore.shared.mintNewAnonymousId()
         }
         let previousPushTokenData = pushTokenData

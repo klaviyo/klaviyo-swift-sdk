@@ -57,27 +57,38 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)?.pushToken, token)
     }
 
-    func testMintNewAnonymousIdReplacesPersistsAndEmits() {
-        // Start from a persisted, known anonymousId so we can observe the mint replacing it.
+    func testMintNewAnonymousIdMintsInMemoryWithoutEmittingOrPersisting() {
+        // Start from a persisted, known anonymousId so we can observe the mint replacing it in memory.
         savePersisted(
             PersistedIdentity(version: 1, profile: ProfileData(email: "keep@me.com", anonymousId: "old"), pushToken: nil),
             fileName: StoreFile.identity)
         let store = IdentityStore()
         XCTAssertEqual(store.current.anonymousId, "old")
 
-        var emitted: ProfileData?
-        let cancellable = store.publisher.sink { emitted = $0 }
+        // Subscribe AFTER hydration; only a genuine emission would deliver a new value here.
+        var emissions: [ProfileData] = []
+        let cancellable = store.publisher.dropFirst().sink { emissions.append($0) }
         defer { cancellable.cancel() }
 
         let minted = store.mintNewAnonymousId()
 
         XCTAssertEqual(minted, Self.mintedAnonId, "mint uses environment.uuid")
-        XCTAssertEqual(store.current.anonymousId, minted, "in-memory value updated")
+        XCTAssertEqual(store.current.anonymousId, minted, "in-memory value reflects the fresh anon")
         XCTAssertEqual(store.current.email, "keep@me.com", "other identity fields are preserved")
-        XCTAssertEqual(emitted?.anonymousId, minted, "subscribers receive the new anonymousId")
+        // New contract (MAGE-894): mint neither emits nor persists — the reducer write-through's
+        // single `update(_:)` is the one-and-only persist + emit, avoiding a phantom intermediate.
+        XCTAssertTrue(emissions.isEmpty, "mint does not emit")
         XCTAssertEqual(
             loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)?.profile.anonymousId,
-            minted, "minted anonymousId is persisted")
+            "old", "mint does not persist; disk still carries the pre-mint anon")
+
+        // The subsequent update commits: it persists + emits the final value exactly once.
+        store.update(ProfileData(email: "keep@me.com", anonymousId: minted))
+        XCTAssertEqual(emissions.count, 1, "update is the sole emission")
+        XCTAssertEqual(emissions.last?.anonymousId, minted)
+        XCTAssertEqual(
+            loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)?.profile.anonymousId,
+            minted, "update persists the minted anonymousId")
     }
 
     // Push token minted anonymousId survives a token write (profile side survives token update).
