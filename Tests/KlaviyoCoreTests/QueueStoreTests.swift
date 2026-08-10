@@ -8,12 +8,6 @@
 @testable import KlaviyoCore
 import XCTest
 
-private final class ManualPersistSchedulerToken: QueuePersistToken {
-    let onCancel: () -> Void
-    init(_ onCancel: @escaping () -> Void) { self.onCancel = onCancel }
-    func cancel() { onCancel() }
-}
-
 final class QueueStoreTests: XCTestCase {
     private func request(_ id: String, priority: RequestPriority = .standard,
                          at date: Date = Date(timeIntervalSince1970: 0)) -> KlaviyoRequest {
@@ -64,24 +58,26 @@ final class QueueStoreTests: XCTestCase {
         }
     }
 
-    /// Scheduler that captures the latest scheduled work so tests can fire it on demand.
-    private final class ManualPersistScheduler: QueuePersistScheduler {
+    /// Captures the latest scheduled work so tests can fire it on demand.
+    private final class ManualPersistScheduler {
         private var pending: (() -> Void)?
         private(set) var scheduleCount = 0
 
-        func schedule(after _: TimeInterval, _ work: @escaping () -> Void) -> QueuePersistToken {
-            scheduleCount += 1
-            pending = work
-            return ManualPersistSchedulerToken { [weak self] in self?.pending = nil }
+        func makeScheduler() -> QueueStore.PersistScheduler {
+            QueueStore.PersistScheduler { [weak self] _, work in
+                self?.scheduleCount += 1
+                self?.pending = work
+            }
         }
 
-        /// Simulate the debounce interval elapsing.
+        /// Simulate the debounce interval elapsing for the most recently scheduled work.
         func fire() { let work = pending; pending = nil; work?() }
     }
 
     private func makeStore(diskIO: SpyDiskIO, scheduler: ManualPersistScheduler,
                            warnings: @escaping (String) -> Void = { _ in }) -> QueueStore {
-        QueueStore(apiKey: "TEST", diskIO: diskIO.makeIO(), scheduler: scheduler, emitWarning: warnings)
+        QueueStore(apiKey: "TEST", diskIO: diskIO.makeIO(),
+                   scheduler: scheduler.makeScheduler(), emitWarning: warnings)
     }
 
     // MARK: - enqueue ordering + persistence
@@ -156,7 +152,7 @@ final class QueueStoreTests: XCTestCase {
         })
         var warnings: [String] = []
         let store = QueueStore(apiKey: "TEST", diskIO: diskIO.makeIO(),
-                               scheduler: ManualPersistScheduler(),
+                               scheduler: ManualPersistScheduler().makeScheduler(),
                                emitWarning: { warnings.append($0) })
 
         store.enqueue(request("new", at: Date(timeIntervalSince1970: 10_000)))
@@ -217,16 +213,24 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertEqual(diskIO.stored.map(\.id), ["a", "b", "c"], "write carries final state")
     }
 
-    func testSynchronousCancelsPendingDebounce() {
+    /// Regression guard for the durability of `.synchronous`: a debounced write scheduled
+    /// *before* a later synchronous write must not clobber it when it eventually fires.
+    func testSynchronousSupersedesPendingDebounce() {
         let diskIO = SpyDiskIO()
         let scheduler = ManualPersistScheduler()
         let store = makeStore(diskIO: diskIO, scheduler: scheduler)
-        store.enqueue(request("a")) // schedules debounced
-        store.enqueue(request("b"), persist: .synchronous) // writes now, cancels the debounce
+        store.enqueue(request("a")) // schedules debounced (generation 1)
+        store.enqueue(request("b"), persist: .synchronous) // writes now, bumps to generation 2
         XCTAssertEqual(diskIO.saveCount, 1)
-        scheduler.fire() // pending was cancelled → no extra write
+        scheduler.fire() // stale gen-1 fire is superseded → no-ops, no stale overwrite
         XCTAssertEqual(diskIO.saveCount, 1)
         XCTAssertEqual(diskIO.stored.map(\.id), ["a", "b"])
+    }
+
+    func testProductionSchedulerRunsScheduledWork() {
+        let didRun = expectation(description: "scheduled work ran")
+        QueueStore.PersistScheduler.production.schedule(0.01) { didRun.fulfill() }
+        wait(for: [didRun], timeout: 1.0)
     }
 
     // MARK: - Corrupt / absent

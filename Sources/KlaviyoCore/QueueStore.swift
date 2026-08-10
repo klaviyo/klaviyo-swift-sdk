@@ -16,7 +16,7 @@ public enum PersistPolicy {
 }
 
 /// On-disk shape of the queue file. Carries a `version` affordance so future format
-/// changes are additive migrations (MAGE-954).
+/// changes can be handled as additive migrations.
 struct PersistedQueue: Codable, Equatable {
     static let currentVersion = 1
     var version: Int
@@ -42,25 +42,46 @@ public final class QueueStore {
         }
     }
 
+    /// Timing seam for debounced persistence. Injected so tests drive persistence
+    /// deterministically without wall-clock delays. Mirrors the `DiskIO` closure-seam idiom.
+    public struct PersistScheduler {
+        /// Run `work` after `delay` seconds. Fire-and-forget: coalescing is handled by
+        /// `QueueStore`'s persist generation, so there is no cancellation to manage here.
+        public var schedule: (_ delay: TimeInterval, _ work: @escaping () -> Void) -> Void
+        public init(schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void) {
+            self.schedule = schedule
+        }
+
+        /// Production scheduler: a single serial queue so writes stay ordered.
+        static var production: Self {
+            let queue = DispatchQueue(label: "com.klaviyo.queuestore.persist")
+            return Self { delay, work in
+                queue.asyncAfter(deadline: .now() + delay, execute: work)
+            }
+        }
+    }
+
     private let diskIO: DiskIO
-    private let scheduler: QueuePersistScheduler
+    private let scheduler: PersistScheduler
     private let emitWarning: (String) -> Void
 
     // guards `queue`; held during the one-time hydrate read, never during persist writes
     private let queueLock = NSLock()
-    private let persistLock = NSLock() // serializes actual writes + the pending token
+    private let persistLock = NSLock() // serializes writes + guards the persist generation
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    private var pendingPersist: QueuePersistToken?
+    // Monotonic token bumped per scheduled persist; a debounced fire writes only if it is still
+    // the latest, so a superseded (or already-started stale) fire can't clobber a newer write.
+    private var persistGeneration = 0
 
     /// Ungated production entry point: one store per apiKey, backed by that key's queue file.
     public convenience init(apiKey: String) {
         self.init(apiKey: apiKey,
                   diskIO: .production(apiKey: apiKey),
-                  scheduler: DispatchQueuePersistScheduler(),
+                  scheduler: .production,
                   emitWarning: { environment.emitDeveloperWarning($0) })
     }
 
-    init(apiKey _: String, diskIO: DiskIO, scheduler: QueuePersistScheduler,
+    init(apiKey _: String, diskIO: DiskIO, scheduler: PersistScheduler,
          emitWarning: @escaping (String) -> Void) {
         self.diskIO = diskIO
         self.scheduler = scheduler
@@ -115,26 +136,25 @@ public final class QueueStore {
 
     // MARK: Persistence
 
-    /// Updates the pending write and either schedules it (debounced) or performs it inline
+    /// Bumps the persist generation, then either schedules a debounced write or writes inline
     /// (synchronous). Holds `persistLock` — never `queueLock` — so disk I/O never blocks queue ops.
+    /// The captured `snapshot` is the queue state as of this mutation, so the newest generation
+    /// carries the newest state: latest-generation-wins == latest-state-wins.
     private func schedulePersist(_ snapshot: [KlaviyoRequest], _ policy: PersistPolicy) {
         persistLock.lock(); defer { persistLock.unlock() }
-        pendingPersist?.cancel()
-        pendingPersist = nil
+        persistGeneration &+= 1
+        let generation = persistGeneration
         switch policy {
         case .debounced:
-            pendingPersist = scheduler.schedule(after: 1.0) { [weak self] in
-                self?.write(snapshot)
+            scheduler.schedule(1.0) { [weak self] in
+                guard let self else { return }
+                self.persistLock.lock(); defer { self.persistLock.unlock() }
+                guard generation == self.persistGeneration else { return } // superseded → skip
+                self.persistSnapshot(snapshot)
             }
         case .synchronous:
             persistSnapshot(snapshot)
         }
-    }
-
-    /// Debounced fire path: acquires `persistLock` itself (it runs later, off the scheduler).
-    private func write(_ snapshot: [KlaviyoRequest]) {
-        persistLock.lock(); defer { persistLock.unlock() }
-        persistSnapshot(snapshot)
     }
 
     /// Persists the snapshot. Caller must hold `persistLock`.
@@ -172,7 +192,7 @@ extension QueueStore {
     private static var registry: [String: QueueStore] = [:]
 
     /// Resolves the current apiKey from `SDKConfigStore` and returns the (cached) store for it,
-    /// or `nil` if no apiKey is set yet (pre-apiKey buffering is MAGE-951's concern).
+    /// or `nil` if no apiKey is set yet (buffering pre-apiKey events is handled elsewhere).
     public static func current() -> QueueStore? {
         guard let apiKey = SDKConfigStore.shared.current.apiKey else { return nil }
         registryLock.lock(); defer { registryLock.unlock() }
