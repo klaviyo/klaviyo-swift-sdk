@@ -80,14 +80,14 @@ struct KlaviyoSwiftEnvironment {
                 KlaviyoAppDelegateSwizzler.swizzleIfPossible(on: applicationDelegate)
             },
             isAutomaticPushOpenTrackingEnabled: {
-                SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
+                Bundle.main.object(
                     forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
-                )) == true
+                ) as? Bool == true
             },
             isAutomaticPushTokenForwardingEnabled: {
-                SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
+                Bundle.main.object(
                     forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
-                )) == true
+                ) as? Bool == true
             },
             notificationCenter: {
                 UNUserNotificationCenter.current()

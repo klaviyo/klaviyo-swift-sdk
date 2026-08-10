@@ -368,8 +368,6 @@ func registerForPushNotifications() {
 
 With `klaviyo_automatic_push_open_tracking` enabled and no `UNUserNotificationCenterDelegate` of your own, the SDK shows a visible foreground banner by default (`[.list, .banner, .badge, .sound]` on iOS 14+, `[.alert, .badge, .sound]` on iOS 13) — you don't need to implement `willPresent` just to get a banner in the foreground.
 
-If you *do* implement `UNUserNotificationCenterDelegate` — directly, or via another SDK that installs its own notification-center delegate (e.g. `@react-native-firebase/messaging`) — the SDK detects and preserves that delegate chain automatically. Whatever presentation options your delegate (or the other SDK's delegate) passes to its completion handler are forwarded through unchanged, including an intentionally empty `[]`. This holds however many delegates are chained together and regardless of install order, so you never need to manually reassign `UNUserNotificationCenter.current().delegate` after Klaviyo or another SDK has already claimed it.
-
 For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics in your Klaviyo dashboard.

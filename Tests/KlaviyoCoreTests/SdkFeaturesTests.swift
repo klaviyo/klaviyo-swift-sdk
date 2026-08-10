@@ -9,14 +9,6 @@
 import XCTest
 
 final class SdkFeaturesTests: XCTestCase {
-    func testInfoPlistBooleanOnlyAcceptsBooleanValues() {
-        XCTAssertEqual(SdkFeatures.infoPlistBoolean(from: NSNumber(value: true)), true)
-        XCTAssertEqual(SdkFeatures.infoPlistBoolean(from: NSNumber(value: false)), false)
-        XCTAssertNil(SdkFeatures.infoPlistBoolean(from: NSNumber(value: 1)))
-        XCTAssertNil(SdkFeatures.infoPlistBoolean(from: "true"))
-        XCTAssertNil(SdkFeatures.infoPlistBoolean(from: nil))
-    }
-
     /// Both keys present and on: both fields reported, forwarding on (typical full opt-in).
     func testHeaderValueTrackingOnForwardingOn() {
         let features = SdkFeatures(autoPushTracking: true, autoTokenForwarding: true)

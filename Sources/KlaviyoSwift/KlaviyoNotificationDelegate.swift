@@ -83,7 +83,6 @@ final class KlaviyoNotificationDelegate: NSObject {
 
     private let didReceiveGuard = ForwardingCycleGuard()
     private let willPresentGuard = ForwardingCycleGuard()
-    private let openSettingsGuard = ForwardingCycleGuard()
 
     // MARK: - Auto-track guard
 
@@ -239,21 +238,14 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
         )
     }
 
-    /// Guard key used when `openSettingsFor:` arrives without a notification.
-    private static let openSettingsFallbackRequestId = "no-notification"
-
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         openSettingsFor notification: UNNotification?
     ) {
-        let requestId = notification?.request.identifier ?? Self.openSettingsFallbackRequestId
-        let depth = openSettingsGuard.enter(requestId)
-        defer { openSettingsGuard.leave(requestId) }
-
         let selector = #selector(
             UNUserNotificationCenterDelegate.userNotificationCenter(_:openSettingsFor:)
         )
-        guard let next = delegate(atDepth: depth, respondingTo: selector) else { return }
+        guard let next = delegate(atDepth: 0, respondingTo: selector) else { return }
         next.userNotificationCenter?(center, openSettingsFor: notification)
     }
 }

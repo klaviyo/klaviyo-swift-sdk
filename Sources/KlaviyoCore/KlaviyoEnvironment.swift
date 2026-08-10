@@ -251,12 +251,12 @@ public struct KlaviyoEnvironment {
             Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
         },
         sdkFeatures: {
-            let autoPushTracking = SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
+            let autoPushTracking = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
-            ))
-            let autoTokenForwarding = SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
+            ) as? Bool
+            let autoTokenForwarding = Bundle.main.object(
                 forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
-            ))
+            ) as? Bool
             guard autoPushTracking != nil || autoTokenForwarding != nil else {
                 return nil
             }
