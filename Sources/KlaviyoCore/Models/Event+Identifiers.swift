@@ -1,5 +1,5 @@
 //
-//  EventAPIExtension.swift
+//  Event+Identifiers.swift
 //
 //  Klaviyo Swift SDK
 //
@@ -7,13 +7,12 @@
 //
 
 import Foundation
-import KlaviyoCore
 
 extension Event {
     /// Returns a copy of the event stamped with the given profile identifiers.
     /// For opened-push events, the push token (when present) is added to the
     /// event properties.
-    func updateEventWithIdentifiers(
+    package func updateEventWithIdentifiers(
         email: String?,
         phoneNumber: String?,
         externalId: String?,
