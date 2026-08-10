@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import KlaviyoCore
+import UIKit
 import UserNotifications
 
 var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
@@ -23,6 +24,11 @@ struct KlaviyoSwiftEnvironment {
     /// Injected as a closure so tests can stub or assert the call without touching the
     /// real notification center.
     var injectNotificationDelegate: () -> Void
+    /// Installs the exact-prior notification-center delegate setter hook.
+    /// Split from proxy assignment so tests can use a mock center without mutating runtime classes.
+    var installNotificationDelegateHook: @MainActor () -> Void
+    /// Installs token interception on the assigned/effective application delegate.
+    var installApplicationDelegateTokenHook: @MainActor ((any UIApplicationDelegate)?) -> Void
     /// Returns whether the host has opted in to automatic push open tracking via the
     /// `klaviyo_automatic_push_open_tracking` Info.plist key.
     /// Injected so tests can enable or disable the feature without modifying `Bundle.main`.
@@ -59,23 +65,29 @@ struct KlaviyoSwiftEnvironment {
                 // On earlier OS versions we fall back to a Task hop.
                 if #available(iOS 17.0, *), Thread.isMainThread {
                     MainActor.assumeIsolated {
-                        KlaviyoNotificationDelegate.injectIfEnabled()
+                        KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
                     }
                 } else {
                     Task { @MainActor in
-                        KlaviyoNotificationDelegate.injectIfEnabled()
+                        KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
                     }
                 }
             },
+            installNotificationDelegateHook: {
+                KlaviyoNotificationCenterDelegateSwizzler.installIfNeeded()
+            },
+            installApplicationDelegateTokenHook: { applicationDelegate in
+                KlaviyoAppDelegateSwizzler.swizzleIfPossible(on: applicationDelegate)
+            },
             isAutomaticPushOpenTrackingEnabled: {
-                Bundle.main.object(
+                SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
                     forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
-                ) as? Bool == true
+                )) == true
             },
             isAutomaticPushTokenForwardingEnabled: {
-                Bundle.main.object(
+                SdkFeatures.infoPlistBoolean(from: Bundle.main.object(
                     forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
-                ) as? Bool == true
+                )) == true
             },
             notificationCenter: {
                 UNUserNotificationCenter.current()

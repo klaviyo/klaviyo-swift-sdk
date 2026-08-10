@@ -123,6 +123,93 @@ class KlaviyoSDKTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
+    func testSetAutomaticPushTokenUsesAutomaticAction() {
+        let tokenData = "automatic-token".data(using: .utf8)!
+        let stringToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+        let expectation = setupActionAssertion(
+            expectedAction: .setAutomaticPushToken(stringToken, .authorized)
+        )
+
+        klaviyo.setAutomatic(pushToken: tokenData)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testSetAutomaticPushTokenDiscardsOlderSettingsResultThatFinishesLast() async {
+        let firstToken = Data([0x01])
+        let secondToken = Data([0x02])
+        var settingsContinuations: [CheckedContinuation<PushEnablement, Never>] = []
+        let firstSettingsRequested = expectation(description: "first notification settings requested")
+        let secondSettingsRequested = expectation(description: "second notification settings requested")
+        environment.getNotificationSettings = {
+            await withCheckedContinuation { continuation in
+                settingsContinuations.append(continuation)
+                if settingsContinuations.count == 1 {
+                    firstSettingsRequested.fulfill()
+                } else {
+                    secondSettingsRequested.fulfill()
+                }
+            }
+        }
+
+        let latestTokenSent = expectation(description: "latest automatic token sent")
+        let staleTokenSent = expectation(description: "stale automatic token not sent")
+        staleTokenSent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            switch action {
+            case .setAutomaticPushToken("02", .authorized):
+                latestTokenSent.fulfill()
+            case .setAutomaticPushToken("01", _):
+                staleTokenSent.fulfill()
+            default:
+                XCTFail("Unexpected action: \(action)")
+            }
+            return nil
+        }
+
+        KlaviyoSDK().setAutomatic(pushToken: firstToken)
+        await fulfillment(of: [firstSettingsRequested], timeout: 1.0)
+        KlaviyoSDK().setAutomatic(pushToken: secondToken)
+        await fulfillment(of: [secondSettingsRequested], timeout: 1.0)
+        XCTAssertEqual(settingsContinuations.count, 2)
+
+        settingsContinuations[1].resume(returning: .authorized)
+        await fulfillment(of: [latestTokenSent], timeout: 1.0)
+        settingsContinuations[0].resume(returning: .denied)
+        await fulfillment(of: [staleTokenSent], timeout: 0.1)
+    }
+
+    func testAutomaticPushTokenSequenceDoesNotAllowNewClaimDuringLatestOperation() {
+        let sequence = AutomaticPushTokenSequence()
+        let firstGeneration = sequence.claimGeneration()
+        let firstOperationStarted = expectation(description: "first operation started")
+        let releaseFirstOperation = DispatchSemaphore(value: 0)
+        let newerGenerationClaimed = DispatchSemaphore(value: 0)
+
+        DispatchQueue.global().async {
+            sequence.performIfLatest(firstGeneration) {
+                firstOperationStarted.fulfill()
+                releaseFirstOperation.wait()
+            }
+        }
+        wait(for: [firstOperationStarted], timeout: 1.0)
+
+        DispatchQueue.global().async {
+            _ = sequence.claimGeneration()
+            newerGenerationClaimed.signal()
+        }
+        let claimBeforeOperationFinished = newerGenerationClaimed.wait(
+            timeout: .now() + 0.1
+        )
+        releaseFirstOperation.signal()
+        let claimAfterOperationFinished = newerGenerationClaimed.wait(
+            timeout: .now() + 1.0
+        )
+
+        XCTAssertEqual(claimBeforeOperationFinished, .timedOut)
+        XCTAssertEqual(claimAfterOperationFinished, .success)
+    }
+
     // MARK: test set external id
 
     func testSetExternalId() {

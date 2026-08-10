@@ -56,6 +56,15 @@ public struct SdkFeatures: Equatable {
         package static let automaticPushTokenForwarding = "klaviyo_automatic_push_token_forwarding"
     }
 
+    /// Returns a configured plist Boolean, rejecting integers and strings that Swift's
+    /// `as? Bool` bridging can otherwise treat as truthy values.
+    package static func infoPlistBoolean(from value: Any?) -> Bool? {
+        guard let value else { return nil }
+        let bridgedValue = value as CFTypeRef
+        guard CFGetTypeID(bridgedValue) == CFBooleanGetTypeID() else { return nil }
+        return (value as? NSNumber)?.boolValue
+    }
+
     /// Configured feature states; only features the host actually configured are present.
     private let values: [SdkFeatureKey: Bool]
 

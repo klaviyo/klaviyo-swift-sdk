@@ -66,6 +66,10 @@ enum KlaviyoAction: Equatable {
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
     case setPushToken(String, PushEnablement)
 
+    /// Internal automatic-token path. Unlike the public/manual action, this may buffer the
+    /// latest APNs token before SDK initialization has started.
+    case setAutomaticPushToken(String, PushEnablement)
+
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
 
@@ -133,7 +137,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -217,6 +221,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueProfile(profile))
                     case let .pushToken(token, enablement):
                         await send(.setPushToken(token, enablement))
+                    case let .automaticPushToken(token, enablement):
+                        await send(.setPushToken(token, enablement))
                     case let .setEmail(email):
                         await send(.setEmail(email))
                     case let .setExternalId(externalId):
@@ -255,6 +261,23 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.updateExternalId(externalId: externalId)
             return .none
+
+        case let .setAutomaticPushToken(pushToken, enablement):
+            guard case .initialized = state.initalizationState else {
+                let replacement = KlaviyoState.PendingRequest.automaticPushToken(pushToken, enablement)
+                if let index = state.pendingRequests.firstIndex(where: {
+                    if case .automaticPushToken = $0 { return true }
+                    return false
+                }) {
+                    state.pendingRequests[index] = replacement
+                } else {
+                    state.pendingRequests.append(replacement)
+                }
+                return .none
+            }
+            return .run { send in
+                await send(.setPushToken(pushToken, enablement))
+            }
 
         case let .setPushToken(pushToken, enablement):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {

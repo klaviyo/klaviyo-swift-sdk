@@ -36,6 +36,12 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "KlaviyoAutomaticPushBootstrap",
+            path: "Sources/KlaviyoAutomaticPushBootstrap",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("UIKit")]
+        ),
+        .target(
             name: "KlaviyoCore",
             dependencies: [
                 .product(name: "AnyCodable", package: "AnyCodable")
@@ -55,7 +61,8 @@ let package = Package(
             name: "KlaviyoSwift",
             dependencies: [
                 .product(name: "AnyCodable", package: "AnyCodable"),
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoAutomaticPushBootstrap"
             ],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]
@@ -68,7 +75,8 @@ let package = Package(
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths"),
                 .product(name: "CombineSchedulers", package: "combine-schedulers"),
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoAutomaticPushBootstrap"
             ],
             exclude: [
                 "__Snapshots__"

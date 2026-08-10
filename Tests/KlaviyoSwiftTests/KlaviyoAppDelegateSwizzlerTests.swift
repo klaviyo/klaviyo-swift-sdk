@@ -12,6 +12,7 @@
 //
 
 @testable import KlaviyoSwift
+import KlaviyoCore
 import ObjectiveC.runtime
 import UIKit
 import XCTest
@@ -31,6 +32,7 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoAppDelegateSwizzler._resetStateForTesting()
     }
@@ -137,6 +139,34 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         ) {}
     }
 
+    private class MultipleInstallFirstDelegate: NSObject, UIApplicationDelegate {
+        func application(
+            _ application: UIApplication,
+            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+        ) {}
+    }
+
+    private class MultipleInstallSecondDelegate: NSObject, UIApplicationDelegate {
+        func application(
+            _ application: UIApplication,
+            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+        ) {}
+    }
+
+    /// Parent-first installation path: after the parent is instrumented, the child inherits
+    /// Klaviyo's donor IMP. Installing the child must continue forwarding to this host method.
+    private class ParentFirstBaseDelegate: NSObject, UIApplicationDelegate {
+        var hostCallCount = 0
+        func application(
+            _ application: UIApplication,
+            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+        ) {
+            hostCallCount += 1
+        }
+    }
+
+    private class ParentFirstSubDelegate: ParentFirstBaseDelegate {}
+
     // MARK: - Helpers
 
     /// Returns true if `cls` declares `selector` in its own method table (not via superclass).
@@ -165,8 +195,10 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
     /// produces incorrect IMP state. Skipping is the correct response: the test is not
     /// flaky, it simply cannot be repeated in-process.
     private func skipIfAlreadySwizzled(_ cls: AnyClass) throws {
+        let donorIMP = imp(on: KlaviyoAppDelegateSwizzler.self, selector: swizzledSelector)
+        let currentIMP = class_getInstanceMethod(cls, originalSelector).map(method_getImplementation)
         try XCTSkipIf(
-            classOwnsMethod(cls, selector: swizzledSelector),
+            currentIMP == donorIMP,
             "\(cls) was already swizzled in a prior repetition — ObjC changes are permanent per process"
         )
     }
@@ -297,14 +329,14 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         )
         XCTAssertEqual(baseIMPBefore, baseIMPAfter, "Superclass method table must not be mutated")
 
-        // Subclass must now own both selectors in its own method table.
+        // Subclass must now own the original selector while retaining the exact inherited IMP.
         XCTAssertTrue(
             classOwnsMethod(InheritedSubDelegate.self, selector: originalSelector),
             "Subclass must own originalSelector after graft"
         )
-        XCTAssertTrue(
-            classOwnsMethod(InheritedSubDelegate.self, selector: swizzledSelector),
-            "Subclass must own swizzledSelector after graft"
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(InheritedSubDelegate.self),
+            baseIMPBefore
         )
 
         // Swap recorded so the donor knows to forward to the inherited IMP.
@@ -313,37 +345,32 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         )
     }
 
-    // After the exchange path the donor IMP sits at `originalSelector`. The donor's forwarding
-    // target is `swizzledSelector`, which must hold the host's original IMP address — without
-    // it the host's push-token handling would be silently dropped. We verify the IMP table
-    // directly rather than invoking the donor (which calls production `KlaviyoSDK` code that
-    // is not safe in a headless XCTest process).
-    func testDonorIMPForwardsToHostOriginalAfterExchange() throws {
+    // The per-class entry must retain the exact host IMP that was active before installation.
+    func testDonorRetainsHostOriginalIMP() throws {
         try skipIfAlreadySwizzled(ExchangeForwardingDelegate.self)
         let hostIMPBefore = imp(on: ExchangeForwardingDelegate.self, selector: originalSelector)
 
         KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: ExchangeForwardingDelegate.self)
 
-        // After exchange: swizzledSelector must hold the host's pre-swap IMP so the donor
-        // can forward to it at call time.
-        let forwardSlotIMP = imp(on: ExchangeForwardingDelegate.self, selector: swizzledSelector)
-        XCTAssertEqual(forwardSlotIMP, hostIMPBefore, "swizzledSelector must hold the host's original IMP")
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(ExchangeForwardingDelegate.self),
+            hostIMPBefore,
+            "The exact immediately prior host IMP must be retained"
+        )
     }
 
-    // After the inherited-graft path the donor IMP is added at `originalSelector` on the
-    // subclass. The donor's forwarding target (`swizzledSelector`) is redirected to the
-    // inherited base IMP at swizzle time — verifying that address proves the donor will chain
-    // to the base implementation rather than recursing back into itself.
-    func testDonorIMPForwardsToInheritedOriginalAfterGraftOnSubclass() throws {
+    // The inherited-graft path must retain the base IMP without altering the base class.
+    func testDonorRetainsInheritedOriginalAfterGraftOnSubclass() throws {
         try skipIfAlreadySwizzled(InheritedForwardingSubDelegate.self)
         let inheritedIMPBefore = imp(on: InheritedForwardingBaseDelegate.self, selector: originalSelector)
 
         KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: InheritedForwardingSubDelegate.self)
 
-        // swizzledSelector on the subclass must hold the inherited base IMP (captured before
-        // swizzle) so the donor can forward to it at call time.
-        let forwardSlotIMP = imp(on: InheritedForwardingSubDelegate.self, selector: swizzledSelector)
-        XCTAssertEqual(forwardSlotIMP, inheritedIMPBefore, "swizzledSelector must hold the inherited IMP from the base")
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(InheritedForwardingSubDelegate.self),
+            inheritedIMPBefore,
+            "The exact inherited IMP must be retained"
+        )
     }
 
     // `swizzleIfPossible` can be called more than once (e.g. host calls `initialize` twice).
@@ -364,5 +391,43 @@ final class KlaviyoAppDelegateSwizzlerTests: XCTestCase {
         )
 
         XCTAssertEqual(impAfterFirst, impAfterSecond, "Second swizzle call must leave IMP unchanged")
+    }
+
+    func testDistinctDelegateClassesEachCaptureTheirImmediatelyPriorIMP() throws {
+        try skipIfAlreadySwizzled(MultipleInstallFirstDelegate.self)
+        try skipIfAlreadySwizzled(MultipleInstallSecondDelegate.self)
+        let firstPrior = imp(on: MultipleInstallFirstDelegate.self, selector: originalSelector)
+        let secondPrior = imp(on: MultipleInstallSecondDelegate.self, selector: originalSelector)
+
+        KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: MultipleInstallFirstDelegate.self)
+        KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: MultipleInstallSecondDelegate.self)
+
+        XCTAssertTrue(KlaviyoAppDelegateSwizzler._isInstalledForTesting(MultipleInstallFirstDelegate.self))
+        XCTAssertTrue(KlaviyoAppDelegateSwizzler._isInstalledForTesting(MultipleInstallSecondDelegate.self))
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(MultipleInstallFirstDelegate.self),
+            firstPrior
+        )
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(MultipleInstallSecondDelegate.self),
+            secondPrior
+        )
+    }
+
+    func testInstallingSubclassAfterParentForwardsOnceToOriginalHostImplementation() throws {
+        try skipIfAlreadySwizzled(ParentFirstBaseDelegate.self)
+        let originalHostIMP = imp(on: ParentFirstBaseDelegate.self, selector: originalSelector)
+
+        KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: ParentFirstBaseDelegate.self)
+        KlaviyoAppDelegateSwizzler._performSwizzleForTesting(on: ParentFirstSubDelegate.self)
+
+        guard !KlaviyoAppDelegateSwizzler._isInstalledForTesting(ParentFirstSubDelegate.self) else {
+            XCTFail("A subclass inheriting Klaviyo's donor must not capture the donor as its prior IMP")
+            return
+        }
+        XCTAssertEqual(
+            KlaviyoAppDelegateSwizzler._priorIMPForTesting(ParentFirstSubDelegate.self),
+            originalHostIMP
+        )
     }
 }

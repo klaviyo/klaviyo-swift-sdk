@@ -19,7 +19,7 @@ import UIKit
 ///
 /// ## Concurrency model
 ///
-/// Swizzling entry points (`swizzleIfPossible()`, `performSwizzle(on:)`) are invoked from
+/// Swizzling entry points (`swizzleIfPossible(on:)`, `performSwizzle(on:)`) are invoked from
 /// `KlaviyoNotificationDelegate.injectIfEnabled()`, which is `@MainActor`. The grafted IMP
 /// (`klaviyo_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`) is fired by
 /// iOS on the main thread per the `UIApplicationDelegate` contract. All state mutation is
@@ -31,61 +31,62 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
     /// Strict-concurrency mode flags raw `static var` declarations as global mutable state —
     /// this wrapper keeps that requirement satisfied without sprinkling `nonisolated(unsafe)`.
     ///
-    /// Fields:
-    /// - `didSwizzle`: one-way idempotence flag; flipped true the moment swizzling is claimed.
-    /// - `didFinishLaunchingObserver`: token for the deferred-install observer; cleared once fired.
-    /// - `swappedClasses`: classes where IMPs were exchanged (not just added), so the donor IMP
-    ///   knows it should forward to the host's original implementation rather than stop.
+    /// Each entry stores the exact IMP that was active immediately before Klaviyo installed
+    /// its callback on a concrete delegate class. Keeping entries per class allows wrapper or
+    /// delegate replacement without silently leaving the new delegate uninstrumented.
     private final class State: @unchecked Sendable {
+        private struct Entry {
+            let priorIMP: IMP?
+        }
+
         private let lock = NSLock()
-        private var didSwizzle = false
-        private var didFinishLaunchingObserver: NSObjectProtocol?
-        private var swappedClasses: Set<ObjectIdentifier> = []
+        private var entries: [ObjectIdentifier: Entry] = [:]
 
-        var swizzled: Bool {
+        func claimInstallation(on hostClass: AnyClass, priorIMP: IMP?) -> Bool {
             lock.lock(); defer { lock.unlock() }
-            return didSwizzle
-        }
-
-        var hasObserver: Bool {
-            lock.lock(); defer { lock.unlock() }
-            return didFinishLaunchingObserver != nil
-        }
-
-        /// Atomically transition `didSwizzle` from false → true and report whether this caller
-        /// is the one that did it. Used by `performSwizzle(on:)` to avoid double-swizzling.
-        func claimSwizzle() -> Bool {
-            lock.lock(); defer { lock.unlock() }
-            guard !didSwizzle else { return false }
-            didSwizzle = true
+            let identifier = ObjectIdentifier(hostClass)
+            guard entries[identifier] == nil else { return false }
+            entries[identifier] = Entry(priorIMP: priorIMP)
             return true
         }
 
-        func setObserver(_ observer: NSObjectProtocol?) {
+        func removeInstallation(on hostClass: AnyClass) {
             lock.lock(); defer { lock.unlock() }
-            didFinishLaunchingObserver = observer
+            entries.removeValue(forKey: ObjectIdentifier(hostClass))
         }
 
-        func clearObserver() {
-            lock.lock()
-            let observer = didFinishLaunchingObserver
-            didFinishLaunchingObserver = nil
-            lock.unlock()
-            // removeObserver is called outside the lock to avoid potential re-entrancy
-            // if NotificationCenter tries to acquire the same lock on the same thread.
-            if let observer {
-                NotificationCenter.default.removeObserver(observer)
+        func isInstalled(on hostClass: AnyClass) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            return entries[ObjectIdentifier(hostClass)] != nil
+        }
+
+        func hasInstalledAncestor(of hostClass: AnyClass) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            var currentClass: AnyClass? = class_getSuperclass(hostClass)
+            while let candidate = currentClass {
+                if entries[ObjectIdentifier(candidate)] != nil {
+                    return true
+                }
+                currentClass = class_getSuperclass(candidate)
             }
+            return false
         }
 
-        func insertSwappedClass(_ identifier: ObjectIdentifier) {
+        func hadPriorIMP(for identifier: ObjectIdentifier) -> Bool {
             lock.lock(); defer { lock.unlock() }
-            swappedClasses.insert(identifier)
+            return entries[identifier]?.priorIMP != nil
         }
 
-        func isSwapped(_ identifier: ObjectIdentifier) -> Bool {
+        func priorIMP(for hostClass: AnyClass) -> IMP? {
             lock.lock(); defer { lock.unlock() }
-            return swappedClasses.contains(identifier)
+            var currentClass: AnyClass? = hostClass
+            while let candidate = currentClass {
+                if let entry = entries[ObjectIdentifier(candidate)] {
+                    return entry.priorIMP
+                }
+                currentClass = class_getSuperclass(candidate)
+            }
+            return nil
         }
 
         #if DEBUG
@@ -93,60 +94,21 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         /// ObjC runtime method exchanges are permanent — callers must use a unique class per test.
         func reset() {
             lock.lock()
-            didSwizzle = false
-            swappedClasses = []
+            entries = [:]
             lock.unlock()
-            clearObserver()
         }
         #endif
     }
 
     private static let state = State()
 
-    /// Swizzles the device-token method on `UIApplication.shared.delegate`'s class. If the
-    /// delegate is not yet available (rare; possible if the SDK is initialized very early in
-    /// app launch), defers until `UIApplication.didFinishLaunchingNotification` fires.
+    /// Installs token interception on the supplied delegate or the application's current
+    /// effective delegate. The pre-main application setter hook calls this each time the
+    /// delegate changes; `initialize(with:)` calls it again as an idempotent fallback.
     @MainActor
-    static func swizzleIfPossible() {
-        if state.swizzled { return }
-
-        if let delegate = UIApplication.shared.delegate {
-            performSwizzle(on: resolveSwizzleTargetClass(for: delegate))
-            return
-        }
-
-        // Guard against duplicate registration if `swizzleIfPossible()` is called more than
-        // once before `didFinishLaunchingNotification` fires (e.g., host calls
-        // `KlaviyoSDK().initialize(with:)` twice in `application(_:willFinishLaunching...)`).
-        // Without this, the second call would register a second observer that stays alive in
-        // `NotificationCenter` indefinitely — `state.setObserver(...)` would overwrite the
-        // stored token, losing the first reference and leaking it.
-        if state.hasObserver { return }
-
-        let observer = NotificationCenter.default.addObserver(
-            forName: UIApplication.didFinishLaunchingNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            // `assumeIsolated` asserts main-thread execution synchronously (iOS 17+).
-            // On earlier OS versions the Task hop is safe: the queue is .main so the
-            // closure already runs on the main thread, and the hop lands on MainActor
-            // before any awaited work begins.
-            if #available(iOS 17.0, *) {
-                MainActor.assumeIsolated {
-                    state.clearObserver()
-                    guard let delegate = UIApplication.shared.delegate else { return }
-                    performSwizzle(on: resolveSwizzleTargetClass(for: delegate))
-                }
-            } else {
-                Task { @MainActor in
-                    state.clearObserver()
-                    guard let delegate = UIApplication.shared.delegate else { return }
-                    performSwizzle(on: resolveSwizzleTargetClass(for: delegate))
-                }
-            }
-        }
-        state.setObserver(observer)
+    static func swizzleIfPossible(on delegate: (any UIApplicationDelegate)?) {
+        guard let delegate else { return }
+        performSwizzle(on: resolveSwizzleTargetClass(for: delegate))
     }
 
     /// Returns the class on which we should swizzle the device-token method.
@@ -205,20 +167,21 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         return initialClass
     }
 
-    /// Installs the donor IMP on `hostClass`: exchanges IMPs if the class owns the method,
-    /// grafts (adds) if the class has no own implementation (absent or inherited only).
+    /// Installs the donor IMP on `hostClass` while retaining the exact implementation that
+    /// was active immediately beforehand. An inherited method is retained and the donor is
+    /// grafted onto the subclass, leaving the superclass method table untouched.
     @MainActor
     private static func performSwizzle(on hostClass: AnyClass) {
         let originalSelector = #selector(
             UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
         )
-        let swizzledSelector = #selector(
+        let donorSelector = #selector(
             KlaviyoAppDelegateSwizzler
                 .klaviyo_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
         )
 
         guard let donorMethod = class_getInstanceMethod(
-            KlaviyoAppDelegateSwizzler.self, swizzledSelector
+            KlaviyoAppDelegateSwizzler.self, donorSelector
         ) else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.error(
@@ -227,46 +190,44 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
             }
             return
         }
-        guard state.claimSwizzle() else { return }
-
         let donorIMP = method_getImplementation(donorMethod)
         let donorTypes = method_getTypeEncoding(donorMethod)
+        let priorMethod = class_getInstanceMethod(hostClass, originalSelector)
+        let resolvedPriorIMP = priorMethod.map(method_getImplementation)
 
-        // Always add the swizzled selector to the host class so we have a stable forwarding target.
-        class_addMethod(hostClass, swizzledSelector, donorIMP, donorTypes)
+        // If an already-instrumented superclass owns the reachable donor IMP, the subclass
+        // is instrumented through inheritance. Recording the donor as the child's prior IMP
+        // would make the donor forward to itself forever. Leave the child untouched so state
+        // lookup walks to the ancestor and retrieves the real host implementation instead.
+        if resolvedPriorIMP == donorIMP, state.hasInstalledAncestor(of: hostClass) {
+            return
+        }
 
-        // Only exchange if hostClass owns the method; class_getInstanceMethod walks the
-        // superclass chain and exchanging an inherited IMP mutates the ancestor class.
+        // Never record the donor IMP itself as a forwarding target — reachable if state and
+        // the runtime's method table diverge (e.g. `_resetStateForTesting()`, or an ancestor
+        // instrumented through a path with no tracked entry). Forwarding to the donor would
+        // recurse into itself indefinitely.
+        let priorIMP = resolvedPriorIMP == donorIMP ? nil : resolvedPriorIMP
+
+        guard state.claimInstallation(on: hostClass, priorIMP: priorIMP) else { return }
+
         if classOwnsMethod(hostClass, selector: originalSelector),
-           let hostOriginal = class_getInstanceMethod(hostClass, originalSelector),
-           let hostSwizzled = class_getInstanceMethod(hostClass, swizzledSelector) {
-            // Own implementation: exchange originalSelector ↔ swizzledSelector.
-            method_exchangeImplementations(hostOriginal, hostSwizzled)
-            state.insertSwappedClass(ObjectIdentifier(hostClass))
+           let hostMethod = class_getInstanceMethod(hostClass, originalSelector) {
+            method_setImplementation(hostMethod, donorIMP)
             if #available(iOS 14.0, *) {
                 Logger.notifications.info(
                     "Swizzled didRegisterForRemoteNotificationsWithDeviceToken on \(hostClass)."
                 )
             }
-        } else if let inheritedMethod = class_getInstanceMethod(hostClass, originalSelector),
-                  let swizzledMethod = class_getInstanceMethod(hostClass, swizzledSelector) {
-            // Inherited implementation: graft donorIMP under originalSelector and redirect
-            // swizzledSelector to the inherited IMP so the donor can forward to it.
-            method_setImplementation(swizzledMethod, method_getImplementation(inheritedMethod))
-            class_addMethod(hostClass, originalSelector, donorIMP, donorTypes)
-            state.insertSwappedClass(ObjectIdentifier(hostClass))
+        } else if class_addMethod(hostClass, originalSelector, donorIMP, donorTypes) {
             if #available(iOS 14.0, *) {
-                Logger.notifications.info(
-                    "Grafted (inherited) didRegisterForRemoteNotificationsWithDeviceToken onto \(hostClass)."
-                )
+                let qualifier = priorIMP == nil ? "" : " inherited"
+                Logger.notifications.info("Grafted\(qualifier) device-token callback onto \(hostClass).")
             }
         } else {
-            // No implementation anywhere — graft donorIMP, no forwarding needed.
-            class_addMethod(hostClass, originalSelector, donorIMP, donorTypes)
+            state.removeInstallation(on: hostClass)
             if #available(iOS 14.0, *) {
-                Logger.notifications.info(
-                    "Grafted didRegisterForRemoteNotificationsWithDeviceToken onto \(hostClass)."
-                )
+                Logger.notifications.error("Unable to install device-token callback on \(hostClass).")
             }
         }
     }
@@ -296,7 +257,15 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
     static func _resetStateForTesting() { state.reset() }
 
     static func _isSwappedForTesting(_ identifier: ObjectIdentifier) -> Bool {
-        state.isSwapped(identifier)
+        state.hadPriorIMP(for: identifier)
+    }
+
+    static func _isInstalledForTesting(_ hostClass: AnyClass) -> Bool {
+        state.isInstalled(on: hostClass)
+    }
+
+    static func _priorIMPForTesting(_ hostClass: AnyClass) -> IMP? {
+        state.priorIMP(for: hostClass)
     }
 
     /// Exposes the donor selector so tests can inspect the swizzled method table slot
@@ -315,22 +284,15 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        KlaviyoSDK().set(pushToken: deviceToken)
+        KlaviyoSDK().setAutomatic(pushToken: deviceToken)
 
-        // Only forward if we exchanged with an existing host IMP. If we merely grafted our IMP
-        // (host didn't implement the method), the swizzled selector points back at us and
-        // forwarding would recurse.
         let hostClass: AnyClass = type(of: self)
-        guard Self.state.isSwapped(ObjectIdentifier(hostClass)) else { return }
-
-        let swizzledSelector = #selector(
-            KlaviyoAppDelegateSwizzler
-                .klaviyo_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
+        guard let hostIMP = Self.state.priorIMP(for: hostClass) else { return }
+        let originalSelector = #selector(
+            UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
         )
-        guard let method = class_getInstanceMethod(hostClass, swizzledSelector) else { return }
-        let hostIMP = method_getImplementation(method)
         typealias DeviceTokenIMP = @convention(c) (NSObject, Selector, UIApplication, NSData) -> Void
         let forwardIMP = unsafeBitCast(hostIMP, to: DeviceTokenIMP.self)
-        forwardIMP(self, swizzledSelector, application, deviceToken as NSData)
+        forwardIMP(self, originalSelector, application, deviceToken as NSData)
     }
 }

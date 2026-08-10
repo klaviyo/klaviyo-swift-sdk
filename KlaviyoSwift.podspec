@@ -14,7 +14,11 @@ Pod::Spec.new do |s|
   s.swift_version = '5.7'
   s.platform = :ios
   s.ios.deployment_target = '13.0'
-  s.source_files = 'Sources/KlaviyoSwift/**/*.swift'
+  s.source_files = [
+    'Sources/KlaviyoSwift/**/*.swift',
+    'Sources/KlaviyoAutomaticPushBootstrap/**/*.{h,m}'
+  ]
+  s.public_header_files = 'Sources/KlaviyoAutomaticPushBootstrap/include/KlaviyoAutomaticPushBootstrap.h'
   s.resource_bundles = {"KlaviyoSwift" => ["Sources/KlaviyoSwift/PrivacyInfo.xcprivacy"]}
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift -package-name KlaviyoCore' }
   s.dependency     'KlaviyoCore', '~> 5.4.0'

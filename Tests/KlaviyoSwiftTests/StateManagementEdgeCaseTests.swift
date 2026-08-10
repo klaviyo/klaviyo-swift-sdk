@@ -334,6 +334,41 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomaticPushTokenUninitializedAddsToDedicatedPendingRequest() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("automatic-token", .authorized)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("old-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("old-token", .authorized)]
+        }
+        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
+            $0.pendingRequests = [.automaticPushToken("new-token", .denied)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenDoesNotCoalesceManualPendingToken() async throws {
+        let initialState = KlaviyoState(
+            queue: [],
+            initalizationState: .initializing,
+            pendingRequests: [.pushToken("manual-token", .authorized)]
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .provisional)) {
+            $0.pendingRequests.append(.automaticPushToken("automatic-token", .provisional))
+        }
+    }
+
+    @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
