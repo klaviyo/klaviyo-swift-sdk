@@ -231,7 +231,12 @@ struct KlaviyoState: Equatable, Codable {
 
     /// Builds a push-token registration request, resolving (and consuming) any pending profile.
     /// The `resolved` prefix marks the state-sourcing layer over the pure `RequestFactory.tokenRequest`.
-    mutating func resolvedTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+    mutating func resolvedTokenRequest(
+        apiKey: String,
+        anonymousId: String,
+        pushToken: String,
+        enablement: PushEnablement
+    ) -> KlaviyoRequest {
         RequestFactory.tokenRequest(
             apiKey: apiKey,
             pushToken: pushToken,

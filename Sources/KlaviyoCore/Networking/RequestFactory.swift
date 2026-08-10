@@ -19,11 +19,13 @@ public struct RequestIdentity: Equatable {
     public let phoneNumber: String?
     public let externalId: String?
 
-    public init(apiKey: String,
-                anonymousId: String,
-                email: String? = nil,
-                phoneNumber: String? = nil,
-                externalId: String? = nil) {
+    public init(
+        apiKey: String,
+        anonymousId: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil
+    ) {
         self.apiKey = apiKey
         self.anonymousId = anonymousId
         self.email = email
@@ -38,8 +40,10 @@ public enum RequestFactory {
         identity: RequestIdentity,
         properties: [String: Any] = [:]
     ) -> KlaviyoRequest {
-        profileRequest(apiKey: identity.apiKey,
-                       payload: profilePayload(identity: identity, properties: properties))
+        profileRequest(
+            apiKey: identity.apiKey,
+            payload: profilePayload(identity: identity, properties: properties)
+        )
     }
 
     /// Builds a `CreateProfilePayload` from identity + properties without wrapping it in a request,
