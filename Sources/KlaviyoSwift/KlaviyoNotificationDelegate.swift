@@ -237,15 +237,4 @@ extension KlaviyoNotificationDelegate: UNUserNotificationCenterDelegate {
             center, willPresent: notification, withCompletionHandler: { once($0) }
         )
     }
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        openSettingsFor notification: UNNotification?
-    ) {
-        let selector = #selector(
-            UNUserNotificationCenterDelegate.userNotificationCenter(_:openSettingsFor:)
-        )
-        guard let next = delegate(atDepth: 0, respondingTo: selector) else { return }
-        next.userNotificationCenter?(center, openSettingsFor: notification)
-    }
 }

@@ -71,8 +71,13 @@ final class KlaviyoNotificationCenterDelegateSwizzler: NSObject, @unchecked Send
         }
 
         let priorIMP = method_getImplementation(setterMethod)
+        let donorIMP = method_getImplementation(donorMethod)
+        // Never record the donor IMP as the forwarding target; `klaviyo_setDelegate` would
+        // call itself and recurse without bound if tracked state and the runtime method
+        // table ever diverge.
+        guard priorIMP != donorIMP else { return }
         guard state.claimInstallation(on: hostClass, priorIMP: priorIMP) else { return }
-        method_setImplementation(setterMethod, method_getImplementation(donorMethod))
+        method_setImplementation(setterMethod, donorIMP)
     }
 
     #if DEBUG

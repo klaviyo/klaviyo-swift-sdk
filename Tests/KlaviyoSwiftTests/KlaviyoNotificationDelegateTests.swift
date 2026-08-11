@@ -425,20 +425,4 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
         XCTAssertEqual(completionCount.value, 1)
     }
-
-    func testOpenSettingsForwardsToHostDelegate() {
-        let hostDelegate = AsyncUNDelegate()
-        let mockCenter = MockNotificationCenter()
-        mockCenter.delegate = hostDelegate
-        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
-        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
-        KlaviyoNotificationDelegate.injectIfEnabled()
-
-        KlaviyoNotificationDelegate.shared.userNotificationCenter(
-            callbackOnlyNotificationCenter(),
-            openSettingsFor: nil
-        )
-
-        XCTAssertEqual(hostDelegate.openSettingsCallCount, 1)
-    }
 }
