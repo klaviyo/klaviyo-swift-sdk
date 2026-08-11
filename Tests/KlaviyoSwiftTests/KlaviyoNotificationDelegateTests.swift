@@ -370,17 +370,18 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
         // Simulate a third-party proxy observing after Klaviyo has already installed: it
         // captures Klaviyo's proxy as `originalDelegate`, then the system's delegate slot
-        // is reassigned to it.
+        // is reassigned to it. `simulateDelegateReassignment` mirrors the real setter hook,
+        // which captures the assignee into Klaviyo's chain before re-asserting the proxy.
         let forwardingProxy = ForwardingProxyDelegate()
         forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
-        mockCenter.delegate = forwardingProxy
+        mockCenter.simulateDelegateReassignment(to: forwardingProxy)
 
         let response = try UNNotificationResponse.with(userInfo: [:])
         let receivedOptions = CallbackBox<UNNotificationPresentationOptions?>(nil)
 
-        // The system calls whatever is in `center.delegate` — the forwarding proxy — exactly
-        // as it would on a real device.
-        forwardingProxy.userNotificationCenter(
+        // The system always calls the proxy — the setter hook keeps it as the effective
+        // delegate — exactly as it would on a real device.
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
             callbackOnlyNotificationCenter(),
             willPresent: response.notification,
             withCompletionHandler: { receivedOptions.value = $0 }
@@ -405,14 +406,18 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
         KlaviyoNotificationDelegate.injectIfEnabled()
 
+        // `simulateDelegateReassignment` mirrors the real setter hook, which captures the
+        // assignee into Klaviyo's chain before re-asserting the proxy.
         let forwardingProxy = ForwardingProxyDelegate()
         forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
-        mockCenter.delegate = forwardingProxy
+        mockCenter.simulateDelegateReassignment(to: forwardingProxy)
 
         let response = try UNNotificationResponse.with(userInfo: [:])
         let completionCount = CallbackBox(0)
 
-        forwardingProxy.userNotificationCenter(
+        // The system always calls the proxy — the setter hook keeps it as the effective
+        // delegate — exactly as it would on a real device.
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
             callbackOnlyNotificationCenter(),
             didReceive: response,
             withCompletionHandler: { completionCount.value += 1 }
