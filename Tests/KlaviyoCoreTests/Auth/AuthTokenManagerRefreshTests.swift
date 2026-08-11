@@ -1411,7 +1411,10 @@ struct AuthTokenManagerRefreshTests {
         }
 
         let isArmed = await manager.isAwaitingConnectivityRetryForTesting
-        #expect(isArmed == false, "a stale fetch's failure must not arm a retry after a newer fetch already succeeded")
+        #expect(
+            isArmed == false,
+            "a stale fetch's failure must not arm a retry after a newer fetch already succeeded"
+        )
 
         let finalInvocations = await secondProviderCounter.value
         #expect(finalInvocations == 1, "a spurious retry would invoke the second provider again")

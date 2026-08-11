@@ -628,7 +628,7 @@ package actor AuthTokenManager {
         isAwaitingConnectivityRetry = true
         if #available(iOS 14.0, *) {
             Logger.auth.info(
-                "AuthTokenManager: network-classified refresh failure, awaiting connectivity"
+                "AuthTokenManager: network-classified token-fetch failure, awaiting connectivity"
             )
         }
         kickConnectivityRetryIfReachable()
