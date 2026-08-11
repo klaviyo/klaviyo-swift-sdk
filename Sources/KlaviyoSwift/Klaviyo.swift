@@ -244,9 +244,9 @@ public struct KlaviyoSDK {
         let generation = Self.automaticPushTokenSequence.claimGeneration()
         Task {
             let enablement = await environment.getNotificationSettings()
-            await MainActor.run {
+            DispatchQueue.main.async {
                 Self.automaticPushTokenSequence.performIfLatest(generation) {
-                    klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
                 }
             }
         }

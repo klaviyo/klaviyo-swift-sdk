@@ -185,6 +185,9 @@ class KlaviyoSDKTests: XCTestCase {
         let firstOperationStarted = expectation(description: "first operation started")
         let releaseFirstOperation = DispatchSemaphore(value: 0)
         let newerGenerationClaimed = DispatchSemaphore(value: 0)
+        // Guarantees the blocked global-queue worker is released even if this test fails
+        // or times out before the explicit `signal()` below runs.
+        defer { releaseFirstOperation.signal() }
 
         DispatchQueue.global().async {
             sequence.performIfLatest(firstGeneration) {
