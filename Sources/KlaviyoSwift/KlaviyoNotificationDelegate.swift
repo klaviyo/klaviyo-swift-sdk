@@ -31,17 +31,15 @@ extension UNUserNotificationCenter: UserNotificationCenterProtocol {}
 /// preserving full host behavior as though the proxy were never there.
 ///
 /// ## Delegate chain, not a single slot
-/// Every `UNUserNotificationCenter.setDelegate:` call — from the host app or from a
-/// third-party SDK (e.g. `@react-native-firebase/messaging`) that installs its own
-/// forwarding proxy — is captured, not just the most recent one. This matters because a
-/// third-party proxy commonly captures Klaviyo's proxy as *its* "original delegate" and
-/// forwards back into it, re-entering this class synchronously on the same callback. If
-/// only the latest assignment were remembered, that re-entrant call would find itself as
-/// the "existing delegate," short-circuit as a cycle, and answer with empty options —
-/// silently discarding the host app's real delegate further down the chain. Instead, each
-/// re-entrant call walks one step deeper into the preserved chain (see
-/// `ForwardingCycleGuard`), so a Klaviyo → third-party-proxy → Klaviyo → host-app-delegate
-/// bounce still reaches the host's real implementation.
+/// Every `UNUserNotificationCenter.setDelegate:` call is captured, not just the most
+/// recent one, because another forwarding proxy may capture Klaviyo's proxy as its own
+/// "original delegate" and forward back into it, re-entering this class synchronously on
+/// the same callback. If only the latest assignment were remembered, that re-entrant call
+/// would find itself as the "existing delegate," short-circuit as a cycle, and answer with
+/// empty options — silently discarding the host app's real delegate further down the
+/// chain. Instead, each re-entrant call walks one step deeper into the preserved chain (see
+/// `ForwardingCycleGuard`), so a Klaviyo → other-proxy → Klaviyo → host-delegate bounce
+/// still reaches the host's real implementation.
 ///
 /// ## Lifecycle
 /// The pre-main installer hooks `UNUserNotificationCenter.setDelegate:` and re-installs

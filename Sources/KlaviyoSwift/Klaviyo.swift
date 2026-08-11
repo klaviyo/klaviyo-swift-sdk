@@ -51,8 +51,7 @@ final class AutomaticPushTokenSequence: @unchecked Sendable {
 /// From there you can you can call the additional methods below to track events and profile.
 public struct KlaviyoSDK {
     private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
-    private static let automaticPushTokenSequence =
-        AutomaticPushTokenSequence()
+    private static let automaticPushTokenSequence = AutomaticPushTokenSequence()
 
     /// Default initializer for the Klaviyo SDK.
     public init() {

@@ -65,8 +65,7 @@ private final class ManualKlaviyoHandlingDelegate: NSObject, UNUserNotificationC
     }
 }
 
-/// Stands in for `@react-native-firebase/messaging`'s `RNFBMessagingUNUserNotificationCenter`:
-/// a third-party proxy that captures whatever delegate is installed when it observes (here,
+/// A third-party proxy that captures whatever delegate is installed when it observes (here,
 /// Klaviyo's proxy), then forwards every callback into it before completing on its own —
 /// i.e. it re-enters `KlaviyoNotificationDelegate` synchronously on the same request.
 private final class ForwardingProxyDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
@@ -352,11 +351,11 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         XCTAssertEqual(receivedOptions.value, expected)
     }
 
-    // MARK: - Forwarding-proxy cycle (e.g. @react-native-firebase/messaging)
+    // MARK: - Forwarding-proxy cycle
 
     /// Reproduces the observed production order: the host app assigns its own delegate first,
-    /// Klaviyo installs and captures it, then a third-party forwarding proxy (RNFB-shaped)
-    /// installs afterward and captures Klaviyo's proxy as its own "original delegate." A
+    /// Klaviyo installs and captures it, then a third-party forwarding proxy installs
+    /// afterward and captures Klaviyo's proxy as its own "original delegate." A
     /// notification arriving through the system now enters at the third-party proxy, which
     /// forwards into Klaviyo (re-entrant call), which must walk past itself in the chain and
     /// reach the real host delegate — not treat the re-entry as a cycle and drop to empty
@@ -369,8 +368,9 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
         KlaviyoNotificationDelegate.injectIfEnabled()
 
-        // Simulate RNFB observing after Klaviyo has already installed: it captures Klaviyo's
-        // proxy as `originalDelegate`, then the system's delegate slot is reassigned to it.
+        // Simulate a third-party proxy observing after Klaviyo has already installed: it
+        // captures Klaviyo's proxy as `originalDelegate`, then the system's delegate slot
+        // is reassigned to it.
         let forwardingProxy = ForwardingProxyDelegate()
         forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
         mockCenter.delegate = forwardingProxy
