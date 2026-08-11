@@ -116,7 +116,11 @@ final class KlaviyoNotificationCenterDelegateSwizzler: NSObject, @unchecked Send
         // as impossible in Release builds, so preserve the runtime receiver explicitly.
         let center = unsafeBitCast(self, to: UNUserNotificationCenter.self)
         let proxy = KlaviyoNotificationDelegate.shared
-        let effectiveDelegate = center.delegate
+        // `center.delegate` is weak — if the host assigns a delegate no one else retains, it can
+        // already be nil here even though `assignedDelegate` was non-nil a moment ago. Falling
+        // back to `assignedDelegate` avoids treating that as an explicit clear, which would wipe
+        // every previously captured delegate in the chain.
+        let effectiveDelegate = center.delegate ?? assignedDelegate
         guard effectiveDelegate !== proxy else { return }
 
         proxy.captureHostDelegate(effectiveDelegate)

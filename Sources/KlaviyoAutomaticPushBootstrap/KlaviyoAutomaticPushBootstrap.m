@@ -18,13 +18,21 @@ static KlaviyoApplicationDelegateSetterIMP KlaviyoPriorApplicationDelegateSetter
 
 void KlaviyoAutomaticPushBootstrapLinkerAnchor(void) {}
 
+// Matches Swift's `as? Bool` bridging for `NSNumber`/`CFBoolean`, which the Swift-side gate
+// (KlaviyoSwiftEnvironment.production) uses: any NSNumber whose value is exactly 0 or 1 bridges
+// to a Bool, in addition to true CFBoolean values. A stricter CFBoolean-only check here would
+// let an integer-valued plist flag enable the feature at initialize(with:) while this pre-main
+// hook skips installing it — an inconsistency depending on which path evaluates the flag first.
 static BOOL KlaviyoIsTrueBoolean(id _Nullable value) {
-    if (value == nil) {
+    if (![value isKindOfClass:[NSNumber class]]) {
         return NO;
     }
 
-    CFTypeRef bridgedValue = (__bridge CFTypeRef)value;
-    return CFGetTypeID(bridgedValue) == CFBooleanGetTypeID() && [value boolValue];
+    NSNumber *number = (NSNumber *)value;
+    if (CFGetTypeID((__bridge CFTypeRef)number) == CFBooleanGetTypeID()) {
+        return number.boolValue;
+    }
+    return [number isEqualToNumber:@1];
 }
 
 BOOL KlaviyoAutomaticPushBootstrapShouldInstall(
@@ -77,8 +85,16 @@ static void KlaviyoInstallApplicationDelegateSetterHook(void) {
         return;
     }
 
+    IMP currentIMP = method_getImplementation(setter);
+    // Never record this hook's own IMP as the "prior" setter; if the hook is ever installed
+    // twice in one process, that would make KlaviyoSetApplicationDelegate call itself and
+    // recurse without bound.
+    if (currentIMP == (IMP)KlaviyoSetApplicationDelegate) {
+        return;
+    }
+
     KlaviyoPriorApplicationDelegateSetter =
-        (KlaviyoApplicationDelegateSetterIMP)method_getImplementation(setter);
+        (KlaviyoApplicationDelegateSetterIMP)currentIMP;
     method_setImplementation(setter, (IMP)KlaviyoSetApplicationDelegate);
 }
 

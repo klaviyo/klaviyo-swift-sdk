@@ -138,13 +138,19 @@ class KlaviyoSDKTests: XCTestCase {
     func testSetAutomaticPushTokenDiscardsOlderSettingsResultThatFinishesLast() async {
         let firstToken = Data([0x01])
         let secondToken = Data([0x02])
-        var settingsContinuations: [CheckedContinuation<PushEnablement, Never>] = []
+        // `getNotificationSettings` runs from setAutomatic(pushToken:)'s unstructured Task, off
+        // the main actor this test method runs on — guard the shared array against that race.
+        let continuationsLock = NSLock()
+        nonisolated(unsafe) var settingsContinuations: [CheckedContinuation<PushEnablement, Never>] = []
         let firstSettingsRequested = expectation(description: "first notification settings requested")
         let secondSettingsRequested = expectation(description: "second notification settings requested")
         environment.getNotificationSettings = {
             await withCheckedContinuation { continuation in
+                continuationsLock.lock()
                 settingsContinuations.append(continuation)
-                if settingsContinuations.count == 1 {
+                let count = settingsContinuations.count
+                continuationsLock.unlock()
+                if count == 1 {
                     firstSettingsRequested.fulfill()
                 } else {
                     secondSettingsRequested.fulfill()
@@ -171,11 +177,15 @@ class KlaviyoSDKTests: XCTestCase {
         await fulfillment(of: [firstSettingsRequested], timeout: 1.0)
         KlaviyoSDK().setAutomatic(pushToken: secondToken)
         await fulfillment(of: [secondSettingsRequested], timeout: 1.0)
-        XCTAssertEqual(settingsContinuations.count, 2)
 
-        settingsContinuations[1].resume(returning: .authorized)
+        continuationsLock.lock()
+        let continuations = settingsContinuations
+        continuationsLock.unlock()
+        XCTAssertEqual(continuations.count, 2)
+
+        continuations[1].resume(returning: .authorized)
         await fulfillment(of: [latestTokenSent], timeout: 1.0)
-        settingsContinuations[0].resume(returning: .denied)
+        continuations[0].resume(returning: .denied)
         await fulfillment(of: [staleTokenSent], timeout: 0.1)
     }
 

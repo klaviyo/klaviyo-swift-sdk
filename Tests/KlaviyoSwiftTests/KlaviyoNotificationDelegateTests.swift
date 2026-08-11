@@ -412,8 +412,18 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
         mockCenter.simulateDelegateReassignment(to: forwardingProxy)
 
-        let response = try UNNotificationResponse.with(userInfo: [:])
+        // A real Klaviyo payload — `userInfo: [:]` would make `handleAutomatically` return
+        // `false`, leaving the auto-tracking assertion below untested.
+        let pushBody = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
         let completionCount = CallbackBox(0)
+        let openedPushEnqueued = expectation(description: "opened push tracked exactly once")
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
+                openedPushEnqueued.fulfill()
+            }
+            return nil
+        }
 
         // The system always calls the proxy — the setter hook keeps it as the effective
         // delegate — exactly as it would on a real device.
@@ -423,6 +433,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
             withCompletionHandler: { completionCount.value += 1 }
         )
 
+        wait(for: [openedPushEnqueued], timeout: 1.0)
         XCTAssertEqual(forwardingProxy.didReceiveCallCount, 1)
         XCTAssertEqual(completionCount.value, 0)
 
