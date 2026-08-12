@@ -13,31 +13,43 @@ import Testing
 
 @Suite
 struct ForwardingCycleGuardTests {
-    /// `begin` must return `true` on the first call for a given ID.
+    /// `enter` must return depth 0 on the first call for a given ID.
     @Test
-    func returnsTrueOnFirstCall() {
+    func returnsZeroOnFirstCall() {
         let cycleGuard = ForwardingCycleGuard()
         let id = UUID().uuidString
-        #expect(cycleGuard.begin(id) == true)
+        #expect(cycleGuard.enter(id) == 0)
     }
 
-    /// `begin` must return `false` when already in progress for the same ID.
+    /// Each re-entrant `enter` for the same in-flight ID returns the next depth.
     @Test
-    func returnsFalseWhenAlreadyForwarding() {
+    func incrementsDepthOnReentry() {
         let cycleGuard = ForwardingCycleGuard()
         let id = UUID().uuidString
-        _ = cycleGuard.begin(id)
-        #expect(cycleGuard.begin(id) == false)
+        #expect(cycleGuard.enter(id) == 0)
+        #expect(cycleGuard.enter(id) == 1)
+        #expect(cycleGuard.enter(id) == 2)
     }
 
-    /// After `end`, the same ID must be accepted again.
+    /// After a matching `leave`, a fresh `enter` for the same ID starts back at depth 0.
     @Test
-    func allowsSubsequentBeginAfterEnd() {
+    func resetsToZeroAfterFullyLeaving() {
         let cycleGuard = ForwardingCycleGuard()
         let id = UUID().uuidString
-        _ = cycleGuard.begin(id)
-        cycleGuard.end(id)
-        #expect(cycleGuard.begin(id) == true)
+        _ = cycleGuard.enter(id)
+        cycleGuard.leave(id)
+        #expect(cycleGuard.enter(id) == 0)
+    }
+
+    /// `leave` unwinds one level at a time, mirroring nested `enter` calls.
+    @Test
+    func leaveUnwindsOneLevelAtATime() {
+        let cycleGuard = ForwardingCycleGuard()
+        let id = UUID().uuidString
+        _ = cycleGuard.enter(id)
+        _ = cycleGuard.enter(id)
+        cycleGuard.leave(id)
+        #expect(cycleGuard.enter(id) == 1)
     }
 
     /// Distinct IDs must not interfere with each other.
@@ -46,8 +58,8 @@ struct ForwardingCycleGuardTests {
         let cycleGuard = ForwardingCycleGuard()
         let firstId = UUID().uuidString
         let secondId = UUID().uuidString
-        _ = cycleGuard.begin(firstId)
-        #expect(cycleGuard.begin(secondId) == true)
+        _ = cycleGuard.enter(firstId)
+        #expect(cycleGuard.enter(secondId) == 0)
     }
 }
 #endif

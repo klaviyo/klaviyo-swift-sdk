@@ -12,7 +12,106 @@ import XCTest
 // MARK: - Test Doubles
 
 /// Minimal `UNUserNotificationCenterDelegate` conformer used for object-identity assertions.
-final class MockUNDelegate: NSObject, UNUserNotificationCenterDelegate {}
+private final class MockUNDelegate: NSObject, UNUserNotificationCenterDelegate {}
+
+private final class CallbackBox<Value>: @unchecked Sendable {
+    var value: Value
+    init(_ value: Value) { self.value = value }
+}
+
+private final class AsyncUNDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
+    var didReceiveCompletion: (@Sendable () -> Void)?
+    var willPresentCompletion: (@Sendable (UNNotificationPresentationOptions) -> Void)?
+    var openSettingsCallCount = 0
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
+        didReceiveCompletion = completionHandler
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping @Sendable
+        (UNNotificationPresentationOptions) -> Void
+    ) {
+        willPresentCompletion = completionHandler
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        openSettingsFor notification: UNNotification?
+    ) {
+        openSettingsCallCount += 1
+    }
+}
+
+private final class ManualKlaviyoHandlingDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
+        let handled = KlaviyoSDK().handle(
+            notificationResponse: response,
+            withCompletionHandler: completionHandler
+        )
+        if !handled {
+            completionHandler()
+        }
+    }
+}
+
+/// A third-party proxy that captures whatever delegate is installed when it observes (here,
+/// Klaviyo's proxy), then forwards every callback into it before completing on its own —
+/// i.e. it re-enters `KlaviyoNotificationDelegate` synchronously on the same request.
+private final class ForwardingProxyDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
+    weak var originalDelegate: (any UNUserNotificationCenterDelegate)?
+    var willPresentCallCount = 0
+    var didReceiveCallCount = 0
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping @Sendable
+        (UNNotificationPresentationOptions) -> Void
+    ) {
+        willPresentCallCount += 1
+        guard let originalDelegate, originalDelegate.responds(
+            to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(
+                _:willPresent:withCompletionHandler:
+            ))
+        ) else {
+            completionHandler([])
+            return
+        }
+        originalDelegate.userNotificationCenter?(
+            center, willPresent: notification, withCompletionHandler: completionHandler
+        )
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
+        didReceiveCallCount += 1
+        guard let originalDelegate, originalDelegate.responds(
+            to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(
+                _:didReceive:withCompletionHandler:
+            ))
+        ) else {
+            completionHandler()
+            return
+        }
+        originalDelegate.userNotificationCenter?(
+            center, didReceive: response, withCompletionHandler: completionHandler
+        )
+    }
+}
 
 /// Stands in for `UNUserNotificationCenter` in unit tests.
 ///
@@ -22,18 +121,12 @@ final class MockUNDelegate: NSObject, UNUserNotificationCenterDelegate {}
 @MainActor
 final class MockNotificationCenter: UserNotificationCenterProtocol {
     var delegate: (any UNUserNotificationCenterDelegate)?
-    private var observationHandler: (@MainActor () -> Void)?
 
-    func observeDelegate(using handler: @escaping @MainActor () -> Void) -> AnyObject {
-        observationHandler = handler
-        return NSObject()
-    }
-
-    /// Simulates the host app overwriting `UNUserNotificationCenter.delegate` after
-    /// the proxy has been installed (e.g. in `SceneDelegate.scene(_:willConnectTo:)`).
+    /// Simulates the setter hook capturing a later host assignment and restoring the proxy.
     func simulateDelegateReassignment(to newDelegate: (any UNUserNotificationCenterDelegate)?) {
         delegate = newDelegate
-        observationHandler?()
+        KlaviyoNotificationDelegate.shared.captureHostDelegate(newDelegate)
+        delegate = KlaviyoNotificationDelegate.shared
     }
 }
 
@@ -44,6 +137,12 @@ final class MockNotificationCenter: UserNotificationCenterProtocol {
 
 @MainActor
 class KlaviyoNotificationDelegateTests: XCTestCase {
+    private func callbackOnlyNotificationCenter() -> UNUserNotificationCenter {
+        // Delegate forwarding only passes this object through; neither proxy nor test host
+        // accesses center state. The real `current()` traps in an app-less SPM test runner.
+        unsafeBitCast(NSObject(), to: UNUserNotificationCenter.self)
+    }
+
     override func setUpWithError() throws {
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
@@ -163,5 +262,183 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
 
         // When / Then
         XCTAssertFalse(delegate.wasAutoTracked(dedupKey: "never-marked"))
+    }
+
+    // MARK: - Completion-safe forwarding
+
+    func testDidReceiveLeavesCompletionOwnershipWithAsyncHostDelegate() throws {
+        let hostDelegate = AsyncUNDelegate()
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = hostDelegate
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+        let response = try UNNotificationResponse.with(userInfo: [:])
+        let completionCount = CallbackBox(0)
+
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            didReceive: response,
+            withCompletionHandler: { completionCount.value += 1 }
+        )
+
+        XCTAssertEqual(completionCount.value, 0)
+        hostDelegate.didReceiveCompletion?()
+        hostDelegate.didReceiveCompletion?()
+        XCTAssertEqual(completionCount.value, 1)
+    }
+
+    func testDidReceiveDismissalCompletesWhenHostUsesManualKlaviyoHandler() throws {
+        let hostDelegate = ManualKlaviyoHandlingDelegate()
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = hostDelegate
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+        let response = try UNNotificationResponse.with(
+            userInfo: ["body": ["_k": ["foo": "bar"]]],
+            actionIdentifier: UNNotificationDismissActionIdentifier
+        )
+        let completion = expectation(description: "system completion called")
+
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            didReceive: response,
+            withCompletionHandler: { completion.fulfill() }
+        )
+
+        wait(for: [completion], timeout: 0.1)
+    }
+
+    func testWillPresentForwardsAsyncHostOptionsUnchanged() throws {
+        let hostDelegate = AsyncUNDelegate()
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = hostDelegate
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+        let response = try UNNotificationResponse.with(userInfo: [:])
+        let receivedOptions = CallbackBox<UNNotificationPresentationOptions?>(nil)
+
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            willPresent: response.notification,
+            withCompletionHandler: { receivedOptions.value = $0 }
+        )
+
+        XCTAssertNil(receivedOptions.value)
+        hostDelegate.willPresentCompletion?([.alert, .sound])
+        XCTAssertEqual(receivedOptions.value, [.alert, .sound])
+    }
+
+    func testWillPresentUsesDefaultOptionsWhenNoDelegateRespondsToWillPresent() throws {
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = MockUNDelegate()
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+        let response = try UNNotificationResponse.with(userInfo: [:])
+        let receivedOptions = CallbackBox<UNNotificationPresentationOptions?>(nil)
+
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            willPresent: response.notification,
+            withCompletionHandler: { receivedOptions.value = $0 }
+        )
+
+        let expected: UNNotificationPresentationOptions =
+            if #available(iOS 14.0, *) { [.list, .banner, .badge, .sound] } else { [.alert, .badge, .sound] }
+        XCTAssertEqual(receivedOptions.value, expected)
+    }
+
+    // MARK: - Forwarding-proxy cycle
+
+    /// Reproduces the observed production order: the host app assigns its own delegate first,
+    /// Klaviyo installs and captures it, then a third-party forwarding proxy installs
+    /// afterward and captures Klaviyo's proxy as its own "original delegate." A
+    /// notification arriving through the system now enters at the third-party proxy, which
+    /// forwards into Klaviyo (re-entrant call), which must walk past itself in the chain and
+    /// reach the real host delegate — not treat the re-entry as a cycle and drop to empty
+    /// options.
+    func testWillPresentReachesHostDelegateThroughForwardingProxyCycle() throws {
+        let hostDelegate = AsyncUNDelegate()
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = hostDelegate
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+
+        // Simulate a third-party proxy observing after Klaviyo has already installed: it
+        // captures Klaviyo's proxy as `originalDelegate`, then the system's delegate slot
+        // is reassigned to it. `simulateDelegateReassignment` mirrors the real setter hook,
+        // which captures the assignee into Klaviyo's chain before re-asserting the proxy.
+        let forwardingProxy = ForwardingProxyDelegate()
+        forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
+        mockCenter.simulateDelegateReassignment(to: forwardingProxy)
+
+        let response = try UNNotificationResponse.with(userInfo: [:])
+        let receivedOptions = CallbackBox<UNNotificationPresentationOptions?>(nil)
+
+        // The system always calls the proxy — the setter hook keeps it as the effective
+        // delegate — exactly as it would on a real device.
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            willPresent: response.notification,
+            withCompletionHandler: { receivedOptions.value = $0 }
+        )
+
+        XCTAssertEqual(forwardingProxy.willPresentCallCount, 1)
+        XCTAssertNil(receivedOptions.value, "host delegate is async — should not have answered yet")
+
+        hostDelegate.willPresentCompletion?([.alert, .sound])
+
+        XCTAssertEqual(receivedOptions.value, [.alert, .sound])
+    }
+
+    /// Same cycle shape for `didReceive`: the open must still reach the host delegate exactly
+    /// once through the proxy bounce, and Klaviyo's own auto-tracking must fire exactly once
+    /// (at the outermost call), not once per re-entrant hop.
+    func testDidReceiveReachesHostDelegateThroughForwardingProxyCycle() throws {
+        let hostDelegate = AsyncUNDelegate()
+        let mockCenter = MockNotificationCenter()
+        mockCenter.delegate = hostDelegate
+        klaviyoSwiftEnvironment.isAutomaticPushOpenTrackingEnabled = { true }
+        klaviyoSwiftEnvironment.notificationCenter = { mockCenter }
+        KlaviyoNotificationDelegate.injectIfEnabled()
+
+        // `simulateDelegateReassignment` mirrors the real setter hook, which captures the
+        // assignee into Klaviyo's chain before re-asserting the proxy.
+        let forwardingProxy = ForwardingProxyDelegate()
+        forwardingProxy.originalDelegate = KlaviyoNotificationDelegate.shared
+        mockCenter.simulateDelegateReassignment(to: forwardingProxy)
+
+        // A real Klaviyo payload — `userInfo: [:]` would make `handleAutomatically` return
+        // `false`, leaving the auto-tracking assertion below untested.
+        let pushBody = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
+        let completionCount = CallbackBox(0)
+        let openedPushEnqueued = expectation(description: "opened push tracked exactly once")
+        klaviyoSwiftEnvironment.send = { action in
+            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
+                openedPushEnqueued.fulfill()
+            }
+            return nil
+        }
+
+        // The system always calls the proxy — the setter hook keeps it as the effective
+        // delegate — exactly as it would on a real device.
+        KlaviyoNotificationDelegate.shared.userNotificationCenter(
+            callbackOnlyNotificationCenter(),
+            didReceive: response,
+            withCompletionHandler: { completionCount.value += 1 }
+        )
+
+        wait(for: [openedPushEnqueued], timeout: 1.0)
+        XCTAssertEqual(forwardingProxy.didReceiveCallCount, 1)
+        XCTAssertEqual(completionCount.value, 0)
+
+        hostDelegate.didReceiveCompletion?()
+
+        XCTAssertEqual(completionCount.value, 1)
     }
 }

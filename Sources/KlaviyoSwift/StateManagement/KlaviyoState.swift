@@ -24,6 +24,7 @@ struct KlaviyoState: Equatable, Codable {
         case aggregateEvent(Data)
         case profile(Profile)
         case pushToken(String, PushEnablement)
+        case automaticPushToken(String, PushEnablement)
         case setEmail(String)
         case setExternalId(String)
         case setPhoneNumber(String)

@@ -226,6 +226,10 @@ extension KlaviyoSwiftEnvironment {
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         }, injectNotificationDelegate: {
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
+        }, installNotificationDelegateHook: {
+            // no-op: runtime hooks are covered by focused swizzler tests
+        }, installApplicationDelegateTokenHook: { _ in
+            // no-op: runtime hooks are covered by focused swizzler tests
         }, isAutomaticPushOpenTrackingEnabled: {
             false
         }, isAutomaticPushTokenForwardingEnabled: {

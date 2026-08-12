@@ -364,6 +364,10 @@ func registerForPushNotifications() {
 
 > ℹ️ Silent push (`content-available`) is not intercepted automatically. If you use silent or background pushes, implement `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` in your app delegate — see [Silent Push Notifications](#silent-push-notifications).
 
+#### Foreground presentation
+
+With `klaviyo_automatic_push_open_tracking` enabled and no `UNUserNotificationCenterDelegate` of your own, the SDK shows a visible foreground banner by default (`[.list, .banner, .badge, .sound]` on iOS 14+, `[.alert, .badge, .sound]` on iOS 13) — you don't need to implement `willPresent` just to get a banner in the foreground.
+
 For a runnable reference, see the [SPMExampleAutomatic](Examples/KlaviyoSwiftExamples/SPMExample/SPMExampleAutomatic) target.
 
 Once your first push notifications are sent and opened, you should start to see _Opened Push_ metrics in your Klaviyo dashboard.

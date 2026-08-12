@@ -334,6 +334,67 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomaticPushTokenUninitializedAddsToDedicatedPendingRequest() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("automatic-token", .authorized)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("old-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("old-token", .authorized)]
+        }
+        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
+            $0.pendingRequests = [.automaticPushToken("new-token", .denied)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenDoesNotCoalesceManualPendingToken() async throws {
+        let initialState = KlaviyoState(
+            queue: [],
+            initalizationState: .initializing,
+            pendingRequests: [.pushToken("manual-token", .authorized)]
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .provisional)) {
+            $0.pendingRequests.append(.automaticPushToken("automatic-token", .provisional))
+        }
+    }
+
+    /// Pins that the automatic-token replacement happens in place, not via remove-then-append.
+    /// `testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken` starts from an empty queue,
+    /// where index 0 is both the in-place slot and the append slot, so it can't tell the two
+    /// implementations apart. Buffering the automatic token ahead of another pending request
+    /// makes the distinction observable: a remove-then-append implementation would silently
+    /// reorder the queue by moving the replaced token to the end.
+    @MainActor
+    func testAutomaticPushTokenReplacementKeepsQueuePosition() async throws {
+        let initialState = KlaviyoState(
+            queue: [],
+            initalizationState: .initializing,
+            pendingRequests: [
+                .automaticPushToken("old-token", .authorized),
+                .pushToken("manual-token", .authorized)
+            ]
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
+            $0.pendingRequests = [
+                .automaticPushToken("new-token", .denied),
+                .pushToken("manual-token", .authorized)
+            ]
+        }
+    }
+
+    @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,

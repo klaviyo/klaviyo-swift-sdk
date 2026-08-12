@@ -7,6 +7,9 @@
 
 import AnyCodable
 import Foundation
+#if SWIFT_PACKAGE
+import KlaviyoAutomaticPushBootstrap
+#endif
 import KlaviyoCore
 import OSLog
 import UIKit
@@ -14,6 +17,26 @@ import UIKit
 func dispatchOnMainThread(action: KlaviyoAction) {
     DispatchQueue.main.async {
         _ = klaviyoSwiftEnvironment.send(action)
+    }
+}
+
+/// Orders automatic APNs callbacks across the short-lived `KlaviyoSDK` values created by the
+/// app-delegate hook. Notification-settings reads are asynchronous and may finish out of order;
+/// only the generation belonging to the newest callback is allowed to dispatch its token.
+final class AutomaticPushTokenSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latestGeneration: UInt64 = 0
+
+    func claimGeneration() -> UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        latestGeneration &+= 1
+        return latestGeneration
+    }
+
+    func performIfLatest(_ generation: UInt64, operation: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        guard generation == latestGeneration else { return }
+        operation()
     }
 }
 
@@ -28,6 +51,7 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 /// From there you can you can call the additional methods below to track events and profile.
 public struct KlaviyoSDK {
     private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
+    private static let automaticPushTokenSequence = AutomaticPushTokenSequence()
 
     /// Default initializer for the Klaviyo SDK.
     public init() {
@@ -90,6 +114,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
+        KlaviyoAutomaticPushBootstrapLinkerAnchor()
         DispatchQueue.main.async {
             SharedStoreMirror.setup()
             _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
@@ -212,6 +237,21 @@ public struct KlaviyoSDK {
         }
     }
 
+    /// Automatic APNs callback path. Kept internal so the public/manual API retains its
+    /// initialization contract while startup callbacks can buffer the latest token.
+    func setAutomatic(pushToken: Data) {
+        let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
+        let generation = Self.automaticPushTokenSequence.claimGeneration()
+        Task {
+            let enablement = await environment.getNotificationSettings()
+            DispatchQueue.main.async {
+                Self.automaticPushTokenSequence.performIfLatest(generation) {
+                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                }
+            }
+        }
+    }
+
     /// Handles a Klaviyo universal tracking link URL by resolving it to a destination URL asynchronously and invoking the registered Deep Link Handler or invoking the AppDelegate or SceneDelegate's link handling logic.
     ///
     /// - Parameter url: the Klaviyo universal tracking link URL.
@@ -276,6 +316,7 @@ public struct KlaviyoSDK {
 
         // Prune the category if the push with action buttons was dismissed from the Notification Center
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            Task { @MainActor in completionHandler() }
             return true
         }
 
@@ -292,6 +333,12 @@ public struct KlaviyoSDK {
             completionHandler()
         }
         return true
+    }
+
+    /// Automatic proxy path that performs the same analytics and open action without taking
+    /// ownership of the system completion handler forwarded to the host delegate.
+    func handleAutomatically(notificationResponse: UNNotificationResponse) -> Bool {
+        handle(notificationResponse: notificationResponse, withCompletionHandler: {})
     }
 
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
@@ -321,6 +368,7 @@ public struct KlaviyoSDK {
 
         // Prune the category if the push with action buttons was dismissed from the Notification Center
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            Task { @MainActor in completionHandler() }
             return true
         }
 
