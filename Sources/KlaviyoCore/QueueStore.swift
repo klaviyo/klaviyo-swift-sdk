@@ -49,7 +49,7 @@ public final class QueueStore {
     /// deterministically without wall-clock delays. Mirrors the `DiskIO` closure-seam idiom.
     public struct PersistScheduler {
         /// Run `work` after `delay` seconds. Fire-and-forget: coalescing is handled by
-        /// `QueueStore`'s persist generation, so there is no cancellation to manage here.
+        /// `QueueStore`'s pending-debounce token, so there is no cancellation to manage here.
         public var schedule: (_ delay: TimeInterval, _ work: @escaping () -> Void) -> Void
         public init(schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void) {
             self.schedule = schedule
@@ -72,12 +72,15 @@ public final class QueueStore {
 
     // guards `queue`; released before disk writes so I/O never blocks queue ops
     private let queueLock = NSLock()
-    private let persistLock = NSLock() // serializes writes + guards the persist generation
+    private let persistLock = NSLock() // serializes writes + guards the debounce-coalescing state
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    // Monotonic token bumped per persist request (debounced or synchronous); a debounced fire
-    // writes only if it is still the latest, so a superseded fire coalesces away instead of
-    // running a redundant write.
-    private var persistGeneration = 0
+    // Coalesces `.debounced` persists: the first mutation in a window schedules one callback and
+    // records its token here; later debounced mutations within the window coalesce onto it instead
+    // of scheduling their own. A synchronous persist — or the callback firing — clears it. `0` means
+    // no debounce is pending. `debounceSeq` mints unique tokens so a superseded callback can tell it
+    // is no longer the current one and no-op.
+    private var pendingDebounceToken = 0
+    private var debounceSeq = 0
 
     /// Ungated production entry point: one store per apiKey, backed by that key's queue file.
     public convenience init(apiKey: String) {
@@ -139,28 +142,33 @@ public final class QueueStore {
 
     // MARK: Persistence
 
-    /// Bumps the persist generation, then either schedules a debounced flush or flushes inline
-    /// (synchronous). Every persist request bumps the generation so it supersedes any still-pending
-    /// debounced fire; a debounced fire that is no longer the latest generation coalesces away.
-    /// The generation is only a coalescing token — correctness comes from `persistCurrent`, which
-    /// always writes the current authoritative queue, so a reordered or superseded fire can never
-    /// persist stale state.
+    /// Either flushes inline (`.synchronous`) or schedules one debounced flush per window
+    /// (`.debounced`). A debounced burst coalesces to a single scheduled callback: only the first
+    /// mutation schedules, later ones piggyback on the pending token. A synchronous persist clears
+    /// the pending token so its still-scheduled callback no-ops when it fires. Coalescing is only an
+    /// optimization — correctness comes from `persistCurrent`, which always writes the current
+    /// authoritative queue, so a superseded fire can never persist stale state.
     private func schedulePersist(_ policy: PersistPolicy) {
-        persistLock.lock()
-        persistGeneration &+= 1
-        let generation = persistGeneration
-        persistLock.unlock()
-
         switch policy {
         case .synchronous:
+            persistLock.lock()
+            pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
+            persistLock.unlock()
             persistCurrent()
         case .debounced:
+            persistLock.lock()
+            guard pendingDebounceToken == 0 else { persistLock.unlock(); return } // coalesce
+            debounceSeq &+= 1
+            let token = debounceSeq
+            pendingDebounceToken = token
+            persistLock.unlock()
             scheduler.schedule(Self.debounceInterval) { [weak self] in
                 guard let self else { return }
                 self.persistLock.lock()
-                let isLatest = generation == self.persistGeneration
+                let isCurrent = self.pendingDebounceToken == token
+                if isCurrent { self.pendingDebounceToken = 0 }
                 self.persistLock.unlock()
-                guard isLatest else { return } // superseded → coalesce away
+                guard isCurrent else { return } // superseded → coalesced away
                 self.persistCurrent()
             }
         }

@@ -232,6 +232,25 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertEqual(diskIO.stored.map(\.id), ["a", "b", "c"], "write carries final state")
     }
 
+    func testBurstOfDebouncedEnqueuesSchedulesSingleCallback() {
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: scheduler)
+        store.enqueue(request("a"))
+        store.enqueue(request("b"))
+        store.enqueue(request("c"))
+        XCTAssertEqual(scheduler.scheduleCount, 1,
+                       "a debounced burst coalesces to one scheduled callback, not one per mutation")
+    }
+
+    func testDebounceReschedulesAfterPreviousWindowFires() {
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: scheduler)
+        store.enqueue(request("a"))
+        scheduler.fire() // window closes
+        store.enqueue(request("b")) // new window → schedules again
+        XCTAssertEqual(scheduler.scheduleCount, 2, "a fresh mutation after a fired window reschedules")
+    }
+
     /// Regression guard for the durability of `.synchronous`: a debounced write scheduled
     /// *before* a later synchronous write must not clobber it when it eventually fires.
     func testSynchronousSupersedesPendingDebounce() {
