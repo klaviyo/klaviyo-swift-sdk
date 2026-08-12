@@ -31,6 +31,9 @@ struct PersistedQueue: Codable, Equatable {
 public final class QueueStore {
     public static let maxQueueSize = 200
 
+    /// Coalescing window for `.debounced` persistence.
+    static let debounceInterval: TimeInterval = 1.0
+
     /// Disk-I/O seam. Production reads/writes `klaviyo-{apiKey}-queue.json`; tests inject a fake.
     public struct DiskIO {
         public var load: () throws -> [KlaviyoRequest]
@@ -52,7 +55,9 @@ public final class QueueStore {
             self.schedule = schedule
         }
 
-        /// Production scheduler: a single serial queue so writes stay ordered.
+        /// Production scheduler: each accessor gets its own serial queue, so the store that
+        /// captures it at init keeps its writes ordered. (Each store captures this exactly once;
+        /// distinct apiKey stores write distinct files, so they need no shared ordering.)
         static var production: Self {
             let queue = DispatchQueue(label: "com.klaviyo.queuestore.persist")
             return Self { delay, work in
@@ -65,23 +70,23 @@ public final class QueueStore {
     private let scheduler: PersistScheduler
     private let emitWarning: (String) -> Void
 
-    // guards `queue`; held during the one-time hydrate read, never during persist writes
+    // guards `queue`; released before disk writes so I/O never blocks queue ops
     private let queueLock = NSLock()
     private let persistLock = NSLock() // serializes writes + guards the persist generation
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    // Monotonic token bumped per scheduled persist; a debounced fire writes only if it is still
-    // the latest, so a superseded (or already-started stale) fire can't clobber a newer write.
+    // Monotonic token bumped per persist request (debounced or synchronous); a debounced fire
+    // writes only if it is still the latest, so a superseded fire coalesces away instead of
+    // running a redundant write.
     private var persistGeneration = 0
 
     /// Ungated production entry point: one store per apiKey, backed by that key's queue file.
     public convenience init(apiKey: String) {
-        self.init(apiKey: apiKey,
-                  diskIO: .production(apiKey: apiKey),
+        self.init(diskIO: .production(apiKey: apiKey),
                   scheduler: .production,
                   emitWarning: { environment.emitDeveloperWarning($0) })
     }
 
-    init(apiKey _: String, diskIO: DiskIO, scheduler: PersistScheduler,
+    init(diskIO: DiskIO, scheduler: PersistScheduler,
          emitWarning: @escaping (String) -> Void) {
         self.diskIO = diskIO
         self.scheduler = scheduler
@@ -100,9 +105,8 @@ public final class QueueStore {
             next.append(request)
         }
         queue = next
-        let snapshot = next
         queueLock.unlock()
-        schedulePersist(snapshot, persist)
+        schedulePersist(persist)
     }
 
     public func prepend(_ requests: [KlaviyoRequest],
@@ -112,9 +116,8 @@ public final class QueueStore {
         var next = hydrated()
         next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
         queue = next
-        let snapshot = next
         queueLock.unlock()
-        schedulePersist(snapshot, persist)
+        schedulePersist(persist)
     }
 
     /// Drains oldest-by-`enqueuedAt` while at/over capacity, leaving room for one insert.
@@ -136,29 +139,42 @@ public final class QueueStore {
 
     // MARK: Persistence
 
-    /// Bumps the persist generation, then either schedules a debounced write or writes inline
-    /// (synchronous). Holds `persistLock` — never `queueLock` — so disk I/O never blocks queue ops.
-    /// The captured `snapshot` is the queue state as of this mutation, so the newest generation
-    /// carries the newest state: latest-generation-wins == latest-state-wins.
-    private func schedulePersist(_ snapshot: [KlaviyoRequest], _ policy: PersistPolicy) {
-        persistLock.lock(); defer { persistLock.unlock() }
+    /// Bumps the persist generation, then either schedules a debounced flush or flushes inline
+    /// (synchronous). Every persist request bumps the generation so it supersedes any still-pending
+    /// debounced fire; a debounced fire that is no longer the latest generation coalesces away.
+    /// The generation is only a coalescing token — correctness comes from `persistCurrent`, which
+    /// always writes the current authoritative queue, so a reordered or superseded fire can never
+    /// persist stale state.
+    private func schedulePersist(_ policy: PersistPolicy) {
+        persistLock.lock()
         persistGeneration &+= 1
         let generation = persistGeneration
+        persistLock.unlock()
+
         switch policy {
-        case .debounced:
-            scheduler.schedule(1.0) { [weak self] in
-                guard let self else { return }
-                self.persistLock.lock(); defer { self.persistLock.unlock() }
-                guard generation == self.persistGeneration else { return } // superseded → skip
-                self.persistSnapshot(snapshot)
-            }
         case .synchronous:
-            persistSnapshot(snapshot)
+            persistCurrent()
+        case .debounced:
+            scheduler.schedule(Self.debounceInterval) { [weak self] in
+                guard let self else { return }
+                self.persistLock.lock()
+                let isLatest = generation == self.persistGeneration
+                self.persistLock.unlock()
+                guard isLatest else { return } // superseded → coalesce away
+                self.persistCurrent()
+            }
         }
     }
 
-    /// Persists the snapshot. Caller must hold `persistLock`.
-    private func persistSnapshot(_ snapshot: [KlaviyoRequest]) {
+    /// Serializes the whole persist under `persistLock` and snapshots the *current* authoritative
+    /// queue at write time. Because every persist reads the latest memory and writes are serialized,
+    /// disk always converges to the newest state — there is no captured snapshot that can go stale.
+    /// `queueLock` is released before the disk write so I/O never blocks queue ops.
+    private func persistCurrent() {
+        persistLock.lock(); defer { persistLock.unlock() }
+        queueLock.lock()
+        let snapshot = queue ?? []
+        queueLock.unlock()
         do {
             try diskIO.save(snapshot)
         } catch {

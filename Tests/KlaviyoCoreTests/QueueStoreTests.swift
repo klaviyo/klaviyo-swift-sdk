@@ -31,28 +31,36 @@ final class QueueStoreTests: XCTestCase {
 
     // MARK: - Test doubles
 
-    /// In-memory DiskIO that counts loads/saves for assertions.
+    /// Thread-safe in-memory DiskIO that counts loads/saves for assertions. Locking keeps the
+    /// spy sound under the concurrent-persist test; single-threaded tests are unaffected.
     private final class SpyDiskIO {
-        var stored: [KlaviyoRequest]
-        private(set) var loadCount = 0
-        private(set) var saveCount = 0
+        private let lock = NSLock()
+        private var _stored: [KlaviyoRequest]
+        private var _loadCount = 0
+        private var _saveCount = 0
         var loadError: Error?
         var saveError: Error?
-        init(_ initial: [KlaviyoRequest] = []) { stored = initial }
+        init(_ initial: [KlaviyoRequest] = []) { _stored = initial }
+
+        var stored: [KlaviyoRequest] { lock.lock(); defer { lock.unlock() }; return _stored }
+        var loadCount: Int { lock.lock(); defer { lock.unlock() }; return _loadCount }
+        var saveCount: Int { lock.lock(); defer { lock.unlock() }; return _saveCount }
 
         func makeIO() -> QueueStore.DiskIO {
             QueueStore.DiskIO(
                 load: { [weak self] in
                     guard let self else { return [] }
-                    self.loadCount += 1
+                    self.lock.lock(); defer { self.lock.unlock() }
+                    self._loadCount += 1
                     if let error = self.loadError { throw error }
-                    return self.stored
+                    return self._stored
                 },
                 save: { [weak self] requests in
                     guard let self else { return }
-                    self.saveCount += 1
+                    self.lock.lock(); defer { self.lock.unlock() }
+                    self._saveCount += 1
                     if let error = self.saveError { throw error }
-                    self.stored = requests
+                    self._stored = requests
                 }
             )
         }
@@ -76,8 +84,20 @@ final class QueueStoreTests: XCTestCase {
 
     private func makeStore(diskIO: SpyDiskIO, scheduler: ManualPersistScheduler,
                            warnings: @escaping (String) -> Void = { _ in }) -> QueueStore {
-        QueueStore(apiKey: "TEST", diskIO: diskIO.makeIO(),
+        QueueStore(diskIO: diskIO.makeIO(),
                    scheduler: scheduler.makeScheduler(), emitWarning: warnings)
+    }
+
+    override func setUp() {
+        super.setUp()
+        SDKConfigStore.shared.reset()
+        QueueStore.resetRegistry()
+    }
+
+    override func tearDown() {
+        SDKConfigStore.shared.reset()
+        QueueStore.resetRegistry()
+        super.tearDown()
     }
 
     // MARK: - enqueue ordering + persistence
@@ -151,9 +171,8 @@ final class QueueStoreTests: XCTestCase {
             request("req-\($0)", at: Date(timeIntervalSince1970: TimeInterval($0)))
         })
         var warnings: [String] = []
-        let store = QueueStore(apiKey: "TEST", diskIO: diskIO.makeIO(),
-                               scheduler: ManualPersistScheduler().makeScheduler(),
-                               emitWarning: { warnings.append($0) })
+        let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler(),
+                              warnings: { warnings.append($0) })
 
         store.enqueue(request("new", at: Date(timeIntervalSince1970: 10_000)))
 
@@ -227,6 +246,27 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertEqual(diskIO.stored.map(\.id), ["a", "b"])
     }
 
+    /// Regression guard for the lost-write race (concurrent mutation vs. persist ordering):
+    /// under many concurrent synchronous enqueues, disk must converge to in-memory state.
+    /// Persisting the *current* queue at write time (rather than a snapshot captured at schedule
+    /// time) makes disk order-independent of `persistLock` acquisition order.
+    func testConcurrentSynchronousEnqueuesConvergeDiskToMemory() {
+        let iterations = 100 // < maxQueueSize, so no eviction
+        let diskIO = SpyDiskIO()
+        let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler())
+
+        DispatchQueue.concurrentPerform(iterations: iterations) { index in
+            store.enqueue(
+                request("req-\(index)", at: Date(timeIntervalSince1970: TimeInterval(index))),
+                persist: .synchronous
+            )
+        }
+
+        XCTAssertEqual(store.count, iterations)
+        XCTAssertEqual(Set(diskIO.stored.map(\.id)), Set(store.requests.map(\.id)),
+                       "disk must hold exactly the in-memory set — no lost writes")
+    }
+
     func testProductionSchedulerRunsScheduledWork() {
         let didRun = expectation(description: "scheduled work ran")
         QueueStore.PersistScheduler.production.schedule(0.01) { didRun.fulfill() }
@@ -245,16 +285,11 @@ final class QueueStoreTests: XCTestCase {
     // MARK: - current() resolver
 
     func testCurrentReturnsNilWithoutApiKey() {
-        SDKConfigStore.shared.reset()
-        QueueStore.resetRegistry()
         XCTAssertNil(QueueStore.current())
     }
 
     func testCurrentResolvesApiKeyAndCachesByKey() {
-        QueueStore.resetRegistry()
-        SDKConfigStore.shared.reset()
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "company-xyz"))
-        defer { SDKConfigStore.shared.reset(); QueueStore.resetRegistry() }
         let first = QueueStore.current()
         let second = QueueStore.current()
         XCTAssertNotNil(first)
