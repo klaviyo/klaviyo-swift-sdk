@@ -263,8 +263,8 @@ final class QueueStoreTests: XCTestCase {
         }
 
         XCTAssertEqual(store.count, iterations)
-        XCTAssertEqual(Set(diskIO.stored.map(\.id)), Set(store.requests.map(\.id)),
-                       "disk must hold exactly the in-memory set — no lost writes")
+        XCTAssertEqual(diskIO.stored.map(\.id), store.requests.map(\.id),
+                       "disk must match the in-memory queue exactly — no lost or reordered writes")
     }
 
     func testProductionSchedulerRunsScheduledWork() {
