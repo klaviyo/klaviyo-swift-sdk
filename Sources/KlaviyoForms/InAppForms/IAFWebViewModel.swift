@@ -371,19 +371,18 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             } else {
                 // In-app deep link: route to the host app's registered deep link handler.
-                if UIApplication.shared.canOpenURL(url) {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
-                    }
-                    EventDispatcher.shared.dispatch(.deepLink(url))
-                } else {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .private)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
-                    }
-                    // No navigation occurred — skip the formCtaClicked lifecycle event below,
-                    // consistent with its "fired after the SDK has initiated navigation" contract.
-                    return
+                // Dispatched unconditionally — `canOpenURL` must NOT gate this path. It asks
+                // the system whether some *installed app* claims the scheme, which is the wrong
+                // question for in-process routing: it returns false for a scheme the host app
+                // handles itself unless that scheme is also declared in LSApplicationQueriesSchemes,
+                // silently dropping a correctly configured deep link. The handler chain behind
+                // this dispatch (custom handler → AppDelegate → SceneDelegate → UIApplication.open)
+                // resolves the URL and logs its own failures. This matches the push tap path and
+                // the Android SDK's in-app form CTA handling.
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }
+                EventDispatcher.shared.dispatch(.deepLink(url))
             }
 
             // 3. Invoke lifecycle handler when form identity fields are present. Both deep

@@ -409,6 +409,120 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 
+    // MARK: - Deep Link Tests (openDeepLink with openExternally: false)
+
+    private func makeDeepLinkMessage(
+        url: String? = "holafly://notifications?utm_source=push_flow",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Shop Now"
+    ) -> MockWKScriptMessage {
+        var data: [String: String] = [:]
+        data["ios"] = url
+        data["android"] = url
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        let flag = "\"openExternally\": false"
+        let dataBody = dataJson.isEmpty ? flag : "\(dataJson), \(flag)"
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataBody) } }"
+        )
+    }
+
+    /// Regression test for PUSH-1206.
+    ///
+    /// A custom-scheme deep link must be dispatched even when no installed app claims the
+    /// scheme via `canOpenURL` — the host app routes it in-process through its own registered
+    /// deep link handler. Previously a `canOpenURL` pre-check dropped these silently.
+    ///
+    /// The simulator running these tests has no app registered for `holafly://` and the scheme
+    /// is not in `LSApplicationQueriesSchemes`, so `canOpenURL` returns false here. That makes
+    /// this test fail against the pre-fix implementation.
+    @MainActor
+    func testHandleDeepLinkWithUnregisteredCustomSchemeStillDispatches() async throws {
+        // Given
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When — the deep-link branch dispatches synchronously, so assert immediately.
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then — the URL is handed to the deep-link lane regardless of canOpenURL.
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .deepLink(dispatchedURL) = spyDispatcher.received[0] else {
+            return XCTFail("expected .deepLink, got \(spyDispatcher.received[0])")
+        }
+        XCTAssertEqual(
+            dispatchedURL,
+            URL(string: "holafly://notifications?utm_source=push_flow"),
+            "Custom-scheme deep link must reach the host app's deep link handler"
+        )
+
+        // And the CTA lifecycle event still fires, carrying the same URL.
+        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Shop Now")
+        XCTAssertEqual(url, URL(string: "holafly://notifications?utm_source=push_flow"))
+    }
+
+    @MainActor
+    func testHandleDeepLinkWithMissingUrlSkipsDispatchAndLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When
+        viewModel.handleScriptMessage(makeDeepLinkMessage(url: nil))
+
+        // Then — no URL means no navigation and no lifecycle event.
+        XCTAssertTrue(spyDispatcher.received.isEmpty, "Nil URL must not dispatch a deep link")
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire with nil URL")
+    }
+
+    @MainActor
+    func testHandleDeepLinkWithoutFormMetadataStillDispatchesNavigation() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When
+        viewModel.handleScriptMessage(makeDeepLinkMessage(formId: nil, formName: nil))
+
+        // Then — navigation is independent of lifecycle metadata: the user still gets routed.
+        XCTAssertEqual(spyDispatcher.received.count, 1, "Navigation must not depend on form metadata")
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire without form metadata")
+    }
+
     @MainActor
     func testTrackProfileEventDispatchesCreateEvent() throws {
         // Given - a spy registered as the inbound-dispatch target
