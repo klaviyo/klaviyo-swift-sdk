@@ -18,7 +18,7 @@ let klaviyoSupportSubdirectory = "com.klaviyo"
 /// Resolves (creating on demand) `Library/Application Support/com.klaviyo` — the sanctioned home
 /// for the SDK's internal support files. `Application Support` does not exist by default on iOS,
 /// so it is created here with intermediate directories. Legacy files still live at the `Library`
-/// root via `libraryDirectory`; migrating those is tracked separately (see issue #179).
+/// root via `libraryDirectory`; relocating those is a separate change.
 func productionApplicationSupportDirectory() -> URL {
     let fileManager = FileManager.default
     let directory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -28,6 +28,23 @@ func productionApplicationSupportDirectory() -> URL {
 }
 
 public struct FileClient {
+    /// Source-compatible overload for callers predating `applicationSupportDirectory`.
+    /// Falls back to `libraryDirectory` so their files keep resolving to the same place as before.
+    public init(
+        write: @escaping (Data, URL) throws -> Void,
+        fileExists: @escaping (String) -> Bool,
+        removeItem: @escaping (String) throws -> Void,
+        libraryDirectory: @escaping () -> URL
+    ) {
+        self.init(
+            write: write,
+            fileExists: fileExists,
+            removeItem: removeItem,
+            libraryDirectory: libraryDirectory,
+            applicationSupportDirectory: libraryDirectory
+        )
+    }
+
     public init(
         write: @escaping (Data, URL) throws -> Void,
         fileExists: @escaping (String) -> Bool,
