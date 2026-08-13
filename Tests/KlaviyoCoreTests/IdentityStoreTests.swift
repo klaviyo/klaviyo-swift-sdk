@@ -10,9 +10,35 @@ import Combine
 import XCTest
 
 final class IdentityStoreTests: XCTestCase {
-    func testInitialStateIsEmptyProfileData() {
+    private var fileIO: FileIODouble!
+
+    private static let mintedAnonId = "00000000-0000-0000-0000-0000000000AA"
+
+    private var mintedProfile: ProfileData {
+        ProfileData(anonymousId: Self.mintedAnonId)
+    }
+
+    override func setUp() {
+        super.setUp()
+        fileIO = FileIODouble()
+        environment = fileIO.makeEnvironment()
+        environment.uuid = { UUID(uuidString: Self.mintedAnonId)! }
+    }
+
+    override func tearDown() {
+        environment = KlaviyoEnvironment.test()
+        fileIO = nil
+        super.tearDown()
+    }
+
+    // First access hydrates with no file present, so IdentityStore mints an anonymousId.
+    func testInitialAccessMintsAnonymousId() {
         let store = IdentityStore()
-        XCTAssertEqual(store.current, ProfileData())
+        XCTAssertNil(store.current.email)
+        XCTAssertNil(store.current.phoneNumber)
+        XCTAssertNil(store.current.externalId)
+        XCTAssertNotNil(store.current.anonymousId)
+        XCTAssertEqual(store.current.anonymousId, Self.mintedAnonId)
     }
 
     func testUpdateReflectsSynchronouslyOnCurrent() {
@@ -26,7 +52,7 @@ final class IdentityStoreTests: XCTestCase {
 
     func testUpdateEmitsOnPublisher() {
         let store = IdentityStore()
-        let identity = ProfileData(email: "test@example.com")
+        let identity = ProfileData(email: "test@example.com", anonymousId: Self.mintedAnonId)
 
         var received: [ProfileData] = []
         let cancellable = store.publisher.sink { received.append($0) }
@@ -34,13 +60,13 @@ final class IdentityStoreTests: XCTestCase {
 
         store.update(identity)
 
-        // CurrentValueSubject replays the current value on subscribe, then the update.
-        XCTAssertEqual(received, [ProfileData(), identity])
+        // CurrentValueSubject replays the current (minted) value on subscribe, then the update.
+        XCTAssertEqual(received, [mintedProfile, identity])
     }
 
     func testStreamEmitsUpdates() async {
         let store = IdentityStore()
-        let identity = ProfileData(externalId: "ext-1")
+        let identity = ProfileData(externalId: "ext-1", anonymousId: Self.mintedAnonId)
 
         let stream = store.stream()
         store.update(identity)
@@ -51,17 +77,24 @@ final class IdentityStoreTests: XCTestCase {
             if value == identity { break }
         }
 
-        XCTAssertEqual(received, [ProfileData(), identity])
+        XCTAssertEqual(received, [mintedProfile, identity])
     }
 
-    // reset(): store should return to default empty ProfileData after being updated.
+    // reset() clears identifiers and re-arms hydration; a subsequent read re-mints.
     func testResetRestoresDefaultProfileData() {
         let store = IdentityStore()
         store.update(ProfileData(email: "test@example.com", anonymousId: "anon-1"))
 
         store.reset()
 
-        XCTAssertEqual(store.current, ProfileData())
+        XCTAssertNil(store.current.email)
+        XCTAssertNil(store.current.phoneNumber)
+        XCTAssertNil(store.current.externalId)
+        // reset re-arms hydration, so the next read freshly mints a (non-nil) anonymousId
+        // that is not the pre-reset "anon-1".
+        XCTAssertNotNil(store.current.anonymousId)
+        XCTAssertNotEqual(store.current.anonymousId, "anon-1")
+        XCTAssertEqual(store.current.anonymousId, Self.mintedAnonId)
     }
 
     func testStreamDeliversAllUpdatesToConcurrentConsumersNoDrops() async {
@@ -87,12 +120,12 @@ final class IdentityStoreTests: XCTestCase {
 
         async let receivedA = collect(streamA)
         async let receivedB = collect(streamB)
-        let (a, b) = await (receivedA, receivedB)
+        let (resultA, resultB) = await (receivedA, receivedB)
 
-        // Each consumer sees the initial empty value followed by every update, in order.
-        let expected = [ProfileData()] + updates
-        XCTAssertEqual(a, expected)
-        XCTAssertEqual(b, expected)
+        // Each consumer sees the initial (minted) value followed by every update, in order.
+        let expected = [mintedProfile] + updates
+        XCTAssertEqual(resultA, expected)
+        XCTAssertEqual(resultB, expected)
     }
 }
 
@@ -100,6 +133,7 @@ final class IdentityStoreTests: XCTestCase {
 // with no access to `update(_:)`.
 private struct MockIdentityReader: IdentityReading {
     var current: ProfileData
+    var pushToken: PushTokenData?
     var publisher: AnyPublisher<ProfileData, Never>
     func stream() -> AsyncStream<ProfileData> {
         AsyncStream { $0.finish() }
