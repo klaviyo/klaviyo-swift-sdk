@@ -144,6 +144,29 @@ extension KlaviyoState {
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)
+
+    // MARK: - Request fixtures
+
+    // Build expected requests through `RequestFactory` (the single production construction path)
+    // so test expectations can't silently diverge from what the SDK actually sends.
+
+    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoRequest {
+        RequestFactory.profileRequest(
+            identity: requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+            properties: properties
+        )
+    }
+
+    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+        resolvedTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+    }
+
+    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
+        RequestFactory.unregisterRequest(
+            identity: requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+            pushToken: pushToken
+        )
+    }
 }
 
 let SAMPLE_DATA: NSMutableArray = [
