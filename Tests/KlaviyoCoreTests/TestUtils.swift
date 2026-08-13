@@ -120,7 +120,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
