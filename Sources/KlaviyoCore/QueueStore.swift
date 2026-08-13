@@ -236,7 +236,7 @@ extension QueueStore {
 extension QueueStore.DiskIO {
     static func production(apiKey: String) -> Self {
         func fileURL() -> URL {
-            environment.fileClient.libraryDirectory()
+            environment.fileClient.applicationSupportDirectory()
                 .appendingPathComponent("klaviyo-\(apiKey)-queue.json", isDirectory: false)
         }
         return Self(

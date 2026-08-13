@@ -29,6 +29,37 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertEqual(decoded.version, 1)
     }
 
+    // MARK: - Production file location
+
+    func testProductionDiskIORoutesQueueFileToApplicationSupport() throws {
+        let appSupportRoot = URL(fileURLWithPath: "/tmp/klaviyo-queue-tests/app-support")
+        let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-queue-tests/library")
+        var capturedURL: URL?
+
+        let previous = environment
+        defer { environment = previous }
+        environment = KlaviyoEnvironment.test()
+        environment.fileClient = FileClient(
+            write: { _, url in capturedURL = url },
+            fileExists: { _ in false },
+            removeItem: { _ in },
+            libraryDirectory: { libraryRoot },
+            applicationSupportDirectory: { appSupportRoot }
+        )
+
+        try QueueStore.DiskIO.production(apiKey: "abc123").save([])
+
+        // The queue file must land under Application Support, not the legacy Library root.
+        XCTAssertEqual(capturedURL, appSupportRoot.appendingPathComponent("klaviyo-abc123-queue.json"))
+        XCTAssertFalse(capturedURL?.path.hasPrefix(libraryRoot.path) ?? true)
+    }
+
+    func testProductionApplicationSupportDirectoryIsNamespacedUnderApplicationSupport() {
+        let url = productionApplicationSupportDirectory()
+        XCTAssertEqual(url.lastPathComponent, "com.klaviyo")
+        XCTAssertTrue(url.deletingLastPathComponent().path.hasSuffix("Application Support"))
+    }
+
     // MARK: - Test doubles
 
     /// Thread-safe in-memory DiskIO that counts loads/saves for assertions. Locking keeps the
