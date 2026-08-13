@@ -16,6 +16,7 @@ final class StateChangePublisherTests: XCTestCase {
     @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
     }
 
     @MainActor

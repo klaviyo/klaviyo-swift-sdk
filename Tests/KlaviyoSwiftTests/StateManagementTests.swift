@@ -16,6 +16,7 @@ class StateManagementTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
     }
@@ -44,9 +45,13 @@ class StateManagementTests: XCTestCase {
             $0.initalizationState = .initializing
         }
 
-        let expectedState = KlaviyoState(apiKey: apiKey, anonymousId: environment.uuid().uuidString, queue: [], requestsInFlight: [])
+        // The persisted blob is queue-only, so the `completeInitialization` payload
+        // loaded from disk carries NO identity (anonymousId nil). The reducer then hydrates the
+        // anonymousId from `IdentityStore.shared.current` (minted deterministically to the test
+        // uuid), which is what lands in the resulting state.
+        let expectedState = KlaviyoState(queue: [], requestsInFlight: [])
         await store.receive(.completeInitialization(expectedState)) {
-            $0.anonymousId = expectedState.anonymousId
+            $0.anonymousId = environment.uuid().uuidString
             $0.initalizationState = .initialized
             $0.queue = []
         }
@@ -158,7 +163,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
     }
 
@@ -191,7 +196,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(
+            $0.pushTokenData = PushTokenData(
                 pushToken: initialState.pushTokenData!.pushToken,
                 pushEnablement: .authorized,
                 pushBackground: initialState.pushTokenData!.pushBackground,
@@ -224,7 +229,7 @@ class StateManagementTests: XCTestCase {
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
             $0.requestsInFlight = []
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
         }
         _ = await store.send(.setPushToken("blobtoken", .authorized))
     }
@@ -334,7 +339,7 @@ class StateManagementTests: XCTestCase {
         }
         await store.receive(.sendRequest)
         await store.receive(.deQueueCompletedResults(request2)) {
-            $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
+            $0.pushTokenData = PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
             $0.requestsInFlight = []
             $0.queue = []
@@ -914,5 +919,54 @@ class StateManagementTests: XCTestCase {
             XCTAssertEqual($0.queue.last?.priority, .standard, "Standard event produces .standard request")
         }
         // No flushQueue emitted for standard-priority events
+    }
+
+    // MARK: - Core store write-through
+
+    @MainActor
+    func testInitializeWritesApiKeyThroughToConfigStore() async throws {
+        let store = TestStore(
+            initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+
+        _ = await store.send(.initialize("write-through-key"))
+
+        XCTAssertEqual(
+            SDKConfigStore.shared.current.apiKey, "write-through-key",
+            "initialize must write the confirmed apiKey through to the canonical config store"
+        )
+    }
+
+    @MainActor
+    func testSetEmailWritesIdentityThroughToIdentityStore() async throws {
+        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.setEmail("writethrough@klaviyo.com"))
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.email, "writethrough@klaviyo.com",
+            "setEmail must write the mutated identity through to the canonical identity store"
+        )
+    }
+
+    @MainActor
+    func testResetProfileMintsFreshAnonymousIdThroughIdentityStore() async throws {
+        IdentityStore.shared.update(ProfileData(email: "old@klaviyo.com", anonymousId: "anon-before"))
+        var seeded = INITIALIZED_TEST_STATE()
+        seeded.email = "old@klaviyo.com"
+        seeded.anonymousId = "anon-before"
+        let store = TestStore(initialState: seeded, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.resetProfile)
+
+        XCTAssertNil(IdentityStore.shared.current.email, "reset clears identity through the store")
+        XCTAssertNotNil(IdentityStore.shared.current.anonymousId)
+        XCTAssertNotEqual(
+            IdentityStore.shared.current.anonymousId, "anon-before",
+            "reset of an identified profile mints a fresh anonymousId via IdentityStore"
+        )
     }
 }

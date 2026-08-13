@@ -14,6 +14,18 @@ import XCTest
 
 let ARCHIVED_RETURNED_DATA = Data()
 
+/// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
+///
+/// The KlaviyoSwift reducer read/write-throughs `IdentityStore.shared` and
+/// `SDKConfigStore.shared`, which are process-wide singletons that persist across tests. Call this
+/// in `setUp` — AFTER installing the test `environment` — so hydration/minting use the test
+/// `fileClient` (whose `fileExists` closure decides whether `loadPersisted` reads or returns nil)
+/// and the deterministic test `uuid`, and so state never leaks between tests.
+func resetCanonicalCoreStores() {
+    IdentityStore.shared.reset()
+    SDKConfigStore.shared.reset()
+}
+
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
@@ -65,8 +77,16 @@ extension KlaviyoEnvironment {
 }
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T: Decodable {
+        // Only the KlaviyoState queue-only blob is force-substituted with the test fixture.
+        // Other decodable types (notably the KlaviyoCore `PersistedIdentity` / `PersistedConfig`
+        // DTOs read during IdentityStore / SDKConfigStore hydration under this test environment)
+        // must NOT be coerced into a KlaviyoState — decode them normally so `loadPersisted` can
+        // fall back to nil (and the store mints/stays-empty) instead of crashing on a bad cast.
+        if let fixture = KlaviyoState.test as? T {
+            return fixture
+        }
+        return try super.decode(type, from: data)
     }
 }
 
