@@ -405,9 +405,12 @@ struct KlaviyoState: Equatable, Codable {
 // MARK: Klaviyo state persistence
 
 func saveKlaviyoState(state: KlaviyoState) {
-    // The file is keyed by the canonical apiKey from `SDKConfigStore`; the persisted blob is
-    // queue-only (identity/apiKey/pushToken live in the Core stores). See `KlaviyoState.encode(to:)`.
-    guard let apiKey = SDKConfigStore.shared.current.apiKey ?? state.apiKey else {
+    // Key the file off the snapshot's OWN apiKey — the company this queue belongs to — not the live
+    // `SDKConfigStore`. The state save is debounced on a background queue, so a save of company A's
+    // snapshot must not be misrouted into `klaviyo-B-state.json` if `initialize(B)` updated the store
+    // after this snapshot was captured. The blob is queue-only (identity/apiKey/pushToken live in the
+    // Core stores). See `KlaviyoState.encode(to:)`.
+    guard let apiKey = state.apiKey ?? SDKConfigStore.shared.current.apiKey else {
         environment.logger.error("Attempt to save state without an api key.")
         return
     }
