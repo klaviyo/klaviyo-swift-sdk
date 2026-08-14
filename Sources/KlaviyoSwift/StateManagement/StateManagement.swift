@@ -194,6 +194,34 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+            } else if case .uninitialized = state.initalizationState,
+                      let previousApiKey = SDKConfigStore.shared.current.apiKey,
+                      previousApiKey != apiKey {
+                // Cold-start company switch. Identity + push token are device-scoped in the Core
+                // stores and still hold the PREVIOUS company's profile; the runtime branch above only
+                // fires when already `.initialized`. Mirror it here so a fresh launch under a new
+                // apiKey does not bleed prior PII into the new company or leave its push token
+                // registered. Sourced from the stores (not `state`, which is empty on cold start).
+                let previous = IdentityStore.shared.current
+                if let anonymousId = previous.anonymousId, let tokenData = IdentityStore.shared.pushToken {
+                    let request = RequestFactory.unregisterRequest(
+                        identity: RequestIdentity(
+                            apiKey: previousApiKey,
+                            anonymousId: anonymousId,
+                            email: previous.email,
+                            phoneNumber: previous.phoneNumber,
+                            externalId: previous.externalId
+                        ),
+                        pushToken: tokenData.pushToken
+                    )
+                    state.enqueueRequest(request: request)
+                }
+                IdentityStore.shared.updatePushToken(nil)
+                if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
+                    // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
+                    // hydrates a clean identity for the new company (mirrors `state.reset()`).
+                    IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+                }
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
