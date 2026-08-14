@@ -44,4 +44,20 @@ final class SDKConfigStorePersistenceTests: XCTestCase {
         // config never self-persists on read
         XCTAssertNil(loadPersisted(PersistedConfig.self, fileName: StoreFile.config))
     }
+
+    // MARK: - Thread safety
+
+    func testConcurrentReadsAreRaceFree() {
+        let store = SDKConfigStore()
+        store.update(KlaviyoConfig(apiKey: "seed"))
+        // Concurrent readers: `current` / `publisher` acquire the lock via `hydrateIfNeeded`, so this
+        // catches races on `hydrated` under the thread sanitizer and must not crash. Writes persist
+        // lock-free, so we deliberately don't hammer concurrent writes here (that would exercise
+        // unsynchronized file I/O).
+        DispatchQueue.concurrentPerform(iterations: 5000) { _ in
+            _ = store.current
+            _ = store.publisher
+        }
+        XCTAssertEqual(store.current.apiKey, "seed")
+    }
 }

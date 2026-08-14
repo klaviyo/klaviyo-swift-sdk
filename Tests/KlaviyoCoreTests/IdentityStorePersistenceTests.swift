@@ -120,4 +120,27 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(onDisk?.profile.anonymousId, minted)
         XCTAssertEqual(onDisk?.pushToken, token)
     }
+
+    // MARK: - Thread safety
+
+    func testConcurrentAccessIsRaceFree() {
+        let store = IdentityStore()
+        _ = store.current // hydrate once up front
+        let token = PushTokenData(
+            pushToken: "tok", pushEnablement: .authorized,
+            pushBackground: .available, deviceData: DeviceMetadata(context: .test)
+        )
+        // Hammer readers + writers concurrently. Writes are lock-serialized (so disk I/O through the
+        // file double stays serialized); this catches races on `pushTokenValue` / `hydrated` under
+        // the thread sanitizer and must not crash. The store must remain readable afterward.
+        DispatchQueue.concurrentPerform(iterations: 2000) { i in
+            switch i % 4 {
+            case 0: store.update(ProfileData(email: "e\(i)@x.com", anonymousId: "anon-\(i)"))
+            case 1: store.updatePushToken(i % 8 == 0 ? nil : token)
+            case 2: _ = store.current
+            default: _ = store.pushToken
+            }
+        }
+        XCTAssertNotNil(store.current.anonymousId)
+    }
 }
