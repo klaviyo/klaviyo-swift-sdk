@@ -22,22 +22,20 @@ public protocol EventDispatching {
 public final class EventDispatcher {
     public static let shared = EventDispatcher()
 
-    private let lock = NSLock()
+    private let lock = UnfairLock()
     private var target: EventDispatching?
 
     /// Register the dispatch implementation (idempotent — replaces any prior target).
     public func register(_ target: EventDispatching) {
-        lock.lock()
-        self.target = target
-        lock.unlock()
+        lock.withLock { self.target = target }
     }
 
     /// Forward a command to the registered target. If none is registered, emit a loud
     /// developer warning rather than silently dropping (buffering is deferred follow-up work).
     public func dispatch(_ command: InboundCommand) {
-        lock.lock()
-        let currentTarget = target
-        lock.unlock() // release before forwarding — a downstream effect may re-enter dispatch
+        // Snapshot under the lock, then forward OUTSIDE it — a downstream effect may re-enter
+        // dispatch, and the lock is non-recursive.
+        let currentTarget = lock.withLock { target }
         if let currentTarget {
             currentTarget.dispatch(command)
         } else {
@@ -47,8 +45,6 @@ public final class EventDispatcher {
 
     /// Unregister the current target (test-support / Core reset surface).
     package func reset() {
-        lock.lock()
-        target = nil
-        lock.unlock()
+        lock.withLock { target = nil }
     }
 }

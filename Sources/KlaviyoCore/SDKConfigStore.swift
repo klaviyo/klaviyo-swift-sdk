@@ -31,11 +31,14 @@ public protocol ConfigWriting {
 public final class SDKConfigStore: ConfigReading, ConfigWriting {
     public static let shared = SDKConfigStore()
 
+    // INVARIANT: never hold `lock` across `subject.send`. `lock` is a non-recursive `UnfairLock`;
+    // Combine delivers synchronously, so a subscriber that reads a lock-guarded accessor (e.g.
+    // `current`, via `hydrateIfNeeded`) during delivery would deadlock. Always mutate under the lock,
+    // then emit outside it.
+    //
     // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
-    // need no external lock. `lock` guards only `hydrated` and disk I/O, and is NEVER held across
-    // `subject.send`: Combine delivers synchronously, so a subscriber that reads a lock-guarded
-    // accessor (e.g. `current`, via `hydrateIfNeeded`) during delivery would deadlock. Hydration
-    // may assign `subject.value` under the lock only because a fresh store has no subscribers yet.
+    // need no external lock. `lock` guards only `hydrated` and disk I/O. Hydration may assign
+    // `subject.value` under the lock only because a fresh store has no subscribers yet.
     private let subject: CurrentValueSubject<KlaviyoConfig, Never>
     private let lock = UnfairLock()
     private var hydrated = false

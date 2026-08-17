@@ -17,23 +17,15 @@ import OSLog
 package final class KlaviyoLogConfig: @unchecked Sendable {
     package static let shared = KlaviyoLogConfig()
 
-    private let lock = NSLock()
+    private let lock = UnfairLock()
     private var _isLoggingEnabled: Bool = true
 
     private init() {}
 
     /// Whether logging is currently enabled across all Klaviyo SDK modules.
     package var isLoggingEnabled: Bool {
-        get {
-            lock.lock()
-            defer { lock.unlock() }
-            return _isLoggingEnabled
-        }
-        set {
-            lock.lock()
-            defer { lock.unlock() }
-            _isLoggingEnabled = newValue
-        }
+        get { lock.withLock { _isLoggingEnabled } }
+        set { lock.withLock { _isLoggingEnabled = newValue } }
     }
 }
 
