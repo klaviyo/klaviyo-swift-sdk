@@ -1,11 +1,9 @@
 reviews:
   profile: assertive
   path_filters:
-    - "!Examples/**"
     - "!Sources/KlaviyoSwift/Vendor/**"
     - "!Tests/KlaviyoSwiftTests/Vendor/**"
     - "!**/__Snapshots__/**"
-    - "!**/*.xcodeproj/**"
     - "!**/*.xcworkspace/**"
     - "!**/xcshareddata/**"
     - "!**/Podfile.lock"
