@@ -42,9 +42,16 @@
 		ABCD000EABCD000EABCD000E /* KlaviyoForms in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0021ABCD0021ABCD0021 /* KlaviyoForms */; };
 		ABCD000FABCD000FABCD000F /* KlaviyoLocation in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0022ABCD0022ABCD0022 /* KlaviyoLocation */; };
 		ABCD0010ABCD0010ABCD0010 /* KlaviyoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0023ABCD0023ABCD0023 /* KlaviyoSwift */; };
+		ABCD0031ABCD0031ABCD0031 /* PushLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */; };
+		ABCD0032ABCD0032ABCD0032 /* PushLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C91D698DE7404787DBDC2E /* PushLogStore.swift */; };
+		ABCD0033ABCD0033ABCD0033 /* PushLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAECAE6BA05E42F0B67997CA /* PushLogView.swift */; };
 		EFEF0003EFEF0003EFEF0003 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425CA0C2A3A635D0019E33A /* NotificationService.swift */; };
 		EFEF0004EFEF0004EFEF0004 /* KlaviyoSwiftExtension in Frameworks */ = {isa = PBXBuildFile; productRef = EFEF0012EFEF0012EFEF0012 /* KlaviyoSwiftExtension */; };
 		EFEF0005EFEF0005EFEF0005 /* NotificationServiceExtensionAutomatic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		207257ABB7EC42C6A237F13D /* PushLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */; };
+		4EEE71B6B8534B218132B37C /* PushLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C91D698DE7404787DBDC2E /* PushLogStore.swift */; };
+		EB72D147AEB5470C98F1989A /* PushLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAECAE6BA05E42F0B67997CA /* PushLogView.swift */; };
+		74F3315CFAA748C8ACBE8918 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BCE370CBBD24755968D191E /* PushPayload.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -132,6 +139,10 @@
 		ABCD0015ABCD0015ABCD0015 /* SPMExampleAutomatic.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SPMExampleAutomatic.entitlements; sourceTree = "<group>"; };
 		EFEF0001EFEF0001EFEF0001 /* NotificationServiceExtensionAutomatic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceExtensionAutomatic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EFEF0002EFEF0002EFEF0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushLogEntry.swift; sourceTree = "<group>"; };
+		A2C91D698DE7404787DBDC2E /* PushLogStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushLogStore.swift; sourceTree = "<group>"; };
+		FAECAE6BA05E42F0B67997CA /* PushLogView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushLogView.swift; sourceTree = "<group>"; };
+		3BCE370CBBD24755968D191E /* PushPayload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushPayload.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -265,6 +276,10 @@
 				7CC1C84C28D74DB60073197F /* MapView.swift */,
 				7CC1C84B28D74DB60073197F /* MenuView.swift */,
 				7CC1C82E28D74DB60073197F /* MenuItem.swift */,
+				0BCCEAF3975F42D4A1F4B6A7 /* PushLogEntry.swift */,
+				A2C91D698DE7404787DBDC2E /* PushLogStore.swift */,
+				FAECAE6BA05E42F0B67997CA /* PushLogView.swift */,
+				3BCE370CBBD24755968D191E /* PushPayload.swift */,
 				7CC1C83028D74DB60073197F /* User.swift */,
 			);
 			name = Shared;
@@ -537,6 +552,10 @@
 				7CC1C85228D74DB60073197F /* MenuView.swift in Sources */,
 				7CC1C85328D74DB60073197F /* MapView.swift in Sources */,
 				7CC1C85428D74DB60073197F /* CheckoutView.swift in Sources */,
+				74F3315CFAA748C8ACBE8918 /* PushPayload.swift in Sources */,
+				207257ABB7EC42C6A237F13D /* PushLogEntry.swift in Sources */,
+				4EEE71B6B8534B218132B37C /* PushLogStore.swift in Sources */,
+				EB72D147AEB5470C98F1989A /* PushLogView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -570,6 +589,9 @@
 				ABCD000AABCD000AABCD000A /* MenuView.swift in Sources */,
 				ABCD000BABCD000BABCD000B /* MapView.swift in Sources */,
 				ABCD000CABCD000CABCD000C /* CheckoutView.swift in Sources */,
+				ABCD0031ABCD0031ABCD0031 /* PushLogEntry.swift in Sources */,
+				ABCD0032ABCD0032ABCD0032 /* PushLogStore.swift in Sources */,
+				ABCD0033ABCD0033ABCD0033 /* PushLogView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
