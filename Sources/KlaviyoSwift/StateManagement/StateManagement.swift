@@ -216,6 +216,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     )
                     state.enqueueRequest(request: request)
                 }
+                // TODO: this unregister isn't durable before the synchronous wipe below; persist it
+                // synchronously once the Core QueueStore is the flush source.
                 // Clear rather than re-register: the host's post-launch setPushToken re-registers
                 // under the new company, and nil'ing defeats dedupe so it always fires. (The runtime
                 // switch self-registers because a running app won't re-supply the token.)
