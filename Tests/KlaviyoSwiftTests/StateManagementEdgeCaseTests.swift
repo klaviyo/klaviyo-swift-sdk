@@ -14,6 +14,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
     }
@@ -107,6 +108,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
 
         let apiKey = "fake-key"
+        // The anonymousId is hydrated from the canonical `IdentityStore` during
+        // `.completeInitialization` (not carried in the action payload). Seed it here so the
+        // resulting state's anonymousId is the expected "foo".
+        IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
                                         requestsInFlight: [],
@@ -405,6 +410,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         BadgeManager.setBadgeCountSpy = { count in
             if count == 0 { setBadgeExpectation.fulfill() }
         }
+        // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
+        IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
                                         requestsInFlight: [],
@@ -437,6 +444,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let syncExpectation = XCTestExpectation(description: "Should sync badge count")
         BadgeManager.setBadgeCountSpy = { _ in notCalledExpectation.fulfill() }
         BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
+        // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
+        IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: "foo", queue: [],
                                         requestsInFlight: [],

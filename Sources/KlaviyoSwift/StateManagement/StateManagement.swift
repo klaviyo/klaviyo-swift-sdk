@@ -155,6 +155,27 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
         }
 
+        // Write-through choke point: `apiKey` / `identity` / `pushTokenData` are canonical in the
+        // KlaviyoCore stores; `KlaviyoState` holds an in-memory projection. Capture the projection
+        // before the action runs and, on any mutation, write it back so identity/apiKey/pushToken
+        // are persisted synchronously (the debounced state save is queue-only). `defer` fires on
+        // every return path, so no mutation site can silently drop a write. Value-equality guards
+        // avoid redundant emits (e.g. hydration reading its own value).
+        let previousApiKey = state.apiKey
+        let previousIdentity = state.identity
+        let previousPushTokenData = state.pushTokenData
+        defer {
+            if state.apiKey != previousApiKey {
+                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey))
+            }
+            if state.identity != previousIdentity {
+                IdentityStore.shared.update(state.identity)
+            }
+            if state.pushTokenData != previousPushTokenData {
+                IdentityStore.shared.updatePushToken(state.pushTokenData)
+            }
+        }
+
         switch action {
         case let .initialize(apiKey):
             if case .initialized = state.initalizationState {
@@ -173,13 +194,52 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+            } else if case .uninitialized = state.initalizationState,
+                      let previousApiKey = SDKConfigStore.shared.current.apiKey,
+                      previousApiKey != apiKey {
+                // Cold-start company switch. Identity + push token are device-scoped in the Core
+                // stores and still hold the PREVIOUS company's profile; the runtime branch above only
+                // fires when already `.initialized`. Mirror it here so a fresh launch under a new
+                // apiKey does not bleed prior PII into the new company or leave its push token
+                // registered. Sourced from the stores (not `state`, which is empty on cold start).
+                let previous = IdentityStore.shared.current
+                if let anonymousId = previous.anonymousId, let tokenData = IdentityStore.shared.pushToken {
+                    let request = RequestFactory.unregisterRequest(
+                        identity: RequestIdentity(
+                            apiKey: previousApiKey,
+                            anonymousId: anonymousId,
+                            email: previous.email,
+                            phoneNumber: previous.phoneNumber,
+                            externalId: previous.externalId
+                        ),
+                        pushToken: tokenData.pushToken
+                    )
+                    state.enqueueRequest(request: request)
+                }
+                // TODO: this unregister isn't durable before the synchronous wipe below; persist it
+                // synchronously once the Core QueueStore is the flush source.
+                // Clear rather than re-register: the host's post-launch setPushToken re-registers
+                // under the new company, and nil'ing defeats dedupe so it always fires. (The runtime
+                // switch self-registers because a running app won't re-supply the token.)
+                IdentityStore.shared.updatePushToken(nil)
+                if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
+                    // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
+                    // hydrates a clean identity for the new company (mirrors `state.reset()`).
+                    IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+                }
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
             }
             state.initalizationState = .initializing
+            // Set the confirmed apiKey on the projection; the write-through `defer` is the sole
+            // writer to `SDKConfigStore` (one persist + one emit per initialize). The disk lookup
+            // below uses the local `apiKey` parameter, not the store, so it does not depend on the
+            // write-through having run yet.
             state.apiKey = apiKey
             return .run { send in
+                // The persisted blob is queue-only; identity/apiKey/pushToken are hydrated from the
+                // Core stores in `.completeInitialization`.
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
@@ -188,6 +248,14 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initializing = state.initalizationState else {
                 return .none
             }
+            // Hydrate identity + push token from the canonical Core stores. `anonymousId` is
+            // guaranteed present (IdentityStore mints on first access). The apiKey was already
+            // confirmed + written through in `.initialize`, so carry it over from `state` (the
+            // loaded queue-only blob has no apiKey). Any identity fields set on the SDK-level
+            // state before init completed are carried over on top.
+            initialState.identity = IdentityStore.shared.current
+            initialState.pushTokenData = IdentityStore.shared.pushToken
+            initialState.apiKey = state.apiKey
             if let email = state.email {
                 initialState.email = email
             }
@@ -356,7 +424,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 let requestData = payload.data.attributes
                 let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
                 let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = KlaviyoState.PushTokenData(
+                state.pushTokenData = PushTokenData(
                     pushToken: requestData.token,
                     pushEnablement: enablement,
                     pushBackground: backgroundStatus,
