@@ -69,11 +69,8 @@ final class EventBuffer {
 
             // Clean old events from buffer (using monotonic clock to avoid issues with device clock changes)
             buffer = buffer.filter { currentTime - $0.timestamp < maxBufferAge }
-
-            // Add new event
             buffer.append(BufferedEvent(event: event, timestamp: currentTime))
 
-            // Keep only last N events
             if buffer.count > maxBufferSize {
                 buffer = Array(buffer.suffix(maxBufferSize))
             }
