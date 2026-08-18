@@ -465,6 +465,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    /// Maximum number of internal fetch attempts ``fetchAndPushFreshToken(attempt:)``
+    /// makes per `badJWT` rejection before giving up. Separate from
+    /// ``maxBadJWTRetryAttempts``: that bounds how many *incoming* `badJWT`
+    /// messages trigger a recovery attempt at all; this bounds how hard a
+    /// single attempt tries before accepting defeat.
+    private static let maxInternalFetchAttempts = 3
+
     /// Responds to a `badJWT` rejection by fetching a genuinely fresh token and
     /// pushing it, resolving KlaviyoJS's pending `awaitNextSetJWT()`.
     ///
@@ -485,14 +492,35 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
         Task { @MainActor in
             await AuthTokenManager.shared.clearTokenState()
-            do {
-                let token = try await AuthTokenManager.shared.currentToken(mode: .background)
-                await pushAuthToken(token)
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Unable to fetch a fresh auth token after BadJWT: \(error)")
-                }
+            await fetchAndPushFreshToken(attempt: 1)
+        }
+    }
+
+    /// Fetches a fresh token and pushes it, retrying internally on failure.
+    ///
+    /// `clearTokenState()` (called once by ``handleBadJWT()`` before this
+    /// runs) drops the proactive-refresh schedule as a side effect of
+    /// invalidating the rejected token — nothing re-arms it until a fetch
+    /// here succeeds. Without an internal retry, a single transient failure
+    /// (timeout, network blip) would leave this WebView with no scheduled
+    /// refresh and no cached token: no further recovery for the rest of its
+    /// lifetime, since ``handleBadJWT()`` only reacts to *new* `badJWT`
+    /// messages and fender may not send another. Retrying here — rather than
+    /// waiting on another `badJWT` — is what actually closes that gap.
+    @MainActor
+    private func fetchAndPushFreshToken(attempt: Int) async {
+        do {
+            let token = try await AuthTokenManager.shared.currentToken(mode: .background)
+            await pushAuthToken(token)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Unable to fetch a fresh auth token after BadJWT (attempt \(attempt)): \(error)"
+                )
             }
+            guard attempt < Self.maxInternalFetchAttempts else { return }
+            try? await Task.sleep(nanoseconds: UInt64(attempt) * 250_000_000)
+            await fetchAndPushFreshToken(attempt: attempt + 1)
         }
     }
 }

@@ -8,13 +8,13 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
+@MainActor
 final class IAFWebViewModelBadJWTTests: XCTestCase {
     // MARK: - setup
 
     var viewModel: IAFWebViewModel!
     var delegate: MockIAFWebViewDelegate!
 
-    @MainActor
     override func setUp() async throws {
         try await super.setUp()
 
@@ -32,7 +32,6 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
 
     // MARK: - tests
 
-    @MainActor
     func testBadJWTFetchesFreshTokenAndPushesIt() async throws {
         // Given — a registered provider
         let freshToken = try makeTestJWT()
@@ -54,7 +53,6 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         await AuthTokenManager.shared.unregisterProvider()
     }
 
-    @MainActor
     func testBadJWTRetryIsBoundedAfterRepeatedRejections() async throws {
         // Given — a provider whose warm-up invocation can be awaited deterministically
         let counter = InvocationCounter()
@@ -80,7 +78,7 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         try await waitUntil(timeout: 2.0) {
             tokenScripts().count == 2
         }
-        try await Task.sleep(nanoseconds: 300_000_000) // let any excess retries (bug case) land
+        await expectNoAdditionalPushes(beyond: 2, timeout: 0.5)
         XCTAssertEqual(
             tokenScripts().count, 2,
             "BadJWT retries should be bounded, not one push per rejection"
@@ -89,8 +87,7 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         await AuthTokenManager.shared.unregisterProvider()
     }
 
-    @MainActor
-    func testBadJWTWithNoProviderRegisteredDoesNotPushOrCrash() async throws {
+    func testBadJWTWithNoProviderRegisteredDoesNotPushOrCrash() async {
         // Given — no auth token provider registered
         await AuthTokenManager.shared.unregisterProvider()
 
@@ -98,7 +95,7 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         sendBadJWT()
 
         // Then — no crash, and nothing is pushed since there's no token to fetch
-        try await Task.sleep(nanoseconds: 300_000_000)
+        await expectNoAdditionalPushes(beyond: 0, timeout: 0.5)
         XCTAssertTrue(tokenScripts().isEmpty)
     }
 }
@@ -106,7 +103,6 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
 // MARK: - Helpers
 
 extension IAFWebViewModelBadJWTTests {
-    @MainActor
     private func sendBadJWT() {
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -118,7 +114,6 @@ extension IAFWebViewModelBadJWTTests {
     }
 
     /// The auth-token update scripts among everything the delegate has evaluated.
-    @MainActor
     private func tokenScripts() -> [String] {
         delegate.evaluatedScripts.filter { $0.contains("data-klaviyo-jwt") }
     }
@@ -126,7 +121,6 @@ extension IAFWebViewModelBadJWTTests {
     /// Polls `condition` until it returns `true` or `timeout` elapses. Used for
     /// work kicked off by a fire-and-forget `Task` (like `.badJWT` handling)
     /// that isn't otherwise directly awaitable from the test.
-    @MainActor
     private func waitUntil(timeout: TimeInterval, condition: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition() {
@@ -136,5 +130,26 @@ extension IAFWebViewModelBadJWTTests {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
+    }
+
+    /// Asserts no further token pushes land beyond `count` within `timeout`,
+    /// via an inverted `XCTestExpectation` rather than a fixed sleep — a
+    /// regression is caught (and the wait ends) as soon as an extra push
+    /// appears, instead of only being checked after always waiting out a
+    /// fixed delay.
+    private func expectNoAdditionalPushes(beyond count: Int, timeout: TimeInterval) async {
+        let noExcessPush = XCTestExpectation(description: "no token push beyond \(count)")
+        noExcessPush.isInverted = true
+        let watcher = Task {
+            while !Task.isCancelled {
+                if tokenScripts().count > count {
+                    noExcessPush.fulfill()
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+        }
+        await fulfillment(of: [noExcessPush], timeout: timeout)
+        watcher.cancel()
     }
 }
