@@ -216,6 +216,9 @@ struct KlaviyoReducer: ReducerProtocol {
                     )
                     state.enqueueRequest(request: request)
                 }
+                // Clear rather than re-register: the host's post-launch setPushToken re-registers
+                // under the new company, and nil'ing defeats dedupe so it always fires. (The runtime
+                // switch self-registers because a running app won't re-supply the token.)
                 IdentityStore.shared.updatePushToken(nil)
                 if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
                     // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
