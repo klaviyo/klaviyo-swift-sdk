@@ -18,8 +18,8 @@ public protocol EventBroadcasting {
 }
 
 /// Outbound event bus: KlaviyoSwift publishes enriched events; consumers observe them.
-/// Mirrors the `IdentityStore` pattern. The bounded replay buffer preserves the
-/// "event published before subscriber attaches" race fix (e.g. Opened Push at cold launch).
+/// The bounded replay buffer preserves the "event published before subscriber attaches"
+/// race fix (e.g. Opened Push at cold launch).
 public final class EventBus: EventPublishing, EventBroadcasting {
     public static let shared = EventBus()
 
