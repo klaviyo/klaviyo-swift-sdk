@@ -79,10 +79,15 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
 
     public func update(_ config: KlaviyoConfig) {
         hydrateIfNeeded()
-        savePersisted(
-            PersistedConfig(version: PersistedConfig.currentVersion, apiKey: config.apiKey),
-            fileName: StoreFile.config
-        )
+        // Persist under the lock so concurrent `update` calls can't interleave file writes
+        // (mirrors `IdentityStore`). The `config` param is written directly, so there is no
+        // stale-snapshot risk.
+        lock.withLock {
+            savePersisted(
+                PersistedConfig(version: PersistedConfig.currentVersion, apiKey: config.apiKey),
+                fileName: StoreFile.config
+            )
+        }
         // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
         subject.send(config)
     }
