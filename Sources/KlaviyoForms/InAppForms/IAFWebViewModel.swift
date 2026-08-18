@@ -36,6 +36,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
 
+    /// Maximum number of fresh-token fetches attempted per WebView in response
+    /// to `badJWT`, so a provider that always returns an invalid token can't
+    /// retry forever.
+    private static let maxBadJWTRetryAttempts = 2
+    private var badJWTRetryAttempts = 0
+
     // MARK: - Scripts
 
     @MainActor
@@ -454,6 +460,38 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .badJWT:
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoJS rejected the injected auth token (BadJWT)")
+            }
+            handleBadJWT()
+        }
+    }
+
+    /// Responds to a `badJWT` rejection by fetching a genuinely fresh token and
+    /// pushing it, resolving KlaviyoJS's pending `awaitNextSetJWT()`.
+    ///
+    /// The rejected token must be invalidated before re-fetching — the cache
+    /// would otherwise hand back the same bad token, since a `badJWT`
+    /// rejection isn't reflected in the token's own `exp` claim. Bounded by
+    /// ``maxBadJWTRetryAttempts`` since a provider that always returns an
+    /// invalid token would otherwise retry indefinitely.
+    @MainActor
+    private func handleBadJWT() {
+        guard badJWTRetryAttempts < Self.maxBadJWTRetryAttempts else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("BadJWT retry limit reached; no further attempts will be made")
+            }
+            return
+        }
+        badJWTRetryAttempts += 1
+
+        Task { @MainActor in
+            await AuthTokenManager.shared.clearTokenState()
+            do {
+                let token = try await AuthTokenManager.shared.currentToken(mode: .background)
+                await pushAuthToken(token)
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Unable to fetch a fresh auth token after BadJWT: \(error)")
+                }
             }
         }
     }

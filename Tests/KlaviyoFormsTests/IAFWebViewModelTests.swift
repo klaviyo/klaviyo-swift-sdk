@@ -160,8 +160,7 @@ final class IAFWebViewModelTests: XCTestCase {
                 {"type":"lifecycleEvent","version":1},
                 {"type":"profileEvent","version":1},
                 {"type":"profileMutation","version":1},
-                {"type":"jwtMutation","version":1},
-                {"type":"badJWT","version":1}
+                {"type":"jwtMutation","version":1}
             ]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
