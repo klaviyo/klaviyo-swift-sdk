@@ -23,6 +23,7 @@ class KlaviyoSDKTests: XCTestCase {
     override func setUpWithError() throws {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
         BadgeManager.resetToProduction()

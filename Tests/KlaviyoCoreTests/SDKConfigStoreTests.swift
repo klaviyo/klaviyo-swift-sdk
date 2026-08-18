@@ -11,6 +11,19 @@ import XCTest
 
 final class SDKConfigStoreTests: XCTestCase {
     private static let apiKey = "company-123"
+    private var fileIO: FileIODouble!
+
+    override func setUp() {
+        super.setUp()
+        fileIO = FileIODouble()
+        environment = fileIO.makeEnvironment()
+    }
+
+    override func tearDown() {
+        environment = KlaviyoEnvironment.test()
+        fileIO = nil
+        super.tearDown()
+    }
 
     func testInitialConfigIsEmpty() {
         let store = SDKConfigStore()

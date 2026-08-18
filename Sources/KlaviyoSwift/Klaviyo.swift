@@ -115,10 +115,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        DispatchQueue.main.async {
-            SharedStoreMirror.setup()
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-        }
+        dispatchOnMainThread(action: .initialize(apiKey))
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }

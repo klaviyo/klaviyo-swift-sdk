@@ -14,6 +14,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
     @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         DeepLinkManager.resetToProduction()
     }

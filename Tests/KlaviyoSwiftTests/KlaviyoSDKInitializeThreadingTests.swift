@@ -11,9 +11,9 @@ import XCTest
 
 /// Regression coverage for the off-main `Store` construction bug: calling `initialize(with:)`
 /// from a background thread previously touched `klaviyoSwiftEnvironment` synchronously on that
-/// thread — forcing `Store.production` construction and installing the `SharedStoreMirror` Combine
-/// sink off-main, violating the `Store`'s main-thread-only invariant. All store-touching work
-/// during `initialize` must be routed to the main thread regardless of the caller's thread.
+/// thread — forcing `Store.production` construction off-main, violating the `Store`'s
+/// main-thread-only invariant. All store-touching work during `initialize` must be routed to the
+/// main thread regardless of the caller's thread.
 @MainActor
 final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
     private var savedCoreEnvironment: KlaviyoEnvironment!
@@ -24,20 +24,19 @@ final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
         savedCoreEnvironment = environment
         savedEnvironment = klaviyoSwiftEnvironment
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        SharedStoreMirror.reset()
     }
 
     override func tearDown() {
-        SharedStoreMirror.reset()
         environment = savedCoreEnvironment
         klaviyoSwiftEnvironment = savedEnvironment
         super.tearDown()
     }
 
     /// Initializing from a background thread must still route store-touching work
-    /// (`SharedStoreMirror.setup()`'s `statePublisher` subscription and the `.initialize` send)
-    /// to the main thread, since `Store` is main-thread-only. The stubbed `send`/`statePublisher`
+    /// (the `statePublisher` subscription feeding `StateChangePublisher` and the `.initialize`
+    /// send) to the main thread, since `Store` is main-thread-only. The stubbed `send`/`statePublisher`
     /// keep the shared `testStore` untouched, and the `wait(for:)` drains both scheduled main-actor
     /// hops before the test returns so nothing leaks into later tests.
     func testInitializeFromBackgroundThreadTouchesStoreOnMainThread() {
@@ -67,7 +66,7 @@ final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
 
         lock.lock()
         defer { lock.unlock() }
-        XCTAssertTrue(statePublisherOnMain, "SharedStoreMirror.setup() must touch the store on the main thread")
+        XCTAssertTrue(statePublisherOnMain, "the statePublisher subscription must touch the store on the main thread")
         XCTAssertTrue(sendOnMain, "initialize action must be sent on the main thread")
     }
 
@@ -94,28 +93,6 @@ final class KlaviyoSDKInitializeThreadingTests: XCTestCase {
         XCTAssertTrue(
             mockCenter.delegate === KlaviyoNotificationDelegate.shared,
             "injectNotificationDelegate must install the delegate synchronously on the main thread"
-        )
-    }
-
-    /// The mirror must observe the initialized state regardless of whether its subscription is
-    /// attached before or after the `.initialize` action lands, since `initialize(with:)` schedules
-    /// `SharedStoreMirror.setup()` and the `.initialize` send as two independent main-actor hops
-    /// with no ordering guarantee. This exercises the "subscribes late" ordering: the publisher is
-    /// already emitting an initialized state (as if `.initialize` had processed first). Because
-    /// `statePublisher` is a current-value publisher, `setup()` still receives that state on attach
-    /// and mirrors it into `SDKConfigStore`.
-    func testSharedStoreMirrorPicksUpAlreadyInitializedStateOnLateSubscribe() {
-        var state = INITIALIZED_TEST_STATE()
-        state.apiKey = "late-subscribe-key"
-        let subject = CurrentValueSubject<KlaviyoState, Never>(state)
-        klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
-
-        SharedStoreMirror.setup()
-
-        XCTAssertEqual(
-            SDKConfigStore.shared.current.apiKey,
-            "late-subscribe-key",
-            "mirror must pick up an already-initialized state when subscribing after the fact"
         )
     }
 }

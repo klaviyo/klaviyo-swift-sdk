@@ -10,7 +10,7 @@ import Foundation
 import KlaviyoCore
 import UIKit
 
-typealias DeviceMetadata = PushTokenPayload.PushToken.Attributes.MetaData
+typealias PushTokenData = KlaviyoCore.PushTokenData
 
 struct KlaviyoState: Equatable, Codable {
     enum InitializationState: Equatable, Codable {
@@ -29,20 +29,6 @@ struct KlaviyoState: Equatable, Codable {
         case setExternalId(String)
         case setPhoneNumber(String)
         case subscription(Subscription)
-    }
-
-    struct PushTokenData: Equatable, Codable {
-        var pushToken: String
-        var pushEnablement: PushEnablement
-        var pushBackground: PushBackground
-        var deviceData: DeviceMetadata
-
-        enum CodingKeys: CodingKey {
-            case pushToken
-            case pushEnablement
-            case pushBackground
-            case deviceData
-        }
     }
 
     // state related stuff
@@ -95,6 +81,10 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     init(from decoder: Decoder) throws {
+        // The persisted `klaviyo-{apiKey}-state.json` is queue-only; `apiKey`, `identity` and
+        // `pushTokenData` are owned by the canonical KlaviyoCore stores (`SDKConfigStore` /
+        // `IdentityStore`). Decoding still reads the legacy keys if present so a state file from an
+        // older SDK version can be lifted into the Core stores by a later migration.
         let container = try decoder.container(keyedBy: CodingKeys.self)
         apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
         pushTokenData = try container.decodeIfPresent(PushTokenData.self, forKey: .pushTokenData)
@@ -103,16 +93,26 @@ struct KlaviyoState: Equatable, Codable {
         if let identity = try container.decodeIfPresent(ProfileData.self, forKey: .identity) {
             // New format: identity is a nested object.
             self.identity = identity
-        } else {
+        } else if let legacy = try? decoder.container(keyedBy: LegacyCodingKeys.self) {
             // Legacy format: identity fields were stored at the top level.
-            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
             identity = try ProfileData(
                 email: legacy.decodeIfPresent(String.self, forKey: .email),
                 phoneNumber: legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
                 externalId: legacy.decodeIfPresent(String.self, forKey: .externalId),
                 anonymousId: legacy.decodeIfPresent(String.self, forKey: .anonymousId)
             )
+        } else {
+            // Queue-only blob: no identity on disk — the Core stores own it.
+            identity = ProfileData()
         }
+    }
+
+    /// Encodes a queue-only blob. `apiKey`, `identity` and `pushTokenData` are deliberately not
+    /// serialized here — the canonical KlaviyoCore stores (`SDKConfigStore` / `IdentityStore`)
+    /// persist them synchronously on mutation.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(queue, forKey: .queue)
     }
 
     init(
@@ -360,8 +360,9 @@ struct KlaviyoState: Equatable, Codable {
 
     mutating func reset(preserveTokenData: Bool = true) {
         if isIdentified {
-            // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
-            anonymousId = environment.uuid().uuidString
+            // A formerly-identified profile is being cleared: mint a fresh anonymous id via the
+            // canonical minter so the resulting anonymous profile is distinct.
+            anonymousId = IdentityStore.shared.mintNewAnonymousId()
         }
         let previousPushTokenData = pushTokenData
         pendingProfile = nil
@@ -463,7 +464,12 @@ struct KlaviyoState: Equatable, Codable {
 // MARK: Klaviyo state persistence
 
 func saveKlaviyoState(state: KlaviyoState) {
-    guard let apiKey = state.apiKey else {
+    // Key the file off the snapshot's OWN apiKey — the company this queue belongs to — not the live
+    // `SDKConfigStore`. The state save is debounced on a background queue, so a save of company A's
+    // snapshot must not be misrouted into `klaviyo-B-state.json` if `initialize(B)` updated the store
+    // after this snapshot was captured. The blob is queue-only (identity/apiKey/pushToken live in the
+    // Core stores). See `KlaviyoState.encode(to:)`.
+    guard let apiKey = state.apiKey ?? SDKConfigStore.shared.current.apiKey else {
         environment.logger.error("Attempt to save state without an api key.")
         return
     }
@@ -499,32 +505,31 @@ private func removeStateFile(at file: URL) {
 func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
     let fileName = klaviyoStateFile(apiKey: apiKey)
     guard environment.fileClient.fileExists(fileName.path) else {
-        return createAndStoreInitialState(with: apiKey, at: fileName)
+        return createAndStoreInitialState(at: fileName)
     }
     guard let stateData = try? environment.dataFromUrl(fileName) else {
         environment.logger.error("Klaviyo state file invalid starting from scratch.")
         removeStateFile(at: fileName)
-        return createAndStoreInitialState(with: apiKey, at: fileName)
+        return createAndStoreInitialState(at: fileName)
     }
     guard var state: KlaviyoState = try? environment.decoder.decode(stateData) else {
         environment.logger.error("Unable to decode existing state file. Removing.")
         removeStateFile(at: fileName)
-        return createAndStoreInitialState(with: apiKey, at: fileName)
+        return createAndStoreInitialState(at: fileName)
     }
-    if state.apiKey != apiKey {
-        // Clear existing state since we are using a new api state.
-        state = KlaviyoState(
-            apiKey: apiKey,
-            anonymousId: environment.uuid().uuidString,
-            queue: []
-        )
+    if state.apiKey != nil, state.apiKey != apiKey {
+        // A state file from a different company was found (legacy blobs carry an apiKey). We are
+        // switching companies, so start from an empty queue. Identity/apiKey are owned by the Core
+        // stores and are not minted here.
+        state = createAndStoreInitialState(at: fileName)
     }
     return state
 }
 
-private func createAndStoreInitialState(with apiKey: String, at file: URL) -> KlaviyoState {
-    let anonymousId = environment.uuid().uuidString
-    let state = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId, queue: [], requestsInFlight: [])
+/// Creates a fresh, empty queue-only state and persists it. Identity/apiKey/pushToken are owned by
+/// the canonical KlaviyoCore stores and are no longer minted or persisted here.
+private func createAndStoreInitialState(at file: URL) -> KlaviyoState {
+    let state = KlaviyoState(queue: [], requestsInFlight: [])
     storeKlaviyoState(state: state, file: file)
     return state
 }
