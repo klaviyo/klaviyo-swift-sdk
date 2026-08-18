@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 class LifecycleObserver {

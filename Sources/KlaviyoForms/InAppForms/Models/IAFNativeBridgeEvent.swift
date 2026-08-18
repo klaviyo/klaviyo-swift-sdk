@@ -15,7 +15,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formDisappeared(formId: String?, formName: String?)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
-    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?)
+    case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?, openExternally: Bool)
     case abort(String)
     case handShook
     case analyticsEvent
@@ -67,7 +67,13 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .openDeepLink:
             let payload = try? container.decode(DeepLinkEventPayload.self, forKey: .data)
             let url = payload?.ios.flatMap { $0.isEmpty ? nil : URL(string: $0) }
-            self = .openDeepLink(url: url, formId: payload?.formId, formName: payload?.formName, buttonLabel: payload?.buttonLabel)
+            self = .openDeepLink(
+                url: url,
+                formId: payload?.formId,
+                formName: payload?.formName,
+                buttonLabel: payload?.buttonLabel,
+                openExternally: payload?.openExternally ?? false
+            )
         case .abort:
             let data = try container.decode(AbortPayload.self, forKey: .data)
             self = .abort(data.reason)
@@ -97,11 +103,16 @@ extension IAFNativeBridgeEvent {
         let formName: String?
     }
 
+    /// Payload for the `openDeepLink` CTA event. Carries both in-app deep links and external
+    /// web/system URLs, distinguished by `openExternally` (onsite `openDeepLink` v3).
     struct DeepLinkEventPayload: Decodable {
         let ios: String?
         let formId: String?
         let formName: String?
         let buttonLabel: String?
+        /// `true`: open the URL via the system (bypassing any registered deep link handler),
+        /// gated by the on-device scheme allowlist. `false`: route to the deep link handler.
+        let openExternally: Bool?
     }
 
     struct AbortPayload: Decodable {
@@ -143,7 +154,7 @@ extension IAFNativeBridgeEvent {
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
-            .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil),
+            .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil, openExternally: false),
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
@@ -158,7 +169,7 @@ extension IAFNativeBridgeEvent {
         case .formDisappeared: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
-        case .openDeepLink: return 2
+        case .openDeepLink: return 3
         case .abort: return 1
         case .handShook: return 1
         case .analyticsEvent: return 1

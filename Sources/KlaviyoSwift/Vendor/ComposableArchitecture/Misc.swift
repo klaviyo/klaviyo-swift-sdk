@@ -29,6 +29,7 @@
 //
 import Foundation
 import Combine
+import KlaviyoCore
 #if canImport(os)
   import os
 #endif
@@ -46,7 +47,6 @@ final class Box<Wrapped> {
   }
 }
 
-@_transparent
 @usableFromInline
 @inline(__always)
 func runtimeWarn(
@@ -56,6 +56,7 @@ func runtimeWarn(
   line: UInt? = nil
 ) {
   #if DEBUG
+    guard KlaviyoLogConfig.shared.isLoggingEnabled else { return }
     let message = message()
     let category = category ?? "Runtime Warning"
       #if canImport(os)
