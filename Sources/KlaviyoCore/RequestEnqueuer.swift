@@ -82,4 +82,39 @@ public enum RequestEnqueuer {
             UnattributedBuffer.shared.append(.pushToken(payload))
         }
     }
+
+    /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
+    /// clears the buffer. At-least-once: the final enqueue persists synchronously so the queue is
+    /// durable before the buffer file is removed. A crash in the gap re-drains next launch (a
+    /// dedup-able duplicate, never silent loss). Built + tested here; called by MAGE-952's
+    /// slimmed `initialize(apiKey:)`.
+    public static func drainBuffer(apiKey: String) {
+        let buffered = UnattributedBuffer.shared.snapshot()
+        guard !buffered.isEmpty, let queue = QueueStore.current() else { return }
+
+        for (index, request) in buffered.enumerated() {
+            let isLast = index == buffered.count - 1
+            let policy: PersistPolicy = isLast ? .synchronous : .debounced
+            switch request {
+            case let .event(payload, priority):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: priority),
+                    persist: policy
+                )
+            case let .aggregateEvent(payload):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .aggregateEvent(apiKey, payload)), persist: policy
+                )
+            case let .profile(payload):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .createProfile(apiKey, payload)), persist: policy
+                )
+            case let .pushToken(payload):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy
+                )
+            }
+        }
+        UnattributedBuffer.shared.clear()
+    }
 }
