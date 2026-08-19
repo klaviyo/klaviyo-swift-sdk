@@ -63,6 +63,38 @@ final class SDKConfigStoreTests: XCTestCase {
         XCTAssertNil(store.current.apiKey)
     }
 
+    // Two consumers subscribed before any write must each see the initial value followed by every
+    // update in order — no drops. Mirrors IdentityStore's concurrent-consumer test; exercises the
+    // never-hold-lock-across-send invariant under synchronous Combine delivery to multiple sinks.
+    func testStreamDeliversAllUpdatesToConcurrentConsumersNoDrops() async {
+        let store = SDKConfigStore()
+        let updates = (0..<100).map { KlaviyoConfig(apiKey: "key-\($0)") }
+
+        let streamA = store.stream()
+        let streamB = store.stream()
+
+        for update in updates {
+            store.update(update)
+        }
+
+        func collect(_ stream: AsyncStream<KlaviyoConfig>) async -> [KlaviyoConfig] {
+            var received: [KlaviyoConfig] = []
+            for await value in stream {
+                received.append(value)
+                if value == updates.last { break }
+            }
+            return received
+        }
+
+        async let receivedA = collect(streamA)
+        async let receivedB = collect(streamB)
+        let (resultA, resultB) = await (receivedA, receivedB)
+
+        let expected = [KlaviyoConfig()] + updates
+        XCTAssertEqual(resultA, expected)
+        XCTAssertEqual(resultB, expected)
+    }
+
     func testStreamYieldsCurrentValueThenUpdates() async {
         let store = SDKConfigStore()
         var iterator = store.stream().makeAsyncIterator()

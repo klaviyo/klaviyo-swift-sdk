@@ -317,6 +317,56 @@ final class QueueStoreTests: XCTestCase {
                        "disk must match the in-memory queue exactly — no lost or reordered writes")
     }
 
+    /// Mixed-policy sibling of the convergence test: `.debounced` and `.synchronous` mutations run
+    /// concurrently, contending on `queueLock` (the array) and `persistLock` (the debounce-coalescing
+    /// state) at once. Debounced work is dropped by the scheduler; a final synchronous flush then
+    /// persists the settled queue, and disk must match memory exactly — no lost, duplicated, or
+    /// reordered writes from the interleaving. Meaningful under Thread Sanitizer.
+    func testConcurrentMixedPersistPoliciesConvergeOnFinalSyncFlush() {
+        let iterations = 100 // < maxQueueSize, so no eviction
+        let diskIO = SpyDiskIO()
+        // Drop debounced work; convergence is forced deterministically by the final synchronous flush.
+        let store = QueueStore(diskIO: diskIO.makeIO(),
+                               scheduler: QueueStore.PersistScheduler { _, _ in },
+                               emitWarning: { _ in })
+
+        DispatchQueue.concurrentPerform(iterations: iterations) { index in
+            let policy: PersistPolicy = index.isMultiple(of: 2) ? .debounced : .synchronous
+            store.enqueue(
+                request("req-\(index)", at: Date(timeIntervalSince1970: TimeInterval(index))),
+                persist: policy
+            )
+        }
+
+        // Flush the settled in-memory queue to disk after all concurrent work has joined.
+        store.enqueue(
+            request("flush", at: Date(timeIntervalSince1970: TimeInterval(iterations))),
+            persist: .synchronous
+        )
+
+        XCTAssertEqual(store.count, iterations + 1)
+        XCTAssertEqual(diskIO.stored.map(\.id), store.requests.map(\.id),
+                       "after a final synchronous flush, disk matches the in-memory queue exactly")
+    }
+
+    /// Stresses the static `registryLock`: many threads resolve `current()` for the same apiKey and
+    /// must all receive the one cached instance — no torn read that mints a duplicate store.
+    func testConcurrentCurrentResolvesSingleCachedInstance() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "concurrent-key"))
+        let collectLock = UnfairLock()
+        var resolved: [QueueStore] = []
+
+        DispatchQueue.concurrentPerform(iterations: 200) { _ in
+            if let store = QueueStore.current() {
+                collectLock.withLock { resolved.append(store) }
+            }
+        }
+
+        XCTAssertEqual(resolved.count, 200, "every resolution returned a store")
+        let first = resolved.first
+        XCTAssertTrue(resolved.allSatisfy { $0 === first }, "all resolutions share one cached instance")
+    }
+
     func testProductionSchedulerRunsScheduledWork() {
         let didRun = expectation(description: "scheduled work ran")
         QueueStore.PersistScheduler.production.schedule(0.01) { didRun.fulfill() }

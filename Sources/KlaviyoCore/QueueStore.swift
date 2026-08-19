@@ -70,15 +70,19 @@ public final class QueueStore {
     private let scheduler: PersistScheduler
     private let emitWarning: (String) -> Void
 
-    // guards `queue`; released before disk writes so I/O never blocks queue ops
+    // Two locks keep slow disk I/O off the hot queue path: `queueLock` guards the in-memory array
+    // and is released before any disk write, so a persist never blocks enqueue/prepend/reads.
+    // `persistLock` serializes writes and guards the debounce-coalescing state.
+    //
+    // LOCK ORDERING: when both are held, always acquire `persistLock` before `queueLock`, never the
+    // reverse. `persistCurrent` is the only nesting site (persistLock outer, queueLock inner); every
+    // other site takes exactly one lock. Preserve this order to stay deadlock-free.
     private let queueLock = UnfairLock()
-    private let persistLock = UnfairLock() // serializes writes + guards the debounce-coalescing state
+    private let persistLock = UnfairLock()
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    // Coalesces `.debounced` persists: the first mutation in a window schedules one callback and
-    // records its token here; later debounced mutations within the window coalesce onto it instead
-    // of scheduling their own. A synchronous persist — or the callback firing — clears it. `0` means
-    // no debounce is pending. `debounceSeq` mints unique tokens so a superseded callback can tell it
-    // is no longer the current one and no-op.
+    // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
+    // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
+    // See `schedulePersist` for how a burst coalesces onto a single callback.
     private var pendingDebounceToken = 0
     private var debounceSeq = 0
 
@@ -142,12 +146,10 @@ public final class QueueStore {
 
     // MARK: Persistence
 
-    /// Either flushes inline (`.synchronous`) or schedules one debounced flush per window
-    /// (`.debounced`). A debounced burst coalesces to a single scheduled callback: only the first
-    /// mutation schedules, later ones piggyback on the pending token. A synchronous persist clears
-    /// the pending token so its still-scheduled callback no-ops when it fires. Coalescing is only an
-    /// optimization — correctness comes from `persistCurrent`, which always writes the current
-    /// authoritative queue, so a superseded fire can never persist stale state.
+    /// Flushes inline (`.synchronous`) or coalesces to one debounced flush per window (`.debounced`):
+    /// only the first mutation in a window schedules a callback, later ones piggyback on its token,
+    /// and a synchronous persist clears the token so its still-scheduled callback no-ops. Coalescing
+    /// is purely an optimization — see `persistCurrent` for why a superseded fire is always safe.
     private func schedulePersist(_ policy: PersistPolicy) {
         switch policy {
         case .synchronous:
@@ -175,10 +177,10 @@ public final class QueueStore {
         }
     }
 
-    /// Serializes the whole persist under `persistLock` and snapshots the *current* authoritative
-    /// queue at write time. Because every persist reads the latest memory and writes are serialized,
-    /// disk always converges to the newest state — there is no captured snapshot that can go stale.
-    /// `queueLock` is released before the disk write so I/O never blocks queue ops.
+    /// Snapshots the *current* queue at write time (not at schedule time) and writes it under
+    /// `persistLock`. Serialized writes of the latest memory mean disk always converges to the newest
+    /// state, so a superseded debounce fire can never persist stale data. `queueLock` is held only for
+    /// the snapshot and released before the disk write, so I/O never blocks queue ops.
     private func persistCurrent() {
         persistLock.withLock {
             let snapshot = queueLock.withLock { queue ?? [] }
