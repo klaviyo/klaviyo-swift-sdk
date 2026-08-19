@@ -36,12 +36,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
 
-    /// Maximum number of fresh-token fetches attempted per WebView in response
-    /// to `badJWT`, so a provider that always returns an invalid token can't
-    /// retry forever.
-    private static let maxBadJWTRetryAttempts = 2
-    private var badJWTRetryAttempts = 0
-
     // MARK: - Scripts
 
     @MainActor
@@ -465,62 +459,22 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
-    /// Maximum number of internal fetch attempts ``fetchAndPushFreshToken(attempt:)``
-    /// makes per `badJWT` rejection before giving up. Separate from
-    /// ``maxBadJWTRetryAttempts``: that bounds how many *incoming* `badJWT`
-    /// messages trigger a recovery attempt at all; this bounds how hard a
-    /// single attempt tries before accepting defeat.
-    private static let maxInternalFetchAttempts = 3
-
-    /// Responds to a `badJWT` rejection by fetching a genuinely fresh token and
-    /// pushing it, resolving KlaviyoJS's pending `awaitNextSetJWT()`.
+    /// Responds to a `badJWT` rejection by dropping the now-known-bad cached
+    /// token, so it stops being handed back to every subsequent token
+    /// request for the rest of the session.
     ///
-    /// The rejected token must be invalidated before re-fetching — the cache
-    /// would otherwise hand back the same bad token, since a `badJWT`
-    /// rejection isn't reflected in the token's own `exp` claim. Bounded by
-    /// ``maxBadJWTRetryAttempts`` since a provider that always returns an
-    /// invalid token would otherwise retry indefinitely.
+    /// `AuthTokenManager` only tracks a token's own `exp` claim — it has no
+    /// way to know the backend rejected a token that, by that claim, is
+    /// still unexpired. Without this, the same rejected token would keep
+    /// being served to every later WebView/form until it naturally expires
+    /// or the app restarts. This is deliberately passive: it does not
+    /// attempt to fetch or push a replacement for the currently-open form —
+    /// see MAGE-1118 for why an active retry here needs separate design
+    /// alignment before it's built.
     @MainActor
     private func handleBadJWT() {
-        guard badJWTRetryAttempts < Self.maxBadJWTRetryAttempts else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("BadJWT retry limit reached; no further attempts will be made")
-            }
-            return
-        }
-        badJWTRetryAttempts += 1
-
-        Task { @MainActor in
+        Task {
             await AuthTokenManager.shared.clearTokenState()
-            await fetchAndPushFreshToken(attempt: 1)
-        }
-    }
-
-    /// Fetches a fresh token and pushes it, retrying internally on failure.
-    ///
-    /// `clearTokenState()` (called once by ``handleBadJWT()`` before this
-    /// runs) drops the proactive-refresh schedule as a side effect of
-    /// invalidating the rejected token — nothing re-arms it until a fetch
-    /// here succeeds. Without an internal retry, a single transient failure
-    /// (timeout, network blip) would leave this WebView with no scheduled
-    /// refresh and no cached token: no further recovery for the rest of its
-    /// lifetime, since ``handleBadJWT()`` only reacts to *new* `badJWT`
-    /// messages and fender may not send another. Retrying here — rather than
-    /// waiting on another `badJWT` — is what actually closes that gap.
-    @MainActor
-    private func fetchAndPushFreshToken(attempt: Int) async {
-        do {
-            let token = try await AuthTokenManager.shared.currentToken(mode: .background)
-            await pushAuthToken(token)
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning(
-                    "Unable to fetch a fresh auth token after BadJWT (attempt \(attempt)): \(error)"
-                )
-            }
-            guard attempt < Self.maxInternalFetchAttempts else { return }
-            try? await Task.sleep(nanoseconds: UInt64(attempt) * 250_000_000)
-            await fetchAndPushFreshToken(attempt: attempt + 1)
         }
     }
 }
