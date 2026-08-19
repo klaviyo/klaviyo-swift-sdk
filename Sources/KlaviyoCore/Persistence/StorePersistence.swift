@@ -38,6 +38,7 @@ public struct PersistedConfig: Codable, Equatable {
 public enum StoreFile {
     public static let identity = "klaviyo-identity.json"
     public static let config = "klaviyo-config.json"
+    public static let unattributed = "klaviyo-unattributed.json"
 }
 
 // MARK: - Load / save helpers
