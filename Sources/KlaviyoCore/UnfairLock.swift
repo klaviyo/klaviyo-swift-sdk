@@ -16,7 +16,11 @@ import os
 ///
 /// Semantics inherited from `os_unfair_lock`: not recursive (re-entering `withLock` on the same thread
 /// deadlocks) and not fair, but priority-inversion safe (the kernel can boost the lock holder).
-final class UnfairLock {
+///
+/// This is the SDK's single first-party locking primitive for guarding simple critical sections —
+/// prefer it over `NSLock`/GCD for in-memory state. `@unchecked Sendable` is sound: the boxed
+/// `os_unfair_lock` is the synchronization, and `withLock` is its only access path.
+final class UnfairLock: @unchecked Sendable {
     private var _lock = os_unfair_lock_s()
 
     func withLock<R>(_ body: () throws -> R) rethrows -> R {

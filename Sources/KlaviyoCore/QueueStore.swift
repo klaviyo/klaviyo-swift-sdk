@@ -70,15 +70,19 @@ public final class QueueStore {
     private let scheduler: PersistScheduler
     private let emitWarning: (String) -> Void
 
-    // guards `queue`; released before disk writes so I/O never blocks queue ops
-    private let queueLock = NSLock()
-    private let persistLock = NSLock() // serializes writes + guards the debounce-coalescing state
+    // Two locks keep slow disk I/O off the hot queue path: `queueLock` guards the in-memory array
+    // and is released before any disk write, so a persist never blocks enqueue/prepend/reads.
+    // `persistLock` serializes writes and guards the debounce-coalescing state.
+    //
+    // LOCK ORDERING: when both are held, always acquire `persistLock` before `queueLock`, never the
+    // reverse. `persistCurrent` is the only nesting site (persistLock outer, queueLock inner); every
+    // other site takes exactly one lock. Preserve this order to stay deadlock-free.
+    private let queueLock = UnfairLock()
+    private let persistLock = UnfairLock()
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    // Coalesces `.debounced` persists: the first mutation in a window schedules one callback and
-    // records its token here; later debounced mutations within the window coalesce onto it instead
-    // of scheduling their own. A synchronous persist — or the callback firing — clears it. `0` means
-    // no debounce is pending. `debounceSeq` mints unique tokens so a superseded callback can tell it
-    // is no longer the current one and no-op.
+    // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
+    // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
+    // See `schedulePersist` for how a burst coalesces onto a single callback.
     private var pendingDebounceToken = 0
     private var debounceSeq = 0
 
@@ -99,27 +103,27 @@ public final class QueueStore {
     // MARK: Mutations
 
     public func enqueue(_ request: KlaviyoRequest, persist: PersistPolicy = .debounced) {
-        queueLock.lock()
-        var next = hydrated()
-        evictIfAtCapacity(&next)
-        if request.priority == .high {
-            next.insert(request, at: 0)
-        } else {
-            next.append(request)
+        queueLock.withLock {
+            var next = hydrated()
+            evictIfAtCapacity(&next)
+            if request.priority == .high {
+                next.insert(request, at: 0)
+            } else {
+                next.append(request)
+            }
+            queue = next
         }
-        queue = next
-        queueLock.unlock()
         schedulePersist(persist)
     }
 
     public func prepend(_ requests: [KlaviyoRequest],
                         persist: PersistPolicy = .debounced) {
         guard !requests.isEmpty else { return }
-        queueLock.lock()
-        var next = hydrated()
-        next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
-        queue = next
-        queueLock.unlock()
+        queueLock.withLock {
+            var next = hydrated()
+            next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
+            queue = next
+        }
         schedulePersist(persist)
     }
 
@@ -142,64 +146,60 @@ public final class QueueStore {
 
     // MARK: Persistence
 
-    /// Either flushes inline (`.synchronous`) or schedules one debounced flush per window
-    /// (`.debounced`). A debounced burst coalesces to a single scheduled callback: only the first
-    /// mutation schedules, later ones piggyback on the pending token. A synchronous persist clears
-    /// the pending token so its still-scheduled callback no-ops when it fires. Coalescing is only an
-    /// optimization — correctness comes from `persistCurrent`, which always writes the current
-    /// authoritative queue, so a superseded fire can never persist stale state.
+    /// Flushes inline (`.synchronous`) or coalesces to one debounced flush per window (`.debounced`):
+    /// only the first mutation in a window schedules a callback, later ones piggyback on its token,
+    /// and a synchronous persist clears the token so its still-scheduled callback no-ops. Coalescing
+    /// is purely an optimization — see `persistCurrent` for why a superseded fire is always safe.
     private func schedulePersist(_ policy: PersistPolicy) {
         switch policy {
         case .synchronous:
-            persistLock.lock()
-            pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
-            persistLock.unlock()
+            // supersede any pending debounce; its callback will no-op
+            persistLock.withLock { pendingDebounceToken = 0 }
             persistCurrent()
         case .debounced:
-            persistLock.lock()
-            guard pendingDebounceToken == 0 else { persistLock.unlock(); return } // coalesce
-            debounceSeq &+= 1
-            let token = debounceSeq
-            pendingDebounceToken = token
-            persistLock.unlock()
+            let token: Int? = persistLock.withLock {
+                guard pendingDebounceToken == 0 else { return nil } // coalesce onto the pending window
+                debounceSeq &+= 1
+                pendingDebounceToken = debounceSeq
+                return debounceSeq
+            }
+            guard let token else { return }
             scheduler.schedule(Self.debounceInterval) { [weak self] in
                 guard let self else { return }
-                self.persistLock.lock()
-                let isCurrent = self.pendingDebounceToken == token
-                if isCurrent { self.pendingDebounceToken = 0 }
-                self.persistLock.unlock()
+                let isCurrent = self.persistLock.withLock { () -> Bool in
+                    let current = self.pendingDebounceToken == token
+                    if current { self.pendingDebounceToken = 0 }
+                    return current
+                }
                 guard isCurrent else { return } // superseded → coalesced away
                 self.persistCurrent()
             }
         }
     }
 
-    /// Serializes the whole persist under `persistLock` and snapshots the *current* authoritative
-    /// queue at write time. Because every persist reads the latest memory and writes are serialized,
-    /// disk always converges to the newest state — there is no captured snapshot that can go stale.
-    /// `queueLock` is released before the disk write so I/O never blocks queue ops.
+    /// Snapshots the *current* queue at write time (not at schedule time) and writes it under
+    /// `persistLock`. Serialized writes of the latest memory mean disk always converges to the newest
+    /// state, so a superseded debounce fire can never persist stale data. `queueLock` is held only for
+    /// the snapshot and released before the disk write, so I/O never blocks queue ops.
     private func persistCurrent() {
-        persistLock.lock(); defer { persistLock.unlock() }
-        queueLock.lock()
-        let snapshot = queue ?? []
-        queueLock.unlock()
-        do {
-            try diskIO.save(snapshot)
-        } catch {
-            emitWarning("QueueStore: failed to persist queue (\(error))")
+        persistLock.withLock {
+            let snapshot = queueLock.withLock { queue ?? [] }
+            do {
+                try diskIO.save(snapshot)
+            } catch {
+                emitWarning("QueueStore: failed to persist queue (\(error))")
+            }
         }
     }
 
     // MARK: Reads
 
     public var requests: [KlaviyoRequest] {
-        queueLock.lock(); defer { queueLock.unlock() }
-        return hydrated()
+        queueLock.withLock { hydrated() }
     }
 
     public var count: Int {
-        queueLock.lock(); defer { queueLock.unlock() }
-        return hydrated().count
+        queueLock.withLock { hydrated().count }
     }
 
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `queueLock`.
@@ -212,24 +212,24 @@ public final class QueueStore {
 }
 
 extension QueueStore {
-    private static let registryLock = NSLock()
+    private static let registryLock = UnfairLock()
     private static var registry: [String: QueueStore] = [:]
 
     /// Resolves the current apiKey from `SDKConfigStore` and returns the (cached) store for it,
     /// or `nil` if no apiKey is set yet (buffering pre-apiKey events is handled elsewhere).
     public static func current() -> QueueStore? {
         guard let apiKey = SDKConfigStore.shared.current.apiKey else { return nil }
-        registryLock.lock(); defer { registryLock.unlock() }
-        if let existing = registry[apiKey] { return existing }
-        let store = QueueStore(apiKey: apiKey)
-        registry[apiKey] = store
-        return store
+        return registryLock.withLock {
+            if let existing = registry[apiKey] { return existing }
+            let store = QueueStore(apiKey: apiKey)
+            registry[apiKey] = store
+            return store
+        }
     }
 
     /// Test-support: clears the per-apiKey instance cache.
     package static func resetRegistry() {
-        registryLock.lock(); defer { registryLock.unlock() }
-        registry.removeAll()
+        registryLock.withLock { registry.removeAll() }
     }
 }
 
