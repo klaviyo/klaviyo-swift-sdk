@@ -32,7 +32,10 @@ final class EventBuffer {
     private let maxBufferSize: Int
     private let maxBufferAge: TimeInterval
     private let clock: () -> TimeInterval
-    private let queue = DispatchQueue(label: "com.klaviyo.eventBuffer", attributes: .concurrent)
+    // A single unfair lock guards `buffer`. The buffer holds at most `maxBufferSize` (~10) events, so
+    // a reader/writer scheme (concurrent queue + barrier) buys nothing here and a plain lock keeps the
+    // mutations synchronous — a read immediately after a write always sees it.
+    private let lock = UnfairLock()
 
     // MARK: - Initialization
 
@@ -61,57 +64,51 @@ final class EventBuffer {
             Logger.eventBuffer.info("📤 Buffering event: \(event.metric.name.value, privacy: .public)")
         }
 
-        queue.async(flags: .barrier) { [weak self] in
-            guard let self else { return }
-            let currentTime = self.clock()
+        let count = lock.withLock {
+            let currentTime = clock()
 
             // Clean old events from buffer (using monotonic clock to avoid issues with device clock changes)
-            self.buffer = self.buffer.filter { currentTime - $0.timestamp < self.maxBufferAge }
+            buffer = buffer.filter { currentTime - $0.timestamp < maxBufferAge }
+            buffer.append(BufferedEvent(event: event, timestamp: currentTime))
 
-            // Add new event
-            self.buffer.append(BufferedEvent(event: event, timestamp: currentTime))
-
-            // Keep only last N events
-            if self.buffer.count > self.maxBufferSize {
-                self.buffer = Array(self.buffer.suffix(self.maxBufferSize))
+            if buffer.count > maxBufferSize {
+                buffer = Array(buffer.suffix(maxBufferSize))
             }
+            return buffer.count
+        }
 
-            if #available(iOS 14.0, *) {
-                Logger.eventBuffer.info("💾 Buffer now has \(self.buffer.count) event(s)")
-            }
+        if #available(iOS 14.0, *) {
+            Logger.eventBuffer.info("💾 Buffer now has \(count) event(s)")
         }
     }
 
     /// Gets recent events from the buffer (within maxBufferAge).
     /// - Returns: Array of buffered events that haven't expired
     func getRecentEvents() -> [Event] {
-        queue.sync {
+        let recentEvents = lock.withLock { () -> [Event] in
             let currentTime = clock()
-            let recentEvents = buffer
+            return buffer
                 .filter { currentTime - $0.timestamp < maxBufferAge }
                 .map(\.event)
-
-            if #available(iOS 14.0, *) {
-                if recentEvents.isEmpty {
-                    Logger.eventBuffer.info("📭 Event buffer is empty - no events to replay")
-                } else {
-                    let names = recentEvents.map(\.metric.name.value).joined(separator: ", ")
-                    Logger.eventBuffer.info(
-                        "📬 Replaying \(recentEvents.count) buffered event(s): \(names, privacy: .public)"
-                    )
-                }
-            }
-
-            return recentEvents
         }
+
+        if #available(iOS 14.0, *) {
+            if recentEvents.isEmpty {
+                Logger.eventBuffer.info("📭 Event buffer is empty - no events to replay")
+            } else {
+                let names = recentEvents.map(\.metric.name.value).joined(separator: ", ")
+                Logger.eventBuffer.info(
+                    "📬 Replaying \(recentEvents.count) buffered event(s): \(names, privacy: .public)"
+                )
+            }
+        }
+
+        return recentEvents
     }
 
     /// Clears all events from the buffer.
     /// This is useful for testing to ensure clean state between tests.
     func clear() {
-        queue.async(flags: .barrier) { [weak self] in
-            guard let self else { return }
-            self.buffer.removeAll()
-        }
+        lock.withLock { buffer.removeAll() }
     }
 }

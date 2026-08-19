@@ -31,11 +31,19 @@ public protocol ConfigWriting {
 public final class SDKConfigStore: ConfigReading, ConfigWriting {
     public static let shared = SDKConfigStore()
 
+    // INVARIANT: never hold `lock` across `subject.send`. `lock` is a non-recursive `UnfairLock`;
+    // Combine delivers synchronously, so a subscriber that reads a lock-guarded accessor (e.g.
+    // `current`, via `hydrateIfNeeded`) during delivery would deadlock. Always mutate under the lock,
+    // then emit outside it.
+    //
+    // SINGLE WRITER: all writes (`update`) come from the TCA reducer's write-through defer, which runs
+    // serially, so persist-then-emit is never interleaved by a second writer. The lock therefore
+    // guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a write — not
+    // writer-vs-writer.
+    //
     // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
-    // need no external lock. `lock` guards only `hydrated` and disk I/O, and is NEVER held across
-    // `subject.send`: Combine delivers synchronously, so a subscriber that reads a lock-guarded
-    // accessor (e.g. `current`, via `hydrateIfNeeded`) during delivery would deadlock. Hydration
-    // may assign `subject.value` under the lock only because a fresh store has no subscribers yet.
+    // need no external lock. `lock` guards only `hydrated` and disk I/O. Hydration may assign
+    // `subject.value` under the lock only because a fresh store has no subscribers yet.
     private let subject: CurrentValueSubject<KlaviyoConfig, Never>
     private let lock = UnfairLock()
     private var hydrated = false
@@ -79,9 +87,8 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
 
     public func update(_ config: KlaviyoConfig) {
         hydrateIfNeeded()
-        // Persist under the lock so concurrent `update` calls can't interleave file writes
-        // (mirrors `IdentityStore`). The `config` param is written directly, so there is no
-        // stale-snapshot risk.
+        // Persist under the lock so concurrent `update` calls can't interleave file writes.
+        // The `config` param is written directly, so there is no stale-snapshot risk.
         lock.withLock {
             savePersisted(
                 PersistedConfig(version: PersistedConfig.currentVersion, apiKey: config.apiKey),

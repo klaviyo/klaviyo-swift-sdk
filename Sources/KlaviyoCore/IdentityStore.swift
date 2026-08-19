@@ -29,11 +29,19 @@ public protocol IdentityWriting {
 public final class IdentityStore: IdentityReading, IdentityWriting {
     public static let shared = IdentityStore()
 
+    // INVARIANT: never hold `lock` across `subject.send`. `lock` is a non-recursive `UnfairLock`;
+    // Combine delivers synchronously, so a subscriber that reads a lock-guarded accessor (e.g.
+    // `pushToken`) during delivery would deadlock. Always mutate under the lock, then emit outside it.
+    //
+    // SINGLE WRITER: all writes (`update`/`updatePushToken`) come from the TCA reducer's write-through
+    // defer, which runs serially, so persist-then-emit is never interleaved by a second writer. The
+    // lock therefore guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a
+    // write — not writer-vs-writer. If a concurrent writer is ever introduced, persist and emit could
+    // reorder across threads; revisit this the way `QueueStore.persistCurrent` handles it.
+    //
     // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
-    // need no external lock. `lock` guards only `hydrated`, `pushTokenValue`, and disk I/O, and is
-    // NEVER held across `subject.send`: Combine delivers synchronously, so a subscriber that reads a
-    // lock-guarded accessor (e.g. `pushToken`) during delivery would deadlock. Hydration may assign
-    // `subject.value` under the lock only because a fresh store has no subscribers yet.
+    // need no external lock. `lock` guards only `hydrated`, `pushTokenValue`, and disk I/O. Hydration
+    // may assign `subject.value` under the lock only because a fresh store has no subscribers yet.
     private let subject: CurrentValueSubject<ProfileData, Never>
     private let lock = UnfairLock()
     private var hydrated = false
