@@ -66,4 +66,57 @@ final class RequestFactoryTests: XCTestCase {
         let props = payload.data.attributes.properties.value as? [String: Any]
         XCTAssertEqual(props?["Push Token"] as? String, "tok")
     }
+
+    // MARK: - apiKey-free payload builders
+
+    func testEventPayloadMatchesEventRequestPayload() {
+        let identity = RequestIdentity(
+            apiKey: "pk", anonymousId: "anon", email: "a@b.co"
+        )
+        let event = Event(name: .customEvent("X"), properties: ["k": "v"])
+
+        let viaRequest = RequestFactory.eventRequest(identity: identity, event: event, pushToken: "tok")
+        let payload = RequestFactory.eventPayload(
+            anonymousId: "anon", email: "a@b.co", phoneNumber: nil, externalId: nil,
+            event: event, pushToken: "tok"
+        )
+
+        guard case let .createEvent(_, requestPayload) = viaRequest.endpoint else {
+            return XCTFail("expected createEvent endpoint")
+        }
+        XCTAssertEqual(payload, requestPayload)
+    }
+
+    func testTokenPayloadMatchesTokenRequestPayload() {
+        let profile = ProfilePayload(anonymousId: "anon")
+        let viaRequest = RequestFactory.tokenRequest(
+            apiKey: "pk", pushToken: "tok", enablement: .authorized,
+            background: "AVAILABLE", profile: profile
+        )
+        let payload = RequestFactory.tokenPayload(
+            anonymousId: "anon", email: nil, phoneNumber: nil, externalId: nil,
+            pushToken: "tok", enablement: .authorized, background: "AVAILABLE"
+        )
+
+        guard case let .registerPushToken(_, requestPayload) = viaRequest.endpoint else {
+            return XCTFail("expected registerPushToken endpoint")
+        }
+        XCTAssertEqual(payload, requestPayload)
+    }
+
+    func testProfilePayloadDelegatesToFieldBasedBuilder() {
+        let identity = RequestIdentity(
+            apiKey: "pk", anonymousId: "anon", email: "a@b.co",
+            phoneNumber: "+15559990000", externalId: "ext"
+        )
+        let properties: [String: Any] = ["foo": "bar"]
+
+        let viaIdentity = RequestFactory.profilePayload(identity: identity, properties: properties)
+        let viaFields = RequestFactory.profilePayload(
+            anonymousId: "anon", email: "a@b.co", phoneNumber: "+15559990000",
+            externalId: "ext", properties: properties
+        )
+
+        XCTAssertEqual(viaIdentity, viaFields)
+    }
 }

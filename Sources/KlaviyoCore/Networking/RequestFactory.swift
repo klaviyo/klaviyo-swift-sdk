@@ -53,12 +53,32 @@ public enum RequestFactory {
         identity: RequestIdentity,
         properties: [String: Any] = [:]
     ) -> CreateProfilePayload {
-        CreateProfilePayload(data: ProfilePayload(
+        profilePayload(
+            anonymousId: identity.anonymousId,
             email: identity.email,
             phoneNumber: identity.phoneNumber,
             externalId: identity.externalId,
+            properties: properties
+        )
+    }
+
+    /// Builds a `CreateProfilePayload` from individual identity fields (no apiKey required).
+    ///
+    /// Use this when a profile payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func profilePayload(
+        anonymousId: String,
+        email: String?,
+        phoneNumber: String?,
+        externalId: String?,
+        properties: [String: Any] = [:]
+    ) -> CreateProfilePayload {
+        CreateProfilePayload(data: ProfilePayload(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
             properties: properties,
-            anonymousId: identity.anonymousId
+            anonymousId: anonymousId
         ))
     }
 
@@ -75,26 +95,48 @@ public enum RequestFactory {
         event: Event,
         pushToken: String?
     ) -> KlaviyoRequest {
-        let stamped = event.updateEventWithIdentifiers(
+        let payload = eventPayload(
+            anonymousId: identity.anonymousId,
             email: identity.email,
             phoneNumber: identity.phoneNumber,
             externalId: identity.externalId,
+            event: event,
             pushToken: pushToken
         )
-        let payload = CreateEventPayload(
+        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: event.priority)
+    }
+
+    /// Builds a `CreateEventPayload` from individual identity fields (no apiKey required).
+    ///
+    /// Use this when an event payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func eventPayload(
+        anonymousId: String,
+        email: String?,
+        phoneNumber: String?,
+        externalId: String?,
+        event: Event,
+        pushToken: String?
+    ) -> CreateEventPayload {
+        let stamped = event.updateEventWithIdentifiers(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            pushToken: pushToken
+        )
+        return CreateEventPayload(
             data: CreateEventPayload.Event(
                 name: stamped.metric.name.value,
                 properties: stamped.properties,
                 email: stamped.identifiers?.email,
                 phoneNumber: stamped.identifiers?.phoneNumber,
                 externalId: stamped.identifiers?.externalId,
-                anonymousId: identity.anonymousId,
+                anonymousId: anonymousId,
                 value: stamped.value,
                 time: stamped.time,
                 uniqueId: stamped.uniqueId,
                 pushToken: pushToken
             ))
-        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: stamped.priority)
     }
 
     public static func unregisterRequest(
@@ -109,6 +151,35 @@ public enum RequestFactory {
             anonymousId: identity.anonymousId
         )
         return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload))
+    }
+
+    /// Builds a `PushTokenPayload` from individual identity fields (no apiKey required).
+    ///
+    /// Constructs an empty-properties `ProfilePayload` internally, matching how the live
+    /// push-token registration path resolves the profile before calling ``tokenRequest``.
+    /// Use this when a token payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func tokenPayload(
+        anonymousId: String,
+        email: String?,
+        phoneNumber: String?,
+        externalId: String?,
+        pushToken: String,
+        enablement: PushEnablement,
+        background: String
+    ) -> PushTokenPayload {
+        PushTokenPayload(
+            pushToken: pushToken,
+            enablement: enablement.rawValue,
+            background: background,
+            profile: ProfilePayload(
+                email: email,
+                phoneNumber: phoneNumber,
+                externalId: externalId,
+                properties: [:],
+                anonymousId: anonymousId
+            )
+        )
     }
 
     public static func tokenRequest(
