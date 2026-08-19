@@ -13,11 +13,13 @@ import Foundation
 /// No reducer routing. See MAGE-951; caller cutover is MAGE-952.
 public enum RequestEnqueuer {
     public static func enqueueEvent(_ event: Event) {
-        guard let anonymousId = IdentityStore.shared.current.anonymousId else {
+        let identity = IdentityStore.shared.current
+        // Defensive: IdentityStore mints anonymousId on first access (MAGE-894), so this
+        // branch is unreachable in practice. Retained against future minting-policy changes.
+        guard let anonymousId = identity.anonymousId else {
             environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
             return
         }
-        let identity = IdentityStore.shared.current
         let pushToken = IdentityStore.shared.pushToken?.pushToken
         let payload = RequestFactory.eventPayload(
             anonymousId: anonymousId, email: identity.email,
@@ -43,11 +45,12 @@ public enum RequestEnqueuer {
     }
 
     public static func enqueueProfile(properties: [String: Any]) {
-        guard let anonymousId = IdentityStore.shared.current.anonymousId else {
+        let identity = IdentityStore.shared.current
+        // Defensive: see enqueueEvent comment — unreachable under current minting policy.
+        guard let anonymousId = identity.anonymousId else {
             environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
             return
         }
-        let identity = IdentityStore.shared.current
         let payload = RequestFactory.profilePayload(
             anonymousId: anonymousId, email: identity.email,
             phoneNumber: identity.phoneNumber, externalId: identity.externalId,
@@ -63,11 +66,12 @@ public enum RequestEnqueuer {
     }
 
     public static func enqueuePushToken(_ token: String, enablement: PushEnablement) {
-        guard let anonymousId = IdentityStore.shared.current.anonymousId else {
+        let identity = IdentityStore.shared.current
+        // Defensive: see enqueueEvent comment — unreachable under current minting policy.
+        guard let anonymousId = identity.anonymousId else {
             environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
             return
         }
-        let identity = IdentityStore.shared.current
         let payload = RequestFactory.tokenPayload(
             anonymousId: anonymousId, email: identity.email,
             phoneNumber: identity.phoneNumber, externalId: identity.externalId,
@@ -88,7 +92,18 @@ public enum RequestEnqueuer {
     /// durable before the buffer file is removed. A crash in the gap re-drains next launch (a
     /// dedup-able duplicate, never silent loss). Built + tested here; called by MAGE-952's
     /// slimmed `initialize(apiKey:)`.
+    ///
+    /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey` — the key
+    ///   `QueueStore.current()` resolves. If they diverge the drain is skipped to prevent
+    ///   requests being stamped with one key but written into another key's queue file.
     public static func drainBuffer(apiKey: String) {
+        if apiKey != SDKConfigStore.shared.current.apiKey {
+            environment.emitDeveloperWarning(
+                "RequestEnqueuer.drainBuffer: apiKey does not match the active SDKConfigStore " +
+                    "apiKey; skipping drain to prevent key mismatch in QueueStore"
+            )
+            return
+        }
         let buffered = UnattributedBuffer.shared.snapshot()
         guard !buffered.isEmpty, let queue = QueueStore.current() else { return }
 

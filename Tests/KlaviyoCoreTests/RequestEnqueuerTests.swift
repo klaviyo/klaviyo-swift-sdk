@@ -183,4 +183,28 @@ final class RequestEnqueuerTests: XCTestCase {
                            "on-disk queue nil but in-memory count should be 1")
         }
     }
+
+    func testDrainWithMismatchedApiKeyIsSkipped() {
+        // Configure the active SDK key to "pk-1" and buffer one event.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        // Reset to no-apiKey so the event lands in the buffer, then drain with wrong key.
+        SDKConfigStore.shared.reset()
+        RequestEnqueuer.enqueueEvent(Event(name: .customEvent("buffered")))
+        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 1, "pre-condition: event buffered")
+
+        // Set active key back to "pk-1" so QueueStore resolves it, then drain with a wrong key.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        var warnings: [String] = []
+        environment.emitDeveloperWarning = { warnings.append($0) }
+
+        RequestEnqueuer.drainBuffer(apiKey: "pk-2")
+
+        // Buffer must NOT have been cleared — at-least-once preservation.
+        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 1,
+                       "buffer should be intact when apiKeys mismatch")
+        // The pk-1 queue must be empty — no requests written to the wrong queue.
+        XCTAssertEqual(QueueStore.current()?.count, 0,
+                       "pk-1 QueueStore should be empty after skipped drain")
+        XCTAssertFalse(warnings.isEmpty, "a developer warning should have been emitted")
+    }
 }
