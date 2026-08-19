@@ -468,9 +468,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// still unexpired. Without this, the same rejected token would keep
     /// being served to every later WebView/form until it naturally expires
     /// or the app restarts. This is deliberately passive: it does not
-    /// attempt to fetch or push a replacement for the currently-open form —
-    /// see MAGE-1118 for why an active retry here needs separate design
-    /// alignment before it's built.
+    /// attempt to fetch or push a replacement for the currently-open form.
     @MainActor
     private func handleBadJWT() {
         Task {

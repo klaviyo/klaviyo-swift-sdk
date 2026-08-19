@@ -48,20 +48,21 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
 
         // Then — the cache no longer serves the rejected token: the next
         // fetch must hit the provider again rather than reusing it. The
-        // invalidation runs on a fire-and-forget Task, so poll for it.
-        var refetched = false
-        for _ in 0..<50 {
-            _ = try? await AuthTokenManager.shared.currentToken()
-            if await counter.value > baseline {
-                refetched = true
-                break
+        // invalidation runs on a fire-and-forget Task, so probe
+        // `currentToken()` until it lands, blocking on the counter (not a
+        // fixed sleep) via an expectation with a bounded timeout.
+        let refetched = XCTestExpectation(description: "cache invalidated; provider hit again")
+        let prober = Task {
+            while !Task.isCancelled {
+                _ = try? await AuthTokenManager.shared.currentToken()
+                if await counter.value > baseline {
+                    refetched.fulfill()
+                    return
+                }
             }
-            try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertTrue(
-            refetched,
-            "Expected badJWT to invalidate the cached token so the next fetch reaches the provider"
-        )
+        await fulfillment(of: [refetched], timeout: 2.0)
+        prober.cancel()
 
         await AuthTokenManager.shared.unregisterProvider()
     }
