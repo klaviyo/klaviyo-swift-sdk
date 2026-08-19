@@ -23,6 +23,61 @@ final class UnattributedBufferTests: XCTestCase {
         super.tearDown()
     }
 
+    func testAppendPersistsSynchronously() {
+        let buffer = UnattributedBuffer()
+        buffer.append(.aggregateEvent(Data("a".utf8)))
+        // Read straight off disk — append must write through before returning.
+        let onDisk = loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed)
+        XCTAssertEqual(onDisk?.requests, [.aggregateEvent(Data("a".utf8))])
+    }
+
+    func testHydratesFromDiskOnFirstAccess() {
+        savePersisted(
+            PersistedUnattributedBuffer(requests: [.aggregateEvent(Data("x".utf8))]),
+            fileName: StoreFile.unattributed
+        )
+        let buffer = UnattributedBuffer()
+        XCTAssertEqual(buffer.snapshot(), [.aggregateEvent(Data("x".utf8))])
+    }
+
+    func testAbsentFileYieldsEmpty() {
+        XCTAssertEqual(UnattributedBuffer().snapshot(), [])
+    }
+
+    func testCorruptFileYieldsEmptyAndRemovesFile() throws {
+        // Write bytes that are not valid PersistedUnattributedBuffer JSON.
+        try environment.fileClient.write(
+            Data("not json".utf8),
+            environment.fileClient.libraryDirectory()
+                .appendingPathComponent(StoreFile.unattributed)
+        )
+        let buffer = UnattributedBuffer()
+        XCTAssertEqual(buffer.snapshot(), [])
+        XCTAssertFalse(environment.fileClient.fileExists(
+            environment.fileClient.libraryDirectory()
+                .appendingPathComponent(StoreFile.unattributed).path))
+    }
+
+    func testCapEvictsOldestWhenFull() {
+        let buffer = UnattributedBuffer()
+        for i in 0..<UnattributedBuffer.maxBufferSize {
+            buffer.append(.aggregateEvent(Data("\(i)".utf8)))
+        }
+        buffer.append(.aggregateEvent(Data("newest".utf8)))
+        let snap = buffer.snapshot()
+        XCTAssertEqual(snap.count, UnattributedBuffer.maxBufferSize)
+        XCTAssertEqual(snap.first, .aggregateEvent(Data("1".utf8))) // "0" evicted
+        XCTAssertEqual(snap.last, .aggregateEvent(Data("newest".utf8)))
+    }
+
+    func testClearEmptiesMemoryAndRemovesFile() {
+        let buffer = UnattributedBuffer()
+        buffer.append(.aggregateEvent(Data("a".utf8)))
+        buffer.clear()
+        XCTAssertEqual(buffer.snapshot(), [])
+        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
+    }
+
     func testPersistedBufferRoundTripsAllFourCases() throws {
         let eventPayload = CreateEventPayload(
             data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1"))
