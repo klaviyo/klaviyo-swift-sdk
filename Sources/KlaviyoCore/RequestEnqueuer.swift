@@ -105,7 +105,7 @@ public enum RequestEnqueuer {
             )
             return
         }
-        let buffered = UnattributedBuffer.shared.snapshot()
+        let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
         guard !buffered.isEmpty, let queue = QueueStore.current() else { return }
 
         for (index, request) in buffered.enumerated() {
@@ -131,6 +131,6 @@ public enum RequestEnqueuer {
                 )
             }
         }
-        UnattributedBuffer.shared.removeDrained(buffered.count)
+        UnattributedBuffer.shared.removeDrained(throughCursor: cursor)
     }
 }

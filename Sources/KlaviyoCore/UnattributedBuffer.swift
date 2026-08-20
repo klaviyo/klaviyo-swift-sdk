@@ -35,9 +35,19 @@ final class UnattributedBuffer {
     static let shared = UnattributedBuffer()
     static let maxBufferSize = 200
 
+    /// A buffered request tagged with a process-local, monotonically increasing sequence. The
+    /// sequence — not the array index — identifies an item across cap-eviction and appends, so a
+    /// drain can trim exactly what it snapshotted. Sequences are in-memory only (reassigned on
+    /// hydrate); durability comes from the persisted `UnattributedRequest`s alone.
+    private struct Entry {
+        let sequence: UInt64
+        let request: UnattributedRequest
+    }
+
     private let lock = UnfairLock()
     private var hydrated = false
-    private var requests: [UnattributedRequest] = []
+    private var entries: [Entry] = []
+    private var nextSequence: UInt64 = 0
 
     /// Canonical home for new SDK support files, matching `QueueStore` (the store this buffer
     /// drains into). Resolved per-access so tests can swap the environment's file client.
@@ -51,18 +61,24 @@ final class UnattributedBuffer {
             PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
             directory: storeDirectory
         ) {
-            requests = persisted.requests
+            entries = persisted.requests.map { assignSequence($0) }
         }
+    }
+
+    /// Wraps a request in an `Entry` with the next sequence. Call under `lock`.
+    private func assignSequence(_ request: UnattributedRequest) -> Entry {
+        defer { nextSequence += 1 }
+        return Entry(sequence: nextSequence, request: request)
     }
 
     /// Writes the current in-memory buffer through to disk (or removes the file when empty).
     /// Call under `lock`.
     private func persist() {
-        if requests.isEmpty {
+        if entries.isEmpty {
             removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         } else {
             savePersisted(
-                PersistedUnattributedBuffer(requests: requests),
+                PersistedUnattributedBuffer(requests: entries.map(\.request)),
                 fileName: StoreFile.unattributed, directory: storeDirectory
             )
         }
@@ -71,10 +87,10 @@ final class UnattributedBuffer {
     func append(_ request: UnattributedRequest) {
         lock.withLock {
             hydrateIfNeeded()
-            if requests.count >= Self.maxBufferSize {
-                requests.removeFirst()
+            if entries.count >= Self.maxBufferSize {
+                entries.removeFirst()
             }
-            requests.append(request)
+            entries.append(assignSequence(request))
             persist()
         }
     }
@@ -82,26 +98,37 @@ final class UnattributedBuffer {
     func snapshot() -> [UnattributedRequest] {
         lock.withLock {
             hydrateIfNeeded()
-            return requests
+            return entries.map(\.request)
         }
     }
 
-    /// Removes the first `count` requests — the FIFO prefix a drain has already enqueued — and
-    /// persists the remainder, all under one lock. Unlike `clear()`, requests appended
-    /// concurrently during a drain sit past the prefix and survive, preserving at-least-once.
-    func removeDrained(_ count: Int) {
+    /// Atomic drain snapshot: the buffered requests plus a `cursor` identifying them. Pass the
+    /// cursor back to `removeDrained(throughCursor:)` after enqueuing to remove exactly those
+    /// items — even if cap-eviction or a concurrent append reshaped the buffer in between.
+    func drainSnapshot() -> (requests: [UnattributedRequest], cursor: UInt64) {
         lock.withLock {
             hydrateIfNeeded()
-            let removalCount = min(count, requests.count)
-            guard removalCount > 0 else { return }
-            requests.removeFirst(removalCount)
+            return (entries.map(\.request), entries.last?.sequence ?? 0)
+        }
+    }
+
+    /// Removes every buffered request whose sequence is `<= cursor` — the items a drain has
+    /// already enqueued — and persists the remainder, all under one lock. Front-eviction only
+    /// drops even-lower sequences and appends only mint higher ones, so an item appended
+    /// concurrently during a drain survives instead of being swept up, preserving at-least-once.
+    func removeDrained(throughCursor cursor: UInt64) {
+        lock.withLock {
+            hydrateIfNeeded()
+            let before = entries.count
+            entries.removeAll { $0.sequence <= cursor }
+            guard entries.count != before else { return }
             persist()
         }
     }
 
     func clear() {
         lock.withLock {
-            requests = []
+            entries = []
             hydrated = true
             removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         }
@@ -111,7 +138,8 @@ final class UnattributedBuffer {
     package func reset() {
         lock.withLock {
             hydrated = false
-            requests = []
+            entries = []
+            nextSequence = 0
             removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         }
     }

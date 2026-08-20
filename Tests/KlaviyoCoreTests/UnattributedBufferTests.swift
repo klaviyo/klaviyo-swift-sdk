@@ -70,23 +70,41 @@ final class UnattributedBufferTests: XCTestCase {
         XCTAssertEqual(snap.last, .aggregateEvent(Data("newest".utf8)))
     }
 
-    func testRemoveDrainedRemovesPrefixAndKeepsItemsAppendedDuringDrain() {
+    func testRemoveDrainedKeepsItemsAppendedDuringDrain() {
         let buffer = UnattributedBuffer()
         buffer.append(.aggregateEvent(Data("1".utf8)))
         buffer.append(.aggregateEvent(Data("2".utf8)))
         // Model a drain: it snapshots the current 2 items, then a 3rd is appended
-        // (a concurrent enqueue that saw no apiKey) before the drained prefix is removed.
-        let drainedCount = buffer.snapshot().count
+        // (a concurrent enqueue that saw no apiKey) before the drained items are removed.
+        let (_, cursor) = buffer.drainSnapshot()
         buffer.append(.aggregateEvent(Data("3".utf8)))
-        buffer.removeDrained(drainedCount)
-        // Only the drained prefix is gone; the concurrently-appended item survives.
+        buffer.removeDrained(throughCursor: cursor)
+        // Only the drained items are gone; the concurrently-appended item survives.
         XCTAssertEqual(buffer.snapshot(), [.aggregateEvent(Data("3".utf8))])
+    }
+
+    func testDrainDoesNotDropAppendWhenCapEvictsDuringDrain() {
+        let buffer = UnattributedBuffer()
+        for value in 0..<UnattributedBuffer.maxBufferSize {
+            buffer.append(.aggregateEvent(Data("\(value)".utf8)))
+        }
+        let (_, cursor) = buffer.drainSnapshot() // maxBufferSize items
+        // Concurrent enqueue during the drain: the buffer is at cap, so append evicts the
+        // oldest (front) and stores the newest at the back.
+        buffer.append(.aggregateEvent(Data("newest".utf8)))
+        buffer.removeDrained(throughCursor: cursor)
+        // The item appended during the drain must survive, not be swept up by the trim.
+        XCTAssertEqual(
+            buffer.snapshot(), [.aggregateEvent(Data("newest".utf8))],
+            "item appended during a cap-evicting drain must survive"
+        )
     }
 
     func testRemoveDrainedAllEmptiesMemoryAndRemovesFile() {
         let buffer = UnattributedBuffer()
         buffer.append(.aggregateEvent(Data("a".utf8)))
-        buffer.removeDrained(1)
+        let (_, cursor) = buffer.drainSnapshot()
+        buffer.removeDrained(throughCursor: cursor)
         XCTAssertEqual(buffer.snapshot(), [])
         XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
     }
