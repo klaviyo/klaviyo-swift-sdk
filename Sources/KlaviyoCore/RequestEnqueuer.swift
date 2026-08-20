@@ -30,13 +30,15 @@ public enum RequestEnqueuer {
     }
 
     /// The single routing rule: apiKey present → build a request and enqueue it to `QueueStore`;
-    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`.
+    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`. The queue is
+    /// resolved from the *captured* apiKey (`store(for:)`, not `current()`), so a concurrent
+    /// `SDKConfigStore` change can't route the request to another key's queue or drop it.
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
     ) {
         if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.current()?.enqueue(build(apiKey))
+            QueueStore.store(for: apiKey).enqueue(build(apiKey))
         } else {
             UnattributedBuffer.shared.append(buffered)
         }
@@ -96,16 +98,9 @@ public enum RequestEnqueuer {
         }
         let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
         guard !buffered.isEmpty else { return }
-        // Defensive: `QueueStore.current()` only returns nil when no apiKey is set, and the mismatch
-        // guard above already returns in that case — so this is unreachable today. Retained (and
-        // warned) so a future change that can yield a nil queue never drops the buffer silently.
-        guard let queue = QueueStore.current() else {
-            environment.emitDeveloperWarning(
-                "RequestEnqueuer.drainBuffer: no QueueStore for the active apiKey; " +
-                    "buffered requests are retained for a later drain"
-            )
-            return
-        }
+        // Resolve the queue from the validated `apiKey` (not `current()`) so a concurrent config
+        // change between the guard above and here can't misroute the drained requests.
+        let queue = QueueStore.store(for: apiKey)
 
         for (index, request) in buffered.enumerated() {
             let isLast = index == buffered.count - 1

@@ -218,8 +218,15 @@ extension QueueStore {
     /// Resolves the current apiKey from `SDKConfigStore` and returns the (cached) store for it,
     /// or `nil` if no apiKey is set yet (buffering pre-apiKey events is handled elsewhere).
     public static func current() -> QueueStore? {
-        guard let apiKey = SDKConfigStore.shared.current.apiKey else { return nil }
-        return registryLock.withLock {
+        SDKConfigStore.shared.current.apiKey.map(store(for:))
+    }
+
+    /// Returns the (cached) store for a specific apiKey, creating it on first use. Callers that
+    /// have already captured an apiKey use this instead of ``current()`` so queue resolution can't
+    /// race a concurrent `SDKConfigStore` change — a request built for one key always lands in that
+    /// key's queue, never another key's or dropped.
+    public static func store(for apiKey: String) -> QueueStore {
+        registryLock.withLock {
             if let existing = registry[apiKey] { return existing }
             let store = QueueStore(apiKey: apiKey)
             registry[apiKey] = store
