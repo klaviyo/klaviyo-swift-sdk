@@ -455,6 +455,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("KlaviyoJS rejected the injected auth token (BadJWT)")
             }
+            handleBadJWT()
+        }
+    }
+
+    /// Responds to a `badJWT` rejection by dropping the now-known-bad cached
+    /// token, so it stops being handed back to every subsequent token
+    /// request for the rest of the session.
+    ///
+    /// `AuthTokenManager` only tracks a token's own `exp` claim — it has no
+    /// way to know the backend rejected a token that, by that claim, is
+    /// still unexpired. Without this, the same rejected token would keep
+    /// being served to every later WebView/form until it naturally expires
+    /// or the app restarts. This is deliberately passive: it does not
+    /// attempt to fetch or push a replacement for the currently-open form.
+    @MainActor
+    private func handleBadJWT() {
+        Task {
+            await AuthTokenManager.shared.clearTokenState()
         }
     }
 }

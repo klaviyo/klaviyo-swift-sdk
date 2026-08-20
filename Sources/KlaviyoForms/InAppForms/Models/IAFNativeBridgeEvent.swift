@@ -118,7 +118,7 @@ extension IAFNativeBridgeEvent {
 }
 
 extension IAFNativeBridgeEvent {
-    public static var handshake: String {
+    static var handshake: String {
         struct HandshakeData: Codable {
             var type: String
             var version: Int
@@ -146,6 +146,12 @@ extension IAFNativeBridgeEvent {
         // Events that JS is permitted to send. These are only used for their
         // `name` and `version` properties — the associated values are placeholders
         // and are never decoded.
+        //
+        // `badJWT` is deliberately absent: fender's handshake schema doesn't
+        // recognize it as an advertisable capability (it rejects the whole
+        // handshake as malformed if it's present) — fender sends `badJWT`
+        // unconditionally when it rejects a token, so native only needs to
+        // decode and handle it, never declare support for it upfront.
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
@@ -156,8 +162,7 @@ extension IAFNativeBridgeEvent {
             .lifecycleEvent,
             .profileEvent,
             .profileMutation,
-            .jwtMutation,
-            .badJWT
+            .jwtMutation
         ]
     }
 
