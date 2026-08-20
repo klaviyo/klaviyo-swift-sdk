@@ -146,6 +146,12 @@ final class RequestEnqueuerTests: XCTestCase {
 
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
         XCTAssertEqual(QueueStore.current()?.count, 3)
+        // Verify FIFO order, not just count: reversing the drain would still pass a count check.
+        let names = (QueueStore.current()?.requests ?? []).compactMap { request -> String? in
+            guard case let .createEvent(_, payload) = request.endpoint else { return nil }
+            return payload.data.attributes.metric.data.attributes.name
+        }
+        XCTAssertEqual(names, ["1", "2", "3"], "drain must preserve FIFO order")
     }
 
     func testDrainPreservesPriorityFrontInsert() {
@@ -171,17 +177,16 @@ final class RequestEnqueuerTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
         // Buffer file must be gone.
-        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
-        // Queue must be durable on disk (synchronous final enqueue).
-        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json")
-        if let onDisk {
-            XCTAssertEqual(onDisk.requests.count, 1)
-        } else {
-            // applicationSupportDirectory resolved differently than libraryDirectory in this env;
-            // fall back to the in-memory store count.
-            XCTAssertEqual(QueueStore.current()?.count, 1,
-                           "on-disk queue nil but in-memory count should be 1")
-        }
+        XCTAssertNil(loadPersisted(
+            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
+            directory: storeDirectory()
+        ))
+        // Queue must be durable on disk (synchronous final enqueue), resolved through the same
+        // store directory production writes to.
+        let onDisk = loadPersisted(
+            PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json", directory: storeDirectory()
+        )
+        XCTAssertEqual(onDisk?.requests.count, 1)
     }
 
     func testDrainWithMismatchedApiKeyIsSkipped() {

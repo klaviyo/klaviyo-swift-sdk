@@ -70,15 +70,11 @@ final class RequestFactoryTests: XCTestCase {
     // MARK: - apiKey-free payload builders
 
     func testEventPayloadMatchesEventRequestPayload() {
-        let identity = RequestIdentity(
-            apiKey: "pk", anonymousId: "anon", email: "a@b.co"
-        )
         let event = Event(name: .customEvent("X"), properties: ["k": "v"])
 
         let viaRequest = RequestFactory.eventRequest(identity: identity, event: event, pushToken: "tok")
         let payload = RequestFactory.eventPayload(
-            anonymousId: "anon", email: "a@b.co", phoneNumber: nil, externalId: nil,
-            event: event, pushToken: "tok"
+            identity: PayloadIdentity(identity), event: event, pushToken: "tok"
         )
 
         guard case let .createEvent(_, requestPayload) = viaRequest.endpoint else {
@@ -88,14 +84,15 @@ final class RequestFactoryTests: XCTestCase {
     }
 
     func testTokenPayloadMatchesTokenRequestPayload() {
+        let payloadIdentity = PayloadIdentity(anonymousId: "anon")
         let profile = ProfilePayload(anonymousId: "anon")
         let viaRequest = RequestFactory.tokenRequest(
             apiKey: "pk", pushToken: "tok", enablement: .authorized,
-            background: "AVAILABLE", profile: profile
+            background: PushBackground.available.rawValue, profile: profile
         )
         let payload = RequestFactory.tokenPayload(
-            anonymousId: "anon", email: nil, phoneNumber: nil, externalId: nil,
-            pushToken: "tok", enablement: .authorized, background: "AVAILABLE"
+            identity: payloadIdentity, pushToken: "tok",
+            enablement: .authorized, background: .available
         )
 
         guard case let .registerPushToken(_, requestPayload) = viaRequest.endpoint else {
@@ -104,19 +101,14 @@ final class RequestFactoryTests: XCTestCase {
         XCTAssertEqual(payload, requestPayload)
     }
 
-    func testProfilePayloadDelegatesToFieldBasedBuilder() {
-        let identity = RequestIdentity(
-            apiKey: "pk", anonymousId: "anon", email: "a@b.co",
-            phoneNumber: "+15559990000", externalId: "ext"
-        )
+    func testProfilePayloadRequestIdentityOverloadDelegates() {
         let properties: [String: Any] = ["foo": "bar"]
 
-        let viaIdentity = RequestFactory.profilePayload(identity: identity, properties: properties)
-        let viaFields = RequestFactory.profilePayload(
-            anonymousId: "anon", email: "a@b.co", phoneNumber: "+15559990000",
-            externalId: "ext", properties: properties
+        let viaRequestIdentity = RequestFactory.profilePayload(identity: identity, properties: properties)
+        let viaPayloadIdentity = RequestFactory.profilePayload(
+            identity: PayloadIdentity(identity), properties: properties
         )
 
-        XCTAssertEqual(viaIdentity, viaFields)
+        XCTAssertEqual(viaRequestIdentity, viaPayloadIdentity)
     }
 }

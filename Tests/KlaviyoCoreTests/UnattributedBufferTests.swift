@@ -23,21 +23,33 @@ final class UnattributedBufferTests: XCTestCase {
         super.tearDown()
     }
 
+    /// Terse aggregate-event fixture.
+    private func agg(_ value: String) -> UnattributedRequest {
+        .aggregateEvent(Data(value.utf8))
+    }
+
+    /// Reads the persisted buffer from the store directory production writes to.
+    private func loadBuffer() -> PersistedUnattributedBuffer? {
+        loadPersisted(
+            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
+            directory: storeDirectory()
+        )
+    }
+
     func testAppendPersistsSynchronously() {
         let buffer = UnattributedBuffer()
-        buffer.append(.aggregateEvent(Data("a".utf8)))
+        buffer.append(agg("a"))
         // Read straight off disk — append must write through before returning.
-        let onDisk = loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed)
-        XCTAssertEqual(onDisk?.requests, [.aggregateEvent(Data("a".utf8))])
+        XCTAssertEqual(loadBuffer()?.requests, [agg("a")])
     }
 
     func testHydratesFromDiskOnFirstAccess() {
         savePersisted(
-            PersistedUnattributedBuffer(requests: [.aggregateEvent(Data("x".utf8))]),
-            fileName: StoreFile.unattributed
+            PersistedUnattributedBuffer(requests: [agg("x")]),
+            fileName: StoreFile.unattributed, directory: storeDirectory()
         )
         let buffer = UnattributedBuffer()
-        XCTAssertEqual(buffer.snapshot(), [.aggregateEvent(Data("x".utf8))])
+        XCTAssertEqual(buffer.snapshot(), [agg("x")])
     }
 
     func testAbsentFileYieldsEmpty() {
@@ -46,75 +58,70 @@ final class UnattributedBufferTests: XCTestCase {
 
     func testCorruptFileYieldsEmptyAndRemovesFile() throws {
         // Write bytes that are not valid PersistedUnattributedBuffer JSON.
-        try environment.fileClient.write(
-            Data("not json".utf8),
-            environment.fileClient.libraryDirectory()
-                .appendingPathComponent(StoreFile.unattributed)
-        )
+        let fileURL = storeDirectory().appendingPathComponent(StoreFile.unattributed)
+        try environment.fileClient.write(Data("not json".utf8), fileURL)
         let buffer = UnattributedBuffer()
         XCTAssertEqual(buffer.snapshot(), [])
-        XCTAssertFalse(environment.fileClient.fileExists(
-            environment.fileClient.libraryDirectory()
-                .appendingPathComponent(StoreFile.unattributed).path))
+        XCTAssertFalse(environment.fileClient.fileExists(fileURL.path))
     }
 
     func testCapEvictsOldestWhenFull() {
         let buffer = UnattributedBuffer()
-        for i in 0..<UnattributedBuffer.maxBufferSize {
-            buffer.append(.aggregateEvent(Data("\(i)".utf8)))
+        for value in 0..<UnattributedBuffer.maxBufferSize {
+            buffer.append(agg("\(value)"))
         }
-        buffer.append(.aggregateEvent(Data("newest".utf8)))
+        buffer.append(agg("newest"))
         let snap = buffer.snapshot()
         XCTAssertEqual(snap.count, UnattributedBuffer.maxBufferSize)
-        XCTAssertEqual(snap.first, .aggregateEvent(Data("1".utf8))) // "0" evicted
-        XCTAssertEqual(snap.last, .aggregateEvent(Data("newest".utf8)))
+        XCTAssertEqual(snap.first, agg("1")) // "0" evicted
+        XCTAssertEqual(snap.last, agg("newest"))
     }
 
     func testRemoveDrainedKeepsItemsAppendedDuringDrain() {
         let buffer = UnattributedBuffer()
-        buffer.append(.aggregateEvent(Data("1".utf8)))
-        buffer.append(.aggregateEvent(Data("2".utf8)))
+        buffer.append(agg("1"))
+        buffer.append(agg("2"))
         // Model a drain: it snapshots the current 2 items, then a 3rd is appended
         // (a concurrent enqueue that saw no apiKey) before the drained items are removed.
         let (_, cursor) = buffer.drainSnapshot()
-        buffer.append(.aggregateEvent(Data("3".utf8)))
+        buffer.append(agg("3"))
         buffer.removeDrained(throughCursor: cursor)
         // Only the drained items are gone; the concurrently-appended item survives.
-        XCTAssertEqual(buffer.snapshot(), [.aggregateEvent(Data("3".utf8))])
+        XCTAssertEqual(buffer.snapshot(), [agg("3")])
     }
 
     func testDrainDoesNotDropAppendWhenCapEvictsDuringDrain() {
         let buffer = UnattributedBuffer()
         for value in 0..<UnattributedBuffer.maxBufferSize {
-            buffer.append(.aggregateEvent(Data("\(value)".utf8)))
+            buffer.append(agg("\(value)"))
         }
         let (_, cursor) = buffer.drainSnapshot() // maxBufferSize items
         // Concurrent enqueue during the drain: the buffer is at cap, so append evicts the
         // oldest (front) and stores the newest at the back.
-        buffer.append(.aggregateEvent(Data("newest".utf8)))
+        buffer.append(agg("newest"))
         buffer.removeDrained(throughCursor: cursor)
         // The item appended during the drain must survive, not be swept up by the trim.
         XCTAssertEqual(
-            buffer.snapshot(), [.aggregateEvent(Data("newest".utf8))],
+            buffer.snapshot(), [agg("newest")],
             "item appended during a cap-evicting drain must survive"
         )
     }
 
     func testRemoveDrainedAllEmptiesMemoryAndRemovesFile() {
         let buffer = UnattributedBuffer()
-        buffer.append(.aggregateEvent(Data("a".utf8)))
+        buffer.append(agg("a"))
         let (_, cursor) = buffer.drainSnapshot()
         buffer.removeDrained(throughCursor: cursor)
         XCTAssertEqual(buffer.snapshot(), [])
-        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
+        XCTAssertNil(loadBuffer())
     }
 
     func testClearEmptiesMemoryAndRemovesFile() {
         let buffer = UnattributedBuffer()
-        buffer.append(.aggregateEvent(Data("a".utf8)))
+        buffer.append(agg("a"))
         buffer.clear()
         XCTAssertEqual(buffer.snapshot(), [])
-        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
+        XCTAssertNil(loadBuffer())
     }
 
     func testPersistedBufferRoundTripsAllFourCases() throws {
@@ -130,7 +137,7 @@ final class UnattributedBufferTests: XCTestCase {
             version: PersistedUnattributedBuffer.currentVersion,
             requests: [
                 .event(eventPayload, .high),
-                .aggregateEvent(Data("agg".utf8)),
+                agg("agg"),
                 .profile(profilePayload),
                 .pushToken(tokenPayload)
             ]

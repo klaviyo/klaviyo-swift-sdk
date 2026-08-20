@@ -8,7 +8,7 @@
 import Foundation
 
 /// One request-generating call captured before an apiKey was known. Stored apiKey-free
-/// (the apiKey is stamped into the endpoint at drain). Named to echo `UnattributedBuffer`.
+/// (the apiKey is stamped into the endpoint at drain).
 enum UnattributedRequest: Codable, Equatable {
     case event(CreateEventPayload, RequestPriority)
     case aggregateEvent(Data)
@@ -47,7 +47,9 @@ final class UnattributedBuffer {
     private let lock = UnfairLock()
     private var hydrated = false
     private var entries: [Entry] = []
-    private var nextSequence: UInt64 = 0
+    /// Starts at 1 so the `0` cursor `drainSnapshot()` returns for an empty buffer can never
+    /// match a real entry's sequence.
+    private var nextSequence: UInt64 = 1
 
     /// Canonical home for new SDK support files, matching `QueueStore` (the store this buffer
     /// drains into). Resolved per-access so tests can swap the environment's file client.
@@ -139,7 +141,7 @@ final class UnattributedBuffer {
         lock.withLock {
             hydrated = false
             entries = []
-            nextSequence = 0
+            nextSequence = 1
             removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         }
     }

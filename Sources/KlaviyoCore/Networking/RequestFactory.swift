@@ -34,6 +34,37 @@ public struct RequestIdentity: Equatable {
     }
 }
 
+/// apiKey-free identity fields needed to build a request *payload*. Unlike ``RequestIdentity``
+/// it carries no apiKey, so it is usable before `initialize()` (e.g. the pre-apiKey buffer path).
+public struct PayloadIdentity: Equatable {
+    public let anonymousId: String
+    public let email: String?
+    public let phoneNumber: String?
+    public let externalId: String?
+
+    public init(
+        anonymousId: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil
+    ) {
+        self.anonymousId = anonymousId
+        self.email = email
+        self.phoneNumber = phoneNumber
+        self.externalId = externalId
+    }
+
+    /// Drops the apiKey from a ``RequestIdentity``.
+    public init(_ identity: RequestIdentity) {
+        self.init(
+            anonymousId: identity.anonymousId,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId
+        )
+    }
+}
+
 /// Pure construction of `KlaviyoRequest` values from domain inputs.
 public enum RequestFactory {
     public static func profileRequest(
@@ -53,32 +84,23 @@ public enum RequestFactory {
         identity: RequestIdentity,
         properties: [String: Any] = [:]
     ) -> CreateProfilePayload {
-        profilePayload(
-            anonymousId: identity.anonymousId,
-            email: identity.email,
-            phoneNumber: identity.phoneNumber,
-            externalId: identity.externalId,
-            properties: properties
-        )
+        profilePayload(identity: PayloadIdentity(identity), properties: properties)
     }
 
-    /// Builds a `CreateProfilePayload` from individual identity fields (no apiKey required).
+    /// Builds a `CreateProfilePayload` from apiKey-free identity fields.
     ///
     /// Use this when a profile payload must be constructed before an apiKey is available,
     /// e.g. in the pre-apiKey buffer path.
     public static func profilePayload(
-        anonymousId: String,
-        email: String?,
-        phoneNumber: String?,
-        externalId: String?,
+        identity: PayloadIdentity,
         properties: [String: Any] = [:]
     ) -> CreateProfilePayload {
         CreateProfilePayload(data: ProfilePayload(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
             properties: properties,
-            anonymousId: anonymousId
+            anonymousId: identity.anonymousId
         ))
     }
 
@@ -95,33 +117,23 @@ public enum RequestFactory {
         event: Event,
         pushToken: String?
     ) -> KlaviyoRequest {
-        let payload = eventPayload(
-            anonymousId: identity.anonymousId,
-            email: identity.email,
-            phoneNumber: identity.phoneNumber,
-            externalId: identity.externalId,
-            event: event,
-            pushToken: pushToken
-        )
+        let payload = eventPayload(identity: PayloadIdentity(identity), event: event, pushToken: pushToken)
         return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: event.priority)
     }
 
-    /// Builds a `CreateEventPayload` from individual identity fields (no apiKey required).
+    /// Builds a `CreateEventPayload` from apiKey-free identity fields.
     ///
     /// Use this when an event payload must be constructed before an apiKey is available,
     /// e.g. in the pre-apiKey buffer path.
     public static func eventPayload(
-        anonymousId: String,
-        email: String?,
-        phoneNumber: String?,
-        externalId: String?,
+        identity: PayloadIdentity,
         event: Event,
         pushToken: String?
     ) -> CreateEventPayload {
         let stamped = event.updateEventWithIdentifiers(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
             pushToken: pushToken
         )
         return CreateEventPayload(
@@ -131,7 +143,7 @@ public enum RequestFactory {
                 email: stamped.identifiers?.email,
                 phoneNumber: stamped.identifiers?.phoneNumber,
                 externalId: stamped.identifiers?.externalId,
-                anonymousId: anonymousId,
+                anonymousId: identity.anonymousId,
                 value: stamped.value,
                 time: stamped.time,
                 uniqueId: stamped.uniqueId,
@@ -153,31 +165,28 @@ public enum RequestFactory {
         return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload))
     }
 
-    /// Builds a `PushTokenPayload` from individual identity fields (no apiKey required).
+    /// Builds a `PushTokenPayload` from apiKey-free identity fields.
     ///
     /// Constructs an empty-properties `ProfilePayload` internally, matching how the live
     /// push-token registration path resolves the profile before calling ``tokenRequest``.
     /// Use this when a token payload must be constructed before an apiKey is available,
     /// e.g. in the pre-apiKey buffer path.
     public static func tokenPayload(
-        anonymousId: String,
-        email: String?,
-        phoneNumber: String?,
-        externalId: String?,
+        identity: PayloadIdentity,
         pushToken: String,
         enablement: PushEnablement,
-        background: String
+        background: PushBackground
     ) -> PushTokenPayload {
         PushTokenPayload(
             pushToken: pushToken,
             enablement: enablement.rawValue,
-            background: background,
+            background: background.rawValue,
             profile: ProfilePayload(
-                email: email,
-                phoneNumber: phoneNumber,
-                externalId: externalId,
+                email: identity.email,
+                phoneNumber: identity.phoneNumber,
+                externalId: identity.externalId,
                 properties: [:],
-                anonymousId: anonymousId
+                anonymousId: identity.anonymousId
             )
         )
     }

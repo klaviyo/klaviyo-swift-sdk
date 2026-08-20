@@ -12,78 +12,67 @@ import Foundation
 /// to `QueueStore`; apiKey absent → build an apiKey-free payload → `UnattributedBuffer`.
 /// No reducer routing. See MAGE-951; caller cutover is MAGE-952.
 public enum RequestEnqueuer {
-    public static func enqueueEvent(_ event: Event) {
-        let identity = IdentityStore.shared.current
-        // Defensive: IdentityStore mints anonymousId on first access (MAGE-894), so this
-        // branch is unreachable in practice. Retained against future minting-policy changes.
-        guard let anonymousId = identity.anonymousId else {
-            environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
-            return
-        }
-        let pushToken = IdentityStore.shared.pushToken?.pushToken
-        let payload = RequestFactory.eventPayload(
-            anonymousId: anonymousId, email: identity.email,
-            phoneNumber: identity.phoneNumber, externalId: identity.externalId,
-            event: event, pushToken: pushToken
-        )
+    static let missingAnonymousIdWarning = "RequestEnqueuer: missing anonymousId"
 
+    /// Resolves the current identity, or emits a warning and returns `nil`. `anonymousId` is minted
+    /// on first access under the current single-minter policy, so `nil` is defensive and
+    /// unreachable in practice — retained against future minting-policy changes.
+    private static func resolveIdentity() -> PayloadIdentity? {
+        let identity = IdentityStore.shared.current
+        guard let anonymousId = identity.anonymousId else {
+            environment.emitDeveloperWarning(missingAnonymousIdWarning)
+            return nil
+        }
+        return PayloadIdentity(
+            anonymousId: anonymousId, email: identity.email,
+            phoneNumber: identity.phoneNumber, externalId: identity.externalId
+        )
+    }
+
+    /// The single routing rule: apiKey present → build a request and enqueue it to `QueueStore`;
+    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`.
+    private static func route(
+        buffered: UnattributedRequest,
+        build: (_ apiKey: String) -> KlaviyoRequest
+    ) {
         if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.current()?.enqueue(
-                KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: event.priority))
+            QueueStore.current()?.enqueue(build(apiKey))
         } else {
-            UnattributedBuffer.shared.append(.event(payload, event.priority))
+            UnattributedBuffer.shared.append(buffered)
+        }
+    }
+
+    public static func enqueueEvent(_ event: Event) {
+        guard let identity = resolveIdentity() else { return }
+        let pushToken = IdentityStore.shared.pushToken?.pushToken
+        let payload = RequestFactory.eventPayload(identity: identity, event: event, pushToken: pushToken)
+        route(buffered: .event(payload, event.priority)) { apiKey in
+            KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: event.priority)
         }
     }
 
     public static func enqueueAggregateEvent(_ payload: Data) {
-        if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.current()?.enqueue(
-                KlaviyoRequest(endpoint: .aggregateEvent(apiKey, payload)))
-        } else {
-            UnattributedBuffer.shared.append(.aggregateEvent(payload))
+        route(buffered: .aggregateEvent(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .aggregateEvent(apiKey, payload))
         }
     }
 
     public static func enqueueProfile(properties: [String: Any]) {
-        let identity = IdentityStore.shared.current
-        // Defensive: see enqueueEvent comment — unreachable under current minting policy.
-        guard let anonymousId = identity.anonymousId else {
-            environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
-            return
-        }
-        let payload = RequestFactory.profilePayload(
-            anonymousId: anonymousId, email: identity.email,
-            phoneNumber: identity.phoneNumber, externalId: identity.externalId,
-            properties: properties
-        )
-
-        if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.current()?.enqueue(
-                KlaviyoRequest(endpoint: .createProfile(apiKey, payload)))
-        } else {
-            UnattributedBuffer.shared.append(.profile(payload))
+        guard let identity = resolveIdentity() else { return }
+        let payload = RequestFactory.profilePayload(identity: identity, properties: properties)
+        route(buffered: .profile(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .createProfile(apiKey, payload))
         }
     }
 
     public static func enqueuePushToken(_ token: String, enablement: PushEnablement) {
-        let identity = IdentityStore.shared.current
-        // Defensive: see enqueueEvent comment — unreachable under current minting policy.
-        guard let anonymousId = identity.anonymousId else {
-            environment.emitDeveloperWarning("RequestEnqueuer: missing anonymousId")
-            return
-        }
+        guard let identity = resolveIdentity() else { return }
         let payload = RequestFactory.tokenPayload(
-            anonymousId: anonymousId, email: identity.email,
-            phoneNumber: identity.phoneNumber, externalId: identity.externalId,
-            pushToken: token, enablement: enablement,
-            background: environment.getBackgroundSetting().rawValue
+            identity: identity, pushToken: token, enablement: enablement,
+            background: environment.getBackgroundSetting()
         )
-
-        if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.current()?.enqueue(
-                KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)))
-        } else {
-            UnattributedBuffer.shared.append(.pushToken(payload))
+        route(buffered: .pushToken(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
         }
     }
 
@@ -106,7 +95,17 @@ public enum RequestEnqueuer {
             return
         }
         let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
-        guard !buffered.isEmpty, let queue = QueueStore.current() else { return }
+        guard !buffered.isEmpty else { return }
+        // Defensive: `QueueStore.current()` only returns nil when no apiKey is set, and the mismatch
+        // guard above already returns in that case — so this is unreachable today. Retained (and
+        // warned) so a future change that can yield a nil queue never drops the buffer silently.
+        guard let queue = QueueStore.current() else {
+            environment.emitDeveloperWarning(
+                "RequestEnqueuer.drainBuffer: no QueueStore for the active apiKey; " +
+                    "buffered requests are retained for a later drain"
+            )
+            return
+        }
 
         for (index, request) in buffered.enumerated() {
             let isLast = index == buffered.count - 1
