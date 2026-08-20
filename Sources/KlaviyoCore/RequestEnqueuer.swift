@@ -88,10 +88,11 @@ public enum RequestEnqueuer {
     }
 
     /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
-    /// clears the buffer. At-least-once: the final enqueue persists synchronously so the queue is
-    /// durable before the buffer file is removed. A crash in the gap re-drains next launch (a
-    /// dedup-able duplicate, never silent loss). Built + tested here; called by MAGE-952's
-    /// slimmed `initialize(apiKey:)`.
+    /// removes only the drained FIFO prefix. At-least-once: the final enqueue persists synchronously
+    /// so the queue is durable before the buffer is trimmed. A crash in the gap re-drains next launch
+    /// (a dedup-able duplicate, never silent loss). Removing the exact drained prefix — rather than
+    /// clearing wholesale — means a request appended concurrently during the drain survives instead
+    /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)` in MAGE-952.
     ///
     /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey` — the key
     ///   `QueueStore.current()` resolves. If they diverge the drain is skipped to prevent
@@ -130,6 +131,6 @@ public enum RequestEnqueuer {
                 )
             }
         }
-        UnattributedBuffer.shared.clear()
+        UnattributedBuffer.shared.removeDrained(buffered.count)
     }
 }

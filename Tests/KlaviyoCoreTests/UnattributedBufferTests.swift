@@ -70,6 +70,27 @@ final class UnattributedBufferTests: XCTestCase {
         XCTAssertEqual(snap.last, .aggregateEvent(Data("newest".utf8)))
     }
 
+    func testRemoveDrainedRemovesPrefixAndKeepsItemsAppendedDuringDrain() {
+        let buffer = UnattributedBuffer()
+        buffer.append(.aggregateEvent(Data("1".utf8)))
+        buffer.append(.aggregateEvent(Data("2".utf8)))
+        // Model a drain: it snapshots the current 2 items, then a 3rd is appended
+        // (a concurrent enqueue that saw no apiKey) before the drained prefix is removed.
+        let drainedCount = buffer.snapshot().count
+        buffer.append(.aggregateEvent(Data("3".utf8)))
+        buffer.removeDrained(drainedCount)
+        // Only the drained prefix is gone; the concurrently-appended item survives.
+        XCTAssertEqual(buffer.snapshot(), [.aggregateEvent(Data("3".utf8))])
+    }
+
+    func testRemoveDrainedAllEmptiesMemoryAndRemovesFile() {
+        let buffer = UnattributedBuffer()
+        buffer.append(.aggregateEvent(Data("a".utf8)))
+        buffer.removeDrained(1)
+        XCTAssertEqual(buffer.snapshot(), [])
+        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
+    }
+
     func testClearEmptiesMemoryAndRemovesFile() {
         let buffer = UnattributedBuffer()
         buffer.append(.aggregateEvent(Data("a".utf8)))

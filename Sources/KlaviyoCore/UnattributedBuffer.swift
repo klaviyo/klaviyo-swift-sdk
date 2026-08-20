@@ -39,14 +39,32 @@ final class UnattributedBuffer {
     private var hydrated = false
     private var requests: [UnattributedRequest] = []
 
+    /// Canonical home for new SDK support files, matching `QueueStore` (the store this buffer
+    /// drains into). Resolved per-access so tests can swap the environment's file client.
+    private var storeDirectory: URL { environment.fileClient.applicationSupportDirectory() }
+
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `lock`.
     private func hydrateIfNeeded() {
         guard !hydrated else { return }
         hydrated = true
         if let persisted = loadPersisted(
-            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed
+            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
+            directory: storeDirectory
         ) {
             requests = persisted.requests
+        }
+    }
+
+    /// Writes the current in-memory buffer through to disk (or removes the file when empty).
+    /// Call under `lock`.
+    private func persist() {
+        if requests.isEmpty {
+            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
+        } else {
+            savePersisted(
+                PersistedUnattributedBuffer(requests: requests),
+                fileName: StoreFile.unattributed, directory: storeDirectory
+            )
         }
     }
 
@@ -57,10 +75,7 @@ final class UnattributedBuffer {
                 requests.removeFirst()
             }
             requests.append(request)
-            savePersisted(
-                PersistedUnattributedBuffer(requests: requests),
-                fileName: StoreFile.unattributed
-            )
+            persist()
         }
     }
 
@@ -71,11 +86,24 @@ final class UnattributedBuffer {
         }
     }
 
+    /// Removes the first `count` requests — the FIFO prefix a drain has already enqueued — and
+    /// persists the remainder, all under one lock. Unlike `clear()`, requests appended
+    /// concurrently during a drain sit past the prefix and survive, preserving at-least-once.
+    func removeDrained(_ count: Int) {
+        lock.withLock {
+            hydrateIfNeeded()
+            let removalCount = min(count, requests.count)
+            guard removalCount > 0 else { return }
+            requests.removeFirst(removalCount)
+            persist()
+        }
+    }
+
     func clear() {
         lock.withLock {
             requests = []
             hydrated = true
-            removePersisted(fileName: StoreFile.unattributed)
+            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         }
     }
 
@@ -84,7 +112,7 @@ final class UnattributedBuffer {
         lock.withLock {
             hydrated = false
             requests = []
-            removePersisted(fileName: StoreFile.unattributed)
+            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
         }
     }
 }
