@@ -34,6 +34,37 @@ public struct RequestIdentity: Equatable {
     }
 }
 
+/// apiKey-free identity fields needed to build a request *payload*. Unlike ``RequestIdentity``
+/// it carries no apiKey, so it is usable before `initialize()` (e.g. the pre-apiKey buffer path).
+public struct PayloadIdentity: Equatable {
+    public let anonymousId: String
+    public let email: String?
+    public let phoneNumber: String?
+    public let externalId: String?
+
+    public init(
+        anonymousId: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil
+    ) {
+        self.anonymousId = anonymousId
+        self.email = email
+        self.phoneNumber = phoneNumber
+        self.externalId = externalId
+    }
+
+    /// Drops the apiKey from a ``RequestIdentity``.
+    public init(_ identity: RequestIdentity) {
+        self.init(
+            anonymousId: identity.anonymousId,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId
+        )
+    }
+}
+
 /// Pure construction of `KlaviyoRequest` values from domain inputs.
 public enum RequestFactory {
     public static func profileRequest(
@@ -51,6 +82,17 @@ public enum RequestFactory {
     /// request via ``profileRequest(apiKey:payload:)``.
     public static func profilePayload(
         identity: RequestIdentity,
+        properties: [String: Any] = [:]
+    ) -> CreateProfilePayload {
+        profilePayload(identity: PayloadIdentity(identity), properties: properties)
+    }
+
+    /// Builds a `CreateProfilePayload` from apiKey-free identity fields.
+    ///
+    /// Use this when a profile payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func profilePayload(
+        identity: PayloadIdentity,
         properties: [String: Any] = [:]
     ) -> CreateProfilePayload {
         CreateProfilePayload(data: ProfilePayload(
@@ -75,13 +117,26 @@ public enum RequestFactory {
         event: Event,
         pushToken: String?
     ) -> KlaviyoRequest {
+        let payload = eventPayload(identity: PayloadIdentity(identity), event: event, pushToken: pushToken)
+        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: event.priority)
+    }
+
+    /// Builds a `CreateEventPayload` from apiKey-free identity fields.
+    ///
+    /// Use this when an event payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func eventPayload(
+        identity: PayloadIdentity,
+        event: Event,
+        pushToken: String?
+    ) -> CreateEventPayload {
         let stamped = event.updateEventWithIdentifiers(
             email: identity.email,
             phoneNumber: identity.phoneNumber,
             externalId: identity.externalId,
             pushToken: pushToken
         )
-        let payload = CreateEventPayload(
+        return CreateEventPayload(
             data: CreateEventPayload.Event(
                 name: stamped.metric.name.value,
                 properties: stamped.properties,
@@ -94,7 +149,6 @@ public enum RequestFactory {
                 uniqueId: stamped.uniqueId,
                 pushToken: pushToken
             ))
-        return KlaviyoRequest(endpoint: .createEvent(identity.apiKey, payload), priority: stamped.priority)
     }
 
     public static func unregisterRequest(
@@ -109,6 +163,32 @@ public enum RequestFactory {
             anonymousId: identity.anonymousId
         )
         return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload))
+    }
+
+    /// Builds a `PushTokenPayload` from apiKey-free identity fields.
+    ///
+    /// Constructs an empty-properties `ProfilePayload` internally, matching how the live
+    /// push-token registration path resolves the profile before calling ``tokenRequest``.
+    /// Use this when a token payload must be constructed before an apiKey is available,
+    /// e.g. in the pre-apiKey buffer path.
+    public static func tokenPayload(
+        identity: PayloadIdentity,
+        pushToken: String,
+        enablement: PushEnablement,
+        background: PushBackground
+    ) -> PushTokenPayload {
+        PushTokenPayload(
+            pushToken: pushToken,
+            enablement: enablement.rawValue,
+            background: background.rawValue,
+            profile: ProfilePayload(
+                email: identity.email,
+                phoneNumber: identity.phoneNumber,
+                externalId: identity.externalId,
+                properties: [:],
+                anonymousId: identity.anonymousId
+            )
+        )
     }
 
     public static func tokenRequest(
