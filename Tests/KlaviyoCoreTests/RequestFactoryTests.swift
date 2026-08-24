@@ -66,4 +66,49 @@ final class RequestFactoryTests: XCTestCase {
         let props = payload.data.attributes.properties.value as? [String: Any]
         XCTAssertEqual(props?["Push Token"] as? String, "tok")
     }
+
+    // MARK: - apiKey-free payload builders
+
+    func testEventPayloadMatchesEventRequestPayload() {
+        let event = Event(name: .customEvent("X"), properties: ["k": "v"])
+
+        let viaRequest = RequestFactory.eventRequest(identity: identity, event: event, pushToken: "tok")
+        let payload = RequestFactory.eventPayload(
+            identity: PayloadIdentity(identity), event: event, pushToken: "tok"
+        )
+
+        guard case let .createEvent(_, requestPayload) = viaRequest.endpoint else {
+            return XCTFail("expected createEvent endpoint")
+        }
+        XCTAssertEqual(payload, requestPayload)
+    }
+
+    func testTokenPayloadMatchesTokenRequestPayload() {
+        let payloadIdentity = PayloadIdentity(anonymousId: "anon")
+        let profile = ProfilePayload(anonymousId: "anon")
+        let viaRequest = RequestFactory.tokenRequest(
+            apiKey: "pk", pushToken: "tok", enablement: .authorized,
+            background: PushBackground.available.rawValue, profile: profile
+        )
+        let payload = RequestFactory.tokenPayload(
+            identity: payloadIdentity, pushToken: "tok",
+            enablement: .authorized, background: .available
+        )
+
+        guard case let .registerPushToken(_, requestPayload) = viaRequest.endpoint else {
+            return XCTFail("expected registerPushToken endpoint")
+        }
+        XCTAssertEqual(payload, requestPayload)
+    }
+
+    func testProfilePayloadRequestIdentityOverloadDelegates() {
+        let properties: [String: Any] = ["foo": "bar"]
+
+        let viaRequestIdentity = RequestFactory.profilePayload(identity: identity, properties: properties)
+        let viaPayloadIdentity = RequestFactory.profilePayload(
+            identity: PayloadIdentity(identity), properties: properties
+        )
+
+        XCTAssertEqual(viaRequestIdentity, viaPayloadIdentity)
+    }
 }
