@@ -39,10 +39,15 @@ final class LegacyStateMigrationTests: XCTestCase {
     /// before the write under test runs.
     private var failWriteForPathSuffix: String?
 
+    /// Fails writes matching this suffix a fixed number of times, then stops failing on its own —
+    /// simulates a transient error that clears up within `migrateLegacyStateIfNeeded`'s own retries.
+    private var transientFailure: (suffix: String, remaining: Int)?
+
     override func setUp() {
         super.setUp()
         diskStore = [:]
         failWriteForPathSuffix = nil
+        transientFailure = nil
         environment = makeTestEnvironment()
         resetCanonicalCoreStores()
         QueueStore.resetRegistry()
@@ -60,6 +65,13 @@ final class LegacyStateMigrationTests: XCTestCase {
         result.fileClient = FileClient(
             write: { [weak self] data, fileURL in
                 guard let self else { return }
+                if var transient = self.transientFailure, fileURL.path.hasSuffix(transient.suffix) {
+                    transient.remaining -= 1
+                    self.transientFailure = transient.remaining > 0 ? transient : nil
+                    throw NSError(domain: "LegacyStateMigrationTests", code: 3, userInfo: [
+                        NSLocalizedDescriptionKey: "transient write failure for \(fileURL.lastPathComponent)"
+                    ])
+                }
                 if let suffix = self.failWriteForPathSuffix, fileURL.path.hasSuffix(suffix) {
                     throw NSError(domain: "LegacyStateMigrationTests", code: 1, userInfo: [
                         NSLocalizedDescriptionKey: "simulated write failure for \(fileURL.lastPathComponent)"
@@ -347,6 +359,27 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
                       "an empty queue write failure must still block deletion, not falsely verify as success")
+    }
+
+    // MARK: - Transient failure recovers within the same call
+
+    /// `loadKlaviyoStateFromDisk` and the debounced state-save both keep writing this same file
+    /// path once initialized, normalizing it to queue-only within ~1s of a settled init — so a
+    /// transient failure must recover via migration's own in-call retries, not by surviving to a
+    /// future cold launch that will never actually see the legacy shape again.
+    func testTransientQueueWriteFailureRecoversWithinTheSameCall() throws {
+        let apiKey = "transient-fail-key"
+        try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(
+            apiKey: apiKey, identity: ProfileData(anonymousId: "anon-transient"), pushTokenData: nil,
+            queue: [legacyRequest("a", apiKey: apiKey)]
+        ))
+        transientFailure = (suffix: "-queue.json", remaining: 2)
+
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-transient")
+        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
+        XCTAssertFalse(legacyFileExists(apiKey: apiKey), "recovered without needing a second launch")
     }
 
     // MARK: - Resume a partially-completed migration

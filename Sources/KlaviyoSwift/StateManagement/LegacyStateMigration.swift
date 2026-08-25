@@ -19,12 +19,31 @@ import KlaviyoCore
 ///
 /// Idempotent: every write is a full replace from the untouched source, so re-running after a
 /// partial failure is always safe.
+///
+/// Retries immediately, in this same call, rather than relying solely on a future cold launch:
+/// `loadKlaviyoStateFromDisk` (called right after this) and the debounced state-save both keep
+/// writing this same path once initialized, and normalize a still-legacy-shaped file to
+/// queue-only within ~1s of a settled init — destroying the "not yet migrated" marker before a
+/// transient failure could otherwise be retried next launch.
 func migrateLegacyStateIfNeeded(apiKey: String) {
     let legacyFile = klaviyoStateFile(apiKey: apiKey)
     guard let decoded = validatedLegacyState(apiKey: apiKey, legacyFile: legacyFile) else {
         return
     }
 
+    let maxAttempts = 3
+    for attempt in 1...maxAttempts {
+        if attemptMigration(apiKey: apiKey, legacyFile: legacyFile, decoded: decoded) {
+            return
+        }
+        if attempt < maxAttempts {
+            environment.logger.error("LegacyStateMigration: retrying (\(attempt + 1)/\(maxAttempts)).")
+        }
+    }
+}
+
+/// One write-verify-delete attempt. `true` only if the legacy file was fully retired.
+private func attemptMigration(apiKey: String, legacyFile: URL, decoded: KlaviyoState) -> Bool {
     SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
     IdentityStore.shared.update(decoded.identity)
     IdentityStore.shared.updatePushToken(decoded.pushTokenData)
@@ -32,19 +51,21 @@ func migrateLegacyStateIfNeeded(apiKey: String) {
     do {
         try QueueStore.store(for: apiKey).restore(decoded.queue)
     } catch {
-        environment.logger.error("LegacyStateMigration: failed to persist queue (\(error)); will retry.")
-        return
+        environment.logger.error("LegacyStateMigration: failed to persist queue (\(error)).")
+        return false
     }
 
     guard verifyMigration(apiKey: apiKey, decoded: decoded) else {
-        environment.logger.error("LegacyStateMigration: verification failed; will retry.")
-        return
+        environment.logger.error("LegacyStateMigration: verification failed.")
+        return false
     }
 
     do {
         try environment.fileClient.removeItem(legacyFile.path)
+        return true
     } catch {
         environment.logger.error("LegacyStateMigration: migrated but failed to remove legacy file.")
+        return false
     }
 }
 
