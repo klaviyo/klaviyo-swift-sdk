@@ -28,27 +28,15 @@ private struct LegacyFlatFixture: Encodable {
 }
 
 final class LegacyStateMigrationTests: XCTestCase {
-    // MARK: - In-memory environment (real JSON round-trip, bypassing the shared TestJSONDecoder fixture)
-
-    private var diskStore: [String: Data] = [:]
-    private let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-migration-tests/library")
-    private let appSupportRoot = URL(fileURLWithPath: "/tmp/klaviyo-migration-tests/app-support")
-
-    /// Fails every write matching this suffix until cleared. Not single-shot: IdentityStore's
-    /// throwaway auto-mint persist on first hydrate would otherwise consume a single-shot flag
-    /// before the write under test runs.
-    private var failWriteForPathSuffix: String?
-
-    /// Fails writes matching this suffix a fixed number of times, then stops failing on its own —
-    /// simulates a transient error that clears up within `migrateLegacyStateIfNeeded`'s own retries.
-    private var transientFailure: (suffix: String, remaining: Int)?
+    private var fakeEnvironment: InMemoryEnvironment!
 
     override func setUp() {
         super.setUp()
-        diskStore = [:]
-        failWriteForPathSuffix = nil
-        transientFailure = nil
-        environment = makeTestEnvironment()
+        fakeEnvironment = InMemoryEnvironment(
+            libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-migration-tests/library"),
+            appSupportRoot: URL(fileURLWithPath: "/tmp/klaviyo-migration-tests/app-support")
+        )
+        environment = fakeEnvironment.makeEnvironment()
         resetCanonicalCoreStores()
         QueueStore.resetRegistry()
     }
@@ -58,45 +46,6 @@ final class LegacyStateMigrationTests: XCTestCase {
         resetCanonicalCoreStores()
         QueueStore.resetRegistry()
         super.tearDown()
-    }
-
-    private func makeTestEnvironment() -> KlaviyoEnvironment {
-        var result = KlaviyoEnvironment.test()
-        result.fileClient = FileClient(
-            write: { [weak self] data, fileURL in
-                guard let self else { return }
-                if var transient = self.transientFailure, fileURL.path.hasSuffix(transient.suffix) {
-                    transient.remaining -= 1
-                    self.transientFailure = transient.remaining > 0 ? transient : nil
-                    throw NSError(domain: "LegacyStateMigrationTests", code: 3, userInfo: [
-                        NSLocalizedDescriptionKey: "transient write failure for \(fileURL.lastPathComponent)"
-                    ])
-                }
-                if let suffix = self.failWriteForPathSuffix, fileURL.path.hasSuffix(suffix) {
-                    throw NSError(domain: "LegacyStateMigrationTests", code: 1, userInfo: [
-                        NSLocalizedDescriptionKey: "simulated write failure for \(fileURL.lastPathComponent)"
-                    ])
-                }
-                self.diskStore[fileURL.path] = data
-            },
-            fileExists: { [weak self] path in self?.diskStore[path] != nil },
-            removeItem: { [weak self] path in self?.diskStore.removeValue(forKey: path) },
-            libraryDirectory: { [weak self] in self?.libraryRoot ?? URL(fileURLWithPath: "/tmp") },
-            applicationSupportDirectory: { [weak self] in
-                self?.appSupportRoot ?? URL(fileURLWithPath: "/tmp")
-            }
-        )
-        result.encodeJSON = { encodable in try JSONEncoder().encode(encodable) }
-        result.decoder = DataDecoder(jsonDecoder: JSONDecoder())
-        result.dataFromUrl = { [weak self] fileURL in
-            guard let data = self?.diskStore[fileURL.path] else {
-                throw NSError(domain: "LegacyStateMigrationTests", code: 2, userInfo: [
-                    NSLocalizedDescriptionKey: "no such file: \(fileURL.path)"
-                ])
-            }
-            return data
-        }
-        return result
     }
 
     // MARK: - Fixtures
@@ -120,7 +69,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
     private func seedLegacyFile(apiKey: String, fixture: some Encodable) throws {
         let data = try JSONEncoder().encode(fixture)
-        diskStore[klaviyoStateFile(apiKey: apiKey).path] = data
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = data
     }
 
     private func legacyFileExists(apiKey: String) -> Bool {
@@ -139,7 +88,7 @@ final class LegacyStateMigrationTests: XCTestCase {
     func testNoOpWhenFileIsQueueOnlyShape() throws {
         let apiKey = "queue-only-key"
         let queueOnlyState = KlaviyoState(queue: [legacyRequest("existing", apiKey: apiKey)])
-        diskStore[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(queueOnlyState)
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(queueOnlyState)
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
@@ -151,7 +100,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
     func testCorruptFileFallsThroughWithoutTouchingStores() {
         let apiKey = "corrupt-key"
-        diskStore[klaviyoStateFile(apiKey: apiKey).path] = Data("not json".utf8)
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = Data("not json".utf8)
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
@@ -286,13 +235,13 @@ final class LegacyStateMigrationTests: XCTestCase {
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-cfg"), pushTokenData: nil,
             queue: [legacyRequest("a", apiKey: apiKey)]
         ))
-        failWriteForPathSuffix = "klaviyo-config.json"
+        fakeEnvironment.failWriteForPathSuffix = "klaviyo-config.json"
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
                       "config write failed — verification must catch it and keep the legacy file")
 
-        failWriteForPathSuffix = nil // "fix the disk" before retrying
+        fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
         QueueStore.resetRegistry()
         migrateLegacyStateIfNeeded(apiKey: apiKey) // retry, same untouched legacy source
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
@@ -307,7 +256,7 @@ final class LegacyStateMigrationTests: XCTestCase {
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-id"), pushTokenData: nil,
             queue: [legacyRequest("a", apiKey: apiKey)]
         ))
-        failWriteForPathSuffix = "klaviyo-identity.json"
+        fakeEnvironment.failWriteForPathSuffix = "klaviyo-identity.json"
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
         // IdentityStore.update() swallows the write failure; the legacy file staying put is what
@@ -315,7 +264,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
                       "identity write failed — verification must catch it and keep the legacy file")
 
-        failWriteForPathSuffix = nil // "fix the disk" before retrying
+        fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
         QueueStore.resetRegistry()
         migrateLegacyStateIfNeeded(apiKey: apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-id")
@@ -329,7 +278,7 @@ final class LegacyStateMigrationTests: XCTestCase {
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-q"), pushTokenData: nil,
             queue: [legacyRequest("a", apiKey: apiKey), legacyRequest("b", apiKey: apiKey)]
         ))
-        failWriteForPathSuffix = "-queue.json"
+        fakeEnvironment.failWriteForPathSuffix = "-queue.json"
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
         // Config + identity succeed (queue is written last); queue write fails → legacy file stays.
@@ -337,7 +286,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-q")
         XCTAssertTrue(legacyFileExists(apiKey: apiKey))
 
-        failWriteForPathSuffix = nil // "fix the disk" before retrying
+        fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
         QueueStore.resetRegistry()
         migrateLegacyStateIfNeeded(apiKey: apiKey) // retry from the untouched legacy source
         XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a", "b"],
@@ -353,7 +302,7 @@ final class LegacyStateMigrationTests: XCTestCase {
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-empty-fail"),
             pushTokenData: nil, queue: []
         ))
-        failWriteForPathSuffix = "-queue.json"
+        fakeEnvironment.failWriteForPathSuffix = "-queue.json"
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
@@ -373,7 +322,7 @@ final class LegacyStateMigrationTests: XCTestCase {
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-transient"), pushTokenData: nil,
             queue: [legacyRequest("a", apiKey: apiKey)]
         ))
-        transientFailure = (suffix: "-queue.json", remaining: 2)
+        fakeEnvironment.transientFailure = (suffix: "-queue.json", remaining: 2)
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 

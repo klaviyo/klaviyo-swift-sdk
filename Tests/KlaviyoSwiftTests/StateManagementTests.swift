@@ -13,9 +13,6 @@ import Foundation
 import XCTest
 
 class StateManagementTests: XCTestCase {
-    /// Backing store for `makeLegacyMigrationTestEnvironment`.
-    private var migrationTestDiskStore: [String: Data] = [:]
-
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
@@ -96,34 +93,14 @@ class StateManagementTests: XCTestCase {
         await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
     }
 
-    /// Real JSON round-trip environment, bypassing the shared decoder's canned-fixture substitution.
-    private func makeLegacyMigrationTestEnvironment(libraryRoot: URL) -> KlaviyoEnvironment {
-        var testEnv = KlaviyoEnvironment.test()
-        testEnv.fileClient = FileClient(
-            write: { [weak self] data, fileURL in self?.migrationTestDiskStore[fileURL.path] = data },
-            fileExists: { [weak self] path in self?.migrationTestDiskStore[path] != nil },
-            removeItem: { [weak self] path in self?.migrationTestDiskStore.removeValue(forKey: path) },
-            libraryDirectory: { libraryRoot },
-            applicationSupportDirectory: { libraryRoot }
-        )
-        testEnv.encodeJSON = { try JSONEncoder().encode($0) }
-        testEnv.decoder = DataDecoder(jsonDecoder: JSONDecoder())
-        testEnv.dataFromUrl = { [weak self] fileURL in
-            guard let data = self?.migrationTestDiskStore[fileURL.path] else {
-                throw NSError(domain: "StateManagementTests", code: 1)
-            }
-            return data
-        }
-        return testEnv
-    }
-
     /// Regression test: before migration ran here, `.completeInitialization` silently overwrote
     /// decoded legacy identity/pushToken with an empty `IdentityStore`.
     @MainActor
     func testInitializeMigratesLegacyStateIntoCanonicalStores() async throws {
-        migrationTestDiskStore = [:]
-        let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-init-migration-test/library")
-        environment = makeLegacyMigrationTestEnvironment(libraryRoot: libraryRoot)
+        let fakeEnvironment = InMemoryEnvironment(
+            libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-init-migration-test/library")
+        )
+        environment = fakeEnvironment.makeEnvironment()
         QueueStore.resetRegistry()
 
         let apiKey = "migration-init-key"
@@ -140,7 +117,7 @@ class StateManagementTests: XCTestCase {
             pushTokenData: pushToken,
             queue: legacyQueue
         )
-        migrationTestDiskStore[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
 
         let initialState = KlaviyoState(queue: [], requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -158,7 +135,7 @@ class StateManagementTests: XCTestCase {
 
         // loadKlaviyoStateFromDisk recreates a file at this path in queue-only shape (expected
         // until MAGE-952) — assert the shape changed, not raw path absence.
-        if let remaining = migrationTestDiskStore[klaviyoStateFile(apiKey: apiKey).path] {
+        if let remaining = fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] {
             let remainingState = try JSONDecoder().decode(KlaviyoState.self, from: remaining)
             XCTAssertNil(remainingState.apiKey,
                          "only a fresh queue-only file may remain, never the legacy shape")
