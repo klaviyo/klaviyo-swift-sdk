@@ -13,6 +13,9 @@ import Foundation
 import XCTest
 
 class StateManagementTests: XCTestCase {
+    /// Backing store for `makeLegacyMigrationTestEnvironment`.
+    private var migrationTestDiskStore: [String: Data] = [:]
+
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
@@ -91,6 +94,77 @@ class StateManagementTests: XCTestCase {
         lifecycleSubject.send(completion: .finished)
 
         await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
+    }
+
+    /// Real JSON round-trip environment, bypassing the shared decoder's canned-fixture substitution.
+    private func makeLegacyMigrationTestEnvironment(libraryRoot: URL) -> KlaviyoEnvironment {
+        var testEnv = KlaviyoEnvironment.test()
+        testEnv.fileClient = FileClient(
+            write: { [weak self] data, fileURL in self?.migrationTestDiskStore[fileURL.path] = data },
+            fileExists: { [weak self] path in self?.migrationTestDiskStore[path] != nil },
+            removeItem: { [weak self] path in self?.migrationTestDiskStore.removeValue(forKey: path) },
+            libraryDirectory: { libraryRoot },
+            applicationSupportDirectory: { libraryRoot }
+        )
+        testEnv.encodeJSON = { try JSONEncoder().encode($0) }
+        testEnv.decoder = DataDecoder(jsonDecoder: JSONDecoder())
+        testEnv.dataFromUrl = { [weak self] fileURL in
+            guard let data = self?.migrationTestDiskStore[fileURL.path] else {
+                throw NSError(domain: "StateManagementTests", code: 1)
+            }
+            return data
+        }
+        return testEnv
+    }
+
+    /// Regression test: before migration ran here, `.completeInitialization` silently overwrote
+    /// decoded legacy identity/pushToken with an empty `IdentityStore`.
+    @MainActor
+    func testInitializeMigratesLegacyStateIntoCanonicalStores() async throws {
+        migrationTestDiskStore = [:]
+        let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-init-migration-test/library")
+        environment = makeLegacyMigrationTestEnvironment(libraryRoot: libraryRoot)
+        QueueStore.resetRegistry()
+
+        let apiKey = "migration-init-key"
+        let pushToken = PushTokenData(
+            pushToken: "legacy-push", pushEnablement: .authorized, pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        )
+        let legacyQueue = [
+            KlaviyoRequest(id: "legacy-a", endpoint: .fetchGeofences(apiKey, latitude: nil, longitude: nil))
+        ]
+        let fixture = LegacyNestedFixture(
+            apiKey: apiKey,
+            identity: ProfileData(email: "legacy@user.com", anonymousId: "legacy-anon"),
+            pushTokenData: pushToken,
+            queue: legacyQueue
+        )
+        migrationTestDiskStore[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
+
+        let initialState = KlaviyoState(queue: [], requestsInFlight: [])
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.initialize(apiKey))
+        await store.finish(timeout: 2_000_000_000)
+
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "legacy-anon")
+        XCTAssertEqual(IdentityStore.shared.current.email, "legacy@user.com")
+        XCTAssertEqual(IdentityStore.shared.pushToken, pushToken)
+        // The migrated queue lands in QueueStore only; state.queue stays empty until MAGE-952.
+        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["legacy-a"])
+
+        // loadKlaviyoStateFromDisk recreates a file at this path in queue-only shape (expected
+        // until MAGE-952) — assert the shape changed, not raw path absence.
+        if let remaining = migrationTestDiskStore[klaviyoStateFile(apiKey: apiKey).path] {
+            let remainingState = try JSONDecoder().decode(KlaviyoState.self, from: remaining)
+            XCTAssertNil(remainingState.apiKey,
+                         "only a fresh queue-only file may remain, never the legacy shape")
+            XCTAssertEqual(remainingState.queue, [],
+                           "the recreated file is a fresh empty queue, not the migrated backlog")
+        }
     }
 
     // MARK: - Set Email

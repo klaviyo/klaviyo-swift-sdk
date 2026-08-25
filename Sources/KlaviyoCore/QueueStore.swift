@@ -75,8 +75,9 @@ public final class QueueStore {
     // `persistLock` serializes writes and guards the debounce-coalescing state.
     //
     // LOCK ORDERING: when both are held, always acquire `persistLock` before `queueLock`, never the
-    // reverse. `persistCurrent` is the only nesting site (persistLock outer, queueLock inner); every
-    // other site takes exactly one lock. Preserve this order to stay deadlock-free.
+    // reverse. `persistCurrent` and `restore` are the only nesting sites (persistLock outer,
+    // queueLock inner); every other site takes exactly one lock. Preserve this order to stay
+    // deadlock-free.
     private let queueLock = UnfairLock()
     private let persistLock = UnfairLock()
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
@@ -125,6 +126,19 @@ public final class QueueStore {
             queue = next
         }
         schedulePersist(persist)
+    }
+
+    /// Replaces the queue wholesale from an authoritative external source (migration only).
+    /// Writes to disk before updating memory and throws on failure, since a read-back can't tell
+    /// "persisted empty" from "load failed" (`hydrated()` folds both into `[]`). Always
+    /// synchronous. Only supersedes a pending debounce after its own write succeeds, so a failed
+    /// `restore` can't cancel a concurrent `enqueue`'s pending flush.
+    package func restore(_ requests: [KlaviyoRequest]) throws {
+        try persistLock.withLock {
+            try diskIO.save(requests)
+            pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
+            queueLock.withLock { queue = requests }
+        }
     }
 
     /// Drains oldest-by-`enqueuedAt` while at/over capacity, leaving room for one insert.
