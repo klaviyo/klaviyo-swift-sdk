@@ -189,7 +189,8 @@ final class QueueStoreRestoreTests: XCTestCase {
         )
 
         Thread { try? store.restore([self.request("x")]) }.start()
-        saveEntered.wait() // restore is inside diskIO.save, holding queueLock for its whole body
+        // restore is inside diskIO.save, holding queueLock for its whole body.
+        XCTAssertEqual(saveEntered.wait(timeout: .now() + 1), .success)
 
         let enqueueStarted = DispatchSemaphore(value: 0)
         let enqueueFinished = DispatchSemaphore(value: 0)
