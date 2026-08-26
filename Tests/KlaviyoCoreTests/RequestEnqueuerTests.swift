@@ -152,6 +152,22 @@ final class RequestEnqueuerTests: XCTestCase {
         }
     }
 
+    func testRepeatedPushTokenWithoutApiKeyCoalescesToLatest() {
+        // Models repeated pre-init fires (e.g. multiple automatic APNs callbacks before
+        // `initialize()`) — only the latest token should survive in the buffer, not one entry
+        // per fire, so drain doesn't send N redundant register calls (MAGE-1137).
+        RequestEnqueuer.enqueuePushToken("token-1", enablement: .authorized)
+        RequestEnqueuer.enqueuePushToken("token-2", enablement: .authorized)
+        RequestEnqueuer.enqueuePushToken("token-3", enablement: .authorized)
+
+        let snap = UnattributedBuffer.shared.snapshot()
+        XCTAssertEqual(snap.count, 1)
+        guard case let .pushToken(payload) = snap[0] else {
+            return XCTFail("expected .pushToken in buffer")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "token-3")
+    }
+
     // MARK: - drainBuffer
 
     func testDrainMovesBufferedRequestsToQueueInFifoOrder() {

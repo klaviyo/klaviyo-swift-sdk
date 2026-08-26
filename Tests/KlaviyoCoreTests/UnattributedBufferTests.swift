@@ -28,6 +28,15 @@ final class UnattributedBufferTests: XCTestCase {
         .aggregateEvent(Data(value.utf8))
     }
 
+    /// Terse push-token fixture — `value` only varies the token string, matching how a repeated
+    /// pre-init fire (manual or automatic) looks in practice: same shape, latest token wins.
+    private func token(_ value: String) -> UnattributedRequest {
+        .pushToken(PushTokenPayload(
+            pushToken: value, enablement: "AUTHORIZED", background: "AVAILABLE",
+            profile: ProfilePayload(anonymousId: "anon-1")
+        ))
+    }
+
     /// Reads the persisted buffer from the store directory production writes to.
     private func loadBuffer() -> PersistedUnattributedBuffer? {
         loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed)
@@ -121,11 +130,60 @@ final class UnattributedBufferTests: XCTestCase {
         XCTAssertNil(loadBuffer())
     }
 
+    // MARK: - Push-token coalescing
+
+    func testAppendCoalescesRepeatedPushTokenToLatest() {
+        let buffer = UnattributedBuffer()
+        buffer.append(token("a"))
+        buffer.append(token("b"))
+        buffer.append(token("c"))
+        XCTAssertEqual(buffer.snapshot(), [token("c")])
+    }
+
+    func testPushTokenCoalescingDoesNotAffectOtherBufferedRequests() {
+        let buffer = UnattributedBuffer()
+        buffer.append(agg("1"))
+        buffer.append(token("a"))
+        buffer.append(agg("2"))
+        buffer.append(token("b"))
+        // The stale token is dropped; other request types are untouched. The coalesced token
+        // is re-appended at the back rather than preserving its original position — acceptable
+        // since push-token requests are idempotent w.r.t. ordering against unrelated requests.
+        XCTAssertEqual(buffer.snapshot(), [agg("1"), agg("2"), token("b")])
+    }
+
+    func testPushTokenCoalescingDoesNotEvictOtherEntriesAtCap() {
+        let buffer = UnattributedBuffer()
+        for value in 0..<(UnattributedBuffer.maxBufferSize - 1) {
+            buffer.append(agg("\(value)"))
+        }
+        buffer.append(token("a")) // buffer now exactly at cap
+        buffer.append(token("b")) // coalesces token("a") away first, so nothing is evicted
+        let snap = buffer.snapshot()
+        XCTAssertEqual(snap.count, UnattributedBuffer.maxBufferSize)
+        XCTAssertEqual(snap.first, agg("0"), "coalescing a push token must not evict an unrelated entry")
+        XCTAssertEqual(snap.last, token("b"))
+    }
+
+    func testRemoveDrainedSurvivesConcurrentPushTokenCoalesce() {
+        let buffer = UnattributedBuffer()
+        buffer.append(token("1"))
+        // Model a drain: it snapshots the current buffer, then a concurrent automatic fire
+        // coalesces the just-drained token before the drain removes what it saw.
+        let (_, cursor) = buffer.drainSnapshot()
+        buffer.append(token("2"))
+        buffer.removeDrained(throughCursor: cursor)
+        // The coalesced replacement must survive — it was never part of the drained snapshot.
+        XCTAssertEqual(buffer.snapshot(), [token("2")])
+    }
+
     func testPersistedBufferRoundTripsAllFourCases() throws {
         let eventPayload = CreateEventPayload(
-            data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1"))
+            data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1")
+        )
         let profilePayload = CreateProfilePayload(
-            data: ProfilePayload(anonymousId: "anon-1"))
+            data: ProfilePayload(anonymousId: "anon-1")
+        )
         let tokenPayload = PushTokenPayload(
             pushToken: "tok", enablement: "AUTHORIZED", background: "AVAILABLE",
             profile: ProfilePayload(anonymousId: "anon-1")
