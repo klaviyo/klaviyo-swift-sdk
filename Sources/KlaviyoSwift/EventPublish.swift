@@ -19,6 +19,7 @@ private func enrichEventWithMetadata(_ event: Event) -> Event {
         properties: enrichedProperties,
         identifiers: event.identifiers,
         value: event.value,
+        valueCurrency: event.valueCurrency,
         time: event.time,
         uniqueId: event.uniqueId
     )

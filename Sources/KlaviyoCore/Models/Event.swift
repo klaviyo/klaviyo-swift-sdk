@@ -62,6 +62,7 @@ public struct Event: Equatable {
     private let _properties: AnyCodable
     public let time: Date
     public let value: Double?
+    public let valueCurrency: String?
     public let uniqueId: String
     package let identifiers: Identifiers?
 
@@ -69,12 +70,14 @@ public struct Event: Equatable {
                  properties: [String: Any]? = nil,
                  identifiers: Identifiers? = nil,
                  value: Double? = nil,
+                 valueCurrency: String? = nil,
                  time: Date = environment.date(),
                  uniqueId: String = environment.uuid().uuidString) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.time = time
         self.value = value
+        self.valueCurrency = valueCurrency
         self.uniqueId = uniqueId
         self.identifiers = identifiers
     }
@@ -84,15 +87,18 @@ public struct Event: Equatable {
     ///   - name: Name of the event. Must be less than 128 characters., pick from ``Event.EventName`` which can also contain custom events
     ///   - properties: Properties of this event.
     ///   - value: A numeric, monetary value to associate with this event. For example, the dollar amount of a purchase.
+    ///   - valueCurrency: The ISO 4217 currency code that `value` is denominated in, for example `USD`.
     ///   - uniqueId: A unique identifier for an event
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 value: Double? = nil,
+                valueCurrency: String? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
+        self.valueCurrency = valueCurrency
         time = environment.date()
         self.uniqueId = uniqueId ?? environment.uuid().uuidString
     }

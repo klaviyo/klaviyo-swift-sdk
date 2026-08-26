@@ -514,6 +514,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     externalId: event.identifiers?.externalId,
                     anonymousId: anonymousId,
                     value: event.value,
+                    valueCurrency: event.valueCurrency,
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken

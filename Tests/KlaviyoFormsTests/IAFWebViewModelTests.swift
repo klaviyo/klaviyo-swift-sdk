@@ -507,6 +507,36 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testTrackProfileEventHonorsValueCurrency() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Placed Order",
+          "properties": { "form_id": "1" },
+          "value": 9.99,
+          "value_currency": "CAD"
+        }
+        """))
+
+        // Then - the currency rides the top level of the envelope, not the property bag
+        XCTAssertEqual(event.value, 9.99)
+        XCTAssertEqual(event.valueCurrency, "CAD")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertNil(event.properties["value_currency"])
+    }
+
+    @MainActor
+    func testTrackProfileEventOmitsValueCurrencyWhenAbsent() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": 9.99 }
+        """))
+
+        // Then
+        XCTAssertNil(event.valueCurrency)
+    }
+
+    @MainActor
     func testTrackProfileEventAcceptsIntegerValue() throws {
         // Given/When
         let event = try XCTUnwrap(createdEvent(from: """

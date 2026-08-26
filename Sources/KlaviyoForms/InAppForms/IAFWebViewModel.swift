@@ -345,6 +345,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     name: .customEvent(metricName),
                     properties: properties,
                     value: envelope["value"] as? Double,
+                    valueCurrency: envelope["value_currency"] as? String,
                     uniqueId: envelope["unique_id"] as? String
                 ))
             )
