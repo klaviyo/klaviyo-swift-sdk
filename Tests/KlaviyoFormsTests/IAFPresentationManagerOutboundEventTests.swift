@@ -54,6 +54,40 @@ final class IAFPresentationManagerOutboundEventTests: XCTestCase {
         XCTAssertEqual(properties.count, 1)
     }
 
+    /// The source event must be left alone. Mutating it would strip or alter the instance held by
+    /// `EventBuffer` for replay, since the bridge runs after the event is buffered.
+    func testDoesNotMutateTheSourceEvent() {
+        let event = Event(
+            name: .customEvent("Placed Order"),
+            properties: ["form_id": "1"],
+            value: 9.99,
+            valueCurrency: "CAD"
+        )
+
+        let outbound = IAFPresentationManager.outboundProperties(for: event)
+
+        XCTAssertEqual(outbound["$value_currency"] as? String, "CAD")
+        XCTAssertNil(event.properties["$value_currency"], "the event's own properties must be untouched")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertEqual(event.valueCurrency, "CAD")
+    }
+
+    func testIsIdempotentAcrossRepeatedDispatches() {
+        let event = Event(
+            name: .customEvent("Placed Order"),
+            properties: ["form_id": "1"],
+            value: 9.99,
+            valueCurrency: "CAD"
+        )
+
+        let first = IAFPresentationManager.outboundProperties(for: event)
+        let second = IAFPresentationManager.outboundProperties(for: event)
+
+        XCTAssertEqual(first.count, second.count)
+        XCTAssertEqual(second["$value_currency"] as? String, "CAD")
+        XCTAssertEqual(second["form_id"] as? String, "1")
+    }
+
     func testSerializesToValidJSONForTheBridge() throws {
         let properties = outboundProperties(properties: ["form_id": "1"], valueCurrency: "CAD")
 
