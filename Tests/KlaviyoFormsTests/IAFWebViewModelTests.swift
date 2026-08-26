@@ -464,8 +464,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
     @MainActor
     func testTrackProfileEventIgnoresHoistedSiblings() throws {
-        // Given/When - onsite's interim v1 shape: the nested object plus the same keys
-        // hoisted alongside it, so already-released SDKs pick them up
+        // Given/When - the nested object plus the same keys repeated at the top level
         let event = try XCTUnwrap(createdEvent(from: """
         {
           "metric": "Form completed by profile",
@@ -480,7 +479,7 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         """))
 
-        // Then - only the nested object is read; the hoisted duplicates change nothing
+        // Then - only the nested object is read; the top-level duplicates change nothing
         XCTAssertEqual(event.properties["form_id"] as? String, "1")
         XCTAssertEqual(event.properties["form_version_id"] as? Int, 2)
         XCTAssertEqual(event.properties["channel_type"] as? String, "IN_APP")
@@ -516,6 +515,17 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(event.value, 10)
+    }
+
+    @MainActor
+    func testTrackProfileEventIgnoresNonNumericValue() throws {
+        // Given/When - `value` is a string, a shape the v2 contract (`value?: number`) does not allow
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": "9.99" }
+        """))
+
+        // Then - the event still dispatches, without a value
+        XCTAssertNil(event.value)
     }
 
     @MainActor
