@@ -6,7 +6,6 @@
 //
 
 import Combine
-import Foundation
 
 /// SDK-wide configuration
 public struct KlaviyoConfig: Equatable {

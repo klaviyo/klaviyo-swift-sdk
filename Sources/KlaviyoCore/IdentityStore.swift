@@ -6,7 +6,6 @@
 //
 
 import Combine
-import Foundation
 
 /// Read-only view of profile identity. Consumers depend on this rather than the
 /// concrete store so the underlying implementation can change (e.g. become an actor).
