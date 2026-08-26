@@ -42,7 +42,8 @@ func migrateLegacyStateIfNeeded(apiKey: String) {
     }
 }
 
-/// One write-verify-delete attempt. `true` only if the legacy file was fully retired.
+/// One write-verify-retire attempt. `true` once the canonical stores hold `decoded` and the
+/// legacy file can no longer be read back as still-legacy-shaped.
 private func attemptMigration(apiKey: String, legacyFile: URL, decoded: KlaviyoState) -> Bool {
     SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
     IdentityStore.shared.update(decoded.identity)
@@ -60,13 +61,18 @@ private func attemptMigration(apiKey: String, legacyFile: URL, decoded: KlaviyoS
         return false
     }
 
+    // Overwrite to queue-only-empty before even attempting removal: `loadKlaviyoStateFromDisk`
+    // runs right after this and would otherwise re-decode `decoded.queue` from the untouched
+    // legacy file into `state.queue`, duplicating what `restore` just wrote to `QueueStore` if
+    // the removeItem below fails. Removal itself is now just cosmetic cleanup, not required for
+    // correctness, so its failure no longer triggers a retry.
+    saveKlaviyoState(state: KlaviyoState(queue: []))
     do {
         try environment.fileClient.removeItem(legacyFile.path)
-        return true
     } catch {
         environment.logger.error("LegacyStateMigration: migrated but failed to remove legacy file.")
-        return false
     }
+    return true
 }
 
 /// Decodes and validates the legacy blob. Nil if absent, corrupt, already queue-only, claimed by

@@ -310,6 +310,35 @@ final class LegacyStateMigrationTests: XCTestCase {
                       "an empty queue write failure must still block deletion, not falsely verify as success")
     }
 
+    /// Regression: a `removeItem` failure after a fully-successful write+verify used to leave the
+    /// legacy file in its original, still-legacy-shaped content — which `loadKlaviyoStateFromDisk`
+    /// (called right after this) would then re-decode into `state.queue`, duplicating the same
+    /// requests `restore` had just written to `QueueStore`. The file must be overwritten to
+    /// queue-only-empty regardless of whether the actual removal succeeds.
+    func testRemoveFailureStillRetiresLegacyContentAndDoesNotDuplicateQueue() throws {
+        let apiKey = "remove-fail-key"
+        try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(
+            apiKey: apiKey, identity: ProfileData(anonymousId: "anon-remove-fail"), pushTokenData: nil,
+            queue: [legacyRequest("a", apiKey: apiKey)]
+        ))
+        fakeEnvironment.failRemoveForPathSuffix = "-state.json"
+
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-remove-fail")
+        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
+
+        // The remove failed, so the path still exists — but its content must no longer be
+        // legacy-shaped, or a later loadKlaviyoStateFromDisk read would duplicate the queue.
+        XCTAssertTrue(legacyFileExists(apiKey: apiKey), "removeItem was injected to fail")
+        let remaining = try JSONDecoder().decode(
+            KlaviyoState.self, from: fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path]!
+        )
+        XCTAssertNil(remaining.apiKey, "overwritten to queue-only shape despite the failed removal")
+        XCTAssertEqual(remaining.queue, [], "must not carry the requests already restored to QueueStore")
+    }
+
     // MARK: - Transient failure recovers within the same call
 
     /// `loadKlaviyoStateFromDisk` and the debounced state-save both keep writing this same file

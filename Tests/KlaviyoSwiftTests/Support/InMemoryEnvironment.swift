@@ -24,6 +24,9 @@ final class InMemoryEnvironment {
     /// simulates a transient error that clears up within a bounded number of retries.
     var transientFailure: (suffix: String, remaining: Int)?
 
+    /// Fails every `removeItem` matching this suffix. The path remains on disk.
+    var failRemoveForPathSuffix: String?
+
     init(
         libraryRoot: URL = URL(fileURLWithPath: "/tmp/klaviyo-migration-tests/library"),
         appSupportRoot: URL? = nil
@@ -57,7 +60,15 @@ final class InMemoryEnvironment {
                 self.diskStore[fileURL.path] = data
             },
             fileExists: { [weak self] path in self?.diskStore[path] != nil },
-            removeItem: { [weak self] path in self?.diskStore.removeValue(forKey: path) },
+            removeItem: { [weak self] path in
+                guard let self else { return }
+                if let suffix = self.failRemoveForPathSuffix, path.hasSuffix(suffix) {
+                    throw NSError(domain: "InMemoryEnvironment", code: 4, userInfo: [
+                        NSLocalizedDescriptionKey: "simulated remove failure for \(path)"
+                    ])
+                }
+                self.diskStore.removeValue(forKey: path)
+            },
             libraryDirectory: { [weak self] in self?.libraryRoot ?? URL(fileURLWithPath: "/tmp") },
             applicationSupportDirectory: { [weak self] in
                 self?.appSupportRoot ?? URL(fileURLWithPath: "/tmp")
