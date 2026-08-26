@@ -92,17 +92,12 @@ private func validatedLegacyState(apiKey: String, legacyFile: URL) -> KlaviyoSta
 /// Verifies all three stores from disk (not the singletons' cached values) before deletion, so a
 /// swallowed write failure can't slip through.
 private func verifyMigration(apiKey: String, decoded: KlaviyoState) -> Bool {
-    let storeDirectory = environment.fileClient.applicationSupportDirectory()
-    guard loadPersisted(
-        PersistedConfig.self, fileName: StoreFile.config, directory: storeDirectory
-    )?.apiKey == apiKey else {
+    guard loadPersisted(PersistedConfig.self, fileName: StoreFile.config)?.apiKey == apiKey else {
         return false
     }
-    guard let persistedIdentity = loadPersisted(
-        PersistedIdentity.self, fileName: StoreFile.identity, directory: storeDirectory
-    ),
-        persistedIdentity.profile == decoded.identity,
-        persistedIdentity.pushToken == decoded.pushTokenData else {
+    guard let persistedIdentity = loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity),
+          persistedIdentity.profile == decoded.identity,
+          persistedIdentity.pushToken == decoded.pushTokenData else {
         return false
     }
     // A fresh instance forces a real disk read, decoupled from the registry singleton.

@@ -43,21 +43,17 @@ public enum StoreFile {
 
 // MARK: - Load / save helpers
 
-/// Resolves the on-disk URL for a store file. Defaults to the legacy `Library` root
-/// (`libraryDirectory`); callers pass an explicit `directory` (e.g. `applicationSupportDirectory()`)
-/// to opt into the canonical support home.
-func storeFileURL(_ fileName: String, directory: URL? = nil) -> URL {
-    (directory ?? environment.fileClient.libraryDirectory())
+/// Resolves the on-disk URL for a store file, under the canonical `applicationSupportDirectory()`
+/// home. No caller may opt into any other location — every canonical store's file lives here.
+func storeFileURL(_ fileName: String) -> URL {
+    environment.fileClient.applicationSupportDirectory()
         .appendingPathComponent(fileName, isDirectory: false)
 }
 
-/// Loads a decodable value from the named file in `directory` (defaults to the library root).
-/// Returns `nil` if the file is absent or cannot be decoded;
-/// an undecodable file is removed to avoid repeated failures.
-public func loadPersisted<T: Decodable>(
-    _ type: T.Type, fileName: String, directory: URL? = nil
-) -> T? {
-    let fileURL = storeFileURL(fileName, directory: directory)
+/// Loads a decodable value from the named file. Returns `nil` if the file is absent or cannot be
+/// decoded; an undecodable file is removed to avoid repeated failures.
+public func loadPersisted<T: Decodable>(_ type: T.Type, fileName: String) -> T? {
+    let fileURL = storeFileURL(fileName)
     guard environment.fileClient.fileExists(fileURL.path) else { return nil }
     guard let data = try? environment.dataFromUrl(fileURL) else {
         environment.logger.error("Unable to read \(fileName); removing.")
@@ -72,10 +68,9 @@ public func loadPersisted<T: Decodable>(
     return value
 }
 
-/// Removes the named file from `directory` (defaults to the library root) if it exists.
-/// Logs on failure; never throws to the caller.
-func removePersisted(fileName: String, directory: URL? = nil) {
-    let fileURL = storeFileURL(fileName, directory: directory)
+/// Removes the named file if it exists. Logs on failure; never throws to the caller.
+func removePersisted(fileName: String) {
+    let fileURL = storeFileURL(fileName)
     guard environment.fileClient.fileExists(fileURL.path) else { return }
     do {
         try environment.fileClient.removeItem(fileURL.path)
@@ -84,12 +79,11 @@ func removePersisted(fileName: String, directory: URL? = nil) {
     }
 }
 
-/// Persists an encodable value to the named file in `directory` (defaults to the library root).
-/// Logs on failure; never throws to the caller.
-public func savePersisted(_ value: some Encodable, fileName: String, directory: URL? = nil) {
+/// Persists an encodable value to the named file. Logs on failure; never throws to the caller.
+public func savePersisted(_ value: some Encodable, fileName: String) {
     do {
         let data = try environment.encodeJSON(value)
-        try environment.fileClient.write(data, storeFileURL(fileName, directory: directory))
+        try environment.fileClient.write(data, storeFileURL(fileName))
     } catch {
         environment.logger.error("Unable to persist \(fileName).")
     }

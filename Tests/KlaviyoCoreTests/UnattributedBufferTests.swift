@@ -30,10 +30,7 @@ final class UnattributedBufferTests: XCTestCase {
 
     /// Reads the persisted buffer from the store directory production writes to.
     private func loadBuffer() -> PersistedUnattributedBuffer? {
-        loadPersisted(
-            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
-            directory: storeDirectory()
-        )
+        loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed)
     }
 
     func testAppendPersistsSynchronously() {
@@ -46,7 +43,7 @@ final class UnattributedBufferTests: XCTestCase {
     func testHydratesFromDiskOnFirstAccess() {
         savePersisted(
             PersistedUnattributedBuffer(requests: [agg("x")]),
-            fileName: StoreFile.unattributed, directory: storeDirectory()
+            fileName: StoreFile.unattributed
         )
         let buffer = UnattributedBuffer()
         XCTAssertEqual(buffer.snapshot(), [agg("x")])

@@ -49,10 +49,6 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     private let lock = UnfairLock()
     private var hydrated = false
 
-    /// Canonical home for new SDK support files, matching `QueueStore`/`UnattributedBuffer`.
-    /// Resolved per-access so tests can swap the environment's file client.
-    private var storeDirectory: URL { environment.fileClient.applicationSupportDirectory() }
-
     init(initialConfig: KlaviyoConfig = KlaviyoConfig()) {
         subject = CurrentValueSubject(initialConfig)
     }
@@ -61,9 +57,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
         lock.withLock {
             guard !hydrated else { return }
             hydrated = true
-            if let persisted = loadPersisted(
-                PersistedConfig.self, fileName: StoreFile.config, directory: storeDirectory
-            ) {
+            if let persisted = loadPersisted(PersistedConfig.self, fileName: StoreFile.config) {
                 // Assign directly rather than `send` — no subscribers exist on a fresh store.
                 subject.value = KlaviyoConfig(apiKey: persisted.apiKey)
             }
@@ -99,7 +93,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
         lock.withLock {
             savePersisted(
                 PersistedConfig(version: PersistedConfig.currentVersion, apiKey: config.apiKey),
-                fileName: StoreFile.config, directory: storeDirectory
+                fileName: StoreFile.config
             )
         }
         // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
@@ -109,7 +103,7 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     /// Clears persisted state, in-memory cache, and re-arms hydration (test isolation only).
     package func reset() {
         lock.withLock { hydrated = false }
-        removePersisted(fileName: StoreFile.config, directory: storeDirectory)
+        removePersisted(fileName: StoreFile.config)
         subject.send(KlaviyoConfig())
     }
 }
