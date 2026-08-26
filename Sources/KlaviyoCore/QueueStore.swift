@@ -72,7 +72,8 @@ public final class QueueStore {
 
     // Two locks keep slow disk I/O off the hot queue path: `queueLock` guards the in-memory array
     // and is released before any disk write, so a persist never blocks enqueue/prepend/reads.
-    // `persistLock` serializes writes and guards the debounce-coalescing state.
+    // `persistLock` serializes writes and guards the debounce-coalescing state. `restore` is the
+    // one exception — see its doc comment for why it holds `queueLock` across its disk write too.
     //
     // LOCK ORDERING: when both are held, always acquire `persistLock` before `queueLock`, never the
     // reverse. `persistCurrent` and `restore` are the only nesting sites (persistLock outer,
@@ -133,11 +134,19 @@ public final class QueueStore {
     /// "persisted empty" from "load failed" (`hydrated()` folds both into `[]`). Always
     /// synchronous. Only supersedes a pending debounce after its own write succeeds, so a failed
     /// `restore` can't cancel a concurrent `enqueue`'s pending flush.
+    ///
+    /// Holds `queueLock` across the disk write too (unlike `persistCurrent`), so a concurrent
+    /// `enqueue` either fully precedes or fully follows `restore` rather than landing in the
+    /// window between the write and the memory assignment, where it would be silently lost when
+    /// `restore` overwrites `queue`. `restore` runs once per app lifetime (migration-only), so
+    /// this brief exception to "never hold queueLock across disk I/O" isn't a hot-path concern.
     package func restore(_ requests: [KlaviyoRequest]) throws {
         try persistLock.withLock {
-            try diskIO.save(requests)
+            try queueLock.withLock {
+                try diskIO.save(requests)
+                queue = requests
+            }
             pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
-            queueLock.withLock { queue = requests }
         }
     }
 

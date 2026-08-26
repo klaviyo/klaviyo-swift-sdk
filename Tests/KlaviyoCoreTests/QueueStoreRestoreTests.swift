@@ -168,4 +168,45 @@ final class QueueStoreRestoreTests: XCTestCase {
         XCTAssertEqual(diskIO.saveCount, 1)
         XCTAssertEqual(diskIO.stored.map(\.id), ["x"])
     }
+
+    /// Regression: `restore` used to write to disk before taking `queueLock`, so a concurrent
+    /// `enqueue` landing in that window got silently overwritten when `restore` reassigned `queue`.
+    /// `restore` must now hold `queueLock` across its whole body, so `enqueue` either fully
+    /// precedes or fully follows it — proven here by observing `enqueue` block while `restore`'s
+    /// (deliberately slow) disk write is in flight.
+    func testConcurrentEnqueueDuringRestoreDiskWriteIsNotLost() throws {
+        let saveEntered = DispatchSemaphore(value: 0)
+        let releaseSave = DispatchSemaphore(value: 0)
+        let diskIO = QueueStore.DiskIO(
+            load: { [] },
+            save: { _ in
+                saveEntered.signal()
+                releaseSave.wait()
+            }
+        )
+        let store = QueueStore(
+            diskIO: diskIO, scheduler: ManualPersistScheduler().makeScheduler(), emitWarning: { _ in }
+        )
+
+        Thread { try? store.restore([self.request("x")]) }.start()
+        saveEntered.wait() // restore is inside diskIO.save, holding queueLock for its whole body
+
+        let enqueueStarted = DispatchSemaphore(value: 0)
+        let enqueueFinished = DispatchSemaphore(value: 0)
+        Thread {
+            enqueueStarted.signal()
+            store.enqueue(self.request("concurrent"))
+            enqueueFinished.signal()
+        }.start()
+        XCTAssertEqual(enqueueStarted.wait(timeout: .now() + 1), .success)
+        // enqueue should still be blocked on queueLock, not racing restore's in-flight write.
+        XCTAssertEqual(enqueueFinished.wait(timeout: .now() + 0.2), .timedOut,
+                       "enqueue must block until restore releases queueLock, not interleave with it")
+
+        releaseSave.signal()
+        XCTAssertEqual(enqueueFinished.wait(timeout: .now() + 1), .success)
+
+        XCTAssertEqual(store.requests.map(\.id), ["x", "concurrent"],
+                       "the concurrent enqueue must land after restore, never be silently dropped")
+    }
 }
