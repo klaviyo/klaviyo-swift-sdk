@@ -7,15 +7,36 @@
 
 import AnyCodable
 import Foundation
+#if SWIFT_PACKAGE
+import KlaviyoAutomaticPushBootstrap
+#endif
 import KlaviyoCore
 import OSLog
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
-    Task {
-        await MainActor.run {
-            klaviyoSwiftEnvironment.send(action)
-        }
+    DispatchQueue.main.async {
+        _ = klaviyoSwiftEnvironment.send(action)
+    }
+}
+
+/// Orders automatic APNs callbacks across the short-lived `KlaviyoSDK` values created by the
+/// app-delegate hook. Notification-settings reads are asynchronous and may finish out of order;
+/// only the generation belonging to the newest callback is allowed to dispatch its token.
+final class AutomaticPushTokenSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latestGeneration: UInt64 = 0
+
+    func claimGeneration() -> UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        latestGeneration &+= 1
+        return latestGeneration
+    }
+
+    func performIfLatest(_ generation: UInt64, operation: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        guard generation == latestGeneration else { return }
+        operation()
     }
 }
 
@@ -30,6 +51,7 @@ func dispatchOnMainThread(action: KlaviyoAction) {
 /// From there you can you can call the additional methods below to track events and profile.
 public struct KlaviyoSDK {
     private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
+    private static let automaticPushTokenSequence = AutomaticPushTokenSequence()
 
     /// Default initializer for the Klaviyo SDK.
     public init() {
@@ -92,7 +114,9 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
+        KlaviyoAutomaticPushBootstrapLinkerAnchor()
         dispatchOnMainThread(action: .initialize(apiKey))
+        klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
 
@@ -177,6 +201,23 @@ public struct KlaviyoSDK {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
+    /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
+    ///
+    /// This method subscribes the currently tracked profile to the specified Klaviyo list.
+    /// The profile must have at least an email address or phone number set (email keys the email
+    /// channel; phone number keys the SMS and WhatsApp channels).
+    ///
+    /// Use ``Subscription/allAvailableMarketing(listId:customSource:)`` to grant MARKETING consent on
+    /// the channels the profile has identifiers for (email and SMS), or the
+    /// ``Subscription/init(listId:channels:customSource:)`` initializer with a ``Subscription/Channels``
+    /// value to name specific channels and sub-types.
+    ///
+    /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
+    ///   for, and an optional `customSource` label.
+    public func create(subscription: Subscription) {
+        dispatchOnMainThread(action: .enqueueSubscription(subscription))
+    }
+
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
     /// - Parameter pushToken: data object containing a push token.
     public func set(pushToken: Data) {
@@ -190,6 +231,21 @@ public struct KlaviyoSDK {
         Task {
             let enablement = await environment.getNotificationSettings()
             dispatchOnMainThread(action: .setPushToken(pushToken, enablement))
+        }
+    }
+
+    /// Automatic APNs callback path. Kept internal so the public/manual API retains its
+    /// initialization contract while startup callbacks can buffer the latest token.
+    func setAutomatic(pushToken: Data) {
+        let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
+        let generation = Self.automaticPushTokenSequence.claimGeneration()
+        Task {
+            let enablement = await environment.getNotificationSettings()
+            DispatchQueue.main.async {
+                Self.automaticPushTokenSequence.performIfLatest(generation) {
+                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                }
+            }
         }
     }
 
@@ -246,6 +302,10 @@ public struct KlaviyoSDK {
             return false
         }
 
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -253,6 +313,7 @@ public struct KlaviyoSDK {
 
         // Prune the category if the push with action buttons was dismissed from the Notification Center
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            Task { @MainActor in completionHandler() }
             return true
         }
 
@@ -271,6 +332,12 @@ public struct KlaviyoSDK {
         return true
     }
 
+    /// Automatic proxy path that performs the same analytics and open action without taking
+    /// ownership of the system completion handler forwarded to the host delegate.
+    func handleAutomatically(notificationResponse: UNNotificationResponse) -> Bool {
+        handle(notificationResponse: notificationResponse, withCompletionHandler: {})
+    }
+
     /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
     /// - Parameters:
     ///   - remoteNotification: the remote notification that was opened
@@ -287,6 +354,10 @@ public struct KlaviyoSDK {
             return false
         }
 
+        if shortCircuitIfAutoTracked(notificationResponse, completionHandler: completionHandler) {
+            return true
+        }
+
         defer {
             let categoryIdentifier = notificationResponse.notification.request.content.categoryIdentifier
             klaviyoSwiftEnvironment.pruneCategory(categoryIdentifier)
@@ -294,6 +365,7 @@ public struct KlaviyoSDK {
 
         // Prune the category if the push with action buttons was dismissed from the Notification Center
         guard notificationResponse.actionIdentifier != UNNotificationDismissActionIdentifier else {
+            Task { @MainActor in completionHandler() }
             return true
         }
 
@@ -306,6 +378,22 @@ public struct KlaviyoSDK {
         Task { @MainActor in
             completionHandler()
         }
+        return true
+    }
+
+    /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
+    /// already auto-tracked this response. The proxy calls `handle(...)` and marks the
+    /// request ID before forwarding to any host delegate — a subsequent host call for the
+    /// same response would emit a duplicate `Opened Push`.
+    private func shortCircuitIfAutoTracked(
+        _ notificationResponse: UNNotificationResponse,
+        completionHandler: @escaping () -> Void
+    ) -> Bool {
+        let dedupKey = notificationResponse.klaviyoDedupKey
+        guard KlaviyoNotificationDelegate.shared.wasAutoTracked(dedupKey: dedupKey) else {
+            return false
+        }
+        Task { @MainActor in completionHandler() }
         return true
     }
 

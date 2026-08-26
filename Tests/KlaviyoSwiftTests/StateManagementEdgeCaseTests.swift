@@ -339,6 +339,67 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomaticPushTokenUninitializedAddsToDedicatedPendingRequest() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("automatic-token", .authorized)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken() async throws {
+        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("old-token", .authorized)) {
+            $0.pendingRequests = [.automaticPushToken("old-token", .authorized)]
+        }
+        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
+            $0.pendingRequests = [.automaticPushToken("new-token", .denied)]
+        }
+    }
+
+    @MainActor
+    func testAutomaticPushTokenDoesNotCoalesceManualPendingToken() async throws {
+        let initialState = KlaviyoState(
+            queue: [],
+            initalizationState: .initializing,
+            pendingRequests: [.pushToken("manual-token", .authorized)]
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .provisional)) {
+            $0.pendingRequests.append(.automaticPushToken("automatic-token", .provisional))
+        }
+    }
+
+    /// Pins that the automatic-token replacement happens in place, not via remove-then-append.
+    /// `testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken` starts from an empty queue,
+    /// where index 0 is both the in-place slot and the append slot, so it can't tell the two
+    /// implementations apart. Buffering the automatic token ahead of another pending request
+    /// makes the distinction observable: a remove-then-append implementation would silently
+    /// reorder the queue by moving the replaced token to the end.
+    @MainActor
+    func testAutomaticPushTokenReplacementKeepsQueuePosition() async throws {
+        let initialState = KlaviyoState(
+            queue: [],
+            initalizationState: .initializing,
+            pendingRequests: [
+                .automaticPushToken("old-token", .authorized),
+                .pushToken("manual-token", .authorized)
+            ]
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
+            $0.pendingRequests = [
+                .automaticPushToken("new-token", .denied),
+                .pushToken("manual-token", .authorized)
+            ]
+        }
+    }
+
+    @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
@@ -481,6 +542,58 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN))
+    }
+
+    // MARK: - Flush queue while offline during retry backoff
+
+    @MainActor
+    func testFlushQueueWhileOfflineDuringBackoffDoesNotTrap() async {
+        // Offline + backoff: the priority path can dispatch `.flushQueue` while `flushInterval` is
+        // `.infinity`, where the backoff countdown used to trap converting it to `Int`.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryState = .retryWithBackoff(
+            requestCount: 1,
+            totalRetryCount: 1,
+            currentBackoff: 30
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        // Also clears `flushing` — otherwise `.flushQueue` bails early and this test is vacuous.
+        _ = await store.receive(.cancelInFlightRequests) {
+            $0.flushing = false
+        }
+
+        // No state mutation and no follow-on effect: notably `retryState` keeps its backoff.
+        _ = await store.send(.flushQueue)
+    }
+
+    @MainActor
+    func testFlushQueueWhileOfflineWithoutBackoffDoesNotDrainQueue() async {
+        // The guard sits above the backoff block, so it also stops the non-backoff `.retry` path —
+        // which never crashed, but draining while offline only burns attempts. Pins that half:
+        // the queue must stay put rather than moving into requestsInFlight.
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.retryState = .retry(1)
+        let request = initialState.buildProfileRequest(
+            apiKey: initialState.apiKey!,
+            anonymousId: initialState.anonymousId!
+        )
+        initialState.queue = [request]
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        _ = await store.receive(.cancelInFlightRequests) {
+            $0.flushing = false
+        }
+
+        // Queue is non-empty on purpose — with an empty queue `.flushQueue` returns early anyway
+        // and this test would pass with or without the guard.
+        _ = await store.send(.flushQueue)
     }
 
     // MARK: - Missing api key for token request
@@ -643,8 +756,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext")
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(
+                            Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
+                            anonymousId: $0.anonymousId!
+                        )
                     )
                 )
             )
@@ -673,7 +788,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = await store.send(.enqueueProfile(profile)) {
             // No reset (same email), so anonymousId unchanged
             // A createProfile request should be enqueued with the updated attributes
-            let profilePayload = profile.toAPIModel(
+            let profilePayload = ProfilePayload(
+                profile,
                 email: $0.email,
                 phoneNumber: $0.phoneNumber,
                 externalId: $0.externalId,
@@ -720,8 +836,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile(email: "different@email.com", phoneNumber: "+15555555555")
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(
+                            Profile(email: "different@email.com", phoneNumber: "+15555555555"),
+                            anonymousId: $0.anonymousId!
+                        )
                     )
                 )
             )
@@ -767,7 +885,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: profile.toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(profile, anonymousId: $0.anonymousId!)
                     )
                 )
             )
@@ -812,8 +930,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
                         pushToken: initialState.pushTokenData!.pushToken,
                         enablement: initialState.pushTokenData!.pushEnablement.rawValue,
                         background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: Profile()
-                            .toAPIModel(anonymousId: $0.anonymousId!)
+                        profile: ProfilePayload(Profile(), anonymousId: $0.anonymousId!)
                     )
                 )
             )

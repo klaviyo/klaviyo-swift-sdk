@@ -66,6 +66,10 @@ enum KlaviyoAction: Equatable {
     /// call when a new push token needs to be set. If this token is the same we don't perform a network request to register the token
     case setPushToken(String, PushEnablement)
 
+    /// Internal automatic-token path. Unlike the public/manual action, this may buffer the
+    /// latest APNs token before SDK initialization has started.
+    case setAutomaticPushToken(String, PushEnablement)
+
     /// call this to sync the user's local push notification authorization setting with the user's profile on the Klaviyo back-end.
     case setPushEnablement(PushEnablement)
 
@@ -105,6 +109,9 @@ enum KlaviyoAction: Equatable {
     /// when there is an profile to be sent to klaviyo it's added to the queue
     case enqueueProfile(Profile)
 
+    /// when there is a subscription to be sent to klaviyo it's added to the queue
+    case enqueueSubscription(Subscription)
+
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
@@ -132,10 +139,10 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.priority == .high:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -288,12 +295,16 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueProfile(profile))
                     case let .pushToken(token, enablement):
                         await send(.setPushToken(token, enablement))
+                    case let .automaticPushToken(token, enablement):
+                        await send(.setPushToken(token, enablement))
                     case let .setEmail(email):
                         await send(.setEmail(email))
                     case let .setExternalId(externalId):
                         await send(.setExternalId(externalId))
                     case let .setPhoneNumber(phoneNumber):
                         await send(.setPhoneNumber(phoneNumber))
+                    case let .subscription(subscription):
+                        await send(.enqueueSubscription(subscription))
                     }
                 }
                 await send(.start)
@@ -324,6 +335,23 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.updateExternalId(externalId: externalId)
             return .none
+
+        case let .setAutomaticPushToken(pushToken, enablement):
+            guard case .initialized = state.initalizationState else {
+                let replacement = KlaviyoState.PendingRequest.automaticPushToken(pushToken, enablement)
+                if let index = state.pendingRequests.firstIndex(where: {
+                    if case .automaticPushToken = $0 { return true }
+                    return false
+                }) {
+                    state.pendingRequests[index] = replacement
+                } else {
+                    state.pendingRequests.append(replacement)
+                }
+                return .none
+            }
+            return .run { send in
+                await send(.setPushToken(pushToken, enablement))
+            }
 
         case let .setPushToken(pushToken, enablement):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
@@ -357,6 +385,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             if state.flushing {
+                return .none
+            }
+            // The priority path can dispatch `.flushQueue` while offline, where `flushInterval` is
+            // `.infinity` — the backoff below would trap on `Int()`, and draining is pointless.
+            guard state.flushInterval.isFinite else {
                 return .none
             }
             if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
@@ -574,6 +607,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 baseEffect,
                 .fireAndForget { enrichAndPublishEvent(event) }
             ])
+
         case let .enqueueAggregateEvent(payload):
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey
@@ -629,7 +663,8 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let profilePayload = profile.toAPIModel(
+            let profilePayload = ProfilePayload(
+                profile,
                 email: state.email,
                 phoneNumber: state.phoneNumber,
                 externalId: state.externalId,
@@ -650,6 +685,26 @@ struct KlaviyoReducer: ReducerProtocol {
                     apiKey: apiKey,
                     payload: CreateProfilePayload(data: profilePayload)
                 )
+            }
+            state.enqueueRequest(request: request)
+
+            return .none
+
+        case let .enqueueSubscription(subscription):
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
+                state.pendingRequests.append(.subscription(subscription))
+                return .none
+            }
+
+            guard let request = state.buildSubscriptionRequest(
+                apiKey: apiKey,
+                anonymousId: anonymousId,
+                subscription: subscription
+            ) else {
+                return .none
             }
             state.enqueueRequest(request: request)
 

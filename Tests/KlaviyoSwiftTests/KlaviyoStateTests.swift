@@ -132,7 +132,7 @@ final class KlaviyoStateTests: XCTestCase {
         let eventRequest = KlaviyoRequest(endpoint: .createEvent("foo", createEventPayload))
 
         let profile = Profile.test
-        let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
+        let payload = CreateProfilePayload(data: ProfilePayload(profile, anonymousId: "foo"))
 
         let profileRequest = KlaviyoRequest(endpoint: .createProfile("foo", payload))
         let tokenPayload = PushTokenPayload(

@@ -25,6 +25,7 @@ class KlaviyoSDKTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        KlaviyoNotificationDelegate.shared.clearAutoTracked()
         BadgeManager.resetToProduction()
         DeepLinkManager.resetToProduction()
     }
@@ -121,6 +122,106 @@ class KlaviyoSDKTests: XCTestCase {
         klaviyo.set(pushToken: tokenData)
 
         wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testSetAutomaticPushTokenUsesAutomaticAction() {
+        let tokenData = "automatic-token".data(using: .utf8)!
+        let stringToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+        let expectation = setupActionAssertion(
+            expectedAction: .setAutomaticPushToken(stringToken, .authorized)
+        )
+
+        klaviyo.setAutomatic(pushToken: tokenData)
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testSetAutomaticPushTokenDiscardsOlderSettingsResultThatFinishesLast() async {
+        let firstToken = Data([0x01])
+        let secondToken = Data([0x02])
+        // `getNotificationSettings` runs from setAutomatic(pushToken:)'s unstructured Task, off
+        // the main actor this test method runs on — guard the shared array against that race.
+        let continuationsLock = NSLock()
+        nonisolated(unsafe) var settingsContinuations: [CheckedContinuation<PushEnablement, Never>] = []
+        let firstSettingsRequested = expectation(description: "first notification settings requested")
+        let secondSettingsRequested = expectation(description: "second notification settings requested")
+        environment.getNotificationSettings = {
+            await withCheckedContinuation { continuation in
+                continuationsLock.lock()
+                settingsContinuations.append(continuation)
+                let count = settingsContinuations.count
+                continuationsLock.unlock()
+                if count == 1 {
+                    firstSettingsRequested.fulfill()
+                } else {
+                    secondSettingsRequested.fulfill()
+                }
+            }
+        }
+
+        let latestTokenSent = expectation(description: "latest automatic token sent")
+        let staleTokenSent = expectation(description: "stale automatic token not sent")
+        staleTokenSent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            switch action {
+            case .setAutomaticPushToken("02", .authorized):
+                latestTokenSent.fulfill()
+            case .setAutomaticPushToken("01", _):
+                staleTokenSent.fulfill()
+            default:
+                XCTFail("Unexpected action: \(action)")
+            }
+            return nil
+        }
+
+        KlaviyoSDK().setAutomatic(pushToken: firstToken)
+        await fulfillment(of: [firstSettingsRequested], timeout: 1.0)
+        KlaviyoSDK().setAutomatic(pushToken: secondToken)
+        await fulfillment(of: [secondSettingsRequested], timeout: 1.0)
+
+        continuationsLock.lock()
+        let continuations = settingsContinuations
+        continuationsLock.unlock()
+        XCTAssertEqual(continuations.count, 2)
+
+        continuations[1].resume(returning: .authorized)
+        await fulfillment(of: [latestTokenSent], timeout: 1.0)
+        continuations[0].resume(returning: .denied)
+        await fulfillment(of: [staleTokenSent], timeout: 0.1)
+    }
+
+    func testAutomaticPushTokenSequenceDoesNotAllowNewClaimDuringLatestOperation() {
+        let sequence = AutomaticPushTokenSequence()
+        let firstGeneration = sequence.claimGeneration()
+        let firstOperationStarted = expectation(description: "first operation started")
+        let releaseFirstOperation = DispatchSemaphore(value: 0)
+        let newerGenerationClaimed = DispatchSemaphore(value: 0)
+        // Guarantees the blocked global-queue worker is released even if this test fails
+        // or times out before the explicit `signal()` below runs.
+        defer { releaseFirstOperation.signal() }
+
+        DispatchQueue.global().async {
+            sequence.performIfLatest(firstGeneration) {
+                firstOperationStarted.fulfill()
+                releaseFirstOperation.wait()
+            }
+        }
+        wait(for: [firstOperationStarted], timeout: 1.0)
+
+        DispatchQueue.global().async {
+            _ = sequence.claimGeneration()
+            newerGenerationClaimed.signal()
+        }
+        let claimBeforeOperationFinished = newerGenerationClaimed.wait(
+            timeout: .now() + 0.1
+        )
+        releaseFirstOperation.signal()
+        let claimAfterOperationFinished = newerGenerationClaimed.wait(
+            timeout: .now() + 1.0
+        )
+
+        XCTAssertEqual(claimBeforeOperationFinished, .timedOut)
+        XCTAssertEqual(claimAfterOperationFinished, .success)
     }
 
     // MARK: test set external id
@@ -567,6 +668,143 @@ class KlaviyoSDKTests: XCTestCase {
             XCTAssertNil(event.properties["Button Action"], "Should NOT include Button Action for body tap")
             XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
         }
+    }
+
+    // MARK: - Double-track guard
+
+    func testHandleShortCircuitsWhenAutoTracked() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+        let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testProxyThenManualHandleEmitsOneEvent() throws {
+        // Given — proxy calls handle then marks the request ID (mirrors didReceive implementation)
+        let proxyCallback = XCTestExpectation(description: "proxy completion fires")
+        let manualCallback = XCTestExpectation(description: "manual completion fires")
+        var enqueueCount = 0
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { enqueueCount += 1 }
+            return nil
+        }
+        let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
+
+        // When (proxy path)
+        let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
+        XCTAssertTrue(wasTracked)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(
+            dedupKey: response.klaviyoDedupKey
+        )
+        wait(for: [proxyCallback], timeout: 1.0)
+
+        // Then — exactly one event emitted on the proxy pass
+        XCTAssertEqual(enqueueCount, 1, "proxy call should emit exactly one _openedPush")
+
+        // When (manual host path for same response)
+        let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
+        XCTAssertTrue(handled2)
+        wait(for: [manualCallback], timeout: 1.0)
+
+        // Then — no second event emitted
+        XCTAssertEqual(enqueueCount, 1, "manual handle must not emit a second event")
+    }
+
+    func testHandleShortCircuitSuppressesDeepLinkDispatch() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noDeepLink = XCTestExpectation(description: "no openDeepLink dispatched")
+        noDeepLink.isInverted = true
+        DeepLinkManager.openDeepLinkSpy = { _ in noDeepLink.fulfill() }
+        let pushBody: [AnyHashable: Any] = [
+            "body": ["_k": ["foo": "bar"]],
+            "url": "https://example.com/deeplink"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noDeepLink], timeout: 1.0)
+        XCTAssertTrue(handled)
+    }
+
+    func testProxyThenManualHandleDedupsViaTm() throws {
+        // Given — a real Klaviyo payload with tm present
+        let proxyCallback = XCTestExpectation(description: "proxy completion fires")
+        let manualCallback = XCTestExpectation(description: "manual completion fires")
+        var enqueueCount = 0
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { enqueueCount += 1 }
+            return nil
+        }
+        let pushBody: [AnyHashable: Any] = [
+            "body": [
+                "_k": [
+                    "tm": "01KV8CN3SH8N7MM5ZYNX40QCFH",
+                    "m": "01KT4QQ8QPYH4EN7BH3BH259TD",
+                    "$message": "01KT4QQ8QPYH4EN7BH3BH259TD"
+                ]
+            ]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: pushBody)
+
+        // When (proxy path) - mark using the tm-based dedup key
+        let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
+        XCTAssertTrue(wasTracked)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
+        wait(for: [proxyCallback], timeout: 1.0)
+        XCTAssertEqual(enqueueCount, 1, "proxy call should emit exactly one _openedPush")
+
+        // When (manual host path) — same tm key must short-circuit
+        let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
+        XCTAssertTrue(handled2)
+        wait(for: [manualCallback], timeout: 1.0)
+        XCTAssertEqual(enqueueCount, 1, "manual handle must not emit a second event")
+    }
+
+    func testHandleShortCircuitsForActionButtonTapWhenAutoTracked() throws {
+        // Given
+        let callback = XCTestExpectation(description: "completion is called")
+        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
+        noEvent.isInverted = true
+        klaviyoSwiftEnvironment.send = { action in
+            if case .enqueueEvent = action { noEvent.fulfill() }
+            return nil
+        }
+        let actionId = "com.klaviyo.test.button.dedup"
+        let pushBody: [AnyHashable: Any] = [
+            "body": [
+                "_k": "test_dedup_action",
+                "action_buttons": [["id": actionId, "label": "Tap Me", "action": "open_app"]]
+            ]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: pushBody, actionIdentifier: actionId)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
+
+        // When
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
+
+        // Then
+        wait(for: [callback, noEvent], timeout: 1.0)
+        XCTAssertTrue(handled)
     }
 
     // MARK: - web_url tests

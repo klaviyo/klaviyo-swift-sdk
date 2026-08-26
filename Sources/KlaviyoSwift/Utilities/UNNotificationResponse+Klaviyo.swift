@@ -82,6 +82,29 @@ extension UNNotificationResponse {
         return url
     }
 
+    // MARK: - Dedup Key
+
+    /// Returns the stable dedup key used by the auto-track guard to prevent double-firing
+    /// the `Opened Push` event when both the Klaviyo proxy delegate and a manual
+    /// `handle(notificationResponse:)` call process the same response.
+    ///
+    /// Preference order:
+    /// 1. `tm` from `_k` — a ULID unique per delivery, always present in Klaviyo campaign sends.
+    /// 2. `notification.request.identifier` — reached only for non-Klaviyo notifications (no `_k`
+    ///    payload). In that path `handle(notificationResponse:)` returns `false` so
+    ///    `markAsAutoTracked` is never called; the dedup guard never acts on this key.
+    ///    `request.identifier` is intentionally not used as a unique-per-delivery key — it is a
+    ///    display identity that can be shared across deliveries via `apns-collapse-id`.
+    var klaviyoDedupKey: String {
+        guard let userInfo = notification.request.content.userInfo as? [String: Any],
+              let klaviyoBody = userInfo["body"] as? [String: Any],
+              let kPayload = klaviyoBody["_k"] as? [String: Any],
+              let deliveryUlid = kPayload["tm"] as? String else {
+            return notification.request.identifier
+        }
+        return deliveryUlid
+    }
+
     /// Returns the external web URL from a Klaviyo notification payload, if present.
     ///
     /// Reads the `web_url` field. The presence of this field indicates the tap should open

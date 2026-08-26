@@ -24,6 +24,11 @@
 		9E55C859B1262417E645B05C /* Pods_CocoapodsExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E2D5A54561D5E26A3EAB530 /* Pods_CocoapodsExample.framework */; };
 		A72D9F9A195A8E3443E80585 /* Pods_NotificationServiceExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D38257B2584AC4293FC1D91E /* Pods_NotificationServiceExtension.framework */; };
 		C40ABDBB2FA27A7C002B232D /* CocoapodsExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40ABDBA2FA27A7C002B232D /* CocoapodsExampleApp.swift */; };
+		060CAF0DA7714564A8253B08 /* PushLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C63FEC63DB47098A81B00B /* PushLogEntry.swift */; };
+		68D5A40BBABC45A2AB572AD9 /* PushLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27120992E0014EE89AB04941 /* PushLogStore.swift */; };
+		32CAB4F960734BC6A529F407 /* PushLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147CC687D9424DE59357369B /* PushLogView.swift */; };
+		A92BB2E0E97345CA975B6A13 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */; };
+		9B997B2E581A44A48B412876 /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -91,6 +96,10 @@
 		C40ABDBA2FA27A7C002B232D /* CocoapodsExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocoapodsExampleApp.swift; sourceTree = "<group>"; };
 		D38257B2584AC4293FC1D91E /* Pods_NotificationServiceExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_NotificationServiceExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC4151BFCCF5B6674A041C44 /* Pods-NotificationServiceExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NotificationServiceExtension.release.xcconfig"; path = "Target Support Files/Pods-NotificationServiceExtension/Pods-NotificationServiceExtension.release.xcconfig"; sourceTree = "<group>"; };
+		30C63FEC63DB47098A81B00B /* PushLogEntry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogEntry.swift; path = ../../Shared/PushLogEntry.swift; sourceTree = "<group>"; };
+		27120992E0014EE89AB04941 /* PushLogStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogStore.swift; path = ../../Shared/PushLogStore.swift; sourceTree = "<group>"; };
+		147CC687D9424DE59357369B /* PushLogView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushLogView.swift; path = ../../Shared/PushLogView.swift; sourceTree = "<group>"; };
+		D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PushPayload.swift; path = ../../Shared/PushPayload.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,6 +176,10 @@
 				7CC1C7B228D7492C0073197F /* MenuView.swift */,
 				7CC1C7B328D7492C0073197F /* MapView.swift */,
 				7CC1C7B428D7492C0073197F /* CheckoutView.swift */,
+				30C63FEC63DB47098A81B00B /* PushLogEntry.swift */,
+				27120992E0014EE89AB04941 /* PushLogStore.swift */,
+				147CC687D9424DE59357369B /* PushLogView.swift */,
+				D3985D6B0B0E4A0BADD7069F /* PushPayload.swift */,
 				7CC1C79928D7492C0073197F /* MenuItem.swift */,
 				7CC1C79728D7492C0073197F /* User.swift */,
 				7CC1C79428D7492B0073197F /* CocoapodsExample-Bridging-Header.h */,
@@ -397,6 +410,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				346621812A44F61500B3576C /* NotificationService.swift in Sources */,
+				9B997B2E581A44A48B412876 /* PushPayload.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +430,10 @@
 				7CC1C7B728D7492C0073197F /* MenuView.swift in Sources */,
 				7CC1C7B828D7492C0073197F /* MapView.swift in Sources */,
 				7CC1C7B928D7492C0073197F /* CheckoutView.swift in Sources */,
+				A92BB2E0E97345CA975B6A13 /* PushPayload.swift in Sources */,
+				060CAF0DA7714564A8253B08 /* PushLogEntry.swift in Sources */,
+				68D5A40BBABC45A2AB572AD9 /* PushLogStore.swift in Sources */,
+				32CAB4F960734BC6A529F407 /* PushLogView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
