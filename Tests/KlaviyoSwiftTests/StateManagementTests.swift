@@ -93,6 +93,57 @@ class StateManagementTests: XCTestCase {
         await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
     }
 
+    /// Regression test: before migration ran here, `.completeInitialization` silently overwrote
+    /// decoded legacy identity/pushToken with an empty `IdentityStore`.
+    @MainActor
+    func testInitializeMigratesLegacyStateIntoCanonicalStores() async throws {
+        let fakeEnvironment = InMemoryEnvironment(
+            libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-init-migration-test/library")
+        )
+        environment = fakeEnvironment.makeEnvironment()
+        QueueStore.resetRegistry()
+
+        let apiKey = "migration-init-key"
+        let pushToken = PushTokenData(
+            pushToken: "legacy-push", pushEnablement: .authorized, pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        )
+        let legacyQueue = [
+            KlaviyoRequest(id: "legacy-a", endpoint: .fetchGeofences(apiKey, latitude: nil, longitude: nil))
+        ]
+        let fixture = LegacyNestedFixture(
+            apiKey: apiKey,
+            identity: ProfileData(email: "legacy@user.com", anonymousId: "legacy-anon"),
+            pushTokenData: pushToken,
+            queue: legacyQueue
+        )
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
+
+        let initialState = KlaviyoState(queue: [], requestsInFlight: [])
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.initialize(apiKey))
+        await store.finish(timeout: 2_000_000_000)
+
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "legacy-anon")
+        XCTAssertEqual(IdentityStore.shared.current.email, "legacy@user.com")
+        XCTAssertEqual(IdentityStore.shared.pushToken, pushToken)
+        // The migrated queue lands in QueueStore only; state.queue stays empty until MAGE-952.
+        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["legacy-a"])
+
+        // loadKlaviyoStateFromDisk recreates a file at this path in queue-only shape (expected
+        // until MAGE-952) — assert the shape changed, not raw path absence.
+        if let remaining = fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] {
+            let remainingState = try JSONDecoder().decode(KlaviyoState.self, from: remaining)
+            XCTAssertNil(remainingState.apiKey,
+                         "only a fresh queue-only file may remain, never the legacy shape")
+            XCTAssertEqual(remainingState.queue, [],
+                           "the recreated file is a fresh empty queue, not the migrated backlog")
+        }
+    }
+
     // MARK: - Set Email
 
     @MainActor

@@ -121,6 +121,14 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(onDisk?.pushToken, token)
     }
 
+    // MARK: - Production file location
+
+    func testUpdateRoutesIdentityFileToApplicationSupport() {
+        assertWriteRoutesToApplicationSupport(fileName: StoreFile.identity) {
+            IdentityStore().update(ProfileData(anonymousId: "anon-1"))
+        }
+    }
+
     // MARK: - Thread safety
 
     func testConcurrentAccessIsRaceFree() {

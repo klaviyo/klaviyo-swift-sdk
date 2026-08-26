@@ -177,15 +177,9 @@ final class RequestEnqueuerTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
         // Buffer file must be gone.
-        XCTAssertNil(loadPersisted(
-            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
-            directory: storeDirectory()
-        ))
-        // Queue must be durable on disk (synchronous final enqueue), resolved through the same
-        // store directory production writes to.
-        let onDisk = loadPersisted(
-            PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json", directory: storeDirectory()
-        )
+        XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
+        // Queue must be durable on disk (synchronous final enqueue).
+        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json")
         XCTAssertEqual(onDisk?.requests.count, 1)
     }
 

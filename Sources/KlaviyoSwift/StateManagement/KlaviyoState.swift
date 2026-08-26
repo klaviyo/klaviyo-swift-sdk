@@ -477,7 +477,8 @@ func saveKlaviyoState(state: KlaviyoState) {
     storeKlaviyoState(state: state, file: file)
 }
 
-private func klaviyoStateFile(apiKey: String) -> URL {
+/// Not `private` — `LegacyStateMigration` needs this path too.
+func klaviyoStateFile(apiKey: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-state.json"
     let directory = environment.fileClient.libraryDirectory()
     return directory.appendingPathComponent(fileName, isDirectory: false)

@@ -51,17 +51,12 @@ final class UnattributedBuffer {
     /// match a real entry's sequence.
     private var nextSequence: UInt64 = 1
 
-    /// Canonical home for new SDK support files, matching `QueueStore` (the store this buffer
-    /// drains into). Resolved per-access so tests can swap the environment's file client.
-    private var storeDirectory: URL { environment.fileClient.applicationSupportDirectory() }
-
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `lock`.
     private func hydrateIfNeeded() {
         guard !hydrated else { return }
         hydrated = true
         if let persisted = loadPersisted(
-            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed,
-            directory: storeDirectory
+            PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed
         ) {
             entries = persisted.requests.map { assignSequence($0) }
         }
@@ -77,11 +72,11 @@ final class UnattributedBuffer {
     /// Call under `lock`.
     private func persist() {
         if entries.isEmpty {
-            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
+            removePersisted(fileName: StoreFile.unattributed)
         } else {
             savePersisted(
                 PersistedUnattributedBuffer(requests: entries.map(\.request)),
-                fileName: StoreFile.unattributed, directory: storeDirectory
+                fileName: StoreFile.unattributed
             )
         }
     }
@@ -132,7 +127,7 @@ final class UnattributedBuffer {
         lock.withLock {
             entries = []
             hydrated = true
-            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
+            removePersisted(fileName: StoreFile.unattributed)
         }
     }
 
@@ -142,7 +137,7 @@ final class UnattributedBuffer {
             hydrated = false
             entries = []
             nextSequence = 1
-            removePersisted(fileName: StoreFile.unattributed, directory: storeDirectory)
+            removePersisted(fileName: StoreFile.unattributed)
         }
     }
 }

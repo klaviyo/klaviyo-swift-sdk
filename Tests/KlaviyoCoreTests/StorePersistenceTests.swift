@@ -38,20 +38,12 @@ final class StorePersistenceTests: XCTestCase {
         XCTAssertNil(loadPersisted(PersistedConfig.self, fileName: StoreFile.config))
     }
 
-    func testSaveAndLoadHonorExplicitDirectory() {
-        let appSupport = environment.fileClient.libraryDirectory()
-            .appendingPathComponent("Application Support/com.klaviyo", isDirectory: true)
-        let config = PersistedConfig(version: 1, apiKey: "pk-1")
-
-        savePersisted(config, fileName: StoreFile.config, directory: appSupport)
-
-        // Readable from the same directory it was written to.
-        XCTAssertEqual(
-            loadPersisted(PersistedConfig.self, fileName: StoreFile.config, directory: appSupport),
-            config
-        )
-        // Not visible under the default library root — proves the directory seam is honored.
-        XCTAssertNil(loadPersisted(PersistedConfig.self, fileName: StoreFile.config))
+    /// There is no `directory` override any more — every persisted store file must land under
+    /// Application Support, even when it differs from the library root.
+    func testSaveAndLoadAlwaysRouteToApplicationSupport() {
+        assertWriteRoutesToApplicationSupport(fileName: StoreFile.config) {
+            savePersisted(PersistedConfig(version: 1, apiKey: "pk-1"), fileName: StoreFile.config)
+        }
     }
 
     func testPersistedIdentityJSONCarriesVersionKey() throws {

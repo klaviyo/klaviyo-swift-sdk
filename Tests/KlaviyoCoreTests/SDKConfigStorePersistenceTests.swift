@@ -45,6 +45,14 @@ final class SDKConfigStorePersistenceTests: XCTestCase {
         XCTAssertNil(loadPersisted(PersistedConfig.self, fileName: StoreFile.config))
     }
 
+    // MARK: - Production file location
+
+    func testUpdateRoutesConfigFileToApplicationSupport() {
+        assertWriteRoutesToApplicationSupport(fileName: StoreFile.config) {
+            SDKConfigStore().update(KlaviyoConfig(apiKey: "pk-1"))
+        }
+    }
+
     // MARK: - Thread safety
 
     func testConcurrentReadsAreRaceFree() {

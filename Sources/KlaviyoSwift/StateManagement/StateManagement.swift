@@ -245,6 +245,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // write-through having run yet.
             state.apiKey = apiKey
             return .run { send in
+                // Must run before loadKlaviyoStateFromDisk and before IdentityStore hydrates below.
+                migrateLegacyStateIfNeeded(apiKey: apiKey)
                 // The persisted blob is queue-only; identity/apiKey/pushToken are hydrated from the
                 // Core stores in `.completeInitialization`.
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
