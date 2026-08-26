@@ -45,6 +45,27 @@ final class SDKConfigStorePersistenceTests: XCTestCase {
         XCTAssertNil(loadPersisted(PersistedConfig.self, fileName: StoreFile.config))
     }
 
+    // MARK: - Production file location
+
+    func testUpdateRoutesConfigFileToApplicationSupport() {
+        let appSupportRoot = URL(fileURLWithPath: "/tmp/klaviyo-config-tests/app-support")
+        let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-config-tests/library")
+        var capturedURL: URL?
+
+        environment.fileClient = FileClient(
+            write: { _, url in capturedURL = url },
+            fileExists: { _ in false },
+            removeItem: { _ in },
+            libraryDirectory: { libraryRoot },
+            applicationSupportDirectory: { appSupportRoot }
+        )
+
+        SDKConfigStore().update(KlaviyoConfig(apiKey: "pk-1"))
+
+        XCTAssertEqual(capturedURL, appSupportRoot.appendingPathComponent(StoreFile.config))
+        XCTAssertFalse(capturedURL?.path.hasPrefix(libraryRoot.path) ?? true)
+    }
+
     // MARK: - Thread safety
 
     func testConcurrentReadsAreRaceFree() {

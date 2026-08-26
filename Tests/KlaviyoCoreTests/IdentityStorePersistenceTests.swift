@@ -121,6 +121,27 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(onDisk?.pushToken, token)
     }
 
+    // MARK: - Production file location
+
+    func testUpdateRoutesIdentityFileToApplicationSupport() {
+        let appSupportRoot = URL(fileURLWithPath: "/tmp/klaviyo-identity-tests/app-support")
+        let libraryRoot = URL(fileURLWithPath: "/tmp/klaviyo-identity-tests/library")
+        var capturedURL: URL?
+
+        environment.fileClient = FileClient(
+            write: { _, url in capturedURL = url },
+            fileExists: { _ in false },
+            removeItem: { _ in },
+            libraryDirectory: { libraryRoot },
+            applicationSupportDirectory: { appSupportRoot }
+        )
+
+        IdentityStore().update(ProfileData(anonymousId: "anon-1"))
+
+        XCTAssertEqual(capturedURL, appSupportRoot.appendingPathComponent(StoreFile.identity))
+        XCTAssertFalse(capturedURL?.path.hasPrefix(libraryRoot.path) ?? true)
+    }
+
     // MARK: - Thread safety
 
     func testConcurrentAccessIsRaceFree() {

@@ -6,6 +6,7 @@
 //
 
 import Combine
+import Foundation
 
 /// Read-only view of profile identity. Consumers depend on this rather than the
 /// concrete store so the underlying implementation can change (e.g. become an actor).
@@ -47,6 +48,10 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     private var hydrated = false
     private var pushTokenValue: PushTokenData?
 
+    /// Canonical home for new SDK support files, matching `QueueStore`/`UnattributedBuffer`.
+    /// Resolved per-access so tests can swap the environment's file client.
+    private var storeDirectory: URL { environment.fileClient.applicationSupportDirectory() }
+
     init(initialIdentity: ProfileData = ProfileData()) {
         subject = CurrentValueSubject(initialIdentity)
     }
@@ -57,7 +62,9 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
             guard !hydrated else { return }
             hydrated = true
 
-            let persisted = loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)
+            let persisted = loadPersisted(
+                PersistedIdentity.self, fileName: StoreFile.identity, directory: storeDirectory
+            )
             var profile = persisted?.profile ?? ProfileData()
             pushTokenValue = persisted?.pushToken
 
@@ -78,7 +85,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
                 profile: profile,
                 pushToken: pushTokenValue
             ),
-            fileName: StoreFile.identity
+            fileName: StoreFile.identity, directory: storeDirectory
         )
     }
 
@@ -137,7 +144,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
             hydrated = false
             pushTokenValue = nil
         }
-        removePersisted(fileName: StoreFile.identity)
+        removePersisted(fileName: StoreFile.identity, directory: storeDirectory)
         subject.send(ProfileData())
     }
 }

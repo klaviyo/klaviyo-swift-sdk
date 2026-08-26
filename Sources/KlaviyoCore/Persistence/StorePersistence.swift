@@ -44,8 +44,8 @@ public enum StoreFile {
 // MARK: - Load / save helpers
 
 /// Resolves the on-disk URL for a store file. Defaults to the legacy `Library` root
-/// (`libraryDirectory`) for pre-existing identity/config files; new files pass an explicit
-/// `directory` (e.g. `applicationSupportDirectory()`) to opt into the canonical support home.
+/// (`libraryDirectory`); callers pass an explicit `directory` (e.g. `applicationSupportDirectory()`)
+/// to opt into the canonical support home.
 func storeFileURL(_ fileName: String, directory: URL? = nil) -> URL {
     (directory ?? environment.fileClient.libraryDirectory())
         .appendingPathComponent(fileName, isDirectory: false)
