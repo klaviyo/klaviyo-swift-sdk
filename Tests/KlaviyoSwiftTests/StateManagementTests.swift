@@ -1066,7 +1066,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription.allAvailableMarketing(listId: "list-123")))
-        await fulfillment(of: [expectation])
+        await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(readQueue().isEmpty)
     }
 
@@ -1099,7 +1099,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init())))
-        await fulfillment(of: [expectation])
+        await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(readQueue().isEmpty)
     }
 
@@ -1112,7 +1112,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(email: .marketing))))
-        await fulfillment(of: [expectation])
+        await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(readQueue().isEmpty)
     }
 
@@ -1125,7 +1125,7 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(sms: .marketing))))
-        await fulfillment(of: [expectation])
+        await fulfillment(of: [expectation], timeout: 1.0)
         XCTAssertTrue(readQueue().isEmpty)
     }
 
@@ -1176,8 +1176,9 @@ class StateManagementTests: XCTestCase {
             scaffold.store.state.requestsInFlight.count, 2,
             "Existing + new request should be in flight"
         )
+        let front = try XCTUnwrap(scaffold.store.state.requestsInFlight.first)
         XCTAssertEqual(
-            scaffold.store.state.requestsInFlight[0].priority,
+            front.priority,
             .high,
             "Opened-push request must carry .high priority and be inserted at the front"
         )
@@ -1204,8 +1205,9 @@ class StateManagementTests: XCTestCase {
             scaffold.store.state.requestsInFlight.count, 2,
             "Existing + new request should be in flight"
         )
+        let front = try XCTUnwrap(scaffold.store.state.requestsInFlight.first)
         XCTAssertEqual(
-            scaffold.store.state.requestsInFlight[0].priority,
+            front.priority,
             .high,
             "Geofence request must carry .high priority and be inserted at the front"
         )
