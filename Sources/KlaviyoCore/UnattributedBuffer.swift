@@ -81,11 +81,9 @@ final class UnattributedBuffer {
         }
     }
 
-    /// A push-token registration is a snapshot of "the current token state" — a repeated pre-init
-    /// fire (e.g. multiple automatic APNs callbacks before `initialize()`) makes any earlier buffered
-    /// `.pushToken` redundant, so it's dropped in favor of the newest one rather than both being
-    /// drained and sent. Not provenance-aware (manual vs. automatic) — coalescing applies regardless
-    /// of which caller produced the request, since both build the same idempotent payload shape.
+    /// Repeated pre-init token buffering (e.g. multiple automatic APNs callbacks before
+    /// `initialize()`) drops any earlier buffered token — only the latest is kept, whether it came
+    /// from a manual or automatic call.
     func append(_ request: UnattributedRequest) {
         lock.withLock {
             hydrateIfNeeded()
