@@ -372,6 +372,46 @@ class StateManagementEnqueueEdgeCaseTests: XCTestCase {
             )
         )
     }
+
+    // MARK: - Pre-init set(profile:) identifier-change reset (cursor bugbot regression)
+
+    /// A pre-init `set(profile:)` with DIFFERENT identifiers than the persisted profile must mint a
+    /// fresh anonymousId (mirroring the initialized path), so a later launch identifying a new user
+    /// before `initialize()` doesn't inherit the previous user's anon and merge two people.
+    @MainActor
+    func testPreInitEnqueueProfileWithDifferentIdentifiersMintsNewAnonymousId() async throws {
+        // A persisted identified profile from a previous session.
+        let previousAnon = "previous-user-anon"
+        IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.enqueueProfile(Profile(email: "new@user.com")))
+
+        XCTAssertNotEqual(
+            IdentityStore.shared.current.anonymousId, previousAnon,
+            "changed pre-init identifiers must mint a new anonymousId, not reuse the prior user's"
+        )
+        XCTAssertEqual(IdentityStore.shared.current.email, "new@user.com")
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1,
+                       "the profile sync is buffered pre-init")
+    }
+
+    /// A pre-init `set(profile:)` with the SAME identifiers must NOT churn the anonymousId.
+    @MainActor
+    func testPreInitEnqueueProfileWithSameIdentifiersPreservesAnonymousId() async throws {
+        let anon = "stable-anon"
+        IdentityStore.shared.update(ProfileData(email: "same@user.com", anonymousId: anon))
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.enqueueProfile(Profile(email: "same@user.com")))
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, anon,
+                       "unchanged identifiers must preserve the anonymousId")
+    }
 }
 
 extension Event.EventName: CaseIterable {

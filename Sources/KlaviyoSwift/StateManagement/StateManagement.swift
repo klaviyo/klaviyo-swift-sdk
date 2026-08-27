@@ -588,14 +588,13 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
             else {
-                // Pre-init: fold the profile's identifiers into `state.identity` so the
-                // write-through `defer` persists them to `IdentityStore`, then (Ruling 2) push
-                // them synchronously BEFORE `enqueueProfile` reads identity from `IdentityStore`.
-                // Seed the canonical `anonymousId` first (minting on first access) so the write does
-                // not clobber it with a `nil` from a fresh pre-init `state`.
+                // Pre-init: mirror the initialized path against the canonical persisted identity.
+                // Seed `state.identity` from `IdentityStore` so we fold onto (not clobber) the
+                // stored profile, run the SAME identifier-change reset, then push synchronously
+                // BEFORE `enqueueProfile` reads identity back from `IdentityStore` (Ruling 2).
                 // The buffer path (Model 1) carries identifiers + a flat custom-properties dict;
-                // structured attributes (name/location/etc.) are not represented in the buffered
-                // payload — warn developers so the drop is not silent.
+                // structured attributes (name/location/etc.) are not represented — warn so the
+                // drop is not silent.
                 if profile.hasDroppableStructuredAttributes {
                     environment.emitDeveloperWarning(
                         "Profile attributes firstName, lastName, title, organization, image, and " +
@@ -603,7 +602,18 @@ struct KlaviyoReducer: ReducerProtocol {
                             "be synced. Set these attributes after initialize()."
                     )
                 }
-                state.anonymousId = IdentityStore.shared.current.anonymousId
+                state.identity = IdentityStore.shared.current
+                let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
+                let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
+                    $0?.trimWhiteSpaceOrReturnNilIfEmpty()
+                }
+                // Identifier change on an already-identified profile → mint a fresh anonymousId and
+                // drop prior PII, so a set(profile:) with different identifiers before initialize()
+                // on a later launch does not reuse the previous user's anonymousId (which would
+                // merge two people onto one profile). Mirrors the initialized branch below.
+                if state.isIdentified, preInitCurrentIds != preInitIncomingIds {
+                    state.reset(preserveTokenData: false)
+                }
                 state.updateStateWithProfile(profile: profile)
                 IdentityStore.shared.update(state.identity)
                 RequestEnqueuer.enqueueProfile(properties: profile.enqueuerProperties)
