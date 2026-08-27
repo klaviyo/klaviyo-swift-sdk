@@ -19,155 +19,36 @@ final class StateChangePublisherTests: XCTestCase {
         resetCanonicalCoreStores()
     }
 
-    @MainActor
-    func testStateChangePublisher() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
-        // Third call set email should trigger again
-        let setEmailSaveExpectation = XCTestExpectation(description: "Set email should be saved.")
-
-        var count = 0
-        environment.fileClient.write = { _, _ in
-            if count == 0 {
-                savedCalledExpectation.fulfill()
-            } else if count == 1 {
-                setEmailSaveExpectation.fulfill()
-            }
-            count += 1
-        }
-        let testScheduler = DispatchQueue.test
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(1), scheduler: testScheduler)
-                .eraseToAnyPublisher()
-        }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
-            case let .setEmail(email):
-                state.email = email
-                return .none
-            default:
-                return .none
-            }
-        }
-
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
-
-        klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
-        }
-
-        testScheduler.run()
-        @MainActor
-        func runDebouncedEffect() {
-            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-            testScheduler.run()
-            // This should not trigger a save since in our reducer it does not change the state.
-            _ = klaviyoSwiftEnvironment.send(.setPushToken("foo", .authorized))
-            _ = klaviyoSwiftEnvironment.send(.setEmail("foo"))
-        }
-        runDebouncedEffect()
-        testScheduler.advance(by: .seconds(2.0))
-
-        wait(for: [savedCalledExpectation, setEmailSaveExpectation], timeout: 2.0)
-
-        XCTAssertEqual(count, 2)
-    }
+    // NOTE: the former `testStateChangePublisher`, `testStateChangeDuplicateAreRemoved`, and
+    // `testQuickStateUpdatesTriggerOnlyOneSaves` tests exercised the debounced save `publisher`
+    // path (`StateChangePublisher.debouncedPublisher` + `saveKlaviyoState`). All three were
+    // deleted in Task 5: the save path (`debouncedPublisher`, `var publisher`) no longer exists
+    // and `KlaviyoState` is non-Codable. `internalStatePublisher` coverage is below.
 
     @MainActor
-    func testStateChangeDuplicateAreRemoved() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
-        savedCalledExpectation.assertForOverFulfill = true
+    func testInternalStatePublisherEmitsAfterInitialization() throws {
+        let expectation = XCTestExpectation(description: "internalStatePublisher emits state")
 
-        environment.fileClient.write = { _, _ in
-            savedCalledExpectation.fulfill()
-        }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher.test.publisher().eraseToEffect()
-            case .flushQueue:
-                return .none
-            default:
-                return .none
-            }
-        }
-
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
-
+        // `KlaviyoState.test` starts initialized with `email: "test@test.com"`.
+        // Wire the testStore's state as the source so `internalStatePublisher` sees it.
+        let testStore = Store(initialState: KlaviyoState.test, reducer: KlaviyoTestReducer())
+        let previousStatePublisher = klaviyoSwiftEnvironment.statePublisher
+        defer { klaviyoSwiftEnvironment.statePublisher = previousStatePublisher }
         klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
+            testStore.state.eraseToAnyPublisher()
         }
 
-        @MainActor
-        func runDebouncedEffect() {
-            _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-            _ = klaviyoSwiftEnvironment.send(.flushQueue)
-            _ = klaviyoSwiftEnvironment.send(.flushQueue)
-        }
-
-        runDebouncedEffect()
-
-        wait(for: [savedCalledExpectation], timeout: 1.0)
-    }
-
-    func testQuickStateUpdatesTriggerOnlyOneSaves() throws {
-        let savedCalledExpectation = XCTestExpectation(description: "Save called on initialization")
-        var count = 0
-        environment.fileClient.write = { _, _ in
-            if count == 1 {
-                savedCalledExpectation.fulfill()
+        var cancellables = Set<AnyCancellable>()
+        StateChangePublisher.internalStatePublisher()
+            .first()
+            .sink { privateState in
+                // Verify the publisher projects state correctly.
+                XCTAssertEqual(privateState.email, KlaviyoState.test.email)
+                XCTAssertNotNil(privateState.anonymousId)
+                expectation.fulfill()
             }
-            count += 1
-        }
+            .store(in: &cancellables)
 
-        let testScheduler = DispatchQueue.test
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(1), scheduler: testScheduler)
-                .eraseToAnyPublisher()
-        }
-        let initializationReducer = { (state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> in
-            switch action {
-            case .initialize:
-                state.initalizationState = .initialized
-                return StateChangePublisher().publisher().eraseToEffect()
-            case let .setEmail(email):
-                state.email = email
-                return .none
-            default:
-                return .none
-            }
-        }
-
-        let reducer = KlaviyoTestReducer(reducer: initializationReducer)
-        let test = Store(initialState: .test, reducer: reducer)
-        klaviyoSwiftEnvironment.send = {
-            test.send($0)
-        }
-
-        klaviyoSwiftEnvironment.statePublisher = {
-            test.state.eraseToAnyPublisher()
-        }
-        _ = klaviyoSwiftEnvironment.send(.initialize("foo"))
-        testScheduler.run()
-        for i in 0...10 {
-            _ = klaviyoSwiftEnvironment.send(.setEmail("foo\(i)"))
-        }
-        testScheduler.advance(by: 1.0)
-        wait(for: [savedCalledExpectation], timeout: 1.0)
-
-        XCTAssertEqual(count, 2)
+        wait(for: [expectation], timeout: 1.0)
     }
 }

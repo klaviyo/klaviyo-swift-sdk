@@ -5,9 +5,9 @@
 //  Created by Noah Durell on 12/15/22.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSwift
 import Foundation
-import KlaviyoCore
 import XCTest
 
 class StateManagementEdgeCaseTests: XCTestCase {
@@ -15,6 +15,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
     }
@@ -28,7 +29,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testInitializeWhileInitializing() async throws {
-        let initialState = KlaviyoState(queue: [], requestsInFlight: [])
+        let initialState = KlaviyoState(requestsInFlight: [])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -52,18 +53,39 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     func testInitializeAfterInitialized() async throws {
         let initialState = INITIALIZED_TEST_STATE()
+        let oldApiKey = initialState.apiKey!
+        let newApiKey = "new-api-key"
+        // Requests are keyed to the apiKey they were built for: the unregister request is enqueued
+        // while `state.apiKey` is still the old key (→ old key's store); the token request from
+        // `reset()` runs after the switch (→ new key's store). Seed both.
+        let readOldQueue = seedTestQueueStore(apiKey: oldApiKey)
+        let readNewQueue = registerTestQueueStore(apiKey: newApiKey)
+
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
         // Using the same key shouldn't do much
-        _ = await store.send(.initialize(initialState.apiKey!))
+        _ = await store.send(.initialize(oldApiKey))
 
-        let newApiKey = "new-api-key"
         // Using a new key should update the key and generate two requests
+        var mutableState = initialState
         _ = await store.send(.initialize(newApiKey)) {
-            $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
-                        $0.buildTokenRequest(apiKey: newApiKey, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)]
             $0.apiKey = newApiKey
         }
+        let unregister = mutableState.buildUnregisterRequest(
+            apiKey: oldApiKey, anonymousId: store.state.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken
+        )
+        let tokenRequest = mutableState.buildTokenRequest(
+            apiKey: newApiKey, anonymousId: store.state.anonymousId!,
+            pushToken: initialState.pushTokenData!.pushToken,
+            enablement: initialState.pushTokenData!.pushEnablement
+        )
+        XCTAssertEqual(readOldQueue(), [unregister], "unregister lands in the old company's queue")
+        XCTAssertEqual(
+            readNewQueue(), [tokenRequest],
+            "the new token request lands in the new company's queue"
+        )
     }
 
     // MARK: - Send Request
@@ -72,7 +94,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testSendRequestBeforeInitialization() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: true)
@@ -87,13 +108,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testCompleteInitializationWhileAlreadyInitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
-                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
-                                                         requestsInFlight: [],
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u",
+                                                         externalId: "external-id", requestsInFlight: [],
                                                          initalizationState: .initialized,
                                                          flushing: true), reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
@@ -113,13 +133,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
         // resulting state's anonymousId is the expected "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", queue: [],
-                                        requestsInFlight: [],
+                                        anonymousId: "foo", requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
-                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
-                                                         requestsInFlight: [],
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u",
+                                                         externalId: "external-id", requestsInFlight: [],
                                                          initalizationState: .initializing,
                                                          flushing: true), reducer: KlaviyoReducer())
         // Attempting to get more coverage
@@ -136,31 +155,32 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Email
 
     @MainActor
-    func testSetEmailUninitializedDoesNotAddToPendingRequest() async throws {
-        let expection = XCTestExpectation(description: "fatal error expected")
-        environment.emitDeveloperWarning = { _ in
-            // Would really fatalError - not happening because we can't do that in tests so we fake it.
-            expection.fulfill()
-        }
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+    func testSetEmailUninitializedBuffersProfileWithEmail() async throws {
+        // Ruling 2: the pre-init setter must push the just-set identifier to IdentityStore BEFORE
+        // enqueueProfile reads it, so the buffered profile carries the email (not a stale/empty one).
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
 
         _ = await store.send(.setEmail("test@blob.com"))
 
-        await fulfillment(of: [expection])
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1, "pre-init setEmail buffers a profile sync")
+        guard case let .profile(payload) = buffered.first else {
+            return XCTFail("expected a buffered profile request")
+        }
+        XCTAssertEqual(
+            payload.data.attributes.email, "test@blob.com",
+            "the just-set email reaches the buffered profile payload"
+        )
     }
 
     @MainActor
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -191,7 +211,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testSetEmailWithTrailingWhiteSpace() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -204,24 +223,27 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set External Id
 
     @MainActor
-    func testSetExternalIdUninitializedDoesNotAddToPendingRequest() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+    func testSetExternalIdUninitializedBuffersProfileWithExternalId() async throws {
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
 
         _ = await store.send(.setExternalId("external-blob-id"))
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1)
+        guard case let .profile(payload) = buffered.first else {
+            return XCTFail("expected a buffered profile request")
+        }
+        XCTAssertEqual(payload.data.attributes.externalId, "external-blob-id")
     }
 
     @MainActor
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -252,7 +274,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testSetExternalIdWithTrailingWhiteSpace() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -265,23 +286,26 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Phone number
 
     @MainActor
-    func testSetPhoneNumberUninitializedDoesNotAddToPendingRequest() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        queue: [],
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+    func testSetPhoneNumberUninitializedBuffersProfileWithPhoneNumber() async throws {
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u"))
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1)
+        guard case let .profile(payload) = buffered.first else {
+            return XCTFail("expected a buffered profile request")
+        }
+        XCTAssertEqual(payload.data.attributes.phoneNumber, "1-800-Blobs4u")
     }
 
     @MainActor
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -311,7 +335,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
     @MainActor
     func testSetPhoneNumberWithTrailingWhiteSpace() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
@@ -325,94 +348,45 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Set Push Token
 
     @MainActor
-    func testSetPushTokenUninitializedDoesNotAddToPendingRequest() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        queue: [],
+    func testSetPushTokenUninitializedRoutesToBuffer() async throws {
+        let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPushToken("blob_token", .authorized))
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
     }
 
     @MainActor
-    func testAutomaticPushTokenUninitializedAddsToDedicatedPendingRequest() async throws {
-        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
-
-        _ = await store.send(.setAutomaticPushToken("automatic-token", .authorized)) {
-            $0.pendingRequests = [.automaticPushToken("automatic-token", .authorized)]
-        }
-    }
-
-    @MainActor
-    func testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken() async throws {
-        let store = TestStore(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
-
-        _ = await store.send(.setAutomaticPushToken("old-token", .authorized)) {
-            $0.pendingRequests = [.automaticPushToken("old-token", .authorized)]
-        }
-        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
-            $0.pendingRequests = [.automaticPushToken("new-token", .denied)]
-        }
-    }
-
-    @MainActor
-    func testAutomaticPushTokenDoesNotCoalesceManualPendingToken() async throws {
+    func testAutomaticPushTokenUninitializedRoutesToBuffer() async throws {
         let initialState = KlaviyoState(
-            queue: [],
-            initalizationState: .initializing,
-            pendingRequests: [.pushToken("manual-token", .authorized)]
+            anonymousId: environment.uuid().uuidString,
+            requestsInFlight: [],
+            initalizationState: .uninitialized,
+            flushing: false
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
-        _ = await store.send(.setAutomaticPushToken("automatic-token", .provisional)) {
-            $0.pendingRequests.append(.automaticPushToken("automatic-token", .provisional))
-        }
-    }
-
-    /// Pins that the automatic-token replacement happens in place, not via remove-then-append.
-    /// `testAutomaticPushTokenBufferKeepsOnlyLatestAutomaticToken` starts from an empty queue,
-    /// where index 0 is both the in-place slot and the append slot, so it can't tell the two
-    /// implementations apart. Buffering the automatic token ahead of another pending request
-    /// makes the distinction observable: a remove-then-append implementation would silently
-    /// reorder the queue by moving the replaced token to the end.
-    @MainActor
-    func testAutomaticPushTokenReplacementKeepsQueuePosition() async throws {
-        let initialState = KlaviyoState(
-            queue: [],
-            initalizationState: .initializing,
-            pendingRequests: [
-                .automaticPushToken("old-token", .authorized),
-                .pushToken("manual-token", .authorized)
-            ]
-        )
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.setAutomaticPushToken("new-token", .denied)) {
-            $0.pendingRequests = [
-                .automaticPushToken("new-token", .denied),
-                .pushToken("manual-token", .authorized)
-            ]
-        }
+        _ = await store.send(.setAutomaticPushToken("automatic-token", .authorized))
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
     }
 
     @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Impossible case really but we want coverage
-        _ = await store.send(.setPushToken("blob_token", .authorized)) {
-            $0.pendingRequests = [.pushToken("blob_token", .authorized)]
-        }
+        // Impossible case really but we want coverage. With no apiKey in SDKConfigStore the token
+        // routes to the durable UnattributedBuffer rather than being parked in state.
+        _ = await store.send(.setPushToken("blob_token", .authorized))
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
     }
 
     // MARK: - Stop
@@ -422,7 +396,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: false)
@@ -436,7 +409,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .initializing,
                                         flushing: false)
@@ -452,7 +424,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: false)
@@ -474,13 +445,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", queue: [],
-                                        requestsInFlight: [],
+                                        anonymousId: "foo", requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
-                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
-                                                         requestsInFlight: [],
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u",
+                                                         externalId: "external-id", requestsInFlight: [],
                                                          initalizationState: .initializing,
                                                          flushing: true), reducer: KlaviyoReducer())
         // Attempting to get more coverage
@@ -508,13 +478,12 @@ class StateManagementEdgeCaseTests: XCTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", queue: [],
-                                        requestsInFlight: [],
+                                        anonymousId: "foo", requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: true)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
-                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u", externalId: "external-id", queue: [],
-                                                         requestsInFlight: [],
+                                                         email: "foo@foo.com", phoneNumber: "1800-blobs4u",
+                                                         externalId: "external-id", requestsInFlight: [],
                                                          initalizationState: .initializing,
                                                          flushing: true), reducer: KlaviyoReducer())
         // Attempting to get more coverage
@@ -535,7 +504,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         anonymousId: environment.uuid().uuidString,
-                                        queue: [],
                                         requestsInFlight: [],
                                         initalizationState: .uninitialized,
                                         flushing: false)
@@ -581,7 +549,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
-        initialState.queue = [request]
+        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
@@ -594,6 +562,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         // Queue is non-empty on purpose — with an empty queue `.flushQueue` returns early anyway
         // and this test would pass with or without the guard.
         _ = await store.send(.flushQueue)
+        XCTAssertEqual(readQueue(), [request], "queue must not drain while offline")
     }
 
     // MARK: - Missing api key for token request
@@ -602,345 +571,15 @@ class StateManagementEdgeCaseTests: XCTestCase {
     func testTokenRequestMissingApiKey() async {
         let initialState = KlaviyoState(
             anonymousId: environment.uuid().uuidString,
-            queue: [],
             requestsInFlight: [],
             initalizationState: .initialized,
             flushing: false
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // Impossible case really but we want coverage on it.
-        _ = await store.send(.setPushToken("blobtoken", .authorized)) {
-            $0.pendingRequests = [.pushToken("blobtoken", .authorized)]
-        }
-    }
-
-    // MARK: - set enqueue event uninitialized
-
-    @MainActor
-    func testHighPriorityEventUninitializedAddsToPendingRequests() async throws {
-        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        // High-priority events bypass the initialization gate and are held as pending.
-        let event = Event(name: ._openedPush, priority: .high)
-        _ = await store.send(.enqueueEvent(event)) {
-            $0.pendingRequests = [.event(event)]
-        }
-    }
-
-    @MainActor
-    func testStandardPriorityEventUninitializedEmitsWarning() async throws {
-        let expection = XCTestExpectation(description: "fatal error expected")
-        environment.emitDeveloperWarning = { _ in
-            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
-            expection.fulfill()
-        }
-        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-
-        // Standard-priority events (including ._openedPush created without .high) require initialization.
-        for eventName in Event.EventName.allCases {
-            let event = Event(name: eventName)
-            _ = await store.send(.enqueueEvent(event))
-        }
-
-        await fulfillment(of: [expection])
-    }
-
-    // MARK: - set profile uninitialized
-
-    @MainActor
-    func testSetProfileUnitialized() async throws {
-        let expection = XCTestExpectation(description: "fatal error expected")
-        environment.emitDeveloperWarning = { _ in
-            // Would really runTimeWarn - not happening because we can't do that in tests so we fake it.
-            expection.fulfill()
-        }
-        let store = TestStore(initialState: .init(queue: []), reducer: KlaviyoReducer())
-        let profile = Profile(email: "foo")
-        _ = await store.send(.enqueueProfile(profile))
-        await fulfillment(of: [expection])
-    }
-
-    @MainActor
-    func testSetProfileWithEmptyStringIdentifiers() async throws {
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "foo@bar.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "99999999",
-            externalId: "12345",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
-            $0.email = nil // since we reset state
-            $0.phoneNumber = nil // since we reset state
-            $0.externalId = nil // since we reset state
-            $0.enqueueProfileOrTokenRequest()
-            $0.pushTokenData = nil
-        }
-    }
-
-    // MARK: - enqueueProfile: conditional reset (push-token storm fix)
-
-    @MainActor
-    func testSetProfileSameIdentifiersDoesNotReset() async throws {
-        // When setProfile is called with the same identifiers that are already on state,
-        // reset() should NOT fire — anonymousId stays the same, no spurious push-token request.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "same@email.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "+15555555555",
-            externalId: "ext-123",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        // Same identifiers + no non-identifier attributes → no reset, no API call, no state change.
-        // Nothing changed, so there's no reason to hit the network.
-        // The pushTokenData and anonymousId both remain untouched on state.
-        _ = await store.send(.enqueueProfile(Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123")))
-    }
-
-    @MainActor
-    func testSetProfileDifferentIdentifiersResetsState() async throws {
-        // When setProfile is called with different identifiers, reset() SHOULD fire,
-        // regenerating the anonymousId and clearing pushTokenData.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "old@email.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "+11111111111",
-            externalId: "old-ext",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.enqueueProfile(Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"))) {
-            // reset() fires → identifiers cleared, then updateStateWithProfile sets new ones
-            $0.email = "new@email.com"
-            $0.phoneNumber = "+12222222222"
-            $0.externalId = "new-ext"
-            // pushTokenData cleared by reset
-            $0.pushTokenData = nil
-            // Since pushTokenData existed before reset, the reducer uses it to build a token request
-            let request = KlaviyoRequest(
-                endpoint: .registerPushToken(
-                    TEST_API_KEY,
-                    PushTokenPayload(
-                        pushToken: initialState.pushTokenData!.pushToken,
-                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                        background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: ProfilePayload(
-                            Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
-                            anonymousId: $0.anonymousId!
-                        )
-                    )
-                )
-            )
-            $0.queue = [request]
-        }
-    }
-
-    @MainActor
-    func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
-        // Same identifiers but different non-identifier attributes (e.g. firstName) —
-        // should NOT reset, but attributes should still be sent in the profile request.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "same@email.com",
-            anonymousId: environment.uuid().uuidString,
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        // No pushTokenData → a createProfile request is generated instead of registerPushToken
-        let profile = Profile(email: "same@email.com", firstName: "NewName")
-        _ = await store.send(.enqueueProfile(profile)) {
-            // No reset (same email), so anonymousId unchanged
-            // A createProfile request should be enqueued with the updated attributes
-            let profilePayload = ProfilePayload(
-                profile,
-                email: $0.email,
-                phoneNumber: $0.phoneNumber,
-                externalId: $0.externalId,
-                anonymousId: $0.anonymousId!
-            )
-            let request = KlaviyoRequest(
-                endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
-            )
-            $0.queue = [request]
-        }
-    }
-
-    @MainActor
-    func testSetProfilePartialIdentifierMatchStillResets() async throws {
-        // If only one identifier changes (e.g. email changes, phone stays same),
-        // reset should still fire.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "old@email.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "+15555555555",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        // Email changes, phone stays the same → identifiersChanged = true
-        _ = await store.send(.enqueueProfile(Profile(email: "different@email.com", phoneNumber: "+15555555555"))) {
-            // reset() fires
-            $0.email = "different@email.com"
-            $0.phoneNumber = "+15555555555"
-            $0.pushTokenData = nil
-            let request = KlaviyoRequest(
-                endpoint: .registerPushToken(
-                    TEST_API_KEY,
-                    PushTokenPayload(
-                        pushToken: initialState.pushTokenData!.pushToken,
-                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                        background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: ProfilePayload(
-                            Profile(email: "different@email.com", phoneNumber: "+15555555555"),
-                            anonymousId: $0.anonymousId!
-                        )
-                    )
-                )
-            )
-            $0.queue = [request]
-        }
-    }
-
-    @MainActor
-    func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
-        // All-nil incoming identifiers differ from non-nil state identifiers,
-        // so reset fires — preserving the old "clobbering" setProfile behavior.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "existing@email.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "+15555555555",
-            externalId: "ext-id",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        // Profile with all-nil identifiers → [nil,nil,nil] != [email,phone,extId] → reset fires
-        let profile = Profile(firstName: "JustAName")
-        _ = await store.send(.enqueueProfile(profile)) {
-            // reset(preserveTokenData: false) fires → identifiers cleared, pushTokenData nil
-            $0.email = nil
-            $0.phoneNumber = nil
-            $0.externalId = nil
-            $0.pushTokenData = nil
-            // pushTokenData existed before reset, so a token request is built with captured data
-            let request = KlaviyoRequest(
-                endpoint: .registerPushToken(
-                    TEST_API_KEY,
-                    PushTokenPayload(
-                        pushToken: initialState.pushTokenData!.pushToken,
-                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                        background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: ProfilePayload(profile, anonymousId: $0.anonymousId!)
-                    )
-                )
-            )
-            $0.queue = [request]
-        }
-    }
-
-    @MainActor
-    func testResetProfileStillClobbersAllState() async throws {
-        // resetProfile() should always clobber all state, regardless of identifiers.
-        let initialState = KlaviyoState(
-            apiKey: TEST_API_KEY,
-            email: "user@email.com",
-            anonymousId: environment.uuid().uuidString,
-            phoneNumber: "+15555555555",
-            externalId: "ext-123",
-            pushTokenData: .init(pushToken: "blob_token",
-                                 pushEnablement: .authorized,
-                                 pushBackground: .available,
-                                 deviceData: .init(context: environment.appContextInfo())),
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
-        )
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.resetProfile) {
-            // reset(preserveTokenData: true) is the default for resetProfile
-            $0.email = nil
-            $0.phoneNumber = nil
-            $0.externalId = nil
-            $0.pendingProfile = nil
-            // pushTokenData is preserved and a new token request is enqueued
-            // anonymousId is regenerated since the profile was identified
-            $0.pushTokenData = initialState.pushTokenData
-            let request = KlaviyoRequest(
-                endpoint: .registerPushToken(
-                    TEST_API_KEY,
-                    PushTokenPayload(
-                        pushToken: initialState.pushTokenData!.pushToken,
-                        enablement: initialState.pushTokenData!.pushEnablement.rawValue,
-                        background: initialState.pushTokenData!.pushBackground.rawValue,
-                        profile: ProfilePayload(Profile(), anonymousId: $0.anonymousId!)
-                    )
-                )
-            )
-            $0.queue = [request]
-        }
-    }
-}
-
-extension Event.EventName: CaseIterable {
-    public static var allCases: [KlaviyoCore.Event.EventName] {
-        [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
+        // Impossible case really but we want coverage on it. Missing apiKey → the token routes to
+        // the durable UnattributedBuffer rather than being parked in state.
+        _ = await store.send(.setPushToken("blobtoken", .authorized))
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
     }
 }

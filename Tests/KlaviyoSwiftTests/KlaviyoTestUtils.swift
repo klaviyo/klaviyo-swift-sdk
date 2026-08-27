@@ -7,7 +7,6 @@
 
 @testable import KlaviyoCore
 import Combine
-import CombineSchedulers
 import CoreLocation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
@@ -24,6 +23,10 @@ let ARCHIVED_RETURNED_DATA = Data()
 func resetCanonicalCoreStores() {
     IdentityStore.shared.reset()
     SDKConfigStore.shared.reset()
+    // The per-apiKey QueueStore registry is process-global; clear it so a spy store injected by
+    // `seedTestQueueStore` in one test can't bleed into the next (which would otherwise resolve a
+    // stale in-memory queue instead of the empty production/disk-backed store).
+    QueueStore.resetRegistry()
 }
 
 extension ArchiverClient {
@@ -155,17 +158,6 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
-}
-
-extension StateChangePublisher {
-    static let test = { () -> StateChangePublisher in
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(0), scheduler: DispatchQueue.immediate)
-                .eraseToAnyPublisher()
-        }
-        return Self()
-    }()
 }
 
 private final class KeyedArchiver: NSKeyedArchiver {

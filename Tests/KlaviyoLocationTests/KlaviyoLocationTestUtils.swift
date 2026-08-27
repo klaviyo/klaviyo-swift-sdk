@@ -107,13 +107,11 @@ extension KlaviyoState {
         phoneNumber: "1234567890",
         externalId: "test-external-id",
         pushTokenData: nil,
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: false,
         flushInterval: 30.0,
         retryState: .retry(1),
-        pendingRequests: [],
         pendingProfile: nil
     )
 }

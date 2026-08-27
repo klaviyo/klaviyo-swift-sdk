@@ -1,0 +1,382 @@
+//
+//  StateManagementEnqueueEdgeCaseTests.swift
+//  Pre-init buffering and enqueueProfile conditional-reset edge cases.
+//  Split from StateManagementEdgeCaseTests to stay within SwiftLint type_body_length.
+//
+
+@testable import KlaviyoCore
+@testable import KlaviyoSwift
+import Foundation
+import XCTest
+
+class StateManagementEnqueueEdgeCaseTests: XCTestCase {
+    @MainActor
+    override func setUp() async throws {
+        environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        BadgeManager.resetToProduction()
+    }
+
+    // MARK: - set enqueue event uninitialized
+
+    @MainActor
+    func testHighPriorityEventUninitializedRoutesToBuffer() async throws {
+        let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
+        // Pre-init events (any priority) now route to the durable UnattributedBuffer.
+        let event = Event(name: ._openedPush, priority: .high)
+        _ = await store.send(.enqueueEvent(event))
+        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
+    }
+
+    @MainActor
+    func testStandardPriorityEventUninitializedRoutesToBuffer() async throws {
+        let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
+
+        // Pre-init events are no longer dropped with a warning; every one buffers durably.
+        for eventName in Event.EventName.allCases {
+            let event = Event(name: eventName)
+            _ = await store.send(.enqueueEvent(event))
+        }
+
+        XCTAssertEqual(
+            UnattributedBuffer.shared.drainSnapshot().requests.count,
+            Event.EventName.allCases.count,
+            "every pre-init event is buffered"
+        )
+    }
+
+    // MARK: - set profile uninitialized
+
+    @MainActor
+    func testSetProfileUnitializedRoutesToBuffer() async throws {
+        let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        let profile = Profile(email: "foo")
+        // Pre-init: the identifier is folded into IdentityStore and a profile sync is buffered.
+        _ = await store.send(.enqueueProfile(profile))
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1, "pre-init profile is buffered, not dropped")
+        guard case let .profile(payload) = buffered.first else {
+            return XCTFail("expected a buffered profile request")
+        }
+        XCTAssertEqual(
+            payload.data.attributes.email, "foo",
+            "the just-set email reaches the buffered profile payload (Ruling 2)"
+        )
+    }
+
+    // MARK: - pre-init structured-attribute warning
+
+    @MainActor
+    func testPreInitEnqueueProfileWithStructuredAttributeEmitsWarning() async throws {
+        var warnings: [String] = []
+        environment.emitDeveloperWarning = { warnings.append($0) }
+
+        let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // firstName is a structured attribute — the buffer path drops it silently without the warn.
+        let profile = Profile(email: "a@b.com", firstName: "Ada")
+        _ = await store.send(.enqueueProfile(profile))
+
+        XCTAssertEqual(
+            warnings.count, 1,
+            "expected exactly one developer warning for dropped structured attributes"
+        )
+        XCTAssertTrue(
+            warnings.first?.contains("firstName") == true,
+            "warning should name the dropped attributes; got: \(warnings.first ?? "<nil>")"
+        )
+    }
+
+    @MainActor
+    func testPreInitEnqueueProfileWithOnlyIdentifiersOrFlatPropertiesDoesNotWarn() async throws {
+        var warnings: [String] = []
+        environment.emitDeveloperWarning = { warnings.append($0) }
+
+        let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // Only identifiers + flat properties — fully representable in the buffer, no warning.
+        let profileIdentifiersOnly = Profile(email: "a@b.com", phoneNumber: "+15555551234")
+        _ = await store.send(.enqueueProfile(profileIdentifiersOnly))
+
+        let profileWithFlatProperties = Profile(email: "c@d.com", properties: ["plan": "free"])
+        _ = await store.send(.enqueueProfile(profileWithFlatProperties))
+
+        XCTAssertTrue(
+            warnings.isEmpty,
+            "no warning expected for profiles with only identifiers/flat properties"
+        )
+    }
+
+    @MainActor
+    func testSetProfileWithEmptyStringIdentifiers() async throws {
+        let initialState = identifiedState(email: "foo@bar.com", phoneNumber: "99999999", externalId: "12345")
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
+            $0.email = nil // since we reset state
+            $0.phoneNumber = nil // since we reset state
+            $0.externalId = nil // since we reset state
+            $0.pushTokenData = nil
+        }
+        // reset fires with preserveTokenData: false, but the captured pushTokenData is used
+        // to build a token request in the reducer before the reset clears state.
+        let request = expectedTokenRequest(
+            apiKey: TEST_API_KEY,
+            tokenData: initialState.pushTokenData!,
+            profile: Profile(email: nil, phoneNumber: nil, externalId: nil),
+            anonymousId: store.state.anonymousId!
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    // MARK: - enqueueProfile: conditional reset (push-token storm fix)
+
+    @MainActor
+    func testSetProfileSameIdentifiersDoesNotReset() async throws {
+        // When setProfile is called with the same identifiers that are already on state,
+        // reset() should NOT fire — anonymousId stays the same, no spurious push-token request.
+        let initialState = identifiedState(
+            email: "same@email.com",
+            phoneNumber: "+15555555555",
+            externalId: "ext-123"
+        )
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Same identifiers + no non-identifier attributes → no reset, no API call, no state change.
+        // Nothing changed, so there's no reason to hit the network.
+        // The pushTokenData and anonymousId both remain untouched on state.
+        _ = await store.send(.enqueueProfile(
+            Profile(email: "same@email.com", phoneNumber: "+15555555555", externalId: "ext-123")
+        ))
+        XCTAssertTrue(readQueue().isEmpty, "identical identifiers must not enqueue a request")
+    }
+
+    @MainActor
+    func testSetProfileDifferentIdentifiersResetsState() async throws {
+        // When setProfile is called with different identifiers, reset() SHOULD fire,
+        // regenerating the anonymousId and clearing pushTokenData.
+        let initialState = identifiedState(
+            email: "old@email.com",
+            phoneNumber: "+11111111111",
+            externalId: "old-ext"
+        )
+
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.enqueueProfile(
+            Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext")
+        )) {
+            // reset() fires → identifiers cleared, then updateStateWithProfile sets new ones
+            $0.email = "new@email.com"
+            $0.phoneNumber = "+12222222222"
+            $0.externalId = "new-ext"
+            // pushTokenData cleared by reset
+            $0.pushTokenData = nil
+        }
+        // Since pushTokenData existed before reset, the reducer uses it to build a token request.
+        let request = expectedTokenRequest(
+            apiKey: TEST_API_KEY,
+            tokenData: initialState.pushTokenData!,
+            profile: Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
+            anonymousId: store.state.anonymousId!
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    @MainActor
+    func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
+        // Same identifiers but different non-identifier attributes (e.g. firstName) —
+        // should NOT reset, but attributes should still be sent in the profile request.
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "same@email.com",
+            anonymousId: environment.uuid().uuidString,
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // No pushTokenData → a createProfile request is generated instead of registerPushToken
+        let profile = Profile(email: "same@email.com", firstName: "NewName")
+        _ = await store.send(.enqueueProfile(profile))
+        // A createProfile request should be enqueued with the updated attributes.
+        let profilePayload = ProfilePayload(
+            profile,
+            email: store.state.email,
+            phoneNumber: store.state.phoneNumber,
+            externalId: store.state.externalId,
+            anonymousId: store.state.anonymousId!
+        )
+        let request = KlaviyoRequest(
+            endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    @MainActor
+    func testSetProfilePartialIdentifierMatchStillResets() async throws {
+        // If only one identifier changes (e.g. email changes, phone stays same),
+        // reset should still fire.
+        let initialState = identifiedState(email: "old@email.com", phoneNumber: "+15555555555")
+
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // Email changes, phone stays the same → identifiersChanged = true
+        _ = await store.send(
+            .enqueueProfile(Profile(email: "different@email.com", phoneNumber: "+15555555555"))
+        ) {
+            // reset() fires
+            $0.email = "different@email.com"
+            $0.phoneNumber = "+15555555555"
+            $0.pushTokenData = nil
+        }
+        let request = expectedTokenRequest(
+            apiKey: TEST_API_KEY,
+            tokenData: initialState.pushTokenData!,
+            profile: Profile(email: "different@email.com", phoneNumber: "+15555555555"),
+            anonymousId: store.state.anonymousId!
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    @MainActor
+    func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
+        // All-nil incoming identifiers differ from non-nil state identifiers,
+        // so reset fires — preserving the old "clobbering" setProfile behavior.
+        let initialState = identifiedState(
+            email: "existing@email.com",
+            phoneNumber: "+15555555555",
+            externalId: "ext-id"
+        )
+
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        // Profile with all-nil identifiers → [nil,nil,nil] != [email,phone,extId] → reset fires
+        let profile = Profile(firstName: "JustAName")
+        _ = await store.send(.enqueueProfile(profile)) {
+            // reset(preserveTokenData: false) fires → identifiers cleared, pushTokenData nil
+            $0.email = nil
+            $0.phoneNumber = nil
+            $0.externalId = nil
+            $0.pushTokenData = nil
+        }
+        // pushTokenData existed before reset, so a token request is built with captured data.
+        let request = expectedTokenRequest(
+            apiKey: TEST_API_KEY,
+            tokenData: initialState.pushTokenData!,
+            profile: profile,
+            anonymousId: store.state.anonymousId!
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    @MainActor
+    func testResetProfileStillClobbersAllState() async throws {
+        // resetProfile() should always clobber all state, regardless of identifiers.
+        let initialState = identifiedState(
+            email: "user@email.com",
+            phoneNumber: "+15555555555",
+            externalId: "ext-123"
+        )
+
+        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.resetProfile) {
+            // reset(preserveTokenData: true) is the default for resetProfile
+            $0.email = nil
+            $0.phoneNumber = nil
+            $0.externalId = nil
+            $0.pendingProfile = nil
+            // pushTokenData is preserved and a new token request is enqueued
+            // anonymousId is regenerated since the profile was identified
+            $0.pushTokenData = initialState.pushTokenData
+        }
+        let request = expectedTokenRequest(
+            apiKey: TEST_API_KEY,
+            tokenData: initialState.pushTokenData!,
+            profile: Profile(),
+            anonymousId: store.state.anonymousId!
+        )
+        XCTAssertEqual(readQueue(), [request])
+    }
+
+    // MARK: - Helpers
+
+    /// Builds a fully-initialized, identified `KlaviyoState` for tests that differ only in identifiers.
+    private func identifiedState(
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        pushToken: String? = "blob_token"
+    ) -> KlaviyoState {
+        KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: email,
+            anonymousId: environment.uuid().uuidString,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            pushTokenData: pushToken.map { token in
+                .init(
+                    pushToken: token,
+                    pushEnablement: .authorized,
+                    pushBackground: .available,
+                    deviceData: .init(context: environment.appContextInfo())
+                )
+            },
+            requestsInFlight: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+    }
+
+    private func expectedTokenRequest(
+        apiKey: String,
+        tokenData: PushTokenData,
+        profile: Profile,
+        anonymousId: String
+    ) -> KlaviyoRequest {
+        KlaviyoRequest(
+            endpoint: .registerPushToken(
+                apiKey,
+                PushTokenPayload(
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement.rawValue,
+                    background: tokenData.pushBackground.rawValue,
+                    profile: ProfilePayload(profile, anonymousId: anonymousId)
+                )
+            )
+        )
+    }
+}
+
+extension Event.EventName: CaseIterable {
+    public static var allCases: [KlaviyoCore.Event.EventName] {
+        [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric,
+         .startedCheckoutMetric, .customEvent("someEvent")]
+    }
+}

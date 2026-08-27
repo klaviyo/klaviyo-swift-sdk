@@ -10,28 +10,11 @@ import Foundation
 import UIKit
 
 @_spi(KlaviyoPrivate)
-public struct StateChangePublisher {
-    static var debouncedPublisher: (AnyPublisher<KlaviyoState, Never>) -> AnyPublisher<KlaviyoState, Never> = { publisher in
-        publisher
-            .debounce(for: .seconds(1), scheduler: DispatchQueue.global())
-            .eraseToAnyPublisher()
-    }
-
+public enum StateChangePublisher {
     private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
         klaviyoSwiftEnvironment.statePublisher()
             .filter { state in state.initalizationState == .initialized }
             .removeDuplicates()
-            .eraseToAnyPublisher()
-    }
-
-    // publisher to listen for state and persist them on an interval.
-    // does not emit action but mapped that way so it can be used in the store.
-    var publisher: () -> AnyPublisher<KlaviyoAction, Never> = {
-        debouncedPublisher(createStatePublisher())
-            .flatMap { state -> Empty<KlaviyoAction, Never> in
-                saveKlaviyoState(state: state)
-                return Empty<KlaviyoAction, Never>()
-            }
             .eraseToAnyPublisher()
     }
 
