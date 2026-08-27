@@ -195,6 +195,17 @@ final class QueueStoreTests: XCTestCase {
                       "a persist failure must emit a developer warning")
     }
 
+    func testLoadFailureEmitsWarningAndFallsBackToEmpty() {
+        let diskIO = SpyDiskIO([request("a")])
+        diskIO.loadError = NSError(domain: "disk", code: 2)
+        var warnings: [String] = []
+        let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler(),
+                              warnings: { warnings.append($0) })
+        XCTAssertEqual(store.requests, [], "a load failure falls back to an empty queue")
+        XCTAssertTrue(warnings.contains { $0.contains("failed to load") },
+                      "a load failure must emit a developer warning rather than silently empty")
+    }
+
     // MARK: - Bounded size
 
     func testEnqueueEvictsOldestByEnqueuedAtAtCapacity() {
@@ -380,6 +391,65 @@ final class QueueStoreTests: XCTestCase {
         diskIO.loadError = NSError(domain: "corrupt", code: 1)
         let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler())
         XCTAssertEqual(store.requests, [])
+    }
+
+    // MARK: - drainAll
+
+    func testDrainAllReturnsAndClearsQueue() {
+        let disk = SpyDiskIO([request("a"), request("b")])
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: disk, scheduler: scheduler)
+
+        let drained = store.drainAll()
+
+        XCTAssertEqual(drained.map(\.id), ["a", "b"], "drainAll returns the full queue in order")
+        XCTAssertEqual(store.requests, [], "queue is empty after drain")
+    }
+
+    func testDrainAllOnEmptyQueueReturnsEmptyAndStillSchedulesPersist() {
+        let disk = SpyDiskIO([])
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: disk, scheduler: scheduler)
+
+        XCTAssertEqual(store.drainAll(), [])
+        // Debounced persist scheduled even for an empty drain (parity with today's removeAll save).
+        XCTAssertEqual(scheduler.scheduleCount, 1)
+    }
+
+    func testDrainAllPersistsClearedQueueWhenDebounceFires() {
+        let disk = SpyDiskIO([request("a")])
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: disk, scheduler: scheduler)
+
+        _ = store.drainAll()
+        scheduler.fire()
+
+        XCTAssertEqual(disk.stored, [], "cleared queue is written to disk on debounce fire")
+    }
+
+    func testDrainAllSynchronousPersistsImmediately() {
+        let disk = SpyDiskIO([request("a")])
+        let scheduler = ManualPersistScheduler()
+        let store = makeStore(diskIO: disk, scheduler: scheduler)
+
+        _ = store.drainAll(persist: .synchronous)
+
+        XCTAssertEqual(disk.stored, [], "synchronous drain writes the empty queue before returning")
+        XCTAssertEqual(scheduler.scheduleCount, 0, "synchronous persist does not schedule a debounce")
+    }
+
+    // MARK: - register injection seam
+
+    func testRegisterInjectsStoreForApiKey() {
+        QueueStore.resetRegistry()
+        defer { QueueStore.resetRegistry() }
+        let disk = SpyDiskIO([request("seeded")])
+        let injected = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+
+        QueueStore.register(injected, for: "abc")
+
+        XCTAssertTrue(QueueStore.store(for: "abc") === injected,
+                      "store(for:) returns the injected instance")
     }
 
     // MARK: - current() resolver

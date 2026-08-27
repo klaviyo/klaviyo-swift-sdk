@@ -129,6 +129,20 @@ public final class QueueStore {
         schedulePersist(persist)
     }
 
+    /// Atomically snapshots and clears the pending queue, returning the drained requests.
+    /// Snapshot + clear happen under a single `queueLock` acquisition so a concurrent `enqueue`
+    /// cannot interleave between read and clear. Parity with the flush loop's former
+    /// `requestsInFlight.append(contentsOf: queue); queue.removeAll()`.
+    public func drainAll(persist: PersistPolicy = .debounced) -> [KlaviyoRequest] {
+        let drained = queueLock.withLock { () -> [KlaviyoRequest] in
+            let out = hydrated()
+            queue = []
+            return out
+        }
+        schedulePersist(persist)
+        return drained
+    }
+
     /// Replaces the queue wholesale from an authoritative external source (migration only).
     /// Writes to disk before updating memory and throws on failure, since a read-back can't tell
     /// "persisted empty" from "load failed" (`hydrated()` folds both into `[]`). Always
@@ -228,7 +242,19 @@ public final class QueueStore {
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `queueLock`.
     private func hydrated() -> [KlaviyoRequest] {
         if let queue { return queue }
-        let loaded = (try? diskIO.load()) ?? []
+        let loaded: [KlaviyoRequest]
+        do {
+            loaded = try diskIO.load()
+        } catch {
+            // A load failure is distinct from a legitimately empty/absent queue (the production
+            // loader returns `[]` for an absent file without throwing). We fall back to empty so the
+            // store stays usable, but the next persist then overwrites the on-disk file — which
+            // self-heals a corrupt file yet, in the rare case of a transiently-unreadable *valid*
+            // file, discards its backlog. Surface it so that loss is observable rather than silent.
+            // (Distinguishing corrupt-vs-transient to preserve the latter is a follow-up.)
+            emitWarning("QueueStore: failed to load persisted queue (\(error)); starting from empty")
+            loaded = []
+        }
         queue = loaded
         return loaded
     }
@@ -255,6 +281,12 @@ extension QueueStore {
             registry[apiKey] = store
             return store
         }
+    }
+
+    /// Test-support: injects a pre-built store for an apiKey so reducer tests can back the queue
+    /// with an in-memory spy instead of the production disk-backed store.
+    package static func register(_ store: QueueStore, for apiKey: String) {
+        registryLock.withLock { registry[apiKey] = store }
     }
 
     /// Test-support: clears the per-apiKey instance cache.
