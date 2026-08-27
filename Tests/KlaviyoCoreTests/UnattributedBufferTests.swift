@@ -165,6 +165,19 @@ final class UnattributedBufferTests: XCTestCase {
         XCTAssertEqual(snap.last, token("b"))
     }
 
+    func testHydrationCoalescesPersistedDuplicatePushTokens() {
+        // A file with more than one buffered token can only exist from before this coalescing
+        // existed (or from disk corruption) — hydration must clean it up, not just live appends.
+        savePersisted(
+            PersistedUnattributedBuffer(requests: [agg("1"), token("a"), token("b"), token("c")]),
+            fileName: StoreFile.unattributed
+        )
+        let buffer = UnattributedBuffer()
+        XCTAssertEqual(buffer.snapshot(), [agg("1"), token("c")])
+        // The normalized buffer must also be the one written back to disk.
+        XCTAssertEqual(loadBuffer()?.requests, [agg("1"), token("c")])
+    }
+
     func testRemoveDrainedSurvivesConcurrentPushTokenCoalesce() {
         let buffer = UnattributedBuffer()
         buffer.append(token("1"))
@@ -179,11 +192,9 @@ final class UnattributedBufferTests: XCTestCase {
 
     func testPersistedBufferRoundTripsAllFourCases() throws {
         let eventPayload = CreateEventPayload(
-            data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1")
-        )
+            data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1"))
         let profilePayload = CreateProfilePayload(
-            data: ProfilePayload(anonymousId: "anon-1")
-        )
+            data: ProfilePayload(anonymousId: "anon-1"))
         let tokenPayload = PushTokenPayload(
             pushToken: "tok", enablement: "AUTHORIZED", background: "AVAILABLE",
             profile: ProfilePayload(anonymousId: "anon-1")
