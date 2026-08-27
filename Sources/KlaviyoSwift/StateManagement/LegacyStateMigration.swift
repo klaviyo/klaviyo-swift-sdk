@@ -44,7 +44,7 @@ func migrateLegacyStateIfNeeded(apiKey: String) {
 
 /// One write-verify-retire attempt. `true` once the canonical stores hold `decoded` and the
 /// legacy file can no longer be read back as still-legacy-shaped.
-private func attemptMigration(apiKey: String, legacyFile: URL, decoded: KlaviyoState) -> Bool {
+private func attemptMigration(apiKey: String, legacyFile: URL, decoded: LegacyState) -> Bool {
     SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
     IdentityStore.shared.update(decoded.identity)
     IdentityStore.shared.updatePushToken(decoded.pushTokenData)
@@ -78,10 +78,10 @@ private func attemptMigration(apiKey: String, legacyFile: URL, decoded: KlaviyoS
 /// Decodes and validates the legacy blob. Nil if absent, corrupt, already queue-only, claimed by
 /// a different apiKey, or missing a recoverable anonymousId — in every case, unchanged callers
 /// (`loadKlaviyoStateFromDisk`, etc.) are left to handle the file as they already do today.
-private func validatedLegacyState(apiKey: String, legacyFile: URL) -> KlaviyoState? {
+private func validatedLegacyState(apiKey: String, legacyFile: URL) -> LegacyState? {
     guard environment.fileClient.fileExists(legacyFile.path) else { return nil }
     guard let legacyData = try? environment.dataFromUrl(legacyFile) else { return nil }
-    guard let decoded: KlaviyoState = try? environment.decoder.decode(legacyData) else { return nil }
+    guard let decoded: LegacyState = try? environment.decoder.decode(legacyData) else { return nil }
     guard let decodedApiKey = decoded.apiKey else { return nil }
     guard decodedApiKey == apiKey else {
         environment.logger.error("LegacyStateMigration: legacy file for \(apiKey) claims a different apiKey.")
@@ -97,7 +97,7 @@ private func validatedLegacyState(apiKey: String, legacyFile: URL) -> KlaviyoSta
 
 /// Verifies all three stores from disk (not the singletons' cached values) before deletion, so a
 /// swallowed write failure can't slip through.
-private func verifyMigration(apiKey: String, decoded: KlaviyoState) -> Bool {
+private func verifyMigration(apiKey: String, decoded: LegacyState) -> Bool {
     guard loadPersisted(PersistedConfig.self, fileName: StoreFile.config)?.apiKey == apiKey else {
         return false
     }
