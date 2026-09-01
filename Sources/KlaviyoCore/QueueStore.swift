@@ -246,12 +246,7 @@ public final class QueueStore {
         do {
             loaded = try diskIO.load()
         } catch {
-            // A load failure is distinct from a legitimately empty/absent queue (the production
-            // loader returns `[]` for an absent file without throwing). We fall back to empty so the
-            // store stays usable, but the next persist then overwrites the on-disk file — which
-            // self-heals a corrupt file yet, in the rare case of a transiently-unreadable *valid*
-            // file, discards its backlog. Surface it so that loss is observable rather than silent.
-            // (Distinguishing corrupt-vs-transient to preserve the latter is a follow-up.)
+            // TODO: Distinguish corrupt-vs-transient to preserve the latter
             emitWarning("QueueStore: failed to load persisted queue (\(error)); starting from empty")
             loaded = []
         }
