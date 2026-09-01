@@ -77,11 +77,30 @@ final class RequestEnqueuerTests: XCTestCase {
 
     // MARK: - enqueueProfile
 
-    func testProfileWithoutApiKeyBuffersProfilePayload() {
-        RequestEnqueuer.enqueueProfile(properties: ["k": "v"])
-        guard case .profile = UnattributedBuffer.shared.snapshot().first else {
+    func testProfileWithoutApiKeyBuffersFullPayload() {
+        // The caller supplies a fully-built payload, so structured attributes survive into the
+        // durable buffer (MAGE-1141).
+        let payload = CreateProfilePayload(data: ProfilePayload(
+            email: "ada@example.com", firstName: "Ada", anonymousId: "anon-1"
+        ))
+        RequestEnqueuer.enqueueProfile(payload: payload)
+
+        guard case let .profile(buffered) = UnattributedBuffer.shared.snapshot().first else {
             return XCTFail("expected .profile in buffer")
         }
+        XCTAssertEqual(buffered.data.attributes.firstName, "Ada")
+        XCTAssertNil(QueueStore.current()) // no queue exists pre-apiKey
+    }
+
+    func testProfileWithApiKeyGoesToQueueStore() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        let payload = CreateProfilePayload(data: ProfilePayload(
+            email: "ada@example.com", anonymousId: "anon-1"
+        ))
+        RequestEnqueuer.enqueueProfile(payload: payload)
+
+        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
+        XCTAssertEqual(QueueStore.current()?.count, 1)
     }
 
     // MARK: - enqueueAggregateEvent

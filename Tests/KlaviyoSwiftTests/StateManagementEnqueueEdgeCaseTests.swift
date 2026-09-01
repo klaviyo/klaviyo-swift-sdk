@@ -73,48 +73,59 @@ class StateManagementEnqueueEdgeCaseTests: XCTestCase {
         )
     }
 
-    // MARK: - pre-init structured-attribute warning
-
     @MainActor
-    func testPreInitEnqueueProfileWithStructuredAttributeEmitsWarning() async throws {
-        var warnings: [String] = []
-        environment.emitDeveloperWarning = { warnings.append($0) }
-
+    func testPreInitEnqueueProfileCarriesStructuredAttributesToBuffer() async throws {
         let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // firstName is a structured attribute — the buffer path drops it silently without the warn.
-        let profile = Profile(email: "a@b.com", firstName: "Ada")
+        // A pre-init profile carrying structured attributes (name/title/org/location/image) must
+        // reach the durable buffer in full, so it syncs completely after initialize() — parity
+        // with the initialized path, closing the MAGE-952 regression (MAGE-1141).
+        let profile = Profile(
+            email: "ada@example.com",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            organization: "Analytical Engines",
+            title: "Countess",
+            image: "https://example.com/ada.png",
+            location: .init(city: "London"),
+            properties: ["plan": "premium"]
+        )
         _ = await store.send(.enqueueProfile(profile))
 
-        XCTAssertEqual(
-            warnings.count, 1,
-            "expected exactly one developer warning for dropped structured attributes"
-        )
-        XCTAssertTrue(
-            warnings.first?.contains("firstName") == true,
-            "warning should name the dropped attributes; got: \(warnings.first ?? "<nil>")"
-        )
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1, "pre-init structured profile is buffered")
+        guard case let .profile(payload) = buffered.first else {
+            return XCTFail("expected a buffered profile request")
+        }
+        let attributes = payload.data.attributes
+        XCTAssertEqual(attributes.email, "ada@example.com")
+        XCTAssertEqual(attributes.firstName, "Ada")
+        XCTAssertEqual(attributes.lastName, "Lovelace")
+        XCTAssertEqual(attributes.organization, "Analytical Engines")
+        XCTAssertEqual(attributes.title, "Countess")
+        XCTAssertEqual(attributes.image, "https://example.com/ada.png")
+        XCTAssertEqual(attributes.location?.city, "London")
     }
 
+    // MARK: - pre-init structured attributes are carried (no warning)
+
     @MainActor
-    func testPreInitEnqueueProfileWithOnlyIdentifiersOrFlatPropertiesDoesNotWarn() async throws {
+    func testPreInitEnqueueProfileDoesNotWarnEvenWithStructuredAttributes() async throws {
         var warnings: [String] = []
         environment.emitDeveloperWarning = { warnings.append($0) }
 
         let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // Only identifiers + flat properties — fully representable in the buffer, no warning.
-        let profileIdentifiersOnly = Profile(email: "a@b.com", phoneNumber: "+15555551234")
-        _ = await store.send(.enqueueProfile(profileIdentifiersOnly))
-
-        let profileWithFlatProperties = Profile(email: "c@d.com", properties: ["plan": "free"])
-        _ = await store.send(.enqueueProfile(profileWithFlatProperties))
+        // The buffer now carries the full payload (MAGE-1141), so a pre-init profile — including one
+        // with structured attributes — no longer emits the dropped-attribute developer warning.
+        _ = await store.send(.enqueueProfile(Profile(email: "a@b.com", firstName: "Ada")))
+        _ = await store.send(.enqueueProfile(Profile(email: "c@d.com", properties: ["plan": "free"])))
 
         XCTAssertTrue(
             warnings.isEmpty,
-            "no warning expected for profiles with only identifiers/flat properties"
+            "no dropped-attribute warning expected once structured attributes are carried"
         )
     }
 

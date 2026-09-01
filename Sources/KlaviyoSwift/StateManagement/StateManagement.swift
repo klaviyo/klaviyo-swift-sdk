@@ -591,17 +591,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 // Pre-init: mirror the initialized path against the canonical persisted identity.
                 // Seed `state.identity` from `IdentityStore` so we fold onto (not clobber) the
                 // stored profile, run the SAME identifier-change reset, then push synchronously
-                // BEFORE `enqueueProfile` reads identity back from `IdentityStore` (Ruling 2).
-                // The buffer path (Model 1) carries identifiers + a flat custom-properties dict;
-                // structured attributes (name/location/etc.) are not represented — warn so the
-                // drop is not silent.
-                if profile.hasDroppableStructuredAttributes {
-                    environment.emitDeveloperWarning(
-                        "Profile attributes firstName, lastName, title, organization, image, and " +
-                            "location are not supported before initialize() is called and will not " +
-                            "be synced. Set these attributes after initialize()."
-                    )
-                }
+                // so the merged identity is durable before the profile sync is buffered (Ruling 2).
                 state.identity = IdentityStore.shared.current
                 let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
                 let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
@@ -616,7 +606,18 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.updateStateWithProfile(profile: profile)
                 IdentityStore.shared.update(state.identity)
-                RequestEnqueuer.enqueueProfile(properties: profile.enqueuerProperties)
+                guard let anonymousId = state.anonymousId else { return .none }
+                // Build the full payload exactly as the initialized path does, so structured
+                // attributes (name/title/organization/image/location) survive the pre-init buffer
+                // and sync completely after initialize() (MAGE-1141).
+                let payload = CreateProfilePayload(data: ProfilePayload(
+                    profile,
+                    email: state.email,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId,
+                    anonymousId: anonymousId
+                ))
+                RequestEnqueuer.enqueueProfile(payload: payload)
                 return .none
             }
 
@@ -806,7 +807,14 @@ struct KlaviyoReducer: ReducerProtocol {
         state.anonymousId = IdentityStore.shared.current.anonymousId
         apply(&state)
         IdentityStore.shared.update(state.identity)
-        RequestEnqueuer.enqueueProfile(properties: [:])
+        guard let anonymousId = state.anonymousId else { return }
+        let payload = CreateProfilePayload(data: ProfilePayload(
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId,
+            anonymousId: anonymousId
+        ))
+        RequestEnqueuer.enqueueProfile(payload: payload)
     }
 }
 
