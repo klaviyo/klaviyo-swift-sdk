@@ -796,15 +796,16 @@ struct KlaviyoReducer: ReducerProtocol {
     ///
     /// The just-set identifier must reach `IdentityStore` BEFORE `RequestEnqueuer.enqueueProfile`
     /// reads it (Controller Ruling 2): the reducer's write-through `defer` fires only at RETURN,
-    /// which is too late. So we push identity synchronously here. Crucially we seed
-    /// `state.anonymousId` from `IdentityStore.current` first (minting on first access) so the
-    /// write-through carries the canonical anonymousId rather than clobbering it with a `nil` from a
-    /// fresh pre-init `state`. The defer's value-equality guard then makes its own write idempotent.
+    /// which is too late. So we push identity synchronously here. Crucially we seed the FULL
+    /// `state.identity` from `IdentityStore.current` first (minting the anonymousId on first access)
+    /// so the setter FOLDS onto the persisted identity — `IdentityStore.update` replaces wholesale,
+    /// so seeding only the anonymousId would clobber the other persisted identifiers with `nil` from
+    /// a fresh pre-init `state`. Mirrors the pre-init `set(profile:)` path.
     private func setPreInitIdentifier(
         _ state: inout KlaviyoState,
         _ apply: (inout KlaviyoState) -> Void
     ) {
-        state.anonymousId = IdentityStore.shared.current.anonymousId
+        state.identity = IdentityStore.shared.current
         apply(&state)
         IdentityStore.shared.update(state.identity)
         guard let anonymousId = state.anonymousId else { return }

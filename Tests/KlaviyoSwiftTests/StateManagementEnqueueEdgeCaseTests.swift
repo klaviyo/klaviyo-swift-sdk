@@ -423,6 +423,29 @@ class StateManagementEnqueueEdgeCaseTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, anon,
                        "unchanged identifiers must preserve the anonymousId")
     }
+
+    /// A pre-init identifier setter (setEmail/setPhoneNumber/setExternalId) must FOLD onto the
+    /// persisted identity, not replace it with a partial one. Regression: a later launch that set a
+    /// single identifier before `initialize()` wiped the other persisted identifiers (IdentityStore
+    /// replaces wholesale). Mirrors the fold the pre-init `set(profile:)` path already does.
+    @MainActor
+    func testPreInitSetEmailPreservesOtherPersistedIdentifiers() async throws {
+        let anon = "stable-anon"
+        IdentityStore.shared.update(ProfileData(
+            phoneNumber: "+15555550100", externalId: "ext-1", anonymousId: anon
+        ))
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.setEmail("new@user.com"))
+
+        let stored = IdentityStore.shared.current
+        XCTAssertEqual(stored.email, "new@user.com")
+        XCTAssertEqual(stored.phoneNumber, "+15555550100", "pre-init setEmail must not wipe the persisted phone")
+        XCTAssertEqual(stored.externalId, "ext-1", "pre-init setEmail must not wipe the persisted externalId")
+        XCTAssertEqual(stored.anonymousId, anon)
+    }
 }
 
 extension Event.EventName: CaseIterable {
