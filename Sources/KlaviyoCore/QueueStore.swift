@@ -143,7 +143,8 @@ public final class QueueStore {
         return drained
     }
 
-    /// Merges an authoritative legacy backlog into the queue (migration only): prepends `requests`
+    /// NOTE: Only called in the LegacyStateMigration. No other callers.
+    /// Merges an authoritative legacy backlog into the queue: prepends `requests`
     /// — the older, pre-upgrade backlog — ahead of whatever is already queued, skipping any id
     /// already present so a re-run can't duplicate. Prepend-not-replace is deliberate: a request
     /// that raced into the queue during the init window (MAGE-952) must survive migration rather

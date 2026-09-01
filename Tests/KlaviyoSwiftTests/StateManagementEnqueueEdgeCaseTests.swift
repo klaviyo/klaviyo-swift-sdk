@@ -69,7 +69,7 @@ class StateManagementEnqueueEdgeCaseTests: XCTestCase {
         }
         XCTAssertEqual(
             payload.data.attributes.email, "foo",
-            "the just-set email reaches the buffered profile payload (Ruling 2)"
+            "the just-set email reaches the buffered profile payload"
         )
     }
 

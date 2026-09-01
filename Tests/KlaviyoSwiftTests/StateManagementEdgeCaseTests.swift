@@ -156,7 +156,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testSetEmailUninitializedBuffersProfileWithEmail() async throws {
-        // Ruling 2: the pre-init setter must push the just-set identifier to IdentityStore BEFORE
+        // the pre-init setter must push the just-set identifier to IdentityStore BEFORE
         // enqueueProfile reads it, so the buffered profile carries the email (not a stale/empty one).
         let store = TestStore(
             initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),

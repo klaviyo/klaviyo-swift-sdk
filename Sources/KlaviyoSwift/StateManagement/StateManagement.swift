@@ -202,13 +202,10 @@ struct KlaviyoReducer: ReducerProtocol {
                     // crash between cold-start company switch and the first flush.
                     QueueStore.store(for: previousApiKey).enqueue(request, persist: .synchronous)
                 }
-                // Clear rather than re-register: the host's post-launch setPushToken re-registers
-                // under the new company, and nil'ing defeats dedupe so it always fires. (The runtime
-                // switch self-registers because a running app won't re-supply the token.)
                 IdentityStore.shared.updatePushToken(nil)
                 if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
                     // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
-                    // hydrates a clean identity for the new company (mirrors `state.reset()`).
+                    // hydrates a clean identity for the new company.
                     IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
                 }
             }
@@ -217,7 +214,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.initalizationState = .initializing
             // Set the confirmed apiKey on the projection; the write-through `defer` is the sole
-            // writer to `SDKConfigStore` (one persist + one emit per initialize).
+            // writer to `SDKConfigStore` (one persist + one emit per initialize). This triggers it.
             state.apiKey = apiKey
             return .run { send in
                 // Must run before IdentityStore hydrates below.
@@ -591,7 +588,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 // Pre-init: mirror the initialized path against the canonical persisted identity.
                 // Seed `state.identity` from `IdentityStore` so we fold onto (not clobber) the
                 // stored profile, run the SAME identifier-change reset, then push synchronously
-                // so the merged identity is durable before the profile sync is buffered (Ruling 2).
+                // so the merged identity is durable before the profile sync is buffered.
                 state.identity = IdentityStore.shared.current
                 let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
                 let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
@@ -795,12 +792,12 @@ struct KlaviyoReducer: ReducerProtocol {
     /// a profile sync.
     ///
     /// The just-set identifier must reach `IdentityStore` BEFORE `RequestEnqueuer.enqueueProfile`
-    /// reads it (Controller Ruling 2): the reducer's write-through `defer` fires only at RETURN,
-    /// which is too late. So we push identity synchronously here. Crucially we seed the FULL
-    /// `state.identity` from `IdentityStore.current` first (minting the anonymousId on first access)
-    /// so the setter FOLDS onto the persisted identity — `IdentityStore.update` replaces wholesale,
-    /// so seeding only the anonymousId would clobber the other persisted identifiers with `nil` from
-    /// a fresh pre-init `state`. Mirrors the pre-init `set(profile:)` path.
+    /// reads it: the reducer's write-through `defer` fires only at RETURN, which is too late.
+    /// So we push identity synchronously here. Crucially we seed the FULL `state.identity` from
+    /// `IdentityStore.current` first (minting the anonymousId on first access) so the setter FOLDS
+    /// onto the persisted identity — `IdentityStore.update` replaces wholesale, so seeding only the
+    /// anonymousId would clobber the other persisted identifiers with `nil` from a fresh pre-init `state`.
+    /// Mirrors the pre-init `set(profile:)` path.
     private func setPreInitIdentifier(
         _ state: inout KlaviyoState,
         _ apply: (inout KlaviyoState) -> Void
