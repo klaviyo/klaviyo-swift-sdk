@@ -20,7 +20,6 @@ let INITIALIZED_TEST_STATE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -31,7 +30,6 @@ let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
         flushing: true
@@ -47,7 +45,6 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -63,7 +60,6 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -140,7 +136,6 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)
@@ -234,7 +229,7 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 extension KlaviyoSwiftEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    static let testStore = Store(initialState: KlaviyoState(), reducer: KlaviyoReducer())
 
     static let test = {
         KlaviyoSwiftEnvironment(send: { action in
@@ -242,9 +237,7 @@ extension KlaviyoSwiftEnvironment {
         }, state: {
             KlaviyoSwiftEnvironment.testStore.state.value
         }, statePublisher: {
-            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
-        }, stateChangePublisher: {
-            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+            KlaviyoSwiftEnvironment.testStore.state.eraseToAnyPublisher()
         }, pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         }, injectNotificationDelegate: {

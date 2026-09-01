@@ -83,16 +83,21 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertNil(SDKConfigStore.shared.current.apiKey)
     }
 
-    /// A queue-only file at this same path (the ongoing shape until MAGE-952) must not be
-    /// mistaken for an unmigrated legacy blob.
-    func testNoOpWhenFileIsQueueOnlyShape() throws {
+    /// The ongoing (post-migration) state-blob file at this same path — which no longer carries
+    /// identity/apiKey — must not be mistaken for an unmigrated legacy blob.
+    func testNoOpWhenFileIsCurrentStateBlobShape() throws {
         let apiKey = "queue-only-key"
-        let queueOnlyState = KlaviyoState(queue: [legacyRequest("existing", apiKey: apiKey)])
-        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(queueOnlyState)
+        // `KlaviyoState` is no longer Codable; simulate the post-migration blob (empty JSON object,
+        // no apiKey) that the SDK previously wrote via `saveKlaviyoState`.
+        let currentBlobData = Data("{}".utf8)
+        fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path] = currentBlobData
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
-        XCTAssertNil(SDKConfigStore.shared.current.apiKey, "queue-only shape must not be treated as legacy")
+        XCTAssertNil(
+            SDKConfigStore.shared.current.apiKey,
+            "current state-blob shape must not be treated as legacy"
+        )
         XCTAssertTrue(legacyFileExists(apiKey: apiKey), "left untouched for normal use")
     }
 
@@ -106,7 +111,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         XCTAssertNil(SDKConfigStore.shared.current.apiKey)
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
-                      "left for loadKlaviyoStateFromDisk's own corrupt-file handling")
+                      "left in place — corrupt blobs fall through without touching stores")
     }
 
     /// apiKey present but identity matches neither known shape, so anonymousId is nil — must not
@@ -123,7 +128,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertNil(SDKConfigStore.shared.current.apiKey, "no store should be touched")
         XCTAssertEqual(QueueStore.store(for: apiKey).requests, [])
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
-                      "left in place — loadKlaviyoStateFromDisk still reads its queue as-is")
+                      "left in place — unrecognized shapes fall through without touching stores")
     }
 
     // MARK: - Happy path
@@ -224,7 +229,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(QueueStore.store(for: fileApiKey).requests, [],
                        "company A's queue must not leak into company B's store")
         XCTAssertTrue(legacyFileExists(apiKey: fileApiKey),
-                      "left for loadKlaviyoStateFromDisk's own pre-existing mismatch guard")
+                      "left in place — cross-company mismatch falls through without touching stores")
     }
 
     // MARK: - Verify-then-delete: per-store fault injection
@@ -310,12 +315,12 @@ final class LegacyStateMigrationTests: XCTestCase {
                       "an empty queue write failure must still block deletion, not falsely verify as success")
     }
 
-    /// Regression: a `removeItem` failure after a fully-successful write+verify used to leave the
-    /// legacy file in its original, still-legacy-shaped content — which `loadKlaviyoStateFromDisk`
-    /// (called right after this) would then re-decode into `state.queue`, duplicating the same
-    /// requests `restore` had just written to `QueueStore`. The file must be overwritten to
-    /// queue-only-empty regardless of whether the actual removal succeeds.
-    func testRemoveFailureStillRetiresLegacyContentAndDoesNotDuplicateQueue() throws {
+    /// Regression guard (cursor bugbot "Migration retry wipes live queue"): when `removeItem` fails
+    /// after a successful write+verify, the legacy file must be NEUTRALIZED (overwritten to an
+    /// apiKey-less shape), never left legacy-shaped. `QueueStore` is now the flush source and
+    /// accumulates live requests after init; a re-migration would wholesale-`restore` over it and
+    /// drop everything enqueued since. So a future launch must see the file as already-migrated.
+    func testRemoveFailureNeutralizesLegacyFileSoReMigrationCannotWipeLiveQueue() throws {
         let apiKey = "remove-fail-key"
         try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(
             apiKey: apiKey, identity: ProfileData(anonymousId: "anon-remove-fail"), pushTokenData: nil,
@@ -325,26 +330,54 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
+        // Stores fully populated despite the failed removal.
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-remove-fail")
         XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
 
-        // The remove failed, so the path still exists — but its content must no longer be
-        // legacy-shaped, or a later loadKlaviyoStateFromDisk read would duplicate the queue.
-        XCTAssertTrue(legacyFileExists(apiKey: apiKey), "removeItem was injected to fail")
-        let remaining = try JSONDecoder().decode(
-            KlaviyoState.self, from: fakeEnvironment[klaviyoStateFile(apiKey: apiKey).path]!
+        // A live request accumulates in the (now canonical) QueueStore after init.
+        QueueStore.store(for: apiKey).enqueue(legacyRequest("live", apiKey: apiKey), persist: .synchronous)
+
+        // Next cold launch: registry cleared (queue file persists). Migration must be a NO-OP —
+        // the legacy file was neutralized — so the live request is NOT wiped by a re-`restore`.
+        QueueStore.resetRegistry()
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        XCTAssertEqual(
+            QueueStore.store(for: apiKey).requests.map(\.id), ["a", "live"],
+            "neutralized legacy file must not be re-migrated; the live queue must be preserved"
         )
-        XCTAssertNil(remaining.apiKey, "overwritten to queue-only shape despite the failed removal")
-        XCTAssertEqual(remaining.queue, [], "must not carry the requests already restored to QueueStore")
+    }
+
+    /// Regression (cursor bugbot "Migration verify rejects merged live queue"): a request that
+    /// raced into the QueueStore during the init window must not make verification fail. `restore`
+    /// merge-prepends the legacy backlog and `verifyMigration` checks it as a PREFIX, so migration
+    /// still succeeds, retires the legacy file, and preserves the windowed request.
+    func testMigrationSucceedsWhenQueueAlreadyHasAWindowedRequest() throws {
+        let apiKey = "windowed-verify-key"
+        try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(
+            apiKey: apiKey, identity: ProfileData(anonymousId: "anon-windowed"), pushTokenData: nil,
+            queue: [legacyRequest("legacy-a", apiKey: apiKey)]
+        ))
+        // A request raced into the QueueStore before migration ran (early apiKey commit + an
+        // init-window enqueue such as a geofence event or create(event:)).
+        QueueStore.store(for: apiKey).enqueue(legacyRequest("windowed", apiKey: apiKey), persist: .synchronous)
+
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        // Verification passed despite the extra request → stores populated and the file retired.
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-windowed")
+        XCTAssertFalse(legacyFileExists(apiKey: apiKey),
+                       "migration must retire the legacy file even with a windowed request present")
+        // Merge-prepend: legacy backlog in front, the windowed request preserved after.
+        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["legacy-a", "windowed"])
     }
 
     // MARK: - Transient failure recovers within the same call
 
-    /// `loadKlaviyoStateFromDisk` and the debounced state-save both keep writing this same file
-    /// path once initialized, normalizing it to queue-only within ~1s of a settled init — so a
-    /// transient failure must recover via migration's own in-call retries, not by surviving to a
-    /// future cold launch that will never actually see the legacy shape again.
+    /// A transient queue-write failure must recover via migration's own in-call retries; it must not
+    /// survive to a future cold launch that will never actually see the legacy shape again.
     func testTransientQueueWriteFailureRecoversWithinTheSameCall() throws {
         let apiKey = "transient-fail-key"
         try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(

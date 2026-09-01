@@ -39,7 +39,7 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         environment = createMockEnvironment()
 
         // Set up state publisher BEFORE creating location manager
-        let initialState = KlaviyoState(queue: [])
+        let initialState = KlaviyoState()
         let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
 
         mockApiKeyPublisher
