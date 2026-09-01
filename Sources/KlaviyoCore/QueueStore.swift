@@ -246,7 +246,7 @@ public final class QueueStore {
         do {
             loaded = try diskIO.load()
         } catch {
-            // TODO: Distinguish corrupt-vs-transient to preserve the latter
+            // TODO: Distinguish corrupt-vs-transient load failure to preserve the latter
             emitWarning("QueueStore: failed to load persisted queue (\(error)); starting from empty")
             loaded = []
         }
