@@ -590,7 +590,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 // stored profile, run the SAME identifier-change reset, then push synchronously
                 // so the merged identity is durable before the profile sync is buffered.
                 state.identity = IdentityStore.shared.current
-                let tokenData = IdentityStore.shared.pushToken // token lives in IdentityStore; read before reset
+                // Read before the reset below — the token lives in IdentityStore, not pre-init state.
+                let tokenData = IdentityStore.shared.pushToken
                 let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
                 let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                     $0?.trimWhiteSpaceOrReturnNilIfEmpty()

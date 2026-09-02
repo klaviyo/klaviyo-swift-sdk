@@ -872,9 +872,10 @@ class StateManagementTests: StateManagementTestCase {
 
         let snap = UnattributedBuffer.shared.snapshot()
         XCTAssertEqual(snap.count, 1)
-        guard case .profile = snap[0] else {
+        guard case let .profile(payload) = snap[0] else {
             return XCTFail("expected bare .profile in buffer when no token is registered")
         }
+        XCTAssertEqual(payload.data.attributes.email, "b@example.com")
     }
 
     @MainActor
