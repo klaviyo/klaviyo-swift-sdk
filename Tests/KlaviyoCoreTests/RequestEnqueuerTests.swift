@@ -11,6 +11,9 @@ import XCTest
 final class RequestEnqueuerTests: XCTestCase {
     private var fileIO: FileIODouble!
 
+    /// Shared fixture: a tracking link whose destination fails to resolve before initialize().
+    private let trackingLinkURL = URL(string: "https://klaviyo.com/tracking/abc")!
+
     override func setUp() {
         super.setUp()
         fileIO = FileIODouble()
@@ -215,21 +218,23 @@ final class RequestEnqueuerTests: XCTestCase {
     func testTrackingLinkClickWithoutApiKeyGoesToBuffer() {
         // A universal-link click that fails destination resolution before initialize() must park
         // its click-log in the durable buffer instead of being dropped (MAGE-1136).
-        let url = URL(string: "https://klaviyo.com/tracking/abc")!
-        RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: url, clickTime: environment.date())
+        RequestEnqueuer.enqueueTrackingLinkClicked(
+            trackingLink: trackingLinkURL, clickTime: environment.date()
+        )
         let snap = UnattributedBuffer.shared.snapshot()
         XCTAssertEqual(snap.count, 1)
         guard case let .trackingLinkClick(trackingLink, _, _) = snap[0] else {
             return XCTFail("expected .trackingLinkClick in buffer")
         }
-        XCTAssertEqual(trackingLink, url)
+        XCTAssertEqual(trackingLink, trackingLinkURL)
         XCTAssertNil(QueueStore.current())
     }
 
     func testTrackingLinkClickWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
-        let url = URL(string: "https://klaviyo.com/tracking/abc")!
-        RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: url, clickTime: environment.date())
+        RequestEnqueuer.enqueueTrackingLinkClicked(
+            trackingLink: trackingLinkURL, clickTime: environment.date()
+        )
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
         XCTAssertEqual(QueueStore.current()?.count, 1)
         guard case .logTrackingLinkClicked = QueueStore.current()?.requests.first?.endpoint else {
@@ -271,8 +276,9 @@ final class RequestEnqueuerTests: XCTestCase {
     }
 
     func testDrainMapsTrackingLinkClickToLogEndpoint() {
-        let url = URL(string: "https://klaviyo.com/tracking/abc")!
-        RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: url, clickTime: environment.date())
+        RequestEnqueuer.enqueueTrackingLinkClicked(
+            trackingLink: trackingLinkURL, clickTime: environment.date()
+        )
 
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
@@ -283,7 +289,7 @@ final class RequestEnqueuerTests: XCTestCase {
         else {
             return XCTFail("expected .logTrackingLinkClicked endpoint after drain")
         }
-        XCTAssertEqual(trackingLink, url)
+        XCTAssertEqual(trackingLink, trackingLinkURL)
     }
 
     func testDrainEmptyBufferIsNoOp() {

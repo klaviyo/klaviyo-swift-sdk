@@ -767,12 +767,19 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(buffered.count, 1, "pre-init event is buffered, not dropped or queued")
     }
 
+    /// Drives the pre-init → drain-on-init flow shared by the buffered event, aggregate-event, and
+    /// subscription tests (MAGE-1136): buffers a request via `bufferPreInit`, initializes the SDK,
+    /// then asserts the QueueStore persisted `expectedRequest` and the buffer was trimmed.
     @MainActor
-    func testPreInitBufferedEventDrainsIntoQueueOnInit() async throws {
+    private func assertPreInitBufferDrainsIntoQueueOnInit(
+        bufferPreInit: () -> Void,
+        expectedRequest: () throws -> KlaviyoRequest
+    ) async throws {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
-        // Buffer an event pre-init (no apiKey known yet).
-        RequestEnqueuer.enqueueEvent(.test)
+
+        // Buffer a request pre-init (no apiKey known yet).
+        bufferPreInit()
         XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
 
         // Record every request the QueueStore ever persists, so the assertion is robust against the
@@ -791,28 +798,38 @@ class StateManagementTests: StateManagementTestCase {
             timeout: TIMEOUT_NANOSECONDS
         )
 
-        let expectedRequest = try KlaviyoRequest(
-            endpoint: .createEvent(
-                TEST_API_KEY,
-                CreateEventPayload(
-                    data: CreateEventPayload.Event(
-                        name: Event.test.metric.name.value,
-                        properties: Event.test.properties,
-                        anonymousId: environment.uuid().uuidString,
-                        time: Event.test.time
-                    )
-                )
-            )
-        )
-        // drainBuffer (run inside .initialize) enqueued the buffered event into the QueueStore for
+        // drainBuffer (run inside .initialize) enqueued the buffered request into the QueueStore for
         // this apiKey (it was persisted at some point), and trimmed the buffer.
+        let request = try expectedRequest()
         XCTAssertTrue(
-            recorded().contains(expectedRequest),
-            "buffered event was drained into the QueueStore at init"
+            recorded().contains(request),
+            "buffered request was drained into the QueueStore at init"
         )
         XCTAssertTrue(
             UnattributedBuffer.shared.drainSnapshot().requests.isEmpty,
             "buffer is trimmed after draining into the queue"
+        )
+    }
+
+    @MainActor
+    func testPreInitBufferedEventDrainsIntoQueueOnInit() async throws {
+        try await assertPreInitBufferDrainsIntoQueueOnInit(
+            bufferPreInit: { RequestEnqueuer.enqueueEvent(.test) },
+            expectedRequest: {
+                try KlaviyoRequest(
+                    endpoint: .createEvent(
+                        TEST_API_KEY,
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: Event.test.metric.name.value,
+                                properties: Event.test.properties,
+                                anonymousId: environment.uuid().uuidString,
+                                time: Event.test.time
+                            )
+                        )
+                    )
+                )
+            }
         )
     }
 
@@ -835,37 +852,15 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testPreInitAggregateEventDrainsIntoQueueOnInit() async throws {
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-
         let data = Data()
-        // Buffer an aggregate event pre-init (no apiKey known yet).
-        RequestEnqueuer.enqueueAggregateEvent(data)
-        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
-
-        // Record every persisted request (robust against the post-init flush lease/dequeue).
-        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
-
-        let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []),
-            reducer: KlaviyoReducer()
+        try await assertPreInitBufferDrainsIntoQueueOnInit(
+            bufferPreInit: { RequestEnqueuer.enqueueAggregateEvent(data) },
+            expectedRequest: {
+                try KlaviyoRequest(
+                    endpoint: .aggregateEvent(TEST_API_KEY, AggregateEventPayload(data))
+                )
+            }
         )
-        store.exhaustivity = .off
-
-        await store.send(.initialize(TEST_API_KEY))
-        await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
-        )
-
-        let request = try KlaviyoRequest(
-            endpoint: .aggregateEvent(TEST_API_KEY, AggregateEventPayload(data))
-        )
-        XCTAssertTrue(
-            recorded().contains(request),
-            "buffered aggregate event drained into the QueueStore at init"
-        )
-        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty)
     }
 
     @MainActor
@@ -1056,34 +1051,16 @@ class StateManagementTests: StateManagementTestCase {
     func testPreInitSubscriptionDrainsIntoQueueOnInit() async throws {
         // Restores the pre-MAGE-952 "pending subscription replays on init" coverage: a subscribe
         // buffered before initialize() drains into the QueueStore when the SDK initializes (MAGE-1136).
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-
         let payload = CreateSubscriptionPayload(
             listId: "list-123",
             profile: ProfilePayload(email: "test@example.com", anonymousId: "anon-1")
         )
-        RequestEnqueuer.enqueueSubscription(payload: payload)
-        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
-
-        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
-        let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        try await assertPreInitBufferDrainsIntoQueueOnInit(
+            bufferPreInit: { RequestEnqueuer.enqueueSubscription(payload: payload) },
+            expectedRequest: {
+                KlaviyoRequest(endpoint: .createSubscription(TEST_API_KEY, payload))
+            }
         )
-        store.exhaustivity = .off
-
-        await store.send(.initialize(TEST_API_KEY))
-        await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
-        )
-
-        let request = KlaviyoRequest(endpoint: .createSubscription(TEST_API_KEY, payload))
-        XCTAssertTrue(
-            recorded().contains(request),
-            "buffered subscription drained into the QueueStore at init"
-        )
-        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty)
     }
 
     @MainActor
