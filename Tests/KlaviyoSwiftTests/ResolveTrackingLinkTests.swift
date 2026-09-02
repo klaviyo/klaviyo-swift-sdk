@@ -11,11 +11,18 @@ import Combine
 import XCTest
 
 final class ResolveTrackingLinkTests: XCTestCase {
+    /// Live in-memory backing for the QueueStore under `TEST_API_KEY` (the key used by
+    /// `INITIALIZED_TEST_STATE`), so the failure path can assert the enqueued tracking-link request.
+    private var readQueue: () -> [KlaviyoRequest] = { [] }
+
     @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         DeepLinkManager.resetToProduction()
+        readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
     }
 
     @MainActor
@@ -122,6 +129,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
         let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
         environment.date = {
             clickTime
@@ -138,22 +146,50 @@ final class ResolveTrackingLinkTests: XCTestCase {
         await store.send(.trackingLinkReceived(trackingLinkURL))
 
         // Then
-        await store.receive(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)) {
-            let request = KlaviyoRequest(
-                endpoint: .logTrackingLinkClicked(
-                    trackingLink: trackingLinkURL,
-                    clickTime: clickTime,
-                    profileInfo: ProfilePayload(
-                        email: initialState.email,
-                        phoneNumber: initialState.phoneNumber,
-                        externalId: initialState.externalId,
-                        anonymousId: initialState.anonymousId ?? ""
-                    )
+        await store.receive(
+            .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
+        )
+        let request = KlaviyoRequest(
+            endpoint: .logTrackingLinkClicked(
+                trackingLink: trackingLinkURL,
+                clickTime: clickTime,
+                profileInfo: ProfilePayload(
+                    email: initialState.email,
+                    phoneNumber: initialState.phoneNumber,
+                    externalId: initialState.externalId,
+                    anonymousId: initialState.anonymousId ?? ""
                 )
             )
+        )
+        XCTAssertEqual(
+            readQueue(), [request],
+            "failed tracking-link resolution enqueues a log request"
+        )
+    }
 
-            $0.queue = [request]
+    @MainActor
+    func testPreInitTrackingLinkResolutionFailedBuffers() async throws {
+        // Pre-init (no apiKey in SDKConfigStore): a failed tracking-link resolution must park its
+        // click-log in the durable buffer instead of dropping it via the apiKey-gated
+        // `state.enqueueRequest` (MAGE-1136).
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        let clickTime = environment.date()
+        let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+
+        await store.send(
+            .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
+        )
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1, "pre-init tracking-link click is buffered, not dropped")
+        guard case let .trackingLinkClick(link, time, _) = buffered.first else {
+            return XCTFail("expected a buffered .trackingLinkClick")
         }
+        XCTAssertEqual(link, trackingLinkURL)
+        XCTAssertEqual(time, clickTime)
     }
 
     @MainActor
@@ -161,6 +197,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
         let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
         environment.date = {
             clickTime
@@ -174,21 +211,24 @@ final class ResolveTrackingLinkTests: XCTestCase {
         await store.send(.trackingLinkReceived(trackingLinkURL))
 
         // Then
-        await store.receive(.trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)) {
-            let request = KlaviyoRequest(
-                endpoint: .logTrackingLinkClicked(
-                    trackingLink: trackingLinkURL,
-                    clickTime: clickTime,
-                    profileInfo: ProfilePayload(
-                        email: initialState.email,
-                        phoneNumber: initialState.phoneNumber,
-                        externalId: initialState.externalId,
-                        anonymousId: initialState.anonymousId ?? ""
-                    )
+        await store.receive(
+            .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
+        )
+        let request = KlaviyoRequest(
+            endpoint: .logTrackingLinkClicked(
+                trackingLink: trackingLinkURL,
+                clickTime: clickTime,
+                profileInfo: ProfilePayload(
+                    email: initialState.email,
+                    phoneNumber: initialState.phoneNumber,
+                    externalId: initialState.externalId,
+                    anonymousId: initialState.anonymousId ?? ""
                 )
             )
-
-            $0.queue = [request]
-        }
+        )
+        XCTAssertEqual(
+            readQueue(), [request],
+            "failed tracking-link resolution enqueues a log request"
+        )
     }
 }

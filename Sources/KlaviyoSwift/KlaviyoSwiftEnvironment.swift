@@ -17,7 +17,6 @@ struct KlaviyoSwiftEnvironment {
     var send: (KlaviyoAction) -> Task<Void, Never>?
     var state: () -> KlaviyoState
     var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
-    var stateChangePublisher: () -> AnyPublisher<KlaviyoAction, Never>
     var pruneCategory: (String) -> Void
     /// Called once from `KlaviyoSDK.initialize(with:)` to conditionally install
     /// `KlaviyoNotificationDelegate` as the active `UNUserNotificationCenter` delegate.
@@ -52,7 +51,6 @@ struct KlaviyoSwiftEnvironment {
             },
             state: { store.state.value },
             statePublisher: { store.state.eraseToAnyPublisher() },
-            stateChangePublisher: StateChangePublisher().publisher,
             pruneCategory: { categoryIdentifier in
                 KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
             },

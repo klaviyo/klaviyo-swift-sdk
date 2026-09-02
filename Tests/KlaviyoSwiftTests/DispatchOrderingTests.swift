@@ -19,12 +19,11 @@ final class DispatchOrderingTests: XCTestCase {
         savedCoreEnvironment = environment
         savedEnvironment = klaviyoSwiftEnvironment
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        SharedStoreMirror.reset()
     }
 
     override func tearDown() {
-        SharedStoreMirror.reset()
         environment = savedCoreEnvironment
         klaviyoSwiftEnvironment = savedEnvironment
         super.tearDown()

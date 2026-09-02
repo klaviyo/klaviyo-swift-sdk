@@ -130,7 +130,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -161,8 +162,16 @@ extension NetworkSession {
 }
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T: Decodable {
+        // Only the KlaviyoState queue-only blob is force-substituted with the test fixture.
+        // Other decodable types (notably the KlaviyoCore `PersistedIdentity` / `PersistedConfig`
+        // DTOs read during IdentityStore / SDKConfigStore hydration under this test environment)
+        // must NOT be coerced into a KlaviyoState — decode them normally so `loadPersisted` can
+        // fall back to nil (and the store mints/stays-empty) instead of crashing on a bad cast.
+        if let fixture = KlaviyoState.test as? T {
+            return fixture
+        }
+        return try super.decode(type, from: data)
     }
 }
 
@@ -191,7 +200,6 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)

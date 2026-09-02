@@ -63,7 +63,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -106,13 +107,11 @@ extension KlaviyoState {
         phoneNumber: "1234567890",
         externalId: "test-external-id",
         pushTokenData: nil,
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: false,
         flushInterval: 30.0,
         retryState: .retry(1),
-        pendingRequests: [],
         pendingProfile: nil
     )
 }

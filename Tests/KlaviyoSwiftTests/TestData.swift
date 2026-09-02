@@ -20,7 +20,6 @@ let INITIALIZED_TEST_STATE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -31,7 +30,6 @@ let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initializing,
         flushing: true
@@ -47,7 +45,6 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -63,7 +60,6 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
         requestsInFlight: [],
         initalizationState: .initialized,
         flushing: true
@@ -140,10 +136,32 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   queue: [],
                                    requestsInFlight: [],
                                    initalizationState: .initialized,
                                    flushing: true)
+
+    // MARK: - Request fixtures
+
+    // Build expected requests through `RequestFactory` (the single production construction path)
+    // so test expectations can't silently diverge from what the SDK actually sends.
+
+    func buildProfileRequest(apiKey: String, anonymousId: String, properties: [String: Any] = [:]) -> KlaviyoRequest {
+        RequestFactory.profileRequest(
+            identity: requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+            properties: properties
+        )
+    }
+
+    mutating func buildTokenRequest(apiKey: String, anonymousId: String, pushToken: String, enablement: PushEnablement) -> KlaviyoRequest {
+        resolvedTokenRequest(apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement)
+    }
+
+    func buildUnregisterRequest(apiKey: String, anonymousId: String, pushToken: String) -> KlaviyoRequest {
+        RequestFactory.unregisterRequest(
+            identity: requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
+            pushToken: pushToken
+        )
+    }
 }
 
 let SAMPLE_DATA: NSMutableArray = [
@@ -211,7 +229,7 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 extension KlaviyoSwiftEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
+    static let testStore = Store(initialState: KlaviyoState(), reducer: KlaviyoReducer())
 
     static let test = {
         KlaviyoSwiftEnvironment(send: { action in
@@ -219,9 +237,7 @@ extension KlaviyoSwiftEnvironment {
         }, state: {
             KlaviyoSwiftEnvironment.testStore.state.value
         }, statePublisher: {
-            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
-        }, stateChangePublisher: {
-            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
+            KlaviyoSwiftEnvironment.testStore.state.eraseToAnyPublisher()
         }, pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         }, injectNotificationDelegate: {

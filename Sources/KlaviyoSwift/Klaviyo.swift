@@ -115,10 +115,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        DispatchQueue.main.async {
-            SharedStoreMirror.setup()
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-        }
+        dispatchOnMainThread(action: .initialize(apiKey))
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
@@ -325,7 +322,7 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             // Regular notification body tap
-            create(event: Event(name: ._openedPush, properties: properties))
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
             resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
         }
 
@@ -375,7 +372,7 @@ public struct KlaviyoSDK {
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
-            create(event: Event(name: ._openedPush, properties: properties))
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
             resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
@@ -480,7 +477,7 @@ public struct KlaviyoSDK {
         }
 
         // Track action button event
-        create(event: Event(name: ._openedPush, properties: actionProperties))
+        create(event: Event(name: ._openedPush, properties: actionProperties, priority: .high))
     }
 }
 

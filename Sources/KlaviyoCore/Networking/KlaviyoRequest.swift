@@ -23,26 +23,38 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// Defaults to the current time when the request is created.
     public let enqueuedAt: Date
 
+    /// The priority level for this request.
+    ///
+    /// High-priority requests are front-inserted in the queue and trigger an immediate flush.
+    /// Defaults to `.standard`.
+    public let priority: RequestPriority
+
     /// Creates a new request to the Klaviyo API.
     ///
     /// - Parameters:
     ///   - id: A unique identifier for this request. If not provided, a UUID will be generated.
     ///   - endpoint: The endpoint this request will target.
     ///   - enqueuedAt: The time this request was enqueued. Defaults to the current time.
+    ///   - priority: The priority level for this request. Defaults to `.standard`.
     public init(
         id: String = environment.uuid().uuidString,
         endpoint: KlaviyoEndpoint,
-        enqueuedAt: Date = environment.date()
+        enqueuedAt: Date = environment.date(),
+        priority: RequestPriority = .standard
     ) {
         self.id = id
         self.endpoint = endpoint
         self.enqueuedAt = enqueuedAt
+        self.priority = priority
     }
 
-    enum CodingKeys: String, CodingKey {
+    // MARK: - Codable
+
+    private enum CodingKeys: String, CodingKey {
         case id
         case endpoint
         case enqueuedAt
+        case priority
     }
 
     /// Custom decoding for backward compatibility with queues persisted before
@@ -55,6 +67,9 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
         id = try container.decode(String.self, forKey: .id)
         endpoint = try container.decode(KlaviyoEndpoint.self, forKey: .endpoint)
         enqueuedAt = try container.decodeIfPresent(Date.self, forKey: .enqueuedAt) ?? .distantPast
+        // Decode with a default of `.standard` so queues persisted by older SDK versions
+        // (which have no `priority` key) continue to deserialize correctly.
+        priority = try container.decodeIfPresent(RequestPriority.self, forKey: .priority) ?? .standard
     }
 
     /// Equality intentionally ignores `enqueuedAt`, keeping dedup and TCA state-diffing keyed on

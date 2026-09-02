@@ -20,30 +20,7 @@ final class EncodableTests: XCTestCase {
         testEncoder.outputFormatting = .prettyPrinted.union(.sortedKeys)
     }
 
-    func testKlaviyoState() throws {
-        let tokenPayload = PushTokenPayload(
-            pushToken: "foo",
-            enablement: "AUTHORIZED",
-            background: "AVAILABLE",
-            profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
-        )
-        let request = KlaviyoRequest(
-            id: KlaviyoEnvironment.test().uuid().uuidString,
-            endpoint: .registerPushToken("foo", tokenPayload)
-        )
-        let klaviyoState = KlaviyoState(
-            email: "foo",
-            anonymousId: "foo",
-            phoneNumber: "foo",
-            pushTokenData: KlaviyoState.PushTokenData(
-                pushToken: "foo",
-                pushEnablement: .authorized,
-                pushBackground: .available,
-                deviceData: .init(context: KlaviyoEnvironment.test().appContextInfo())
-            ),
-            queue: [request],
-            requestsInFlight: [request]
-        )
-        assertSnapshot(matching: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
-    }
+    // NOTE: the former `testKlaviyoState` snapshot verified the queue-only state blob's JSON.
+    // `KlaviyoState` is no longer `Codable` (removed in Task 5) — the queue backing moved to the
+    // Core `QueueStore` which owns its own persistence. No state-blob encoding to snapshot here.
 }

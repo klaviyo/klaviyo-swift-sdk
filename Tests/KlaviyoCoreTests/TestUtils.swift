@@ -120,7 +120,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -152,7 +153,19 @@ extension NetworkSession {
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        AppLifeCycleEvents.test as! T
+        // This stub only ever vends `AppLifeCycleEvents.test`. Throw (rather than force-cast)
+        // when a caller asks for a different type: `loadPersisted`'s `try?` then degrades to
+        // `nil` instead of trapping. A force-cast here crashes the whole test process — an
+        // `as!` failure is a runtime trap that `try?` cannot catch — and surfaces as an
+        // order-dependent flake whenever an ambient `environment` lets a store's hydration
+        // reach this decoder (e.g. SDKConfigStore decoding `PersistedConfig`).
+        guard let value = AppLifeCycleEvents.test as? T else {
+            throw DecodingError.typeMismatch(T.self, DecodingError.Context(
+                codingPath: [],
+                debugDescription: "TestJSONDecoder only vends AppLifeCycleEvents.test; got \(T.self)"
+            ))
+        }
+        return value
     }
 }
 

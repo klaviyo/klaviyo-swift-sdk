@@ -31,26 +31,51 @@ public protocol ConfigWriting {
 public final class SDKConfigStore: ConfigReading, ConfigWriting {
     public static let shared = SDKConfigStore()
 
-    // `CurrentValueSubject` is internally synchronized, so reads and writes are thread-safe
-    // without an external lock. We deliberately avoid wrapping `send` in a lock/queue: Combine
-    // delivers to subscribers synchronously during `send`, so an external lock held across the
-    // emission would deadlock any subscriber that reads `current` in response.
+    // INVARIANT: never hold `lock` across `subject.send`. `lock` is a non-recursive `UnfairLock`;
+    // Combine delivers synchronously, so a subscriber that reads a lock-guarded accessor (e.g.
+    // `current`, via `hydrateIfNeeded`) during delivery would deadlock. Always mutate under the lock,
+    // then emit outside it.
+    //
+    // SINGLE WRITER: all writes (`update`) come from the TCA reducer's write-through defer, which runs
+    // serially, so persist-then-emit is never interleaved by a second writer. The lock therefore
+    // guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a write — not
+    // writer-vs-writer.
+    //
+    // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
+    // need no external lock. `lock` guards only `hydrated` and disk I/O. Hydration may assign
+    // `subject.value` under the lock only because a fresh store has no subscribers yet.
     private let subject: CurrentValueSubject<KlaviyoConfig, Never>
+    private let lock = UnfairLock()
+    private var hydrated = false
 
     init(initialConfig: KlaviyoConfig = KlaviyoConfig()) {
         subject = CurrentValueSubject(initialConfig)
     }
 
+    private func hydrateIfNeeded() {
+        lock.withLock {
+            guard !hydrated else { return }
+            hydrated = true
+            if let persisted = loadPersisted(PersistedConfig.self, fileName: StoreFile.config) {
+                // Assign directly rather than `send` — no subscribers exist on a fresh store.
+                subject.value = KlaviyoConfig(apiKey: persisted.apiKey)
+            }
+        }
+    }
+
     public var current: KlaviyoConfig {
-        subject.value
+        hydrateIfNeeded()
+        return subject.value
     }
 
     public var publisher: AnyPublisher<KlaviyoConfig, Never> {
-        subject.eraseToAnyPublisher()
+        hydrateIfNeeded()
+        return subject.eraseToAnyPublisher()
     }
 
     public func stream() -> AsyncStream<KlaviyoConfig> {
-        AsyncStream(bufferingPolicy: .unbounded) { continuation in
+        hydrateIfNeeded()
+        return AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let cancellable = subject.sink { value in
                 continuation.yield(value)
             }
@@ -61,11 +86,23 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     }
 
     public func update(_ config: KlaviyoConfig) {
+        hydrateIfNeeded()
+        // Persist under the lock so concurrent `update` calls can't interleave file writes.
+        // The `config` param is written directly, so there is no stale-snapshot risk.
+        lock.withLock {
+            savePersisted(
+                PersistedConfig(version: PersistedConfig.currentVersion, apiKey: config.apiKey),
+                fileName: StoreFile.config
+            )
+        }
+        // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
         subject.send(config)
     }
 
-    /// Restores the store to the default config (test-support / Core reset surface).
+    /// Clears persisted state, in-memory cache, and re-arms hydration (test isolation only).
     package func reset() {
-        update(KlaviyoConfig())
+        lock.withLock { hydrated = false }
+        removePersisted(fileName: StoreFile.config)
+        subject.send(KlaviyoConfig())
     }
 }

@@ -7,12 +7,46 @@
 
 @testable import KlaviyoCore
 import Combine
-import CombineSchedulers
 import CoreLocation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 let ARCHIVED_RETURNED_DATA = Data()
+
+/// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
+///
+/// The KlaviyoSwift reducer read/write-throughs `IdentityStore.shared` and
+/// `SDKConfigStore.shared`, which are process-wide singletons that persist across tests. Call this
+/// in `setUp` — AFTER installing the test `environment` — so hydration/minting use the test
+/// `fileClient` (whose `fileExists` closure decides whether `loadPersisted` reads or returns nil)
+/// and the deterministic test `uuid`, and so state never leaks between tests.
+func resetCanonicalCoreStores() {
+    IdentityStore.shared.reset()
+    SDKConfigStore.shared.reset()
+    // The per-apiKey QueueStore registry is process-global; clear it so a spy store injected by
+    // `seedTestQueueStore` in one test can't bleed into the next (which would otherwise resolve a
+    // stale in-memory queue instead of the empty production/disk-backed store).
+    QueueStore.resetRegistry()
+}
+
+/// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide
+/// singletons (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`)
+/// before each test. Subclasses that need extra setup should call `super` first.
+class StateManagementTestCase: XCTestCase {
+    @MainActor
+    override func setUp() async throws {
+        environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        BadgeManager.resetToProduction()
+    }
+}
 
 extension ArchiverClient {
     static let test = ArchiverClient(
@@ -65,8 +99,16 @@ extension KlaviyoEnvironment {
 }
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
+    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T: Decodable {
+        // Only the KlaviyoState queue-only blob is force-substituted with the test fixture.
+        // Other decodable types (notably the KlaviyoCore `PersistedIdentity` / `PersistedConfig`
+        // DTOs read during IdentityStore / SDKConfigStore hydration under this test environment)
+        // must NOT be coerced into a KlaviyoState — decode them normally so `loadPersisted` can
+        // fall back to nil (and the store mints/stays-empty) instead of crashing on a bad cast.
+        if let fixture = KlaviyoState.test as? T {
+            return fixture
+        }
+        return try super.decode(type, from: data)
     }
 }
 
@@ -97,7 +139,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -134,17 +177,6 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
-}
-
-extension StateChangePublisher {
-    static let test = { () -> StateChangePublisher in
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(0), scheduler: DispatchQueue.immediate)
-                .eraseToAnyPublisher()
-        }
-        return Self()
-    }()
 }
 
 private final class KeyedArchiver: NSKeyedArchiver {
