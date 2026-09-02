@@ -52,13 +52,20 @@ final class UnattributedBuffer {
     private var nextSequence: UInt64 = 1
 
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `lock`.
+    /// Replays each persisted request through `addEntry`, so a file written before push-token
+    /// coalescing existed (or otherwise holding more than one buffered token) is normalized on
+    /// load instead of resurrecting the duplicates.
     private func hydrateIfNeeded() {
         guard !hydrated else { return }
         hydrated = true
-        if let persisted = loadPersisted(
+        guard let persisted = loadPersisted(
             PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed
-        ) {
-            entries = persisted.requests.map { assignSequence($0) }
+        ) else { return }
+        for request in persisted.requests {
+            addEntry(request)
+        }
+        if entries.count != persisted.requests.count {
+            persist()
         }
     }
 
@@ -81,13 +88,29 @@ final class UnattributedBuffer {
         }
     }
 
+    /// Adds one request to `entries`, applying cap-eviction and push-token coalescing. Shared by
+    /// `append` and hydration replay so both paths keep the same "at most one buffered token"
+    /// rule. Call under `lock`.
+    private func addEntry(_ request: UnattributedRequest) {
+        if case .pushToken = request {
+            entries.removeAll {
+                if case .pushToken = $0.request { return true }
+                return false
+            }
+        }
+        if entries.count >= Self.maxBufferSize {
+            entries.removeFirst()
+        }
+        entries.append(assignSequence(request))
+    }
+
+    /// Repeated pre-init token buffering (e.g. multiple automatic APNs callbacks before
+    /// `initialize()`) drops any earlier buffered token — only the latest is kept, whether it came
+    /// from a manual or automatic call.
     func append(_ request: UnattributedRequest) {
         lock.withLock {
             hydrateIfNeeded()
-            if entries.count >= Self.maxBufferSize {
-                entries.removeFirst()
-            }
-            entries.append(assignSequence(request))
+            addEntry(request)
             persist()
         }
     }
