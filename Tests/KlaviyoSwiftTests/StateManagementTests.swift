@@ -12,21 +12,7 @@ import Combine
 import Foundation
 import XCTest
 
-class StateManagementTests: XCTestCase {
-    @MainActor
-    override func setUp() async throws {
-        environment = KlaviyoEnvironment.test()
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        BadgeManager.resetToProduction()
-    }
-
-    @MainActor
-    override func tearDown() async throws {
-        BadgeManager.resetToProduction()
-    }
-
+class StateManagementTests: StateManagementTestCase {
     // MARK: - Initialization
 
     @MainActor
@@ -602,15 +588,15 @@ class StateManagementTests: XCTestCase {
         switch request.endpoint {
         case let .registerPushToken(_, payload):
             let attrs = payload.data.attributes.profile.data.attributes
-            let loc = Profile.test.location!
-            XCTAssertEqual(attrs.location?.city, loc.city)
-            XCTAssertEqual(attrs.location?.region, loc.region!)
-            XCTAssertEqual(attrs.location?.address1, loc.address1!)
-            XCTAssertEqual(attrs.location?.address2, loc.address2!)
-            XCTAssertEqual(attrs.location?.zip, loc.zip!)
-            XCTAssertEqual(attrs.location?.country, loc.country!)
-            XCTAssertEqual(attrs.location?.latitude, loc.latitude!)
-            XCTAssertEqual(attrs.location?.longitude, loc.longitude!)
+            let location = Profile.test.location!
+            XCTAssertEqual(attrs.location?.city, location.city)
+            XCTAssertEqual(attrs.location?.region, location.region!)
+            XCTAssertEqual(attrs.location?.address1, location.address1!)
+            XCTAssertEqual(attrs.location?.address2, location.address2!)
+            XCTAssertEqual(attrs.location?.zip, location.zip!)
+            XCTAssertEqual(attrs.location?.country, location.country!)
+            XCTAssertEqual(attrs.location?.latitude, location.latitude!)
+            XCTAssertEqual(attrs.location?.longitude, location.longitude!)
             XCTAssertEqual(attrs.title, Profile.test.title)
             XCTAssertEqual(attrs.organization, Profile.test.organization)
             XCTAssertEqual(attrs.firstName, Profile.test.firstName)
@@ -618,8 +604,8 @@ class StateManagementTests: XCTestCase {
             XCTAssertEqual(attrs.image, Profile.test.image)
 
             if let customProperties = attrs.properties.value as? [String: Any],
-               let foo = customProperties["foo"] as? Int {
-                XCTAssertEqual(foo, 20)
+               let customFoo = customProperties["foo"] as? Int {
+                XCTAssertEqual(customFoo, 20)
             }
         default:
             XCTFail(

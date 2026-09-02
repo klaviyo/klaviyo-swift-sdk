@@ -10,21 +10,7 @@
 import Foundation
 import XCTest
 
-class StateManagementEdgeCaseTests: XCTestCase {
-    @MainActor
-    override func setUp() async throws {
-        environment = KlaviyoEnvironment.test()
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        BadgeManager.resetToProduction()
-    }
-
-    @MainActor
-    override func tearDown() async throws {
-        BadgeManager.resetToProduction()
-    }
-
+class StateManagementEdgeCaseTests: StateManagementTestCase {
     // MARK: - initialization
 
     @MainActor

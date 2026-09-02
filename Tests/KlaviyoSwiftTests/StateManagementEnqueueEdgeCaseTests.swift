@@ -9,21 +9,7 @@
 import Foundation
 import XCTest
 
-class StateManagementEnqueueEdgeCaseTests: XCTestCase {
-    @MainActor
-    override func setUp() async throws {
-        environment = KlaviyoEnvironment.test()
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        BadgeManager.resetToProduction()
-    }
-
-    @MainActor
-    override func tearDown() async throws {
-        BadgeManager.resetToProduction()
-    }
-
+class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     // MARK: - set enqueue event uninitialized
 
     @MainActor

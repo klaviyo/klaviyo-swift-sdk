@@ -29,6 +29,25 @@ func resetCanonicalCoreStores() {
     QueueStore.resetRegistry()
 }
 
+/// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide
+/// singletons (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`)
+/// before each test. Subclasses that need extra setup should call `super` first.
+class StateManagementTestCase: XCTestCase {
+    @MainActor
+    override func setUp() async throws {
+        environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        BadgeManager.resetToProduction()
+    }
+}
+
 extension ArchiverClient {
     static let test = ArchiverClient(
         archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
