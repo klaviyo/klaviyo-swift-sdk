@@ -282,7 +282,15 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test property getters
 
     func testPropertyGetters() {
-        klaviyoSwiftEnvironment.state = { KlaviyoState(email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id", pushTokenData: .init(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo())), queue: []) }
+        klaviyoSwiftEnvironment.state = {
+            KlaviyoState(
+                email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id",
+                pushTokenData: .init(
+                    pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available,
+                    deviceData: .init(context: environment.appContextInfo())
+                )
+            )
+        }
         let klaviyo = KlaviyoSDK()
         XCTAssertEqual("foo@foo.com", klaviyo.email)
         XCTAssertEqual("555BLOB", klaviyo.phoneNumber)

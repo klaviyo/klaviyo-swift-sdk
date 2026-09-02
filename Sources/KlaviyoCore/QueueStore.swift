@@ -143,22 +143,29 @@ public final class QueueStore {
         return drained
     }
 
-    /// Replaces the queue wholesale from an authoritative external source (migration only).
-    /// Writes to disk before updating memory and throws on failure, since a read-back can't tell
-    /// "persisted empty" from "load failed" (`hydrated()` folds both into `[]`). Always
-    /// synchronous. Only supersedes a pending debounce after its own write succeeds, so a failed
-    /// `restore` can't cancel a concurrent `enqueue`'s pending flush.
+    /// NOTE: Only called in the LegacyStateMigration. No other callers.
+    /// Merges an authoritative legacy backlog into the queue: prepends `requests`
+    /// — the older, pre-upgrade backlog — ahead of whatever is already queued, skipping any id
+    /// already present so a re-run can't duplicate. Prepend-not-replace is deliberate: a request
+    /// that raced into the queue during the init window (MAGE-952) must survive migration rather
+    /// than be wiped by a wholesale overwrite. Writes disk-first and throws on failure, since a
+    /// read-back can't tell "persisted empty" from "load failed" (`hydrated()` folds both into
+    /// `[]`); a failed restore leaves memory untouched so migration retries. Only supersedes a
+    /// pending debounce after its own write succeeds, so a failed `restore` can't cancel a
+    /// concurrent `enqueue`'s pending flush.
     ///
-    /// Holds `queueLock` across the disk write too (unlike `persistCurrent`), so a concurrent
-    /// `enqueue` either fully precedes or fully follows `restore` rather than landing in the
-    /// window between the write and the memory assignment, where it would be silently lost when
-    /// `restore` overwrites `queue`. `restore` runs once per app lifetime (migration-only), so
+    /// Holds `queueLock` across the read+write+assignment (unlike `persistCurrent`), so a concurrent
+    /// `enqueue` either fully precedes or fully follows `restore` rather than landing mid-merge,
+    /// where it could be silently lost. `restore` runs once per app lifetime (migration-only), so
     /// this brief exception to "never hold queueLock across disk I/O" isn't a hot-path concern.
     package func restore(_ requests: [KlaviyoRequest]) throws {
         try persistLock.withLock {
             try queueLock.withLock {
-                try diskIO.save(requests)
-                queue = requests
+                let current = hydrated()
+                let existingIds = Set(current.map(\.id))
+                let merged = requests.filter { !existingIds.contains($0.id) } + current
+                try diskIO.save(merged)
+                queue = merged
             }
             pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
         }
@@ -246,7 +253,12 @@ public final class QueueStore {
         do {
             loaded = try diskIO.load()
         } catch {
-            // TODO: Distinguish corrupt-vs-transient load failure to preserve the latter
+            // A load failure is distinct from a legitimately empty/absent queue (the production
+            // loader returns `[]` for an absent file without throwing). We fall back to empty so the
+            // store stays usable, but the next persist then overwrites the on-disk file — which
+            // self-heals a corrupt file yet, in the rare case of a transiently-unreadable *valid*
+            // file, discards its backlog. Surface it so that loss is observable rather than silent.
+            // (Distinguishing corrupt-vs-transient to preserve the latter is a follow-up.)
             emitWarning("QueueStore: failed to load persisted queue (\(error)); starting from empty")
             loaded = []
         }

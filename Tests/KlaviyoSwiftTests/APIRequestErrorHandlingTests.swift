@@ -13,10 +13,15 @@ import XCTest
 let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
 
 class APIRequestErrorHandlingTests: XCTestCase {
+    /// Live in-memory backing for the QueueStore under `TEST_API_KEY`, so retry/backoff tests can
+    /// assert what `requestFailed` / `cancelInFlightRequests` restored to the durable queue.
+    private var readQueue: () -> [KlaviyoRequest] = { [] }
+
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
+        readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
     }
 
     // MARK: - http error
@@ -56,7 +61,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -79,7 +83,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -102,7 +105,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -147,7 +149,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request, request2]
+            XCTAssertEqual(self.readQueue(), [request, request2], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retry(2)
         }
@@ -168,7 +170,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request, request2]
+            XCTAssertEqual(self.readQueue(), [request, request2], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retry(2)
         }
@@ -192,7 +194,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retry(maxRetries + 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request2]
+            XCTAssertEqual(self.readQueue(), [request2], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -215,7 +217,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -237,7 +238,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -259,7 +259,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -280,7 +279,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -301,7 +299,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -322,7 +319,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
         }
@@ -342,7 +339,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)
         }
@@ -362,7 +359,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)
         }
@@ -384,7 +381,6 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = []
             $0.requestsInFlight = []
             $0.retryState = .retry(1)
         }
@@ -405,7 +401,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
@@ -424,7 +420,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
@@ -443,7 +439,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
@@ -462,7 +458,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
@@ -482,7 +478,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
@@ -502,7 +498,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
-            $0.queue = [request]
+            XCTAssertEqual(self.readQueue(), [request], "failed request restored to durable queue")
             $0.requestsInFlight = []
             $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)
         }

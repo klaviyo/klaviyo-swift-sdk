@@ -12,23 +12,11 @@ import UIKit
 
 typealias PushTokenData = KlaviyoCore.PushTokenData
 
-struct KlaviyoState: Equatable, Codable {
-    enum InitializationState: Equatable, Codable {
+struct KlaviyoState: Equatable {
+    enum InitializationState: Equatable {
         case uninitialized
         case initializing
         case initialized
-    }
-
-    enum PendingRequest: Equatable {
-        case event(Event)
-        case aggregateEvent(Data)
-        case profile(Profile)
-        case pushToken(String, PushEnablement)
-        case automaticPushToken(String, PushEnablement)
-        case setEmail(String)
-        case setExternalId(String)
-        case setPhoneNumber(String)
-        case subscription(Subscription)
     }
 
     // state related stuff
@@ -59,61 +47,14 @@ struct KlaviyoState: Equatable, Codable {
     var pushTokenData: PushTokenData?
 
     // queueing related stuff
-    var queue: [KlaviyoRequest]
+    // The durable pending queue lives in the Core `QueueStore` (resolved per apiKey); `KlaviyoState`
+    // only holds the in-memory in-flight lease. See `QueueStore` and `enqueueRequest`.
     var requestsInFlight: [KlaviyoRequest] = []
     var initalizationState = InitializationState.uninitialized
     var flushing = false
     var flushInterval = StateManagementConstants.wifiFlushInterval
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
-    var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
-
-    enum CodingKeys: CodingKey {
-        case apiKey
-        case identity
-        case queue
-        case pushTokenData
-    }
-
-    /// Legacy coding keys for migrating state files written before identity was composed into `ProfileData`.
-    private enum LegacyCodingKeys: CodingKey {
-        case email, anonymousId, phoneNumber, externalId
-    }
-
-    init(from decoder: Decoder) throws {
-        // The persisted `klaviyo-{apiKey}-state.json` is queue-only; `apiKey`, `identity` and
-        // `pushTokenData` are owned by the canonical KlaviyoCore stores (`SDKConfigStore` /
-        // `IdentityStore`). Decoding still reads the legacy keys if present so a state file from an
-        // older SDK version can be lifted into the Core stores by a later migration.
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
-        pushTokenData = try container.decodeIfPresent(PushTokenData.self, forKey: .pushTokenData)
-        queue = try container.decodeIfPresent([KlaviyoRequest].self, forKey: .queue) ?? []
-
-        if let identity = try container.decodeIfPresent(ProfileData.self, forKey: .identity) {
-            // New format: identity is a nested object.
-            self.identity = identity
-        } else if let legacy = try? decoder.container(keyedBy: LegacyCodingKeys.self) {
-            // Legacy format: identity fields were stored at the top level.
-            identity = try ProfileData(
-                email: legacy.decodeIfPresent(String.self, forKey: .email),
-                phoneNumber: legacy.decodeIfPresent(String.self, forKey: .phoneNumber),
-                externalId: legacy.decodeIfPresent(String.self, forKey: .externalId),
-                anonymousId: legacy.decodeIfPresent(String.self, forKey: .anonymousId)
-            )
-        } else {
-            // Queue-only blob: no identity on disk — the Core stores own it.
-            identity = ProfileData()
-        }
-    }
-
-    /// Encodes a queue-only blob. `apiKey`, `identity` and `pushTokenData` are deliberately not
-    /// serialized here — the canonical KlaviyoCore stores (`SDKConfigStore` / `IdentityStore`)
-    /// persist them synchronously on mutation.
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(queue, forKey: .queue)
-    }
 
     init(
         apiKey: String? = nil,
@@ -122,13 +63,11 @@ struct KlaviyoState: Equatable, Codable {
         phoneNumber: String? = nil,
         externalId: String? = nil,
         pushTokenData: PushTokenData? = nil,
-        queue: [KlaviyoRequest],
         requestsInFlight: [KlaviyoRequest] = [],
         initalizationState: InitializationState = .uninitialized,
         flushing: Bool = false,
         flushInterval: Double = StateManagementConstants.wifiFlushInterval,
         retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
-        pendingRequests: [PendingRequest] = [],
         pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
     ) {
         self.apiKey = apiKey
@@ -139,51 +78,23 @@ struct KlaviyoState: Equatable, Codable {
             anonymousId: anonymousId
         )
         self.pushTokenData = pushTokenData
-        self.queue = queue
         self.requestsInFlight = requestsInFlight
         self.initalizationState = initalizationState
         self.flushing = flushing
         self.flushInterval = flushInterval
         self.retryState = retryState
-        self.pendingRequests = pendingRequests
         self.pendingProfile = pendingProfile
     }
 
+    /// Routes an enqueue to the Core `QueueStore` for the current apiKey. Front-insert for
+    /// high-priority requests and capacity/eviction live inside `QueueStore.enqueue` (keyed on
+    /// `request.priority`), so this is now a thin forwarder.
     mutating func enqueueRequest(request: KlaviyoRequest) {
-        evictOldestIfAtCapacity()
-        queue.append(request)
-    }
-
-    /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
-    /// geofence events that should flush immediately), enforcing the same capacity cap as
-    /// ``enqueueRequest(request:)``.
-    mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
-        evictOldestIfAtCapacity()
-        queue.insert(request, at: 0)
-    }
-
-    /// Evicts the oldest queued request (by `enqueuedAt`) when the queue is at or above
-    /// capacity, making room for one more.
-    private mutating func evictOldestIfAtCapacity() {
-        guard queue.count >= StateManagementConstants.maxQueueSize else { return }
-        let maxSize = StateManagementConstants.maxQueueSize
-        environment.emitDeveloperWarning(
-            "Request queue at capacity (\(maxSize)); evicting oldest request(s) to make room.")
-        // Evict the oldest by wall-clock enqueue time. `min(by:)` returns the first minimal
-        // element, so ties — and legacy `.distantPast` entries carried across an app upgrade —
-        // break by front-most queue position (age order). A backwards clock correction (e.g. an
-        // NTP step) could momentarily mis-order two closely-spaced timestamps, but that only
-        // changes *which* near-oldest request is dropped at overflow; we accept wall-clock here
-        // rather than thread a monotonic sequence counter through every enqueue path.
-        //
-        // Loop rather than evict once: the queue can already be over capacity (e.g. init-time
-        // queue merging or in-flight requests reinserted at the front), and a single removal
-        // would leave it permanently above the bound. Drain to maxSize - 1 so the caller's
-        // append/insert lands the queue at exactly the cap.
-        while queue.count >= maxSize,
-              let oldestIndex = queue.indices.min(by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }) {
-            queue.remove(at: oldestIndex)
+        guard let apiKey else {
+            environment.emitDeveloperWarning("Attempt to enqueue without an api key.")
+            return
         }
+        QueueStore.store(for: apiKey).enqueue(request)
     }
 
     mutating func updateEmail(email: String) {
@@ -286,74 +197,9 @@ struct KlaviyoState: Equatable, Codable {
 
 // MARK: Klaviyo state persistence
 
-func saveKlaviyoState(state: KlaviyoState) {
-    // Key the file off the snapshot's OWN apiKey — the company this queue belongs to — not the live
-    // `SDKConfigStore`. The state save is debounced on a background queue, so a save of company A's
-    // snapshot must not be misrouted into `klaviyo-B-state.json` if `initialize(B)` updated the store
-    // after this snapshot was captured. The blob is queue-only (identity/apiKey/pushToken live in the
-    // Core stores). See `KlaviyoState.encode(to:)`.
-    guard let apiKey = state.apiKey ?? SDKConfigStore.shared.current.apiKey else {
-        environment.logger.error("Attempt to save state without an api key.")
-        return
-    }
-    let file = klaviyoStateFile(apiKey: apiKey)
-    storeKlaviyoState(state: state, file: file)
-}
-
-/// Not `private` — `LegacyStateMigration` needs this path too.
+/// Not `private` — `LegacyStateMigration` needs this path to locate the legacy state file.
 func klaviyoStateFile(apiKey: String) -> URL {
     let fileName = "klaviyo-\(apiKey)-state.json"
     let directory = environment.fileClient.libraryDirectory()
     return directory.appendingPathComponent(fileName, isDirectory: false)
-}
-
-private func storeKlaviyoState(state: KlaviyoState, file: URL) {
-    do {
-        try environment.fileClient.write(environment.encodeJSON(AnyEncodable(state)), file)
-    } catch {
-        environment.logger.error("Unable to save klaviyo state.")
-    }
-}
-
-private func removeStateFile(at file: URL) {
-    do {
-        try environment.fileClient.removeItem(file.path)
-    } catch {
-        environment.logger.error("Unable to remove state file.")
-    }
-}
-
-/// Loads SDK state from disk
-/// - Parameter apiKey: the API key that uniquely identiifies the company
-/// - Returns: an instance of the `KlaviyoState`
-func loadKlaviyoStateFromDisk(apiKey: String) -> KlaviyoState {
-    let fileName = klaviyoStateFile(apiKey: apiKey)
-    guard environment.fileClient.fileExists(fileName.path) else {
-        return createAndStoreInitialState(at: fileName)
-    }
-    guard let stateData = try? environment.dataFromUrl(fileName) else {
-        environment.logger.error("Klaviyo state file invalid starting from scratch.")
-        removeStateFile(at: fileName)
-        return createAndStoreInitialState(at: fileName)
-    }
-    guard var state: KlaviyoState = try? environment.decoder.decode(stateData) else {
-        environment.logger.error("Unable to decode existing state file. Removing.")
-        removeStateFile(at: fileName)
-        return createAndStoreInitialState(at: fileName)
-    }
-    if state.apiKey != nil, state.apiKey != apiKey {
-        // A state file from a different company was found (legacy blobs carry an apiKey). We are
-        // switching companies, so start from an empty queue. Identity/apiKey are owned by the Core
-        // stores and are not minted here.
-        state = createAndStoreInitialState(at: fileName)
-    }
-    return state
-}
-
-/// Creates a fresh, empty queue-only state and persists it. Identity/apiKey/pushToken are owned by
-/// the canonical KlaviyoCore stores and are no longer minted or persisted here.
-private func createAndStoreInitialState(at file: URL) -> KlaviyoState {
-    let state = KlaviyoState(queue: [], requestsInFlight: [])
-    storeKlaviyoState(state: state, file: file)
-    return state
 }

@@ -16,7 +16,6 @@ final class AttemptNumberTests: XCTestCase {
         let initialState = KlaviyoState(
             apiKey: "foo",
             anonymousId: environment.uuid().uuidString,
-            queue: [],
             requestsInFlight: [request],
             initalizationState: .initialized,
             flushing: true

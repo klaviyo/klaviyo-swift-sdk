@@ -47,11 +47,13 @@ enum RetryState: Equatable {
 }
 
 enum KlaviyoAction: Equatable {
-    /// Sets the API key to state. If the state is already initialized then the push token is moved over to the company with the API key provided in this action.
-    /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
+    /// Confirms or sets the API key, runs the legacy-state migration, drains the durable
+    /// UnattributedBuffer into QueueStore, then emits `completeInitialization`.
+    /// If already initialized, moves any existing push token to the new company's API key.
     case initialize(String)
 
-    /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
+    /// Hydrates identity and push-token from the canonical Core stores (IdentityStore)
+    /// and starts the flush lifecycle.
     case completeInitialization(KlaviyoState)
 
     /// if initialized, set the email else queue it up
@@ -127,25 +129,6 @@ enum KlaviyoAction: Equatable {
     /// when the attempt to resolve the tracking link into a destination link fails.
     /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
-
-    var requiresInitialization: Bool {
-        // NOTE (transitional): this gate drops pre-init actions with a developer warning,
-        // exempting high-priority events so they buffer into `pendingRequests` and replay
-        // after init instead of being dropped. Once the ungated Core QueueStore + durable
-        // pre-init buffer land, all requests buffer pre-init rather than drop — at which
-        // point this gate and its high-priority exemption both become vestigial and collapse.
-        switch self {
-        // High-priority events (e.g. opened-push, geofence) don't require initialization
-        case let .enqueueEvent(event) where event.priority == .high:
-            return false
-
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
-            return true
-
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
-            return false
-        }
-    }
 }
 
 struct RequestId {}
@@ -156,12 +139,6 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias Action = KlaviyoAction
 
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
-        if action.requiresInitialization,
-           case .uninitialized = state.initalizationState {
-            environment.emitDeveloperWarning("SDK must be initialized before usage.")
-            return .none
-        }
-
         // Write-through choke point: `apiKey` / `identity` / `pushTokenData` are canonical in the
         // KlaviyoCore stores; `KlaviyoState` holds an in-memory projection. Capture the projection
         // before the action runs and, on any mutation, write it back so identity/apiKey/pushToken
@@ -221,17 +198,14 @@ struct KlaviyoReducer: ReducerProtocol {
                         ),
                         pushToken: tokenData.pushToken
                     )
-                    state.enqueueRequest(request: request)
+                    // Persist synchronously before the wipe below so the unregister survives a
+                    // crash between cold-start company switch and the first flush.
+                    QueueStore.store(for: previousApiKey).enqueue(request, persist: .synchronous)
                 }
-                // TODO: this unregister isn't durable before the synchronous wipe below; persist it
-                // synchronously once the Core QueueStore is the flush source.
-                // Clear rather than re-register: the host's post-launch setPushToken re-registers
-                // under the new company, and nil'ing defeats dedupe so it always fires. (The runtime
-                // switch self-registers because a running app won't re-supply the token.)
                 IdentityStore.shared.updatePushToken(nil)
                 if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
                     // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
-                    // hydrates a clean identity for the new company (mirrors `state.reset()`).
+                    // hydrates a clean identity for the new company.
                     IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
                 }
             }
@@ -240,17 +214,18 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.initalizationState = .initializing
             // Set the confirmed apiKey on the projection; the write-through `defer` is the sole
-            // writer to `SDKConfigStore` (one persist + one emit per initialize). The disk lookup
-            // below uses the local `apiKey` parameter, not the store, so it does not depend on the
-            // write-through having run yet.
+            // writer to `SDKConfigStore` (one persist + one emit per initialize). This triggers it.
             state.apiKey = apiKey
             return .run { send in
-                // Must run before loadKlaviyoStateFromDisk and before IdentityStore hydrates below.
+                // Must run before IdentityStore hydrates below.
                 migrateLegacyStateIfNeeded(apiKey: apiKey)
-                // The persisted blob is queue-only; identity/apiKey/pushToken are hydrated from the
-                // Core stores in `.completeInitialization`.
-                let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
-                await send(.completeInitialization(initialState))
+                // Drain any request-generating calls buffered before an apiKey was known into the
+                // now-resolvable QueueStore (at-least-once; the durable buffer is trimmed only after
+                // the queue write persists). Runs after migration so a migrated queue is present.
+                RequestEnqueuer.drainBuffer(apiKey: apiKey)
+                // Identity/apiKey/pushToken are hydrated from the Core stores in
+                // `.completeInitialization`; no disk load needed.
+                await send(.completeInitialization(KlaviyoState(requestsInFlight: [])))
             }
 
         case var .completeInitialization(initialState):
@@ -274,47 +249,21 @@ struct KlaviyoReducer: ReducerProtocol {
             if let externalId = state.externalId {
                 initialState.externalId = externalId
             }
-            // For any requests that get added between initilizing and initilized.
-            // Ex: when the app is invoked from a push notification after being killed from the app switcher.
-            let pendingRequests = state.pendingRequests
-            initialState.queue += state.queue
 
             state = initialState
             state.initalizationState = .initialized
 
-            state.pendingRequests = []
-
+            // Any request-generating calls made before init were routed to the durable
+            // `UnattributedBuffer` and already drained into the QueueStore by `.initialize`
+            // (before this action fires), so there is nothing to replay here.
             return .run { send in
-                for request in pendingRequests {
-                    switch request {
-                    case let .event(event):
-                        await send(.enqueueEvent(event))
-                    case let .aggregateEvent(payload):
-                        await send(.enqueueAggregateEvent(payload))
-                    case let .profile(profile):
-                        await send(.enqueueProfile(profile))
-                    case let .pushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .automaticPushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .setEmail(email):
-                        await send(.setEmail(email))
-                    case let .setExternalId(externalId):
-                        await send(.setExternalId(externalId))
-                    case let .setPhoneNumber(phoneNumber):
-                        await send(.setPhoneNumber(phoneNumber))
-                    case let .subscription(subscription):
-                        await send(.enqueueSubscription(subscription))
-                    }
-                }
                 await send(.start)
             }
             .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
-            .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setEmail(email))
+                setPreInitIdentifier(&state) { $0.email = email.trimWhiteSpaceOrReturnNilIfEmpty() }
                 return .none
             }
             state.updateEmail(email: email)
@@ -322,7 +271,9 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case let .setPhoneNumber(phoneNumber):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setPhoneNumber(phoneNumber))
+                setPreInitIdentifier(&state) {
+                    $0.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
+                }
                 return .none
             }
             state.updatePhoneNumber(phoneNumber: phoneNumber)
@@ -330,32 +281,27 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case let .setExternalId(externalId):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setExternalId(externalId))
+                setPreInitIdentifier(&state) { $0.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty() }
                 return .none
             }
             state.updateExternalId(externalId: externalId)
             return .none
 
         case let .setAutomaticPushToken(pushToken, enablement):
-            guard case .initialized = state.initalizationState else {
-                let replacement = KlaviyoState.PendingRequest.automaticPushToken(pushToken, enablement)
-                if let index = state.pendingRequests.firstIndex(where: {
-                    if case .automaticPushToken = $0 { return true }
-                    return false
-                }) {
-                    state.pendingRequests[index] = replacement
-                } else {
-                    state.pendingRequests.append(replacement)
-                }
-                return .none
-            }
+            // Forward to `setPushToken` in every state: post-init it builds + enqueues the token
+            // request; pre-init `setPushToken` routes through the ungated `RequestEnqueuer` (durable
+            // buffer) like a manual token. The old pre-init dedup into `pendingRequests` is dropped
+            // with that machinery — repeated pre-init auto-token fires buffer idempotent duplicates.
             return .run { send in
                 await send(.setPushToken(pushToken, enablement))
             }
 
         case let .setPushToken(pushToken, enablement):
-            guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
-                state.pendingRequests.append(.pushToken(pushToken, enablement))
+            guard case .initialized = state.initalizationState,
+                  let apiKey = state.apiKey,
+                  let anonymousId = state.anonymousId
+            else {
+                RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
                 return .none
             }
             if !state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) {
@@ -408,13 +354,17 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.pendingProfile != nil {
                 state.enqueueProfileOrTokenRequest()
             }
-
-            if state.queue.isEmpty {
+            guard let apiKey = state.apiKey else {
                 return .none
             }
-
-            state.requestsInFlight.append(contentsOf: state.queue)
-            state.queue.removeAll()
+            // Lease the durable pending queue into the in-memory in-flight set: `drainAll` atomically
+            // snapshots + clears the store (parity with the former `append(contentsOf:)` +
+            // `removeAll`). In-flight stays an in-memory reducer field.
+            let batch = QueueStore.store(for: apiKey).drainAll()
+            if batch.isEmpty {
+                return .none
+            }
+            state.requestsInFlight.append(contentsOf: batch)
             state.flushing = true
             return .task {
                 .sendRequest
@@ -522,7 +472,13 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case .cancelInFlightRequests:
             state.flushing = false
-            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
+            // Restore the leased in-flight requests to the front of the durable pending queue.
+            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
+            // the process ends within a debounce window (this runs on `.stop`/background) the batch
+            // would be lost from both memory and disk. Write it before returning.
+            if let apiKey = state.apiKey, !state.requestsInFlight.isEmpty {
+                QueueStore.store(for: apiKey).prepend(state.requestsInFlight, persist: .synchronous)
+            }
             state.requestsInFlight = []
             return .none
 
@@ -564,7 +520,13 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
             }
             state.flushing = false
-            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
+            // Restore the leased in-flight requests to the front of the durable pending queue.
+            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
+            // the process ends within a debounce window (this runs on `.stop`/background) the batch
+            // would be lost from both memory and disk. Write it before returning.
+            if let apiKey = state.apiKey, !state.requestsInFlight.isEmpty {
+                QueueStore.store(for: apiKey).prepend(state.requestsInFlight, persist: .synchronous)
+            }
             state.requestsInFlight = []
             return .none
 
@@ -573,7 +535,7 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
-                state.pendingRequests.append(.event(event))
+                RequestEnqueuer.enqueueEvent(event)
                 return .none
             }
 
@@ -591,16 +553,13 @@ struct KlaviyoReducer: ReducerProtocol {
             )
 
             /*
-             High-priority requests (e.g. opened-push, geofence events) are front-inserted and
-             trigger an immediate flush so that user engagement events are not delayed. All other
-             requests are appended and flushed on the regular intervals defined in `StateManagementConstants`.
+             High-priority requests (e.g. opened-push, geofence events) are front-inserted (inside
+             `QueueStore.enqueue`, keyed on `request.priority`) and trigger an immediate flush so
+             that user engagement events are not delayed. All other requests are appended and
+             flushed on the regular intervals defined in `StateManagementConstants`.
              */
             let shouldPrioritize = request.priority == .high
-            if shouldPrioritize {
-                state.enqueuePriorityRequest(request: request)
-            } else {
-                state.enqueueRequest(request: request)
-            }
+            state.enqueueRequest(request: request)
 
             let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
             return .merge([
@@ -612,7 +571,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState,
                   let apiKey = state.apiKey
             else {
-                state.pendingRequests.append(.aggregateEvent(payload))
+                RequestEnqueuer.enqueueAggregateEvent(payload)
                 return .none
             }
 
@@ -626,7 +585,36 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
             else {
-                state.pendingRequests.append(.profile(profile))
+                // Pre-init: mirror the initialized path against the canonical persisted identity.
+                // Seed `state.identity` from `IdentityStore` so we fold onto (not clobber) the
+                // stored profile, run the SAME identifier-change reset, then push synchronously
+                // so the merged identity is durable before the profile sync is buffered.
+                state.identity = IdentityStore.shared.current
+                let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
+                let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
+                    $0?.trimWhiteSpaceOrReturnNilIfEmpty()
+                }
+                // Identifier change on an already-identified profile → mint a fresh anonymousId and
+                // drop prior PII, so a set(profile:) with different identifiers before initialize()
+                // on a later launch does not reuse the previous user's anonymousId (which would
+                // merge two people onto one profile). Mirrors the initialized branch below.
+                if state.isIdentified, preInitCurrentIds != preInitIncomingIds {
+                    state.reset(preserveTokenData: false)
+                }
+                state.updateStateWithProfile(profile: profile)
+                IdentityStore.shared.update(state.identity)
+                guard let anonymousId = state.anonymousId else { return .none }
+                // Build the full payload exactly as the initialized path does, so structured
+                // attributes (name/title/organization/image/location) survive the pre-init buffer
+                // and sync completely after initialize() (MAGE-1141).
+                let payload = CreateProfilePayload(data: ProfilePayload(
+                    profile,
+                    email: state.email,
+                    phoneNumber: state.phoneNumber,
+                    externalId: state.externalId,
+                    anonymousId: anonymousId
+                ))
+                RequestEnqueuer.enqueueProfile(payload: payload)
                 return .none
             }
 
@@ -695,7 +683,13 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
-                state.pendingRequests.append(.subscription(subscription))
+                // Subscriptions carry a KlaviyoSwift-only payload that the Core `UnattributedBuffer`
+                // (apiKey-free Core payloads only) cannot hold, so a pre-init subscription can't be
+                // durably buffered like other intents. Warn rather than silently drop.
+                // TODO(MAGE-952 follow-up): extend the durable buffer to cover subscriptions.
+                environment.emitDeveloperWarning(
+                    "Subscription requested before initialize(); ignored. Initialize the SDK first."
+                )
                 return .none
             }
 
@@ -793,11 +787,38 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
         }
     }
+
+    /// Applies a pre-init identity-setter (`setEmail`/`setPhoneNumber`/`setExternalId`) and buffers
+    /// a profile sync.
+    ///
+    /// The just-set identifier must reach `IdentityStore` BEFORE `RequestEnqueuer.enqueueProfile`
+    /// reads it: the reducer's write-through `defer` fires only at RETURN, which is too late.
+    /// So we push identity synchronously here. Crucially we seed the FULL `state.identity` from
+    /// `IdentityStore.current` first (minting the anonymousId on first access) so the setter FOLDS
+    /// onto the persisted identity — `IdentityStore.update` replaces wholesale, so seeding only the
+    /// anonymousId would clobber the other persisted identifiers with `nil` from a fresh pre-init `state`.
+    /// Mirrors the pre-init `set(profile:)` path.
+    private func setPreInitIdentifier(
+        _ state: inout KlaviyoState,
+        _ apply: (inout KlaviyoState) -> Void
+    ) {
+        state.identity = IdentityStore.shared.current
+        apply(&state)
+        IdentityStore.shared.update(state.identity)
+        guard let anonymousId = state.anonymousId else { return }
+        let payload = CreateProfilePayload(data: ProfilePayload(
+            email: state.email,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId,
+            anonymousId: anonymousId
+        ))
+        RequestEnqueuer.enqueueProfile(payload: payload)
+    }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
-        initialState: KlaviyoState(queue: [], requestsInFlight: []),
+        initialState: KlaviyoState(requestsInFlight: []),
         reducer: KlaviyoReducer()
     )
 }

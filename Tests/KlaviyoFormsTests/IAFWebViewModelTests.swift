@@ -53,7 +53,6 @@ final class IAFWebViewModelTests: XCTestCase {
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
             apiKey: "abc123",
-            queue: [],
             requestsInFlight: [],
             initalizationState: .initialized
         )

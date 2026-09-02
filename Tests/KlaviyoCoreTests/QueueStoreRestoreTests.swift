@@ -78,14 +78,18 @@ final class QueueStoreRestoreTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - restore (migration-only, full replace)
+    // MARK: - restore (migration-only, merge-prepend)
 
-    func testRestoreReplacesWholesaleRatherThanInserting() throws {
+    /// `restore` prepends the legacy backlog AHEAD of whatever is already queued rather than
+    /// replacing it wholesale, so a request that raced into the queue during the init window
+    /// (MAGE-952) survives migration instead of being wiped.
+    func testRestorePrependsLegacyAheadOfExistingRequests() throws {
         let diskIO = SpyDiskIO([request("a"), request("b")])
         let scheduler = ManualPersistScheduler()
         let store = makeStore(diskIO: diskIO, scheduler: scheduler)
         try store.restore([request("x"), request("y")])
-        XCTAssertEqual(store.requests.map(\.id), ["x", "y"], "replaces, does not prepend/append")
+        XCTAssertEqual(store.requests.map(\.id), ["x", "y", "a", "b"],
+                       "legacy backlog goes in front; pre-existing requests are preserved, not wiped")
     }
 
     /// Calling `restore` twice with the same input (a migration retry) must not duplicate entries.
@@ -166,7 +170,9 @@ final class QueueStoreRestoreTests: XCTestCase {
         XCTAssertEqual(diskIO.saveCount, 1)
         scheduler.fire() // stale gen-1 fire must no-op
         XCTAssertEqual(diskIO.saveCount, 1)
-        XCTAssertEqual(diskIO.stored.map(\.id), ["x"])
+        // Merge-prepend: the legacy "x" lands ahead of the already-enqueued "a" (not a wholesale
+        // replace), and the write is the merged result.
+        XCTAssertEqual(diskIO.stored.map(\.id), ["x", "a"])
     }
 
     /// Regression: `restore` used to write to disk before taking `queueLock`, so a concurrent
