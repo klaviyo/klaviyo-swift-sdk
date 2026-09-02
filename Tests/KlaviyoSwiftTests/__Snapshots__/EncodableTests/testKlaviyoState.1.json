@@ -1,7 +1,9 @@
 {
-  "anonymousId" : "foo",
-  "email" : "foo",
-  "phoneNumber" : "foo",
+  "identity" : {
+    "anonymousId" : "foo",
+    "email" : "foo",
+    "phoneNumber" : "foo"
+  },
   "pushTokenData" : {
     "deviceData" : {
       "app_build" : "1",
@@ -15,7 +17,7 @@
       "manufacturer" : "Orange",
       "os_name" : "iOS",
       "os_version" : "1.1.1",
-      "sdk_version" : "5.3.1"
+      "sdk_version" : "5.4.0"
     },
     "pushBackground" : "AVAILABLE",
     "pushEnablement" : "AUTHORIZED",
@@ -42,7 +44,7 @@
                   "manufacturer" : "Orange",
                   "os_name" : "iOS",
                   "os_version" : "1.1.1",
-                  "sdk_version" : "5.3.1"
+                  "sdk_version" : "5.4.0"
                 },
                 "enablement_status" : "AUTHORIZED",
                 "platform" : "ios",
@@ -67,6 +69,7 @@
           }
         }
       },
+      "enqueuedAt" : "2009-02-13T23:31:30Z",
       "id" : "00000000-0000-0000-0000-000000000001"
     }
   ]

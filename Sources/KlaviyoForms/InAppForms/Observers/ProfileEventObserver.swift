@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 class ProfileEventObserver {
@@ -24,7 +23,7 @@ class ProfileEventObserver {
 
     func startObserving() {
         guard cancellable == nil else { return }
-        cancellable = KlaviyoInternal.eventPublisher()
+        cancellable = EventBus.shared.eventPublisher()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 guard let self else { return }

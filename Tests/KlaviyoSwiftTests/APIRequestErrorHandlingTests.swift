@@ -468,20 +468,22 @@ class APIRequestErrorHandlingTests: XCTestCase {
     }
 
     @MainActor
-    func testNoRetryOn501NotImplemented() async throws {
+    func testRetryOn501NotImplemented() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         initialState.requestsInFlight = [request]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        // 501 should dequeue without retry (not a transient error)
-        environment.klaviyoAPI.send = { _, _ in .failure(.httpError(501, TEST_RETURN_DATA)) }
+        // 501 is in the retryable 5xx range (see KlaviyoAPITests.testNotImplemented501IsRetriedAsServerError)
+        environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 501, backOff: 2)) }
 
         _ = await store.send(.sendRequest)
 
-        await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
+        await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
+            $0.queue = [request]
             $0.requestsInFlight = []
+            $0.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)
         }
     }
 

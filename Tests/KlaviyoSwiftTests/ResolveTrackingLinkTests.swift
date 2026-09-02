@@ -15,6 +15,13 @@ final class ResolveTrackingLinkTests: XCTestCase {
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        DeepLinkManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        DeepLinkManager.resetToProduction()
+        try await super.tearDown()
     }
 
     @MainActor
@@ -49,19 +56,17 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // Register a mock handler to prevent fallback execution in test environment
-        environment.linkHandler.registerCustomHandler { _ in }
+        // On success the reducer routes the destination straight to DeepLinkManager.
+        let opened = expectation(description: "openDeepLink invoked with destination")
+        DeepLinkManager.openDeepLinkSpy = { url in
+            XCTAssertEqual(url, destinationURL)
+            opened.fulfill()
+        }
 
         // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
         // Then
-        await store.receive(.trackingLinkDestinationResolved(destinationURL))
-        await store.receive(.openDeepLink(destinationURL)) {
-            $0.isProcessingDeepLink = true
-        }
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
+        await fulfillment(of: [opened], timeout: 1.0)
         await store.finish()
     }
 
@@ -98,19 +103,17 @@ final class ResolveTrackingLinkTests: XCTestCase {
             return .success(responseData)
         }
 
-        // Register a mock handler to prevent fallback execution in test environment
-        environment.linkHandler.registerCustomHandler { _ in }
+        // Tracking-link resolution is not init-gated, so it still resolves and navigates.
+        let opened = expectation(description: "openDeepLink invoked with destination")
+        DeepLinkManager.openDeepLinkSpy = { url in
+            XCTAssertEqual(url, destinationURL)
+            opened.fulfill()
+        }
 
         // When
         await store.send(.trackingLinkReceived(trackingLinkURL))
         // Then
-        await store.receive(.trackingLinkDestinationResolved(destinationURL))
-        await store.receive(.openDeepLink(destinationURL)) {
-            $0.isProcessingDeepLink = true
-        }
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
+        await fulfillment(of: [opened], timeout: 1.0)
         await store.finish()
     }
 
@@ -187,30 +190,5 @@ final class ResolveTrackingLinkTests: XCTestCase {
 
             $0.queue = [request]
         }
-    }
-
-    @MainActor
-    func testTrackingLinkDestinationResolvedTriggersOpenDeepLink() async throws {
-        // Given
-        let destinationURL = try XCTUnwrap(URL(string: "https://example.com/destination"))
-        let store = TestStore(initialState: INITIALIZED_TEST_STATE(), reducer: KlaviyoReducer())
-
-        let openCalled = expectation(description: "linkHandler.openURL called with destination")
-        environment.linkHandler.registerCustomHandler { url in
-            XCTAssertEqual(url, destinationURL)
-            openCalled.fulfill()
-        }
-
-        // When
-        await store.send(.trackingLinkDestinationResolved(destinationURL))
-
-        // Then the reducer should emit .openDeepLink and call linkHandler.openURL
-        await store.receive(.openDeepLink(destinationURL)) {
-            $0.isProcessingDeepLink = true
-        }
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
-        await fulfillment(of: [openCalled], timeout: 1.0)
     }
 }

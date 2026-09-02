@@ -7,7 +7,7 @@
 
 import UIKit
 
-public enum PushEnablement: String, Codable {
+public enum PushEnablement: String, Codable, Sendable {
     case notDetermined = "NOT_DETERMINED"
     case denied = "DENIED"
     case authorized = "AUTHORIZED"
