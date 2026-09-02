@@ -82,6 +82,16 @@ public enum RequestEnqueuer {
         }
     }
 
+    /// Shape A parity: the caller supplies a prebuilt `PushTokenPayload` embedding the profile,
+    /// so a pre-init identity change rebinds the token to the new identity in one buffered
+    /// request (mirrors the initialized `tokenRequest` path). Routing matches every other entry
+    /// point: apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`. (MAGE-1165)
+    public static func enqueuePushToken(payload: PushTokenPayload) {
+        route(buffered: .pushToken(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
+        }
+    }
+
     /// Mirrors `enqueueProfile`: the caller supplies the built payload (channel validation lives in
     /// the KlaviyoSwift `Subscription` → payload mapping).
     public static func enqueueSubscription(payload: CreateSubscriptionPayload) {
