@@ -13,7 +13,7 @@ import KlaviyoCore
 
 extension KlaviyoState {
     /// Resolves the profile for a token request, folding in and consuming any pending profile.
-    private mutating func resolveProfileConsumingPending() -> Profile {
+    private mutating func resolveAndConsumePendingProfile() -> Profile {
         let profile: Profile
         if let pendingProfile {
             profile = Profile.updateProfileWithProperties(
@@ -39,7 +39,7 @@ extension KlaviyoState {
             pushToken: pushToken,
             enablement: enablement,
             background: environment.getBackgroundSetting().rawValue,
-            profile: ProfilePayload(resolveProfileConsumingPending(), anonymousId: anonymousId)
+            profile: ProfilePayload(resolveAndConsumePendingProfile(), anonymousId: anonymousId)
         )
     }
 
@@ -77,65 +77,80 @@ extension KlaviyoState {
         guard let pendingProfile = pendingProfile else {
             return profile
         }
-        var attributes = profile.data.attributes
-        var location = profile.data.attributes.location ?? .init()
-        let properties = profile.data.attributes.properties.value as? [String: Any] ?? [:]
         let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)
-
-        if let firstName = updatedProfile.firstName {
-            attributes.firstName = attributes.firstName ?? firstName
-        }
-        if let lastName = updatedProfile.lastName {
-            attributes.lastName = attributes.lastName ?? lastName
-        }
-        if let title = updatedProfile.title {
-            attributes.title = attributes.title ?? title
-        }
-        if let organization = updatedProfile.organization {
-            attributes.organization = attributes.organization ?? organization
-        }
-        if !updatedProfile.properties.isEmpty {
-            attributes.properties = AnyCodable(
-                properties.merging(updatedProfile.properties, uniquingKeysWith: { _, new in new })
-            )
-        }
-
-        if let address1 = updatedProfile.location?.address1 {
-            location.address1 = location.address1 ?? address1
-        }
-        if let address2 = updatedProfile.location?.address2 {
-            location.address2 = location.address2 ?? address2
-        }
-        if let city = updatedProfile.location?.city {
-            location.city = location.city ?? city
-        }
-        if let region = updatedProfile.location?.region {
-            location.region = location.region ?? region
-        }
-        if let country = updatedProfile.location?.country {
-            location.country = location.country ?? country
-        }
-        if let zip = updatedProfile.location?.zip {
-            location.zip = location.zip ?? zip
-        }
-        if let image = updatedProfile.image {
-            attributes.image = attributes.image ?? image
-        }
-        if let latitude = updatedProfile.location?.latitude {
-            location.latitude = location.latitude ?? latitude
-        }
-        if let longitude = updatedProfile.location?.longitude {
-            location.longitude = location.longitude ?? longitude
-        }
-
-        attributes.location = location
+        var attributes = profile.data.attributes
+        mergePendingAttributes(from: updatedProfile, into: &attributes)
+        attributes.location = mergedLocation(from: updatedProfile, into: attributes.location ?? .init())
         self.pendingProfile = nil
 
         return .init(data: .init(attributes: attributes))
     }
 
-    /// Validates the requested channels against the profile's identifiers and builds the create-subscription
-    /// request. Emits a developer warning and returns `nil` when the request should not be enqueued.
+    /// Fills in profile attributes (name, title, organization, image, properties) from a pending
+    /// profile without overwriting values already present on the request.
+    private func mergePendingAttributes(
+        from pending: Profile,
+        into attributes: inout ProfilePayload.Attributes
+    ) {
+        if let firstName = pending.firstName {
+            attributes.firstName = attributes.firstName ?? firstName
+        }
+        if let lastName = pending.lastName {
+            attributes.lastName = attributes.lastName ?? lastName
+        }
+        if let title = pending.title {
+            attributes.title = attributes.title ?? title
+        }
+        if let organization = pending.organization {
+            attributes.organization = attributes.organization ?? organization
+        }
+        if let image = pending.image {
+            attributes.image = attributes.image ?? image
+        }
+        if !pending.properties.isEmpty {
+            let existing = attributes.properties.value as? [String: Any] ?? [:]
+            attributes.properties = AnyCodable(
+                existing.merging(pending.properties, uniquingKeysWith: { _, new in new })
+            )
+        }
+    }
+
+    /// Fills in location fields from a pending profile without overwriting values already present.
+    private func mergedLocation(
+        from pending: Profile,
+        into location: ProfilePayload.Attributes.Location
+    ) -> ProfilePayload.Attributes.Location {
+        var location = location
+        if let address1 = pending.location?.address1 {
+            location.address1 = location.address1 ?? address1
+        }
+        if let address2 = pending.location?.address2 {
+            location.address2 = location.address2 ?? address2
+        }
+        if let city = pending.location?.city {
+            location.city = location.city ?? city
+        }
+        if let region = pending.location?.region {
+            location.region = location.region ?? region
+        }
+        if let country = pending.location?.country {
+            location.country = location.country ?? country
+        }
+        if let zip = pending.location?.zip {
+            location.zip = location.zip ?? zip
+        }
+        if let latitude = pending.location?.latitude {
+            location.latitude = location.latitude ?? latitude
+        }
+        if let longitude = pending.location?.longitude {
+            location.longitude = location.longitude ?? longitude
+        }
+        return location
+    }
+
+    /// Validates the requested channels against the profile's identifiers and builds the
+    /// create-subscription request. Emits a developer warning and returns `nil` when the request
+    /// should not be enqueued.
     func buildSubscriptionRequest(
         apiKey: String,
         anonymousId: String,

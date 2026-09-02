@@ -135,9 +135,9 @@ public final class QueueStore {
     /// `requestsInFlight.append(contentsOf: queue); queue.removeAll()`.
     public func drainAll(persist: PersistPolicy = .debounced) -> [KlaviyoRequest] {
         let drained = queueLock.withLock { () -> [KlaviyoRequest] in
-            let out = hydrated()
+            let drainedRequests = hydrated()
             queue = []
-            return out
+            return drainedRequests
         }
         schedulePersist(persist)
         return drained
