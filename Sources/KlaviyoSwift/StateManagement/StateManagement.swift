@@ -574,9 +574,14 @@ struct KlaviyoReducer: ReducerProtocol {
             // the first event of a burst leave immediately. Under sustained load the bucket is dry,
             // `canSend` is false, and we fall back to the timer — so this cannot become a storm.
             //
+            // Skipped while a flush is already in progress: `.flushQueue` would no-op on its
+            // `flushing` guard anyway, and dispatching one action per enqueued event during a
+            // burst is pure overhead. Events that arrive mid-drain wait for the next timer tick,
+            // which is no worse than today's behavior.
+            //
             // Prioritized engagement events always flush; the governor debits them afterwards
             // rather than gating them, so they stay instant without escaping the ceiling.
-            let governorAllowsSend = state.flushGovernor.canSend(
+            let governorAllowsSend = !state.flushing && state.flushGovernor.canSend(
                 currentTime: environment.date(),
                 flushInterval: state.flushInterval
             )
@@ -601,9 +606,9 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            // Same burst behavior as `.enqueueEvent`: send now if the governor has a token,
-            // otherwise fall back to the timer.
-            return state.flushGovernor.canSend(
+            // Same burst behavior as `.enqueueEvent`: send now if the governor has a token and no
+            // flush is already draining, otherwise fall back to the timer.
+            return !state.flushing && state.flushGovernor.canSend(
                 currentTime: environment.date(),
                 flushInterval: state.flushInterval
             ) ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none

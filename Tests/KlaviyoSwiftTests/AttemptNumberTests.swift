@@ -26,6 +26,7 @@ final class AttemptNumberTests: XCTestCase {
         store.exhaustivity = .off // We only care about the sendRequest action.
 
         // Trigger sendRequest which should invoke our mock API.
+        // Exhaustivity is off above, so the governor mutation needs no expectation here.
         await store.send(.sendRequest)
 
         XCTAssertEqual(capturedAttempt, 1, "The first request should have an attempt number of 1")

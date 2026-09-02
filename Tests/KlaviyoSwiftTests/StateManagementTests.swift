@@ -153,7 +153,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -186,7 +188,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -219,7 +223,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -325,14 +331,18 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = true
             $0.requestsInFlight = [request2]
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
         await store.receive(.deQueueCompletedResults(request2)) {
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
@@ -372,7 +382,9 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         // didn't fake uuid since we are not testing this.
         await store.receive(.deQueueCompletedResults(request)) {
@@ -389,6 +401,8 @@ class StateManagementTests: XCTestCase {
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
+        // No pacing expectation: the reducer bails at the `flushing` guard before reaching the
+        // governor, so no token is spent.
         _ = await store.send(.sendRequest)
     }
 
@@ -521,7 +535,9 @@ class StateManagementTests: XCTestCase {
             }
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
         await store.receive(.deQueueCompletedResults(request!)) {
             $0.requestsInFlight = $0.queue
             $0.flushing = false
@@ -633,6 +649,10 @@ class StateManagementTests: XCTestCase {
                         )
                     )
                 )
+                // Prioritized events are recorded so `.sendRequest` debits rather than gates them.
+                if eventName == ._openedPush, let queued = $0.queue.first {
+                    $0.prioritizedRequestIds.insert(queued.id)
+                }
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -695,6 +715,8 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         let data = Data()
+        // `INITIALIZED_TEST_STATE` has `flushing: true`, so the governor's burst trigger is
+        // deliberately suppressed here and no `.flushQueue` follows the enqueue.
         await store.send(.enqueueAggregateEvent(data)) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
@@ -781,6 +803,8 @@ class StateManagementTests: XCTestCase {
                 )
             )
             $0.queue.insert(geofenceRequest!, at: 0)
+            // Recorded so `.sendRequest` debits the governor rather than gating this request.
+            $0.prioritizedRequestIds.insert(geofenceRequest!.id)
         }
 
         var actualGeofenceRequest: KlaviyoRequest?
@@ -798,9 +822,13 @@ class StateManagementTests: XCTestCase {
             XCTAssertEqual($0.requestsInFlight[1].id, existingRequest1.id, "Second request should be existing request 1")
             XCTAssertEqual($0.requestsInFlight[2].id, existingRequest2.id, "Third request should be existing request 2")
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced(prioritized: true)
+        }
         await store.receive(.deQueueCompletedResults(actualGeofenceRequest!)) {
             $0.requestsInFlight.removeAll { $0.id == actualGeofenceRequest!.id }
+            // The exemption is dropped once the request completes, so the set stays bounded.
+            $0.prioritizedRequestIds.remove(actualGeofenceRequest!.id)
             $0.retryState = .retry(1)
             $0.flushing = false
         }

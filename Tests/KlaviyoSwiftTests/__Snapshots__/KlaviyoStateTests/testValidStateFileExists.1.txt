@@ -1,6 +1,10 @@
 ▿ KlaviyoState
   ▿ apiKey: Optional<String>
     - some: "foo"
+  ▿ flushGovernor: FlushGovernor
+    - capacity: 20.0
+    - lastRefill: Optional<Date>.none
+    - tokens: 20.0
   - flushInterval: 10.0
   - flushing: true
   ▿ identity: ProfileData
@@ -15,6 +19,7 @@
   - initalizationState: InitializationState.initialized
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
+  - prioritizedRequestIds: 0 members
   ▿ pushTokenData: Optional<PushTokenData>
     ▿ some: PushTokenData
       ▿ deviceData: MetaData
