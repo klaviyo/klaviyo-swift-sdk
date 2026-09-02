@@ -165,8 +165,7 @@ extension KlaviyoState {
 
     /// Validates channels against the profile's identifiers and builds the apiKey-free
     /// `CreateSubscriptionPayload`. Emits a developer warning and returns `nil` when the request
-    /// should not be enqueued. Split out so the pre-init path can buffer the payload (apiKey stamped
-    /// at drain) while the initialized path wraps it in the endpoint immediately.
+    /// should not be enqueued. Split from `buildSubscriptionRequest` so the pre-init path can buffer it.
     func buildSubscriptionPayload(
         anonymousId: String,
         subscription: Subscription

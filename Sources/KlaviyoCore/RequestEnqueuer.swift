@@ -82,20 +82,16 @@ public enum RequestEnqueuer {
         }
     }
 
-    /// Enqueues an already-built `CreateSubscriptionPayload`. Like `enqueueProfile`, the caller
-    /// supplies the full payload — subscription channel validation lives in the KlaviyoSwift
-    /// `Subscription` → payload mapping. The payload is apiKey-free; routing is the same as every
-    /// other request: apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`.
+    /// Mirrors `enqueueProfile`: the caller supplies the built payload (channel validation lives in
+    /// the KlaviyoSwift `Subscription` → payload mapping).
     public static func enqueueSubscription(payload: CreateSubscriptionPayload) {
         route(buffered: .subscription(payload)) { apiKey in
             KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
         }
     }
 
-    /// Enqueues a tracking-link click log. The `logTrackingLinkClicked` endpoint is apiKey-free, so
-    /// the `build` closure ignores its `apiKey` argument; routing still keys the target `QueueStore`
-    /// on the apiKey. Identity is resolved here (like `enqueueEvent`) so a pre-init click that failed
-    /// destination resolution parks its click-log in the durable buffer instead of being dropped.
+    /// The `logTrackingLinkClicked` endpoint is apiKey-free, so the `build` closure ignores `apiKey`
+    /// (routing still keys the target `QueueStore` on it). Identity is resolved here, like `enqueueEvent`.
     public static func enqueueTrackingLinkClicked(trackingLink: URL, clickTime: Date) {
         guard let identity = resolveIdentity() else { return }
         let profileInfo = ProfilePayload(
