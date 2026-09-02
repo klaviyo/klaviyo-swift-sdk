@@ -322,6 +322,59 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         XCTAssertEqual(readQueue(), [request])
     }
 
+    @MainActor
+    func testPreInitResetProfileClearsPersistedIdentity() async throws {
+        // Pre-init reset must clear the persisted identity (drop PII, mint a fresh anon) so a reset
+        // issued before initialize() doesn't leave the prior profile in IdentityStore (MAGE-1136).
+        IdentityStore.shared.update(
+            ProfileData(email: "user@email.com", externalId: "ext-123", anonymousId: "anon-old")
+        )
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+
+        _ = await store.send(.resetProfile)
+
+        let identity = IdentityStore.shared.current
+        XCTAssertNil(identity.email, "pre-init reset clears persisted email")
+        XCTAssertNil(identity.externalId, "pre-init reset clears persisted externalId")
+        XCTAssertNotNil(identity.anonymousId)
+        XCTAssertNotEqual(
+            identity.anonymousId, "anon-old", "pre-init reset mints a fresh anonymousId"
+        )
+    }
+
+    @MainActor
+    func testPreInitResetProfileRebuffersPersistedPushToken() async throws {
+        // Parity with post-init reset(preserveTokenData: true): a persisted push token is
+        // re-registered against the freshly minted anon. Pre-init that register routes through the
+        // ungated RequestEnqueuer and lands in the durable buffer (MAGE-1136).
+        IdentityStore.shared.update(ProfileData(email: "user@email.com", anonymousId: "anon-old"))
+        IdentityStore.shared.updatePushToken(
+            PushTokenData(
+                pushToken: "tok-1", pushEnablement: .authorized, pushBackground: .available,
+                deviceData: DeviceMetadata(context: environment.appContextInfo())
+            )
+        )
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+
+        _ = await store.send(.resetProfile)
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        let hasTokenRegister = buffered.contains {
+            if case .pushToken = $0 { return true }
+            return false
+        }
+        XCTAssertTrue(
+            hasTokenRegister,
+            "persisted push token is re-registered into the buffer after a pre-init reset"
+        )
+    }
+
     // MARK: - Helpers
 
     /// Builds a fully-initialized, identified `KlaviyoState` for tests that differ only in identifiers.

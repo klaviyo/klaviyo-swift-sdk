@@ -713,6 +713,24 @@ struct KlaviyoReducer: ReducerProtocol {
         case .resetProfile:
             guard case .initialized = state.initalizationState
             else {
+                // Pre-init parity: clear the persisted identity so a reset issued before initialize()
+                // doesn't leave the prior profile in `IdentityStore`. Seed the full identity first so
+                // `state.reset` sees the real prior identity, then push the reset identity to
+                // `IdentityStore` synchronously (like `setPreInitIdentifier`) — the write-through
+                // `defer` fires only at RETURN, too late for the token re-register below to read the
+                // new anon. `preserveTokenData: false` because the built-in re-register path needs an
+                // apiKey; instead we re-register any persisted token against the new anon through the
+                // ungated `RequestEnqueuer` (buffered pre-init). The already-buffered old-identity
+                // profile still drains at initialize(), matching post-init reset (MAGE-1136).
+                state.identity = IdentityStore.shared.current
+                let tokenData = IdentityStore.shared.pushToken
+                state.reset(preserveTokenData: false)
+                IdentityStore.shared.update(state.identity)
+                if let tokenData = tokenData {
+                    RequestEnqueuer.enqueuePushToken(
+                        tokenData.pushToken, enablement: tokenData.pushEnablement
+                    )
+                }
                 return .none
             }
             state.reset()
