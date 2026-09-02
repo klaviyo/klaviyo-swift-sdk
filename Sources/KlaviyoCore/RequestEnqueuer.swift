@@ -64,7 +64,7 @@ public enum RequestEnqueuer {
     /// organization/image/location) that only the KlaviyoSwift `Profile` → `ProfilePayload` mapping
     /// can populate, so building here (with just identity + flat properties) would drop them. The
     /// payload already embeds identifiers + anonymousId; routing is the same as every other request:
-    /// apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`. (MAGE-1141)
+    /// apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`.
     public static func enqueueProfile(payload: CreateProfilePayload) {
         route(buffered: .profile(payload)) { apiKey in
             KlaviyoRequest(endpoint: .createProfile(apiKey, payload))
