@@ -130,7 +130,7 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testSetEmail() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
+        let initialState = INITIALIZED_TEST_STATE()
         let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -153,7 +153,7 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testSetPhoneNumber() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
+        let initialState = INITIALIZED_TEST_STATE()
         let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -176,7 +176,7 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testSetExternalId() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
+        let initialState = INITIALIZED_TEST_STATE()
         let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off

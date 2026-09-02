@@ -90,7 +90,7 @@ struct KlaviyoState: Equatable {
     /// high-priority requests and capacity/eviction live inside `QueueStore.enqueue` (keyed on
     /// `request.priority`), so this is now a thin forwarder.
     mutating func enqueueRequest(request: KlaviyoRequest) {
-        guard let apiKey = apiKey else {
+        guard let apiKey else {
             environment.emitDeveloperWarning("Attempt to enqueue without an api key.")
             return
         }
