@@ -590,6 +590,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 // stored profile, run the SAME identifier-change reset, then push synchronously
                 // so the merged identity is durable before the profile sync is buffered.
                 state.identity = IdentityStore.shared.current
+                let tokenData = IdentityStore.shared.pushToken // token lives in IdentityStore; read before reset
                 let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
                 let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                     $0?.trimWhiteSpaceOrReturnNilIfEmpty()
@@ -607,14 +608,26 @@ struct KlaviyoReducer: ReducerProtocol {
                 // Build the full payload exactly as the initialized path does, so structured
                 // attributes (name/title/organization/image/location) survive the pre-init buffer
                 // and sync completely after initialize() (MAGE-1141).
-                let payload = CreateProfilePayload(data: ProfilePayload(
+                let profilePayload = ProfilePayload(
                     profile,
                     email: state.email,
                     phoneNumber: state.phoneNumber,
                     externalId: state.externalId,
                     anonymousId: anonymousId
-                ))
-                RequestEnqueuer.enqueueProfile(payload: payload)
+                )
+                if let tokenData {
+                    // A push token is registered: rebind it to the new identity in one combined
+                    // token+profile request, mirroring the initialized branch (MAGE-1165).
+                    let payload = RequestFactory.tokenPayload(
+                        pushToken: tokenData.pushToken,
+                        enablement: tokenData.pushEnablement,
+                        background: tokenData.pushBackground,
+                        profile: profilePayload
+                    )
+                    RequestEnqueuer.enqueuePushToken(payload: payload)
+                } else {
+                    RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
+                }
                 return .none
             }
 

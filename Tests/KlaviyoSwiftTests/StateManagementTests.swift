@@ -812,6 +812,72 @@ class StateManagementTests: StateManagementTestCase {
     }
 
     @MainActor
+    func testPreInitProfileSwitchRebindsTokenToNewIdentity() async throws {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+
+        // A previously-identified user A with a registered push token.
+        IdentityStore.shared.update(ProfileData(
+            email: "a@example.com", externalId: "user-A", anonymousId: "anon-A"
+        ))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "tok-1", pushEnablement: .authorized,
+            pushBackground: .available, deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+
+        // Pre-init switch to a different identified user B.
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        // Exactly one buffered request, and it is a token register embedding user B's identity.
+        let snap = UnattributedBuffer.shared.snapshot()
+        XCTAssertEqual(snap.count, 1)
+        guard case let .pushToken(payload) = snap[0] else {
+            return XCTFail("expected combined token+profile (.pushToken) in buffer")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "tok-1")
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "b@example.com")
+        XCTAssertNotEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anon-A")
+
+        // Drain at init → exactly one registerPushToken in the queue; no double-register.
+        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        await store.send(.initialize(TEST_API_KEY))
+        await store.receive(
+            .completeInitialization(KlaviyoState(requestsInFlight: [])), timeout: TIMEOUT_NANOSECONDS
+        )
+        let registers = recorded().filter {
+            if case .registerPushToken = $0.endpoint { return true } else { return false }
+        }
+        XCTAssertEqual(registers.count, 1, "token rebound exactly once")
+        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty)
+    }
+
+    @MainActor
+    func testPreInitProfileWithoutTokenStillBuffersBareProfile() async throws {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(
+            email: "a@example.com", externalId: "user-A", anonymousId: "anon-A"
+        ))
+        // No push token registered.
+
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        let snap = UnattributedBuffer.shared.snapshot()
+        XCTAssertEqual(snap.count, 1)
+        guard case .profile = snap[0] else {
+            return XCTFail("expected bare .profile in buffer when no token is registered")
+        }
+    }
+
+    @MainActor
     func testPreInitBufferedEventDrainsIntoQueueOnInit() async throws {
         try await assertPreInitBufferDrainsIntoQueueOnInit(
             bufferPreInit: { RequestEnqueuer.enqueueEvent(.test) },
