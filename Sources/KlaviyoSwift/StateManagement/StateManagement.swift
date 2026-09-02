@@ -176,6 +176,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+                // Restore cold-launch pacing so the previous company's traffic cannot throttle the
+                // incoming one, and clear stale exemptions along with it.
+                state.flushGovernor.reset()
+                state.prioritizedRequestIds.removeAll()
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
@@ -390,6 +394,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.id == inflightRequest.id
             }
+            // Stop tracking the prioritized exemption once the request leaves the queue, so the set
+            // cannot grow without bound over a long session.
+            state.prioritizedRequestIds.remove(completedRequest.id)
             state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
@@ -409,6 +416,33 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
+
+            // Pace the send. This is the governor's single gate, and it sits here — per request —
+            // rather than on `.flushQueue`, because one flush drains the whole queue one request at
+            // a time (see `.deQueueCompletedResults` below). Gating the flush cycle would let a
+            // single token authorize an unbounded number of requests; gating here is what actually
+            // bounds the request rate.
+            //
+            // Prioritized engagement events skip the gate and are debited instead, so they are
+            // never delayed but still count against the ceiling.
+            if state.prioritizedRequestIds.contains(request.id) {
+                state.flushGovernor.debitForPrioritizedRequest(
+                    currentTime: environment.date(),
+                    flushInterval: state.flushInterval
+                )
+            } else if !state.flushGovernor.consume(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            ) {
+                // Bucket is dry: stop draining and leave the remainder queued. `flushing` is
+                // cleared so a later tick can pick the queue back up; the timer publisher is
+                // already running, so no extra scheduling is needed.
+                state.flushing = false
+                state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
+                state.requestsInFlight = []
+                return .none
+            }
+
             let retryState = state.retryState
             var numAttempts = 1
             if case let .retry(attempts) = retryState {
@@ -530,11 +564,25 @@ struct KlaviyoReducer: ReducerProtocol {
             let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
             if shouldPrioritize {
                 state.enqueuePriorityRequest(request: request)
+                state.prioritizedRequestIds.insert(request.id)
             } else {
                 state.enqueueRequest(request: request)
             }
 
-            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            // Flush as soon as the governor has a token, rather than waiting out the interval.
+            // This is where post-idle latency goes away: tokens banked during a quiet stretch let
+            // the first event of a burst leave immediately. Under sustained load the bucket is dry,
+            // `canSend` is false, and we fall back to the timer — so this cannot become a storm.
+            //
+            // Prioritized engagement events always flush; the governor debits them afterwards
+            // rather than gating them, so they stay instant without escaping the ceiling.
+            let governorAllowsSend = state.flushGovernor.canSend(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            )
+            let baseEffect = (shouldPrioritize || governorAllowsSend)
+                ? EffectTask<KlaviyoAction>.task { .flushQueue }
+                : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { enrichAndPublishEvent(event) }
@@ -553,7 +601,12 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            return .none
+            // Same burst behavior as `.enqueueEvent`: send now if the governor has a token,
+            // otherwise fall back to the timer.
+            return state.flushGovernor.canSend(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            ) ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState
