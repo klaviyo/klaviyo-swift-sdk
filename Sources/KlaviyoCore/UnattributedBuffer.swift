@@ -14,7 +14,6 @@ enum UnattributedRequest: Codable, Equatable {
     case aggregateEvent(Data)
     case profile(CreateProfilePayload)
     case pushToken(PushTokenPayload)
-    /// Its endpoint is already apiKey-free, so the drain wraps these values without stamping a key.
     case trackingLinkClick(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
     case subscription(CreateSubscriptionPayload)
 }
