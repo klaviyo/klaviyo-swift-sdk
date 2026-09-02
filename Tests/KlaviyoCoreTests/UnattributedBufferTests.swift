@@ -210,7 +210,11 @@ final class UnattributedBufferTests: XCTestCase {
                     trackingLink: URL(string: "https://klaviyo.com/tracking/abc")!,
                     clickTime: Date(timeIntervalSince1970: 1_234_567_890),
                     profileInfo: ProfilePayload(anonymousId: "anon-1")
-                )
+                ),
+                .subscription(CreateSubscriptionPayload(
+                    listId: "list-1",
+                    profile: ProfilePayload(email: "a@b.com", anonymousId: "anon-1")
+                ))
             ]
         )
 

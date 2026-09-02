@@ -17,6 +17,9 @@ enum UnattributedRequest: Codable, Equatable {
     /// The `logTrackingLinkClicked` endpoint is already apiKey-free, so the buffered case carries the
     /// same associated values the endpoint takes; the drain wraps them directly (no apiKey stamping).
     case trackingLinkClick(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
+    /// `CreateSubscriptionPayload` is apiKey-free (identity lives in the payload, apiKey stamps the
+    /// endpoint at drain), so a pre-init subscribe buffers like a profile — no KlaviyoSwift seam.
+    case subscription(CreateSubscriptionPayload)
 }
 
 /// Versioned on-disk shape for the buffer file (`klaviyo-unattributed.json`).

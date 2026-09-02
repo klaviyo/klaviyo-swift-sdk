@@ -683,13 +683,19 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
-                // Subscriptions carry a KlaviyoSwift-only payload that the Core `UnattributedBuffer`
-                // (apiKey-free Core payloads only) cannot hold, so a pre-init subscription can't be
-                // durably buffered like other intents. Warn rather than silently drop.
-                // TODO(MAGE-952 follow-up): extend the durable buffer to cover subscriptions.
-                environment.emitDeveloperWarning(
-                    "Subscription requested before initialize(); ignored. Initialize the SDK first."
-                )
+                // Pre-init: mirror the initialized path against the canonical persisted identity, then
+                // buffer the apiKey-free payload through the ungated `RequestEnqueuer` (apiKey stamped
+                // at drain) so a subscribe issued before initialize() survives instead of being
+                // dropped (MAGE-1136).
+                state.identity = IdentityStore.shared.current
+                guard let anonymousId = state.anonymousId,
+                      let payload = state.buildSubscriptionPayload(
+                          anonymousId: anonymousId, subscription: subscription
+                      )
+                else {
+                    return .none
+                }
+                RequestEnqueuer.enqueueSubscription(payload: payload)
                 return .none
             }
 

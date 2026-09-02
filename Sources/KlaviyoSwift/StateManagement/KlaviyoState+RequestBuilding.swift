@@ -156,6 +156,21 @@ extension KlaviyoState {
         anonymousId: String,
         subscription: Subscription
     ) -> KlaviyoRequest? {
+        guard let payload = buildSubscriptionPayload(anonymousId: anonymousId, subscription: subscription)
+        else {
+            return nil
+        }
+        return KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+    }
+
+    /// Validates channels against the profile's identifiers and builds the apiKey-free
+    /// `CreateSubscriptionPayload`. Emits a developer warning and returns `nil` when the request
+    /// should not be enqueued. Split out so the pre-init path can buffer the payload (apiKey stamped
+    /// at drain) while the initialized path wraps it in the endpoint immediately.
+    func buildSubscriptionPayload(
+        anonymousId: String,
+        subscription: Subscription
+    ) -> CreateSubscriptionPayload? {
         let channels: SubscriptionChannels?
         if let requestedChannels = subscription.channels {
             if requestedChannels.needsEmail, email == nil {
@@ -200,13 +215,10 @@ extension KlaviyoState {
             anonymousId: anonymousId
         )
 
-        let payload = CreateSubscriptionPayload(
+        return CreateSubscriptionPayload(
             listId: subscription.listId,
             profile: profile,
             customSource: subscription.customSource
         )
-
-        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
-        return KlaviyoRequest(endpoint: endpoint)
     }
 }
