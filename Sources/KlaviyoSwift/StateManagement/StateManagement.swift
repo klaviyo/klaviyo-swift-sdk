@@ -768,6 +768,14 @@ struct KlaviyoReducer: ReducerProtocol {
             // Kept in the reducer only for the enqueue below (a state mutation).
             // Folds into `TrackingLinkManager` once the queue is canonical in
             // KlaviyoCore.
+            guard case .initialized = state.initalizationState, state.apiKey != nil else {
+                // Pre-init: route through the ungated `RequestEnqueuer` (identity resolved from the
+                // canonical `IdentityStore`) so a click that fails resolution before initialize() is
+                // parked in the durable buffer instead of dropped by the apiKey-gated
+                // `state.enqueueRequest` (MAGE-1136).
+                RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
+                return .none
+            }
             let profileInfo = ProfilePayload(
                 email: state.email,
                 phoneNumber: state.phoneNumber,

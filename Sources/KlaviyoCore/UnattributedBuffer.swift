@@ -14,6 +14,9 @@ enum UnattributedRequest: Codable, Equatable {
     case aggregateEvent(Data)
     case profile(CreateProfilePayload)
     case pushToken(PushTokenPayload)
+    /// The `logTrackingLinkClicked` endpoint is already apiKey-free, so the buffered case carries the
+    /// same associated values the endpoint takes; the drain wraps them directly (no apiKey stamping).
+    case trackingLinkClick(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
 }
 
 /// Versioned on-disk shape for the buffer file (`klaviyo-unattributed.json`).
