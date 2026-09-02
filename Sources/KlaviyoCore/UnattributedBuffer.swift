@@ -14,6 +14,8 @@ enum UnattributedRequest: Codable, Equatable {
     case aggregateEvent(Data)
     case profile(CreateProfilePayload)
     case pushToken(PushTokenPayload)
+    case trackingLinkClick(trackingLink: URL, clickTime: Date, profileInfo: ProfilePayload)
+    case subscription(CreateSubscriptionPayload)
 }
 
 /// Versioned on-disk shape for the buffer file (`klaviyo-unattributed.json`).

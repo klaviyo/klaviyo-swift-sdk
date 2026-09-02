@@ -683,13 +683,17 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
-                // Subscriptions carry a KlaviyoSwift-only payload that the Core `UnattributedBuffer`
-                // (apiKey-free Core payloads only) cannot hold, so a pre-init subscription can't be
-                // durably buffered like other intents. Warn rather than silently drop.
-                // TODO(MAGE-952 follow-up): extend the durable buffer to cover subscriptions.
-                environment.emitDeveloperWarning(
-                    "Subscription requested before initialize(); ignored. Initialize the SDK first."
-                )
+                // Pre-init: seed identity from the canonical store, build the apiKey-free payload, and
+                // buffer it via the ungated `RequestEnqueuer` so a pre-init subscribe survives (MAGE-1136).
+                state.identity = IdentityStore.shared.current
+                guard let anonymousId = state.anonymousId,
+                      let payload = state.buildSubscriptionPayload(
+                          anonymousId: anonymousId, subscription: subscription
+                      )
+                else {
+                    return .none
+                }
+                RequestEnqueuer.enqueueSubscription(payload: payload)
                 return .none
             }
 
@@ -707,6 +711,21 @@ struct KlaviyoReducer: ReducerProtocol {
         case .resetProfile:
             guard case .initialized = state.initalizationState
             else {
+                // Pre-init reset, mirroring the post-init path. Persist the reset identity to
+                // `IdentityStore` synchronously before the re-register below: the write-through
+                // `defer` runs too late for `RequestEnqueuer` to read the new anon.
+                // `preserveTokenData: false` skips reset's apiKey-gated re-register; we use the
+                // ungated `RequestEnqueuer` instead. A profile buffered under the old identity
+                // still drains at init (MAGE-1136).
+                state.identity = IdentityStore.shared.current
+                let tokenData = IdentityStore.shared.pushToken
+                state.reset(preserveTokenData: false)
+                IdentityStore.shared.update(state.identity)
+                if let tokenData = tokenData {
+                    RequestEnqueuer.enqueuePushToken(
+                        tokenData.pushToken, enablement: tokenData.pushEnablement
+                    )
+                }
                 return .none
             }
             state.reset()
@@ -765,9 +784,16 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
-            // Kept in the reducer only for the enqueue below (a state mutation).
-            // Folds into `TrackingLinkManager` once the queue is canonical in
-            // KlaviyoCore.
+            // In the reducer only because it's a TCA action whose post-init path reads identity
+            // from `state`. Once the flush engine becomes a Core actor queue and this reducer is
+            // retired, the case folds into `TrackingLinkManager`, which reads identity from the
+            // canonical stores and enqueues directly.
+            guard case .initialized = state.initalizationState, state.apiKey != nil else {
+                // Pre-init: buffer via the ungated `RequestEnqueuer` instead of the apiKey-gated
+                // `state.enqueueRequest`, which would drop the click (MAGE-1136).
+                RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
+                return .none
+            }
             let profileInfo = ProfilePayload(
                 email: state.email,
                 phoneNumber: state.phoneNumber,

@@ -82,6 +82,35 @@ public enum RequestEnqueuer {
         }
     }
 
+    /// Mirrors `enqueueProfile`: the caller supplies the built payload (channel validation lives in
+    /// the KlaviyoSwift `Subscription` → payload mapping).
+    public static func enqueueSubscription(payload: CreateSubscriptionPayload) {
+        route(buffered: .subscription(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .createSubscription(apiKey, payload))
+        }
+    }
+
+    /// The `logTrackingLinkClicked` endpoint is apiKey-free, so the `build` closure ignores `apiKey`
+    /// (routing still keys the target `QueueStore` on it). Identity is resolved here, like `enqueueEvent`.
+    public static func enqueueTrackingLinkClicked(trackingLink: URL, clickTime: Date) {
+        guard let identity = resolveIdentity() else { return }
+        let profileInfo = ProfilePayload(
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
+            anonymousId: identity.anonymousId
+        )
+        route(
+            buffered: .trackingLinkClick(
+                trackingLink: trackingLink, clickTime: clickTime, profileInfo: profileInfo
+            )
+        ) { _ in
+            KlaviyoRequest(endpoint: .logTrackingLinkClicked(
+                trackingLink: trackingLink, clickTime: clickTime, profileInfo: profileInfo
+            ))
+        }
+    }
+
     /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
     /// removes only the drained FIFO prefix. At-least-once: the final enqueue persists synchronously
     /// so the queue is durable before the buffer is trimmed. A crash in the gap re-drains next launch
@@ -126,6 +155,16 @@ public enum RequestEnqueuer {
             case let .pushToken(payload):
                 queue.enqueue(
                     KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy
+                )
+            case let .trackingLinkClick(trackingLink, clickTime, profileInfo):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .logTrackingLinkClicked(
+                        trackingLink: trackingLink, clickTime: clickTime, profileInfo: profileInfo
+                    )), persist: policy
+                )
+            case let .subscription(payload):
+                queue.enqueue(
+                    KlaviyoRequest(endpoint: .createSubscription(apiKey, payload)), persist: policy
                 )
             }
         }

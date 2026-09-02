@@ -190,7 +190,7 @@ final class UnattributedBufferTests: XCTestCase {
         XCTAssertEqual(buffer.snapshot(), [token("2")])
     }
 
-    func testPersistedBufferRoundTripsAllFourCases() throws {
+    func testPersistedBufferRoundTripsAllCases() throws {
         let eventPayload = CreateEventPayload(
             data: CreateEventPayload.Event(name: "Test", anonymousId: "anon-1"))
         let profilePayload = CreateProfilePayload(
@@ -205,7 +205,16 @@ final class UnattributedBufferTests: XCTestCase {
                 .event(eventPayload, .high),
                 agg("agg"),
                 .profile(profilePayload),
-                .pushToken(tokenPayload)
+                .pushToken(tokenPayload),
+                .trackingLinkClick(
+                    trackingLink: URL(string: "https://klaviyo.com/tracking/abc")!,
+                    clickTime: Date(timeIntervalSince1970: 1_234_567_890),
+                    profileInfo: ProfilePayload(anonymousId: "anon-1")
+                ),
+                .subscription(CreateSubscriptionPayload(
+                    listId: "list-1",
+                    profile: ProfilePayload(email: "a@b.com", anonymousId: "anon-1")
+                ))
             ]
         )
 

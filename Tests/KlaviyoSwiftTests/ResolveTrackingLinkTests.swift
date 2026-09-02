@@ -19,6 +19,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         DeepLinkManager.resetToProduction()
         readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
@@ -164,6 +165,31 @@ final class ResolveTrackingLinkTests: XCTestCase {
             readQueue(), [request],
             "failed tracking-link resolution enqueues a log request"
         )
+    }
+
+    @MainActor
+    func testPreInitTrackingLinkResolutionFailedBuffers() async throws {
+        // Pre-init (no apiKey in SDKConfigStore): a failed tracking-link resolution must park its
+        // click-log in the durable buffer instead of dropping it via the apiKey-gated
+        // `state.enqueueRequest` (MAGE-1136).
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        let clickTime = environment.date()
+        let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+
+        await store.send(
+            .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
+        )
+
+        let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
+        XCTAssertEqual(buffered.count, 1, "pre-init tracking-link click is buffered, not dropped")
+        guard case let .trackingLinkClick(link, time, _) = buffered.first else {
+            return XCTFail("expected a buffered .trackingLinkClick")
+        }
+        XCTAssertEqual(link, trackingLinkURL)
+        XCTAssertEqual(time, clickTime)
     }
 
     @MainActor
