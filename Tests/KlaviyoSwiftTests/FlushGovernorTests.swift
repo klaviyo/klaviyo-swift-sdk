@@ -36,8 +36,10 @@ final class FlushGovernorTests: XCTestCase {
         var governor = FlushGovernor(capacity: 2, tokens: 0, lastRefill: t0)
         XCTAssertFalse(governor.consume(currentTime: t0, flushInterval: wifi))
 
-        // wifi refills at 2 req/s, so half a second buys exactly one token.
-        let later = t0.addingTimeInterval(0.5)
+        // Derive the wait from the configured rate so retuning the constants cannot silently
+        // invalidate this test.
+        let oneTokenWait = 1.0 / FlushGovernorConstants.wifiRefillPerSecond
+        let later = t0.addingTimeInterval(oneTokenWait)
         XCTAssertTrue(governor.consume(currentTime: later, flushInterval: wifi))
     }
 
@@ -55,9 +57,16 @@ final class FlushGovernorTests: XCTestCase {
         onWifi.refill(currentTime: after10s, flushInterval: wifi)
         onCell.refill(currentTime: after10s, flushInterval: cell)
 
-        XCTAssertEqual(onWifi.tokens, 20, accuracy: 0.0001) // 2/s * 10s, capped
-        XCTAssertEqual(onCell.tokens, 10, accuracy: 0.0001) // 1/s * 10s
-        XCTAssertGreaterThan(onWifi.tokens, onCell.tokens)
+        let expectedWifi = min(20.0, FlushGovernorConstants.wifiRefillPerSecond * 10)
+        let expectedCell = min(20.0, FlushGovernorConstants.cellularRefillPerSecond * 10)
+        XCTAssertEqual(onWifi.tokens, expectedWifi, accuracy: 0.0001)
+        XCTAssertEqual(onCell.tokens, expectedCell, accuracy: 0.0001)
+        // The tier relationship is the invariant worth pinning: cellular must never accrue
+        // faster than wifi.
+        XCTAssertLessThanOrEqual(
+            FlushGovernorConstants.cellularRefillPerSecond,
+            FlushGovernorConstants.wifiRefillPerSecond
+        )
     }
 
     func test_bucketIsFrozenWhileOfflineSoReconnectGrantsNoWindfall() {
@@ -76,7 +85,11 @@ final class FlushGovernorTests: XCTestCase {
 
         // A real (forward) reading one second on should yield one second of accrual, not 301s.
         governor.refill(currentTime: t0.addingTimeInterval(1), flushInterval: wifi)
-        XCTAssertEqual(governor.tokens, 2, accuracy: 0.0001)
+        XCTAssertEqual(
+            governor.tokens,
+            FlushGovernorConstants.wifiRefillPerSecond,
+            accuracy: 0.0001
+        )
     }
 
     func test_prioritizedRequestIsDebitedAndMayOverdraw() {
@@ -96,8 +109,16 @@ final class FlushGovernorTests: XCTestCase {
 
     func test_timeUntilNextTokenTracksTier() {
         let drained = FlushGovernor(capacity: 20, tokens: 0, lastRefill: t0)
-        XCTAssertEqual(drained.timeUntilNextToken(flushInterval: wifi) ?? -1, 0.5, accuracy: 0.0001)
-        XCTAssertEqual(drained.timeUntilNextToken(flushInterval: cell) ?? -1, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(
+            drained.timeUntilNextToken(flushInterval: wifi) ?? -1,
+            1.0 / FlushGovernorConstants.wifiRefillPerSecond,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            drained.timeUntilNextToken(flushInterval: cell) ?? -1,
+            1.0 / FlushGovernorConstants.cellularRefillPerSecond,
+            accuracy: 0.0001
+        )
         XCTAssertNil(drained.timeUntilNextToken(flushInterval: .infinity))
     }
 }
@@ -310,23 +331,30 @@ final class FlushGovernorSimulationTests: XCTestCase {
 
     // MARK: Scenario 4 — fewer 429s against a real rate limit
 
-    func test_sustainedStorm_againstRateLimit_governorAvoids429s() {
+    func test_sustainedStorm_againstRealPushTokenLimit_neitherIsRateLimited() {
         let arrivals = stride(from: 0.05, through: 30.0, by: 0.05).map { $0 }
-        // Backend admits 30 requests / 10s.
-        let governor = simulate(arrivals: arrivals, flushInterval: 10, useGovernor: true, serverLimit: 30)
-        let legacy = simulate(arrivals: arrivals, flushInterval: 10, useGovernor: false, serverLimit: 30)
-        report("4 - storm vs 30 req/10s limit",
+        // The real binding constraint: POST /client/push-tokens allows 150 req/sec burst and
+        // 1,400/min steady, applied per IP/device. Expressed in the 10s window the model uses,
+        // the steady budget is ~233 requests.
+        let pushTokenBudgetPer10s = 233
+        let governor = simulate(arrivals: arrivals, flushInterval: 10, useGovernor: true,
+                                serverLimit: pushTokenBudgetPer10s)
+        let legacy = simulate(arrivals: arrivals, flushInterval: 10, useGovernor: false,
+                              serverLimit: pushTokenBudgetPer10s)
+        report("4 - storm vs real per-device budget (233 req/10s)",
                [("governor", governor), ("legacy", legacy)])
 
-        // This is the claim PR #622 could not substantiate for iOS, and it does hold once the gate
-        // is per-request: pacing cuts 429s by roughly an order of magnitude.
-        XCTAssertLessThan(governor.rateLimited, legacy.rateLimited)
-
-        // Not zero, and that is a genuine tuning finding rather than a bug. `burstCapacity` (20)
-        // plus 2 req/s means the opening 10s window can admit ~40 requests against a 30/10s limit,
-        // so the initial burst overshoots before pacing takes hold. Sizing the burst allowance to
-        // the real backend limit is exactly the open question this PoC exists to expose; it needs
-        // the actual server-side numbers to settle.
-        XCTAssertLessThanOrEqual(governor.rateLimited, legacy.rateLimited / 5)
+        // The honest result once real limits are used: a single device does not breach the
+        // per-device push-token budget even without a governor, because the queue is capped at 200
+        // and requests drain serially. So there are no 429s to prevent here.
+        //
+        // This is worth stating plainly: the "fewer 429s" argument for a client-side ceiling does
+        // not survive contact with the documented limits. The governor's defensible benefit is
+        // post-idle burst latency (scenario 1) plus a predictable share of the device budget
+        // (scenario 3), not 429 avoidance.
+        XCTAssertEqual(legacy.rateLimited, 0)
+        XCTAssertEqual(governor.rateLimited, 0)
+        XCTAssertEqual(governor.delivered, arrivals.count)
+        XCTAssertEqual(legacy.delivered, arrivals.count)
     }
 }

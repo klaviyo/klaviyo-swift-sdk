@@ -2,9 +2,9 @@
   ▿ apiKey: Optional<String>
     - some: "foo"
   ▿ flushGovernor: FlushGovernor
-    - capacity: 20.0
+    - capacity: 50.0
     - lastRefill: Optional<Date>.none
-    - tokens: 20.0
+    - tokens: 50.0
   - flushInterval: 10.0
   - flushing: true
   ▿ identity: ProfileData

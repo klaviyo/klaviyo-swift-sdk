@@ -16,20 +16,41 @@ import Foundation
 /// central design point: a single flush drains the whole queue one HTTP request at a time (see
 /// `.sendRequest` / `.deQueueCompletedResults`), so pacing flush *cycles* places no bound at all on
 /// the request rate. Pacing requests does.
+/// Sized against the documented client-endpoint rate limits:
+///
+/// | Endpoint | Burst | Steady | Scope |
+/// | --- | --- | --- | --- |
+/// | `POST /client/events` | 350/sec | 3,500/min | account |
+/// | `POST /client/profiles` | 350/sec | 3,500/min | account |
+/// | `POST /client/push-tokens` | 150/sec | 1,400/min | per IP/device |
+///
+/// The per-device push-token limit is the binding constraint, since the event and profile limits
+/// are account-wide and a single device is only ever a small fraction of an account's traffic. The
+/// device budget works out to ~23 requests/second sustained (1,400/min).
+///
+/// Values below hold one device to roughly 40% of that budget, leaving headroom for the several
+/// apps or app instances that can share an IP, and for the account-level limits that this governor
+/// cannot see from a single device.
 enum FlushGovernorConstants {
     /// Burst allowance, in requests. Tokens accrue while the app is idle up to this ceiling, so a
     /// burst of activity after a quiet stretch is sent immediately rather than waiting for the next
     /// flush tick. This is the knob that buys post-idle responsiveness.
-    static let burstCapacity = 20.0
+    ///
+    /// At 50, the opening 10-second window admits `50 + 10*10 = 150` requests — exactly the
+    /// documented per-second burst allowance, so even a full bucket draining at once stays inside
+    /// it while still absorbing a substantial burst instantly.
+    static let burstCapacity = 50.0
 
-    /// Sustained ceiling on wifi, in requests/second. Well above ordinary app traffic (a handful of
-    /// events per minute) and well below a pathological storm, so normal usage never touches the
-    /// governor while a runaway loop is bounded.
-    static let wifiRefillPerSecond = 2.0
+    /// Sustained ceiling on wifi, in requests/second: 600/min, ~43% of the per-device budget.
+    ///
+    /// This is far above ordinary traffic (a handful of events per minute), so normal usage never
+    /// reaches the governor, while a runaway loop is still held to a predictable share of the
+    /// device's allowance instead of being bounded only by network round-trip time.
+    static let wifiRefillPerSecond = 10.0
 
-    /// Sustained ceiling on cellular, in requests/second. Lower than wifi for radio/battery cost,
-    /// mirroring the existing tiered flush intervals.
-    static let cellularRefillPerSecond = 1.0
+    /// Sustained ceiling on cellular, in requests/second: 300/min. Half the wifi rate, for radio
+    /// and battery cost, mirroring the existing tiered flush intervals.
+    static let cellularRefillPerSecond = 5.0
 }
 
 /// A token bucket that paces outbound requests.
