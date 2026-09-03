@@ -21,7 +21,7 @@ class IAFPresentationManager {
     private var isInitializingOrInitialized = false
 
     private var lifecycleObserver: LifecycleObserver?
-    private var lifecycleEventsTask: Task<Void, Error>?
+    private var lifecycleEventsTask: Task<Void, Never>?
     private var lastBackgrounded: Date?
 
     private var profileEventObserver: ProfileEventObserver?
@@ -338,30 +338,50 @@ class IAFPresentationManager {
         lifecycleEventsTask = Task { [weak self] in
             guard let self, let eventsStream = lifecycleObserver?.eventsStream else { return }
             for await event in eventsStream {
-                switch event {
-                case .foregrounded:
-                    try await self.handleLifecycleEvent("foreground")
-                    if self.lastBackgrounded != nil {
-                        if isSessionExpired {
-                            if #available(iOS 14.0, *) {
-                                Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
-                            }
-                            self.tearDownFormWebView()
-                            try await self.initializeFormWithAPIKey()
-                        }
-                    } else {
-                        // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
-                        // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
-                        // This check ensures that don't reinitialize in this situation.
-                        if self.viewController == nil {
-                            // fresh launch
-                            try await self.initializeFormWithAPIKey()
-                        }
-                    }
-                case .backgrounded:
-                    self.lastBackgrounded = Date()
-                    try? await self.handleLifecycleEvent("background")
+                await self.handleAppLifecycleEvent(event)
+            }
+        }
+    }
+
+    /// Handles a single app-lifecycle event. Catches its own errors so that a failure
+    /// handling one event (e.g. a transient `initializeFormWithAPIKey()` throw) can never
+    /// break out of the observation loop and silently disable session-expiry detection
+    /// for the rest of the process lifetime.
+    func handleAppLifecycleEvent(_ event: LifecycleObserver.Event) async {
+        do {
+            switch event {
+            case .foregrounded:
+                try await handleForegrounded()
+            case .backgrounded:
+                lastBackgrounded = Date()
+                try await handleLifecycleEvent("background")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Error handling app lifecycle event: \(error.localizedDescription)"
+                )
+            }
+        }
+    }
+
+    private func handleForegrounded() async throws {
+        try await handleLifecycleEvent("foreground")
+        if lastBackgrounded != nil {
+            if isSessionExpired {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                 }
+                tearDownFormWebView()
+                try await initializeFormWithAPIKey()
+            }
+        } else {
+            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+            // This check ensures that don't reinitialize in this situation.
+            if viewController == nil {
+                // fresh launch
+                try await initializeFormWithAPIKey()
             }
         }
     }
