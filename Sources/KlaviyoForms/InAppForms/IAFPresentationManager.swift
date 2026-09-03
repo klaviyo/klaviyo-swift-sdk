@@ -375,6 +375,9 @@ class IAFPresentationManager {
                 tearDownFormWebView()
                 try await initializeFormWithAPIKey()
             }
+            // Consume the handled transition so a later foreground without a real
+            // background isn't mis-read as expired.
+            lastBackgrounded = nil
         } else {
             // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
             // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
