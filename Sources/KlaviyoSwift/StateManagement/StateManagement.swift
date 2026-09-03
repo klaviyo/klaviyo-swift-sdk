@@ -609,13 +609,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 // Build the full payload exactly as the initialized path does, so structured
                 // attributes (name/title/organization/image/location) survive the pre-init buffer
                 // and sync completely after initialize() (MAGE-1141).
-                let profilePayload = ProfilePayload(
-                    profile,
-                    email: state.email,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    anonymousId: anonymousId
-                )
+                let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
                 if let tokenData {
                     // A push token is registered: rebind it to the new identity in one combined
                     // token+profile request, mirroring the initialized branch (MAGE-1165).
@@ -665,13 +659,7 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let profilePayload = ProfilePayload(
-                profile,
-                email: state.email,
-                phoneNumber: state.phoneNumber,
-                externalId: state.externalId,
-                anonymousId: anonymousId
-            )
+            let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
 
             let request: KlaviyoRequest
             if let tokenData = pushTokenData {

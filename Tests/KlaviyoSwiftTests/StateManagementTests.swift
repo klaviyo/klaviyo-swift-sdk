@@ -811,25 +811,45 @@ class StateManagementTests: StateManagementTestCase {
         )
     }
 
+    /// Concrete `TestStore` type produced by ``makePreInitProfileSwitchStore(pushToken:)``.
+    private typealias PreInitProfileSwitchStore = TestStore<
+        KlaviyoState, KlaviyoAction, KlaviyoState, KlaviyoAction, Void
+    >
+
+    /// Resets the canonical stores + buffer, persists an identified user A
+    /// ("a@example.com"/"user-A"/"anon-A"), optionally registers a push token, and returns a fresh
+    /// non-exhaustive `TestStore` for exercising the pre-init `enqueueProfile` path. Callers keep
+    /// their own routing/payload assertions.
     @MainActor
-    func testPreInitProfileSwitchRebindsTokenToNewIdentity() async throws {
+    private func makePreInitProfileSwitchStore(
+        pushToken: PushTokenData? = nil
+    ) -> PreInitProfileSwitchStore {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
 
-        // A previously-identified user A with a registered push token.
         IdentityStore.shared.update(ProfileData(
             email: "a@example.com", externalId: "user-A", anonymousId: "anon-A"
         ))
-        IdentityStore.shared.updatePushToken(PushTokenData(
+        if let pushToken {
+            IdentityStore.shared.updatePushToken(pushToken)
+        }
+
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        return store
+    }
+
+    @MainActor
+    func testPreInitProfileSwitchRebindsTokenToNewIdentity() async throws {
+        // A previously-identified user A with a registered push token.
+        let store = makePreInitProfileSwitchStore(pushToken: PushTokenData(
             pushToken: "tok-1", pushEnablement: .authorized,
             pushBackground: .available, deviceData: DeviceMetadata(context: environment.appContextInfo())
         ))
 
         // Pre-init switch to a different identified user B.
-        let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
         await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
 
         // Exactly one buffered request, and it is a token register embedding user B's identity.
@@ -857,17 +877,8 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testPreInitProfileWithoutTokenStillBuffersBareProfile() async throws {
-        resetCanonicalCoreStores()
-        UnattributedBuffer.shared.reset()
-        IdentityStore.shared.update(ProfileData(
-            email: "a@example.com", externalId: "user-A", anonymousId: "anon-A"
-        ))
         // No push token registered.
-
-        let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
+        let store = makePreInitProfileSwitchStore()
         await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
 
         let snap = UnattributedBuffer.shared.snapshot()
