@@ -346,7 +346,7 @@ class IAFPresentationManager {
                             if #available(iOS 14.0, *) {
                                 Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                             }
-                            self.destroyWebView()
+                            self.tearDownFormWebView()
                             try await self.initializeFormWithAPIKey()
                         }
                     } else {
@@ -452,6 +452,23 @@ class IAFPresentationManager {
         }
     }
 
+    /// Tears down only the web-view-scoped state: the webview, its view model, and the
+    /// form + profile-event listeners tied to that webview. Leaves app-lifecycle and
+    /// company (API-key) observation intact so the form can be rebuilt in place (e.g.
+    /// after a session timeout) without the host app needing to re-register. Contrast with
+    /// `destroyWebviewAndListeners()`, the full unregister path.
+    func tearDownFormWebView() {
+        profileEventObserver?.stopObserving()
+        profileEventObserver = nil
+        profileEventsTask?.cancel()
+        profileEventsTask = nil
+        formEventTask?.cancel()
+        formEventTask = nil
+        delayedPresentationTask?.cancel()
+        delayedPresentationTask = nil
+        destroyWebView()
+    }
+
     func destroyWebviewAndListeners() {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
@@ -459,13 +476,7 @@ class IAFPresentationManager {
         isInitializingOrInitialized = false
         lifecycleObserver = nil
         companyObserver = nil
-        profileEventObserver = nil
-        profileEventsTask?.cancel()
-        formEventTask?.cancel()
-        delayedPresentationTask?.cancel()
-        formEventTask = nil
-        delayedPresentationTask = nil
-        destroyWebView()
+        tearDownFormWebView()
     }
 }
 
