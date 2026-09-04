@@ -876,6 +876,38 @@ class StateManagementTests: StateManagementTestCase {
     }
 
     @MainActor
+    func testPreInitTokenSetBeforeProfileSwitchRebindsToNewIdentity() async throws {
+        // Token set pre-init (buffered, not yet in IdentityStore), then a pre-init profile switch:
+        // the switch must rebind the token to the new identity, not strand it on the old one.
+        let store = makePreInitProfileSwitchStore() // user A, no token pre-seeded in IdentityStore
+
+        await store.send(.setPushToken("tok-1", .authorized))
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        // Standalone token + profile collapse into one combined register for user B.
+        let snap = UnattributedBuffer.shared.snapshot()
+        XCTAssertEqual(snap.count, 1, "standalone token + profile must collapse into one combined register")
+        guard case let .pushToken(payload) = snap[0] else {
+            return XCTFail("expected combined token+profile (.pushToken) in buffer")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "tok-1")
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "b@example.com")
+        XCTAssertNotEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anon-A")
+
+        // Drain at init → exactly one registerPushToken, bound to the new identity.
+        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        await store.send(.initialize(TEST_API_KEY))
+        await store.receive(
+            .completeInitialization(KlaviyoState(requestsInFlight: [])), timeout: TIMEOUT_NANOSECONDS
+        )
+        let registers = recorded().filter {
+            if case .registerPushToken = $0.endpoint { return true } else { return false }
+        }
+        XCTAssertEqual(registers.count, 1, "token rebound exactly once, to the new identity")
+        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty)
+    }
+
+    @MainActor
     func testPreInitProfileWithoutTokenStillBuffersBareProfile() async throws {
         // No push token registered.
         let store = makePreInitProfileSwitchStore()

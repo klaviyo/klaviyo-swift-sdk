@@ -301,6 +301,15 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
+                // Persist the token as canonical device state so a later pre-init identity change
+                // reads it and rebinds; the profile switch's combined token+profile then coalesces
+                // this standalone registration away.
+                IdentityStore.shared.updatePushToken(PushTokenData(
+                    pushToken: pushToken,
+                    pushEnablement: enablement,
+                    pushBackground: environment.getBackgroundSetting(),
+                    deviceData: DeviceMetadata(context: environment.appContextInfo())
+                ))
                 RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
                 return .none
             }
