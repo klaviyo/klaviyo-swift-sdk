@@ -111,4 +111,19 @@ final class RequestFactoryTests: XCTestCase {
 
         XCTAssertEqual(viaRequestIdentity, viaPayloadIdentity)
     }
+
+    func testTokenPayloadWithProfileEmbedsGivenProfile() {
+        let profile = ProfilePayload(
+            email: "b@example.com", phoneNumber: nil, externalId: "user-B",
+            properties: [:], anonymousId: "anon-B"
+        )
+        let payload = RequestFactory.tokenPayload(
+            pushToken: "tok-1", enablement: .authorized,
+            background: .available, profile: profile
+        )
+        XCTAssertEqual(payload.data.attributes.token, "tok-1")
+        XCTAssertEqual(payload.data.attributes.enablementStatus, PushEnablement.authorized.rawValue)
+        XCTAssertEqual(payload.data.attributes.backgroundStatus, PushBackground.available.rawValue)
+        XCTAssertEqual(payload.data.attributes.profile.data, profile)
+    }
 }

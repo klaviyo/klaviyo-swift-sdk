@@ -811,6 +811,155 @@ class StateManagementTests: StateManagementTestCase {
         )
     }
 
+    /// Concrete `TestStore` type produced by ``makePreInitProfileSwitchStore(pushToken:)``.
+    private typealias PreInitProfileSwitchStore = TestStore<
+        KlaviyoState, KlaviyoAction, KlaviyoState, KlaviyoAction, Void
+    >
+
+    /// Resets the canonical stores + buffer, persists an identified user A
+    /// ("a@example.com"/"user-A"/"anon-A"), optionally registers a push token, and returns a fresh
+    /// non-exhaustive `TestStore` for exercising the pre-init `enqueueProfile` path. Callers keep
+    /// their own routing/payload assertions.
+    @MainActor
+    private func makePreInitProfileSwitchStore(
+        pushToken: PushTokenData? = nil
+    ) -> PreInitProfileSwitchStore {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+
+        IdentityStore.shared.update(ProfileData(
+            email: "a@example.com", externalId: "user-A", anonymousId: "anon-A"
+        ))
+        if let pushToken {
+            IdentityStore.shared.updatePushToken(pushToken)
+        }
+
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        return store
+    }
+
+    /// Shape B rebind: the profile lives in its own `.profile` buffer entry and the token in a
+    /// separate identity-only `.pushToken` entry, both on the new (post-reset) identity. Asserts that
+    /// pair, then drains at init and asserts exactly one createProfile and one registerPushToken.
+    @MainActor
+    private func assertPreInitRebindProducesSeparateProfileAndToken(
+        _ store: PreInitProfileSwitchStore, email: String, token: String, oldAnon: String
+    ) async {
+        let snap = UnattributedBuffer.shared.snapshot()
+        let profiles: [CreateProfilePayload] = snap.compactMap {
+            if case let .profile(payload) = $0 { return payload }
+            return nil
+        }
+        let tokens: [PushTokenPayload] = snap.compactMap {
+            if case let .pushToken(payload) = $0 { return payload }
+            return nil
+        }
+        XCTAssertEqual(profiles.count, 1, "profile kept in its own entry, safe from token coalescing")
+        XCTAssertEqual(tokens.count, 1, "one identity-only token registration")
+        XCTAssertEqual(profiles.first?.data.attributes.email, email)
+        XCTAssertNotEqual(profiles.first?.data.attributes.anonymousId, oldAnon)
+        XCTAssertEqual(tokens.first?.data.attributes.token, token)
+        XCTAssertEqual(tokens.first?.data.attributes.profile.data.attributes.email, email)
+
+        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        await store.send(.initialize(TEST_API_KEY))
+        await store.receive(
+            .completeInitialization(KlaviyoState(requestsInFlight: [])), timeout: TIMEOUT_NANOSECONDS
+        )
+        let createsToNewIdentity = recorded().filter {
+            if case let .createProfile(_, payload) = $0.endpoint {
+                return payload.data.attributes.email == email
+            }
+            return false
+        }
+        let registers = recorded().filter {
+            if case .registerPushToken = $0.endpoint { return true } else { return false }
+        }
+        XCTAssertFalse(createsToNewIdentity.isEmpty, "profile synced to the new identity")
+        XCTAssertEqual(registers.count, 1, "token registered once, to the new identity")
+        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty)
+    }
+
+    @MainActor
+    func testPreInitProfileSwitchRebindsTokenToNewIdentity() async throws {
+        // A previously-identified user A with a registered push token; pre-init switch to user B.
+        let store = makePreInitProfileSwitchStore(pushToken: PushTokenData(
+            pushToken: "tok-1", pushEnablement: .authorized,
+            pushBackground: .available, deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        await assertPreInitRebindProducesSeparateProfileAndToken(
+            store, email: "b@example.com", token: "tok-1", oldAnon: "anon-A"
+        )
+    }
+
+    @MainActor
+    func testPreInitTokenSetBeforeProfileSwitchRebindsToNewIdentity() async throws {
+        // Token set pre-init (buffered, not yet in IdentityStore), then a pre-init profile switch:
+        // the switch must rebind the token to the new identity, not strand it on the old one.
+        let store = makePreInitProfileSwitchStore() // user A, no token pre-seeded in IdentityStore
+
+        await store.send(.setPushToken("tok-1", .authorized))
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        // The stale standalone token registration coalesces away; the profile and the rebound
+        // (identity-only) token land as separate entries for user B.
+        await assertPreInitRebindProducesSeparateProfileAndToken(
+            store, email: "b@example.com", token: "tok-1", oldAnon: "anon-A"
+        )
+    }
+
+    @MainActor
+    func testPreInitProfileAttributesSurviveLaterTokenRegistration() async throws {
+        // A profile with structured attributes is set pre-init, THEN a push-token registration
+        // arrives (a manual setPushToken here; an automatic APNs callback forwards to the same path
+        // and commonly fires async, after set(profile:)). The token registration must NOT clobber
+        // the profile's attributes — they live in a separate `.profile` entry, immune to push-token
+        // coalescing.
+        let store = makePreInitProfileSwitchStore(pushToken: PushTokenData(
+            pushToken: "tok-1", pushEnablement: .authorized,
+            pushBackground: .available, deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+
+        await store.send(.enqueueProfile(
+            Profile(email: "b@example.com", externalId: "user-B", firstName: "Bob")
+        ))
+        await store.send(.setPushToken("tok-1", .authorized))
+
+        // The profile's structured attributes are preserved in the `.profile` entry.
+        let profile: CreateProfilePayload? = UnattributedBuffer.shared.snapshot().compactMap {
+            if case let .profile(payload) = $0 { return payload }
+            return nil
+        }.first
+        XCTAssertEqual(
+            try XCTUnwrap(profile).data.attributes.firstName, "Bob",
+            "profile attributes must survive a later token registration"
+        )
+
+        await assertPreInitRebindProducesSeparateProfileAndToken(
+            store, email: "b@example.com", token: "tok-1", oldAnon: "anon-A"
+        )
+    }
+
+    @MainActor
+    func testPreInitProfileWithoutTokenStillBuffersBareProfile() async throws {
+        // No push token registered.
+        let store = makePreInitProfileSwitchStore()
+        await store.send(.enqueueProfile(Profile(email: "b@example.com", externalId: "user-B")))
+
+        let snap = UnattributedBuffer.shared.snapshot()
+        XCTAssertEqual(snap.count, 1)
+        guard case let .profile(payload) = snap[0] else {
+            return XCTFail("expected bare .profile in buffer when no token is registered")
+        }
+        XCTAssertEqual(payload.data.attributes.email, "b@example.com")
+    }
+
     @MainActor
     func testPreInitBufferedEventDrainsIntoQueueOnInit() async throws {
         try await assertPreInitBufferDrainsIntoQueueOnInit(

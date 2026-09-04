@@ -26,6 +26,19 @@ extension KlaviyoState {
         return profile
     }
 
+    /// Builds a `ProfilePayload` from the incoming profile, overriding its identifiers with the
+    /// canonical values already resolved onto state. Shared by the pre-init and initialized
+    /// `enqueueProfile` branches so their payloads cannot diverge.
+    func profilePayload(from profile: Profile, anonymousId: String) -> ProfilePayload {
+        ProfilePayload(
+            profile,
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: anonymousId
+        )
+    }
+
     /// Builds a push-token registration request, resolving (and consuming) any pending profile.
     /// The `resolved` prefix marks the state-sourcing layer over the pure `RequestFactory.tokenRequest`.
     mutating func resolvedTokenRequest(

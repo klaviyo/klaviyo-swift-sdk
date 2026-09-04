@@ -301,6 +301,15 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.apiKey,
                   let anonymousId = state.anonymousId
             else {
+                // Persist the token as canonical device state so a later pre-init identity change
+                // reads it and rebinds; that rebind buffers a fresh `.pushToken` registration, which
+                // coalesces this standalone one away.
+                IdentityStore.shared.updatePushToken(PushTokenData(
+                    pushToken: pushToken,
+                    pushEnablement: enablement,
+                    pushBackground: environment.getBackgroundSetting(),
+                    deviceData: DeviceMetadata(context: environment.appContextInfo())
+                ))
                 RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
                 return .none
             }
@@ -590,6 +599,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 // stored profile, run the SAME identifier-change reset, then push synchronously
                 // so the merged identity is durable before the profile sync is buffered.
                 state.identity = IdentityStore.shared.current
+                // Read before the reset below — the token lives in IdentityStore, not pre-init state.
+                let tokenData = IdentityStore.shared.pushToken
                 let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
                 let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                     $0?.trimWhiteSpaceOrReturnNilIfEmpty()
@@ -607,14 +618,16 @@ struct KlaviyoReducer: ReducerProtocol {
                 // Build the full payload exactly as the initialized path does, so structured
                 // attributes (name/title/organization/image/location) survive the pre-init buffer
                 // and sync completely after initialize() (MAGE-1141).
-                let payload = CreateProfilePayload(data: ProfilePayload(
-                    profile,
-                    email: state.email,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    anonymousId: anonymousId
-                ))
-                RequestEnqueuer.enqueueProfile(payload: payload)
+                let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
+                RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
+                if let tokenData {
+                    // Re-register the token against the new identity as a SEPARATE call. Keeping the
+                    // profile in its own `.profile` buffer entry means a later token callback (e.g. an
+                    // async automatic APNs fire) can't clobber the profile's structured attributes via
+                    // push-token coalescing. The identity-only registration coalesces to the current
+                    // identity, which the update above just set to the new one.
+                    RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
+                }
                 return .none
             }
 
@@ -651,13 +664,7 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
-            let profilePayload = ProfilePayload(
-                profile,
-                email: state.email,
-                phoneNumber: state.phoneNumber,
-                externalId: state.externalId,
-                anonymousId: anonymousId
-            )
+            let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
 
             let request: KlaviyoRequest
             if let tokenData = pushTokenData {

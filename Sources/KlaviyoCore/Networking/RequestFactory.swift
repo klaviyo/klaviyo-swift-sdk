@@ -165,6 +165,24 @@ public enum RequestFactory {
         return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload))
     }
 
+    /// Builds a `PushTokenPayload` with a caller-supplied `ProfilePayload`.
+    ///
+    /// Use this when a prebuilt profile must be embedded directly, e.g. to bind a
+    /// fresh identity during pre-init buffering.
+    public static func tokenPayload(
+        pushToken: String,
+        enablement: PushEnablement,
+        background: PushBackground,
+        profile: ProfilePayload
+    ) -> PushTokenPayload {
+        PushTokenPayload(
+            pushToken: pushToken,
+            enablement: enablement.rawValue,
+            background: background.rawValue,
+            profile: profile
+        )
+    }
+
     /// Builds a `PushTokenPayload` from apiKey-free identity fields.
     ///
     /// Constructs an empty-properties `ProfilePayload` internally, matching how the live
@@ -177,10 +195,10 @@ public enum RequestFactory {
         enablement: PushEnablement,
         background: PushBackground
     ) -> PushTokenPayload {
-        PushTokenPayload(
+        tokenPayload(
             pushToken: pushToken,
-            enablement: enablement.rawValue,
-            background: background.rawValue,
+            enablement: enablement,
+            background: background,
             profile: ProfilePayload(
                 email: identity.email,
                 phoneNumber: identity.phoneNumber,
