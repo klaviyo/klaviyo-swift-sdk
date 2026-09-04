@@ -56,9 +56,15 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         _ = await store.send(.initialize(newApiKey)) {
             $0.apiKey = newApiKey
         }
-        let unregister = mutableState.buildUnregisterRequest(
-            apiKey: oldApiKey, anonymousId: store.state.anonymousId!,
-            pushToken: initialState.pushTokenData!.pushToken
+        // Company switch prompts an immediate flush so the unregister drains promptly.
+        await store.receive(.flushQueue)
+        // Unregister must carry .high priority so it is sent before normal queued requests.
+        let unregister = KlaviyoRequest(
+            endpoint: mutableState.buildUnregisterRequest(
+                apiKey: oldApiKey, anonymousId: store.state.anonymousId!,
+                pushToken: initialState.pushTokenData!.pushToken
+            ).endpoint,
+            priority: .high
         )
         let tokenRequest = mutableState.buildTokenRequest(
             apiKey: newApiKey, anonymousId: store.state.anonymousId!,
@@ -69,6 +75,43 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // the token-register (enqueued after the apiKey switch).
         XCTAssertEqual(readQueue(), [unregister, tokenRequest],
                        "both the unregister and register land in the single shared queue")
+        XCTAssertEqual(readQueue().first?.priority, .high, "unregister must carry .high priority")
+    }
+
+    @MainActor
+    func testColdStartCompanySwitchPreservesAndReregistersToken() async throws {
+        resetCanonicalCoreStores()
+        QueueStore.resetRegistry()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "old-key"))
+        IdentityStore.shared.update(ProfileData(email: "a@x.com", externalId: "user-A", anonymousId: "anon-A"))
+        let token = PushTokenData(
+            pushToken: "tok-1",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        )
+        IdentityStore.shared.updatePushToken(token)
+        let readQueue = registerRecordingQueueStore(apiKey: "new-key")
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        await store.send(.initialize("new-key"))
+        await store.receive(
+            .completeInitialization(KlaviyoState(requestsInFlight: [])),
+            timeout: TIMEOUT_NANOSECONDS
+        )
+
+        // Token PRESERVED (regression: today it is cleared).
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "tok-1")
+        let endpoints = readQueue().map(\.endpoint)
+        XCTAssertTrue(
+            endpoints.contains { if case .unregisterPushToken = $0 { return true } else { return false } },
+            "old-company unregister enqueued"
+        )
+        XCTAssertTrue(
+            endpoints.contains { if case .registerPushToken = $0 { return true } else { return false } },
+            "token re-registered under the new company"
+        )
     }
 
     // MARK: - Send Request
