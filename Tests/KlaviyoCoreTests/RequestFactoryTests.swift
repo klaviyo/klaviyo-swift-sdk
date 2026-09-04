@@ -126,4 +126,15 @@ final class RequestFactoryTests: XCTestCase {
         XCTAssertEqual(payload.data.attributes.backgroundStatus, PushBackground.available.rawValue)
         XCTAssertEqual(payload.data.attributes.profile.data, profile)
     }
+
+    func testUnregisterRequestThreadsPriority() {
+        let identity = RequestIdentity(apiKey: "pk-1", anonymousId: "anon-1")
+        XCTAssertEqual(
+            RequestFactory.unregisterRequest(identity: identity, pushToken: "tok").priority, .standard
+        )
+        XCTAssertEqual(
+            RequestFactory.unregisterRequest(identity: identity, pushToken: "tok", priority: .high).priority,
+            .high
+        )
+    }
 }
