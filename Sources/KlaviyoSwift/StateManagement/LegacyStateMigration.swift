@@ -115,13 +115,14 @@ private func verifyMigration(apiKey: String, decoded: LegacyState) -> Bool {
           persistedIdentity.pushToken == decoded.pushTokenData else {
         return false
     }
-    // A fresh instance forces a real disk read, decoupled from the registry singleton. `restore`
-    // merge-prepends the legacy backlog, but a request that raced into the queue during the init
-    // window can also front-insert (a `.high`-priority `enqueue` lands at index 0), so the legacy
-    // backlog is not necessarily a positional prefix. Verify by id CONTAINMENT — every legacy id is
-    // durably present — rather than by position; an exact/prefix check would spuriously fail on a
-    // priority front-insert, leaving the legacy file un-retired and inviting a re-migration that
-    // re-sends flushed ids and writes stale identity over post-init updates.
-    let persistedIds = Set(QueueStore(apiKey: apiKey).requests.map(\.id))
+    // A fresh instance forces a real disk read from `klaviyo-queue.json`, decoupled from the shared
+    // registry singleton. `restore` merge-prepends the legacy backlog, but a request that raced into
+    // the queue during the init window can also front-insert (a `.high`-priority `enqueue` lands at
+    // index 0), so the legacy backlog is not necessarily a positional prefix. Verify by id
+    // CONTAINMENT — every legacy id is durably present — rather than by position; an exact/prefix
+    // check would spuriously fail on a priority front-insert, leaving the legacy file un-retired and
+    // inviting a re-migration that re-sends flushed ids and writes stale identity over post-init
+    // updates.
+    let persistedIds = Set(QueueStore().requests.map(\.id))
     return Set(decoded.queue.map(\.id)).isSubset(of: persistedIds)
 }

@@ -47,10 +47,10 @@ final class QueueStoreTests: XCTestCase {
             applicationSupportDirectory: { appSupportRoot }
         )
 
-        try QueueStore.DiskIO.production(apiKey: "abc123").save([])
+        try QueueStore.DiskIO.production.save([])
 
         // The queue file must land under Application Support, not the legacy Library root.
-        XCTAssertEqual(capturedURL, appSupportRoot.appendingPathComponent("klaviyo-abc123-queue.json"))
+        XCTAssertEqual(capturedURL, appSupportRoot.appendingPathComponent("klaviyo-queue.json"))
         XCTAssertFalse(capturedURL?.path.hasPrefix(libraryRoot.path) ?? true)
     }
 
