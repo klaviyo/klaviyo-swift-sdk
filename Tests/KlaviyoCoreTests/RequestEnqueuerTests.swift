@@ -171,36 +171,6 @@ final class RequestEnqueuerTests: XCTestCase {
         XCTAssertEqual(payload.data.attributes.token, "token-3")
     }
 
-    private func tokenPayloadFixture(anonymousId: String = "anon-B") -> PushTokenPayload {
-        RequestFactory.tokenPayload(
-            pushToken: "tok-1", enablement: .authorized, background: .available,
-            profile: ProfilePayload(
-                email: "b@example.com", phoneNumber: nil, externalId: "user-B",
-                properties: [:], anonymousId: anonymousId
-            )
-        )
-    }
-
-    func testPushTokenPayloadWithoutApiKeyGoesToBuffer() {
-        RequestEnqueuer.enqueuePushToken(payload: tokenPayloadFixture())
-        let snap = UnattributedBuffer.shared.snapshot()
-        XCTAssertEqual(snap.count, 1)
-        guard case let .pushToken(payload) = snap[0] else {
-            return XCTFail("expected .pushToken in buffer")
-        }
-        XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anon-B")
-        XCTAssertNil(QueueStore.current())
-    }
-
-    func testPushTokenPayloadWithApiKeyGoesToQueueStore() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
-        RequestEnqueuer.enqueuePushToken(payload: tokenPayloadFixture())
-        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
-        guard case .registerPushToken = QueueStore.current()?.requests.first?.endpoint else {
-            return XCTFail("expected .registerPushToken endpoint in QueueStore")
-        }
-    }
-
     // MARK: - enqueueSubscription
 
     private func subscriptionPayload(email: String = "a@b.com") -> CreateSubscriptionPayload {

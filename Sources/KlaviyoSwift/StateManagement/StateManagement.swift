@@ -619,18 +619,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 // attributes (name/title/organization/image/location) survive the pre-init buffer
                 // and sync completely after initialize() (MAGE-1141).
                 let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
+                RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
                 if let tokenData {
-                    // A push token is registered: rebind it to the new identity in one combined
-                    // token+profile request, mirroring the initialized branch (MAGE-1165).
-                    let payload = RequestFactory.tokenPayload(
-                        pushToken: tokenData.pushToken,
-                        enablement: tokenData.pushEnablement,
-                        background: tokenData.pushBackground,
-                        profile: profilePayload
-                    )
-                    RequestEnqueuer.enqueuePushToken(payload: payload)
-                } else {
-                    RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
+                    // Re-register the token against the new identity as a SEPARATE call. Keeping the
+                    // profile in its own `.profile` buffer entry means a later token callback (e.g. an
+                    // async automatic APNs fire) can't clobber the profile's structured attributes via
+                    // push-token coalescing. The identity-only registration coalesces to the current
+                    // identity, which the update above just set to the new one.
+                    RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
                 }
                 return .none
             }
