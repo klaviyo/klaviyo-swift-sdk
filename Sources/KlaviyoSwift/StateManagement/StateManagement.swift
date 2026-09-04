@@ -172,12 +172,14 @@ struct KlaviyoReducer: ReducerProtocol {
                    let tokenData = state.pushTokenData {
                     let request = RequestFactory.unregisterRequest(
                         identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
-                        pushToken: tokenData.pushToken
+                        pushToken: tokenData.pushToken,
+                        priority: .high
                     )
                     state.enqueueRequest(request: request)
                 }
                 state.apiKey = apiKey
                 state.reset()
+                return .task { .flushQueue }
             } else if case .uninitialized = state.initalizationState,
                       let previousApiKey = SDKConfigStore.shared.current.apiKey,
                       previousApiKey != apiKey {
@@ -196,17 +198,33 @@ struct KlaviyoReducer: ReducerProtocol {
                             phoneNumber: previous.phoneNumber,
                             externalId: previous.externalId
                         ),
-                        pushToken: tokenData.pushToken
+                        pushToken: tokenData.pushToken,
+                        priority: .high
                     )
-                    // Persist synchronously before the wipe below so the unregister survives a
-                    // crash between cold-start company switch and the first flush.
+                    // Persist synchronously before the identity reset below so the unregister survives
+                    // a crash between cold-start company switch and the first flush.
                     QueueStore.store(for: previousApiKey).enqueue(request, persist: .synchronous)
                 }
-                IdentityStore.shared.updatePushToken(nil)
+                // NOTE: do NOT clear the push token here — the switch must preserve it so the
+                // token can be re-registered under the new company immediately below.
                 if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
                     // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
                     // hydrates a clean identity for the new company.
                     IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+                }
+                // Re-register the preserved token under the new company (identity-only, fresh anon).
+                if let tokenData = IdentityStore.shared.pushToken,
+                   let newAnon = IdentityStore.shared.current.anonymousId {
+                    let request = RequestFactory.tokenRequest(
+                        apiKey: apiKey,
+                        pushToken: tokenData.pushToken,
+                        enablement: tokenData.pushEnablement,
+                        background: tokenData.pushBackground.rawValue,
+                        profile: ProfilePayload(
+                            email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
+                        )
+                    )
+                    QueueStore.store(for: apiKey).enqueue(request)
                 }
             }
             guard case .uninitialized = state.initalizationState else {
