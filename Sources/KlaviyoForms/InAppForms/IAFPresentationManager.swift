@@ -10,79 +10,50 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
+/// Coordinates the In-App Forms feature.
+///
+/// Owns the things that live for the whole process — the API-key and app-lifecycle observers,
+/// the configuration, the presenter — and holds at most one ``FormsSession`` at a time.
+///
+/// Session teardown is `session = nil`. Everything scoped to a session lives on `FormsSession`
+/// and is released with it, so rebuilding (API-key change, session timeout) cannot leave part
+/// of the old session behind.
 @MainActor
 class IAFPresentationManager {
     // MARK: - Properties & Initializer
 
     static let shared = IAFPresentationManager()
 
+    /// The active forms session, if any. Assigning `nil` tears the previous one down.
+    private var session: FormsSession?
+
+    private let presenter = IAFPresenter()
+
     private var companyObserver: CompanyObserver?
     private var companyEventsTask: Task<Void, Never>?
     private var isInitializingOrInitialized = false
 
     private var lifecycleObserver: LifecycleObserver?
-    private var lifecycleEventsTask: Task<Void, Error>?
+    private var lifecycleEventsTask: Task<Void, Never>?
     private var lastBackgrounded: Date?
-
-    private var profileEventObserver: ProfileEventObserver?
-    private var profileEventsTask: Task<Void, Error>?
-
-    var viewController: KlaviyoWebViewController?
-    private var viewModel: IAFWebViewModel?
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
 
-    private var formEventTask: Task<Void, Never>?
-    private var delayedPresentationTask: Task<Void, Never>?
-
-    lazy var indexHtmlFileUrl: URL? = {
-        do {
-            return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error loading InAppFormsTemplate.html")
-            }
-            return nil
-        }
-    }()
-
     private init() {}
-
-    #if DEBUG
-    package init(viewController: KlaviyoWebViewController?) {
-        self.viewController = viewController
-    }
-    #endif
 
     // MARK: - Form Lifecycle Handler
 
-    private var formLifecycleHandler: (@MainActor (FormLifecycleEvent) -> Void)?
-
     func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.log("Registering form lifecycle handler")
-        }
-        formLifecycleHandler = handler
+        FormLifecycleHandlerRegistry.shared.register(handler)
     }
 
     func unregisterFormLifecycleHandler() {
-        if #available(iOS 14.0, *) {
-            if formLifecycleHandler != nil {
-                Logger.webViewLogger.log("Unregistering form lifecycle handler")
-            }
-        }
-        formLifecycleHandler = nil
+        FormLifecycleHandlerRegistry.shared.unregister()
     }
 
     func invokeLifecycleHandler(for event: FormLifecycleEvent) {
-        guard let handler = formLifecycleHandler else { return }
-
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.debug("Invoking form lifecycle handler for event: \(event.eventName, privacy: .public)")
-        }
-
-        handler(event)
+        FormLifecycleHandlerRegistry.shared.invoke(for: event)
     }
 
     // MARK: - Initialization & Setup
@@ -90,7 +61,9 @@ class IAFPresentationManager {
     func initializeIAF(configuration: InAppFormsConfig, assetSource: String? = nil) {
         guard !isInitializingOrInitialized else {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.log("In-App Form is already either initializing or initialized; ignoring request.")
+                Logger.webViewLogger.log(
+                    "In-App Form is already either initializing or initialized; ignoring request."
+                )
             }
             return
         }
@@ -108,8 +81,8 @@ class IAFPresentationManager {
             guard let self, let eventsStream = companyObserver?.eventsStream else { return }
             for await event in eventsStream {
                 switch event {
-                case let .apiKeyUpdated(key):
-                    reinitializeIAFForNewAPIKey(key, configuration: configuration)
+                case let .apiKeyUpdated(apiKey):
+                    handleAPIKey(apiKey)
                 case .error:
                     // optionally handle/log
                     break
@@ -118,368 +91,152 @@ class IAFPresentationManager {
         }
     }
 
-    private func initializeFormWithAPIKey() async throws {
+    /// Handles the API key becoming available or changing.
+    ///
+    /// Note this fires with the *current* value when the observer subscribes, not only on a
+    /// change, so this is also the path that builds the very first session.
+    private func handleAPIKey(_ apiKey: String) {
+        if let session {
+            guard session.apiKey != apiKey else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("✅ Session already exists with same API key, skipping reinit")
+                }
+                return
+            }
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("🔄 API key changed; rebuilding forms session")
+            }
+        } else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
+            }
+        }
+
+        startSession(apiKey: apiKey)
+        startLifecycleObservation()
+    }
+
+    /// Builds a fresh session, releasing any previous one.
+    private func startSession(apiKey: String) {
+        presenter.cancelDelayedPresentation()
+
+        // Releasing the old session tears down its webview, observer and tasks.
+        session = nil
+
+        session = FormsSession(
+            apiKey: apiKey,
+            assetSource: assetSource,
+            callbacks: FormsSession.Callbacks(
+                present: { [weak self] viewController, layout in
+                    self?.presenter.present(viewController, layout: layout)
+                },
+                dismiss: { [weak self] viewController in
+                    self?.presenter.dismiss(viewController)
+                },
+                abort: { [weak self] in
+                    self?.endSession()
+                }
+            )
+        )
+    }
+
+    /// Rebuilds the session using the API key currently in config.
+    private func restartSession() {
         guard let apiKey = SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
-            throw SDKError.notInitialized
-        }
-        try await createFormWebViewAndListen(apiKey: apiKey)
-    }
-
-    func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = IdentityStore.shared.current
-        createFormWebView(apiKey: apiKey, profileData: profileData)
-        setupFormLifecycleListener()
-    }
-
-    /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?) {
-        guard let fileUrl = indexHtmlFileUrl else { return }
-
-        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
-        self.viewModel = viewModel
-        viewController = KlaviyoWebViewController(viewModel: viewModel)
-        viewController?.modalPresentationStyle = .overCurrentContext
-    }
-
-    // MARK: - Form Lifecycle Listener Setup
-
-    func setupFormLifecycleListener() {
-        guard let viewModel else { return }
-
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("👂 Starting to listen for form lifecycle events (BEFORE handshake)")
-        }
-
-        // Start listening for form lifecycle events before handshake to avoid missing any events
-        formEventTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in viewModel.formLifecycleStream {
-                self.handleFormEvent(event)
-            }
-        }
-
-        Task { [weak self] in
-            guard let self else { return }
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("🤝 Starting handshake with KlaviyoJS")
-            }
-            do {
-                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("✅ Handshake completed successfully.")
-                }
-            } catch {
-                if #available(iOS 14.0, *) { Logger.webViewLogger.warning("❌ Unable to establish handshake with KlaviyoJS: \(error).") }
-                destroyWebviewAndListeners()
-            }
-        }
-    }
-
-    func handleFormEvent(_ event: IAFLifecycleEvent) {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
-        }
-        switch event {
-        case .handShook:
-            // Handshake complete - webview is ready, start observing profile events
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
-            }
-            startProfileObservation()
-        case let .present(withLayout: layout):
-            presentForm(layout: layout)
-        case .dismiss:
-            dismissForm()
-        case .abort:
-            destroyWebviewAndListeners()
-        }
-    }
-
-    // MARK: - Lifecycle Event Handling
-
-    func handleLifecycleEvent(_ event: String) async throws {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to dispatch '\(event, privacy: .public)' lifecycle event via Klaviyo.JS")
-        }
-
-        do {
-            let result = try await viewController?.evaluateJavaScript("dispatchLifecycleEvent('\(event)')")
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully dispatched lifecycle event via Klaviyo.JS\(result != nil ? "; message: \(result.debugDescription)" : "")")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error dispatching lifecycle event via Klaviyo.JS; message: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    // MARK: - Profile Event Handling
-
-    /// Starts observing profile events from the KlaviyoCore event bus.
-    func startProfileObservation() {
-        guard profileEventObserver == nil else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.log("Profile observer already exists; skipping.")
+                Logger.webViewLogger.warning("Cannot rebuild forms session: SDK is not initialized.")
             }
             return
         }
-
-        profileEventObserver = ProfileEventObserver()
-        profileEventObserver?.startObserving()
-
-        profileEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = profileEventObserver?.eventsStream else { return }
-            for await event in eventsStream {
-                try await handleProfileEventCreated(event)
-            }
-        }
-
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("👂 Started observing profile events. Buffered events will now be replayed.")
-        }
+        startSession(apiKey: apiKey)
     }
 
-    func handleProfileEventCreated(_ event: Event) async throws {
-        guard let viewController = viewController else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("⚠️ Received event but webview is nil (this shouldn't happen)")
-            }
-            return
-        }
-
-        do {
-            // Safely convert metric to a JSON string or null
-            let metricData = try KlaviyoEnvironment.encoder.encode(event.metric.name.value)
-            let metric = String(data: metricData, encoding: .utf8) ?? "null"
-
-            // Safely convert uniqueID to a JSON string or null
-            let uniqueIdData = try KlaviyoEnvironment.encoder.encode(event.uniqueId)
-            let uniqueId = String(data: uniqueIdData, encoding: .utf8) ?? "null"
-
-            // Convert date to JSON, formatting with ISO8601 (which is always in UTC)
-            let timestampData = try KlaviyoEnvironment.encoder.encode(event.time)
-            let timestamp = String(data: timestampData, encoding: .utf8) ?? "null"
-
-            // Get event's value as JSON or null
-            let valueData = try KlaviyoEnvironment.encoder.encode(event.value)
-            let value = String(data: valueData, encoding: .utf8) ?? "null"
-
-            // Convert properties to JSON string to ensure proper object serialization, default to empty dict if serialization fails
-            var propertiesJSON = "{}"
-            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties) {
-                propertiesJSON = String(data: propertiesData, encoding: .utf8) ?? propertiesJSON
-            }
-
-            // JSON encoding adds the necessary quotes to strings, and escapes unsafe chars, so no need to add add single quotes
-            _ = try await viewController.evaluateJavaScript("dispatchProfileEvent(\(metric), \(uniqueId), \(timestamp), \(value), \(propertiesJSON))")
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("❌ Error dispatching event via Klaviyo.JS; message: \(error.localizedDescription)")
-            }
-        }
+    private func endSession() {
+        presenter.cancelDelayedPresentation()
+        session = nil
     }
 
-    // MARK: - API Key Event Handling
+    // MARK: - App Lifecycle Observation
 
-    private func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
+    private func startLifecycleObservation() {
+        // Replacing an existing observation would leak the previous task.
+        guard lifecycleObserver == nil else { return }
 
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("🔄 reinitializeIAFForNewAPIKey called. viewController exists: \(self.viewController != nil)")
-            }
+        let observer = LifecycleObserver()
+        observer.startObserving()
+        lifecycleObserver = observer
 
-            if viewController != nil {
-                if let viewModel, viewModel.apiKey == apiKey {
-                    // if viewController/viewModel already exist and the viewModel's
-                    // API key matches the one we just received, do nothing
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("✅ Webview already exists with same API key, skipping reinit")
-                    }
-                    return
-                } else {
-                    await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
-                }
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
-                }
-                try await self.createFormWebViewAndListen(apiKey: apiKey)
-                startLifecycleObservation()
-            }
-        }
-    }
-
-    /// Dismisses and re-initializes the In-App Form when the public API key changes.
-    private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
-        destroyWebView()
-        formEventTask?.cancel()
-        formEventTask = nil
-        lifecycleObserver?.stopObserving()
-        profileEventObserver?.stopObserving()
-        profileEventObserver = nil
-        profileEventsTask?.cancel()
-        profileEventsTask = nil
-
-        do {
-            try await createFormWebViewAndListen(apiKey: apiKey)
-            startLifecycleObservation()
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func startLifecycleObservation() {
-        lifecycleObserver = LifecycleObserver()
-        lifecycleObserver?.startObserving()
         lifecycleEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = lifecycleObserver?.eventsStream else { return }
-            for await event in eventsStream {
-                switch event {
-                case .foregrounded:
-                    try await self.handleLifecycleEvent("foreground")
-                    if self.lastBackgrounded != nil {
-                        if isSessionExpired {
-                            if #available(iOS 14.0, *) {
-                                Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
-                            }
-                            self.destroyWebView()
-                            try await self.initializeFormWithAPIKey()
-                        }
-                    } else {
-                        // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
-                        // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
-                        // This check ensures that don't reinitialize in this situation.
-                        if self.viewController == nil {
-                            // fresh launch
-                            try await self.initializeFormWithAPIKey()
-                        }
-                    }
-                case .backgrounded:
-                    self.lastBackgrounded = Date()
-                    try? await self.handleLifecycleEvent("background")
+            for await event in observer.eventsStream {
+                guard let self else { return }
+                await handleAppLifecycleEvent(event)
+            }
+        }
+    }
+
+    /// Handles one app lifecycle transition. Non-throwing by construction, so a failure handling
+    /// a single event can't break out of the `for await` loop and silently disable all future
+    /// foreground/background handling.
+    private func handleAppLifecycleEvent(_ event: LifecycleObserver.Event) async {
+        switch event {
+        case .foregrounded:
+            await handleForegrounded()
+        case .backgrounded:
+            lastBackgrounded = Date()
+            await session?.dispatchLifecycleEvent("background")
+        }
+    }
+
+    private func handleForegrounded() async {
+        await session?.dispatchLifecycleEvent("foreground")
+
+        if lastBackgrounded != nil {
+            if isSessionExpired {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info(
+                        "App session has exceeded timeout duration; re-initializing IAF"
+                    )
                 }
+                restartSession()
+            }
+        } else {
+            // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
+            // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
+            // This check ensures that we don't reinitialize in this situation.
+            if session == nil {
+                // fresh launch
+                restartSession()
             }
         }
     }
 
     private var isSessionExpired: Bool {
-        guard let lastBackgrounded, let timeoutDuration = configuration?.sessionTimeoutDuration else { return false }
+        guard let lastBackgrounded,
+              let timeoutDuration = configuration?.sessionTimeoutDuration
+        else { return false }
         let timeElapsed = Date().timeIntervalSince(lastBackgrounded)
         return timeElapsed > timeoutDuration
     }
 
-    // MARK: - View Lifecycle
-
-    private func presentForm(layout: FormLayout?) {
-        guard let viewController else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("KlaviyoWebViewController is nil; ignoring `presentForm()` request")
-            }
-            return
-        }
-
-        if let layout, layout.position != .fullscreen {
-            // Flexible form: use window manager
-            delayedPresentationTask?.cancel()
-            delayedPresentationTask = nil
-            InAppWindowManager.shared.present(viewController: viewController, layout: layout)
-        } else {
-            // Fullscreen form: use modal presentation
-            presentFormAsModal(viewController: viewController)
-        }
-    }
-
-    private func presentFormAsModal(viewController: KlaviyoWebViewController) {
-        guard let topController = UIApplication.shared.topMostViewController else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Unable to access topMostViewController; ignoring `presentForm()` request.")
-            }
-            self.viewController = nil
-            return
-        }
-
-        if topController is UIAlertController {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Alert is currently being displayed. Delaying form presentation until alert is dismissed.")
-            }
-
-            // We'll recursively call `presentForm()` after a short delay.
-            // Cancel any in-flight delayed task before starting a new one.
-            delayedPresentationTask?.cancel()
-            delayedPresentationTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                try? Task.checkCancellation()
-                self.presentForm(layout: nil)
-            }
-        } else {
-            if topController.isKlaviyoVC || topController.hasKlaviyoVCInStack {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("In-App Form is already being presented; ignoring request")
-                }
-            } else {
-                topController.present(viewController, animated: false, completion: nil)
-            }
-        }
-    }
-
-    func dismissForm() {
-        guard let viewController else { return }
-        performDismiss(viewController: viewController)
-    }
-
     // MARK: - Cleanup & Destruction
-
-    func destroyWebView() {
-        guard let viewController else { return }
-
-        performDismiss(viewController: viewController)
-
-        self.viewController = nil
-        viewModel = nil
-    }
-
-    private func performDismiss(viewController: KlaviyoWebViewController) {
-        if InAppWindowManager.shared.hasActiveWindow {
-            // Flexible form: dismiss window
-            InAppWindowManager.shared.dismiss()
-        } else {
-            // Fullscreen form: dismiss modal
-            viewController.dismiss(animated: false, completion: nil)
-        }
-    }
 
     func destroyWebviewAndListeners() {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
+
+        lifecycleEventsTask?.cancel()
+        lifecycleEventsTask = nil
+        lifecycleObserver?.stopObserving()
         lifecycleObserver = nil
+        lastBackgrounded = nil
+
+        companyEventsTask?.cancel()
+        companyEventsTask = nil
+        companyObserver?.stopObserving()
         companyObserver = nil
-        profileEventObserver = nil
-        profileEventsTask?.cancel()
-        formEventTask?.cancel()
-        delayedPresentationTask?.cancel()
-        formEventTask = nil
-        delayedPresentationTask = nil
-        destroyWebView()
-    }
-}
 
-// MARK: - UI helpers
-
-extension UIViewController {
-    fileprivate var isKlaviyoVC: Bool {
-        self is KlaviyoWebViewController
-    }
-
-    fileprivate var hasKlaviyoVCInStack: Bool {
-        guard let navigationController = navigationController else {
-            return false
-        }
-        return navigationController.viewControllers.contains(where: \.isKlaviyoVC)
+        endSession()
     }
 }
