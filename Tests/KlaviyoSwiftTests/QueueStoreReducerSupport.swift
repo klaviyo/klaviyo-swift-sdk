@@ -21,8 +21,9 @@ func seedTestQueueStore(apiKey: String, initial: [KlaviyoRequest] = []) -> () ->
     return registerTestQueueStore(apiKey: apiKey, initial: initial)
 }
 
-/// Registers an additional in-memory spy store for `apiKey` WITHOUT clearing the registry, so a
-/// test that exercises more than one apiKey (e.g. a company switch) can back each key's queue.
+/// Registers an in-memory spy as the single shared QueueStore, replacing whatever was there.
+/// The `apiKey` parameter is accepted for signature compatibility but ignored — there is only one
+/// shared store now, so this cannot back two keys' queues separately. Prefer `seedTestQueueStore`.
 @discardableResult
 func registerTestQueueStore(apiKey: String, initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
     var stored = initial

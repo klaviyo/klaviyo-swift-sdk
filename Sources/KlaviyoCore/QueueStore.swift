@@ -29,12 +29,13 @@ struct PersistedQueue: Codable, Equatable {
 }
 
 public final class QueueStore {
+    /// Max queued requests. Now a single shared cap across all companies (one queue file). (MAGE-1192)
     public static let maxQueueSize = 200
 
     /// Coalescing window for `.debounced` persistence.
     static let debounceInterval: TimeInterval = 1.0
 
-    /// Disk-I/O seam. Production reads/writes `klaviyo-{apiKey}-queue.json`; tests inject a fake.
+    /// Disk-I/O seam. Production reads/writes `klaviyo-queue.json`; tests inject a fake.
     public struct DiskIO {
         public var load: () throws -> [KlaviyoRequest]
         public var save: ([KlaviyoRequest]) throws -> Void
@@ -56,8 +57,7 @@ public final class QueueStore {
         }
 
         /// Production scheduler: each accessor gets its own serial queue, so the store that
-        /// captures it at init keeps its writes ordered. (Each store captures this exactly once;
-        /// distinct apiKey stores write distinct files, so they need no shared ordering.)
+        /// captures it at init keeps its writes ordered. (The shared singleton captures this once.)
         static var production: Self {
             let queue = DispatchQueue(label: "com.klaviyo.queuestore.persist")
             return Self { delay, work in
@@ -88,9 +88,9 @@ public final class QueueStore {
     private var pendingDebounceToken = 0
     private var debounceSeq = 0
 
-    /// Ungated production entry point: one store per apiKey, backed by that key's queue file.
-    public convenience init(apiKey: String) {
-        self.init(diskIO: .production(apiKey: apiKey),
+    /// Ungated production entry point: one shared store backed by `klaviyo-queue.json`.
+    public convenience init() {
+        self.init(diskIO: .production,
                   scheduler: .production,
                   emitWarning: { environment.emitDeveloperWarning($0) })
     }
@@ -268,45 +268,44 @@ public final class QueueStore {
 }
 
 extension QueueStore {
-    private static let registryLock = UnfairLock()
-    private static var registry: [String: QueueStore] = [:]
+    private static let sharedLock = UnfairLock()
+    private static var sharedStore: QueueStore?
 
-    /// Resolves the current apiKey from `SDKConfigStore` and returns the (cached) store for it,
-    /// or `nil` if no apiKey is set yet (buffering pre-apiKey events is handled elsewhere).
-    public static func current() -> QueueStore? {
-        SDKConfigStore.shared.current.apiKey.map(store(for:))
-    }
-
-    /// Returns the (cached) store for a specific apiKey, creating it on first use. Callers that
-    /// have already captured an apiKey use this instead of ``current()`` so queue resolution can't
-    /// race a concurrent `SDKConfigStore` change — a request built for one key always lands in that
-    /// key's queue, never another key's or dropped.
-    public static func store(for apiKey: String) -> QueueStore {
-        registryLock.withLock {
-            if let existing = registry[apiKey] { return existing }
-            let store = QueueStore(apiKey: apiKey)
-            registry[apiKey] = store
+    /// The single shared store, lazily created.
+    private static func resolveShared() -> QueueStore {
+        sharedLock.withLock {
+            if let existing = sharedStore { return existing }
+            let store = QueueStore()
+            sharedStore = store
             return store
         }
     }
 
-    /// Test-support: injects a pre-built store for an apiKey so reducer tests can back the queue
-    /// with an in-memory spy instead of the production disk-backed store.
-    package static func register(_ store: QueueStore, for apiKey: String) {
-        registryLock.withLock { registry[apiKey] = store }
+    /// Returns the shared store when an apiKey is set (pre-init flushing stays gated), else nil.
+    public static func current() -> QueueStore? {
+        SDKConfigStore.shared.current.apiKey == nil ? nil : resolveShared()
     }
 
-    /// Test-support: clears the per-apiKey instance cache.
+    /// Single-queue: the apiKey is not load-bearing (each request self-tags its key); returns the
+    /// shared store. Parameter retained so existing call sites and `LegacyStateMigration` are unchanged.
+    public static func store(for _: String) -> QueueStore { resolveShared() }
+
+    /// Test-support: back the shared queue with an in-memory spy. `apiKey` retained, ignored.
+    package static func register(_ store: QueueStore, for _: String = "") {
+        sharedLock.withLock { sharedStore = store }
+    }
+
+    /// Test-support: clears the shared instance.
     package static func resetRegistry() {
-        registryLock.withLock { registry.removeAll() }
+        sharedLock.withLock { sharedStore = nil }
     }
 }
 
 extension QueueStore.DiskIO {
-    static func production(apiKey: String) -> Self {
+    static var production: Self {
         func fileURL() -> URL {
             environment.fileClient.applicationSupportDirectory()
-                .appendingPathComponent("klaviyo-\(apiKey)-queue.json", isDirectory: false)
+                .appendingPathComponent("klaviyo-queue.json", isDirectory: false)
         }
         return Self(
             load: {

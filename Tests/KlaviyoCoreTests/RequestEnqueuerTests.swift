@@ -305,7 +305,7 @@ final class RequestEnqueuerTests: XCTestCase {
         // Buffer file must be gone.
         XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
         // Queue must be durable on disk (synchronous final enqueue).
-        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json")
+        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-queue.json")
         XCTAssertEqual(onDisk?.requests.count, 1)
     }
 
