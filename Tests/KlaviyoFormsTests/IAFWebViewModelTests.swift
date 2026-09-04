@@ -155,7 +155,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -409,37 +409,211 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 
+    // MARK: - trackProfileEvent Tests
+
+    /// Sends a `trackProfileEvent` bridge message carrying `data`, and returns every command
+    /// that reached the Core `EventDispatcher`.
     @MainActor
-    func testTrackProfileEventDispatchesCreateEvent() throws {
-        // Given - a spy registered as the inbound-dispatch target
+    private func sendTrackProfileEvent(data: String) -> [InboundCommand] {
         let spyDispatcher = SpyDispatcher()
         EventDispatcher.shared.register(spyDispatcher)
         defer { EventDispatcher.shared.reset() }
 
-        // When - JS sends a trackProfileEvent bridge message
-        let scriptMessage = MockWKScriptMessage(
+        viewModel.handleScriptMessage(MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
-            body: """
-            {
-              "type": "trackProfileEvent",
-              "data": {
-                "metric": "Viewed Product",
-                "foo": "bar"
-              }
-            }
-            """
-        )
-        viewModel.handleScriptMessage(scriptMessage)
+            body: "{ \"type\": \"trackProfileEvent\", \"data\": \(data) }"
+        ))
 
-        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
-        guard spyDispatcher.received.count == 1 else {
-            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        return spyDispatcher.received
+    }
+
+    /// The `Event` dispatched for a `trackProfileEvent` message, or `nil` if the message
+    /// produced anything other than exactly one `.createEvent` command.
+    @MainActor
+    private func createdEvent(from data: String) -> Event? {
+        let received = sendTrackProfileEvent(data: data)
+        guard received.count == 1, case let .createEvent(event) = received[0] else { return nil }
+        return event
+    }
+
+    @MainActor
+    func testTrackProfileEventFlattensNestedProperties() throws {
+        // Given/When - the payload onsite sends: a metric plus a nested property object
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": {
+            "form_id": "1",
+            "form_version_id": 2,
+            "channel_type": "IN_APP",
+            "foo": "bar"
+          }
         }
-        guard case let .createEvent(event) = spyDispatcher.received[0] else {
-            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
-        }
-        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        """))
+
+        // Then - the nested object becomes the event's properties, flat and unwrapped
+        XCTAssertEqual(event.metric.name, .customEvent("Form completed by profile"))
+        XCTAssertEqual(event.properties["form_id"] as? String, "1")
+        XCTAssertEqual(event.properties["form_version_id"] as? Int, 2)
+        XCTAssertEqual(event.properties["channel_type"] as? String, "IN_APP")
         XCTAssertEqual(event.properties["foo"] as? String, "bar")
+        XCTAssertEqual(event.properties.count, 4)
+        XCTAssertNil(event.properties["metric"], "envelope keys must not become event properties")
+        XCTAssertNil(event.properties["properties"], "properties must be flattened, not nested")
+    }
+
+    @MainActor
+    func testTrackProfileEventIgnoresHoistedSiblings() throws {
+        // Given/When - the nested object plus the same keys repeated at the top level
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": {
+            "form_id": "1",
+            "form_version_id": 2,
+            "channel_type": "IN_APP"
+          },
+          "form_id": "1",
+          "form_version_id": 2,
+          "channel_type": "IN_APP"
+        }
+        """))
+
+        // Then - only the nested object is read; the top-level duplicates change nothing
+        XCTAssertEqual(event.properties["form_id"] as? String, "1")
+        XCTAssertEqual(event.properties["form_version_id"] as? Int, 2)
+        XCTAssertEqual(event.properties["channel_type"] as? String, "IN_APP")
+        XCTAssertEqual(event.properties.count, 3)
+    }
+
+    @MainActor
+    func testTrackProfileEventHonorsValueAndUniqueId() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Placed Order",
+          "properties": { "form_id": "1" },
+          "value": 9.99,
+          "unique_id": "form-event-1"
+        }
+        """))
+
+        // Then - both ride the top level of the envelope, not the property bag
+        XCTAssertEqual(event.value, 9.99)
+        XCTAssertEqual(event.uniqueId, "form-event-1")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertNil(event.properties["value"])
+        XCTAssertNil(event.properties["unique_id"])
+    }
+
+    @MainActor
+    func testTrackProfileEventHonorsValueCurrency() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Placed Order",
+          "properties": { "form_id": "1" },
+          "value": 9.99,
+          "value_currency": "CAD"
+        }
+        """))
+
+        // Then - the currency rides the top level of the envelope, not the property bag
+        XCTAssertEqual(event.value, 9.99)
+        XCTAssertEqual(event.valueCurrency, "CAD")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertNil(event.properties["value_currency"])
+    }
+
+    @MainActor
+    func testTrackProfileEventOmitsValueCurrencyWhenAbsent() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": 9.99 }
+        """))
+
+        // Then
+        XCTAssertNil(event.valueCurrency)
+    }
+
+    @MainActor
+    func testTrackProfileEventAcceptsIntegerValue() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": 10 }
+        """))
+
+        // Then
+        XCTAssertEqual(event.value, 10)
+    }
+
+    @MainActor
+    func testTrackProfileEventIgnoresNonNumericValue() throws {
+        // Given/When - `value` is a string, a shape the v2 contract (`value?: number`) does not allow
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": "9.99" }
+        """))
+
+        // Then - the event still dispatches, without a value
+        XCTAssertNil(event.value)
+    }
+
+    @MainActor
+    func testTrackProfileEventDefaultsValueAndUniqueIdWhenAbsent() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": { "form_id": "1" }
+        }
+        """))
+
+        // Then - no value, and a generated unique id (fixed by the test environment)
+        XCTAssertNil(event.value)
+        XCTAssertEqual(event.uniqueId, "00000000-0000-0000-0000-000000000001")
+    }
+
+    @MainActor
+    func testTrackProfileEventWithFlatPayloadDropsTopLevelKeys() throws {
+        // Given/When - a flat payload, with no nested property object
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Viewed Product",
+          "foo": "bar"
+        }
+        """))
+
+        // Then - the metric is still tracked, but top-level keys are not event properties
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertTrue(event.properties.isEmpty)
+    }
+
+    @MainActor
+    func testTrackProfileEventWithNonObjectPropertiesStillDispatches() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Form completed by profile", "properties": "nope" }
+        """))
+
+        // Then
+        XCTAssertEqual(event.metric.name, .customEvent("Form completed by profile"))
+        XCTAssertTrue(event.properties.isEmpty)
+    }
+
+    @MainActor
+    func testTrackProfileEventWithoutUsableMetricDispatchesNothing() {
+        // Given/When/Then - a metric that is missing, non-string, or empty produces no event
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "properties": { "form_id": "1" } }
+        """).isEmpty, "a payload with no metric must not produce an event")
+
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "metric": 42, "properties": { "form_id": "1" } }
+        """).isEmpty, "a non-string metric must not produce an event")
+
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "metric": "", "properties": { "form_id": "1" } }
+        """).isEmpty, "an empty metric must not produce an event")
     }
 }
 

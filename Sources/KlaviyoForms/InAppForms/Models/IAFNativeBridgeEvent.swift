@@ -146,9 +146,10 @@ extension IAFNativeBridgeEvent {
     }
 
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
-        // Events that JS is permitted to send. These are only used for their
-        // `name` and `version` properties — the associated values are placeholders
-        // and are never decoded.
+        // Message types and versions advertised to JS: inbound messages JS may send, plus
+        // outbound declarations (`lifecycleEvent`, `profileEvent`, `profileMutation`) for
+        // messages native sends to JS. Only `name` and `version` are read; the associated
+        // values are placeholders and are never decoded.
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
@@ -167,7 +168,7 @@ extension IAFNativeBridgeEvent {
         case .formsDataLoaded: return 1
         case .formWillAppear: return 2
         case .formDisappeared: return 1
-        case .trackProfileEvent: return 1
+        case .trackProfileEvent: return 2
         case .trackAggregateEvent: return 1
         case .openDeepLink: return 3
         case .abort: return 1
