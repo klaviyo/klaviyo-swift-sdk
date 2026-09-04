@@ -29,6 +29,9 @@ test-library:
 		exit 1; \
 	fi
 	for platform in "$(PLATFORM_IOS)"; do \
+		xcodebuild -resolvePackageDependencies \
+			-scheme klaviyo-swift-sdk-Package \
+			-destination platform="$$platform" || exit 1; \
 		env TEST_RUNNER_GITHUB_CI=$(GITHUB_CI) \
 		xcodebuild test \
 			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \

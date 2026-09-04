@@ -1,0 +1,55 @@
+{
+  "configurations" : [
+    {
+      "id" : "5FDBB8A9-8B3F-4B6F-8D5A-4E8A1D2C3B4A",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "KlaviyoSwiftTests",
+        "name" : "KlaviyoSwiftTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "KlaviyoSwiftExtensionTests",
+        "name" : "KlaviyoSwiftExtensionTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "KlaviyoLocationTests",
+        "name" : "KlaviyoLocationTests"
+      }
+    },
+    {
+      "skippedTests" : [
+        "IAFWebViewModelPreloadingTests"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "KlaviyoFormsTests",
+        "name" : "KlaviyoFormsTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "KlaviyoCoreTests",
+        "name" : "KlaviyoCoreTests"
+      }
+    }
+  ],
+  "version" : 1
+}

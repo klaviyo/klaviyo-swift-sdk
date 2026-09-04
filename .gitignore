@@ -39,7 +39,19 @@ playground.xcworkspace
 Carthage/Build
 
 # SwiftPM
-.swiftpm
+# Ignore SPM's generated state and build artifacts, but keep the package scheme
+# (xcshareddata) committable so the CI-level test plan attached to it reaches CI.
+# We ignore the known generated pieces individually rather than the whole .swiftpm
+# tree so that the negation below works (git cannot descend into a fully-ignored
+# directory).
+.swiftpm/*.bin
+.swiftpm/*.json
+.swiftpm/configuration/
+.swiftpm/Package.resolved
+.swiftpm/xcode/package.xcworkspace/
+.swiftpm/xcode/xcuserdata/
+.swiftpm/xcode/xcshareddata/xcschemes/*
+!.swiftpm/xcode/xcshareddata/xcschemes/klaviyo-swift-sdk-Package.xcscheme
 
 # AI agent local configuration files
 .claude/
