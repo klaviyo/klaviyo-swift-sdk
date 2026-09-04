@@ -29,7 +29,7 @@ final class QueueStoreRegistryTests: XCTestCase {
         let store = QueueStore.store(for: "pk-1")
         store.enqueue(KlaviyoRequest(endpoint: .createProfile("pk-1", CreateProfilePayload(data: .test))))
         XCTAssertEqual(store.count, 1)
-        XCTAssertTrue(store === QueueStore.store(for: "pk-1"), "same key returns the cached instance")
+        XCTAssertTrue(store === QueueStore.store(for: "pk-1"), "same key returns the shared instance")
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
         XCTAssertTrue(QueueStore.current() === store, "current() resolves to the shared store")
     }
