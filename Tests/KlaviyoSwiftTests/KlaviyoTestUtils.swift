@@ -23,10 +23,10 @@ let ARCHIVED_RETURNED_DATA = Data()
 func resetCanonicalCoreStores() {
     IdentityStore.shared.reset()
     SDKConfigStore.shared.reset()
-    // The per-apiKey QueueStore registry is process-global; clear it so a spy store injected by
+    // The shared QueueStore is process-global; clear it so a spy store injected by
     // `seedTestQueueStore` in one test can't bleed into the next (which would otherwise resolve a
     // stale in-memory queue instead of the empty production/disk-backed store).
-    QueueStore.resetRegistry()
+    QueueStore.resetShared()
 }
 
 /// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide

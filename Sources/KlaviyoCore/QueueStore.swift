@@ -270,8 +270,9 @@ extension QueueStore {
     private static let sharedLock = UnfairLock()
     private static var sharedStore: QueueStore?
 
-    /// The single shared store, lazily created.
-    private static func resolveShared() -> QueueStore {
+    /// The single shared store, lazily created on first access. Each `KlaviyoRequest` self-tags its
+    /// apiKey, so one queue serves every company; routing per key is unnecessary.
+    public static var shared: QueueStore {
         sharedLock.withLock {
             if let existing = sharedStore { return existing }
             let store = QueueStore()
@@ -282,20 +283,16 @@ extension QueueStore {
 
     /// Returns the shared store when an apiKey is set (pre-init flushing stays gated), else nil.
     public static func current() -> QueueStore? {
-        SDKConfigStore.shared.current.apiKey == nil ? nil : resolveShared()
+        SDKConfigStore.shared.current.apiKey == nil ? nil : shared
     }
 
-    /// Single-queue: the apiKey is not load-bearing (each request self-tags its key); returns the
-    /// shared store. Parameter retained so existing call sites and `LegacyStateMigration` are unchanged.
-    public static func store(for _: String) -> QueueStore { resolveShared() }
-
-    /// Test-support: back the shared queue with an in-memory spy. `apiKey` retained, ignored.
-    package static func register(_ store: QueueStore, for _: String = "") {
+    /// Test-support: back the shared queue with an in-memory spy.
+    package static func register(_ store: QueueStore) {
         sharedLock.withLock { sharedStore = store }
     }
 
     /// Test-support: clears the shared instance.
-    package static func resetRegistry() {
+    package static func resetShared() {
         sharedLock.withLock { sharedStore = nil }
     }
 }

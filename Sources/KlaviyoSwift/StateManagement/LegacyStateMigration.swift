@@ -48,7 +48,7 @@ private func attemptMigration(apiKey: String, legacyFile: URL, decoded: LegacySt
     IdentityStore.shared.updatePushToken(decoded.pushTokenData)
 
     do {
-        try QueueStore.store(for: apiKey).restore(decoded.queue)
+        try QueueStore.shared.restore(decoded.queue)
     } catch {
         environment.logger.error("LegacyStateMigration: failed to persist queue (\(error)).")
         return false
@@ -116,7 +116,7 @@ private func verifyMigration(apiKey: String, decoded: LegacyState) -> Bool {
         return false
     }
     // A fresh instance forces a real disk read from `klaviyo-queue.json`, decoupled from the shared
-    // registry singleton. `restore` merge-prepends the legacy backlog, but a request that raced into
+    // singleton. `restore` merge-prepends the legacy backlog, but a request that raced into
     // the queue during the init window can also front-insert (a `.high`-priority `enqueue` lands at
     // index 0), so the legacy backlog is not necessarily a positional prefix. Verify by id
     // CONTAINMENT — every legacy id is durably present — rather than by position; an exact/prefix

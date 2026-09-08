@@ -47,7 +47,7 @@ struct KlaviyoState: Equatable {
     var pushTokenData: PushTokenData?
 
     // queueing related stuff
-    // The durable pending queue lives in the Core `QueueStore` (resolved per apiKey); `KlaviyoState`
+    // The durable pending queue lives in the shared Core `QueueStore`; `KlaviyoState`
     // only holds the in-memory in-flight lease. See `QueueStore` and `enqueueRequest`.
     var requestsInFlight: [KlaviyoRequest] = []
     var initalizationState = InitializationState.uninitialized
@@ -86,15 +86,15 @@ struct KlaviyoState: Equatable {
         self.pendingProfile = pendingProfile
     }
 
-    /// Routes an enqueue to the Core `QueueStore` for the current apiKey. Front-insert for
-    /// high-priority requests and capacity/eviction live inside `QueueStore.enqueue` (keyed on
-    /// `request.priority`), so this is now a thin forwarder.
+    /// Routes an enqueue to the shared Core `QueueStore`. Front-insert for high-priority requests
+    /// and capacity/eviction live inside `QueueStore.enqueue` (keyed on `request.priority`), so this
+    /// is now a thin forwarder. Still gated on a configured apiKey (pre-init enqueues are dropped).
     mutating func enqueueRequest(request: KlaviyoRequest) {
-        guard let apiKey else {
+        guard apiKey != nil else {
             environment.emitDeveloperWarning("Attempt to enqueue without an api key.")
             return
         }
-        QueueStore.store(for: apiKey).enqueue(request)
+        QueueStore.shared.enqueue(request)
     }
 
     mutating func updateEmail(email: String) {

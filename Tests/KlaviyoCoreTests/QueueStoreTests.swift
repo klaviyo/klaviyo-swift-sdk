@@ -122,12 +122,12 @@ final class QueueStoreTests: XCTestCase {
     override func setUp() {
         super.setUp()
         SDKConfigStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
     }
 
     override func tearDown() {
         SDKConfigStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         super.tearDown()
     }
 
@@ -360,8 +360,8 @@ final class QueueStoreTests: XCTestCase {
                        "after a final synchronous flush, disk matches the in-memory queue exactly")
     }
 
-    /// Stresses the static `registryLock`: many threads resolve `current()` for the same apiKey and
-    /// must all receive the one cached instance — no torn read that mints a duplicate store.
+    /// Stresses the static `sharedLock`: many threads resolve `current()` concurrently and
+    /// must all receive the one shared instance — no torn read that mints a duplicate store.
     func testConcurrentCurrentResolvesSingleCachedInstance() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "concurrent-key"))
         let collectLock = UnfairLock()
@@ -440,16 +440,16 @@ final class QueueStoreTests: XCTestCase {
 
     // MARK: - register injection seam
 
-    func testRegisterInjectsStoreForApiKey() {
-        QueueStore.resetRegistry()
-        defer { QueueStore.resetRegistry() }
+    func testRegisterInjectsSharedStore() {
+        QueueStore.resetShared()
+        defer { QueueStore.resetShared() }
         let disk = SpyDiskIO([request("seeded")])
         let injected = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
 
-        QueueStore.register(injected, for: "abc")
+        QueueStore.register(injected)
 
-        XCTAssertTrue(QueueStore.store(for: "abc") === injected,
-                      "store(for:) returns the injected instance")
+        XCTAssertTrue(QueueStore.shared === injected,
+                      "shared returns the injected instance")
     }
 
     // MARK: - current() resolver
@@ -458,11 +458,11 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertNil(QueueStore.current())
     }
 
-    func testCurrentResolvesApiKeyAndCachesByKey() {
+    func testCurrentResolvesToSharedInstance() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "company-xyz"))
         let first = QueueStore.current()
         let second = QueueStore.current()
         XCTAssertNotNil(first)
-        XCTAssertTrue(first === second, "same instance cached per apiKey")
+        XCTAssertTrue(first === second, "the one shared instance")
     }
 }

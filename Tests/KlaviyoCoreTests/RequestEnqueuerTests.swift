@@ -21,14 +21,14 @@ final class RequestEnqueuerTests: XCTestCase {
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
     }
 
     override func tearDown() {
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         environment = KlaviyoEnvironment.test()
         fileIO = nil
         super.tearDown()

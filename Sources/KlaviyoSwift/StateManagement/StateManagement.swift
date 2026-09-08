@@ -200,7 +200,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     )
                     // Persist synchronously before the wipe below so the unregister survives a
                     // crash between cold-start company switch and the first flush.
-                    QueueStore.store(for: previousApiKey).enqueue(request, persist: .synchronous)
+                    QueueStore.shared.enqueue(request, persist: .synchronous)
                 }
                 IdentityStore.shared.updatePushToken(nil)
                 if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
@@ -363,13 +363,13 @@ struct KlaviyoReducer: ReducerProtocol {
             if state.pendingProfile != nil {
                 state.enqueueProfileOrTokenRequest()
             }
-            guard let apiKey = state.apiKey else {
+            guard state.apiKey != nil else {
                 return .none
             }
             // Lease the durable pending queue into the in-memory in-flight set: `drainAll` atomically
             // snapshots + clears the store (parity with the former `append(contentsOf:)` +
             // `removeAll`). In-flight stays an in-memory reducer field.
-            let batch = QueueStore.store(for: apiKey).drainAll()
+            let batch = QueueStore.shared.drainAll()
             if batch.isEmpty {
                 return .none
             }
@@ -485,8 +485,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
             // the process ends within a debounce window (this runs on `.stop`/background) the batch
             // would be lost from both memory and disk. Write it before returning.
-            if let apiKey = state.apiKey, !state.requestsInFlight.isEmpty {
-                QueueStore.store(for: apiKey).prepend(state.requestsInFlight, persist: .synchronous)
+            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
+                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
             }
             state.requestsInFlight = []
             return .none
@@ -533,8 +533,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
             // the process ends within a debounce window (this runs on `.stop`/background) the batch
             // would be lost from both memory and disk. Write it before returning.
-            if let apiKey = state.apiKey, !state.requestsInFlight.isEmpty {
-                QueueStore.store(for: apiKey).prepend(state.requestsInFlight, persist: .synchronous)
+            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
+                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
             }
             state.requestsInFlight = []
             return .none

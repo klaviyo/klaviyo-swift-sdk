@@ -43,7 +43,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let newApiKey = "new-api-key"
         // Single shared queue: both the unregister (built while state.apiKey is still the old key)
         // and the token-register (built after the switch to the new key) land in the same queue.
-        let readQueue = seedTestQueueStore(apiKey: oldApiKey)
+        let readQueue = seedTestQueueStore()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -532,7 +532,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request])
+        let readQueue = seedTestQueueStore(initial: [request])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {

@@ -12,20 +12,19 @@ final class ThreadSafeBox<Value>: @unchecked Sendable {
     }
 }
 
-/// Backs `QueueStore.store(for:)` with an in-memory queue for reducer tests, since the reducer
+/// Backs the shared `QueueStore` with an in-memory queue for reducer tests, since the reducer
 /// resolves the production disk-backed store and `.test` file stubs are no-ops. Returns the
 /// live backing array getter so tests can assert queue contents.
 @discardableResult
-func seedTestQueueStore(apiKey: String, initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
-    QueueStore.resetRegistry()
-    return registerTestQueueStore(apiKey: apiKey, initial: initial)
+func seedTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
+    QueueStore.resetShared()
+    return registerTestQueueStore(initial: initial)
 }
 
 /// Registers an in-memory spy as the single shared QueueStore, replacing whatever was there.
-/// The `apiKey` parameter is accepted for signature compatibility but ignored — there is only one
-/// shared store now, so this cannot back two keys' queues separately. Prefer `seedTestQueueStore`.
+/// Prefer `seedTestQueueStore`, which resets first.
 @discardableResult
-func registerTestQueueStore(apiKey: String, initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
+func registerTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
     var stored = initial
     let lock = NSLock()
     let io = QueueStore.DiskIO(
@@ -35,18 +34,18 @@ func registerTestQueueStore(apiKey: String, initial: [KlaviyoRequest] = []) -> (
     // Fire debounced persists immediately so tests observe writes without wall-clock waits.
     let scheduler = QueueStore.PersistScheduler { _, work in work() }
     let store = QueueStore(diskIO: io, scheduler: scheduler, emitWarning: { _ in })
-    QueueStore.register(store, for: apiKey)
+    QueueStore.register(store)
     return { lock.lock(); defer { lock.unlock() }; return stored }
 }
 
-/// Registers a recording spy `QueueStore` for `apiKey` that accumulates every request ever
-/// persisted (appending each `save` call), so drain-then-flush sequences are fully observable.
-/// Resets the registry first (like `seedTestQueueStore`) — call before other registrations.
+/// Registers a recording spy `QueueStore` that accumulates every request ever persisted
+/// (appending each `save` call), so drain-then-flush sequences are fully observable. Resets the
+/// shared store first (like `seedTestQueueStore`) — call before other registrations.
 /// Returns a closure that reads the accumulated recorded batches.
 @discardableResult
-func registerRecordingQueueStore(apiKey: String) -> () -> [KlaviyoRequest] {
+func registerRecordingQueueStore() -> () -> [KlaviyoRequest] {
     let recorded = ThreadSafeBox<[KlaviyoRequest]>([])
-    QueueStore.resetRegistry()
+    QueueStore.resetShared()
     let io = QueueStore.DiskIO(
         load: { [] },
         save: { new in recorded.mutate { $0.append(contentsOf: new) } }
@@ -56,6 +55,6 @@ func registerRecordingQueueStore(apiKey: String) -> () -> [KlaviyoRequest] {
         scheduler: QueueStore.PersistScheduler { _, work in work() },
         emitWarning: { _ in }
     )
-    QueueStore.register(spy, for: apiKey)
+    QueueStore.register(spy)
     return { recorded.value }
 }

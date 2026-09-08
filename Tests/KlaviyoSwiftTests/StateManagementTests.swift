@@ -78,7 +78,7 @@ class StateManagementTests: StateManagementTestCase {
             libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-init-migration-test/library")
         )
         environment = fakeEnvironment.makeEnvironment()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
 
         let apiKey = "migration-init-key"
         let pushToken = PushTokenData(
@@ -121,7 +121,7 @@ class StateManagementTests: StateManagementTestCase {
             sentRequestIds.value.contains("legacy-a"),
             "migrated request must flush via the QueueStore"
         )
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests, [], "migrated queue drains on flush")
+        XCTAssertEqual(QueueStore.shared.requests, [], "migrated queue drains on flush")
         // The legacy state file is deleted by migration once all stores are verified; no further
         // assertions on file shape are needed (KlaviyoState is no longer Codable).
     }
@@ -131,7 +131,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -154,7 +154,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -177,7 +177,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -202,7 +202,7 @@ class StateManagementTests: StateManagementTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
         initialState.flushing = false
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -229,7 +229,7 @@ class StateManagementTests: StateManagementTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
         initialState.flushing = false
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -267,7 +267,7 @@ class StateManagementTests: StateManagementTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
         initialState.flushing = false
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -306,7 +306,7 @@ class StateManagementTests: StateManagementTestCase {
     func testSetPushEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -333,8 +333,8 @@ class StateManagementTests: StateManagementTestCase {
         resetCanonicalCoreStores()
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         // Seed AFTER resetting the canonical stores — `resetCanonicalCoreStores` clears the
-        // QueueStore registry, which would otherwise drop the spy injected here.
-        let readQueue = seedTestQueueStore(apiKey: apiKey, initial: [request])
+        // shared QueueStore, which would otherwise drop the spy injected here.
+        let readQueue = seedTestQueueStore(initial: [request])
 
         var initialState = KlaviyoState(requestsInFlight: [])
         initialState.apiKey = apiKey
@@ -402,7 +402,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request, request2])
+        let readQueue = seedTestQueueStore(initial: [request, request2])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -432,7 +432,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request, request2])
+        seedTestQueueStore(initial: [request, request2])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.flushQueue) {
@@ -447,7 +447,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.flushing = false
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request, request2])
+        seedTestQueueStore(initial: [request, request2])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -524,7 +524,7 @@ class StateManagementTests: StateManagementTestCase {
         let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
         initialState.requestsInFlight = [request, request2]
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -545,7 +545,7 @@ class StateManagementTests: StateManagementTestCase {
     func testFlushWithPendingProfile() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.flushing = false
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -628,7 +628,7 @@ class StateManagementTests: StateManagementTestCase {
     func testSetProfileWithExistingProperties() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
-        seedTestQueueStore(apiKey: initialState.apiKey!)
+        seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -642,7 +642,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetProfileWithAllProfileIdentifiersAndProperties() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -673,7 +673,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testCreateProfileWithTrailingWhitespaceProperties() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
         _ = await store.send(.enqueueProfile(Profile(email: "foo@blob.com ", phoneNumber: "+19999999999     ", externalId: "abcdefg    "))) {
@@ -709,7 +709,7 @@ class StateManagementTests: StateManagementTestCase {
     func testEnqueueEvents() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "555BLOB"
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -784,7 +784,7 @@ class StateManagementTests: StateManagementTestCase {
 
         // Record every request the QueueStore ever persists, so the assertion is robust against the
         // post-init flush leasing (then dequeuing) the drained request out of the live backing array.
-        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        let recorded = registerRecordingQueueStore()
 
         let store = TestStore(
             initialState: KlaviyoState(requestsInFlight: []),
@@ -864,7 +864,7 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(tokens.first?.data.attributes.token, token)
         XCTAssertEqual(tokens.first?.data.attributes.profile.data.attributes.email, email)
 
-        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        let recorded = registerRecordingQueueStore()
         await store.send(.initialize(TEST_API_KEY))
         await store.receive(
             .completeInitialization(KlaviyoState(requestsInFlight: [])), timeout: TIMEOUT_NANOSECONDS
@@ -987,7 +987,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testEnqueueAggregateEvent() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -1020,7 +1020,7 @@ class StateManagementTests: StateManagementTestCase {
         // Add some existing requests to the queue
         let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
-        seedTestQueueStore(apiKey: initialState.apiKey!, initial: [existingRequest1, existingRequest2])
+        seedTestQueueStore(initial: [existingRequest1, existingRequest2])
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1110,7 +1110,7 @@ class StateManagementTests: StateManagementTestCase {
             apiKey: apiKey,
             profile: ProfilePayload(email: "test@example.com", anonymousId: anonymousId)
         )
-        let readQueue = seedTestQueueStore(apiKey: apiKey)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -1142,7 +1142,7 @@ class StateManagementTests: StateManagementTestCase {
                 anonymousId: anonymousId
             )
         )
-        let readQueue = seedTestQueueStore(apiKey: apiKey)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -1216,7 +1216,7 @@ class StateManagementTests: StateManagementTestCase {
     func testEnqueueSubscriptionMissingIdentifiersDoesNotEnqueue() async throws {
         let expectation = expectSubscriptionWarning(containing: "at least one identifier")
         let initialState = INITIALIZED_TEST_STATE()
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription.allAvailableMarketing(listId: "list-123")))
@@ -1236,7 +1236,7 @@ class StateManagementTests: StateManagementTestCase {
             apiKey: apiKey,
             profile: ProfilePayload(phoneNumber: "+15005550006", anonymousId: anonymousId)
         )
-        let readQueue = seedTestQueueStore(apiKey: apiKey)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -1249,7 +1249,7 @@ class StateManagementTests: StateManagementTestCase {
         let expectation = expectSubscriptionWarning(containing: "none were enabled")
         var initialState = INITIALIZED_TEST_STATE()
         initialState.email = "test@example.com"
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init())))
@@ -1262,7 +1262,7 @@ class StateManagementTests: StateManagementTestCase {
         let expectation = expectSubscriptionWarning(containing: "requires an email")
         var initialState = INITIALIZED_TEST_STATE()
         initialState.phoneNumber = "+15005550006"
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(email: .marketing))))
@@ -1275,7 +1275,7 @@ class StateManagementTests: StateManagementTestCase {
         let expectation = expectSubscriptionWarning(containing: "requires a phone number")
         var initialState = INITIALIZED_TEST_STATE()
         initialState.email = "test@example.com"
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         await store.send(.enqueueSubscription(Subscription(listId: "list-123", channels: .init(sms: .marketing))))
@@ -1308,7 +1308,7 @@ class StateManagementTests: StateManagementTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!, initial: [existingRequest])
+        let readQueue = seedTestQueueStore(initial: [existingRequest])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         return PriorityTestScaffold(store: store, seededRequest: existingRequest, readQueue: readQueue)
     }
@@ -1464,7 +1464,7 @@ class StateManagementTests: StateManagementTestCase {
 
         // Set up a recording spy for the apiKey so we can observe every persisted request,
         // even ones that are flushed out of the live array immediately after initialization.
-        let recorded = registerRecordingQueueStore(apiKey: TEST_API_KEY)
+        let recorded = registerRecordingQueueStore()
 
         let store = TestStore(
             initialState: KlaviyoState(requestsInFlight: []),
