@@ -53,6 +53,19 @@ enum FlushGovernorConstants {
     static let cellularRefillPerSecond = 5.0
 }
 
+extension Array {
+    /// Splits the array into the elements matching `predicate` and those that don't, preserving
+    /// relative order within each group.
+    func partitioned(by predicate: (Element) -> Bool) -> (matching: [Element], rest: [Element]) {
+        var matching: [Element] = []
+        var rest: [Element] = []
+        for element in self {
+            if predicate(element) { matching.append(element) } else { rest.append(element) }
+        }
+        return (matching, rest)
+    }
+}
+
 /// A token bucket that paces outbound requests.
 ///
 /// One token is spent per HTTP request. Tokens accrue continuously at `refillPerSecond` up to
@@ -175,5 +188,22 @@ struct FlushGovernor: Equatable {
     mutating func reset() {
         tokens = capacity
         lastRefill = nil
+    }
+
+    /// Marks the bucket as frozen from `currentTime` onward, so the time spent offline accrues
+    /// nothing once connectivity returns.
+    ///
+    /// This must be driven by the connectivity change itself. The freeze branch in
+    /// `refill(currentTime:flushInterval:)` cannot carry it alone: `canSend` refills a throwaway
+    /// copy, and `.sendRequest` is unreachable while offline because `.flushQueue` returns at its
+    /// `flushInterval.isFinite` guard first. Without this call nothing advances `lastRefill` during
+    /// an outage, and the first reading after reconnect would compute elapsed time across the whole
+    /// offline stretch and grant a full burst.
+    mutating func freezeForOffline(currentTime: Date) {
+        if let last = lastRefill {
+            if currentTime > last { lastRefill = currentTime }
+        } else {
+            lastRefill = currentTime
+        }
     }
 }

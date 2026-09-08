@@ -366,6 +366,51 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    /// Regression test: the governor's burst trigger must not erode a server-mandated backoff.
+    ///
+    /// `.flushQueue` subtracts a full `flushInterval` from `currentBackoff` on every call, so if
+    /// each enqueue dispatched one, a handful of events after a 429 would exhaust the
+    /// `Retry-After` window and retry early. Enqueuing during `.retryWithBackoff` must therefore
+    /// dispatch nothing and leave the countdown untouched — only the timer may advance it.
+    @MainActor
+    func testEnqueueDuringBackoffDoesNotDispatchFlushOrErodeBackoff() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Several enqueues in quick succession, as a burst after a rate-limit response would be.
+        for index in 0..<5 {
+            let event = Event(name: .customEvent("backoff_probe_\(index)"))
+            await store.send(.enqueueEvent(event)) {
+                try $0.enqueueRequest(
+                    request: KlaviyoRequest(
+                        endpoint: .createEvent(
+                            XCTUnwrap($0.apiKey),
+                            CreateEventPayload(
+                                data: CreateEventPayload.Event(
+                                    name: event.metric.name.value,
+                                    properties: event.properties,
+                                    phoneNumber: $0.phoneNumber,
+                                    anonymousId: XCTUnwrap($0.anonymousId),
+                                    time: event.time,
+                                    pushToken: initialState.pushTokenData?.pushToken
+                                )
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        // No `.flushQueue` was received (TestStore would fail on an unhandled action), and the
+        // server-mandated wait is intact.
+        XCTAssertEqual(
+            store.state.retryState,
+            .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+        )
+    }
+
     @MainActor
     func testFlushQueueExponentialBackoffGoesToSize() async throws {
         var initialState = INITIALIZED_TEST_STATE()
@@ -427,6 +472,8 @@ class StateManagementTests: XCTestCase {
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
+            // Going offline freezes the token bucket, which stamps `lastRefill`.
+            $0.flushGovernor.freezeForOffline(currentTime: environment.date())
         }
         _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false

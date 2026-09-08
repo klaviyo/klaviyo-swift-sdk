@@ -77,6 +77,37 @@ final class FlushGovernorTests: XCTestCase {
         XCTAssertNil(FlushGovernor.refillPerSecond(forFlushInterval: .infinity))
     }
 
+    /// The offline freeze has to be driven by the connectivity change, because nothing on the send
+    /// path reaches it while offline: `canSend` refills a copy and `.sendRequest` is unreachable.
+    /// This exercises `freezeForOffline` and then a real post-reconnect refill, which is what the
+    /// production sequence actually does.
+    func test_freezeForOffline_thenReconnect_accruesOnlyPostReconnectTime() {
+        var governor = FlushGovernor(capacity: 50, tokens: 0, lastRefill: t0)
+
+        // Connectivity drops at t0; the bucket is frozen at that instant.
+        governor.freezeForOffline(currentTime: t0)
+
+        // Ten minutes pass offline, then one second of connectivity.
+        let reconnect = t0.addingTimeInterval(600)
+        governor.freezeForOffline(currentTime: reconnect) // second drop/idle tick while offline
+        governor.refill(currentTime: reconnect.addingTimeInterval(1), flushInterval: wifi)
+
+        // Only the one connected second accrues, not the 600 offline seconds (which at 10/sec
+        // would have filled the bucket to capacity).
+        XCTAssertEqual(
+            governor.tokens,
+            FlushGovernorConstants.wifiRefillPerSecond,
+            accuracy: 0.0001
+        )
+        XCTAssertLessThan(governor.tokens, governor.capacity)
+    }
+
+    func test_freezeForOffline_neverMovesTimestampBackward() {
+        var governor = FlushGovernor(capacity: 20, tokens: 0, lastRefill: t0)
+        governor.freezeForOffline(currentTime: t0.addingTimeInterval(-300))
+        XCTAssertEqual(governor.lastRefill, t0)
+    }
+
     func test_backwardClockJumpDoesNotGrantWindfall() {
         var governor = FlushGovernor(capacity: 20, tokens: 0, lastRefill: t0)
         // Clock steps backwards; must not rewind lastRefill.
@@ -98,6 +129,14 @@ final class FlushGovernorTests: XCTestCase {
         // Went negative: the engagement event was never delayed, but it still counts, so ordinary
         // traffic waits slightly longer rather than the ceiling being silently exceeded.
         XCTAssertEqual(governor.tokens, -1, accuracy: 0.0001)
+    }
+
+    /// The dry-requeue path must not bury a prioritized request behind returning regulars.
+    func test_partitionedKeepsPrioritizedOrderingStable() {
+        let items = ["a", "p1", "b", "p2", "c"]
+        let (prioritized, regular) = items.partitioned(by: { $0.hasPrefix("p") })
+        XCTAssertEqual(prioritized, ["p1", "p2"])
+        XCTAssertEqual(regular, ["a", "b", "c"])
     }
 
     func test_resetRestoresColdLaunchState() {
