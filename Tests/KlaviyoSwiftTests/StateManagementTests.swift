@@ -405,6 +405,37 @@ class StateManagementTests: XCTestCase {
         XCTAssertEqual(store.state.flushGovernor.lastRefill, environment.date())
     }
 
+    /// A reachable-status event that is not a genuine reconnect must not discard banked accrual.
+    ///
+    /// Reachability re-emits `.reachableViaWiFi` / `.reachableViaWWAN` on network-type switches,
+    /// flag flaps and every foreground. Stamping `lastRefill` on those would throw away idle
+    /// accrual and defeat the post-idle burst, so the stamp is gated on having actually been
+    /// offline.
+    @MainActor
+    func testReachableEventWhileAlreadyOnlineKeepsBankedAccrual() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.queue = []
+        // Already online (finite interval) with an old refill stamp, i.e. idle time banked.
+        initialState.flushInterval = StateManagementConstants.wifiFlushInterval
+        let staleStamp = environment.date().addingTimeInterval(-120)
+        initialState.flushGovernor = FlushGovernor(
+            capacity: FlushGovernorConstants.burstCapacity,
+            tokens: 0,
+            lastRefill: staleStamp
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // A wifi->cellular switch: reachable, but never offline.
+        _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
+            $0.flushInterval = StateManagementConstants.cellularFlushInterval
+        }
+        await store.receive(.flushQueue)
+
+        XCTAssertEqual(store.state.flushGovernor.lastRefill, staleStamp,
+                       "A non-reconnect reachable event must not advance the refill stamp")
+    }
+
     /// Regression test: the governor's burst trigger must not erode a server-mandated backoff.
     ///
     /// `.flushQueue` subtracts a full `flushInterval` from `currentBackoff` on every call, so if

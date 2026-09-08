@@ -502,16 +502,24 @@ struct KlaviyoReducer: ReducerProtocol {
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
-            case .reachableViaWiFi:
-                state.flushInterval = StateManagementConstants.wifiFlushInterval
-                // Restart accrual from the moment connectivity returns, so the outage itself
-                // grants nothing. This has to happen on the *reconnect* edge: nothing advances
-                // `lastRefill` while offline, so without it the first refill would treat the whole
-                // offline stretch as elapsed connected time and fill the bucket to capacity.
-                state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
-            case .reachableViaWWAN:
-                state.flushInterval = StateManagementConstants.cellularFlushInterval
-                state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
+            case .reachableViaWiFi, .reachableViaWWAN:
+                // Restart accrual only when we are genuinely coming back from offline. Reachability
+                // re-emits a reachable status on wifi<->cellular switches, flag flaps and every
+                // foreground, and stamping `lastRefill` on those would silently discard banked idle
+                // accrual — losing the post-idle burst this governor exists to provide.
+                //
+                // The stamp has to be on this edge rather than `.notReachable`: nothing advances
+                // `lastRefill` while offline, so without it the first refill after an outage would
+                // treat the whole offline stretch as elapsed connected time and fill the bucket.
+                let wasOffline = !state.flushInterval.isFinite
+
+                state.flushInterval = networkStatus == .reachableViaWiFi
+                    ? StateManagementConstants.wifiFlushInterval
+                    : StateManagementConstants.cellularFlushInterval
+
+                if wasOffline {
+                    state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
+                }
             }
             return environment.timer(state.flushInterval)
                 .map { _ in
