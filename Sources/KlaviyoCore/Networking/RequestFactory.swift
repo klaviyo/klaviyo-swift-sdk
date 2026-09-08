@@ -153,7 +153,8 @@ public enum RequestFactory {
 
     public static func unregisterRequest(
         identity: RequestIdentity,
-        pushToken: String
+        pushToken: String,
+        priority: RequestPriority = .standard
     ) -> KlaviyoRequest {
         let payload = UnregisterPushTokenPayload(
             pushToken: pushToken,
@@ -162,7 +163,7 @@ public enum RequestFactory {
             externalId: identity.externalId,
             anonymousId: identity.anonymousId
         )
-        return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload))
+        return KlaviyoRequest(endpoint: .unregisterPushToken(identity.apiKey, payload), priority: priority)
     }
 
     /// Builds a `PushTokenPayload` with a caller-supplied `ProfilePayload`.
