@@ -206,11 +206,11 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 // NOTE: do NOT clear the push token here — the switch must preserve it so the
                 // token can be re-registered under the new company immediately below.
-                if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
-                    // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
-                    // hydrates a clean identity for the new company.
-                    IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
-                }
+                // Give the new company a clean identity: mint a fresh anon and drop any PII so
+                // `.completeInitialization` hydrates it. Unconditional (matches the runtime switch
+                // path's `state.reset()`) so an anonymous-only switch does not carry the old
+                // company's anon into the new one.
+                IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
                 // Re-register the preserved token under the new company (identity-only, fresh anon).
                 if let tokenData = IdentityStore.shared.pushToken,
                    let newAnon = IdentityStore.shared.current.anonymousId {

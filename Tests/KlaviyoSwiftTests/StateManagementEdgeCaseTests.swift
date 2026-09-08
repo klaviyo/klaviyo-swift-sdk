@@ -11,6 +11,33 @@ import Foundation
 import XCTest
 
 class StateManagementEdgeCaseTests: StateManagementTestCase {
+    private typealias CompanySwitchStore = TestStore<
+        KlaviyoState, KlaviyoAction, KlaviyoState, KlaviyoAction, Void
+    >
+
+    /// Shared cold-start company-switch fixture: resets the canonical Core stores, seeds an
+    /// old-company config + identified profile (and optionally a push token), registers a
+    /// recording queue, and returns the queue reader plus a fresh non-exhaustive `TestStore`.
+    @MainActor
+    private func makeColdStartCompanySwitchFixture(
+        pushToken: PushTokenData? = nil
+    ) -> (readQueue: () -> [KlaviyoRequest], store: CompanySwitchStore) {
+        resetCanonicalCoreStores()
+        QueueStore.resetShared()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "old-key"))
+        IdentityStore.shared.update(
+            ProfileData(email: "a@x.com", externalId: "user-A", anonymousId: "anon-A"))
+        if let pushToken {
+            IdentityStore.shared.updatePushToken(pushToken)
+        }
+        let readQueue = registerRecordingQueueStore()
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        return (readQueue, store)
+    }
+
     // MARK: - initialization
 
     @MainActor
@@ -113,22 +140,13 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testColdStartCompanySwitchPreservesAndReregistersToken() async throws {
-        resetCanonicalCoreStores()
-        QueueStore.resetShared()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "old-key"))
-        IdentityStore.shared.update(
-            ProfileData(email: "a@x.com", externalId: "user-A", anonymousId: "anon-A"))
         let token = PushTokenData(
             pushToken: "tok-1",
             pushEnablement: .authorized,
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
         )
-        IdentityStore.shared.updatePushToken(token)
-        let readQueue = registerRecordingQueueStore()
-
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        let (readQueue, store) = makeColdStartCompanySwitchFixture(pushToken: token)
         await store.send(.initialize("new-key"))
         await store.receive(
             .completeInitialization(KlaviyoState(requestsInFlight: [])),
@@ -186,19 +204,8 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testColdStartCompanySwitchWithNoTokenEnqueuesNoTokenRequests() async throws {
         // Cold-start company switch: when IdentityStore has no push token, the reducer must
         // not enqueue an unregister for the old company or a register for the new one.
-        resetCanonicalCoreStores()
-        QueueStore.resetShared()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "old-key"))
-        IdentityStore.shared.update(
-            ProfileData(email: "b@x.com", externalId: "user-B", anonymousId: "anon-B"))
-        // Intentionally: no IdentityStore.shared.updatePushToken call — pushToken stays nil.
-        let readQueue = registerRecordingQueueStore()
-
-        let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
+        // No push token passed — pushToken stays nil.
+        let (readQueue, store) = makeColdStartCompanySwitchFixture()
         await store.send(.initialize("new-key-no-token"))
         await store.receive(
             .completeInitialization(KlaviyoState(requestsInFlight: [])),
