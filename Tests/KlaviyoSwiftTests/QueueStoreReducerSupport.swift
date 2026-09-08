@@ -24,7 +24,7 @@ func seedTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest
 /// Registers an in-memory spy as the single shared QueueStore, replacing whatever was there.
 /// Prefer `seedTestQueueStore`, which resets first.
 @discardableResult
-func registerTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
+private func registerTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
     var stored = initial
     let lock = NSLock()
     let io = QueueStore.DiskIO(

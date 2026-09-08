@@ -33,9 +33,4 @@ final class QueueStoreSharedTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
         XCTAssertTrue(QueueStore.current() === store, "current() resolves to the shared store")
     }
-
-    func testCurrentReturnsSharedInstanceWhenApiKeySet() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
-        XCTAssertTrue(QueueStore.current() === QueueStore.shared)
-    }
 }
