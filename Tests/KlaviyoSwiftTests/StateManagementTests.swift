@@ -153,7 +153,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -186,7 +188,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -219,7 +223,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         _ = await store.receive(.deQueueCompletedResults(pushTokenRequest)) {
             $0.flushing = false
@@ -325,14 +331,18 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = true
             $0.requestsInFlight = [request2]
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
         await store.receive(.deQueueCompletedResults(request2)) {
             $0.pushTokenData = KlaviyoState.PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
             $0.flushing = false
@@ -356,6 +366,121 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    /// Regression test at the reducer level: a real offline/reconnect cycle must not hand the
+    /// governor a windfall.
+    ///
+    /// The unit test for this can be made to pass by stamping on either connectivity edge, so it
+    /// missed a disconnect-edge-only implementation. Driving the actual actions is what pins the
+    /// behavior: after a ten-minute outage the bucket must still be empty, not full.
+    @MainActor
+    func testOfflineThenReconnectDoesNotGrantTokenWindfall() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.queue = []
+        // Start drained, as a device would be after a burst.
+        initialState.flushGovernor = FlushGovernor(
+            capacity: FlushGovernorConstants.burstCapacity,
+            tokens: 0,
+            lastRefill: environment.date()
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        _ = await store.receive(.cancelInFlightRequests)
+
+        // `environment.date()` is fixed in tests, so reconnect stamps the same instant the
+        // governor already holds: elapsed time is zero and no tokens accrue. The assertion below
+        // is the point — a disconnect-edge-only stamp would leave `lastRefill` behind and let a
+        // later refill claim the entire outage.
+        _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
+            $0.flushInterval = StateManagementConstants.wifiFlushInterval
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
+        }
+        await store.receive(.flushQueue)
+
+        XCTAssertEqual(store.state.flushGovernor.tokens, 0, accuracy: 0.0001,
+                       "Reconnect must not accrue tokens for time spent offline")
+        XCTAssertEqual(store.state.flushGovernor.lastRefill, environment.date())
+    }
+
+    /// A reachable-status event that is not a genuine reconnect must not discard banked accrual.
+    ///
+    /// Reachability re-emits `.reachableViaWiFi` / `.reachableViaWWAN` on network-type switches,
+    /// flag flaps and every foreground. Stamping `lastRefill` on those would throw away idle
+    /// accrual and defeat the post-idle burst, so the stamp is gated on having actually been
+    /// offline.
+    @MainActor
+    func testReachableEventWhileAlreadyOnlineKeepsBankedAccrual() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.queue = []
+        // Already online (finite interval) with an old refill stamp, i.e. idle time banked.
+        initialState.flushInterval = StateManagementConstants.wifiFlushInterval
+        let staleStamp = environment.date().addingTimeInterval(-120)
+        initialState.flushGovernor = FlushGovernor(
+            capacity: FlushGovernorConstants.burstCapacity,
+            tokens: 0,
+            lastRefill: staleStamp
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // A wifi->cellular switch: reachable, but never offline.
+        _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
+            $0.flushInterval = StateManagementConstants.cellularFlushInterval
+        }
+        await store.receive(.flushQueue)
+
+        XCTAssertEqual(store.state.flushGovernor.lastRefill, staleStamp,
+                       "A non-reconnect reachable event must not advance the refill stamp")
+    }
+
+    /// Regression test: the governor's burst trigger must not erode a server-mandated backoff.
+    ///
+    /// `.flushQueue` subtracts a full `flushInterval` from `currentBackoff` on every call, so if
+    /// each enqueue dispatched one, a handful of events after a 429 would exhaust the
+    /// `Retry-After` window and retry early. Enqueuing during `.retryWithBackoff` must therefore
+    /// dispatch nothing and leave the countdown untouched — only the timer may advance it.
+    @MainActor
+    func testEnqueueDuringBackoffDoesNotDispatchFlushOrErodeBackoff() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.retryState = .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        // Several enqueues in quick succession, as a burst after a rate-limit response would be.
+        for index in 0..<5 {
+            let event = Event(name: .customEvent("backoff_probe_\(index)"))
+            await store.send(.enqueueEvent(event)) {
+                try $0.enqueueRequest(
+                    request: KlaviyoRequest(
+                        endpoint: .createEvent(
+                            XCTUnwrap($0.apiKey),
+                            CreateEventPayload(
+                                data: CreateEventPayload.Event(
+                                    name: event.metric.name.value,
+                                    properties: event.properties,
+                                    phoneNumber: $0.phoneNumber,
+                                    anonymousId: XCTUnwrap($0.anonymousId),
+                                    time: event.time,
+                                    pushToken: initialState.pushTokenData?.pushToken
+                                )
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        // No `.flushQueue` was received (TestStore would fail on an unhandled action), and the
+        // server-mandated wait is intact.
+        XCTAssertEqual(
+            store.state.retryState,
+            .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)
+        )
+    }
+
     @MainActor
     func testFlushQueueExponentialBackoffGoesToSize() async throws {
         var initialState = INITIALIZED_TEST_STATE()
@@ -372,7 +497,9 @@ class StateManagementTests: XCTestCase {
             $0.requestsInFlight = $0.queue
             $0.queue = []
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         // didn't fake uuid since we are not testing this.
         await store.receive(.deQueueCompletedResults(request)) {
@@ -389,6 +516,8 @@ class StateManagementTests: XCTestCase {
         initialState.flushing = false
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
+        // No pacing expectation: the reducer bails at the `flushing` guard before reaching the
+        // governor, so no token is spent.
         _ = await store.send(.sendRequest)
     }
 
@@ -420,10 +549,13 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
             $0.flushing = false
             $0.flushInterval = StateManagementConstants.wifiFlushInterval
+            // Reconnect restarts token accrual so the outage grants nothing.
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
         }
         await store.receive(.flushQueue)
         _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
             $0.flushInterval = StateManagementConstants.cellularFlushInterval
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
         }
         await store.receive(.flushQueue)
     }
@@ -521,7 +653,9 @@ class StateManagementTests: XCTestCase {
             }
         }
 
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced()
+        }
         await store.receive(.deQueueCompletedResults(request!)) {
             $0.requestsInFlight = $0.queue
             $0.flushing = false
@@ -633,6 +767,10 @@ class StateManagementTests: XCTestCase {
                         )
                     )
                 )
+                // Prioritized events are recorded so `.sendRequest` debits rather than gates them.
+                if eventName == ._openedPush, let queued = $0.queue.first {
+                    $0.prioritizedRequestIds.insert(queued.id)
+                }
             }
 
             // if the event is opened push we want to flush immidietly, for all other events we flush during regular intervals set in code
@@ -695,6 +833,8 @@ class StateManagementTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         let data = Data()
+        // `INITIALIZED_TEST_STATE` has `flushing: true`, so the governor's burst trigger is
+        // deliberately suppressed here and no `.flushQueue` follows the enqueue.
         await store.send(.enqueueAggregateEvent(data)) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
@@ -781,6 +921,8 @@ class StateManagementTests: XCTestCase {
                 )
             )
             $0.queue.insert(geofenceRequest!, at: 0)
+            // Recorded so `.sendRequest` debits the governor rather than gating this request.
+            $0.prioritizedRequestIds.insert(geofenceRequest!.id)
         }
 
         var actualGeofenceRequest: KlaviyoRequest?
@@ -798,9 +940,13 @@ class StateManagementTests: XCTestCase {
             XCTAssertEqual($0.requestsInFlight[1].id, existingRequest1.id, "Second request should be existing request 1")
             XCTAssertEqual($0.requestsInFlight[2].id, existingRequest2.id, "Third request should be existing request 2")
         }
-        await store.receive(.sendRequest)
+        await store.receive(.sendRequest) {
+            $0.expectRequestPaced(prioritized: true)
+        }
         await store.receive(.deQueueCompletedResults(actualGeofenceRequest!)) {
             $0.requestsInFlight.removeAll { $0.id == actualGeofenceRequest!.id }
+            // The exemption is dropped once the request completes, so the set stays bounded.
+            $0.prioritizedRequestIds.remove(actualGeofenceRequest!.id)
             $0.retryState = .retry(1)
             $0.flushing = false
         }

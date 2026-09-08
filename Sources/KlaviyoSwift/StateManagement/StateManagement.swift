@@ -176,6 +176,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+                // Restore cold-launch pacing so the previous company's traffic cannot throttle the
+                // incoming one, and clear stale exemptions along with it.
+                state.flushGovernor.reset()
+                state.prioritizedRequestIds.removeAll()
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
@@ -390,6 +394,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight.removeAll { inflightRequest in
                 completedRequest.id == inflightRequest.id
             }
+            // Stop tracking the prioritized exemption once the request leaves the queue, so the set
+            // cannot grow without bound over a long session.
+            state.prioritizedRequestIds.remove(completedRequest.id)
             state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
@@ -409,6 +416,43 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.flushing = false
                 return .none
             }
+
+            // Pace the send. This is the governor's single gate, and it sits here — per request —
+            // rather than on `.flushQueue`, because one flush drains the whole queue one request at
+            // a time (see `.deQueueCompletedResults` below). Gating the flush cycle would let a
+            // single token authorize an unbounded number of requests; gating here is what actually
+            // bounds the request rate.
+            //
+            // Prioritized engagement events skip the gate and are debited instead, so they are
+            // never delayed but still count against the ceiling.
+            if state.prioritizedRequestIds.contains(request.id) {
+                state.flushGovernor.debitForPrioritizedRequest(
+                    currentTime: environment.date(),
+                    flushInterval: state.flushInterval
+                )
+            } else if !state.flushGovernor.consume(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            ) {
+                // Bucket is dry: stop draining and leave the remainder queued. `flushing` is
+                // cleared so a later tick can pick the queue back up; the timer publisher is
+                // already running, so no extra scheduling is needed.
+                //
+                // Prioritized requests keep their place at the front. A blind
+                // `insert(at: 0)` would bury an opened-push or geofence request that arrived
+                // mid-drain behind the returning regulars, and it would then be gated with them
+                // instead of sent immediately.
+                state.flushing = false
+                let returning = state.requestsInFlight
+                state.requestsInFlight = []
+                let (returningPrioritized, returningRegular) = returning
+                    .partitioned(by: { state.prioritizedRequestIds.contains($0.id) })
+                let (queuedPrioritized, queuedRegular) = state.queue
+                    .partitioned(by: { state.prioritizedRequestIds.contains($0.id) })
+                state.queue = returningPrioritized + queuedPrioritized + returningRegular + queuedRegular
+                return .none
+            }
+
             let retryState = state.retryState
             var numAttempts = 1
             if case let .retry(attempts) = retryState {
@@ -458,10 +502,24 @@ struct KlaviyoReducer: ReducerProtocol {
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
-            case .reachableViaWiFi:
-                state.flushInterval = StateManagementConstants.wifiFlushInterval
-            case .reachableViaWWAN:
-                state.flushInterval = StateManagementConstants.cellularFlushInterval
+            case .reachableViaWiFi, .reachableViaWWAN:
+                // Restart accrual only when we are genuinely coming back from offline. Reachability
+                // re-emits a reachable status on wifi<->cellular switches, flag flaps and every
+                // foreground, and stamping `lastRefill` on those would silently discard banked idle
+                // accrual — losing the post-idle burst this governor exists to provide.
+                //
+                // The stamp has to be on this edge rather than `.notReachable`: nothing advances
+                // `lastRefill` while offline, so without it the first refill after an outage would
+                // treat the whole offline stretch as elapsed connected time and fill the bucket.
+                let wasOffline = !state.flushInterval.isFinite
+
+                state.flushInterval = networkStatus == .reachableViaWiFi
+                    ? StateManagementConstants.wifiFlushInterval
+                    : StateManagementConstants.cellularFlushInterval
+
+                if wasOffline {
+                    state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
+                }
             }
             return environment.timer(state.flushInterval)
                 .map { _ in
@@ -530,11 +588,37 @@ struct KlaviyoReducer: ReducerProtocol {
             let shouldPrioritize = event.metric.name == ._openedPush || event.metric.isGeofenceEvent
             if shouldPrioritize {
                 state.enqueuePriorityRequest(request: request)
+                state.prioritizedRequestIds.insert(request.id)
             } else {
                 state.enqueueRequest(request: request)
             }
 
-            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            // Flush as soon as the governor has a token, rather than waiting out the interval.
+            // This is where post-idle latency goes away: tokens banked during a quiet stretch let
+            // the first event of a burst leave immediately. Under sustained load the bucket is dry,
+            // `canSend` is false, and we fall back to the timer — so this cannot become a storm.
+            //
+            // Skipped while a flush is already in progress: `.flushQueue` would no-op on its
+            // `flushing` guard anyway, and dispatching one action per enqueued event during a
+            // burst is pure overhead. Events that arrive mid-drain wait for the next timer tick,
+            // which is no worse than today's behavior.
+            //
+            // Also skipped during a server-mandated backoff. `.flushQueue` decrements
+            // `retryWithBackoff` by a full `flushInterval` on every call, so dispatching one per
+            // enqueued event would let a handful of events exhaust a `Retry-After` window and
+            // retry early. Only the timer may advance that countdown.
+            //
+            // Prioritized engagement events always flush; the governor debits them afterwards
+            // rather than gating them, so they stay instant without escaping the ceiling.
+            let inBackoff: Bool
+            if case .retryWithBackoff = state.retryState { inBackoff = true } else { inBackoff = false }
+            let governorAllowsSend = !state.flushing && !inBackoff && state.flushGovernor.canSend(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            )
+            let baseEffect = (shouldPrioritize || governorAllowsSend)
+                ? EffectTask<KlaviyoAction>.task { .flushQueue }
+                : .none
             return .merge([
                 baseEffect,
                 .fireAndForget { enrichAndPublishEvent(event) }
@@ -553,7 +637,15 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.enqueueRequest(request: request)
 
-            return .none
+            // Same burst behavior as `.enqueueEvent`: send now if the governor has a token, no
+            // flush is already draining, and no server-mandated backoff is active (see the note
+            // on `.enqueueEvent`); otherwise fall back to the timer.
+            let aggregateInBackoff: Bool
+            if case .retryWithBackoff = state.retryState { aggregateInBackoff = true } else { aggregateInBackoff = false }
+            return !state.flushing && !aggregateInBackoff && state.flushGovernor.canSend(
+                currentTime: environment.date(),
+                flushInterval: state.flushInterval
+            ) ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
 
         case let .enqueueProfile(profile):
             guard case .initialized = state.initalizationState

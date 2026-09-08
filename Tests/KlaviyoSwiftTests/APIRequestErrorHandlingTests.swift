@@ -30,7 +30,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         // Use 400 (client error) which should dequeue without retry
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_RETURN_DATA)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request)) {
             $0.flushing = false
@@ -47,7 +49,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER.data(using: .utf8)!)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.resetStateAndDequeue(request, [InvalidField.phone]), timeout: TIMEOUT_NANOSECONDS) {
             $0.phoneNumber = nil
@@ -70,7 +74,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_EMAIL.data(using: .utf8)!)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.resetStateAndDequeue(request, [InvalidField.email]), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = nil
@@ -93,7 +99,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(400, TEST_FAILURE_JSON_INVALID_PHONE_NUMBER_DIFFERENT_SOURCE_POINTER.data(using: .utf8)!)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.resetStateAndDequeue(request, [InvalidField.phone]), timeout: TIMEOUT_NANOSECONDS) {
             $0.phoneNumber = nil
@@ -119,7 +127,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         environment.klaviyoAPI.send = { _, _ in .success(Data()) }
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.requestsInFlight = []
             $0.flushing = false
@@ -142,7 +152,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -163,7 +175,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retry(2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -187,7 +201,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.networkError(NSError(domain: "foo", code: NSURLErrorCancelled))) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retry(maxRetries + 1)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -210,7 +226,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.internalError("internal error!")) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -232,7 +250,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.internalRequestError(KlaviyoAPIError.internalError("foo"))) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -254,7 +274,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.unknownError(KlaviyoAPIError.internalError("foo"))) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -275,7 +297,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.dataEncodingError(request)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -296,7 +320,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.invalidData) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -317,7 +343,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -337,7 +365,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 30)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 30)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -357,7 +387,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.rateLimitError(backOff: 20)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 4, totalRetryCount: 4, currentBackoff: 20)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -379,7 +411,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.missingOrInvalidResponse(nil)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -400,7 +434,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 500, backOff: 2)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -419,7 +455,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 502, backOff: 2)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -438,7 +476,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 503, backOff: 2)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -457,7 +497,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 504, backOff: 2)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -477,7 +519,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         // 501 is in the retryable 5xx range (see KlaviyoAPITests.testNotImplemented501IsRetriedAsServerError)
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 501, backOff: 2)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 2)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -497,7 +541,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
 
         environment.klaviyoAPI.send = { _, _ in .failure(.serverError(statusCode: 502, backOff: 4)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.requestFailed(request, .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: 4)), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false
@@ -517,7 +563,9 @@ class APIRequestErrorHandlingTests: XCTestCase {
         // 404 should dequeue without retry (client error, not server error)
         environment.klaviyoAPI.send = { _, _ in .failure(.httpError(404, TEST_RETURN_DATA)) }
 
-        _ = await store.send(.sendRequest)
+        _ = await store.send(.sendRequest) {
+            $0.expectRequestPaced()
+        }
 
         await store.receive(.deQueueCompletedResults(request), timeout: TIMEOUT_NANOSECONDS) {
             $0.flushing = false

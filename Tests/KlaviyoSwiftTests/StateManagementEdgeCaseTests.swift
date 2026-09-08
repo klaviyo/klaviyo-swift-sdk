@@ -77,6 +77,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
                                         flushing: true)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
+        // No pacing expectation: the reducer bails at the initialization guard before reaching the
+        // governor, so no token is spent.
         _ = await store.send(.sendRequest)
     }
 

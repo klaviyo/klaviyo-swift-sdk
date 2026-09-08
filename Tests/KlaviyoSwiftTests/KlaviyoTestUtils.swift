@@ -92,6 +92,26 @@ extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
+extension KlaviyoState {
+    /// Mirrors the token-bucket mutation a single paced `.sendRequest` performs: refill for elapsed
+    /// time, then spend one token. Use inside `TestStore` expectation closures so flush assertions
+    /// stay DRY.
+    ///
+    /// - Parameter prioritized: `true` for opened-push / geofence requests, which bypass the gate
+    ///   and are debited instead (and may overdraw). The two paths only coincide while the bucket
+    ///   holds at least one token, so pass this explicitly rather than relying on a full bucket.
+    mutating func expectRequestPaced(prioritized: Bool = false) {
+        if prioritized {
+            flushGovernor.debitForPrioritizedRequest(
+                currentTime: environment.date(),
+                flushInterval: flushInterval
+            )
+        } else {
+            _ = flushGovernor.consume(currentTime: environment.date(), flushInterval: flushInterval)
+        }
+    }
+}
+
 extension FileClient {
     static let test = FileClient(
         write: { _, _ in },

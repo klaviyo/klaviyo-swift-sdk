@@ -80,6 +80,15 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = StateManagementConstants.wifiFlushInterval
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
+
+    /// Paces outbound requests (see `FlushGovernor`). Transient — excluded from `CodingKeys` — so
+    /// the bucket starts full on every launch and a cold start is never throttled.
+    var flushGovernor = FlushGovernor()
+
+    /// Ids of queued requests that must never be delayed by the governor (opened-push, geofence).
+    /// These bypass the gate and are debited instead, so they stay instant without escaping the
+    /// long-run ceiling. Transient, and entries are removed as requests complete.
+    var prioritizedRequestIds: Set<String> = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
     enum CodingKeys: CodingKey {
