@@ -41,11 +41,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let initialState = INITIALIZED_TEST_STATE()
         let oldApiKey = initialState.apiKey!
         let newApiKey = "new-api-key"
-        // Requests are keyed to the apiKey they were built for: the unregister request is enqueued
-        // while `state.apiKey` is still the old key (→ old key's store); the token request from
-        // `reset()` runs after the switch (→ new key's store). Seed both.
-        let readOldQueue = seedTestQueueStore(apiKey: oldApiKey)
-        let readNewQueue = registerTestQueueStore(apiKey: newApiKey)
+        // Single shared queue: both the unregister (built while state.apiKey is still the old key)
+        // and the token-register (built after the switch to the new key) land in the same queue.
+        let readQueue = seedTestQueueStore()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -67,11 +65,10 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             pushToken: initialState.pushTokenData!.pushToken,
             enablement: initialState.pushTokenData!.pushEnablement
         )
-        XCTAssertEqual(readOldQueue(), [unregister], "unregister lands in the old company's queue")
-        XCTAssertEqual(
-            readNewQueue(), [tokenRequest],
-            "the new token request lands in the new company's queue"
-        )
+        // Both requests land in the single shared queue; the unregister (enqueued first) precedes
+        // the token-register (enqueued after the apiKey switch).
+        XCTAssertEqual(readQueue(), [unregister, tokenRequest],
+                       "both the unregister and register land in the single shared queue")
     }
 
     // MARK: - Send Request
@@ -535,7 +532,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
         )
-        let readQueue = seedTestQueueStore(apiKey: initialState.apiKey!, initial: [request])
+        let readQueue = seedTestQueueStore(initial: [request])
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {

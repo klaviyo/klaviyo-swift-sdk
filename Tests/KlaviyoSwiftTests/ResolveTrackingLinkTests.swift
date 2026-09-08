@@ -22,7 +22,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         UnattributedBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         DeepLinkManager.resetToProduction()
-        readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        readQueue = seedTestQueueStore()
     }
 
     @MainActor

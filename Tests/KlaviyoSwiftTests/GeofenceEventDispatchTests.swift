@@ -58,7 +58,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
             pushToken: "token1",
             enablement: .authorized
         )
-        let readQueue = seedTestQueueStore(apiKey: apiKey, initial: [request1, request2])
+        let readQueue = seedTestQueueStore(initial: [request1, request2])
         return (state, readQueue)
     }
 
@@ -68,7 +68,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Given: SDK is uninitialized
         let testStore = makeTestStore(initialState: KlaviyoState(initalizationState: .uninitialized))
         let apiKey = "TEST123"
-        seedTestQueueStore(apiKey: apiKey)
+        seedTestQueueStore()
 
         // Expect: the store transitions to initialized with the geofence api key.
         let initialized = XCTestExpectation(description: "SDK initialized with the geofence api key")
@@ -117,7 +117,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.apiKey = "EXISTING_KEY"
         initialState.flushing = false
-        let readQueue = seedTestQueueStore(apiKey: "EXISTING_KEY")
+        let readQueue = seedTestQueueStore()
         let testStore = makeTestStore(initialState: initialState)
 
         // Expect: NO state change — the api-key mismatch guard returns before any send.

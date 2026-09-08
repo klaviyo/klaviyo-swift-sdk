@@ -21,7 +21,7 @@ class APIRequestErrorHandlingTests: XCTestCase {
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
-        readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        readQueue = seedTestQueueStore()
     }
 
     // MARK: - http error

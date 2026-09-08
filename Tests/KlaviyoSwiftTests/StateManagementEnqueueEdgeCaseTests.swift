@@ -118,7 +118,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetProfileWithEmptyStringIdentifiers() async throws {
         let initialState = identifiedState(email: "foo@bar.com", phoneNumber: "99999999", externalId: "12345")
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
@@ -149,7 +149,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             phoneNumber: "+15555555555",
             externalId: "ext-123"
         )
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         // Same identifiers + no non-identifier attributes → no reset, no API call, no state change.
@@ -171,7 +171,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             externalId: "old-ext"
         )
 
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -208,7 +208,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             flushing: true
         )
 
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -235,7 +235,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         // reset should still fire.
         let initialState = identifiedState(email: "old@email.com", phoneNumber: "+15555555555")
 
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -267,7 +267,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             externalId: "ext-id"
         )
 
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -299,7 +299,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             externalId: "ext-123"
         )
 
-        let readQueue = seedTestQueueStore(apiKey: TEST_API_KEY)
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 

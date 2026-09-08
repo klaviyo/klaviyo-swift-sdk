@@ -38,13 +38,13 @@ final class LegacyStateMigrationTests: XCTestCase {
         )
         environment = fakeEnvironment.makeEnvironment()
         resetCanonicalCoreStores()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
     }
 
     override func tearDown() {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         super.tearDown()
     }
 
@@ -126,7 +126,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
         XCTAssertNil(SDKConfigStore.shared.current.apiKey, "no store should be touched")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests, [])
+        XCTAssertEqual(QueueStore.shared.requests, [])
         XCTAssertTrue(legacyFileExists(apiKey: apiKey),
                       "left in place — unrecognized shapes fall through without touching stores")
     }
@@ -150,7 +150,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.current.phoneNumber, "+15551234567")
         XCTAssertEqual(IdentityStore.shared.current.externalId, "ext-1")
         XCTAssertEqual(IdentityStore.shared.pushToken, pushToken, "upgrade preserves the push token")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a", "b"],
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b"],
                        "upgrade preserves the full queue backlog, in order")
         XCTAssertFalse(legacyFileExists(apiKey: apiKey), "legacy file retired on success")
     }
@@ -179,7 +179,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-nested")
         XCTAssertEqual(IdentityStore.shared.current.email, "nested@b.com")
         XCTAssertEqual(IdentityStore.shared.pushToken, pushToken)
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a", "b", "c"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b", "c"])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
 
@@ -192,7 +192,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests, [])
+        XCTAssertEqual(QueueStore.shared.requests, [])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey),
                        "genuine success removes the legacy file even for an empty queue")
     }
@@ -208,7 +208,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
-        XCTAssertEqual(QueueStore.store(for: apiKey).count, QueueStore.maxQueueSize + 10,
+        XCTAssertEqual(QueueStore.shared.count, QueueStore.maxQueueSize + 10,
                        "migration itself does not truncate — self-heals on the next real enqueue")
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
@@ -226,7 +226,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         XCTAssertNil(SDKConfigStore.shared.current.apiKey,
                      "company A's data must not be adopted under company B's init")
-        XCTAssertEqual(QueueStore.store(for: fileApiKey).requests, [],
+        XCTAssertEqual(QueueStore.shared.requests, [],
                        "company A's queue must not leak into company B's store")
         XCTAssertTrue(legacyFileExists(apiKey: fileApiKey),
                       "left in place — cross-company mismatch falls through without touching stores")
@@ -247,10 +247,10 @@ final class LegacyStateMigrationTests: XCTestCase {
                       "config write failed — verification must catch it and keep the legacy file")
 
         fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         migrateLegacyStateIfNeeded(apiKey: apiKey) // retry, same untouched legacy source
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"],
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a"],
                        "no duplicates from the retry")
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
@@ -270,10 +270,10 @@ final class LegacyStateMigrationTests: XCTestCase {
                       "identity write failed — verification must catch it and keep the legacy file")
 
         fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         migrateLegacyStateIfNeeded(apiKey: apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-id")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a"])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
 
@@ -292,9 +292,9 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertTrue(legacyFileExists(apiKey: apiKey))
 
         fakeEnvironment.failWriteForPathSuffix = nil // "fix the disk" before retrying
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         migrateLegacyStateIfNeeded(apiKey: apiKey) // retry from the untouched legacy source
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a", "b"],
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b"],
                        "no duplicates from the retry")
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
@@ -333,18 +333,18 @@ final class LegacyStateMigrationTests: XCTestCase {
         // Stores fully populated despite the failed removal.
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-remove-fail")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a"])
 
         // A live request accumulates in the (now canonical) QueueStore after init.
-        QueueStore.store(for: apiKey).enqueue(legacyRequest("live", apiKey: apiKey), persist: .synchronous)
+        QueueStore.shared.enqueue(legacyRequest("live", apiKey: apiKey), persist: .synchronous)
 
-        // Next cold launch: registry cleared (queue file persists). Migration must be a NO-OP —
+        // Next cold launch: shared store cleared (queue file persists). Migration must be a NO-OP —
         // the legacy file was neutralized — so the live request is NOT wiped by a re-`restore`.
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
         XCTAssertEqual(
-            QueueStore.store(for: apiKey).requests.map(\.id), ["a", "live"],
+            QueueStore.shared.requests.map(\.id), ["a", "live"],
             "neutralized legacy file must not be re-migrated; the live queue must be preserved"
         )
     }
@@ -361,7 +361,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         ))
         // A request raced into the QueueStore before migration ran (early apiKey commit + an
         // init-window enqueue such as a geofence event or create(event:)).
-        QueueStore.store(for: apiKey).enqueue(legacyRequest("windowed", apiKey: apiKey), persist: .synchronous)
+        QueueStore.shared.enqueue(legacyRequest("windowed", apiKey: apiKey), persist: .synchronous)
 
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
@@ -371,7 +371,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertFalse(legacyFileExists(apiKey: apiKey),
                        "migration must retire the legacy file even with a windowed request present")
         // Merge-prepend: legacy backlog in front, the windowed request preserved after.
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["legacy-a", "windowed"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["legacy-a", "windowed"])
     }
 
     // MARK: - Transient failure recovers within the same call
@@ -389,7 +389,7 @@ final class LegacyStateMigrationTests: XCTestCase {
         migrateLegacyStateIfNeeded(apiKey: apiKey)
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-transient")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a"])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey), "recovered without needing a second launch")
     }
 
@@ -411,7 +411,7 @@ final class LegacyStateMigrationTests: XCTestCase {
 
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-resume")
-        XCTAssertEqual(QueueStore.store(for: apiKey).requests.map(\.id), ["a", "b"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b"])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
 }

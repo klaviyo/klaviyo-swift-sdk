@@ -2,7 +2,7 @@
 //  QueueStoreRestoreTests.swift
 //  klaviyo-swift-sdk
 //
-//  Split from QueueStoreTests.swift, matching the existing QueueStoreRegistryTests.swift split.
+//  Split from QueueStoreTests.swift, matching the existing QueueStoreSharedTests.swift split.
 //
 
 @testable import KlaviyoCore
@@ -69,12 +69,12 @@ final class QueueStoreRestoreTests: XCTestCase {
     override func setUp() {
         super.setUp()
         SDKConfigStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
     }
 
     override func tearDown() {
         SDKConfigStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         super.tearDown()
     }
 

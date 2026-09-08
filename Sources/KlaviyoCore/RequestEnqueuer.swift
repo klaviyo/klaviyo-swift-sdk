@@ -30,15 +30,14 @@ public enum RequestEnqueuer {
     }
 
     /// The single routing rule: apiKey present → build a request and enqueue it to `QueueStore`;
-    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`. The queue is
-    /// resolved from the *captured* apiKey (`store(for:)`, not `current()`), so a concurrent
-    /// `SDKConfigStore` change can't route the request to another key's queue or drop it.
+    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`. The captured
+    /// apiKey stamps the endpoint (`build(apiKey)`); the queue itself is the single shared store.
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
     ) {
         if let apiKey = SDKConfigStore.shared.current.apiKey {
-            QueueStore.store(for: apiKey).enqueue(build(apiKey))
+            QueueStore.shared.enqueue(build(apiKey))
         } else {
             UnattributedBuffer.shared.append(buffered)
         }
@@ -118,9 +117,9 @@ public enum RequestEnqueuer {
     /// clearing wholesale — means a request appended concurrently during the drain survives instead
     /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)` in MAGE-952.
     ///
-    /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey` — the key
-    ///   `QueueStore.current()` resolves. If they diverge the drain is skipped to prevent
-    ///   requests being stamped with one key but written into another key's queue file.
+    /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey`. If they diverge
+    ///   the drain is skipped so buffered requests aren't stamped with a key that no longer matches
+    ///   the active config.
     public static func drainBuffer(apiKey: String) {
         if apiKey != SDKConfigStore.shared.current.apiKey {
             environment.emitDeveloperWarning(
@@ -131,9 +130,9 @@ public enum RequestEnqueuer {
         }
         let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
         guard !buffered.isEmpty else { return }
-        // Resolve the queue from the validated `apiKey` (not `current()`) so a concurrent config
-        // change between the guard above and here can't misroute the drained requests.
-        let queue = QueueStore.store(for: apiKey)
+        // Single shared queue. The `apiKey` validated above is what stamps each
+        // endpoint below, so every drained request carries the active company.
+        let queue = QueueStore.shared
 
         for (index, request) in buffered.enumerated() {
             let isLast = index == buffered.count - 1

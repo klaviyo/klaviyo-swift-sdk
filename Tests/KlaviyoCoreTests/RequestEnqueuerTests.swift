@@ -21,14 +21,14 @@ final class RequestEnqueuerTests: XCTestCase {
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
     }
 
     override func tearDown() {
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
-        QueueStore.resetRegistry()
+        QueueStore.resetShared()
         environment = KlaviyoEnvironment.test()
         fileIO = nil
         super.tearDown()
@@ -305,7 +305,7 @@ final class RequestEnqueuerTests: XCTestCase {
         // Buffer file must be gone.
         XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
         // Queue must be durable on disk (synchronous final enqueue).
-        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-pk-1-queue.json")
+        let onDisk = loadPersisted(PersistedQueue.self, fileName: "klaviyo-queue.json")
         XCTAssertEqual(onDisk?.requests.count, 1)
     }
 
