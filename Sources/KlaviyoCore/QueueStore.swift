@@ -29,7 +29,6 @@ struct PersistedQueue: Codable, Equatable {
 }
 
 public final class QueueStore {
-    /// Max queued requests. Now a single shared cap across all companies (one queue file). (MAGE-1192)
     public static let maxQueueSize = 200
 
     /// Coalescing window for `.debounced` persistence.
