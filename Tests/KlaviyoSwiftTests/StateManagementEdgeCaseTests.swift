@@ -553,8 +553,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
-            // Going offline freezes the token bucket, which stamps `lastRefill`.
-            $0.flushGovernor.freezeForOffline(currentTime: environment.date())
         }
         // Also clears `flushing` — otherwise `.flushQueue` bails early and this test is vacuous.
         _ = await store.receive(.cancelInFlightRequests) {
@@ -581,8 +579,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
-            // Going offline freezes the token bucket, which stamps `lastRefill`.
-            $0.flushGovernor.freezeForOffline(currentTime: environment.date())
         }
         _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false

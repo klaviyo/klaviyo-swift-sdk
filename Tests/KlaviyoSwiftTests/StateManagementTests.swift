@@ -366,6 +366,45 @@ class StateManagementTests: XCTestCase {
         }
     }
 
+    /// Regression test at the reducer level: a real offline/reconnect cycle must not hand the
+    /// governor a windfall.
+    ///
+    /// The unit test for this can be made to pass by stamping on either connectivity edge, so it
+    /// missed a disconnect-edge-only implementation. Driving the actual actions is what pins the
+    /// behavior: after a ten-minute outage the bucket must still be empty, not full.
+    @MainActor
+    func testOfflineThenReconnectDoesNotGrantTokenWindfall() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.queue = []
+        // Start drained, as a device would be after a burst.
+        initialState.flushGovernor = FlushGovernor(
+            capacity: FlushGovernorConstants.burstCapacity,
+            tokens: 0,
+            lastRefill: environment.date()
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
+            $0.flushInterval = Double.infinity
+        }
+        _ = await store.receive(.cancelInFlightRequests)
+
+        // `environment.date()` is fixed in tests, so reconnect stamps the same instant the
+        // governor already holds: elapsed time is zero and no tokens accrue. The assertion below
+        // is the point — a disconnect-edge-only stamp would leave `lastRefill` behind and let a
+        // later refill claim the entire outage.
+        _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
+            $0.flushInterval = StateManagementConstants.wifiFlushInterval
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
+        }
+        await store.receive(.flushQueue)
+
+        XCTAssertEqual(store.state.flushGovernor.tokens, 0, accuracy: 0.0001,
+                       "Reconnect must not accrue tokens for time spent offline")
+        XCTAssertEqual(store.state.flushGovernor.lastRefill, environment.date())
+    }
+
     /// Regression test: the governor's burst trigger must not erode a server-mandated backoff.
     ///
     /// `.flushQueue` subtracts a full `flushInterval` from `currentBackoff` on every call, so if
@@ -472,8 +511,6 @@ class StateManagementTests: XCTestCase {
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
-            // Going offline freezes the token bucket, which stamps `lastRefill`.
-            $0.flushGovernor.freezeForOffline(currentTime: environment.date())
         }
         _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false
@@ -481,10 +518,13 @@ class StateManagementTests: XCTestCase {
         _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
             $0.flushing = false
             $0.flushInterval = StateManagementConstants.wifiFlushInterval
+            // Reconnect restarts token accrual so the outage grants nothing.
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
         }
         await store.receive(.flushQueue)
         _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
             $0.flushInterval = StateManagementConstants.cellularFlushInterval
+            $0.flushGovernor.resumeAfterOffline(currentTime: environment.date())
         }
         await store.receive(.flushQueue)
     }

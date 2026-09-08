@@ -190,16 +190,17 @@ struct FlushGovernor: Equatable {
         lastRefill = nil
     }
 
-    /// Marks the bucket as frozen from `currentTime` onward, so the time spent offline accrues
-    /// nothing once connectivity returns.
+    /// Restarts accrual from `currentTime`, discarding any time the device spent offline.
     ///
-    /// This must be driven by the connectivity change itself. The freeze branch in
-    /// `refill(currentTime:flushInterval:)` cannot carry it alone: `canSend` refills a throwaway
-    /// copy, and `.sendRequest` is unreachable while offline because `.flushQueue` returns at its
-    /// `flushInterval.isFinite` guard first. Without this call nothing advances `lastRefill` during
-    /// an outage, and the first reading after reconnect would compute elapsed time across the whole
-    /// offline stretch and grant a full burst.
-    mutating func freezeForOffline(currentTime: Date) {
+    /// This must be driven by the **reconnect** edge of the connectivity change. Stamping at the
+    /// start of an outage is not enough: nothing advances `lastRefill` while offline (`canSend`
+    /// refills a throwaway copy, and `.sendRequest` is unreachable because `.flushQueue` returns at
+    /// its `flushInterval.isFinite` guard first), so the first refill after reconnect would treat
+    /// the entire offline stretch as elapsed connected time and fill the bucket to capacity — the
+    /// windfall the freeze exists to prevent.
+    ///
+    /// Only ever moves the timestamp forward, so a backward clock jump cannot manufacture accrual.
+    mutating func resumeAfterOffline(currentTime: Date) {
         if let last = lastRefill {
             if currentTime > last { lastRefill = currentTime }
         } else {

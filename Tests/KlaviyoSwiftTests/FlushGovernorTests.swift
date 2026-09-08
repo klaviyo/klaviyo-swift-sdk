@@ -77,23 +77,25 @@ final class FlushGovernorTests: XCTestCase {
         XCTAssertNil(FlushGovernor.refillPerSecond(forFlushInterval: .infinity))
     }
 
-    /// The offline freeze has to be driven by the connectivity change, because nothing on the send
-    /// path reaches it while offline: `canSend` refills a copy and `.sendRequest` is unreachable.
-    /// This exercises `freezeForOffline` and then a real post-reconnect refill, which is what the
-    /// production sequence actually does.
-    func test_freezeForOffline_thenReconnect_accruesOnlyPostReconnectTime() {
+    /// Accrual must restart on the **reconnect** edge, not the disconnect edge.
+    ///
+    /// An earlier version of this test stamped the governor twice — once going offline and once at
+    /// reconnect — which made a disconnect-edge-only implementation look correct. Production only
+    /// gets one connectivity event per edge, so the sequence here mirrors the reducer exactly:
+    /// drop, wait, reconnect, send.
+    func test_resumeAfterOffline_accruesOnlyPostReconnectTime() {
         var governor = FlushGovernor(capacity: 50, tokens: 0, lastRefill: t0)
 
-        // Connectivity drops at t0; the bucket is frozen at that instant.
-        governor.freezeForOffline(currentTime: t0)
-
-        // Ten minutes pass offline, then one second of connectivity.
+        // Ten minutes offline. Nothing touches the governor during this stretch, which is what
+        // production does — no timer, no sends.
         let reconnect = t0.addingTimeInterval(600)
-        governor.freezeForOffline(currentTime: reconnect) // second drop/idle tick while offline
+
+        // Reconnect restarts the accrual clock, then one connected second passes.
+        governor.resumeAfterOffline(currentTime: reconnect)
         governor.refill(currentTime: reconnect.addingTimeInterval(1), flushInterval: wifi)
 
-        // Only the one connected second accrues, not the 600 offline seconds (which at 10/sec
-        // would have filled the bucket to capacity).
+        // Only the single connected second accrues. Without the reconnect stamp the 600 offline
+        // seconds would have filled the bucket to capacity at 10 tokens/sec.
         XCTAssertEqual(
             governor.tokens,
             FlushGovernorConstants.wifiRefillPerSecond,
@@ -102,9 +104,18 @@ final class FlushGovernorTests: XCTestCase {
         XCTAssertLessThan(governor.tokens, governor.capacity)
     }
 
-    func test_freezeForOffline_neverMovesTimestampBackward() {
+    /// Guards the specific regression: without a reconnect stamp, the bucket fills completely.
+    func test_withoutResumeAfterOffline_theOutageWouldGrantAFullBurst() {
+        var unguarded = FlushGovernor(capacity: 50, tokens: 0, lastRefill: t0)
+        // Skip the reconnect stamp deliberately, then send one second after reconnect.
+        unguarded.refill(currentTime: t0.addingTimeInterval(601), flushInterval: wifi)
+        XCTAssertEqual(unguarded.tokens, unguarded.capacity, accuracy: 0.0001,
+                       "Documents why the reconnect stamp is required")
+    }
+
+    func test_resumeAfterOffline_neverMovesTimestampBackward() {
         var governor = FlushGovernor(capacity: 20, tokens: 0, lastRefill: t0)
-        governor.freezeForOffline(currentTime: t0.addingTimeInterval(-300))
+        governor.resumeAfterOffline(currentTime: t0.addingTimeInterval(-300))
         XCTAssertEqual(governor.lastRefill, t0)
     }
 

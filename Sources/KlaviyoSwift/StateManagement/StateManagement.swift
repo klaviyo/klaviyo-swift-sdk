@@ -498,18 +498,20 @@ struct KlaviyoReducer: ReducerProtocol {
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = Double.infinity
-                // Freeze the bucket now. Nothing else advances `lastRefill` while offline, so
-                // without this the first send after reconnect would accrue tokens for the entire
-                // outage. See `freezeForOffline(currentTime:)`.
-                state.flushGovernor.freezeForOffline(currentTime: environment.date())
                 return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
             case .reachableViaWiFi:
                 state.flushInterval = StateManagementConstants.wifiFlushInterval
+                // Restart accrual from the moment connectivity returns, so the outage itself
+                // grants nothing. This has to happen on the *reconnect* edge: nothing advances
+                // `lastRefill` while offline, so without it the first refill would treat the whole
+                // offline stretch as elapsed connected time and fill the bucket to capacity.
+                state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
             case .reachableViaWWAN:
                 state.flushInterval = StateManagementConstants.cellularFlushInterval
+                state.flushGovernor.resumeAfterOffline(currentTime: environment.date())
             }
             return environment.timer(state.flushInterval)
                 .map { _ in
