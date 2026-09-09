@@ -157,21 +157,6 @@ struct KlaviyoState: Equatable {
             }
         }
     }
-
-    func shouldSendTokenUpdate(newToken: String, enablement: PushEnablement) -> Bool {
-        guard let pushTokenData = pushTokenData else {
-            return true
-        }
-        let currentDeviceMetadata = DeviceMetadata(context: environment.appContextInfo())
-        let newPushTokenData = PushTokenData(
-            pushToken: newToken,
-            pushEnablement: enablement,
-            pushBackground: environment.getBackgroundSetting(),
-            deviceData: currentDeviceMetadata
-        )
-
-        return pushTokenData != newPushTokenData
-    }
 }
 
 // MARK: Klaviyo state persistence

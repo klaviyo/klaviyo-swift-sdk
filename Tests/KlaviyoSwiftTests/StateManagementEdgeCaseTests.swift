@@ -515,7 +515,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
                                         initalizationState: .uninitialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData
 
         _ = await store.send(.setPushToken("blob_token", .authorized))
         XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
@@ -548,7 +548,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData
 
         _ = await store.send(.setPushToken("blob_token", .authorized))
         XCTAssertEqual(readQueue().count, 1)
@@ -741,7 +741,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             flushing: false
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData
 
         // Impossible case really but we want coverage on it. Missing apiKey → the token routes to
         // the durable UnattributedBuffer rather than being parked in state.

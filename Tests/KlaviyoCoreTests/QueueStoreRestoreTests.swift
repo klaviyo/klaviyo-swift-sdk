@@ -82,7 +82,7 @@ final class QueueStoreRestoreTests: XCTestCase {
 
     /// `restore` prepends the legacy backlog AHEAD of whatever is already queued rather than
     /// replacing it wholesale, so a request that raced into the queue during the init window
-    /// (MAGE-952) survives migration instead of being wiped.
+    /// survives migration instead of being wiped.
     func testRestorePrependsLegacyAheadOfExistingRequests() throws {
         let diskIO = SpyDiskIO([request("a"), request("b")])
         let scheduler = ManualPersistScheduler()

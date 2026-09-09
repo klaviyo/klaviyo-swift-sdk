@@ -334,7 +334,7 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(readQueue().map(\.endpoint), [pushTokenRequest].map(\.endpoint))
     }
 
-    /// Regression (MAGE-1196): after a token rotation, `setPushToken` writes the new token to
+    /// Regression: after a token rotation, `setPushToken` writes the new token to
     /// `IdentityStore` but leaves `state.pushTokenData` stale until the register drains. If
     /// `setPushEnablement` read the stale `state` token it would forward it and clobber the canonical
     /// store back to the old token. It must read the canonical `IdentityStore` token instead.
@@ -668,7 +668,7 @@ class StateManagementTests: StateManagementTestCase {
         }
     }
 
-    /// Regression (MAGE-1196): `flushQueue` with a staged `pendingProfile` calls
+    /// Regression: `flushQueue` with a staged `pendingProfile` calls
     /// `enqueueProfileOrTokenRequest`, which must not leave `state.pushTokenData` nil — otherwise the
     /// write-through `defer` persists nil into `IdentityStore`, wiping the canonical/persisted token
     /// until the in-flight register completes (a crash in that window loses the token on disk).
@@ -1044,7 +1044,7 @@ class StateManagementTests: StateManagementTestCase {
     }
 
     /// Drives the pre-init → drain-on-init flow shared by the buffered event, aggregate-event, and
-    /// subscription tests (MAGE-1136): buffers a request via `bufferPreInit`, initializes the SDK,
+    /// subscription tests: buffers a request via `bufferPreInit`, initializes the SDK,
     /// then asserts the QueueStore persisted `expectedRequest` and the buffer was trimmed.
     @MainActor
     private func assertPreInitBufferDrainsIntoQueueOnInit(
@@ -1460,7 +1460,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testEnqueueSubscriptionUninitializedBuffers() async throws {
         // Pre-init: a subscribe carrying an identifier buffers its apiKey-free payload in the durable
-        // UnattributedBuffer (drains into the QueueStore at initialize()) instead of the pre-MAGE-1136
+        // UnattributedBuffer (drains into the QueueStore at initialize()) instead of the earlier
         // warn + drop. Mirrors the initialized path against the canonical persisted identity.
         IdentityStore.shared.update(ProfileData(email: "test@example.com", anonymousId: "anon-1"))
         let store = TestStore(
@@ -1484,8 +1484,8 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testPreInitSubscriptionDrainsIntoQueueOnInit() async throws {
-        // Restores the pre-MAGE-952 "pending subscription replays on init" coverage: a subscribe
-        // buffered before initialize() drains into the QueueStore when the SDK initializes (MAGE-1136).
+        // Restores the earlier "pending subscription replays on init" coverage: a subscribe
+        // buffered before initialize() drains into the QueueStore when the SDK initializes.
         let payload = CreateSubscriptionPayload(
             listId: "list-123",
             profile: ProfilePayload(email: "test@example.com", anonymousId: "anon-1")
@@ -1851,115 +1851,64 @@ class StateManagementTests: StateManagementTestCase {
         )
     }
 
-    // MARK: - Empty / unchanged setter short-circuit (regression gate for MAGE-1196)
+    // MARK: - Empty / unchanged setter short-circuit (regression gate)
 
-    /// `setEmail("")` post-init must enqueue nothing and leave the queue empty.
-    /// The guard mirrors the legacy `isNotEmptyOrSame` check that was present in the old
-    /// per-setter paths.
+    private enum IdentifierField { case email, phone, externalId }
+
+    /// Sends the setter for `field` with `value` and asserts nothing is enqueued.
+    /// `seedStored == true` seeds `value` as the canonical identifier first (exercises the
+    /// "unchanged" guard); `false` leaves it unset (exercises the "empty string" short-circuit).
     @MainActor
-    func testSetEmailEmptyStringEnqueuesNothing() async throws {
+    private func assertSetterEnqueuesNothing(
+        field: IdentifierField,
+        value: String,
+        seedStored: Bool
+    ) async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        seedCanonicalStores(from: initialState)
+        if seedStored {
+            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
+            var identity = ProfileData(anonymousId: initialState.anonymousId)
+            switch field {
+            case .email: identity.email = value
+            case .phone: identity.phoneNumber = value
+            case .externalId: identity.externalId = value
+            }
+            IdentityStore.shared.update(identity)
+            IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        } else {
+            seedCanonicalStores(from: initialState)
+        }
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        _ = await store.send(.setEmail(""))
+        let action: KlaviyoAction
+        switch field {
+        case .email: action = .setEmail(value)
+        case .phone: action = .setPhoneNumber(value)
+        case .externalId: action = .setExternalId(value)
+        }
+        _ = await store.send(action)
 
-        XCTAssertTrue(readQueue().isEmpty, "setEmail(\"\") must not enqueue any request")
+        XCTAssertTrue(readQueue().isEmpty, "\(action) must not enqueue any request")
     }
 
-    /// `setEmail(currentEmail)` post-init must enqueue nothing (unchanged guard).
+    /// The singular identifier setters must enqueue nothing when handed an empty string or the value
+    /// already stored — the `isNotEmptyOrSame` guard the old per-setter paths applied. Covers all
+    /// three fields × {empty, unchanged}.
     @MainActor
-    func testSetEmailUnchangedEnqueuesNothing() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.email = "same@example.com"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        let seededIdentity = ProfileData(
-            email: "same@example.com", anonymousId: initialState.anonymousId
-        )
-        IdentityStore.shared.update(seededIdentity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.setEmail("same@example.com"))
-
-        XCTAssertTrue(readQueue().isEmpty, "setEmail with the current value must not enqueue any request")
+    func testIdentifierSettersShortCircuitOnEmptyOrUnchanged() async throws {
+        // Empty string → short-circuits before any comparison, regardless of the stored value.
+        try await assertSetterEnqueuesNothing(field: .email, value: "", seedStored: false)
+        try await assertSetterEnqueuesNothing(field: .phone, value: "", seedStored: false)
+        try await assertSetterEnqueuesNothing(field: .externalId, value: "", seedStored: false)
+        // Unchanged value → guard compares against the stored identifier and short-circuits.
+        try await assertSetterEnqueuesNothing(field: .email, value: "same@example.com", seedStored: true)
+        try await assertSetterEnqueuesNothing(field: .phone, value: "+18005551234", seedStored: true)
+        try await assertSetterEnqueuesNothing(field: .externalId, value: "user-42", seedStored: true)
     }
 
-    /// `setPhoneNumber("")` post-init must enqueue nothing.
-    @MainActor
-    func testSetPhoneNumberEmptyStringEnqueuesNothing() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        seedCanonicalStores(from: initialState)
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.setPhoneNumber(""))
-
-        XCTAssertTrue(readQueue().isEmpty, "setPhoneNumber(\"\") must not enqueue any request")
-    }
-
-    /// `setPhoneNumber(currentPhoneNumber)` post-init must enqueue nothing.
-    @MainActor
-    func testSetPhoneNumberUnchangedEnqueuesNothing() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.phoneNumber = "+18005551234"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        let seededIdentity = ProfileData(
-            phoneNumber: "+18005551234", anonymousId: initialState.anonymousId
-        )
-        IdentityStore.shared.update(seededIdentity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.setPhoneNumber("+18005551234"))
-
-        XCTAssertTrue(readQueue().isEmpty,
-                      "setPhoneNumber with the current value must not enqueue any request")
-    }
-
-    /// `setExternalId("")` post-init must enqueue nothing.
-    @MainActor
-    func testSetExternalIdEmptyStringEnqueuesNothing() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        seedCanonicalStores(from: initialState)
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.setExternalId(""))
-
-        XCTAssertTrue(readQueue().isEmpty, "setExternalId(\"\") must not enqueue any request")
-    }
-
-    /// `setExternalId(currentExternalId)` post-init must enqueue nothing.
-    @MainActor
-    func testSetExternalIdUnchangedEnqueuesNothing() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.externalId = "user-42"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        let seededIdentity = ProfileData(
-            externalId: "user-42", anonymousId: initialState.anonymousId
-        )
-        IdentityStore.shared.update(seededIdentity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.setExternalId("user-42"))
-
-        XCTAssertTrue(readQueue().isEmpty,
-                      "setExternalId with the current value must not enqueue any request")
-    }
-
-    // MARK: - resetProfile preserves canonical push token in IdentityStore (regression gate for MAGE-1196)
+    // MARK: - resetProfile preserves canonical push token in IdentityStore (regression gate)
 
     /// `resetProfile` must NOT transiently clear `IdentityStore.pushToken`. The base
     /// `state.reset(preserveTokenData: false)` sets `state.pushTokenData = nil`, which would cause
@@ -1989,7 +1938,7 @@ class StateManagementTests: StateManagementTestCase {
         )
     }
 
-    // MARK: - Pre-init identifier change with stored token (regression gate for MAGE-1196)
+    // MARK: - Pre-init identifier change with stored token (regression gate)
 
     /// When an app calls `setEmail` before `initialize()` and a push token is already stored in
     /// `IdentityStore`, the token branch inside `applyIdentifierChange` must be gated on
@@ -2038,7 +1987,7 @@ class StateManagementTests: StateManagementTestCase {
     /// apiKey — otherwise the request is built and silently dropped by the nil-`state.apiKey` guard.
     /// With the gate, it falls through to `RequestEnqueuer.enqueueProfile`, which — since
     /// `SDKConfigStore` has the apiKey — routes the profile to the `QueueStore` (not dropped).
-    /// Regression gate for the warm-start drop (MAGE-1196).
+    /// Regression gate for the warm-start drop.
     @MainActor
     func testSetEmailWarmStartWithStoredTokenEnqueuesProfileToQueue() async throws {
         resetCanonicalCoreStores()

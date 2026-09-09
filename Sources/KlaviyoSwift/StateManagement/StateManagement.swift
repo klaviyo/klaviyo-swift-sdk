@@ -316,11 +316,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 pushBackground: environment.getBackgroundSetting(),
                 deviceData: DeviceMetadata(context: environment.appContextInfo())
             )
-            // Dedup against the canonical token (parity with shouldSendTokenUpdate).
+            // Dedup against the canonical token: skip when token + enablement + background +
+            // device metadata all match.
             guard IdentityStore.shared.pushToken != newTokenData else { return .none }
             // Write-through: assign the projection and let the reducer's `defer` persist it to
-            // IdentityStore. Writing IdentityStore directly would leave `state.pushTokenData` stale
-            // for other state readers (the company-switch unregister) until a register drains (MAGE-1196).
+            // IdentityStore. Still the load-bearing write method until KlaviyoState and reducer
+            // fully go away.
             state.pushTokenData = newTokenData
             guard let anonymousId = IdentityStore.shared.current.anonymousId else {
                 environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
@@ -328,7 +329,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             // Gate on `state.apiKey` to match `state.enqueueRequest`: `SDKConfigStore` can hold a
             // persisted apiKey before `.initialize` sets `state.apiKey` (warm start), and enqueuing
-            // then would be dropped. Pre-init falls through to the durable buffer instead (MAGE-1196).
+            // then would be dropped. Pre-init falls through to the durable buffer instead.
             if let apiKey = state.apiKey {
                 // Post-init: fold + consume any pending profile into the registration.
                 state.identity = IdentityStore.shared.current
@@ -342,10 +343,6 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setPushEnablement(enablement):
-            // Read the token from the canonical IdentityStore, not the `state` projection.
-            // setPushToken writes IdentityStore eagerly but leaves state.pushTokenData stale until
-            // the register drains, so reading state here could forward — and re-register — a stale
-            // token, clobbering the canonical store back to it (MAGE-1196).
             guard let pushToken = IdentityStore.shared.pushToken?.pushToken else {
                 return .none
             }
@@ -574,12 +571,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .enqueueProfile(profile):
-            // Unified init-state-agnostic path: seed identity from the canonical IdentityStore so
-            // we fold onto (not clobber) the stored profile, run the identifier-change reset, write
-            // the merged identity back, then delegate to RequestEnqueuer. The write-through `defer`
-            // runs too late for RequestEnqueuer to read the new identity, so we update explicitly.
             state.identity = IdentityStore.shared.current
-            // Read the token BEFORE any reset — IdentityStore holds the canonical token.
             let tokenData = IdentityStore.shared.pushToken
             let currentIds = [state.email, state.phoneNumber, state.externalId]
             let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
@@ -596,7 +588,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)
-            // Push the merged identity synchronously so RequestEnqueuer reads it before enqueueing.
             IdentityStore.shared.update(state.identity)
             // Skip the API call entirely when there is nothing new to sync:
             // identifiers are unchanged, the profile carries no extra attributes,
@@ -605,8 +596,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             guard let anonymousId = state.anonymousId else { return .none }
-            // Build the full payload so structured attributes (name/title/organization/image/location)
-            // survive the buffer and sync completely after initialize() (MAGE-1141).
             let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
             RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
             if let tokenData {
@@ -619,12 +608,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .enqueueSubscription(subscription):
-            // Seed identity from the canonical store (both pre- and post-init). The ungated
-            // `RequestEnqueuer` routes to `QueueStore` when an apiKey is present, or buffers
-            // durably in `UnattributedBuffer` pre-init so a subscribe is never silently dropped.
             state.identity = IdentityStore.shared.current
-            // Defensive: `IdentityStore` auto-mints an `anonymousId` on first access, so `nil`
-            // is unreachable in practice — mirroring the note in `RequestEnqueuer.swift`.
             guard let anonymousId = state.anonymousId,
                   let payload = state.buildSubscriptionPayload(
                       anonymousId: anonymousId, subscription: subscription
@@ -636,21 +620,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case .resetProfile:
-            // Unified reset: mint a fresh anonymous id, drop all PII, and re-register the
-            // preserved push token under the new identity via the ungated `RequestEnqueuer`.
-            // The explicit `IdentityStore.shared.update` before the re-register ensures the
-            // enqueuer reads the post-reset identity; the write-through `defer` would fire too
-            // late for `RequestEnqueuer` to observe the new anon.
-            // `preserveTokenData: false` skips `reset`'s own apiKey-gated re-register so we
-            // avoid a duplicate enqueue. A profile buffered under the old identity still drains
-            // at init (MAGE-1136).
+            // Seed from canonical so `reset` sees the real identity (mint decision + write-back below);
+            // the projection can be stale/empty pre-init. Goes away with KlaviyoState eventually.
             state.identity = IdentityStore.shared.current
             let tokenData = IdentityStore.shared.pushToken
             state.reset(preserveTokenData: false)
-            // Restore the token on state so the write-through `defer` observes no token change and
-            // does NOT call `IdentityStore.shared.updatePushToken(nil)`. The canonical push token is
-            // preserved in `IdentityStore`; the re-register below re-associates it with the new
-            // anonymous identity. Without this restore the defer would transiently clear the token.
             state.pushTokenData = tokenData
             IdentityStore.shared.update(state.identity)
             if let tokenData {
@@ -713,8 +687,8 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
             // Identity is resolved inside `RequestEnqueuer.enqueueTrackingLinkClicked` from the
             // canonical `IdentityStore`. The ungated enqueuer routes to `QueueStore` when an apiKey
-            // is present, or buffers durably pre-init (MAGE-1136). Once the flush engine becomes a
-            // Core actor the case will fold into `TrackingLinkManager` entirely.
+            // is present, or buffers durably pre-init. Once the flush engine becomes a Core actor
+            // the case will fold into `TrackingLinkManager` entirely.
             RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
             return .none
         }
@@ -736,19 +710,16 @@ struct KlaviyoReducer: ReducerProtocol {
         state.identity = IdentityStore.shared.current
         apply(&state)
         IdentityStore.shared.update(state.identity)
-        // Note: `state.pushTokenData` is NOT cleared here. The token is now canonical in
-        // `IdentityStore` — clearing it from state was only necessary in the old
-        // per-setter code path. The `state.pushTokenData` field is written through by the
-        // reducer's defer block whenever `IdentityStore.shared.updatePushToken` is called.
         guard let anonymousId = state.anonymousId else { return }
 
-        // Gate on `state.apiKey` (not `SDKConfigStore`) to match `state.enqueueRequest`: a warm-start
-        // apiKey persisted in `SDKConfigStore` before `.initialize` would otherwise take this branch
-        // and be dropped. Pre-init falls through to the buffered `RequestEnqueuer` path (MAGE-1196).
+        // Identifier change means profile must be re-registered/associated.
+        // Use `apiKey` in state in case of warm start (i.e. initialize has not
+        // finished running in reducer yet) instead of `SDKConfigStore` (which
+        // still at this point relies on the defer write through)
         if let apiKey = state.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
             // Post-init token re-association: fold + consume any pending profile into the token
-            // request's profile (as the legacy resolvedTokenRequest did), then enqueue.
+            // request's profile, then enqueue.
             let request = state.resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,

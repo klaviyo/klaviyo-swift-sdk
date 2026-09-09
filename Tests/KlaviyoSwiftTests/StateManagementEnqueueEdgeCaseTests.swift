@@ -66,7 +66,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
 
         // A pre-init profile carrying structured attributes (name/title/org/location/image) must
         // reach the durable buffer in full, so it syncs completely after initialize() — parity
-        // with the initialized path, closing the MAGE-952 regression (MAGE-1141).
+        // with the initialized path, closing the earlier pre-init attribute-dropping regression.
         let profile = Profile(
             email: "ada@example.com",
             firstName: "Ada",
@@ -104,7 +104,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // The buffer now carries the full payload (MAGE-1141), so a pre-init profile — including one
+        // The buffer now carries the full payload, so a pre-init profile — including one
         // with structured attributes — no longer emits the dropped-attribute developer warning.
         _ = await store.send(.enqueueProfile(Profile(email: "a@b.com", firstName: "Ada")))
         _ = await store.send(.enqueueProfile(Profile(email: "c@d.com", properties: ["plan": "free"])))
@@ -116,10 +116,12 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     }
 
     @MainActor
-    func testSetProfileWithEmptyStringIdentifiers() async throws {
-        // Empty-string identifiers are trimmed to nil, which differs from the stored identifiers,
-        // so reset() fires and TWO requests are enqueued: a createProfile + an identity-only
-        // registerPushToken (canonical-store contract, MAGE-1196).
+    func testSetProfileClearingIdentifiersResetsToAnonymous() async throws {
+        // Empty identifiers normalize to nil, which differs from the stored non-nil identifiers, so
+        // set(profile:) reads this as clearing an identified profile: reset() fires (mint a fresh
+        // anon, drop PII) and TWO requests are enqueued: a createProfile + an identity-only
+        // registerPushToken (canonical-store contract). Note this differs from the singular setters
+        // (setEmail/etc.), where an empty string is ignored and nothing is sent.
         let initialState = identifiedState(email: "foo@bar.com", phoneNumber: "99999999", externalId: "12345")
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(initialState.identity)
@@ -177,7 +179,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testSetProfileDifferentIdentifiersResetsState() async throws {
         // When setProfile is called with different identifiers, reset() SHOULD fire,
         // regenerating the anonymousId. TWO requests are enqueued: a createProfile (with the new
-        // identifiers) and an identity-only registerPushToken (canonical-store contract, MAGE-1196).
+        // identifiers) and an identity-only registerPushToken (canonical-store contract).
         let initialState = identifiedState(
             email: "old@email.com",
             phoneNumber: "+11111111111",
@@ -224,7 +226,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
         // Same identifiers but different non-identifier attributes (e.g. firstName) —
         // should NOT reset, but attributes should still be sent in the profile request.
-        // No token → only a createProfile request is enqueued (canonical-store contract, MAGE-1196).
+        // No token → only a createProfile request is enqueued.
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,
             email: "same@email.com",
@@ -261,7 +263,6 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testSetProfilePartialIdentifierMatchStillResets() async throws {
         // If only one identifier changes (e.g. email changes, phone stays same),
         // reset should still fire. TWO requests: createProfile + identity-only registerPushToken
-        // (canonical-store contract, MAGE-1196).
         let initialState = identifiedState(email: "old@email.com", phoneNumber: "+15555555555")
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(initialState.identity)
@@ -300,7 +301,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
         // All-nil incoming identifiers differ from non-nil state identifiers,
         // so reset fires — preserving the old "clobbering" setProfile behavior.
-        // TWO requests: createProfile + identity-only registerPushToken (MAGE-1196).
+        // TWO requests: createProfile + identity-only registerPushToken.
         let initialState = identifiedState(
             email: "existing@email.com",
             phoneNumber: "+15555555555",
@@ -344,7 +345,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testResetProfileStillClobbersAllState() async throws {
         // resetProfile() always clobbers all state (identifiers cleared, fresh anon minted),
         // then re-registers the preserved push token via an identity-only registerPushToken request
-        // (canonical-store contract: token lives in IdentityStore, not state, MAGE-1196).
+        // (canonical-store contract: token lives in IdentityStore, not state).
         let initialState = identifiedState(
             email: "user@email.com",
             phoneNumber: "+15555555555",
@@ -376,7 +377,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testPreInitResetProfileClearsPersistedIdentity() async throws {
         // Pre-init reset must clear the persisted identity (drop PII, mint a fresh anon) so a reset
-        // issued before initialize() doesn't leave the prior profile in IdentityStore (MAGE-1136).
+        // issued before initialize() doesn't leave the prior profile in IdentityStore.
         IdentityStore.shared.update(
             ProfileData(email: "user@email.com", externalId: "ext-123", anonymousId: "anon-old")
         )
@@ -400,7 +401,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testPreInitResetProfileRebuffersPersistedPushToken() async throws {
         // Parity with post-init reset(preserveTokenData: true): a persisted push token is
         // re-registered against the freshly minted anon. Pre-init that register routes through the
-        // ungated RequestEnqueuer and lands in the durable buffer (MAGE-1136).
+        // ungated RequestEnqueuer and lands in the durable buffer.
         IdentityStore.shared.update(ProfileData(email: "user@email.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(
             PushTokenData(

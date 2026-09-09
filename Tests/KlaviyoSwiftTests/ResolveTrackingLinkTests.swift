@@ -176,7 +176,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
     func testPreInitTrackingLinkResolutionFailedBuffers() async throws {
         // Pre-init (no apiKey in SDKConfigStore): a failed tracking-link resolution must park its
         // click-log in the durable buffer instead of dropping it via the apiKey-gated
-        // `state.enqueueRequest` (MAGE-1136).
+        // `state.enqueueRequest`.
         let store = TestStore(
             initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
         )
