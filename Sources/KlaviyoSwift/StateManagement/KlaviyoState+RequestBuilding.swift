@@ -65,7 +65,12 @@ extension KlaviyoState {
         // if we have push data and we are switching emails
         // we want to associate the token with the new email.
         if let pushTokenData = pushTokenData {
-            self.pushTokenData = nil
+            // Do NOT nil `self.pushTokenData` here: the request below is built from the captured
+            // value, and the reducer's write-through `defer` would otherwise persist nil into
+            // IdentityStore — wiping the canonical/persisted token until the register completes (a
+            // crash in that window loses the token on disk, and concurrent reads see nil). This is
+            // a token re-registration, not an unregister, so the token stays; deQueueCompletedResults
+            // reconfirms it from the response. (MAGE-1196)
             let request = resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,

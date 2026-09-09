@@ -668,6 +668,36 @@ class StateManagementTests: StateManagementTestCase {
         }
     }
 
+    /// Regression (MAGE-1196): `flushQueue` with a staged `pendingProfile` calls
+    /// `enqueueProfileOrTokenRequest`, which must not leave `state.pushTokenData` nil — otherwise the
+    /// write-through `defer` persists nil into `IdentityStore`, wiping the canonical/persisted token
+    /// until the in-flight register completes (a crash in that window loses the token on disk).
+    @MainActor
+    func testFlushWithPendingProfileKeepsCanonicalToken() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.flushing = false
+        initialState.pendingProfile = [.custom(customKey: "foo"): AnyEncodable("bar")]
+        seedCanonicalStores(from: initialState) // seeds IdentityStore.pushToken = the token
+        _ = seedTestQueueStore()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.flushQueue)
+
+        // The flush must not have wiped the canonical token via the write-through defer.
+        XCTAssertEqual(
+            IdentityStore.shared.pushToken?.pushToken, initialState.pushTokenData?.pushToken,
+            "flush with a pending profile must not wipe the canonical push token"
+        )
+
+        // Drain the follow-up effects.
+        guard let request = store.state.requestsInFlight.first else {
+            return XCTFail("expected a request in flight after flushQueue")
+        }
+        await store.receive(.sendRequest)
+        await store.receive(.deQueueCompletedResults(request))
+    }
+
     // MARK: - Test set profile
 
     /// Documents the production `enqueueProfile` payload contract: the unified path builds a
