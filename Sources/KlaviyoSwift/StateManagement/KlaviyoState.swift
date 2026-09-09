@@ -142,8 +142,8 @@ struct KlaviyoState: Equatable {
         pushTokenData = nil
         if preserveTokenData {
             pushTokenData = previousPushTokenData
-            if let apiKey = apiKey,
-               let anonymousId = anonymousId,
+            if let apiKey,
+               let anonymousId,
                let tokenData = previousPushTokenData {
                 let profile = ProfilePayload(Profile(), anonymousId: anonymousId)
                 let request = RequestFactory.tokenRequest(
