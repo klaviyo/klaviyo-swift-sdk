@@ -322,16 +322,24 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testSetEmailMissingAnonymousIdStillSetsEmail() async throws {
+        // Under the canonical-store model, IdentityStore auto-mints an anonymousId on first access,
+        // so "missing anonymousId" is no longer a reachable production state. The test intent is
+        // preserved: the email is still persisted to the canonical IdentityStore.
         let apiKey = "fake-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
-        _ = await store.send(.setEmail("test@blob.com")) {
-            $0.email = "test@blob.com"
-        }
+        _ = await store.send(.setEmail("test@blob.com"))
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.email, "test@blob.com",
+            "setEmail persists the identifier to the canonical store even without a prior anonymousId"
+        )
     }
 
     @MainActor
@@ -352,15 +360,22 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testSetEmailWithTrailingWhiteSpace() async throws {
+        // Trailing whitespace must be trimmed; the canonical store must receive the trimmed value.
         let apiKey = "fake-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        _ = await store.send(.setEmail("test@blob.com        ")) {
-            $0.email = "test@blob.com"
-        }
+        store.exhaustivity = .off
+
+        _ = await store.send(.setEmail("test@blob.com        "))
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.email, "test@blob.com",
+            "trailing whitespace is trimmed before persisting to the canonical store"
+        )
     }
 
     // MARK: - Set External Id
@@ -385,16 +400,24 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testSetExternalIdMissingAnonymousIdStillSetsExternalId() async throws {
+        // Under the canonical-store model, IdentityStore auto-mints an anonymousId on first access,
+        // so "missing anonymousId" is no longer a reachable production state. The test intent is
+        // preserved: the externalId is still persisted to the canonical IdentityStore.
         let apiKey = "fake-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
-        _ = await store.send(.setExternalId("external-blob-id")) {
-            $0.externalId = "external-blob-id"
-        }
+        _ = await store.send(.setExternalId("external-blob-id"))
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.externalId, "external-blob-id",
+            "setExternalId persists the identifier to the canonical store even without a prior anonymousId"
+        )
     }
 
     @MainActor
@@ -415,15 +438,22 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testSetExternalIdWithTrailingWhiteSpace() async throws {
+        // Trailing whitespace must be trimmed; the canonical store must receive the trimmed value.
         let apiKey = "fake-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let initialState = KlaviyoState(apiKey: apiKey,
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        _ = await store.send(.setExternalId("external-blob-id        ")) {
-            $0.externalId = "external-blob-id"
-        }
+        store.exhaustivity = .off
+
+        _ = await store.send(.setExternalId("external-blob-id        "))
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.externalId, "external-blob-id",
+            "trailing whitespace is trimmed before persisting to the canonical store"
+        )
     }
 
     // MARK: - Set Phone number

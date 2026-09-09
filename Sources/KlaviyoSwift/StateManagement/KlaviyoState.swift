@@ -97,27 +97,6 @@ struct KlaviyoState: Equatable {
         QueueStore.shared.enqueue(request)
     }
 
-    mutating func updateEmail(email: String) {
-        if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
-    mutating func updateExternalId(externalId: String) {
-        if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
-            self.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
-    mutating func updatePhoneNumber(phoneNumber: String) {
-        if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
     func requestIdentity(apiKey: String, anonymousId: String) -> RequestIdentity {
         RequestIdentity(
             apiKey: apiKey,

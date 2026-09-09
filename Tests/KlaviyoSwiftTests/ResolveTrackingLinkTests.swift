@@ -128,6 +128,9 @@ final class ResolveTrackingLinkTests: XCTestCase {
     func testResolveTrackingLinkDestinationWithError() async throws {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
+        // Seed the canonical stores so `RequestEnqueuer.enqueueTrackingLinkClicked` routes to
+        // `QueueStore` (apiKey present) and reads identity matching `initialState` (no PII, just anon).
+        try SDKConfigStore.shared.update(KlaviyoConfig(apiKey: XCTUnwrap(initialState.apiKey)))
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
         let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
@@ -149,15 +152,17 @@ final class ResolveTrackingLinkTests: XCTestCase {
         await store.receive(
             .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
         )
+        // Identity in `IdentityStore` after reset: no PII, anonymousId = test UUID — matches `initialState`.
+        let anonymousId = try XCTUnwrap(IdentityStore.shared.current.anonymousId)
         let request = KlaviyoRequest(
             endpoint: .logTrackingLinkClicked(
                 trackingLink: trackingLinkURL,
                 clickTime: clickTime,
                 profileInfo: ProfilePayload(
-                    email: initialState.email,
-                    phoneNumber: initialState.phoneNumber,
-                    externalId: initialState.externalId,
-                    anonymousId: initialState.anonymousId ?? ""
+                    email: IdentityStore.shared.current.email,
+                    phoneNumber: IdentityStore.shared.current.phoneNumber,
+                    externalId: IdentityStore.shared.current.externalId,
+                    anonymousId: anonymousId
                 )
             )
         )
@@ -196,6 +201,9 @@ final class ResolveTrackingLinkTests: XCTestCase {
     func testResolveTrackingLinkDecodingError() async throws {
         // Given
         let initialState = INITIALIZED_TEST_STATE()
+        // Seed the canonical stores so `RequestEnqueuer.enqueueTrackingLinkClicked` routes to
+        // `QueueStore` (apiKey present) and reads identity matching `initialState` (no PII, just anon).
+        try SDKConfigStore.shared.update(KlaviyoConfig(apiKey: XCTUnwrap(initialState.apiKey)))
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
         let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
@@ -214,15 +222,17 @@ final class ResolveTrackingLinkTests: XCTestCase {
         await store.receive(
             .trackingLinkResolutionFailed(trackingLink: trackingLinkURL, clickTime: clickTime)
         )
+        // Identity in `IdentityStore` after reset: no PII, anonymousId = test UUID — matches `initialState`.
+        let anonymousId = try XCTUnwrap(IdentityStore.shared.current.anonymousId)
         let request = KlaviyoRequest(
             endpoint: .logTrackingLinkClicked(
                 trackingLink: trackingLinkURL,
                 clickTime: clickTime,
                 profileInfo: ProfilePayload(
-                    email: initialState.email,
-                    phoneNumber: initialState.phoneNumber,
-                    externalId: initialState.externalId,
-                    anonymousId: initialState.anonymousId ?? ""
+                    email: IdentityStore.shared.current.email,
+                    phoneNumber: IdentityStore.shared.current.phoneNumber,
+                    externalId: IdentityStore.shared.current.externalId,
+                    anonymousId: anonymousId
                 )
             )
         )

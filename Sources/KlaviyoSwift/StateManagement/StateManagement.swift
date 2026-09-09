@@ -279,29 +279,28 @@ struct KlaviyoReducer: ReducerProtocol {
             .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
 
         case let .setEmail(email):
-            guard case .initialized = state.initalizationState else {
-                setPreInitIdentifier(&state) { $0.email = email.trimWhiteSpaceOrReturnNilIfEmpty() }
+            guard email.isNotEmptyOrSame(as: IdentityStore.shared.current.email, identifier: "email") else {
                 return .none
             }
-            state.updateEmail(email: email)
+            applyIdentifierChange(&state) { $0.email = email.trimWhiteSpaceOrReturnNilIfEmpty() }
             return .none
 
         case let .setPhoneNumber(phoneNumber):
-            guard case .initialized = state.initalizationState else {
-                setPreInitIdentifier(&state) {
-                    $0.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
-                }
+            guard phoneNumber.isNotEmptyOrSame(
+                as: IdentityStore.shared.current.phoneNumber, identifier: "phone number"
+            ) else {
                 return .none
             }
-            state.updatePhoneNumber(phoneNumber: phoneNumber)
+            applyIdentifierChange(&state) { $0.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty() }
             return .none
 
         case let .setExternalId(externalId):
-            guard case .initialized = state.initalizationState else {
-                setPreInitIdentifier(&state) { $0.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty() }
+            guard externalId.isNotEmptyOrSame(
+                as: IdentityStore.shared.current.externalId, identifier: "external id"
+            ) else {
                 return .none
             }
-            state.updateExternalId(externalId: externalId)
+            applyIdentifierChange(&state) { $0.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty() }
             return .none
 
         case let .setAutomaticPushToken(pushToken, enablement):
@@ -314,36 +313,32 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case let .setPushToken(pushToken, enablement):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey,
-                  let anonymousId = state.anonymousId
-            else {
-                // Persist the token as canonical device state so a later pre-init identity change
-                // reads it and rebinds; that rebind buffers a fresh `.pushToken` registration, which
-                // coalesces this standalone one away.
-                IdentityStore.shared.updatePushToken(PushTokenData(
-                    pushToken: pushToken,
-                    pushEnablement: enablement,
-                    pushBackground: environment.getBackgroundSetting(),
-                    deviceData: DeviceMetadata(context: environment.appContextInfo())
-                ))
-                RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
-                return .none
-            }
-            if !state.shouldSendTokenUpdate(newToken: pushToken, enablement: enablement) {
-                return .none
-            }
-
-            let request = state.resolvedTokenRequest(
-                apiKey: apiKey,
-                anonymousId: anonymousId,
-                pushToken: pushToken,
-                enablement: enablement
+            let newTokenData = PushTokenData(
+                pushToken: pushToken, pushEnablement: enablement,
+                pushBackground: environment.getBackgroundSetting(),
+                deviceData: DeviceMetadata(context: environment.appContextInfo())
             )
-            state.enqueueRequest(request: request)
+            // Dedup against the canonical token (parity with shouldSendTokenUpdate).
+            guard IdentityStore.shared.pushToken != newTokenData else { return .none }
+            IdentityStore.shared.updatePushToken(newTokenData)
+            guard let anonymousId = IdentityStore.shared.current.anonymousId else {
+                environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
+                return .none
+            }
+            if let apiKey = SDKConfigStore.shared.current.apiKey {
+                // Post-init: fold + consume any pending profile into the registration.
+                state.identity = IdentityStore.shared.current
+                let request = state.resolvedTokenRequest(
+                    apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement
+                )
+                state.enqueueRequest(request: request)
+            } else {
+                RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement) // pre-init buffer
+            }
             return .none
 
         case let .setPushEnablement(enablement):
+            // TODO(MAGE-1197): read the token from IdentityStore, not state.pushTokenData
             guard let pushToken = state.pushTokenData?.pushToken else {
                 return .none
             }
@@ -556,203 +551,104 @@ struct KlaviyoReducer: ReducerProtocol {
             state.requestsInFlight = []
             return .none
 
-        case var .enqueueEvent(event):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey,
-                  let anonymousId = state.anonymousId
-            else {
-                RequestEnqueuer.enqueueEvent(event)
-                return .none
-            }
-
-            event = event.updateEventWithIdentifiers(
-                email: state.email,
-                phoneNumber: state.phoneNumber,
-                externalId: state.externalId,
-                pushToken: state.pushTokenData?.pushToken
-            )
-
-            let request = RequestFactory.eventRequest(
-                identity: state.requestIdentity(apiKey: apiKey, anonymousId: anonymousId),
-                event: event,
-                pushToken: state.pushTokenData?.pushToken
-            )
-
-            /*
-             High-priority requests (e.g. opened-push, geofence events) are front-inserted (inside
-             `QueueStore.enqueue`, keyed on `request.priority`) and trigger an immediate flush so
-             that user engagement events are not delayed. All other requests are appended and
-             flushed on the regular intervals defined in `StateManagementConstants`.
-             */
-            let shouldPrioritize = request.priority == .high
-            state.enqueueRequest(request: request)
-
-            let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
-            return .merge([
-                baseEffect,
-                .fireAndForget { enrichAndPublishEvent(event) }
-            ])
+        case let .enqueueEvent(event):
+            RequestEnqueuer.enqueueEvent(event)
+            // Post-init only, matching today: publish to the EventBus (drives event-triggered in-app
+            // forms via KlaviyoForms' ProfileEventObserver) and prompt-flush high-priority events.
+            // Pre-init there is no forms observer and the flush engine no-ops, so gate on init state.
+            guard case .initialized = state.initalizationState else { return .none }
+            // `.fireAndForget` keeps publish async and reentrancy-safe, matching the pre-cutover
+            // semantics: an EventBus subscriber cannot dispatch back into the store synchronously.
+            let publish = EffectTask<KlaviyoAction>.fireAndForget { enrichAndPublishEvent(event) }
+            return event.priority == .high ? .merge([.task { .flushQueue }, publish]) : publish
 
         case let .enqueueAggregateEvent(payload):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey
-            else {
-                RequestEnqueuer.enqueueAggregateEvent(payload)
-                return .none
-            }
-
-            let endpoint = KlaviyoEndpoint.aggregateEvent(apiKey, payload)
-            let request = KlaviyoRequest(endpoint: endpoint)
-
-            state.enqueueRequest(request: request)
-
+            RequestEnqueuer.enqueueAggregateEvent(payload)
             return .none
 
         case let .enqueueProfile(profile):
-            guard case .initialized = state.initalizationState
-            else {
-                // Pre-init: mirror the initialized path against the canonical persisted identity.
-                // Seed `state.identity` from `IdentityStore` so we fold onto (not clobber) the
-                // stored profile, run the SAME identifier-change reset, then push synchronously
-                // so the merged identity is durable before the profile sync is buffered.
-                state.identity = IdentityStore.shared.current
-                // Read before the reset below — the token lives in IdentityStore, not pre-init state.
-                let tokenData = IdentityStore.shared.pushToken
-                let preInitCurrentIds = [state.email, state.phoneNumber, state.externalId]
-                let preInitIncomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
-                    $0?.trimWhiteSpaceOrReturnNilIfEmpty()
-                }
-                // Identifier change on an already-identified profile → mint a fresh anonymousId and
-                // drop prior PII, so a set(profile:) with different identifiers before initialize()
-                // on a later launch does not reuse the previous user's anonymousId (which would
-                // merge two people onto one profile). Mirrors the initialized branch below.
-                if state.isIdentified, preInitCurrentIds != preInitIncomingIds {
-                    state.reset(preserveTokenData: false)
-                }
-                state.updateStateWithProfile(profile: profile)
-                IdentityStore.shared.update(state.identity)
-                guard let anonymousId = state.anonymousId else { return .none }
-                // Build the full payload exactly as the initialized path does, so structured
-                // attributes (name/title/organization/image/location) survive the pre-init buffer
-                // and sync completely after initialize() (MAGE-1141).
-                let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
-                RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
-                if let tokenData {
-                    // Re-register the token against the new identity as a SEPARATE call. Keeping the
-                    // profile in its own `.profile` buffer entry means a later token callback (e.g. an
-                    // async automatic APNs fire) can't clobber the profile's structured attributes via
-                    // push-token coalescing. The identity-only registration coalesces to the current
-                    // identity, which the update above just set to the new one.
-                    RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
-                }
-                return .none
-            }
-
-            let pushTokenData = state.pushTokenData
+            // Unified init-state-agnostic path: seed identity from the canonical IdentityStore so
+            // we fold onto (not clobber) the stored profile, run the identifier-change reset, write
+            // the merged identity back, then delegate to RequestEnqueuer. The write-through `defer`
+            // runs too late for RequestEnqueuer to read the new identity, so we update explicitly.
+            state.identity = IdentityStore.shared.current
+            // Read the token BEFORE any reset — IdentityStore holds the canonical token.
+            let tokenData = IdentityStore.shared.pushToken
             let currentIds = [state.email, state.phoneNumber, state.externalId]
             let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                 // Normalize with the same trimming used by updateStateWithProfile
                 // so whitespace-padded inputs match their stored counterparts.
                 $0?.trimWhiteSpaceOrReturnNilIfEmpty()
             }
-
             let identifiersChanged = currentIds != incomingIds
-
-            // Only reset if the incoming profile has different identifiers.
-            // Anonymous ID is the lowest-order identifier, so there's no reason
-            // to regenerate it when higher-order identifiers haven't changed.
-            // Resetting with the same identifiers causes unnecessary anonymous ID
-            // churn, which triggers spurious push-token API requests.
+            // Identifier change on an already-identified profile → mint a fresh anonymousId and
+            // drop prior PII, so a set(profile:) with different identifiers does not reuse the
+            // previous user's anonymousId (which would merge two people onto one profile).
             // resetProfile() remains available for explicitly clobbering all state.
             if state.isIdentified, identifiersChanged {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)
-
+            // Push the merged identity synchronously so RequestEnqueuer reads it before enqueueing.
+            IdentityStore.shared.update(state.identity)
             // Skip the API call entirely when there is nothing new to sync:
             // identifiers are unchanged, the profile carries no extra attributes,
             // and no profile properties are queued up via setProfileProperty.
             if !identifiersChanged, !profile.hasNonIdentifierData, state.pendingProfile == nil {
                 return .none
             }
-
-            guard let anonymousId = state.anonymousId,
-                  let apiKey = state.apiKey
-            else {
-                return .none
-            }
+            guard let anonymousId = state.anonymousId else { return .none }
+            // Build the full payload so structured attributes (name/title/organization/image/location)
+            // survive the buffer and sync completely after initialize() (MAGE-1141).
             let profilePayload = state.profilePayload(from: profile, anonymousId: anonymousId)
-
-            let request: KlaviyoRequest
-            if let tokenData = pushTokenData {
-                request = RequestFactory.tokenRequest(
-                    apiKey: apiKey,
-                    pushToken: tokenData.pushToken,
-                    enablement: tokenData.pushEnablement,
-                    background: tokenData.pushBackground.rawValue,
-                    profile: profilePayload
-                )
-            } else {
-                request = RequestFactory.profileRequest(
-                    apiKey: apiKey,
-                    payload: CreateProfilePayload(data: profilePayload)
-                )
+            RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
+            if let tokenData {
+                // Re-register the token as a SEPARATE, identity-only request (built from the current
+                // identity, no structured attributes), enqueued after the createProfile above. Because
+                // it carries no attributes, it can't overwrite the profile attributes just sent, and
+                // FIFO ordering keeps the profile ahead of the registration.
+                RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
             }
-            state.enqueueRequest(request: request)
-
             return .none
 
         case let .enqueueSubscription(subscription):
-            guard case .initialized = state.initalizationState,
-                  let apiKey = state.apiKey,
-                  let anonymousId = state.anonymousId
+            // Seed identity from the canonical store (both pre- and post-init). The ungated
+            // `RequestEnqueuer` routes to `QueueStore` when an apiKey is present, or buffers
+            // durably in `UnattributedBuffer` pre-init so a subscribe is never silently dropped.
+            state.identity = IdentityStore.shared.current
+            // Defensive: `IdentityStore` auto-mints an `anonymousId` on first access, so `nil`
+            // is unreachable in practice — mirroring the note in `RequestEnqueuer.swift`.
+            guard let anonymousId = state.anonymousId,
+                  let payload = state.buildSubscriptionPayload(
+                      anonymousId: anonymousId, subscription: subscription
+                  )
             else {
-                // Pre-init: seed identity from the canonical store, build the apiKey-free payload, and
-                // buffer it via the ungated `RequestEnqueuer` so a pre-init subscribe survives (MAGE-1136).
-                state.identity = IdentityStore.shared.current
-                guard let anonymousId = state.anonymousId,
-                      let payload = state.buildSubscriptionPayload(
-                          anonymousId: anonymousId, subscription: subscription
-                      )
-                else {
-                    return .none
-                }
-                RequestEnqueuer.enqueueSubscription(payload: payload)
                 return .none
             }
-
-            guard let request = state.buildSubscriptionRequest(
-                apiKey: apiKey,
-                anonymousId: anonymousId,
-                subscription: subscription
-            ) else {
-                return .none
-            }
-            state.enqueueRequest(request: request)
-
+            RequestEnqueuer.enqueueSubscription(payload: payload)
             return .none
 
         case .resetProfile:
-            guard case .initialized = state.initalizationState
-            else {
-                // Pre-init reset, mirroring the post-init path. Persist the reset identity to
-                // `IdentityStore` synchronously before the re-register below: the write-through
-                // `defer` runs too late for `RequestEnqueuer` to read the new anon.
-                // `preserveTokenData: false` skips reset's apiKey-gated re-register; we use the
-                // ungated `RequestEnqueuer` instead. A profile buffered under the old identity
-                // still drains at init (MAGE-1136).
-                state.identity = IdentityStore.shared.current
-                let tokenData = IdentityStore.shared.pushToken
-                state.reset(preserveTokenData: false)
-                IdentityStore.shared.update(state.identity)
-                if let tokenData = tokenData {
-                    RequestEnqueuer.enqueuePushToken(
-                        tokenData.pushToken, enablement: tokenData.pushEnablement
-                    )
-                }
-                return .none
+            // Unified reset: mint a fresh anonymous id, drop all PII, and re-register the
+            // preserved push token under the new identity via the ungated `RequestEnqueuer`.
+            // The explicit `IdentityStore.shared.update` before the re-register ensures the
+            // enqueuer reads the post-reset identity; the write-through `defer` would fire too
+            // late for `RequestEnqueuer` to observe the new anon.
+            // `preserveTokenData: false` skips `reset`'s own apiKey-gated re-register so we
+            // avoid a duplicate enqueue. A profile buffered under the old identity still drains
+            // at init (MAGE-1136).
+            state.identity = IdentityStore.shared.current
+            let tokenData = IdentityStore.shared.pushToken
+            state.reset(preserveTokenData: false)
+            // Restore the token on state so the write-through `defer` observes no token change and
+            // does NOT call `IdentityStore.shared.updatePushToken(nil)`. The canonical push token is
+            // preserved in `IdentityStore`; the re-register below re-associates it with the new
+            // anonymous identity. Without this restore the defer would transiently clear the token.
+            state.pushTokenData = tokenData
+            IdentityStore.shared.update(state.identity)
+            if let tokenData {
+                RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
             }
-            state.reset()
             return .none
 
         case let .setProfileProperty(key, value):
@@ -808,61 +704,64 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case let .trackingLinkResolutionFailed(trackingLink, clickTime):
-            // In the reducer only because it's a TCA action whose post-init path reads identity
-            // from `state`. Once the flush engine becomes a Core actor queue and this reducer is
-            // retired, the case folds into `TrackingLinkManager`, which reads identity from the
-            // canonical stores and enqueues directly.
-            guard case .initialized = state.initalizationState, state.apiKey != nil else {
-                // Pre-init: buffer via the ungated `RequestEnqueuer` instead of the apiKey-gated
-                // `state.enqueueRequest`, which would drop the click (MAGE-1136).
-                RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
-                return .none
-            }
-            let profileInfo = ProfilePayload(
-                email: state.email,
-                phoneNumber: state.phoneNumber,
-                externalId: state.externalId,
-                anonymousId: state.anonymousId ?? ""
-            )
-
-            let request = KlaviyoRequest(
-                endpoint: .logTrackingLinkClicked(
-                    trackingLink: trackingLink,
-                    clickTime: clickTime,
-                    profileInfo: profileInfo
-                )
-            )
-            state.enqueueRequest(request: request)
-
+            // Identity is resolved inside `RequestEnqueuer.enqueueTrackingLinkClicked` from the
+            // canonical `IdentityStore`. The ungated enqueuer routes to `QueueStore` when an apiKey
+            // is present, or buffers durably pre-init (MAGE-1136). Once the flush engine becomes a
+            // Core actor the case will fold into `TrackingLinkManager` entirely.
+            RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
             return .none
         }
     }
 
-    /// Applies a pre-init identity-setter (`setEmail`/`setPhoneNumber`/`setExternalId`) and buffers
-    /// a profile sync.
+    /// Applies an identifier change (`setEmail`/`setPhoneNumber`/`setExternalId`) against the
+    /// canonical `IdentityStore`, then enqueues the follow-up sync request:
+    /// - **Post-init + token present:** enqueues a token re-association request via
+    ///   `state.enqueueRequest` (→ `QueueStore.shared`), folding any pending profile.
+    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`,
+    ///   folding any pending profile.
     ///
-    /// The just-set identifier must reach `IdentityStore` BEFORE `RequestEnqueuer.enqueueProfile`
-    /// reads it: the reducer's write-through `defer` fires only at RETURN, which is too late.
-    /// So we push identity synchronously here. Crucially we seed the FULL `state.identity` from
-    /// `IdentityStore.current` first (minting the anonymousId on first access) so the setter FOLDS
-    /// onto the persisted identity — `IdentityStore.update` replaces wholesale, so seeding only the
-    /// anonymousId would clobber the other persisted identifiers with `nil` from a fresh pre-init `state`.
-    /// Mirrors the pre-init `set(profile:)` path.
-    private func setPreInitIdentifier(
+    /// Seeds the FULL identity from `IdentityStore` first so the setter folds onto the persisted
+    /// profile (update replaces wholesale).
+    private func applyIdentifierChange(
         _ state: inout KlaviyoState,
         _ apply: (inout KlaviyoState) -> Void
     ) {
         state.identity = IdentityStore.shared.current
         apply(&state)
         IdentityStore.shared.update(state.identity)
+        // Note: `state.pushTokenData` is NOT cleared here. The token is now canonical in
+        // `IdentityStore` — clearing it from state was only necessary in the old
+        // per-setter code path. The `state.pushTokenData` field is written through by the
+        // reducer's defer block whenever `IdentityStore.shared.updatePushToken` is called.
         guard let anonymousId = state.anonymousId else { return }
-        let payload = CreateProfilePayload(data: ProfilePayload(
-            email: state.email,
-            phoneNumber: state.phoneNumber,
-            externalId: state.externalId,
-            anonymousId: anonymousId
-        ))
-        RequestEnqueuer.enqueueProfile(payload: payload)
+
+        if let apiKey = SDKConfigStore.shared.current.apiKey,
+           let tokenData = IdentityStore.shared.pushToken {
+            // Post-init token re-association: fold + consume any pending profile into the token
+            // request's profile (as the legacy resolvedTokenRequest did), then enqueue.
+            let request = state.resolvedTokenRequest(
+                apiKey: apiKey,
+                anonymousId: anonymousId,
+                pushToken: tokenData.pushToken,
+                enablement: tokenData.pushEnablement
+            )
+            state.enqueueRequest(request: request) // already targets QueueStore.shared
+        } else {
+            // Pre-init (no apiKey → buffer) or post-init with no token: enqueue a profile via the
+            // ungated RequestEnqueuer, folding any pending profile. Matches the legacy
+            // setPreInitIdentifier.
+            // Pass an empty Profile(): `profilePayload(from:anonymousId:)` sources all identifiers
+            // from `state` directly — the Profile argument carries no structured attributes that
+            // would override state, so constructing it with the current identifier values is
+            // redundant.
+            let payload = CreateProfilePayload(data: state.profilePayload(
+                from: Profile(),
+                anonymousId: anonymousId
+            ))
+            RequestEnqueuer.enqueueProfile(
+                payload: state.updateRequestAndStateWithPendingProfile(profile: payload)
+            )
+        }
     }
 }
 
