@@ -126,14 +126,22 @@ class StateManagementTests: StateManagementTestCase {
         // assertions on file shape are needed (KlaviyoState is no longer Codable).
     }
 
+    /// Seeds the canonical Core stores from a `KlaviyoState` snapshot so that
+    /// `RequestEnqueuer` routes to `QueueStore` and reads the correct identity.
+    /// Only use where all three stores are seeded from the same `state` value.
+    @MainActor
+    private func seedCanonicalStores(from state: KlaviyoState) {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey!))
+        IdentityStore.shared.update(state.identity)
+        IdentityStore.shared.updatePushToken(state.pushTokenData)
+    }
+
     // MARK: - Set Email
 
     @MainActor
     func testSetEmail() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -160,9 +168,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumber() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -189,9 +195,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetExternalId() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -245,9 +249,7 @@ class StateManagementTests: StateManagementTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
         initialState.flushing = true // keep the queue observable (no drain)
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -314,9 +316,7 @@ class StateManagementTests: StateManagementTestCase {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
         initialState.flushing = true // keep the queue observable (no drain)
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -332,6 +332,41 @@ class StateManagementTests: StateManagementTestCase {
 
         await store.receive(.setPushToken(initialState.pushTokenData!.pushToken, .authorized))
         XCTAssertEqual(readQueue().map(\.endpoint), [pushTokenRequest].map(\.endpoint))
+    }
+
+    /// Regression (MAGE-1196): after a token rotation, `setPushToken` writes the new token to
+    /// `IdentityStore` but leaves `state.pushTokenData` stale until the register drains. If
+    /// `setPushEnablement` read the stale `state` token it would forward it and clobber the canonical
+    /// store back to the old token. It must read the canonical `IdentityStore` token instead.
+    @MainActor
+    func testSetPushEnablementReadsCanonicalTokenNotStaleState() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        // Simulate the divergence setPushToken(new) creates: state holds the old token, the canonical
+        // store already advanced to the rotated one.
+        let staleToken = "stale-rotated-away-token"
+        let freshToken = "fresh-canonical-token"
+        initialState.pushTokenData = PushTokenData(
+            pushToken: staleToken, pushEnablement: .authorized, pushBackground: .available,
+            deviceData: .init(context: environment.appContextInfo())
+        )
+        initialState.flushing = true // keep the queue observable (no drain)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: freshToken, pushEnablement: .authorized, pushBackground: .available,
+            deviceData: .init(context: environment.appContextInfo())
+        ))
+        _ = seedTestQueueStore()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.setPushEnablement(.denied))
+
+        // Forwards the CANONICAL (fresh) token, not the stale state token.
+        await store.receive(.setPushToken(freshToken, .denied))
+        // The canonical store keeps the fresh token (not clobbered back to stale), with new enablement.
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, freshToken)
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .denied)
     }
 
     // MARK: - flush
@@ -645,9 +680,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testEnqueueProfilePayloadParityWithLegacyBuilder() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -708,9 +741,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.phoneNumber = "555BLOB"
         // Seed the canonical stores so the unified `enqueueProfile` path reads the same
         // identity the reducer sees (phoneNumber="555BLOB", push token present).
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -755,9 +786,7 @@ class StateManagementTests: StateManagementTestCase {
         let initialState = INITIALIZED_TEST_STATE()
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity when building the token re-association payload.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -797,9 +826,7 @@ class StateManagementTests: StateManagementTestCase {
         let initialState = INITIALIZED_TEST_STATE()
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct (whitespace-trimmed) identity when building payloads.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -879,6 +906,7 @@ class StateManagementTests: StateManagementTestCase {
 
     /// Verifies payload parity for `._openedPush` — the event type whose `updateEventWithIdentifiers`
     /// push_token branch matters most (it injects the token into event properties).
+    @MainActor
     func testOpenedPushEventPayloadParityWithLegacyBuilder() throws {
         let state = INITIALIZED_TEST_STATE()
         IdentityStore.shared.update(state.identity)
@@ -923,9 +951,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.phoneNumber = "555BLOB"
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity (phone number, push token) when building the payload.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1241,9 +1267,7 @@ class StateManagementTests: StateManagementTestCase {
 
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity (push token) when building the geofence event payload.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
 
         // Add some existing requests to the queue
         let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
@@ -1564,9 +1588,7 @@ class StateManagementTests: StateManagementTestCase {
         initialState.flushing = false
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity when building event payloads.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let existingRequest = initialState.buildProfileRequest(
             apiKey: initialState.apiKey!,
             anonymousId: initialState.anonymousId!
@@ -1807,9 +1829,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetEmailEmptyStringEnqueuesNothing() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1843,9 +1863,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberEmptyStringEnqueuesNothing() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1880,9 +1898,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testSetExternalIdEmptyStringEnqueuesNothing() async throws {
         let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1984,5 +2000,47 @@ class StateManagementTests: StateManagementTestCase {
                        "pre-init setEmail with a stored token must buffer a .profile, not drop silently")
         XCTAssertEqual(profiles.first?.data.attributes.email, "new@example.com",
                        "buffered profile must carry the updated email")
+    }
+
+    /// Warm-start variant: `SDKConfigStore` holds a persisted apiKey (from a prior launch) but
+    /// `.initialize` has not run this launch, so `state.apiKey` is still nil. The token branch must
+    /// gate on `state.apiKey` (which `enqueueRequest` uses), not the persisted `SDKConfigStore`
+    /// apiKey — otherwise the request is built and silently dropped by the nil-`state.apiKey` guard.
+    /// With the gate, it falls through to `RequestEnqueuer.enqueueProfile`, which — since
+    /// `SDKConfigStore` has the apiKey — routes the profile to the `QueueStore` (not dropped).
+    /// Regression gate for the warm-start drop (MAGE-1196).
+    @MainActor
+    func testSetEmailWarmStartWithStoredTokenEnqueuesProfileToQueue() async throws {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        // Persisted apiKey from a prior launch: present in SDKConfigStore but NOT yet on state.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "persisted-key"))
+        IdentityStore.shared.update(ProfileData(
+            email: "old@example.com", externalId: "user-A", anonymousId: "anon-A"
+        ))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "tok-warmStart",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+        let readQueue = seedTestQueueStore()
+
+        // Uninitialized state: state.apiKey is nil even though SDKConfigStore has one.
+        let store = TestStore(
+            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+
+        await store.send(.setEmail("new@example.com"))
+
+        // Not dropped: a createProfile carrying the new email lands in the QueueStore.
+        let profiles: [CreateProfilePayload] = readQueue().compactMap {
+            if case let .createProfile(_, payload) = $0.endpoint { return payload }
+            return nil
+        }
+        XCTAssertEqual(profiles.count, 1,
+                       "warm-start setEmail (SDKConfigStore apiKey set, state.apiKey nil) must enqueue a profile, not drop")
+        XCTAssertEqual(profiles.first?.data.attributes.email, "new@example.com")
     }
 }

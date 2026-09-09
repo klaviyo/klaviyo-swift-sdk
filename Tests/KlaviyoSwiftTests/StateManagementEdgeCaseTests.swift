@@ -38,6 +38,22 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         return (readQueue, store)
     }
 
+    /// Returns a non-exhaustive `TestStore` seeded with a minimal initialized state and the
+    /// canonical `SDKConfigStore`. Use for identifier-setter tests that only need a live,
+    /// initialized store to send actions against.
+    @MainActor
+    private func makeInitializedIdentifierStore(apiKey: String = "fake-key") -> CompanySwitchStore {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        let store = TestStore(
+            initialState: KlaviyoState(
+                apiKey: apiKey, requestsInFlight: [], initalizationState: .initialized, flushing: false
+            ),
+            reducer: KlaviyoReducer()
+        )
+        store.exhaustivity = .off
+        return store
+    }
+
     // MARK: - initialization
 
     @MainActor
@@ -325,14 +341,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Under the canonical-store model, IdentityStore auto-mints an anonymousId on first access,
         // so "missing anonymousId" is no longer a reachable production state. The test intent is
         // preserved: the email is still persisted to the canonical IdentityStore.
-        let apiKey = "fake-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        let store = makeInitializedIdentifierStore()
 
         _ = await store.send(.setEmail("test@blob.com"))
 
@@ -361,14 +370,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetEmailWithTrailingWhiteSpace() async throws {
         // Trailing whitespace must be trimmed; the canonical store must receive the trimmed value.
-        let apiKey = "fake-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        let store = makeInitializedIdentifierStore()
 
         _ = await store.send(.setEmail("test@blob.com        "))
 
@@ -403,14 +405,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Under the canonical-store model, IdentityStore auto-mints an anonymousId on first access,
         // so "missing anonymousId" is no longer a reachable production state. The test intent is
         // preserved: the externalId is still persisted to the canonical IdentityStore.
-        let apiKey = "fake-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        let store = makeInitializedIdentifierStore()
 
         _ = await store.send(.setExternalId("external-blob-id"))
 
@@ -439,14 +434,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetExternalIdWithTrailingWhiteSpace() async throws {
         // Trailing whitespace must be trimmed; the canonical store must receive the trimmed value.
-        let apiKey = "fake-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        let store = makeInitializedIdentifierStore()
 
         _ = await store.send(.setExternalId("external-blob-id        "))
 
@@ -527,6 +515,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
                                         initalizationState: .uninitialized,
                                         flushing: false)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
 
         _ = await store.send(.setPushToken("blob_token", .authorized))
         XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
@@ -549,17 +538,20 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testSetPushTokenWithMissingAnonymousId() async throws {
+        // state.apiKey is set, so the token routes to QueueStore (state.apiKey gates enqueue).
+        // anonymousId is minted on first IdentityStore access, so "missing" is defensive coverage.
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
                                         requestsInFlight: [],
                                         initalizationState: .initialized,
                                         flushing: false)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
 
-        // Impossible case really but we want coverage. With no apiKey in SDKConfigStore the token
-        // routes to the durable UnattributedBuffer rather than being parked in state.
         _ = await store.send(.setPushToken("blob_token", .authorized))
-        XCTAssertEqual(UnattributedBuffer.shared.drainSnapshot().requests.count, 1)
+        XCTAssertEqual(readQueue().count, 1)
     }
 
     // MARK: - Stop
@@ -749,6 +741,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             flushing: false
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData (MAGE-1196)
 
         // Impossible case really but we want coverage on it. Missing apiKey → the token routes to
         // the durable UnattributedBuffer rather than being parked in state.

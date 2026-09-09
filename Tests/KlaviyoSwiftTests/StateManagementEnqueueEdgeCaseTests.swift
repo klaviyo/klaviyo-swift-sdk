@@ -144,13 +144,9 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let profileRequest = KlaviyoRequest(
             endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
         )
-        let tokenPayload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(anonymousId: newAnon, email: nil, phoneNumber: nil, externalId: nil),
-            pushToken: initialState.pushTokenData!.pushToken,
-            enablement: initialState.pushTokenData!.pushEnablement,
-            background: environment.getBackgroundSetting()
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
         )
-        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
         XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
@@ -214,18 +210,13 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let profileRequest = KlaviyoRequest(
             endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
         )
-        let tokenPayload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(
-                anonymousId: newAnon,
-                email: "new@email.com",
-                phoneNumber: "+12222222222",
-                externalId: "new-ext"
-            ),
-            pushToken: initialState.pushTokenData!.pushToken,
-            enablement: initialState.pushTokenData!.pushEnablement,
-            background: environment.getBackgroundSetting()
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon,
+            email: "new@email.com",
+            phoneNumber: "+12222222222",
+            externalId: "new-ext",
+            tokenData: initialState.pushTokenData!
         )
-        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
         XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
@@ -296,18 +287,12 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let profileRequest = KlaviyoRequest(
             endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
         )
-        let tokenPayload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(
-                anonymousId: newAnon,
-                email: "different@email.com",
-                phoneNumber: "+15555555555",
-                externalId: nil
-            ),
-            pushToken: initialState.pushTokenData!.pushToken,
-            enablement: initialState.pushTokenData!.pushEnablement,
-            background: environment.getBackgroundSetting()
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon,
+            email: "different@email.com",
+            phoneNumber: "+15555555555",
+            tokenData: initialState.pushTokenData!
         )
-        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
         XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
@@ -349,13 +334,9 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let profileRequest = KlaviyoRequest(
             endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
         )
-        let tokenPayload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(anonymousId: newAnon, email: nil, phoneNumber: nil, externalId: nil),
-            pushToken: initialState.pushTokenData!.pushToken,
-            enablement: initialState.pushTokenData!.pushEnablement,
-            background: environment.getBackgroundSetting()
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
         )
-        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
         XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
@@ -386,13 +367,9 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         // ONE request: identity-only registerPushToken under the fresh anon (no profile request
         // for resetProfile — only the token re-register is needed to rebind under new identity).
         let newAnon = store.state.anonymousId!
-        let tokenPayload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(anonymousId: newAnon, email: nil, phoneNumber: nil, externalId: nil),
-            pushToken: initialState.pushTokenData!.pushToken,
-            enablement: initialState.pushTokenData!.pushEnablement,
-            background: environment.getBackgroundSetting()
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
         )
-        let tokenRequest = KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, tokenPayload))
         XCTAssertEqual(readQueue().map(\.endpoint), [tokenRequest].map(\.endpoint))
     }
 
@@ -450,6 +427,27 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Builds the identity-only `registerPushToken` request expected after a reset / identifier
+    /// change. Avoids repeating the `RequestFactory.tokenPayload` + `KlaviyoRequest` boilerplate
+    /// across tests that differ only in the identity values.
+    private func expectedIdentityOnlyTokenRequest(
+        anonymousId: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        tokenData: PushTokenData
+    ) -> KlaviyoRequest {
+        let payload = RequestFactory.tokenPayload(
+            identity: PayloadIdentity(
+                anonymousId: anonymousId, email: email, phoneNumber: phoneNumber, externalId: externalId
+            ),
+            pushToken: tokenData.pushToken,
+            enablement: tokenData.pushEnablement,
+            background: environment.getBackgroundSetting()
+        )
+        return KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, payload))
+    }
 
     /// Builds a fully-initialized, identified `KlaviyoState` for tests that differ only in identifiers.
     private func identifiedState(

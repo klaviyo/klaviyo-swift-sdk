@@ -166,8 +166,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 guard apiKey != state.apiKey else {
                     return .none
                 }
-                // Moving the token to a new company: unregister from the old one. Appended (not
-                // front-inserted) so it sends after any already-queued old-company requests.
                 if let apiKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
@@ -320,12 +318,18 @@ struct KlaviyoReducer: ReducerProtocol {
             )
             // Dedup against the canonical token (parity with shouldSendTokenUpdate).
             guard IdentityStore.shared.pushToken != newTokenData else { return .none }
-            IdentityStore.shared.updatePushToken(newTokenData)
+            // Write-through: assign the projection and let the reducer's `defer` persist it to
+            // IdentityStore. Writing IdentityStore directly would leave `state.pushTokenData` stale
+            // for other state readers (the company-switch unregister) until a register drains (MAGE-1196).
+            state.pushTokenData = newTokenData
             guard let anonymousId = IdentityStore.shared.current.anonymousId else {
                 environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
                 return .none
             }
-            if let apiKey = SDKConfigStore.shared.current.apiKey {
+            // Gate on `state.apiKey` to match `state.enqueueRequest`: `SDKConfigStore` can hold a
+            // persisted apiKey before `.initialize` sets `state.apiKey` (warm start), and enqueuing
+            // then would be dropped. Pre-init falls through to the durable buffer instead (MAGE-1196).
+            if let apiKey = state.apiKey {
                 // Post-init: fold + consume any pending profile into the registration.
                 state.identity = IdentityStore.shared.current
                 let request = state.resolvedTokenRequest(
@@ -338,8 +342,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setPushEnablement(enablement):
-            // TODO(MAGE-1197): read the token from IdentityStore, not state.pushTokenData
-            guard let pushToken = state.pushTokenData?.pushToken else {
+            // Read the token from the canonical IdentityStore, not the `state` projection.
+            // setPushToken writes IdentityStore eagerly but leaves state.pushTokenData stale until
+            // the register drains, so reading state here could forward — and re-register — a stale
+            // token, clobbering the canonical store back to it (MAGE-1196).
+            guard let pushToken = IdentityStore.shared.pushToken?.pushToken else {
                 return .none
             }
 
@@ -735,7 +742,10 @@ struct KlaviyoReducer: ReducerProtocol {
         // reducer's defer block whenever `IdentityStore.shared.updatePushToken` is called.
         guard let anonymousId = state.anonymousId else { return }
 
-        if let apiKey = SDKConfigStore.shared.current.apiKey,
+        // Gate on `state.apiKey` (not `SDKConfigStore`) to match `state.enqueueRequest`: a warm-start
+        // apiKey persisted in `SDKConfigStore` before `.initialize` would otherwise take this branch
+        // and be dropped. Pre-init falls through to the buffered `RequestEnqueuer` path (MAGE-1196).
+        if let apiKey = state.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
             // Post-init token re-association: fold + consume any pending profile into the token
             // request's profile (as the legacy resolvedTokenRequest did), then enqueue.
