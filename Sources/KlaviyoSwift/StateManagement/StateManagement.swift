@@ -166,7 +166,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 guard apiKey != state.apiKey else {
                     return .none
                 }
-                // Since we are moving the token to a new company lets remove the token from the old company first.
+                // Moving the token to a new company: unregister from the old one. Appended (not
+                // front-inserted) so it sends after any already-queued old-company requests.
                 if let apiKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
@@ -178,6 +179,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
+                return .task { .flushQueue }
             } else if case .uninitialized = state.initalizationState,
                       let previousApiKey = SDKConfigStore.shared.current.apiKey,
                       previousApiKey != apiKey {
@@ -198,15 +200,30 @@ struct KlaviyoReducer: ReducerProtocol {
                         ),
                         pushToken: tokenData.pushToken
                     )
-                    // Persist synchronously before the wipe below so the unregister survives a
-                    // crash between cold-start company switch and the first flush.
+                    // Appended so it sends after any queued old-company requests; persisted
+                    // synchronously so it survives a crash before the first flush.
                     QueueStore.shared.enqueue(request, persist: .synchronous)
                 }
-                IdentityStore.shared.updatePushToken(nil)
-                if previous.email != nil || previous.phoneNumber != nil || previous.externalId != nil {
-                    // Identified profile: mint a fresh anon and drop PII so `.completeInitialization`
-                    // hydrates a clean identity for the new company.
-                    IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+                // NOTE: do NOT clear the push token here — the switch must preserve it so the
+                // token can be re-registered under the new company immediately below.
+                // Give the new company a clean identity: mint a fresh anon and drop any PII so
+                // `.completeInitialization` hydrates it. Unconditional (matches the runtime switch
+                // path's `state.reset()`) so an anonymous-only switch does not carry the old
+                // company's anon into the new one.
+                IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+                // Re-register the preserved token under the new company (identity-only, fresh anon).
+                if let tokenData = IdentityStore.shared.pushToken,
+                   let newAnon = IdentityStore.shared.current.anonymousId {
+                    let request = RequestFactory.tokenRequest(
+                        apiKey: apiKey,
+                        pushToken: tokenData.pushToken,
+                        enablement: tokenData.pushEnablement,
+                        background: tokenData.pushBackground.rawValue,
+                        profile: ProfilePayload(
+                            email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
+                        )
+                    )
+                    QueueStore.shared.enqueue(request)
                 }
             }
             guard case .uninitialized = state.initalizationState else {
