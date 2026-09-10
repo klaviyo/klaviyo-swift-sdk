@@ -223,6 +223,32 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     }
 
     @MainActor
+    func testSetProfileWithChangedIdentifiersPreservesCanonicalPushToken() async throws {
+        // set(profile:) with different identifiers on an identified user fires
+        // reset(preserveTokenData: false), which nils state.pushTokenData. The projection must be
+        // restored so the reducer's write-through defer doesn't persist nil into IdentityStore and
+        // wipe the canonical push token (same defect class as resetProfile / the flush-safety fix).
+        let initialState = identifiedState(email: "old@email.com")
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
+        seedTestQueueStore()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.enqueueProfile(Profile(email: "new@email.com")))
+
+        XCTAssertNotNil(
+            IdentityStore.shared.pushToken,
+            "set(profile:) with changed identifiers must not clear the canonical push token"
+        )
+        XCTAssertEqual(
+            IdentityStore.shared.pushToken?.pushToken, initialState.pushTokenData?.pushToken,
+            "the preserved token must match the pre-change token"
+        )
+    }
+
+    @MainActor
     func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
         // Same identifiers but different non-identifier attributes (e.g. firstName) —
         // should NOT reset, but attributes should still be sent in the profile request.
@@ -256,7 +282,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let request = KlaviyoRequest(
             endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
         )
-        XCTAssertEqual(readQueue().map(\.endpoint), [request].map(\.endpoint))
+        XCTAssertEqual(readQueue(), [request])
     }
 
     @MainActor
@@ -538,6 +564,39 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         XCTAssertEqual(stored.phoneNumber, "+15555550100", "pre-init setEmail must not wipe the persisted phone")
         XCTAssertEqual(stored.externalId, "ext-1", "pre-init setEmail must not wipe the persisted externalId")
         XCTAssertEqual(stored.anonymousId, anon)
+    }
+
+    /// A pre-init identifier setter folds AND consumes any staged `pendingProfile` into its buffered
+    /// profile request — unlike the pre-init `set(profile:)` path, which leaves the property staged
+    /// (see `testEnqueueProfilePayloadParityWithLegacyBuilder`). Pins the `applyIdentifierChange`
+    /// fold+consume behavior that diverges from the legacy `setPreInitIdentifier`.
+    @MainActor
+    func testPreInitSetProfilePropertyThenSetEmailShipsPropertyInBufferedProfile() async throws {
+        IdentityStore.shared.update(ProfileData(anonymousId: "stable-anon"))
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
+        _ = await store.send(.setProfileProperty(key, "gold"))
+        _ = await store.send(.setEmail("new@user.com"))
+
+        // The staged property is consumed onto the buffered profile request, not left pending.
+        XCTAssertNil(store.state.pendingProfile, "setEmail must consume the staged pendingProfile")
+
+        let profiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
+            .compactMap {
+                if case let .profile(payload) = $0 { return payload }
+                return nil
+            }
+        guard let payload = profiles.last else {
+            return XCTFail("expected a buffered profile request carrying the staged property")
+        }
+        let customProps = payload.data.attributes.properties.value as? [String: Any]
+        XCTAssertEqual(
+            customProps?["loyalty_tier"] as? String, "gold",
+            "the staged property must ship in the buffered profile request built by setEmail"
+        )
     }
 }
 

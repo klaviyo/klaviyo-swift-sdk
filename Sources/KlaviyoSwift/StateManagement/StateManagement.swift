@@ -329,7 +329,8 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             // Gate on `state.apiKey` to match `state.enqueueRequest`: `SDKConfigStore` can hold a
             // persisted apiKey before `.initialize` sets `state.apiKey` (warm start), and enqueuing
-            // then would be dropped. Pre-init falls through to the durable buffer instead.
+            // via `enqueueRequest` then would be dropped. The else branch re-gates on
+            // `SDKConfigStore`, so a warm-start token still reaches `QueueStore` (not the buffer).
             if let apiKey = state.apiKey {
                 // Post-init: fold + consume any pending profile into the registration.
                 state.identity = IdentityStore.shared.current
@@ -338,7 +339,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 )
                 state.enqueueRequest(request: request)
             } else {
-                RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement) // pre-init buffer
+                // Pre-init or warm start: RequestEnqueuer re-gates on SDKConfigStore.
+                RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
             }
             return .none
 
@@ -561,9 +563,19 @@ struct KlaviyoReducer: ReducerProtocol {
             // forms via KlaviyoForms' ProfileEventObserver) and prompt-flush high-priority events.
             // Pre-init there is no forms observer and the flush engine no-ops, so gate on init state.
             guard case .initialized = state.initalizationState else { return .none }
+            // Stamp identifiers onto the published event so the EventBus/KlaviyoJS path carries the
+            // same properties as the outbound request. Read from the canonical stores, matching
+            // `RequestEnqueuer.enqueueEvent`.
+            let identity = IdentityStore.shared.current
+            let publishedEvent = event.updateEventWithIdentifiers(
+                email: identity.email,
+                phoneNumber: identity.phoneNumber,
+                externalId: identity.externalId,
+                pushToken: IdentityStore.shared.pushToken?.pushToken
+            )
             // `.fireAndForget` keeps publish async and reentrancy-safe, matching the pre-cutover
             // semantics: an EventBus subscriber cannot dispatch back into the store synchronously.
-            let publish = EffectTask<KlaviyoAction>.fireAndForget { enrichAndPublishEvent(event) }
+            let publish = EffectTask<KlaviyoAction>.fireAndForget { enrichAndPublishEvent(publishedEvent) }
             return event.priority == .high ? .merge([.task { .flushQueue }, publish]) : publish
 
         case let .enqueueAggregateEvent(payload):
@@ -586,6 +598,7 @@ struct KlaviyoReducer: ReducerProtocol {
             // resetProfile() remains available for explicitly clobbering all state.
             if state.isIdentified, identifiersChanged {
                 state.reset(preserveTokenData: false)
+                state.pushTokenData = tokenData
             }
             state.updateStateWithProfile(profile: profile)
             IdentityStore.shared.update(state.identity)
@@ -712,14 +725,16 @@ struct KlaviyoReducer: ReducerProtocol {
         IdentityStore.shared.update(state.identity)
         guard let anonymousId = state.anonymousId else { return }
 
-        // Identifier change means profile must be re-registered/associated.
-        // Use `apiKey` in state in case of warm start (i.e. initialize has not
-        // finished running in reducer yet) instead of `SDKConfigStore` (which
-        // still at this point relies on the defer write through)
+        // The identifier changed, so re-register the profile under the new identity. Two paths,
+        // and both fold in + consume any staged `pendingProfile` so those properties ship now
+        // instead of waiting for a later flush. (This is the one behavior change from the legacy
+        // `setPreInitIdentifier`, which left `pendingProfile` staged.)
+        //
+        // Gate on `state.apiKey`, not `SDKConfigStore`: on a warm start `initialize` may not have
+        // run through the reducer yet, so `state.apiKey` is the source of truth for "post-init".
         if let apiKey = state.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
-            // Post-init token re-association: fold + consume any pending profile into the token
-            // request's profile, then enqueue.
+            // Post-init with a token: re-associate the token to the new identity.
             let request = state.resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,
@@ -728,13 +743,10 @@ struct KlaviyoReducer: ReducerProtocol {
             )
             state.enqueueRequest(request: request) // already targets QueueStore.shared
         } else {
-            // Pre-init (no apiKey → buffer) or post-init with no token: enqueue a profile via the
-            // ungated RequestEnqueuer, folding any pending profile. Matches the legacy
-            // setPreInitIdentifier.
-            // Pass an empty Profile(): `profilePayload(from:anonymousId:)` sources all identifiers
-            // from `state` directly — the Profile argument carries no structured attributes that
-            // would override state, so constructing it with the current identifier values is
-            // redundant.
+            // Pre-init or post-init with no token: send a profile via the ungated RequestEnqueuer
+            // (pre-init, this lands in the durable buffer). Empty `Profile()` is intentional —
+            // `profilePayload(from:anonymousId:)` reads every identifier straight from `state`,
+            // at this point, so the argument would only carry redundant values.
             let payload = CreateProfilePayload(data: state.profilePayload(
                 from: Profile(),
                 anonymousId: anonymousId
