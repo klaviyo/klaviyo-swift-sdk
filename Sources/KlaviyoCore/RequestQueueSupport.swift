@@ -103,6 +103,82 @@ struct ErrorSource: Codable {
     let pointer: String
 }
 
+// MARK: - FlushDecision
+
+/// Describes the action the request-queue engine should take after a flush attempt fails.
+public enum FlushDecision: Equatable {
+    /// The request is non-retryable (or succeeded): remove it from the queue and move on.
+    case dequeue
+
+    /// A transient network error occurred; resend on the regular flush cadence.
+    case retry(RetryState)
+
+    /// A rate-limit or server error occurred; wait `seconds` before resending.
+    case retryWithBackoff(RetryState, seconds: Int)
+
+    /// The server rejected a field (e.g. email or phone) with a validation error.
+    /// Strip the offending field(s) and remove the request from the queue.
+    case clearInvalidFieldsAndDequeue([InvalidField])
+}
+
+// MARK: - classifyFailure
+
+/// Maps a ``KlaviyoAPIError`` to a ``FlushDecision``, mirroring the logic of
+/// `handleRequestError` in `KlaviyoSwift` but without wrapping the result in a
+/// `KlaviyoAction` so that the Core-side queue engine can use it directly.
+///
+/// - Parameters:
+///   - error: The API error returned by the network layer.
+///   - retryState: The current retry state for the failing request.
+/// - Returns: The decision the queue engine should act on.
+public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> FlushDecision {
+    switch error {
+    case let .httpError(_, data):
+        let invalidFields = parseError(data)
+        if let invalidFields, !invalidFields.isEmpty {
+            return .clearInvalidFieldsAndDequeue(invalidFields)
+        } else {
+            return .dequeue
+        }
+
+    case .networkError:
+        switch retryState {
+        case let .retry(count):
+            return .retry(.retry(count + 1))
+        case let .retryWithBackoff(requestCount, _, _):
+            return .retry(.retry(requestCount + 1))
+        }
+
+    case let .rateLimitError(backOff), let .serverError(_, backOff):
+        var requestRetryCount = 0
+        var totalRetryCount = 0
+        switch retryState {
+        case let .retry(count):
+            requestRetryCount = count + 1
+            totalRetryCount = requestRetryCount
+        case let .retryWithBackoff(requestCount, totalCount, _):
+            requestRetryCount = requestCount + 1
+            totalRetryCount = totalCount + 1
+        }
+        return .retryWithBackoff(
+            .retryWithBackoff(
+                requestCount: requestRetryCount,
+                totalRetryCount: totalRetryCount,
+                currentBackoff: backOff
+            ),
+            seconds: backOff
+        )
+
+    case .internalError,
+         .internalRequestError,
+         .unknownError,
+         .dataEncodingError,
+         .invalidData,
+         .missingOrInvalidResponse:
+        return .dequeue
+    }
+}
+
 // MARK: - parseError helper
 
 /// Decodes a Klaviyo API error-response body and extracts any ``InvalidField`` entries.
