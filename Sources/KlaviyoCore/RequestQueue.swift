@@ -56,7 +56,15 @@ public actor RequestQueue {
         runLoop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                try? await self.clock.sleep(self.flushInterval)
+                // If `stop()` cancels the loop while it is parked here, exit instead of running a
+                // trailing `flush()` — otherwise a cancelled idle wait would still drain+send (and
+                // on backgrounding the interval is still finite, so the guard wouldn't catch it).
+                do {
+                    try await self.clock.sleep(self.flushInterval)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
                 await self.flush()
             }
         }
@@ -214,6 +222,13 @@ public actor RequestQueue {
                     // (rather than restoring + waiting for the reducer's per-tick countdown). The
                     // `isFlushing` guard stays true across the sleep, so no concurrent flush runs.
                     try? await clock.sleep(Double(seconds))
+                    // Promote back to `.retry(requestCount)` so the in-place retry advances
+                    // `attemptNumber` (parity with the reducer's backoff-expiry:
+                    // `state.retryState = .retry(requestCount)`). Without this the retried send
+                    // would keep sourcing `numAttempts` as the initial attempt.
+                    if case let .retryWithBackoff(requestCount, _, _) = retryState {
+                        retryState = .retry(requestCount)
+                    }
                     continue
                 }
             }

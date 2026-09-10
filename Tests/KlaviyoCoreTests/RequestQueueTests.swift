@@ -146,6 +146,32 @@ final class RequestQueueTests: XCTestCase {
         await queue.stop() // must return promptly
     }
 
+    /// `stop()` while the loop is parked in the interval sleep must NOT run a trailing `flush()`.
+    /// Regression: the loop previously swallowed the sleep's cancellation with `try?` and flushed
+    /// once more, so `stop()` on the idle wait would still drain+send (harmful on backgrounding,
+    /// where the interval is still finite).
+    func testStopDuringIdleSleepDoesNotFlush() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy()
+        // `willDrain` fires at the very top of `flush()`; an inverted expectation asserts flush
+        // never runs after the cancel.
+        let didFlush = expectation(description: "flush ran after stop()")
+        didFlush.isInverted = true
+        let queue = RequestQueue(clock: gated.clock, send: spy.send, willDrain: { didFlush.fulfill() })
+
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should park in the interval sleep")
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "idle"), persist: .synchronous)
+
+        await queue.stop() // cancels the loop parked in the sleep
+
+        await fulfillment(of: [didFlush], timeout: 0.5)
+        XCTAssertEqual(spy.sentIds, [], "no request should be sent by a cancelled idle loop")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["idle"],
+                       "the queued request must remain durable, not drained by a trailing flush")
+    }
+
     /// A `start()` after a `stop()` works — the loop can be restarted.
     func testRestartAfterStop() async {
         QueueStore.register(makeQueueStore())
@@ -269,6 +295,8 @@ final class RequestQueueTests: XCTestCase {
 
         XCTAssertTrue(recording.requested.contains(8), "backoff of 8s must be slept before resend")
         XCTAssertEqual(spy.sentIds, ["rate", "rate"], "same head retried in place after the sleep")
+        XCTAssertEqual(spy.sentAttempts, [1, 2],
+                       "attemptNumber must advance across the backoff retry, not freeze at 1")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
