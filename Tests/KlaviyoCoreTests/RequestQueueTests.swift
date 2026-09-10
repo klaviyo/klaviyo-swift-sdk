@@ -795,6 +795,71 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(parking.sentIds, ["leased"], "the head was sent exactly once, not re-processed")
     }
 
+    /// Regression for the backoff-sleep join-point: `stop()` (from `.notReachable`) can fire while
+    /// `flush()` is parked in the backoff `clock.sleep` of the `.retryWithBackoff` not-exceeded
+    /// branch. `stop()` restores the lease and clears `requestsInFlight`; when the gated clock is
+    /// released the flush's `continue` re-evaluates `requestsInFlight.first`, finds it empty (the
+    /// lease was cleared by `stop()`), and exits cleanly — no crash and the request is preserved in
+    /// the store (restored by `stop()`, not lost and not double-sent).
+    /// Runs 3 times for stability (no wall-clock waits in assertions).
+    func testStopDuringBackoffSleepPreservesRequest() async {
+        for _ in 1...3 {
+            SDKConfigStore.shared.reset()
+            IdentityStore.shared.reset()
+            QueueStore.resetShared()
+            fileIO = FileIODouble()
+            environment = fileIO.makeEnvironment()
+            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
+
+            let diskSpy = WriteSpyDiskIO()
+            QueueStore.register(makeStore(diskIO: diskSpy))
+
+            // A gated clock parks the flush inside the backoff sleep. `flushNow()` only enters one
+            // clock.sleep — the backoff — so a gated clock parks there deterministically.
+            let gated = GatedSleepClock()
+
+            // Script: first send fails with a rate-limit error (enters backoff), second would succeed
+            // but must never be reached because stop() fires while the backoff sleep is parked.
+            let spy = ScriptedSendSpy(results: [
+                .failure(.rateLimitError(backOff: 60)),
+                .success(Data())
+            ])
+
+            QueueStore.shared.enqueue(makeCreateProfileRequest(id: "backoff-parked"), persist: .synchronous)
+            let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+            // Kick off a flushNow() — it sends, gets a rate-limit error, then parks on the backoff
+            // sleep. Since flushNow doesn't run the loop, the ONLY clock.sleep is the backoff one.
+            let flushTask = Task.detached { await queue.flushNow() }
+
+            // Wait (bounded) until the flush has parked on the backoff sleep.
+            XCTAssertTrue(gated.waitForRequested(atLeast: 1, timeout: 2.0),
+                          "flush must park on the backoff sleep before we call networkConnectivityChanged")
+
+            // Going offline runs stop(): cancels the loop (no-op here since flushNow is not the
+            // loop), restores the in-flight lease to QueueStore, and clears requestsInFlight.
+            await queue.networkConnectivityChanged(.notReachable)
+
+            // The restore must have hit disk before we release the sleep.
+            XCTAssertFalse(diskSpy.savedBatches.isEmpty,
+                           "stop() must restore the in-flight lease to QueueStore synchronously")
+            XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["backoff-parked"],
+                           "request must be in the store (restored by stop()) before sleep is released")
+
+            // Release the backoff sleep. The flush's `continue` re-checks `requestsInFlight.first`,
+            // finds it empty (cleared by stop()), and exits the while loop cleanly — no crash, no
+            // second send.
+            gated.releaseOneTick()
+            await flushTask.value
+
+            // The request is preserved exactly once: restored by stop(), not dropped, not re-sent.
+            XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["backoff-parked"],
+                           "request preserved after stop-during-backoff-sleep: in store, not lost")
+            XCTAssertEqual(spy.sentIds, ["backoff-parked"],
+                           "head sent exactly once; no second send after the sleep was released")
+        }
+    }
+
     /// WiFi → WWAN coalesces: the old WiFi loop is cancelled and only the WWAN interval (30 s)
     /// is observed going forward. No two loops race with different intervals.
     func testRestartCoalescesOldLoop() async {

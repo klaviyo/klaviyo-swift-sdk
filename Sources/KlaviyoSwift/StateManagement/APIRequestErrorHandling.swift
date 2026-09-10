@@ -11,6 +11,11 @@ import KlaviyoCore
 // KlaviyoEndpoint.maxRetries, InvalidField, and parseError have been moved to
 // KlaviyoCore/RequestQueueSupport.swift. They are available here via `import KlaviyoCore`.
 
+// DRIFT PIN: This function's classification logic must stay behaviorally identical to
+// `classifyFailure` in `RequestQueueSupport.swift` (KlaviyoCore), which is the parity twin for the
+// Core-side queue engine. Any change to error handling here MUST be mirrored in `classifyFailure`
+// (plus any action-wrapping), and vice versa. Both must change together until the cutover removes
+// this reducer path.
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,

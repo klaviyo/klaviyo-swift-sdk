@@ -156,6 +156,9 @@ public actor RequestQueue {
                 )
             } catch {
                 environment.emitDeveloperWarning("Invalid RequestAttemptInfo parameters: \(error)")
+                // Parity with the reducer's `sendRequest` catch → `cancelInFlightRequests`: restore
+                // the whole batch and return so a deterministic malformed attempt count retries next
+                // tick rather than silently dropping the batch (intentional at-least-once parity).
                 restoreLease()
                 return
             }

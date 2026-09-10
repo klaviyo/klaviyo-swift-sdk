@@ -127,6 +127,11 @@ public enum FlushDecision: Equatable {
 /// `handleRequestError` in `KlaviyoSwift` but without wrapping the result in a
 /// `KlaviyoAction` so that the Core-side queue engine can use it directly.
 ///
+/// DRIFT PIN: This function's classification logic must stay behaviorally identical to
+/// `handleRequestError` in `APIRequestErrorHandling.swift` (KlaviyoSwift) until the
+/// cutover deletes the reducer path. Any change to error handling here MUST be mirrored
+/// in `handleRequestError` (minus the action-wrapping), and vice versa.
+///
 /// - Parameters:
 ///   - error: The API error returned by the network layer.
 ///   - retryState: The current retry state for the failing request.
@@ -134,6 +139,8 @@ public enum FlushDecision: Equatable {
 public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> FlushDecision {
     switch error {
     case let .httpError(_, data):
+        // TODO(cutover): wire environment.logger so a malformed 4xx body isn't silently classified
+        // as .dequeue — the reducer path passes a real logger; the Core path currently defaults to no-op.
         let invalidFields = parseError(data)
         if let invalidFields, !invalidFields.isEmpty {
             return .clearInvalidFieldsAndDequeue(invalidFields)
