@@ -38,7 +38,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testEventWithoutApiKeyGoesToBuffer() {
         // no apiKey set
-        // IdentityStore mints anonymousId on first access (MAGE-894 single minter), so it is always
+        // IdentityStore mints anonymousId on first access (single minter), so it is always
         // non-nil here — the anonymousId guard in RequestEnqueuer is defensive, never reached.
         XCTAssertNotNil(IdentityStore.shared.current.anonymousId)
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("X")))
@@ -82,7 +82,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testProfileWithoutApiKeyBuffersFullPayload() {
         // The caller supplies a fully-built payload, so structured attributes survive into the
-        // durable buffer (MAGE-1141).
+        // durable buffer.
         let payload = CreateProfilePayload(data: ProfilePayload(
             email: "ada@example.com", firstName: "Ada", anonymousId: "anon-1"
         ))
@@ -158,7 +158,7 @@ final class RequestEnqueuerTests: XCTestCase {
     func testRepeatedPushTokenWithoutApiKeyCoalescesToLatest() {
         // Models repeated pre-init fires (e.g. multiple automatic APNs callbacks before
         // `initialize()`) — only the latest token should survive in the buffer, not one entry
-        // per fire, so drain doesn't send N redundant register calls (MAGE-1137).
+        // per fire, so drain doesn't send N redundant register calls.
         RequestEnqueuer.enqueuePushToken("token-1", enablement: .authorized)
         RequestEnqueuer.enqueuePushToken("token-2", enablement: .authorized)
         RequestEnqueuer.enqueuePushToken("token-3", enablement: .authorized)
@@ -217,7 +217,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testTrackingLinkClickWithoutApiKeyGoesToBuffer() {
         // A universal-link click that fails destination resolution before initialize() must park
-        // its click-log in the durable buffer instead of being dropped (MAGE-1136).
+        // its click-log in the durable buffer instead of being dropped.
         RequestEnqueuer.enqueueTrackingLinkClicked(
             trackingLink: trackingLinkURL, clickTime: environment.date()
         )

@@ -97,27 +97,6 @@ struct KlaviyoState: Equatable {
         QueueStore.shared.enqueue(request)
     }
 
-    mutating func updateEmail(email: String) {
-        if email.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            self.email = email.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
-    mutating func updateExternalId(externalId: String) {
-        if externalId.isNotEmptyOrSame(as: self.externalId, identifier: "external Id") {
-            self.externalId = externalId.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
-    mutating func updatePhoneNumber(phoneNumber: String) {
-        if phoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            self.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
-            enqueueProfileOrTokenRequest()
-        }
-    }
-
     func requestIdentity(apiKey: String, anonymousId: String) -> RequestIdentity {
         RequestIdentity(
             apiKey: apiKey,
@@ -163,8 +142,8 @@ struct KlaviyoState: Equatable {
         pushTokenData = nil
         if preserveTokenData {
             pushTokenData = previousPushTokenData
-            if let apiKey = apiKey,
-               let anonymousId = anonymousId,
+            if let apiKey,
+               let anonymousId,
                let tokenData = previousPushTokenData {
                 let profile = ProfilePayload(Profile(), anonymousId: anonymousId)
                 let request = RequestFactory.tokenRequest(
@@ -177,21 +156,6 @@ struct KlaviyoState: Equatable {
                 enqueueRequest(request: request)
             }
         }
-    }
-
-    func shouldSendTokenUpdate(newToken: String, enablement: PushEnablement) -> Bool {
-        guard let pushTokenData = pushTokenData else {
-            return true
-        }
-        let currentDeviceMetadata = DeviceMetadata(context: environment.appContextInfo())
-        let newPushTokenData = PushTokenData(
-            pushToken: newToken,
-            pushEnablement: enablement,
-            pushBackground: environment.getBackgroundSetting(),
-            deviceData: currentDeviceMetadata
-        )
-
-        return pushTokenData != newPushTokenData
     }
 }
 

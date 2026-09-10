@@ -57,15 +57,14 @@ extension KlaviyoState {
     }
 
     mutating func enqueueProfileOrTokenRequest() {
-        guard let apiKey = apiKey,
-              let anonymousId = anonymousId else {
+        guard let apiKey,
+              let anonymousId else {
             environment.emitDeveloperWarning("SDK internal error")
             return
         }
         // if we have push data and we are switching emails
         // we want to associate the token with the new email.
-        if let pushTokenData = pushTokenData {
-            self.pushTokenData = nil
+        if let pushTokenData {
             let request = resolvedTokenRequest(
                 apiKey: apiKey,
                 anonymousId: anonymousId,
@@ -87,7 +86,7 @@ extension KlaviyoState {
     }
 
     mutating func updateRequestAndStateWithPendingProfile(profile: CreateProfilePayload) -> CreateProfilePayload {
-        guard let pendingProfile = pendingProfile else {
+        guard let pendingProfile else {
             return profile
         }
         let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)

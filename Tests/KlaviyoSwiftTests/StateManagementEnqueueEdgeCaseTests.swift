@@ -66,7 +66,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
 
         // A pre-init profile carrying structured attributes (name/title/org/location/image) must
         // reach the durable buffer in full, so it syncs completely after initialize() — parity
-        // with the initialized path, closing the MAGE-952 regression (MAGE-1141).
+        // with the initialized path, closing the earlier pre-init attribute-dropping regression.
         let profile = Profile(
             email: "ada@example.com",
             firstName: "Ada",
@@ -104,7 +104,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let store = TestStore(initialState: .init(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // The buffer now carries the full payload (MAGE-1141), so a pre-init profile — including one
+        // The buffer now carries the full payload, so a pre-init profile — including one
         // with structured attributes — no longer emits the dropped-attribute developer warning.
         _ = await store.send(.enqueueProfile(Profile(email: "a@b.com", firstName: "Ada")))
         _ = await store.send(.enqueueProfile(Profile(email: "c@d.com", properties: ["plan": "free"])))
@@ -116,26 +116,40 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     }
 
     @MainActor
-    func testSetProfileWithEmptyStringIdentifiers() async throws {
+    func testSetProfileClearingIdentifiersResetsToAnonymous() async throws {
+        // Empty identifiers normalize to nil, which differs from the stored non-nil identifiers, so
+        // set(profile:) reads this as clearing an identified profile: reset() fires (mint a fresh
+        // anon, drop PII) and TWO requests are enqueued: a createProfile + an identity-only
+        // registerPushToken (canonical-store contract). Note this differs from the singular setters
+        // (setEmail/etc.), where an empty string is ignored and nothing is sent.
         let initialState = identifiedState(email: "foo@bar.com", phoneNumber: "99999999", externalId: "12345")
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
         _ = await store.send(.enqueueProfile(Profile(email: "", phoneNumber: "", externalId: ""))) {
-            $0.email = nil // since we reset state
-            $0.phoneNumber = nil // since we reset state
-            $0.externalId = nil // since we reset state
-            $0.pushTokenData = nil
+            // reset() fires → all identifiers cleared on state
+            $0.email = nil
+            $0.phoneNumber = nil
+            $0.externalId = nil
         }
-        // reset fires with preserveTokenData: false, but the captured pushTokenData is used
-        // to build a token request in the reducer before the reset clears state.
-        let request = expectedTokenRequest(
-            apiKey: TEST_API_KEY,
-            tokenData: initialState.pushTokenData!,
-            profile: Profile(email: nil, phoneNumber: nil, externalId: nil),
-            anonymousId: store.state.anonymousId!
+        // TWO requests: profile (all-nil identifiers, post-reset anon) + token re-register
+        // (identity-only payload with the new anon and all-nil identifiers).
+        let newAnon = store.state.anonymousId!
+        let profilePayload = ProfilePayload(
+            Profile(email: nil, phoneNumber: nil, externalId: nil),
+            anonymousId: newAnon
         )
-        XCTAssertEqual(readQueue(), [request])
+        let profileRequest = KlaviyoRequest(
+            endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+        )
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
+        )
+        XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
     // MARK: - enqueueProfile: conditional reset (push-token storm fix)
@@ -164,13 +178,16 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetProfileDifferentIdentifiersResetsState() async throws {
         // When setProfile is called with different identifiers, reset() SHOULD fire,
-        // regenerating the anonymousId and clearing pushTokenData.
+        // regenerating the anonymousId. TWO requests are enqueued: a createProfile (with the new
+        // identifiers) and an identity-only registerPushToken (canonical-store contract).
         let initialState = identifiedState(
             email: "old@email.com",
             phoneNumber: "+11111111111",
             externalId: "old-ext"
         )
-
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -182,23 +199,60 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             $0.email = "new@email.com"
             $0.phoneNumber = "+12222222222"
             $0.externalId = "new-ext"
-            // pushTokenData cleared by reset
-            $0.pushTokenData = nil
         }
-        // Since pushTokenData existed before reset, the reducer uses it to build a token request.
-        let request = expectedTokenRequest(
-            apiKey: TEST_API_KEY,
-            tokenData: initialState.pushTokenData!,
-            profile: Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
-            anonymousId: store.state.anonymousId!
+        // TWO requests: profile (new identifiers, post-reset anon) + identity-only token re-register.
+        let newAnon = store.state.anonymousId!
+        let profilePayload = ProfilePayload(
+            Profile(email: "new@email.com", phoneNumber: "+12222222222", externalId: "new-ext"),
+            email: "new@email.com",
+            phoneNumber: "+12222222222",
+            externalId: "new-ext",
+            anonymousId: newAnon
         )
-        XCTAssertEqual(readQueue(), [request])
+        let profileRequest = KlaviyoRequest(
+            endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+        )
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon,
+            email: "new@email.com",
+            phoneNumber: "+12222222222",
+            externalId: "new-ext",
+            tokenData: initialState.pushTokenData!
+        )
+        XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
+    }
+
+    @MainActor
+    func testSetProfileWithChangedIdentifiersPreservesCanonicalPushToken() async throws {
+        // set(profile:) with different identifiers on an identified user fires
+        // reset(preserveTokenData: false), which nils state.pushTokenData. The projection must be
+        // restored so the reducer's write-through defer doesn't persist nil into IdentityStore and
+        // wipe the canonical push token (same defect class as resetProfile / the flush-safety fix).
+        let initialState = identifiedState(email: "old@email.com")
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
+        seedTestQueueStore()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.enqueueProfile(Profile(email: "new@email.com")))
+
+        XCTAssertNotNil(
+            IdentityStore.shared.pushToken,
+            "set(profile:) with changed identifiers must not clear the canonical push token"
+        )
+        XCTAssertEqual(
+            IdentityStore.shared.pushToken?.pushToken, initialState.pushTokenData?.pushToken,
+            "the preserved token must match the pre-change token"
+        )
     }
 
     @MainActor
     func testSetProfileSameIdentifiersDifferentAttributesStillUpdates() async throws {
         // Same identifiers but different non-identifier attributes (e.g. firstName) —
         // should NOT reset, but attributes should still be sent in the profile request.
+        // No token → only a createProfile request is enqueued.
         let initialState = KlaviyoState(
             apiKey: TEST_API_KEY,
             email: "same@email.com",
@@ -207,12 +261,14 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             initalizationState: .initialized,
             flushing: true
         )
-
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(nil)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // No pushTokenData → a createProfile request is generated instead of registerPushToken
+        // No pushTokenData → a createProfile request is generated instead of registerPushToken.
         let profile = Profile(email: "same@email.com", firstName: "NewName")
         _ = await store.send(.enqueueProfile(profile))
         // A createProfile request should be enqueued with the updated attributes.
@@ -232,41 +288,54 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetProfilePartialIdentifierMatchStillResets() async throws {
         // If only one identifier changes (e.g. email changes, phone stays same),
-        // reset should still fire.
+        // reset should still fire. TWO requests: createProfile + identity-only registerPushToken
         let initialState = identifiedState(email: "old@email.com", phoneNumber: "+15555555555")
-
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        // Email changes, phone stays the same → identifiersChanged = true
+        // Email changes, phone stays the same → identifiersChanged = true → reset() fires
         _ = await store.send(
             .enqueueProfile(Profile(email: "different@email.com", phoneNumber: "+15555555555"))
         ) {
-            // reset() fires
             $0.email = "different@email.com"
             $0.phoneNumber = "+15555555555"
-            $0.pushTokenData = nil
         }
-        let request = expectedTokenRequest(
-            apiKey: TEST_API_KEY,
-            tokenData: initialState.pushTokenData!,
-            profile: Profile(email: "different@email.com", phoneNumber: "+15555555555"),
-            anonymousId: store.state.anonymousId!
+        let newAnon = store.state.anonymousId!
+        let profilePayload = ProfilePayload(
+            Profile(email: "different@email.com", phoneNumber: "+15555555555"),
+            email: "different@email.com",
+            phoneNumber: "+15555555555",
+            anonymousId: newAnon
         )
-        XCTAssertEqual(readQueue(), [request])
+        let profileRequest = KlaviyoRequest(
+            endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+        )
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon,
+            email: "different@email.com",
+            phoneNumber: "+15555555555",
+            tokenData: initialState.pushTokenData!
+        )
+        XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
     @MainActor
     func testSetProfileNilIdentifiersTriggersResetWhenStateHasIdentifiers() async throws {
         // All-nil incoming identifiers differ from non-nil state identifiers,
         // so reset fires — preserving the old "clobbering" setProfile behavior.
+        // TWO requests: createProfile + identity-only registerPushToken.
         let initialState = identifiedState(
             email: "existing@email.com",
             phoneNumber: "+15555555555",
             externalId: "ext-id"
         )
-
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -274,58 +343,67 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         // Profile with all-nil identifiers → [nil,nil,nil] != [email,phone,extId] → reset fires
         let profile = Profile(firstName: "JustAName")
         _ = await store.send(.enqueueProfile(profile)) {
-            // reset(preserveTokenData: false) fires → identifiers cleared, pushTokenData nil
+            // reset(preserveTokenData: false) fires → identifiers cleared
             $0.email = nil
             $0.phoneNumber = nil
             $0.externalId = nil
-            $0.pushTokenData = nil
         }
-        // pushTokenData existed before reset, so a token request is built with captured data.
-        let request = expectedTokenRequest(
-            apiKey: TEST_API_KEY,
-            tokenData: initialState.pushTokenData!,
-            profile: profile,
-            anonymousId: store.state.anonymousId!
+        // TWO requests: profile (structured attrs carried, all-nil identifiers post-reset) +
+        // identity-only token re-register under the new anon.
+        let newAnon = store.state.anonymousId!
+        let profilePayload = ProfilePayload(
+            profile,
+            email: nil,
+            phoneNumber: nil,
+            externalId: nil,
+            anonymousId: newAnon
         )
-        XCTAssertEqual(readQueue(), [request])
+        let profileRequest = KlaviyoRequest(
+            endpoint: .createProfile(TEST_API_KEY, CreateProfilePayload(data: profilePayload))
+        )
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
+        )
+        XCTAssertEqual(readQueue().map(\.endpoint), [profileRequest, tokenRequest].map(\.endpoint))
     }
 
     @MainActor
     func testResetProfileStillClobbersAllState() async throws {
-        // resetProfile() should always clobber all state, regardless of identifiers.
+        // resetProfile() always clobbers all state (identifiers cleared, fresh anon minted),
+        // then re-registers the preserved push token via an identity-only registerPushToken request
+        // (canonical-store contract: token lives in IdentityStore, not state).
         let initialState = identifiedState(
             email: "user@email.com",
             phoneNumber: "+15555555555",
             externalId: "ext-123"
         )
-
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(initialState.identity)
+        IdentityStore.shared.updatePushToken(initialState.pushTokenData!)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.resetProfile) {
-            // reset(preserveTokenData: true) is the default for resetProfile
+            // reset fires → all identifiers cleared, fresh anonymousId minted
             $0.email = nil
             $0.phoneNumber = nil
             $0.externalId = nil
             $0.pendingProfile = nil
-            // pushTokenData is preserved and a new token request is enqueued
-            // anonymousId is regenerated since the profile was identified
-            $0.pushTokenData = initialState.pushTokenData
         }
-        let request = expectedTokenRequest(
-            apiKey: TEST_API_KEY,
-            tokenData: initialState.pushTokenData!,
-            profile: Profile(),
-            anonymousId: store.state.anonymousId!
+        // ONE request: identity-only registerPushToken under the fresh anon (no profile request
+        // for resetProfile — only the token re-register is needed to rebind under new identity).
+        let newAnon = store.state.anonymousId!
+        let tokenRequest = expectedIdentityOnlyTokenRequest(
+            anonymousId: newAnon, tokenData: initialState.pushTokenData!
         )
-        XCTAssertEqual(readQueue(), [request])
+        XCTAssertEqual(readQueue().map(\.endpoint), [tokenRequest].map(\.endpoint))
     }
 
     @MainActor
     func testPreInitResetProfileClearsPersistedIdentity() async throws {
         // Pre-init reset must clear the persisted identity (drop PII, mint a fresh anon) so a reset
-        // issued before initialize() doesn't leave the prior profile in IdentityStore (MAGE-1136).
+        // issued before initialize() doesn't leave the prior profile in IdentityStore.
         IdentityStore.shared.update(
             ProfileData(email: "user@email.com", externalId: "ext-123", anonymousId: "anon-old")
         )
@@ -349,7 +427,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
     func testPreInitResetProfileRebuffersPersistedPushToken() async throws {
         // Parity with post-init reset(preserveTokenData: true): a persisted push token is
         // re-registered against the freshly minted anon. Pre-init that register routes through the
-        // ungated RequestEnqueuer and lands in the durable buffer (MAGE-1136).
+        // ungated RequestEnqueuer and lands in the durable buffer.
         IdentityStore.shared.update(ProfileData(email: "user@email.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(
             PushTokenData(
@@ -377,6 +455,27 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
 
     // MARK: - Helpers
 
+    /// Builds the identity-only `registerPushToken` request expected after a reset / identifier
+    /// change. Avoids repeating the `RequestFactory.tokenPayload` + `KlaviyoRequest` boilerplate
+    /// across tests that differ only in the identity values.
+    private func expectedIdentityOnlyTokenRequest(
+        anonymousId: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        tokenData: PushTokenData
+    ) -> KlaviyoRequest {
+        let payload = RequestFactory.tokenPayload(
+            identity: PayloadIdentity(
+                anonymousId: anonymousId, email: email, phoneNumber: phoneNumber, externalId: externalId
+            ),
+            pushToken: tokenData.pushToken,
+            enablement: tokenData.pushEnablement,
+            background: environment.getBackgroundSetting()
+        )
+        return KlaviyoRequest(endpoint: .registerPushToken(TEST_API_KEY, payload))
+    }
+
     /// Builds a fully-initialized, identified `KlaviyoState` for tests that differ only in identifiers.
     private func identifiedState(
         email: String? = nil,
@@ -401,25 +500,6 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             requestsInFlight: [],
             initalizationState: .initialized,
             flushing: true
-        )
-    }
-
-    private func expectedTokenRequest(
-        apiKey: String,
-        tokenData: PushTokenData,
-        profile: Profile,
-        anonymousId: String
-    ) -> KlaviyoRequest {
-        KlaviyoRequest(
-            endpoint: .registerPushToken(
-                apiKey,
-                PushTokenPayload(
-                    pushToken: tokenData.pushToken,
-                    enablement: tokenData.pushEnablement.rawValue,
-                    background: tokenData.pushBackground.rawValue,
-                    profile: ProfilePayload(profile, anonymousId: anonymousId)
-                )
-            )
         )
     }
 
@@ -484,6 +564,39 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         XCTAssertEqual(stored.phoneNumber, "+15555550100", "pre-init setEmail must not wipe the persisted phone")
         XCTAssertEqual(stored.externalId, "ext-1", "pre-init setEmail must not wipe the persisted externalId")
         XCTAssertEqual(stored.anonymousId, anon)
+    }
+
+    /// A pre-init identifier setter folds AND consumes any staged `pendingProfile` into its buffered
+    /// profile request — unlike the pre-init `set(profile:)` path, which leaves the property staged
+    /// (see `testEnqueueProfilePayloadParityWithLegacyBuilder`). Pins the `applyIdentifierChange`
+    /// fold+consume behavior that diverges from the legacy `setPreInitIdentifier`.
+    @MainActor
+    func testPreInitSetProfilePropertyThenSetEmailShipsPropertyInBufferedProfile() async throws {
+        IdentityStore.shared.update(ProfileData(anonymousId: "stable-anon"))
+
+        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
+        _ = await store.send(.setProfileProperty(key, "gold"))
+        _ = await store.send(.setEmail("new@user.com"))
+
+        // The staged property is consumed onto the buffered profile request, not left pending.
+        XCTAssertNil(store.state.pendingProfile, "setEmail must consume the staged pendingProfile")
+
+        let profiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
+            .compactMap {
+                if case let .profile(payload) = $0 { return payload }
+                return nil
+            }
+        guard let payload = profiles.last else {
+            return XCTFail("expected a buffered profile request carrying the staged property")
+        }
+        let customProps = payload.data.attributes.properties.value as? [String: Any]
+        XCTAssertEqual(
+            customProps?["loyalty_tier"] as? String, "gold",
+            "the staged property must ship in the buffered profile request built by setEmail"
+        )
     }
 }
 
