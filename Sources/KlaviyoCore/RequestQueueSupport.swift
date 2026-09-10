@@ -9,7 +9,6 @@ import Foundation
 
 // MARK: - Flush timing constants
 
-/// Flush-timing constants shared between the KlaviyoSwift reducer and the KlaviyoCore request-queue engine.
 public enum FlushConstants {
     public static let wifiFlushInterval = 10.0
     public static let cellularFlushInterval = 30.0
@@ -126,11 +125,6 @@ public enum FlushDecision: Equatable {
 /// Maps a ``KlaviyoAPIError`` to a ``FlushDecision``, mirroring the logic of
 /// `handleRequestError` in `KlaviyoSwift` but without wrapping the result in a
 /// `KlaviyoAction` so that the Core-side queue engine can use it directly.
-///
-/// DRIFT PIN: This function's classification logic must stay behaviorally identical to
-/// `handleRequestError` in `APIRequestErrorHandling.swift` (KlaviyoSwift) until the
-/// cutover deletes the reducer path. Any change to error handling here MUST be mirrored
-/// in `handleRequestError` (minus the action-wrapping), and vice versa.
 ///
 /// - Parameters:
 ///   - error: The API error returned by the network layer.

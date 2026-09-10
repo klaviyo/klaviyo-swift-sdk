@@ -37,12 +37,6 @@ public actor RequestQueue {
     private var retryState: RetryState = .retry(FlushConstants.initialAttempt)
     /// The active run loop, or `nil` when stopped.
     private var runLoop: Task<Void, Never>?
-    /// Re-entrancy guard. `flush()` suspends at `await willDrain?()` and `await send(...)`; actor
-    /// isolation serializes synchronous access but does NOT prevent another `flush()` (e.g. the
-    /// high-priority `flushNow()`) from entering across those suspension points. Without this guard a
-    /// concurrent flush would re-run `drainAll()` (returning `[]`) and clobber the leased batch,
-    /// dropping the in-flight requests from both memory and disk. Mirrors the reducer's
-    /// `if state.flushing { return .none }`.
     private var isFlushing = false
 
     public init(clock: SleepClock,
@@ -89,13 +83,6 @@ public actor RequestQueue {
         await flush()
     }
 
-    /// Adjusts the flush cadence and run-loop state to match the current network reachability.
-    /// Mirrors the reducer's `networkConnectivityChanged` action:
-    /// - `.notReachable` → `flushInterval = .infinity`; `stop()` cancels the loop and restores
-    ///   any in-flight lease. No loop is started while offline.
-    /// - `.reachableViaWiFi` → `flushInterval = wifiFlushInterval`; `start()` (re)starts the loop,
-    ///   cancelling any existing one first (coalescing, parity with `cancelInFlight: true`).
-    /// - `.reachableViaWWAN` → `flushInterval = cellularFlushInterval`; `start()`.
     public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
         switch status {
         case .notReachable:
@@ -112,21 +99,15 @@ public actor RequestQueue {
 
     // MARK: - Flush
 
-    /// Drains `QueueStore.shared` and sends its requests sequentially through `send`. Mirrors the
-    /// legacy reducer's `flushQueue` + `sendRequest` + `deQueueCompletedResults` success path:
-    /// runs the `willDrain` seam so the owner can enqueue last-minute requests before the drain,
+    /// Drains `QueueStore.shared` and sends its requests sequentially through `send`.
+    /// Runs the `willDrain` seam so the owner can enqueue last-minute requests before the drain,
     /// leases the whole batch, and sends head-first in FIFO order. On `.success` a registered push
     /// token is written back to the canonical `IdentityStore`. On `.failure` the error is classified
     /// (`classifyFailure`) and handled: non-retryable → dequeue + continue; transient → stop + lease
     /// restore (retries next tick); rate-limit/server → direct-sleep backoff then retry in place.
     private func flush() async {
-        // 1. Gate: no apiKey means pre-init (flushing stays gated); a non-finite interval means the
-        //    cadence is disabled. Either way there is nothing to flush.
+        // 1. Gate: pre-init or offline. Do not flush.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
-
-        // 1b. Re-entrancy guard. Set/guard/clear are atomic w.r.t. other actor calls because the
-        //     actor is non-reentrant BETWEEN suspension points; the `defer` clears the flag on every
-        //     exit path (empty batch, throw, failure, normal completion).
         guard !isFlushing else { return }
         isFlushing = true
         defer { isFlushing = false }
@@ -141,8 +122,6 @@ public actor RequestQueue {
 
         // 4. Send head-first, FIFO, dequeuing each on success.
         while let head = requestsInFlight.first {
-            // Mirror the reducer's attempt-number sourcing: a `.retry(count)` supplies the count,
-            // anything else falls back to the first attempt.
             var numAttempts = FlushConstants.initialAttempt
             if case let .retry(count) = retryState {
                 numAttempts = count
@@ -156,17 +135,11 @@ public actor RequestQueue {
                 )
             } catch {
                 environment.emitDeveloperWarning("Invalid RequestAttemptInfo parameters: \(error)")
-                // Parity with the reducer's `sendRequest` catch → `cancelInFlightRequests`: restore
-                // the whole batch and return so a deterministic malformed attempt count retries next
-                // tick rather than silently dropping the batch (intentional at-least-once parity).
                 restoreLease()
                 return
             }
 
             let outcome = await send(head, attemptInfo)
-            // `stop()` (e.g. from `.notReachable`) can run across the await above — it restores the
-            // lease to `QueueStore` and clears `requestsInFlight`. If that happened, the batch is
-            // already durable; bail before any dequeue/removeFirst. Covers every outcome branch below.
             guard !requestsInFlight.isEmpty else { return }
             switch outcome {
             case .success:
@@ -249,8 +222,7 @@ public actor RequestQueue {
 
     /// Restores the still-leased batch to the front of the durable queue and clears the in-memory
     /// lease. `.synchronous`: the lease is in-memory only and cleared here, so it must hit disk
-    /// before we return or a shutdown within a debounce window would drop it. Parity with the
-    /// reducer's `cancelInFlightRequests`.
+    /// before we return or a shutdown within a debounce window would drop it.
     private func restoreLease() {
         guard !requestsInFlight.isEmpty else { return }
         QueueStore.shared.prepend(requestsInFlight, persist: .synchronous)
@@ -258,8 +230,7 @@ public actor RequestQueue {
     }
 
     /// Reconstructs a ``PushTokenData`` from a registered-push-token request payload so a successful
-    /// registration can be written back to `IdentityStore`. Mirrors `deQueueCompletedResults`'
-    /// `.registerPushToken` write-back block in `StateManagement.swift`.
+    /// registration can be written back to `IdentityStore`.
     private func pushTokenData(from payload: PushTokenPayload) -> PushTokenData {
         let attributes = payload.data.attributes
         let enablement = PushEnablement(rawValue: attributes.enablementStatus) ?? .authorized

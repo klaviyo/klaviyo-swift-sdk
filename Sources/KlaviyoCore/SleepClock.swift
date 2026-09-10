@@ -9,7 +9,6 @@ import Foundation
 
 /// Injectable timing seam for interval/backoff sleeps. Production sleeps for real; tests inject an
 /// immediate or recording variant so time-dependent behavior is asserted without wall-clock waits.
-/// Mirrors the closure-seam idiom of `QueueStore.PersistScheduler`.
 public struct SleepClock: Sendable {
     public var sleep: @Sendable (_ seconds: TimeInterval) async throws -> Void
 
