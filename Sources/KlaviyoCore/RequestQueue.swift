@@ -70,6 +70,11 @@ public actor RequestQueue {
 
     /// Cancels the run loop and restores any in-flight lease to `QueueStore` so requests leased for a
     /// flush survive shutdown. Parity with `cancelInFlightRequests` in the legacy reducer.
+    ///
+    /// NOTE: `stop()`/`restoreLease()` use `QueueStore.prepend`, which (unlike `QueueStore.restore`)
+    /// does NOT dedup by id. That is safe today only because exactly one path owns the in-flight
+    /// lease at a time — the lease is drained once and restored once, so no id can be re-inserted
+    /// while it is still present in the store.
     public func stop() {
         runLoop?.cancel()
         runLoop = nil
@@ -82,6 +87,27 @@ public actor RequestQueue {
     /// Immediate flush outside the timed cadence (high-priority path).
     public func flushNow() async {
         await flush()
+    }
+
+    /// Adjusts the flush cadence and run-loop state to match the current network reachability.
+    /// Mirrors the reducer's `networkConnectivityChanged` action:
+    /// - `.notReachable` → `flushInterval = .infinity`; `stop()` cancels the loop and restores
+    ///   any in-flight lease. No loop is started while offline.
+    /// - `.reachableViaWiFi` → `flushInterval = wifiFlushInterval`; `start()` (re)starts the loop,
+    ///   cancelling any existing one first (coalescing, parity with `cancelInFlight: true`).
+    /// - `.reachableViaWWAN` → `flushInterval = cellularFlushInterval`; `start()`.
+    public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
+        switch status {
+        case .notReachable:
+            flushInterval = .infinity
+            stop()
+        case .reachableViaWiFi:
+            flushInterval = FlushConstants.wifiFlushInterval
+            start()
+        case .reachableViaWWAN:
+            flushInterval = FlushConstants.cellularFlushInterval
+            start()
+        }
     }
 
     // MARK: - Flush
@@ -134,7 +160,12 @@ public actor RequestQueue {
                 return
             }
 
-            switch await send(head, attemptInfo) {
+            let outcome = await send(head, attemptInfo)
+            // `stop()` (e.g. from `.notReachable`) can run across the await above — it restores the
+            // lease to `QueueStore` and clears `requestsInFlight`. If that happened, the batch is
+            // already durable; bail before any dequeue/removeFirst. Covers every outcome branch below.
+            guard !requestsInFlight.isEmpty else { return }
+            switch outcome {
             case .success:
                 if case let .registerPushToken(_, payload) = head.endpoint {
                     IdentityStore.shared.updatePushToken(pushTokenData(from: payload))

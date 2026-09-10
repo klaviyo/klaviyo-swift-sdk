@@ -199,6 +199,57 @@ final class RequestQueueTests: XCTestCase {
         }
     }
 
+    /// Like `ParkingSendSpy`, but its FIRST (parked) invocation resumes with a caller-supplied
+    /// result instead of always succeeding. Used to hold a flush mid-send, run `stop()` across the
+    /// suspension, then resume returning a `.failure` — exercising the join-point guard on the
+    /// failure branches. Subsequent invocations succeed immediately.
+    private final class FailingParkingSendSpy: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _sentIds: [String] = []
+        private var _resume: CheckedContinuation<Void, Never>?
+        private var _parked = false
+        private let result: Result<Data, KlaviyoAPIError>
+        let started: XCTestExpectation
+
+        init(started: XCTestExpectation, result: Result<Data, KlaviyoAPIError>) {
+            self.started = started
+            self.result = result
+        }
+
+        var sentIds: [String] { lock.lock(); defer { lock.unlock() }; return _sentIds }
+
+        var send: RequestQueue.Send {
+            { [self] request, _ in
+                let shouldPark: Bool = {
+                    lock.lock(); defer { lock.unlock() }
+                    _sentIds.append(request.id)
+                    let firstCall = !_parked
+                    _parked = true
+                    return firstCall
+                }()
+                if shouldPark {
+                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                        lock.lock()
+                        _resume = continuation
+                        lock.unlock()
+                        started.fulfill()
+                    }
+                    return result
+                }
+                return .success(Data())
+            }
+        }
+
+        /// Releases the parked first send so the flush resumes with the scripted result.
+        func release() {
+            lock.lock()
+            let continuation = _resume
+            _resume = nil
+            lock.unlock()
+            continuation?.resume()
+        }
+    }
+
     /// A `send` stub driven by a scripted queue of results, consumed in order (the last result
     /// repeats once the script is exhausted). Records the id of every request sent so retry/dequeue
     /// behavior is observable. Thread-safe for use from the actor under test.
@@ -598,6 +649,180 @@ final class RequestQueueTests: XCTestCase {
                        "both requests sent: dequeue+continue moves past the non-retryable failure")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty,
                       "store must be empty: non-retryable dequeued, successor succeeded and dequeued")
+    }
+
+    // MARK: - Connectivity
+
+    /// `.reachableViaWiFi` sets `flushInterval = 10.0`: the run loop requests 10-second sleeps.
+    func testWiFiConnectivitySetsTenSecondInterval() async {
+        QueueStore.register(makeStore())
+        let gated = GatedSleepClock()
+        let queue = RequestQueue(clock: gated.clock, send: alwaysSucceeds)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should request its first sleep")
+        XCTAssertEqual(gated.requested.first, FlushConstants.wifiFlushInterval,
+                       "WiFi interval must be 10.0 s")
+
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop should re-park after one tick")
+        XCTAssertEqual(gated.requested[1], FlushConstants.wifiFlushInterval,
+                       "second sleep must still be the wifi interval")
+
+        await queue.stop()
+    }
+
+    /// `.reachableViaWWAN` sets `flushInterval = 30.0`: the run loop requests 30-second sleeps.
+    func testWWANConnectivitySetsThirtySecondInterval() async {
+        QueueStore.register(makeStore())
+        let gated = GatedSleepClock()
+        let queue = RequestQueue(clock: gated.clock, send: alwaysSucceeds)
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should request its first sleep")
+        XCTAssertEqual(gated.requested.first, FlushConstants.cellularFlushInterval,
+                       "WWAN interval must be 30.0 s")
+
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop should re-park after one tick")
+        XCTAssertEqual(gated.requested[1], FlushConstants.cellularFlushInterval,
+                       "second sleep must still be the cellular interval")
+
+        await queue.stop()
+    }
+
+    /// `.notReachable` cancels the run loop: no new sleeps are recorded after the call.
+    func testNotReachableStopsLoop() async {
+        QueueStore.register(makeStore())
+        let gated = GatedSleepClock()
+        let queue = RequestQueue(clock: gated.clock, send: alwaysSucceeds)
+
+        // Start a loop first so we have something to stop.
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should park on its first sleep")
+
+        // Snapshot the recorded-sleep count while the loop is parked on its first sleep.
+        let countBeforeStop = gated.requested.count
+
+        // Going offline must cancel the loop.
+        await queue.networkConnectivityChanged(.notReachable)
+
+        // Release the parked sleep so the cancelled task can exit cleanly. A live loop would re-park
+        // on a fresh sleep here (bumping the count); a cancelled loop records zero new sleeps.
+        gated.releaseOneTick()
+
+        // Drive the actor to a quiescent point: this await only returns once the actor has processed
+        // any in-flight work, so if the cancelled task were going to re-request a sleep it would have
+        // done so by now. No `Thread.sleep`, no timing window.
+        await queue.flushNow()
+
+        XCTAssertEqual(gated.requested.count, countBeforeStop,
+                       "cancelled loop must not request additional sleeps after .notReachable")
+    }
+
+    /// `.notReachable` restores any in-flight lease to `QueueStore` (parity with
+    /// `cancelInFlightRequests` in the reducer's connectivity handler).
+    /// Strategy: park a flush mid-send so `requestsInFlight` is populated, then call
+    /// `networkConnectivityChanged(.notReachable)` — which runs `stop()` — and verify the
+    /// synchronous prepend hit the disk spy BEFORE the parked send is released. This confirms the
+    /// restore happened as a direct consequence of going offline, not of the flush completing.
+    func testNotReachableRestoresInFlightLease() async {
+        let diskSpy = WriteSpyDiskIO()
+        QueueStore.register(makeStore(diskIO: diskSpy))
+
+        // A parking send spy lets us hold the actor mid-flush so requestsInFlight is populated.
+        let started = expectation(description: "flush parked mid-send")
+        let parking = ParkingSendSpy(started: started)
+
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "leased"), persist: .synchronous)
+
+        let queue = RequestQueue(clock: .immediate, send: parking.send)
+
+        // Kick off a flush that parks mid-send; the request is now leased from the store.
+        let flushTask = Task.detached { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2.0)
+
+        // The store is now empty (the batch is in requestsInFlight). Going offline must call
+        // stop() which synchronously prepends the in-flight batch back to the store.
+        await queue.networkConnectivityChanged(.notReachable)
+
+        // Assert the restore happened synchronously before we even release the parked send.
+        XCTAssertFalse(diskSpy.savedBatches.isEmpty,
+                       ".notReachable must restore any in-flight lease to QueueStore synchronously")
+
+        // Release the parked send so the task exits cleanly (stop() cleared requestsInFlight;
+        // flush() sees an empty array on resume and the while loop exits without crashing).
+        parking.release()
+        await flushTask.value
+    }
+
+    /// Regression for the join-point guard: `stop()` (from `.notReachable`) can run across the
+    /// `await send(...)` suspension point of a `flushNow()`-initiated flush — cancelling `runLoop`
+    /// does NOT cancel a `flushNow` flush. `stop()` restores the lease and clears `requestsInFlight`;
+    /// when the parked send resumes returning a `.failure`, EVERY outcome branch (not just `.success`)
+    /// must bail on the empty lease rather than crash on `removeFirst()`. This proves the guard covers
+    /// the failure path: no crash, and the request is preserved in the store (restored by stop(),
+    /// neither lost nor double-processed).
+    func testStopDuringSendWithFailureOutcomePreservesRequest() async {
+        QueueStore.register(makeStore())
+        let started = expectation(description: "flush parked mid-send")
+        // First send parks; on release it returns a non-retryable failure. If the join-point guard
+        // were missing, the `.dequeue` branch's `removeFirst()` would crash on the empty lease.
+        let parking = FailingParkingSendSpy(started: started,
+                                            result: .failure(.internalError("boom")))
+
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "leased"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: parking.send)
+
+        // flushNow() leases the batch and parks inside send. Cancelling runLoop won't cancel this.
+        let flushTask = Task.detached { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2.0)
+
+        // Going offline runs stop(): restores the lease to the store and clears requestsInFlight.
+        await queue.networkConnectivityChanged(.notReachable)
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["leased"],
+                       "stop() must restore the in-flight lease before the parked send resumes")
+
+        // Release the parked send returning .failure. The resumed flush must hit the join-point
+        // guard, see the empty lease, and return without crashing on removeFirst().
+        parking.release()
+        await flushTask.value
+
+        // The request is preserved exactly once: restored by stop(), not dropped by the failure
+        // branch, not re-sent (the store still holds it).
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["leased"],
+                       "request preserved after stop-during-send with a .failure outcome")
+        XCTAssertEqual(parking.sentIds, ["leased"], "the head was sent exactly once, not re-processed")
+    }
+
+    /// WiFi → WWAN coalesces: the old WiFi loop is cancelled and only the WWAN interval (30 s)
+    /// is observed going forward. No two loops race with different intervals.
+    func testRestartCoalescesOldLoop() async {
+        QueueStore.register(makeStore())
+        let gated = GatedSleepClock()
+        let queue = RequestQueue(clock: gated.clock, send: alwaysSucceeds)
+
+        // Start on WiFi.
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "WiFi loop must park on its first sleep")
+        XCTAssertEqual(gated.requested.first, FlushConstants.wifiFlushInterval)
+
+        // Switch to WWAN while the WiFi loop is parked. start() inside the handler cancels the
+        // old loop and starts a new one — only the cellular interval should appear after this.
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+
+        // The WWAN loop should now be running and park on a 30-second sleep.
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "WWAN loop must request a sleep")
+        XCTAssertEqual(gated.requested[1], FlushConstants.cellularFlushInterval,
+                       "after WiFi→WWAN the new loop must sleep the cellular interval")
+
+        // Confirm we never see a WiFi-interval sleep from the replaced loop racing in.
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 3), "loop re-parks after second tick")
+        XCTAssertEqual(gated.requested[2], FlushConstants.cellularFlushInterval,
+                       "only the cellular interval must be observed after coalescing")
+
+        await queue.stop()
     }
 
     // MARK: - Invalid-field clear
