@@ -199,6 +199,36 @@ final class RequestQueueTests: XCTestCase {
         }
     }
 
+    /// A `send` stub driven by a scripted queue of results, consumed in order (the last result
+    /// repeats once the script is exhausted). Records the id of every request sent so retry/dequeue
+    /// behavior is observable. Thread-safe for use from the actor under test.
+    private final class ScriptedSendSpy: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _results: [Result<Data, KlaviyoAPIError>]
+        private var _sentIds: [String] = []
+        private var _sentAttempts: [Int] = []
+
+        init(results: [Result<Data, KlaviyoAPIError>]) {
+            _results = results
+        }
+
+        var sentIds: [String] { lock.lock(); defer { lock.unlock() }; return _sentIds }
+        var sentAttempts: [Int] { lock.lock(); defer { lock.unlock() }; return _sentAttempts }
+
+        var send: RequestQueue.Send {
+            { [self] request, info in
+                lock.lock()
+                _sentIds.append(request.id)
+                _sentAttempts.append(info.attemptNumber)
+                let result = _results.count > 1
+                    ? _results.removeFirst()
+                    : (_results.first ?? .success(Data()))
+                lock.unlock()
+                return result
+            }
+        }
+    }
+
     /// Builds a `.registerPushToken` request whose payload carries the given token/enablement/
     /// background, matching the fields `flush()` writes back to `IdentityStore` on success.
     private func makeRegisterPushTokenRequest(
@@ -220,6 +250,18 @@ final class RequestQueueTests: XCTestCase {
         KlaviyoRequest(
             id: id,
             endpoint: .createProfile("test-api-key", CreateProfilePayload(data: .test))
+        )
+    }
+
+    /// A request whose endpoint has `maxRetries == 1`, so a single retry increment (count → 2)
+    /// exceeds the limit — letting the maxRetries-drop path be exercised in one flush.
+    private func makeLowRetryRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+        KlaviyoRequest(
+            id: id,
+            endpoint: .resolveDestinationURL(
+                trackingLink: URL(string: "https://klaviyo.com")!,
+                profileInfo: ProfilePayload(anonymousId: "anon-1")
+            )
         )
     }
 
@@ -408,5 +450,153 @@ final class RequestQueueTests: XCTestCase {
                        "every queued request is sent exactly once; none lost or duplicated")
         XCTAssertTrue(QueueStore.shared.drainAll().isEmpty,
                       "nothing should be stranded in the store after A completes")
+    }
+
+    // MARK: - Failure handling
+
+    /// A transient network error stops the flush and restores the head to the queue (not dropped).
+    /// The NEXT flush tick (simulated by a second `flushNow()`) resends it; on success it dequeues.
+    /// The attempt number increments across the two sends, proving retry bookkeeping persisted.
+    func testNetworkErrorRetriesOnNextTickAndIncrementsCount() async {
+        QueueStore.register(makeStore())
+        let spy = ScriptedSendSpy(results: [
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .success(Data())
+        ])
+        let request = makeCreateProfileRequest(id: "net-retry")
+        QueueStore.shared.enqueue(request, persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        // First tick: network error → restored, not dropped.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["net-retry"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["net-retry"],
+                       "network error must restore the request to the queue, not drop it")
+
+        // Second tick: send succeeds → sent again and dequeued. Attempt number incremented.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["net-retry", "net-retry"], "request resent on the next tick")
+        XCTAssertEqual(spy.sentAttempts, [1, 2], "retry count incremented across ticks")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after success")
+    }
+
+    /// A rate-limit error sleeps the backoff, then retries the SAME head in place within one flush
+    /// (Decision 2: direct sleep). `RecordingSleepClock` returns instantly and records the backoff.
+    func testRateLimitSleepsBackoffThenResends() async {
+        QueueStore.register(makeStore())
+        let recording = RecordingSleepClock()
+        let spy = ScriptedSendSpy(results: [
+            .failure(.rateLimitError(backOff: 8)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertTrue(recording.requested.contains(8), "backoff of 8s must be slept before resend")
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "same head retried in place after the sleep")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
+    }
+
+    /// A server error behaves like a rate-limit: sleep the backoff, then retry the same head in place.
+    func testServerErrorSleepsBackoffThenResends() async {
+        QueueStore.register(makeStore())
+        let recording = RecordingSleepClock()
+        let spy = ScriptedSendSpy(results: [
+            .failure(.serverError(statusCode: 503, backOff: 5)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "srv"), persist: .synchronous)
+        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertTrue(recording.requested.contains(5), "server-error backoff must be slept")
+        XCTAssertEqual(spy.sentIds, ["srv", "srv"], "same head retried in place after the sleep")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
+    }
+
+    /// Once the retry count exceeds `maxRetries` the head is dropped, not resent. The low-retry
+    /// endpoint (`maxRetries == 1`) exceeds on the first network error (count → 2).
+    func testExceedingMaxRetriesDropsRequest() async {
+        QueueStore.register(makeStore())
+        let spy = ScriptedSendSpy(results: [
+            .failure(.networkError(NSError(domain: "test", code: -1)))
+        ])
+        QueueStore.shared.enqueue(makeLowRetryRequest(id: "doomed"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["doomed"], "sent once")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty,
+                      "request exceeding maxRetries must be dropped, not restored")
+    }
+
+    /// On a retryable failure of the head, the remaining leased requests are restored to the queue
+    /// (via `.synchronous` prepend) and the in-memory lease is cleared.
+    func testFailureRestoresRemainingLeaseToQueue() async {
+        let diskSpy = WriteSpyDiskIO()
+        QueueStore.register(makeStore(diskIO: diskSpy))
+        let spy = ScriptedSendSpy(results: [
+            .failure(.networkError(NSError(domain: "test", code: -1)))
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "head"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["head"], "flush stops at the failing head")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["head", "tail"],
+                       "the whole remaining lease is restored to the front of the queue")
+        XCTAssertFalse(diskSpy.savedBatches.isEmpty, "restore must persist synchronously")
+    }
+
+    /// Exercises the `.retryWithBackoff` EXCEEDED branch. A low-retry endpoint (`maxRetries == 1`)
+    /// receives a rate-limit error on its first attempt: `classifyFailure` returns
+    /// `.retryWithBackoff(requestCount: 2, ...)`, which exceeds `maxRetries == 1`. The engine must
+    /// DROP the head (not restore it) without sleeping the backoff, restore the (now-empty) remaining
+    /// lease, and return — leaving the store empty and `send` called exactly once.
+    func testExceedingMaxRetriesOnBackoffDropsRequest() async {
+        QueueStore.register(makeStore())
+        let recording = RecordingSleepClock()
+        let spy = ScriptedSendSpy(results: [
+            .failure(.rateLimitError(backOff: 5))
+        ])
+        QueueStore.shared.enqueue(makeLowRetryRequest(id: "backoff-doomed"), persist: .synchronous)
+        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["backoff-doomed"], "request sent exactly once before being dropped")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty,
+                      "head must be dropped (not restored) when backoff retryCount exceeds maxRetries")
+        XCTAssertTrue(recording.requested.isEmpty,
+                      "backoff sleep must NOT fire when the exceeded branch exits early")
+    }
+
+    /// Exercises the `.dequeue` CONTINUE semantics. Two requests are seeded; the first fails with a
+    /// non-retryable error (`.internalError`) which classifies as `.dequeue`. The engine must remove
+    /// the first request, CONTINUE the flush loop without stopping, send the second, and dequeue it on
+    /// success — leaving the store empty after a single `flushNow()`. This distinguishes the
+    /// dequeue+continue path from retry paths that stop+restore the lease.
+    func testNonRetryableErrorDequeuesAndContinuesToNextRequest() async {
+        QueueStore.register(makeStore())
+        let spy = ScriptedSendSpy(results: [
+            .failure(.internalError("non-retryable")),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "good"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["bad", "good"],
+                       "both requests sent: dequeue+continue moves past the non-retryable failure")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty,
+                      "store must be empty: non-retryable dequeued, successor succeeded and dequeued")
     }
 }

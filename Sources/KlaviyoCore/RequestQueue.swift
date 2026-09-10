@@ -11,7 +11,9 @@ import Foundation
 /// through an injected transport. Owns its state and lifecycle (`start`/`stop`), runs the timed run
 /// loop, and implements the drain/send happy path: `flush()` leases the pending batch and sends it
 /// head-first in FIFO order, writing a registered push token back to `IdentityStore` on success.
-/// Failure classification and retry/backoff land in a later task.
+/// On failure it classifies the error and either dequeues + continues (non-retryable), stops and
+/// restores the lease so retries resume next tick (transient), or sleeps the backoff and retries
+/// the same head in place (rate-limit / server error).
 public actor RequestQueue {
     /// Transport seam: sends one request with its per-attempt retry metadata and reports the result.
     public typealias Send = @Sendable (KlaviyoRequest, RequestAttemptInfo)
@@ -88,8 +90,9 @@ public actor RequestQueue {
     /// legacy reducer's `flushQueue` + `sendRequest` + `deQueueCompletedResults` success path:
     /// runs the `willDrain` seam so the owner can enqueue last-minute requests before the drain,
     /// leases the whole batch, and sends head-first in FIFO order. On `.success` a registered push
-    /// token is written back to the canonical `IdentityStore`. Failure handling (classification,
-    /// retry/backoff) lands in Task 5; for now a `.failure` stops the flush and restores the lease.
+    /// token is written back to the canonical `IdentityStore`. On `.failure` the error is classified
+    /// (`classifyFailure`) and handled: non-retryable → dequeue + continue; transient → stop + lease
+    /// restore (retries next tick); rate-limit/server → direct-sleep backoff then retry in place.
     private func flush() async {
         // 1. Gate: no apiKey means pre-init (flushing stays gated); a non-finite interval means the
         //    cadence is disabled. Either way there is nothing to flush.
@@ -139,10 +142,60 @@ public actor RequestQueue {
                 requestsInFlight.removeFirst()
                 retryState = .retry(FlushConstants.initialAttempt)
 
-            case .failure:
-                // Task 5: classify + retry/backoff. For now stop the flush and restore the lease.
-                restoreLease()
-                return
+            case let .failure(error):
+                // Classify the failure and act on it. Mirrors `handleRequestError` +
+                // `requestFailed`/`deQueueCompletedResults` in the legacy reducer:
+                // non-retryable errors dequeue the head and CONTINUE the flush; retryable
+                // errors set retryState, drop the head if it exceeded `maxRetries`, then STOP
+                // (network retries) or SLEEP+retry-in-place (backoff).
+                switch classifyFailure(error: error, retryState: retryState) {
+                case .dequeue:
+                    // Non-retryable: remove the head and keep sending the rest of the batch.
+                    // Parity: `deQueueCompletedResults` for a non-retryable failure.
+                    requestsInFlight.removeFirst()
+                    retryState = .retry(FlushConstants.initialAttempt)
+                    continue
+
+                case .clearInvalidFieldsAndDequeue:
+                    // Task 6: clear invalid identifier fields on IdentityStore before dequeue.
+                    requestsInFlight.removeFirst()
+                    retryState = .retry(FlushConstants.initialAttempt)
+                    continue
+
+                case let .retry(newState):
+                    // Transient network error. Set the new retry state; if it exceeded
+                    // `maxRetries`, drop the head and reset the count (parity: `requestFailed`).
+                    retryState = newState
+                    if case let .retry(count) = newState,
+                       count > head.endpoint.maxRetries {
+                        requestsInFlight.removeFirst()
+                        retryState = .retry(FlushConstants.initialAttempt)
+                    }
+                    // STOP: restore the remaining lease; retries resume on the next flush tick.
+                    restoreLease()
+                    return
+
+                case let .retryWithBackoff(newState, seconds):
+                    // Rate-limit / server error. Set the new retry state; if it exceeded
+                    // `maxRetries`, drop the head, reset per `requestFailed`, and STOP.
+                    retryState = newState
+                    if case let .retryWithBackoff(requestCount, totalCount, backOff) = newState,
+                       requestCount > head.endpoint.maxRetries {
+                        requestsInFlight.removeFirst()
+                        retryState = .retryWithBackoff(
+                            requestCount: 0,
+                            totalRetryCount: totalCount,
+                            currentBackoff: backOff
+                        )
+                        restoreLease()
+                        return
+                    }
+                    // Decision 2: sleep the backoff directly, then retry the SAME head in place
+                    // (rather than restoring + waiting for the reducer's per-tick countdown). The
+                    // `isFlushing` guard stays true across the sleep, so no concurrent flush runs.
+                    try? await clock.sleep(Double(seconds))
+                    continue
+                }
             }
         }
     }
