@@ -782,7 +782,6 @@ class StateManagementTests: StateManagementTestCase {
         _ = await store.send(.enqueueProfile(Profile(email: "foo"))) {
             $0.phoneNumber = nil
             $0.email = "foo"
-            $0.pushTokenData = nil
         }
 
         // Unified path: two separate requests — profile first, then identity-only token
