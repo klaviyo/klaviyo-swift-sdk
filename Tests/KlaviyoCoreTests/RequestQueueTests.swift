@@ -599,4 +599,91 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty,
                       "store must be empty: non-retryable dequeued, successor succeeded and dequeued")
     }
+
+    // MARK: - Invalid-field clear
+
+    /// Builds a 422 error-response JSON body with the given source pointer, matching the Klaviyo
+    /// API error envelope format that `classifyFailure` → `parseError` decodes.
+    private func makeInvalidFieldErrorData(pointer: String) -> Data {
+        """
+        {
+            "errors": [{
+                "id": "err-1",
+                "status": 422,
+                "code": "invalid",
+                "title": "Invalid input.",
+                "detail": "Invalid value.",
+                "source": { "pointer": "\(pointer)" }
+            }]
+        }
+        """.data(using: .utf8)!
+    }
+
+    /// A 422 with `/data/attributes/email` pointer must nil `IdentityStore.current.email` and
+    /// dequeue the request (not restore/resend). Parity: `resetStateAndDequeue` in the reducer.
+    /// Seeds externalId + email to verify the read-modify-write clears ONLY the targeted field.
+    func testInvalidEmailClearsCanonicalEmailAndDequeues() async {
+        QueueStore.register(makeStore())
+
+        // Seed email AND externalId so we can verify only email is cleared.
+        var identity = IdentityStore.shared.current
+        identity.email = "invalid@example.com"
+        identity.externalId = "ext-id-123"
+        IdentityStore.shared.update(identity)
+        let seededAnonymousId = IdentityStore.shared.current.anonymousId
+
+        let errorData = makeInvalidFieldErrorData(pointer: "/data/attributes/email")
+        let spy = ScriptedSendSpy(results: [
+            .failure(.httpError(422, errorData))
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad-email"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        let afterIdentity = IdentityStore.shared.current
+        XCTAssertNil(afterIdentity.email,
+                     "email must be cleared on the canonical IdentityStore after a 422 invalid-email")
+        XCTAssertEqual(afterIdentity.externalId, "ext-id-123",
+                       "externalId must survive the email-field clear (only targeted field is nil'd)")
+        XCTAssertEqual(afterIdentity.anonymousId, seededAnonymousId,
+                       "anonymousId must survive the email-field clear")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty,
+                      "request must be dequeued (not restored) after clearing invalid email")
+        XCTAssertEqual(spy.sentIds, ["bad-email"], "request sent exactly once")
+    }
+
+    /// A 422 with `/data/attributes/phone_number` pointer must nil
+    /// `IdentityStore.current.phoneNumber` and dequeue the request.
+    /// Seeds externalId + phoneNumber to verify the read-modify-write clears ONLY the targeted field.
+    func testInvalidPhoneClearsCanonicalPhoneAndDequeues() async {
+        QueueStore.register(makeStore())
+
+        // Seed phoneNumber AND externalId so we can verify only phoneNumber is cleared.
+        var identity = IdentityStore.shared.current
+        identity.phoneNumber = "+15005550000"
+        identity.externalId = "ext-id-456"
+        IdentityStore.shared.update(identity)
+        let seededAnonymousId = IdentityStore.shared.current.anonymousId
+
+        let errorData = makeInvalidFieldErrorData(pointer: "/data/attributes/phone_number")
+        let spy = ScriptedSendSpy(results: [
+            .failure(.httpError(422, errorData))
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad-phone"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        let afterIdentity = IdentityStore.shared.current
+        XCTAssertNil(afterIdentity.phoneNumber,
+                     "phone must be cleared on the canonical IdentityStore after a 422 invalid-phone")
+        XCTAssertEqual(afterIdentity.externalId, "ext-id-456",
+                       "externalId must survive the phone-field clear (only targeted field is nil'd)")
+        XCTAssertEqual(afterIdentity.anonymousId, seededAnonymousId,
+                       "anonymousId must survive the phone-field clear")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty,
+                      "request must be dequeued (not restored) after clearing invalid phone")
+        XCTAssertEqual(spy.sentIds, ["bad-phone"], "request sent exactly once")
+    }
 }

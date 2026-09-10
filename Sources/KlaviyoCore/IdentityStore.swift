@@ -38,6 +38,10 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     // lock therefore guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a
     // write — not writer-vs-writer. If a concurrent writer is ever introduced, persist and emit could
     // reorder across threads; revisit this the way `QueueStore.persistCurrent` handles it.
+    // The request-queue cutover introduces a second writer (the Core RequestQueue actor: push-token
+    // write-back and 4xx field-clear). It is UNWIRED until that cutover, which must make writes
+    // writer-vs-writer safe (serialize persist+emit without reintroducing the send-under-lock
+    // deadlock) and add an atomic field-clear to close the read-modify-write TOCTOU.
     //
     // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
     // need no external lock. `lock` guards only `hydrated`, `pushTokenValue`, and disk I/O. Hydration

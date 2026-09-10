@@ -156,8 +156,21 @@ public actor RequestQueue {
                     retryState = .retry(FlushConstants.initialAttempt)
                     continue
 
-                case .clearInvalidFieldsAndDequeue:
-                    // Task 6: clear invalid identifier fields on IdentityStore before dequeue.
+                case let .clearInvalidFieldsAndDequeue(fields):
+                    // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
+                    // canonical store so the next request to the API won't carry a stale bad value.
+                    // NOTE: read-modify-write is a TOCTOU vs any other IdentityStore writer. Safe here
+                    // only because the actor is unwired in this PR. The request-queue cutover must make
+                    // IdentityStore concurrent-writer-safe and give it an atomic field-clear; see
+                    // IdentityStore's SINGLE WRITER note.
+                    var identity = IdentityStore.shared.current
+                    for field in fields {
+                        switch field {
+                        case .email: identity.email = nil
+                        case .phone: identity.phoneNumber = nil
+                        }
+                    }
+                    IdentityStore.shared.update(identity)
                     requestsInFlight.removeFirst()
                     retryState = .retry(FlushConstants.initialAttempt)
                     continue
