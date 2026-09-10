@@ -130,16 +130,9 @@ public actor RequestQueue {
 
         // 4. Send head-first, FIFO, dequeuing each on success.
         while let head = requestsInFlight.first {
-            // Source the attempt number from either retry state: `.retry(count)` after a promoted
-            // backoff or a network retry, and `.retryWithBackoff(requestCount, …)` when the restart
-            // path re-drives a request that was mid-backoff. Reading only `.retry` would freeze the
-            // count at the initial attempt on the restart path.
             var numAttempts = FlushConstants.initialAttempt
-            switch retryState {
-            case let .retry(count):
+            if case let .retry(count) = retryState {
                 numAttempts = count
-            case let .retryWithBackoff(requestCount, _, _):
-                numAttempts = requestCount
             }
 
             let attemptInfo: RequestAttemptInfo
@@ -228,17 +221,7 @@ public actor RequestQueue {
                     // Decision 2: sleep the backoff directly, then retry the SAME head in place
                     // (rather than restoring + waiting for the reducer's per-tick countdown). The
                     // `isFlushing` guard stays true across the sleep, so no concurrent flush runs.
-                    do {
-                        try await clock.sleep(Double(seconds))
-                    } catch {
-                        // Cancelled mid-backoff (e.g. `start()` on a connectivity transition, which
-                        // does NOT clear the lease). Retrying here would bypass the backoff, so
-                        // restore the lease and return; the restarted loop re-drains and retries on
-                        // its normal cadence. `retryState` stays `.retryWithBackoff`, and the
-                        // `numAttempts` sourcing above reads its `requestCount` on the next drain.
-                        restoreLease()
-                        return
-                    }
+                    try? await clock.sleep(Double(seconds))
                     // Promote back to `.retry(requestCount)` so the in-place retry advances
                     // `attemptNumber` (parity with the reducer's backoff-expiry:
                     // `state.retryState = .retry(requestCount)`). Without this the retried send
