@@ -279,42 +279,64 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after success")
     }
 
-    /// A rate-limit error sleeps the backoff, then retries the SAME head in place within one flush
-    /// (Decision 2: direct sleep). `RecordingSleepClock` returns instantly and records the backoff.
-    func testRateLimitSleepsBackoffThenResends() async {
+    /// A rate-limit error records a durable countdown backoff and restores the request to
+    /// `QueueStore` (it stays on disk, not held in memory). It is NOT re-sent on the same tick. The
+    /// countdown gate at the top of `flush()` decrements the backoff by `flushInterval` each tick;
+    /// once it elapses the request is promoted to `.retry(requestCount)`, drained, and resent — with
+    /// `attemptNumber` advanced (`sentAttempts == [1, 2]`). Driven by repeated `flushNow()` ticks; no
+    /// run loop or recording clock is involved.
+    func testRateLimitCountsDownBackoffThenResends() async {
         QueueStore.register(makeQueueStore())
-        let recording = RecordingSleepClock()
+        // backoff 25s, wifi interval 10s → gate needs 25→15→5→0 to elapse across ticks.
         let spy = SendSpy(results: [
-            .failure(.rateLimitError(backOff: 8)),
+            .failure(.rateLimitError(backOff: 25)),
             .success(Data())
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
-        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
 
+        // Tick 1: send fails with rate-limit; the request is restored to the durable queue, not resent.
         await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"], "sent once; not resent on the same tick")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["rate"],
+                       "rate-limited request must be restored to the durable queue during the countdown")
 
-        XCTAssertTrue(recording.requested.contains(8), "backoff of 8s must be slept before resend")
-        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "same head retried in place after the sleep")
+        // Ticks 2 & 3: the gate counts the backoff down (25→15→5) and skips the flush; no new send.
+        await queue.flushNow()
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"], "no resend while the backoff is still counting down")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["rate"],
+                       "request stays durable in the queue across the countdown ticks")
+
+        // Tick 4: backoff elapses (5→0), promotes to `.retry(2)`, drains + resends → success + dequeue.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resent once the backoff elapsed")
         XCTAssertEqual(spy.sentAttempts, [1, 2],
                        "attemptNumber must advance across the backoff retry, not freeze at 1")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
-    /// A server error behaves like a rate-limit: sleep the backoff, then retry the same head in place.
-    func testServerErrorSleepsBackoffThenResends() async {
+    /// A server error behaves like a rate-limit: record the countdown backoff, restore the request,
+    /// count it down over ticks, then resend.
+    func testServerErrorCountsDownBackoffThenResends() async {
         QueueStore.register(makeQueueStore())
-        let recording = RecordingSleepClock()
+        // backoff 5s, wifi interval 10s → one countdown tick (5→0) elapses it.
         let spy = SendSpy(results: [
             .failure(.serverError(statusCode: 503, backOff: 5)),
             .success(Data())
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "srv"), persist: .synchronous)
-        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
 
+        // Tick 1: send fails; the request is restored to the durable queue, not resent.
         await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["srv"], "sent once; not resent on the same tick")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["srv"],
+                       "server-errored request must be restored to the durable queue during the backoff")
 
-        XCTAssertTrue(recording.requested.contains(5), "server-error backoff must be slept")
-        XCTAssertEqual(spy.sentIds, ["srv", "srv"], "same head retried in place after the sleep")
+        // Tick 2: backoff elapses (5→0), promotes to `.retry`, drains + resends → success + dequeue.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["srv", "srv"], "resent once the backoff elapsed")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
@@ -358,24 +380,33 @@ final class RequestQueueTests: XCTestCase {
     /// Exercises the `.retryWithBackoff` EXCEEDED branch. A low-retry endpoint (`maxRetries == 1`)
     /// receives a rate-limit error on its first attempt: `classifyFailure` returns
     /// `.retryWithBackoff(requestCount: 2, ...)`, which exceeds `maxRetries == 1`. The engine must
-    /// DROP the head (not restore it) without sleeping the backoff, restore the (now-empty) remaining
-    /// lease, and return — leaving the store empty and `send` called exactly once.
+    /// DROP the head (not restore it) and reset retryState to a fresh `.retry(initialAttempt)` — NOT
+    /// `.retryWithBackoff(requestCount: 0, …)`, which would make the gate later promote to `.retry(0)`
+    /// and permanently stall. To prove no stall, a subsequently-enqueued request must still send.
     func testExceedingMaxRetriesOnBackoffDropsRequest() async {
         QueueStore.register(makeQueueStore())
-        let recording = RecordingSleepClock()
         let spy = SendSpy(results: [
-            .failure(.rateLimitError(backOff: 5))
+            .failure(.rateLimitError(backOff: 5)),
+            .success(Data())
         ])
         QueueStore.shared.enqueue(makeLowRetryRequest(id: "backoff-doomed"), persist: .synchronous)
-        let queue = RequestQueue(clock: recording.clock, send: spy.send)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
         XCTAssertEqual(spy.sentIds, ["backoff-doomed"], "request sent exactly once before being dropped")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty,
                       "head must be dropped (not restored) when backoff retryCount exceeds maxRetries")
-        XCTAssertTrue(recording.requested.isEmpty,
-                      "backoff sleep must NOT fire when the exceeded branch exits early")
+
+        // The exceeded-reset must leave retryState at `.retry(initialAttempt)`, not `.retry(0)`. A
+        // freshly enqueued request must send validly on the next tick (no RequestAttemptInfo stall).
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "after"), persist: .synchronous)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["backoff-doomed", "after"],
+                       "a request enqueued after the exceeded-drop must still send (no .retry(0) stall)")
+        XCTAssertEqual(spy.sentAttempts.last, 1,
+                       "the successor sends at the initial attempt number, proving a clean reset")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "successor dequeued after success")
     }
 
     /// Exercises the `.dequeue` CONTINUE semantics. Two requests are seeded; the first fails with a
@@ -552,69 +583,33 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(parking.sentIds, ["leased"], "the head was sent exactly once, not re-processed")
     }
 
-    /// Regression for the backoff-sleep join-point: `stop()` (from `.notReachable`) can fire while
-    /// `flush()` is parked in the backoff `clock.sleep` of the `.retryWithBackoff` not-exceeded
-    /// branch. `stop()` restores the lease and clears `requestsInFlight`; when the gated clock is
-    /// released the flush's `continue` re-evaluates `requestsInFlight.first`, finds it empty (the
-    /// lease was cleared by `stop()`), and exits cleanly — no crash and the request is preserved in
-    /// the store (restored by `stop()`, not lost and not double-sent).
-    /// Runs 3 times for stability (no wall-clock waits in assertions).
-    func testStopDuringBackoffSleepPreservesRequest() async {
-        for _ in 1...3 {
-            SDKConfigStore.shared.reset()
-            IdentityStore.shared.reset()
-            QueueStore.resetShared()
-            fileIO = FileIODouble()
-            environment = fileIO.makeEnvironment()
-            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
+    /// Durability during the countdown backoff is inherent: after a rate-limit failure the request is
+    /// restored to `QueueStore` (on disk) and only the retry bookkeeping lives in memory. There is no
+    /// backoff sleep to be interrupted, so a `stop()` mid-wait is trivially safe — the request is
+    /// already durable in the store. This asserts the synchronous restore hit disk and the store holds
+    /// the request while the backoff counts down, so nothing can be stranded in memory across shutdown.
+    func testBackoffKeepsRequestDurableInQueueStore() async {
+        let diskSpy = WriteSpyDiskIO()
+        QueueStore.register(makeQueueStore(diskIO: diskSpy))
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 60))
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "durable"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
 
-            let diskSpy = WriteSpyDiskIO()
-            QueueStore.register(makeQueueStore(diskIO: diskSpy))
+        // Rate-limit failure: the request must be restored to the durable store synchronously.
+        await queue.flushNow()
 
-            // A gated clock parks the flush inside the backoff sleep. `flushNow()` only enters one
-            // clock.sleep — the backoff — so a gated clock parks there deterministically.
-            let gated = GatedSleepClock()
+        XCTAssertFalse(diskSpy.savedBatches.isEmpty,
+                       "the rate-limited request must be restored to QueueStore synchronously")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["durable"],
+                       "request stays durable in the store during the backoff wait, not held in memory")
+        XCTAssertEqual(spy.sentIds, ["durable"], "sent once; the backoff is counted down, not slept")
 
-            // Script: first send fails with a rate-limit error (enters backoff), second would succeed
-            // but must never be reached because stop() fires while the backoff sleep is parked.
-            let spy = SendSpy(results: [
-                .failure(.rateLimitError(backOff: 60)),
-                .success(Data())
-            ])
-
-            QueueStore.shared.enqueue(makeCreateProfileRequest(id: "backoff-parked"), persist: .synchronous)
-            let queue = RequestQueue(clock: gated.clock, send: spy.send)
-
-            // Kick off a flushNow() — it sends, gets a rate-limit error, then parks on the backoff
-            // sleep. Since flushNow doesn't run the loop, the ONLY clock.sleep is the backoff one.
-            let flushTask = Task.detached { await queue.flushNow() }
-
-            // Wait (bounded) until the flush has parked on the backoff sleep.
-            XCTAssertTrue(gated.waitForRequested(atLeast: 1, timeout: 2.0),
-                          "flush must park on the backoff sleep before we call networkConnectivityChanged")
-
-            // Going offline runs stop(): cancels the loop (no-op here since flushNow is not the
-            // loop), restores the in-flight lease to QueueStore, and clears requestsInFlight.
-            await queue.networkConnectivityChanged(.notReachable)
-
-            // The restore must have hit disk before we release the sleep.
-            XCTAssertFalse(diskSpy.savedBatches.isEmpty,
-                           "stop() must restore the in-flight lease to QueueStore synchronously")
-            XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["backoff-parked"],
-                           "request must be in the store (restored by stop()) before sleep is released")
-
-            // Release the backoff sleep. The flush's `continue` re-checks `requestsInFlight.first`,
-            // finds it empty (cleared by stop()), and exits the while loop cleanly — no crash, no
-            // second send.
-            gated.releaseOneTick()
-            await flushTask.value
-
-            // The request is preserved exactly once: restored by stop(), not dropped, not re-sent.
-            XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["backoff-parked"],
-                           "request preserved after stop-during-backoff-sleep: in store, not lost")
-            XCTAssertEqual(spy.sentIds, ["backoff-parked"],
-                           "head sent exactly once; no second send after the sleep was released")
-        }
+        // A `stop()` mid-wait is trivially safe: the request is already on disk, in-flight is empty.
+        await queue.stop()
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["durable"],
+                       "stop() during the backoff wait leaves the durable request untouched")
     }
 
     /// WiFi → WWAN coalesces: the old WiFi loop is cancelled and only the WWAN interval (30 s)
