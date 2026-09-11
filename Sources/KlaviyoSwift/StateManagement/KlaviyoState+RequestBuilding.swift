@@ -91,73 +91,13 @@ extension KlaviyoState {
         }
         let updatedProfile = Profile.updateProfileWithProperties(dict: pendingProfile)
         var attributes = profile.data.attributes
-        mergePendingAttributes(from: updatedProfile, into: &attributes)
-        attributes.location = mergedLocation(from: updatedProfile, into: attributes.location ?? .init())
+        PendingProfileFold.mergePendingAttributes(from: updatedProfile, into: &attributes)
+        attributes.location = PendingProfileFold.mergedLocation(
+            from: updatedProfile, into: attributes.location ?? .init()
+        )
         self.pendingProfile = nil
 
         return .init(data: .init(attributes: attributes))
-    }
-
-    /// Fills in profile attributes (name, title, organization, image, properties) from a pending
-    /// profile without overwriting values already present on the request.
-    private func mergePendingAttributes(
-        from pending: Profile,
-        into attributes: inout ProfilePayload.Attributes
-    ) {
-        if let firstName = pending.firstName {
-            attributes.firstName = attributes.firstName ?? firstName
-        }
-        if let lastName = pending.lastName {
-            attributes.lastName = attributes.lastName ?? lastName
-        }
-        if let title = pending.title {
-            attributes.title = attributes.title ?? title
-        }
-        if let organization = pending.organization {
-            attributes.organization = attributes.organization ?? organization
-        }
-        if let image = pending.image {
-            attributes.image = attributes.image ?? image
-        }
-        if !pending.properties.isEmpty {
-            let existing = attributes.properties.value as? [String: Any] ?? [:]
-            attributes.properties = AnyCodable(
-                existing.merging(pending.properties, uniquingKeysWith: { _, new in new })
-            )
-        }
-    }
-
-    /// Fills in location fields from a pending profile without overwriting values already present.
-    private func mergedLocation(
-        from pending: Profile,
-        into location: ProfilePayload.Attributes.Location
-    ) -> ProfilePayload.Attributes.Location {
-        var location = location
-        if let address1 = pending.location?.address1 {
-            location.address1 = location.address1 ?? address1
-        }
-        if let address2 = pending.location?.address2 {
-            location.address2 = location.address2 ?? address2
-        }
-        if let city = pending.location?.city {
-            location.city = location.city ?? city
-        }
-        if let region = pending.location?.region {
-            location.region = location.region ?? region
-        }
-        if let country = pending.location?.country {
-            location.country = location.country ?? country
-        }
-        if let zip = pending.location?.zip {
-            location.zip = location.zip ?? zip
-        }
-        if let latitude = pending.location?.latitude {
-            location.latitude = location.latitude ?? latitude
-        }
-        if let longitude = pending.location?.longitude {
-            location.longitude = location.longitude ?? longitude
-        }
-        return location
     }
 
     /// Validates the requested channels against the profile's identifiers and builds the
