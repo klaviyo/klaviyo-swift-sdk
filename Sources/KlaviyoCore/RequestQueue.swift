@@ -39,9 +39,11 @@ public actor RequestQueue {
     private var runLoop: Task<Void, Never>?
     private var isFlushing = false
 
-    public init(clock: SleepClock,
-                send: @escaping Send,
-                willDrain: (@Sendable () async -> Void)? = nil) {
+    public init(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)? = nil
+    ) {
         self.clock = clock
         self.send = send
         self.willDrain = willDrain
@@ -152,84 +154,17 @@ public actor RequestQueue {
             switch outcome {
             case .success:
                 if case let .registerPushToken(_, payload) = head.endpoint {
-                    IdentityStore.shared.updatePushToken(pushTokenData(from: payload))
+                    IdentityStore.shared.updatePushToken(PushTokenData(payload))
                 }
                 requestsInFlight.removeFirst()
                 retryState = .retry(FlushConstants.initialAttempt)
 
             case let .failure(error):
-                // Classify the failure and act on it. Mirrors `handleRequestError` +
-                // `requestFailed`/`deQueueCompletedResults` in the legacy reducer:
-                // non-retryable errors dequeue the head and CONTINUE the flush; retryable
-                // errors set retryState, drop the head if it exceeded `maxRetries`, then STOP
-                // (network retries) or SLEEP+retry-in-place (backoff).
-                switch classifyFailure(error: error, retryState: retryState) {
-                case .dequeue:
-                    // Non-retryable: remove the head and keep sending the rest of the batch.
-                    // Parity: `deQueueCompletedResults` for a non-retryable failure.
-                    requestsInFlight.removeFirst()
-                    retryState = .retry(FlushConstants.initialAttempt)
+                switch await handleSendFailure(error, head: head) {
+                case .continueSending:
                     continue
-
-                case let .clearInvalidFieldsAndDequeue(fields):
-                    // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
-                    // canonical store so the next request to the API won't carry a stale bad value.
-                    // NOTE: read-modify-write is a TOCTOU vs any other IdentityStore writer. Safe here
-                    // only because the actor is unwired in this PR. The request-queue cutover must make
-                    // IdentityStore concurrent-writer-safe and give it an atomic field-clear; see
-                    // IdentityStore's SINGLE WRITER note.
-                    var identity = IdentityStore.shared.current
-                    for field in fields {
-                        switch field {
-                        case .email: identity.email = nil
-                        case .phone: identity.phoneNumber = nil
-                        }
-                    }
-                    IdentityStore.shared.update(identity)
-                    requestsInFlight.removeFirst()
-                    retryState = .retry(FlushConstants.initialAttempt)
-                    continue
-
-                case let .retry(newState):
-                    // Transient network error. Set the new retry state; if it exceeded
-                    // `maxRetries`, drop the head and reset the count (parity: `requestFailed`).
-                    retryState = newState
-                    if case let .retry(count) = newState,
-                       count > head.endpoint.maxRetries {
-                        requestsInFlight.removeFirst()
-                        retryState = .retry(FlushConstants.initialAttempt)
-                    }
-                    // STOP: restore the remaining lease; retries resume on the next flush tick.
-                    restoreLease()
+                case .stopFlush:
                     return
-
-                case let .retryWithBackoff(newState, seconds):
-                    // Rate-limit / server error. Set the new retry state; if it exceeded
-                    // `maxRetries`, drop the head, reset per `requestFailed`, and STOP.
-                    retryState = newState
-                    if case let .retryWithBackoff(requestCount, totalCount, backOff) = newState,
-                       requestCount > head.endpoint.maxRetries {
-                        requestsInFlight.removeFirst()
-                        retryState = .retryWithBackoff(
-                            requestCount: 0,
-                            totalRetryCount: totalCount,
-                            currentBackoff: backOff
-                        )
-                        restoreLease()
-                        return
-                    }
-                    // Decision 2: sleep the backoff directly, then retry the SAME head in place
-                    // (rather than restoring + waiting for the reducer's per-tick countdown). The
-                    // `isFlushing` guard stays true across the sleep, so no concurrent flush runs.
-                    try? await clock.sleep(Double(seconds))
-                    // Promote back to `.retry(requestCount)` so the in-place retry advances
-                    // `attemptNumber` (parity with the reducer's backoff-expiry:
-                    // `state.retryState = .retry(requestCount)`). Without this the retried send
-                    // would keep sourcing `numAttempts` as the initial attempt.
-                    if case let .retryWithBackoff(requestCount, _, _) = retryState {
-                        retryState = .retry(requestCount)
-                    }
-                    continue
                 }
             }
         }
@@ -244,17 +179,85 @@ public actor RequestQueue {
         requestsInFlight = []
     }
 
-    /// Reconstructs a ``PushTokenData`` from a registered-push-token request payload so a successful
-    /// registration can be written back to `IdentityStore`.
-    private func pushTokenData(from payload: PushTokenPayload) -> PushTokenData {
-        let attributes = payload.data.attributes
-        let enablement = PushEnablement(rawValue: attributes.enablementStatus) ?? .authorized
-        let background = PushBackground(rawValue: attributes.backgroundStatus) ?? .available
-        return PushTokenData(
-            pushToken: attributes.token,
-            pushEnablement: enablement,
-            pushBackground: background,
-            deviceData: attributes.deviceMetadata
-        )
+    /// Whether the flush loop should keep sending the next request or stop (and let the run loop
+    /// retry on a later tick) after a send failure.
+    private enum FailureOutcome {
+        case continueSending
+        case stopFlush
+    }
+
+    /// Classifies a send failure and applies it, returning whether `flush()` should continue with
+    /// the next request or stop. Extracted from `flush()`. Mirrors `handleRequestError` +
+    /// `requestFailed`/`deQueueCompletedResults` in the legacy reducer: non-retryable errors dequeue
+    /// the head and CONTINUE; retryable errors set `retryState`, drop the head if it exceeded
+    /// `maxRetries`, then STOP (network) or SLEEP + retry-in-place (backoff).
+    private func handleSendFailure(_ error: KlaviyoAPIError, head: KlaviyoRequest) async -> FailureOutcome {
+        switch classifyFailure(error: error, retryState: retryState) {
+        case .dequeue:
+            // Non-retryable: remove the head and keep sending the rest of the batch.
+            // Parity: `deQueueCompletedResults` for a non-retryable failure.
+            requestsInFlight.removeFirst()
+            retryState = .retry(FlushConstants.initialAttempt)
+            return .continueSending
+
+        case let .clearInvalidFieldsAndDequeue(fields):
+            // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
+            // canonical store so the next request to the API won't carry a stale bad value.
+            // NOTE: read-modify-write is a TOCTOU vs any other IdentityStore writer. Safe here
+            // only because the actor is unwired in this PR. The request-queue cutover must make
+            // IdentityStore concurrent-writer-safe and give it an atomic field-clear; see
+            // IdentityStore's SINGLE WRITER note.
+            var identity = IdentityStore.shared.current
+            for field in fields {
+                switch field {
+                case .email: identity.email = nil
+                case .phone: identity.phoneNumber = nil
+                }
+            }
+            IdentityStore.shared.update(identity)
+            requestsInFlight.removeFirst()
+            retryState = .retry(FlushConstants.initialAttempt)
+            return .continueSending
+
+        case let .retry(newState):
+            // Transient network error. Set the new retry state; if it exceeded `maxRetries`, drop
+            // the head and reset the count (parity: `requestFailed`).
+            retryState = newState
+            if case let .retry(count) = newState,
+               count > head.endpoint.maxRetries {
+                requestsInFlight.removeFirst()
+                retryState = .retry(FlushConstants.initialAttempt)
+            }
+            // STOP: restore the remaining lease; retries resume on the next flush tick.
+            restoreLease()
+            return .stopFlush
+
+        case let .retryWithBackoff(newState, seconds):
+            // Rate-limit / server error. Set the new retry state; if it exceeded `maxRetries`, drop
+            // the head, reset per `requestFailed`, and STOP.
+            retryState = newState
+            if case let .retryWithBackoff(requestCount, totalCount, backOff) = newState,
+               requestCount > head.endpoint.maxRetries {
+                requestsInFlight.removeFirst()
+                retryState = .retryWithBackoff(
+                    requestCount: 0,
+                    totalRetryCount: totalCount,
+                    currentBackoff: backOff
+                )
+                restoreLease()
+                return .stopFlush
+            }
+            // Decision 2: sleep the backoff directly, then retry the SAME head in place (rather than
+            // restoring + waiting for the reducer's per-tick countdown). The `isFlushing` guard
+            // stays true across the sleep, so no concurrent flush runs.
+            try? await clock.sleep(Double(seconds))
+            // Promote back to `.retry(requestCount)` so the in-place retry advances `attemptNumber`
+            // (parity with the reducer's backoff-expiry: `state.retryState = .retry(requestCount)`).
+            // Without this the retried send would keep sourcing `numAttempts` as the initial attempt.
+            if case let .retryWithBackoff(requestCount, _, _) = retryState {
+                retryState = .retry(requestCount)
+            }
+            return .continueSending
+        }
     }
 }
