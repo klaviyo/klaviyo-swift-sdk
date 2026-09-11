@@ -252,6 +252,12 @@ extension KlaviyoSwiftEnvironment {
             false
         }, notificationCenter: {
             MockNotificationCenter()
-        })
+        }, requestQueue: RequestQueue(
+            clock: SleepClock { _ in }, // immediate — tests never need to wait
+            // Mirror the production wiring so the env-reachable queue is observable through the
+            // standard `environment.klaviyoAPI.send` stub and exercises the real `willDrain`.
+            send: { req, info in await environment.klaviyoAPI.send(req, info) },
+            willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
+        ))
     }
 }
