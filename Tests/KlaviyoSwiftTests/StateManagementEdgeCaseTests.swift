@@ -31,6 +31,10 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             IdentityStore.shared.updatePushToken(pushToken)
         }
         let readQueue = registerRecordingQueueStore()
+        // Inject a spy queue: the real RequestQueue with the immediate test SleepClock spins its run
+        // loop, and the long-lived `completeInitialization` effect (which calls `start()`) would then
+        // busy-loop and starve the test. The spy records lifecycle calls without spawning a loop.
+        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
         let store = TestStore(
             initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
         )
@@ -87,6 +91,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Single shared queue: both the unregister (built while state.apiKey is still the old key)
         // and the token-register (built after the switch to the new key) land in the same queue.
         let readQueue = seedTestQueueStore()
+        // A spy queue records `flushNow` without draining `QueueStore`, so the enqueued
+        // unregister/register survive for the assertions below.
+        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -99,8 +106,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         _ = await store.send(.initialize(newApiKey)) {
             $0.apiKey = newApiKey
         }
-        // Company switch prompts an immediate flush so the unregister drains promptly.
-        await store.receive(.flushQueue)
+        // Company switch prompts an immediate actor flush (no `.flushQueue` dispatch); the requests
+        // are enqueued synchronously in the reducer before that fire-and-forget effect.
+        await store.finish()
         let unregister = mutableState.buildUnregisterRequest(
             apiKey: oldApiKey, anonymousId: store.state.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken
@@ -133,11 +141,15 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             enablement: initialState.pushTokenData!.pushEnablement
         )
         let readQueue = seedTestQueueStore(initial: [leftoverRegister])
+        // A spy queue records `flushNow` without draining `QueueStore`, so the queued requests
+        // survive for the ordering assertions below.
+        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
         _ = await store.send(.initialize(newApiKey)) { $0.apiKey = newApiKey }
-        await store.receive(.flushQueue)
+        // Company switch prompts an immediate actor flush (no `.flushQueue` dispatch).
+        await store.finish()
 
         // Expected order: leftover old-company register → unregister(old) → new-company register.
         let endpoints = readQueue().map(\.endpoint)
@@ -305,9 +317,10 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
+        // completeInitialization drives the Core RequestQueue actor (start on launch) and runs the
+        // push-enablement + badge side effects; it no longer dispatches `.start`/`.flushQueue`.
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
@@ -623,9 +636,8 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [setBadgeExpectation], timeout: 1, enforceOrder: true)
     }
 
@@ -656,9 +668,8 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [notCalledExpectation, syncExpectation], timeout: 1, enforceOrder: true)
     }
 

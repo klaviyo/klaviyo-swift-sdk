@@ -253,7 +253,11 @@ extension KlaviyoSwiftEnvironment {
         }, notificationCenter: {
             MockNotificationCenter()
         }, requestQueue: RequestQueue(
-            clock: SleepClock { _ in }, // immediate — tests never need to wait
+            // The timed run loop is a NO-OP in tests: the clock throws, so a `start()`ed loop exits on
+            // its first sleep instead of periodically draining `QueueStore` in the background (which
+            // caused cross-test nondeterminism now that `completeInitialization` drives `start()`).
+            // `flushNow()` bypasses the loop, so tests that need a real drain still work.
+            clock: SleepClock { _ in throw CancellationError() },
             // Mirror the production wiring so the env-reachable queue is observable through the
             // standard `environment.klaviyoAPI.send` stub and exercises the real `willDrain`.
             send: { req, info in await environment.klaviyoAPI.send(req, info) },

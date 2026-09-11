@@ -159,7 +159,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
-                return .task { .flushQueue }
+                // Prompt an immediate flush on the Core actor so the unregister drains promptly.
+                return .run { _ in await klaviyoSwiftEnvironment.requestQueue.flushNow() }
             } else if case .uninitialized = state.initalizationState,
                       let previousApiKey = SDKConfigStore.shared.current.apiKey,
                       previousApiKey != apiKey {
@@ -253,10 +254,44 @@ struct KlaviyoReducer: ReducerProtocol {
             // Any request-generating calls made before init were routed to the durable
             // `UnattributedBuffer` and already drained into the QueueStore by `.initialize`
             // (before this action fires), so there is nothing to replay here.
+            //
+            // Long-lived lifecycle driver: the Core `RequestQueue` actor is the sole flush engine, so
+            // this effect drives its `start`/`stop`/`networkConnectivityChanged` directly instead of
+            // dispatching the (now dead) reducer flush-engine actions. It also runs the KEEP side
+            // effects that used to live in `.start` — push-enablement sync + badge handling — at
+            // launch and on every `.foregrounded`, preserving behavior parity with the old
+            // completeInit → `.start` + lifecycle→action mapping.
             return .run { send in
-                await send(.start)
+                @Sendable
+                func handleForeground() async {
+                    await klaviyoSwiftEnvironment.requestQueue.start()
+                    let settings = await environment.getNotificationSettings()
+                    await send(.setPushEnablement(settings))
+                    let autoclearing = await environment.getBadgeAutoClearingSetting()
+                    if autoclearing {
+                        await BadgeManager.setBadgeCount(0)
+                    } else {
+                        await MainActor.run { BadgeManager.syncBadgeCount() }
+                    }
+                }
+                @Sendable
+                func handleBackground() async {
+                    await klaviyoSwiftEnvironment.requestQueue.stop()
+                    await MainActor.run { BadgeManager.syncBadgeCount() }
+                }
+                // Launch kickoff — parity with the old completeInit → `.start`.
+                await handleForeground()
+                for await event in environment.lifecycleEventsWithReachability().lifecycleEventStream() {
+                    switch event {
+                    case .foregrounded:
+                        await handleForeground()
+                    case .backgrounded, .terminated:
+                        await handleBackground()
+                    case let .reachabilityChanged(status):
+                        await klaviyoSwiftEnvironment.requestQueue.networkConnectivityChanged(status)
+                    }
+                }
             }
-            .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
 
         case let .setEmail(email):
             guard email.isNotEmptyOrSame(as: IdentityStore.shared.current.email, identifier: "email") else {
@@ -558,7 +593,9 @@ struct KlaviyoReducer: ReducerProtocol {
             // `.fireAndForget` keeps publish async and reentrancy-safe, matching the pre-cutover
             // semantics: an EventBus subscriber cannot dispatch back into the store synchronously.
             let publish = EffectTask<KlaviyoAction>.fireAndForget { enrichAndPublishEvent(publishedEvent) }
-            return event.priority == .high ? .merge([.task { .flushQueue }, publish]) : publish
+            return event.priority == .high
+                ? .merge([.run { _ in await klaviyoSwiftEnvironment.requestQueue.flushNow() }, publish])
+                : publish
 
         case let .enqueueAggregateEvent(payload):
             RequestEnqueuer.enqueueAggregateEvent(payload)
@@ -628,12 +665,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setProfileProperty(key, value):
-            guard var pendingProfile = state.pendingProfile else {
-                state.pendingProfile = [key: value]
-                return .none
-            }
-            pendingProfile[key] = value
-            state.pendingProfile = pendingProfile
+            // Stage into the KlaviyoSwift-side buffer; the Core `RequestQueue` folds staged props
+            // into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
+            // just before each drain. `state.pendingProfile` is no longer written here (the field
+            // remains for now; removed in a later task).
+            ProfilePropertyBuffer.shared.stage(key, value)
             return .none
 
         case let .resetStateAndDequeue(request, invalidFields):

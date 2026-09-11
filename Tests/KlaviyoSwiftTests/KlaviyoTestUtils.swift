@@ -38,12 +38,14 @@ class StateManagementTestCase: XCTestCase {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        ProfilePropertyBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
     }
 
     @MainActor
     override func tearDown() async throws {
+        ProfilePropertyBuffer.shared.reset()
         BadgeManager.resetToProduction()
     }
 }

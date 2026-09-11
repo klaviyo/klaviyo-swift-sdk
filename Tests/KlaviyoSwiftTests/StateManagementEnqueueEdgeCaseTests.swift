@@ -566,12 +566,14 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         XCTAssertEqual(stored.anonymousId, anon)
     }
 
-    /// A pre-init identifier setter folds AND consumes any staged `pendingProfile` into its buffered
-    /// profile request — unlike the pre-init `set(profile:)` path, which leaves the property staged
-    /// (see `testEnqueueProfilePayloadParityWithLegacyBuilder`). Pins the `applyIdentifierChange`
-    /// fold+consume behavior that diverges from the legacy `setPreInitIdentifier`.
+    /// After the MAGE-1197 cutover, `setProfileProperty` stages into `ProfilePropertyBuffer` rather
+    /// than `state.pendingProfile`, so an identifier setter no longer folds the staged property into
+    /// its request. The staged property instead ships when the Core `RequestQueue` actor drains the
+    /// buffer via `willDrain`. This pins both halves: `setEmail` does NOT carry the staged property,
+    /// and the buffer drain DOES ship it.
     @MainActor
-    func testPreInitSetProfilePropertyThenSetEmailShipsPropertyInBufferedProfile() async throws {
+    func testPreInitSetProfilePropertyShipsViaBufferDrainNotIdentifierSetter() async throws {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-preinit"))
         IdentityStore.shared.update(ProfileData(anonymousId: "stable-anon"))
 
         let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
@@ -579,24 +581,39 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
 
         let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
         _ = await store.send(.setProfileProperty(key, "gold"))
+        // Staged in the buffer, not on state.
+        XCTAssertNil(store.state.pendingProfile, "setProfileProperty no longer writes pendingProfile")
+
         _ = await store.send(.setEmail("new@user.com"))
 
-        // The staged property is consumed onto the buffered profile request, not left pending.
-        XCTAssertNil(store.state.pendingProfile, "setEmail must consume the staged pendingProfile")
-
-        let profiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
+        // setEmail's buffered profile must NOT carry the staged property (no state fold any more).
+        let setEmailProfiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
             .compactMap {
                 if case let .profile(payload) = $0 { return payload }
                 return nil
             }
-        guard let payload = profiles.last else {
-            return XCTFail("expected a buffered profile request carrying the staged property")
+        for payload in setEmailProfiles {
+            let props = payload.data.attributes.properties.value as? [String: Any]
+            XCTAssertNil(
+                props?["loyalty_tier"],
+                "identifier setter must not fold the staged property after the cutover"
+            )
         }
-        let customProps = payload.data.attributes.properties.value as? [String: Any]
-        XCTAssertEqual(
-            customProps?["loyalty_tier"] as? String, "gold",
-            "the staged property must ship in the buffered profile request built by setEmail"
-        )
+
+        // The staged property ships when the buffer drains into the queue.
+        seedTestQueueStore()
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+        let queued = QueueStore.shared.requests
+        let carriedProperty = queued.contains { request in
+            switch request.endpoint {
+            case let .createProfile(_, payload):
+                let props = payload.data.attributes.properties.value as? [String: Any]
+                return props?["loyalty_tier"] as? String == "gold"
+            default:
+                return false
+            }
+        }
+        XCTAssertTrue(carriedProperty, "the staged property ships via the buffer drain")
     }
 }
 
