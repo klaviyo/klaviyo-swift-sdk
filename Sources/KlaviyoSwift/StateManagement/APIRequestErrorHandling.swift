@@ -8,59 +8,14 @@
 import Foundation
 import KlaviyoCore
 
-extension KlaviyoEndpoint {
-    var maxRetries: Int {
-        switch self {
-        case .createProfile,
-             .registerPushToken,
-             .unregisterPushToken,
-             .createEvent,
-             .aggregateEvent,
-             .logTrackingLinkClicked,
-             .createSubscription:
-            return 50
-        case .resolveDestinationURL, .fetchGeofences:
-            return 1
-        }
-    }
-}
+// KlaviyoEndpoint.maxRetries, InvalidField, and parseError have been moved to
+// KlaviyoCore/RequestQueueSupport.swift. They are available here via `import KlaviyoCore`.
 
-enum InvalidField: Equatable {
-    case email
-    case phone
-
-    /// gets the invalid field based on the source.pointer from klaviyo API.
-    /// this assumes that source.pointer will not change
-    /// Client APIs to have better error codes in the future at which point we should use that instead of source.pointer
-    /// - Parameter sourcePointer: pointers to the source of the error
-    /// - Returns: the field that is invalid else `nil`
-    static func getInvalidField(sourcePointer: String) -> InvalidField? {
-        if sourcePointer.contains("/attributes/phone_number") {
-            return .phone
-        }
-        if sourcePointer.contains("/attributes/email") {
-            return .email
-        }
-
-        return nil
-    }
-}
-
-private func parseError(_ data: Data) -> [InvalidField]? {
-    var invalidFields: [InvalidField]?
-    do {
-        let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-
-        invalidFields = errorResponse.errors.compactMap { error in
-            InvalidField.getInvalidField(sourcePointer: error.source.pointer)
-        }
-    } catch {
-        environment.logger.error("error when decoding error data")
-    }
-
-    return invalidFields
-}
-
+// DRIFT PIN: This function's classification logic must stay behaviorally identical to
+// `classifyFailure` in `RequestQueueSupport.swift` (KlaviyoCore), which is the parity twin for the
+// Core-side queue engine. Any change to error handling here MUST be mirrored in `classifyFailure`
+// (plus any action-wrapping), and vice versa. Both must change together until the cutover removes
+// this reducer path.
 func handleRequestError(
     request: KlaviyoRequest,
     error: KlaviyoAPIError,
@@ -71,7 +26,7 @@ func handleRequestError(
         let responseString = String(data: data, encoding: .utf8) ?? "[Unknown]"
         environment.logger.error("An http error occured status code: \(statuscode) data: \(responseString)")
 
-        let invalidFields = parseError(data)
+        let invalidFields = parseError(data, log: { environment.logger.error("\($0)") })
         if let invalidFields, !invalidFields.isEmpty {
             return .resetStateAndDequeue(request, invalidFields)
         } else {
