@@ -112,8 +112,9 @@ public enum FlushDecision: Equatable {
     /// A transient network error occurred; resend on the regular flush cadence.
     case retry(RetryState)
 
-    /// A rate-limit or server error occurred; wait `seconds` before resending.
-    case retryWithBackoff(RetryState, seconds: Int)
+    /// A rate-limit or server error occurred; record the backoff on the nested `RetryState`
+    /// (`currentBackoff`) and count it down over flush ticks before resending.
+    case retryWithBackoff(RetryState)
 
     /// The server rejected a field (e.g. email or phone) with a validation error.
     /// Strip the offending field(s) and remove the request from the queue.
@@ -166,8 +167,7 @@ public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> F
                 requestCount: requestRetryCount,
                 totalRetryCount: totalRetryCount,
                 currentBackoff: backOff
-            ),
-            seconds: backOff
+            )
         )
 
     case .internalError,

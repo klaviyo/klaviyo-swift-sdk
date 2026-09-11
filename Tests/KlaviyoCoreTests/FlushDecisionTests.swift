@@ -107,8 +107,7 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(
             decision,
             .retryWithBackoff(
-                .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: backOff),
-                seconds: backOff
+                .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: backOff)
             )
         )
     }
@@ -124,8 +123,7 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(
             decision,
             .retryWithBackoff(
-                .retryWithBackoff(requestCount: 3, totalRetryCount: 5, currentBackoff: backOff),
-                seconds: backOff
+                .retryWithBackoff(requestCount: 3, totalRetryCount: 5, currentBackoff: backOff)
             )
         )
     }
@@ -139,8 +137,7 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(
             decision,
             .retryWithBackoff(
-                .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: backOff),
-                seconds: backOff
+                .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: backOff)
             )
         )
     }
@@ -155,8 +152,7 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(
             decision,
             .retryWithBackoff(
-                .retryWithBackoff(requestCount: 2, totalRetryCount: 4, currentBackoff: backOff),
-                seconds: backOff
+                .retryWithBackoff(requestCount: 2, totalRetryCount: 4, currentBackoff: backOff)
             )
         )
     }
