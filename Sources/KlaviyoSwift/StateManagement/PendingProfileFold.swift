@@ -12,8 +12,9 @@ import KlaviyoCore
 /// `CreateProfilePayload`. Used by the `ProfilePropertyBuffer` drain path to merge staged properties
 /// into the outbound request with no `self` dependency.
 enum PendingProfileFold {
-    /// Fills in profile attributes (name, title, organization, image, properties) from a pending
-    /// profile without overwriting values already present on the request.
+    /// Merges a pending profile's attributes into the request. Scalar fields (name, title,
+    /// organization, image) are PRESERVED — an existing value on the request wins. `properties` is
+    /// merged key-by-key, giving precedence to the PENDING value on duplicate keys.
     static func mergePendingAttributes(
         from pending: Profile,
         into attributes: inout ProfilePayload.Attributes
@@ -36,7 +37,7 @@ enum PendingProfileFold {
         if !pending.properties.isEmpty {
             let existing = attributes.properties.value as? [String: Any] ?? [:]
             attributes.properties = AnyCodable(
-                existing.merging(pending.properties, uniquingKeysWith: { _, new in new })
+                existing.merging(pending.properties, uniquingKeysWith: { _, newer in newer })
             )
         }
     }
@@ -62,8 +63,8 @@ enum PendingProfileFold {
         if let country = pending.location?.country {
             location.country = location.country ?? country
         }
-        if let zip = pending.location?.zip {
-            location.zip = location.zip ?? zip
+        if let zipCode = pending.location?.zip {
+            location.zip = location.zip ?? zipCode
         }
         if let latitude = pending.location?.latitude {
             location.latitude = location.latitude ?? latitude

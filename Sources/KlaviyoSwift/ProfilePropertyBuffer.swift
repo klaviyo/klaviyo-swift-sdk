@@ -9,25 +9,14 @@ import AnyCodable
 import Foundation
 import KlaviyoCore
 
-/// KlaviyoSwift-side staging for profile properties set via `setProfileProperty`.
+/// KlaviyoSwift-side staging for profile properties set via `setProfileProperty`. Staged props are
+/// folded into `QueueStore` just before the `RequestQueue` actor drains (`willDrain`): with a push
+/// token → a `registerPushToken` request; otherwise → a `createProfile` request. Identity is read
+/// fresh from `IdentityStore.shared` at flush time.
 ///
-/// Properties staged here are flushed into `QueueStore` just before the `RequestQueue` actor
-/// sends a batch (`willDrain`):
-///
-/// - **Push token present** → fold staged props into a `Profile`, build a `ProfilePayload`, then
-///   enqueue a `registerPushToken` request via `RequestFactory.tokenRequest`.
-/// - **No push token** → build a base `CreateProfilePayload` from identity, fold staged props in
-///   via `PendingProfileFold`, then enqueue via `RequestEnqueuer.enqueueProfile(payload:)`.
-///
-/// Identity is always read fresh from `IdentityStore.shared` at flush time (post-init, so
-/// `anonymousId` is guaranteed non-nil in practice). `flushIntoQueue` guards on `apiKey` presence
-/// defensively — the actor only calls `willDrain` after initialization, so the guard should never
-/// trip, but we retain it against future call-site changes.
-///
-/// Thread-safety: `staged` is protected by `NSLock`. `stage` may be called on any thread
-/// (typically the main thread from `setProfileProperty`). `flushIntoQueue` is called from the
-/// actor's executor. The dict is snapshot-and-cleared atomically at the start of `flushIntoQueue`
-/// so the actor sees a consistent view even if `stage` races with the flush.
+/// Thread-safety: `staged` is `NSLock`-guarded; `stage` may run on any thread. `flushIntoQueue`
+/// snapshots-and-clears the dict atomically up front so the flush sees a consistent view even if a
+/// concurrent `stage` races it.
 final class ProfilePropertyBuffer: @unchecked Sendable {
     static let shared = ProfilePropertyBuffer()
 
@@ -37,8 +26,8 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
     // MARK: - API
 
     /// Stages a single property key/value. Safe to call from any thread.
-    func stage(_ key: Profile.ProfileKey, _ value: AnyEncodable) {
-        lock.withLock { staged[key] = value }
+    func stage(_ profileKey: Profile.ProfileKey, _ value: AnyEncodable) {
+        lock.withLock { staged[profileKey] = value }
     }
 
     /// Snapshot-and-clears the staged dict, folds the properties into the appropriate request, and
@@ -54,20 +43,19 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         guard !snapshot.isEmpty else { return }
 
         guard let apiKey = SDKConfigStore.shared.current.apiKey else {
-            // Restore the snapshot so staged properties aren't dropped.
-            lock.withLock { staged = snapshot.merging(staged) { _, new in new } }
+            restore(snapshot)
             environment.emitDeveloperWarning(
                 "ProfilePropertyBuffer.flushIntoQueue: apiKey not set; staged properties retained"
             )
             return
         }
 
-        // Capture identity and push token together, up front, so the fold and the token-vs-profile
-        // decision below read one consistent view rather than re-accessing the store after other work.
+        // Read identity + push token once, up front, so the fold and the token-vs-profile decision
+        // below see one consistent view.
         let identity = IdentityStore.shared.current
         let pushTokenData = IdentityStore.shared.pushToken
         guard let anonymousId = identity.anonymousId else {
-            lock.withLock { staged = snapshot.merging(staged) { _, new in new } }
+            restore(snapshot)
             environment.emitDeveloperWarning(
                 "ProfilePropertyBuffer.flushIntoQueue: missing anonymousId; staged properties retained"
             )
@@ -75,47 +63,74 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         }
 
         if let tokenData = pushTokenData {
-            // Push-token path: fold staged props into a Profile → ProfilePayload → tokenRequest.
-            // Must NOT use RequestEnqueuer.enqueuePushToken here because it builds from flat identity
-            // only and drops structured attributes (firstName, lastName, title, etc.).
-            let profile = Profile.updateProfileWithProperties(
-                email: identity.email,
-                phoneNumber: identity.phoneNumber,
-                externalId: identity.externalId,
-                dict: snapshot
+            enqueueTokenRequest(
+                apiKey: apiKey, anonymousId: anonymousId, identity: identity,
+                tokenData: tokenData, snapshot: snapshot
             )
-            let profilePayload = ProfilePayload(profile, anonymousId: anonymousId)
-            let request = RequestFactory.tokenRequest(
-                apiKey: apiKey,
-                pushToken: tokenData.pushToken,
-                enablement: tokenData.pushEnablement,
-                background: environment.getBackgroundSetting().rawValue,
-                profile: profilePayload
-            )
-            QueueStore.shared.enqueue(request)
         } else {
-            // Profile-only path: build a base CreateProfilePayload, fold staged props in.
-            let payloadIdentity = PayloadIdentity(
-                anonymousId: anonymousId,
-                email: identity.email,
-                phoneNumber: identity.phoneNumber,
-                externalId: identity.externalId
-            )
-            var basePayload = RequestFactory.profilePayload(identity: payloadIdentity)
-            let pendingProfile = Profile.updateProfileWithProperties(dict: snapshot)
-            var attributes = basePayload.data.attributes
-            PendingProfileFold.mergePendingAttributes(from: pendingProfile, into: &attributes)
-            attributes.location = PendingProfileFold.mergedLocation(
-                from: pendingProfile, into: attributes.location ?? .init()
-            )
-            basePayload = .init(data: .init(attributes: attributes))
-            RequestEnqueuer.enqueueProfile(payload: basePayload)
+            enqueueProfileRequest(anonymousId: anonymousId, identity: identity, snapshot: snapshot)
         }
     }
 
+    /// Restores a snapshot into `staged` so retained props aren't dropped, without clobbering any
+    /// props staged since the flush began.
+    private func restore(_ snapshot: [Profile.ProfileKey: AnyEncodable]) {
+        lock.withLock { staged = snapshot.merging(staged) { _, newer in newer } }
+    }
+
+    /// Push-token path: fold staged props into a `Profile` → `ProfilePayload` → `tokenRequest`.
+    /// Must NOT use `RequestEnqueuer.enqueuePushToken` — it builds from flat identity only and drops
+    /// structured attributes (firstName, lastName, title, etc.).
+    private func enqueueTokenRequest(
+        apiKey: String,
+        anonymousId: String,
+        identity: ProfileData,
+        tokenData: PushTokenData,
+        snapshot: [Profile.ProfileKey: AnyEncodable]
+    ) {
+        let profile = Profile.updateProfileWithProperties(
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
+            dict: snapshot
+        )
+        let profilePayload = ProfilePayload(profile, anonymousId: anonymousId)
+        let request = RequestFactory.tokenRequest(
+            apiKey: apiKey,
+            pushToken: tokenData.pushToken,
+            enablement: tokenData.pushEnablement,
+            background: environment.getBackgroundSetting().rawValue,
+            profile: profilePayload
+        )
+        QueueStore.shared.enqueue(request)
+    }
+
+    /// Profile-only path: build a base `CreateProfilePayload` from identity, fold staged props in.
+    private func enqueueProfileRequest(
+        anonymousId: String,
+        identity: ProfileData,
+        snapshot: [Profile.ProfileKey: AnyEncodable]
+    ) {
+        let payloadIdentity = PayloadIdentity(
+            anonymousId: anonymousId,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId
+        )
+        var basePayload = RequestFactory.profilePayload(identity: payloadIdentity)
+        let pendingProfile = Profile.updateProfileWithProperties(dict: snapshot)
+        var attributes = basePayload.data.attributes
+        PendingProfileFold.mergePendingAttributes(from: pendingProfile, into: &attributes)
+        attributes.location = PendingProfileFold.mergedLocation(
+            from: pendingProfile, into: attributes.location ?? .init()
+        )
+        basePayload = .init(data: .init(attributes: attributes))
+        RequestEnqueuer.enqueueProfile(payload: basePayload)
+    }
+
     /// Drops all staged properties. Called from `KlaviyoState.reset()` (profile reset / company
-    /// switch / profile-clobber) so staged properties never leak onto a new identity — parity with
-    /// the old reducer, whose `reset()` cleared `pendingProfile`. Also used for test isolation.
+    /// switch / profile-clobber) so staged props never leak onto a new identity — parity with the
+    /// old reducer clearing `pendingProfile`. Also used for test isolation.
     func reset() {
         lock.withLock { staged = [:] }
     }

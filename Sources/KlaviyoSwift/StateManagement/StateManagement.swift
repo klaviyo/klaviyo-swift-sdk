@@ -89,23 +89,20 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias Action = KlaviyoAction
 
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
-        // Write-through choke point: `apiKey` / `identity` / `pushTokenData` are canonical in the
-        // KlaviyoCore stores; `KlaviyoState` holds an in-memory projection. Capture the projection
-        // before the action runs and, on any mutation, write it back so identity/apiKey/pushToken
-        // are persisted synchronously (the debounced state save is queue-only). `defer` fires on
-        // every return path, so no mutation site can silently drop a write. Value-equality guards
-        // avoid redundant emits (e.g. hydration reading its own value).
+        // Write-through choke point: `apiKey`/`identity`/`pushTokenData` are canonical in the
+        // KlaviyoCore stores; `KlaviyoState` holds a projection. Capture it before the action, then on
+        // any change write it back on the `defer` (fires on every return path) so no mutation site
+        // drops a write. Value-equality guards avoid redundant emits.
         let previousApiKey = state.apiKey
         let previousIdentity = state.identity
         let previousPushTokenData = state.pushTokenData
         // KNOWN COEXISTENCE LIMITATION (resolved by MAGE-904): this defer persists the reducer's
-        // `state.identity` PROJECTION wholesale. The `RequestQueue` actor can now clear a rejected
-        // identifier (4xx field-clear) directly on `IdentityStore` out of band; because the projection
-        // is not re-read from `IdentityStore` here, a subsequent identity-mutating action can persist
-        // the stale projection and resurrect the cleared value. This exists only while both writers
-        // (reducer projection + actor) coexist. MAGE-904 deletes this reducer / projection entirely,
-        // making `IdentityStore` the sole source of truth and removing the divergence — do not patch
-        // it here (any fix lives in code 904 removes).
+        // `state.identity` PROJECTION wholesale. The `RequestQueue` actor can clear a rejected
+        // identifier (4xx field-clear) directly on `IdentityStore` out of band; since the projection
+        // is not re-read here, a later identity-mutating action can persist the stale projection and
+        // resurrect the cleared value. Exists only while both writers (reducer projection + actor)
+        // coexist. MAGE-904 deletes this reducer / projection, making `IdentityStore` the sole source
+        // of truth — do not patch it here (any fix lives in code 904 removes).
         defer {
             if state.apiKey != previousApiKey {
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey))
