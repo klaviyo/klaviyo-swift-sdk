@@ -47,7 +47,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { "klaviyo-swift-sdk" },
             SDKVersion: { "1.0.0" },
             formsDataEnvironment: { nil },
