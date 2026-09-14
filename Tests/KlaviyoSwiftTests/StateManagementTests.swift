@@ -720,9 +720,9 @@ class StateManagementTests: StateManagementTestCase {
         // and reads the correct identity (phone number, push token) when building the payload.
         seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
-        // A spy queue records the high-priority `flushNow` without draining `QueueStore`, so the
-        // per-event queue-position assertions below stay deterministic.
-        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
+        // Spy queue: records the high-priority `flushNow` without draining, so the per-event
+        // queue-position assertions below stay deterministic.
+        installSpyRequestQueue()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -812,7 +812,7 @@ class StateManagementTests: StateManagementTestCase {
         await store.send(.initialize(TEST_API_KEY))
         await store.receive(
             .completeInitialization(KlaviyoState()),
-            timeout: TIMEOUT_NANOSECONDS
+            timeout: timeoutNanoseconds
         )
 
         // drainBuffer (run inside .initialize) enqueued the buffered request into the QueueStore for
@@ -884,7 +884,7 @@ class StateManagementTests: StateManagementTestCase {
         let recorded = registerRecordingQueueStore()
         await store.send(.initialize(TEST_API_KEY))
         await store.receive(
-            .completeInitialization(KlaviyoState()), timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()), timeout: timeoutNanoseconds
         )
         let createsToNewIdentity = recorded().filter {
             if case let .createProfile(_, payload) = $0.endpoint {
@@ -1043,10 +1043,9 @@ class StateManagementTests: StateManagementTestCase {
         let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
         let readQueue = seedTestQueueStore(initial: [existingRequest1, existingRequest2])
-        // A spy queue records the immediate flush without draining, so the front-insertion order in
-        // the QueueStore is observable (the actor is the real drain path, covered elsewhere).
-        let spy = SpyRequestQueue()
-        klaviyoSwiftEnvironment.requestQueue = spy
+        // Spy queue: records the immediate flush without draining, so front-insertion order in the
+        // QueueStore is observable (the actor is the real drain path, covered elsewhere).
+        let spyQueue = installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1099,7 +1098,7 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(queued[1].id, existingRequest1.id, "Second request should be existing request 1")
         XCTAssertEqual(queued[2].id, existingRequest2.id, "Third request should be existing request 2")
 
-        let flushCount = await spy.getFlushNowCount()
+        let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
@@ -1365,9 +1364,8 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testOpenedPushEventProducesHighPriorityRequestAtQueueFront() async throws {
-        // A spy queue records the immediate flush without draining, so the front-insert is observable.
-        let spy = SpyRequestQueue()
-        klaviyoSwiftEnvironment.requestQueue = spy
+        // Spy queue: records the immediate flush without draining, so the front-insert is observable.
+        let spyQueue = installSpyRequestQueue()
         let scaffold = makePriorityTestStore()
         scaffold.store.exhaustivity = .off
 
@@ -1384,15 +1382,14 @@ class StateManagementTests: StateManagementTestCase {
             front.priority, .high,
             "Opened-push request must carry .high priority and be inserted at the front"
         )
-        let flushCount = await spy.getFlushNowCount()
+        let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
     @MainActor
     func testGeofenceEventProducesHighPriorityRequestAtQueueFront() async throws {
-        // A spy queue records the immediate flush without draining, so the front-insert is observable.
-        let spy = SpyRequestQueue()
-        klaviyoSwiftEnvironment.requestQueue = spy
+        // Spy queue: records the immediate flush without draining, so the front-insert is observable.
+        let spyQueue = installSpyRequestQueue()
         let scaffold = makePriorityTestStore()
         scaffold.store.exhaustivity = .off
 
@@ -1413,7 +1410,7 @@ class StateManagementTests: StateManagementTestCase {
             front.priority, .high,
             "Geofence request must carry .high priority and be inserted at the front"
         )
-        let flushCount = await spy.getFlushNowCount()
+        let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
@@ -1582,7 +1579,7 @@ class StateManagementTests: StateManagementTestCase {
         // Let the initialization effect settle so the store finishes cleanly.
         await store.receive(
             .completeInitialization(KlaviyoState()),
-            timeout: TIMEOUT_NANOSECONDS
+            timeout: timeoutNanoseconds
         )
     }
 

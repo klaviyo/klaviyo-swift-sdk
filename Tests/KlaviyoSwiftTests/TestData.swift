@@ -250,7 +250,7 @@ extension KlaviyoSwiftEnvironment {
             clock: SleepClock { _ in throw CancellationError() },
             // Mirror the production wiring so the env-reachable queue is observable through the
             // standard `environment.klaviyoAPI.send` stub and exercises the real `willDrain`.
-            send: { req, info in await environment.klaviyoAPI.send(req, info) },
+            send: { request, info in await environment.klaviyoAPI.send(request, info) },
             willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
         ))
     }

@@ -193,11 +193,11 @@ final class ProfilePropertyBufferTests: XCTestCase {
         guard case let .createProfile(_, payload) = requests[0].endpoint else {
             return XCTFail("expected .createProfile endpoint")
         }
-        let loc = payload.data.attributes.location
-        XCTAssertNotNil(loc, "location must be present after staging location props")
-        XCTAssertEqual(loc?.city, "Boston")
-        XCTAssertEqual(loc?.country, "USA")
-        XCTAssertEqual(loc?.zip, "02101")
+        let location = payload.data.attributes.location
+        XCTAssertNotNil(location, "location must be present after staging location props")
+        XCTAssertEqual(location?.city, "Boston")
+        XCTAssertEqual(location?.country, "USA")
+        XCTAssertEqual(location?.zip, "02101")
     }
 
     // MARK: - No-op without apiKey
@@ -210,6 +210,20 @@ final class ProfilePropertyBufferTests: XCTestCase {
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
         XCTAssertEqual(getRequests().count, 0, "no request must be enqueued when apiKey is absent")
+
+        // The staged property is retained (not dropped): once an apiKey arrives, a re-flush ships it.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+
+        let requests = getRequests()
+        XCTAssertEqual(requests.count, 1, "the retained property must flush once an apiKey is set")
+        guard case let .createProfile(_, payload) = requests[0].endpoint else {
+            return XCTFail("expected .createProfile endpoint, got \(requests[0].endpoint)")
+        }
+        XCTAssertEqual(
+            payload.data.attributes.firstName, "Nobody",
+            "the property staged before the apiKey was set must survive to the flushed payload"
+        )
     }
 
     // MARK: - Stage from multiple callers (thread safety smoke test)
@@ -223,8 +237,8 @@ final class ProfilePropertyBufferTests: XCTestCase {
         // entries. `concurrentPerform` blocks until every stage completes, so the flush below
         // sees the full set.
         let count = 200
-        DispatchQueue.concurrentPerform(iterations: count) { i in
-            ProfilePropertyBuffer.shared.stage(.custom(customKey: "k\(i)"), AnyEncodable("v\(i)"))
+        DispatchQueue.concurrentPerform(iterations: count) { index in
+            ProfilePropertyBuffer.shared.stage(.custom(customKey: "k\(index)"), AnyEncodable("v\(index)"))
         }
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
@@ -234,8 +248,8 @@ final class ProfilePropertyBufferTests: XCTestCase {
         }
         let props = payload.data.attributes.properties.value as? [String: Any]
         // Every concurrently-staged property must survive — none dropped by a lost update.
-        for i in 0..<count {
-            XCTAssertEqual(props?["k\(i)"] as? String, "v\(i)", "property k\(i) was lost")
+        for index in 0..<count {
+            XCTAssertEqual(props?["k\(index)"] as? String, "v\(index)", "property k\(index) was lost")
         }
     }
 

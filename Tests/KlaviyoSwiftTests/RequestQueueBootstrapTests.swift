@@ -40,8 +40,8 @@ final class RequestQueueBootstrapTests: XCTestCase {
     // `willDrain`, so the transport is observed through the standard `environment.klaviyoAPI` stub.
     func testEnvironmentRequestQueueWillDrainFlushesProfileProperties() async {
         let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
-        environment.klaviyoAPI.send = { req, _ in
-            sentRequests.mutate { $0.append(req) }
+        environment.klaviyoAPI.send = { request, _ in
+            sentRequests.mutate { $0.append(request) }
             return .success(Data())
         }
 
@@ -57,11 +57,15 @@ final class RequestQueueBootstrapTests: XCTestCase {
 
         // willDrain must have folded the staged property into a createProfile request and sent it.
         let first = sentRequests.value.first
-        guard case .createProfile = first?.endpoint else {
+        guard case let .createProfile(_, payload) = first?.endpoint else {
             return XCTFail(
                 "expected a .createProfile request from the env queue's willDrain, "
                     + "got \(String(describing: first?.endpoint))"
             )
         }
+        XCTAssertEqual(
+            payload.data.attributes.firstName, "Bootstrap",
+            "the staged firstName must be folded into the sent createProfile payload"
+        )
     }
 }

@@ -31,10 +31,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             IdentityStore.shared.updatePushToken(pushToken)
         }
         let readQueue = registerRecordingQueueStore()
-        // Inject a spy queue: the real RequestQueue with the immediate test SleepClock spins its run
-        // loop, and the long-lived `completeInitialization` effect (which calls `start()`) would then
-        // busy-loop and starve the test. The spy records lifecycle calls without spawning a loop.
-        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
+        // Spy queue: the real RequestQueue with the immediate test clock would busy-loop under the
+        // long-lived `completeInitialization` effect (which calls `start()`) and starve the test.
+        installSpyRequestQueue()
         let store = TestStore(
             initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
@@ -91,9 +90,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Single shared queue: both the unregister (built while state.apiKey is still the old key)
         // and the token-register (built after the switch to the new key) land in the same queue.
         let readQueue = seedTestQueueStore()
-        // A spy queue records `flushNow` without draining `QueueStore`, so the enqueued
-        // unregister/register survive for the assertions below.
-        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
+        // Spy queue: records `flushNow` without draining, so the enqueued unregister/register
+        // survive for the assertions below.
+        installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -141,9 +140,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             enablement: initialState.pushTokenData!.pushEnablement
         )
         let readQueue = seedTestQueueStore(initial: [leftoverRegister])
-        // A spy queue records `flushNow` without draining `QueueStore`, so the queued requests
-        // survive for the ordering assertions below.
-        klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
+        // Spy queue: records `flushNow` without draining, so the queued requests survive for the
+        // ordering assertions below.
+        installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -178,7 +177,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         await store.send(.initialize("new-key"))
         await store.receive(
             .completeInitialization(KlaviyoState()),
-            timeout: TIMEOUT_NANOSECONDS
+            timeout: timeoutNanoseconds
         )
 
         // Token PRESERVED (regression: today it is cleared).
@@ -237,7 +236,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         await store.send(.initialize("new-key-no-token"))
         await store.receive(
             .completeInitialization(KlaviyoState()),
-            timeout: TIMEOUT_NANOSECONDS
+            timeout: timeoutNanoseconds
         )
 
         XCTAssertEqual(

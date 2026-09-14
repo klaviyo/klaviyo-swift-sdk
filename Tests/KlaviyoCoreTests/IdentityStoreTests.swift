@@ -179,8 +179,8 @@ final class IdentityStoreTests: XCTestCase {
         }
         defer { cancellable.cancel() }
 
-        DispatchQueue.concurrentPerform(iterations: 500) { i in
-            store.update(ProfileData(externalId: "id-\(i)", anonymousId: Self.mintedAnonId))
+        DispatchQueue.concurrentPerform(iterations: 500) { iteration in
+            store.update(ProfileData(externalId: "id-\(iteration)", anonymousId: Self.mintedAnonId))
         }
 
         emitLock.lock()

@@ -14,7 +14,7 @@ import XCTest
 let ARCHIVED_RETURNED_DATA = Data()
 
 /// Shared receive/fulfillment timeout for async reducer effects in the state-management suites.
-let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
+let timeoutNanoseconds: UInt64 = 10_000_000_000 // 10 seconds
 
 /// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
 ///
@@ -50,6 +50,16 @@ class StateManagementTestCase: XCTestCase {
     override func tearDown() async throws {
         ProfilePropertyBuffer.shared.reset()
         BadgeManager.resetToProduction()
+    }
+
+    /// Installs a `SpyRequestQueue` as the environment request queue and returns it. The spy records
+    /// lifecycle/flush calls without draining `QueueStore`, so queue-content assertions stay
+    /// deterministic (and the real run loop never spins under the immediate test clock).
+    @discardableResult
+    func installSpyRequestQueue() -> SpyRequestQueue {
+        let spyQueue = SpyRequestQueue()
+        klaviyoSwiftEnvironment.requestQueue = spyQueue
+        return spyQueue
     }
 }
 

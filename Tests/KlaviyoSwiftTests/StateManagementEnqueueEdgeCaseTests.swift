@@ -574,25 +574,28 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
-        _ = await store.send(.setProfileProperty(key, "gold"))
+        let profileKey = Profile.ProfileKey.custom(customKey: "loyalty_tier")
+        _ = await store.send(.setProfileProperty(profileKey, "gold"))
         // Staged in the buffer, not on state (the reducer no longer holds a pending-profile field).
 
         _ = await store.send(.setEmail("new@user.com"))
 
-        // setEmail's buffered profile must NOT carry the staged property (no state fold any more).
-        let setEmailProfiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
-            .compactMap {
-                if case let .profile(payload) = $0 { return payload }
-                return nil
-            }
-        for payload in setEmailProfiles {
-            let props = payload.data.attributes.properties.value as? [String: Any]
-            XCTAssertNil(
-                props?["loyalty_tier"],
-                "identifier setter must not fold the staged property after the cutover"
-            )
+        // setEmail's createProfile (enqueued to the QueueStore since an apiKey is set) must NOT carry
+        // the staged property — the identifier setter no longer folds it in. Read before the buffer
+        // drain below, since `seedTestQueueStore()` clears the queue.
+        let setEmailProfiles: [CreateProfilePayload] = QueueStore.shared.requests.compactMap { request in
+            if case let .createProfile(_, payload) = request.endpoint { return payload }
+            return nil
         }
+        XCTAssertEqual(
+            setEmailProfiles.count, 1,
+            "setEmail enqueues exactly one createProfile (no extra fold-in request)"
+        )
+        let setEmailProps = setEmailProfiles.first?.data.attributes.properties.value as? [String: Any]
+        XCTAssertNil(
+            setEmailProps?["loyalty_tier"],
+            "identifier setter must not fold the staged property after the cutover"
+        )
 
         // The staged property ships when the buffer drains into the queue.
         seedTestQueueStore()

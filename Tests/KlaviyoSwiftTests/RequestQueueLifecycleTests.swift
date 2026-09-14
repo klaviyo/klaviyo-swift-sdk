@@ -18,13 +18,13 @@ import XCTest
 
 @MainActor
 final class RequestQueueLifecycleTests: StateManagementTestCase {
-    private var spy: SpyRequestQueue!
+    private var spyQueue: SpyRequestQueue!
 
     override func setUp() async throws {
         try await super.setUp()
         ProfilePropertyBuffer.shared.reset()
-        spy = SpyRequestQueue()
-        klaviyoSwiftEnvironment.requestQueue = spy
+        spyQueue = SpyRequestQueue()
+        klaviyoSwiftEnvironment.requestQueue = spyQueue
     }
 
     override func tearDown() async throws {
@@ -68,9 +68,9 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         await store.receive(.setPushEnablement(.authorized))
         await store.finish()
 
-        let startCount = await spy.getStartCount()
+        let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 1, "launch kickoff starts the actor once")
-        let stopCount = await spy.getStopCount()
+        let stopCount = await spyQueue.getStopCount()
         XCTAssertEqual(stopCount, 0)
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
@@ -95,7 +95,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         ))
         await store.finish()
 
-        let startCount = await spy.getStartCount()
+        let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 2, "launch + one foreground → two start calls")
     }
 
@@ -121,9 +121,9 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         ))
         await store.finish()
 
-        let stopCount = await spy.getStopCount()
+        let stopCount = await spyQueue.getStopCount()
         XCTAssertEqual(stopCount, 2, "background + terminate → two stop calls")
-        let startCount = await spy.getStartCount()
+        let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 1, "only the launch kickoff starts the actor")
         await fulfillment(of: [syncExpectation], timeout: 1)
     }
@@ -150,7 +150,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         ))
         await store.finish()
 
-        let statuses = await spy.getConnectivityStatuses()
+        let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.reachableViaWWAN, .notReachable])
     }
 
@@ -173,7 +173,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         }
         await store.finish()
 
-        let flushCount = await spy.getFlushNowCount()
+        let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "company switch prompts one immediate actor flush")
     }
 
@@ -193,13 +193,13 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         // Standard event: no flush.
         _ = await store.send(.enqueueEvent(Event(name: .customEvent("standard"))))
         await store.finish()
-        var flushCount = await spy.getFlushNowCount()
+        var flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 0, "standard event does not trigger an immediate flush")
 
         // High-priority event: one flush.
         _ = await store.send(.enqueueEvent(Event(name: ._openedPush, priority: .high)))
         await store.finish()
-        flushCount = await spy.getFlushNowCount()
+        flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate flush")
     }
 
@@ -220,16 +220,22 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         // The reducer no longer holds a pending-profile field; staging lands in the buffer only.
         _ = await store.send(.setProfileProperty(.firstName, AnyEncodable("Blob")))
 
-        // The staged property is folded into a request when the buffer drains.
-        let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
-        environment.klaviyoAPI.send = { req, _ in
-            sentRequests.mutate { $0.append(req) }
-            return .success(Data())
-        }
+        // `flushIntoQueue` only ENQUEUES (it never calls `klaviyoAPI.send`), so inspect the QueueStore
+        // directly and assert the staged property was folded into the enqueued request's payload.
         await ProfilePropertyBuffer.shared.flushIntoQueue()
-        XCTAssertFalse(
-            QueueStore.shared.requests.isEmpty,
-            "staged property was folded into a request enqueued by the buffer drain"
+        let firstNames: [String?] = QueueStore.shared.requests.map { request in
+            switch request.endpoint {
+            case let .registerPushToken(_, payload):
+                return payload.data.attributes.profile.data.attributes.firstName
+            case let .createProfile(_, payload):
+                return payload.data.attributes.firstName
+            default:
+                return nil
+            }
+        }
+        XCTAssertTrue(
+            firstNames.contains("Blob"),
+            "staged firstName must be folded into a queued createProfile/registerPushToken payload"
         )
     }
 }
