@@ -9,9 +9,8 @@ import AnyCodable
 import KlaviyoCore
 
 /// State-free helpers for folding a staged profile (from `setProfileProperty`) into an existing
-/// `CreateProfilePayload`. Extracted from `KlaviyoState+RequestBuilding` so both the reducer path
-/// (`updateRequestAndStateWithPendingProfile`) and the new `ProfilePropertyBuffer` path share one
-/// byte-identical implementation with no `self` dependency.
+/// `CreateProfilePayload`. Used by the `ProfilePropertyBuffer` drain path to merge staged properties
+/// into the outbound request with no `self` dependency.
 enum PendingProfileFold {
     /// Fills in profile attributes (name, title, organization, image, properties) from a pending
     /// profile without overwriting values already present on the request.

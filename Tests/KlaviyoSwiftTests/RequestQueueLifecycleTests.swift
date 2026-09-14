@@ -55,14 +55,14 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-launch"))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: "fake-key", requestsInFlight: [], initalizationState: .initializing
+                apiKey: "fake-key", initalizationState: .initializing
             ),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
         _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-launch", requestsInFlight: [])
+            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-launch")
         ))
         // Long-lived effect: launch kickoff → setPushEnablement → badge, then the finite stream ends.
         await store.receive(.setPushEnablement(.authorized))
@@ -84,14 +84,14 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-fg"))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: "fake-key", requestsInFlight: [], initalizationState: .initializing
+                apiKey: "fake-key", initalizationState: .initializing
             ),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
         _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-fg", requestsInFlight: [])
+            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-fg")
         ))
         await store.finish()
 
@@ -110,14 +110,14 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-bg"))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: "fake-key", requestsInFlight: [], initalizationState: .initializing
+                apiKey: "fake-key", initalizationState: .initializing
             ),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
         _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-bg", requestsInFlight: [])
+            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-bg")
         ))
         await store.finish()
 
@@ -139,14 +139,14 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-reach"))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: "fake-key", requestsInFlight: [], initalizationState: .initializing
+                apiKey: "fake-key", initalizationState: .initializing
             ),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
         _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-reach", requestsInFlight: [])
+            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-reach")
         ))
         await store.finish()
 
@@ -205,7 +205,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
     // MARK: - setProfileProperty staging
 
-    /// `setProfileProperty` stages into `ProfilePropertyBuffer` and no longer writes `pendingProfile`.
+    /// `setProfileProperty` stages into `ProfilePropertyBuffer` (the reducer holds no pending-profile).
     func testSetProfilePropertyStagesIntoBuffer() async throws {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-stage" }
@@ -217,10 +217,8 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         )
         store.exhaustivity = .off
 
+        // The reducer no longer holds a pending-profile field; staging lands in the buffer only.
         _ = await store.send(.setProfileProperty(.firstName, AnyEncodable("Blob")))
-
-        // pendingProfile must NOT be written by the reducer any more.
-        XCTAssertNil(store.state.pendingProfile, "setProfileProperty no longer writes pendingProfile")
 
         // The staged property is folded into a request when the buffer drains.
         let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])

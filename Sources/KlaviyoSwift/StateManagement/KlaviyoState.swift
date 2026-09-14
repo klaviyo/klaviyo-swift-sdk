@@ -5,7 +5,6 @@
 //  Created by Noah Durell on 12/1/22.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
 import UIKit
@@ -46,15 +45,9 @@ struct KlaviyoState: Equatable {
 
     var pushTokenData: PushTokenData?
 
-    // queueing related stuff
-    // The durable pending queue lives in the shared Core `QueueStore`; `KlaviyoState`
-    // only holds the in-memory in-flight lease. See `QueueStore` and `enqueueRequest`.
-    var requestsInFlight: [KlaviyoRequest] = []
+    // The durable pending queue lives in the shared Core `QueueStore`; the flush/retry engine is
+    // the Core `RequestQueue` actor. `KlaviyoState` no longer holds any queueing/flush fields.
     var initalizationState = InitializationState.uninitialized
-    var flushing = false
-    var flushInterval = StateManagementConstants.wifiFlushInterval
-    var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
-    var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
 
     init(
         apiKey: String? = nil,
@@ -63,12 +56,7 @@ struct KlaviyoState: Equatable {
         phoneNumber: String? = nil,
         externalId: String? = nil,
         pushTokenData: PushTokenData? = nil,
-        requestsInFlight: [KlaviyoRequest] = [],
-        initalizationState: InitializationState = .uninitialized,
-        flushing: Bool = false,
-        flushInterval: Double = StateManagementConstants.wifiFlushInterval,
-        retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
-        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+        initalizationState: InitializationState = .uninitialized
     ) {
         self.apiKey = apiKey
         identity = ProfileData(
@@ -78,12 +66,7 @@ struct KlaviyoState: Equatable {
             anonymousId: anonymousId
         )
         self.pushTokenData = pushTokenData
-        self.requestsInFlight = requestsInFlight
         self.initalizationState = initalizationState
-        self.flushing = flushing
-        self.flushInterval = flushInterval
-        self.retryState = retryState
-        self.pendingProfile = pendingProfile
     }
 
     /// Routes an enqueue to the shared Core `QueueStore`. Front-insert for high-priority requests
@@ -135,7 +118,6 @@ struct KlaviyoState: Equatable {
             anonymousId = IdentityStore.shared.mintNewAnonymousId()
         }
         let previousPushTokenData = pushTokenData
-        pendingProfile = nil
         email = nil
         externalId = nil
         phoneNumber = nil

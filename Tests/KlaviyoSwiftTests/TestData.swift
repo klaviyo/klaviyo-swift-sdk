@@ -20,9 +20,7 @@ let INITIALIZED_TEST_STATE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -30,9 +28,7 @@ let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
-        requestsInFlight: [],
-        initalizationState: .initializing,
-        flushing: true
+        initalizationState: .initializing
     )
 }
 
@@ -45,9 +41,7 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -60,9 +54,7 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -136,9 +128,7 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
+                                   initalizationState: .initialized)
 
     // MARK: - Request fixtures
 

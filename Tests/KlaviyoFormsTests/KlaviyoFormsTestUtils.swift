@@ -200,7 +200,5 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
+                                   initalizationState: .initialized)
 }

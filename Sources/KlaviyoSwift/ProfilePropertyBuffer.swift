@@ -12,8 +12,7 @@ import KlaviyoCore
 /// KlaviyoSwift-side staging for profile properties set via `setProfileProperty`.
 ///
 /// Properties staged here are flushed into `QueueStore` just before the `RequestQueue` actor
-/// sends a batch (`willDrain`). The buffer mirrors the reducer's `pendingProfile` branch in
-/// `enqueueProfileOrTokenRequest`:
+/// sends a batch (`willDrain`):
 ///
 /// - **Push token present** → fold staged props into a `Profile`, build a `ProfilePayload`, then
 ///   enqueue a `registerPushToken` request via `RequestFactory.tokenRequest`.

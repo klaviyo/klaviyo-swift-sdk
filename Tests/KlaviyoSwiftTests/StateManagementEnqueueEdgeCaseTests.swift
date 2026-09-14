@@ -257,9 +257,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             apiKey: TEST_API_KEY,
             email: "same@email.com",
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
+            initalizationState: .initialized
         )
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(initialState.identity)
@@ -389,7 +387,6 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             $0.email = nil
             $0.phoneNumber = nil
             $0.externalId = nil
-            $0.pendingProfile = nil
         }
         // ONE request: identity-only registerPushToken under the fresh anon (no profile request
         // for resetProfile — only the token re-register is needed to rebind under new identity).
@@ -408,7 +405,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             ProfileData(email: "user@email.com", externalId: "ext-123", anonymousId: "anon-old")
         )
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -436,7 +433,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             )
         )
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -497,9 +494,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
                     deviceData: .init(context: environment.appContextInfo())
                 )
             },
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
+            initalizationState: .initialized
         )
     }
 
@@ -514,7 +509,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let previousAnon = "previous-user-anon"
         IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.enqueueProfile(Profile(email: "new@user.com")))
@@ -534,7 +529,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let anon = "stable-anon"
         IdentityStore.shared.update(ProfileData(email: "same@user.com", anonymousId: anon))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.enqueueProfile(Profile(email: "same@user.com")))
@@ -554,7 +549,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             phoneNumber: "+15555550100", externalId: "ext-1", anonymousId: anon
         ))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.setEmail("new@user.com"))
@@ -576,13 +571,12 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-preinit"))
         IdentityStore.shared.update(ProfileData(anonymousId: "stable-anon"))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
         _ = await store.send(.setProfileProperty(key, "gold"))
-        // Staged in the buffer, not on state.
-        XCTAssertNil(store.state.pendingProfile, "setProfileProperty no longer writes pendingProfile")
+        // Staged in the buffer, not on state (the reducer no longer holds a pending-profile field).
 
         _ = await store.send(.setEmail("new@user.com"))
 

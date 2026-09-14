@@ -191,7 +191,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 RequestEnqueuer.drainBuffer(apiKey: apiKey)
                 // Identity/apiKey/pushToken are hydrated from the Core stores in
                 // `.completeInitialization`; no disk load needed.
-                await send(.completeInitialization(KlaviyoState(requestsInFlight: [])))
+                await send(.completeInitialization(KlaviyoState()))
             }
 
         case var .completeInitialization(initialState):
@@ -317,7 +317,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // via `enqueueRequest` then would be dropped. The else branch re-gates on
             // `SDKConfigStore`, so a warm-start token still reaches `QueueStore` (not the buffer).
             if let apiKey = state.apiKey {
-                // Post-init: fold + consume any pending profile into the registration.
+                // Post-init: register the token against the current identity. Staged profile
+                // properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
                 state.identity = IdentityStore.shared.current
                 let request = state.resolvedTokenRequest(
                     apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement
@@ -386,9 +387,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.updateStateWithProfile(profile: profile)
             IdentityStore.shared.update(state.identity)
             // Skip the API call entirely when there is nothing new to sync:
-            // identifiers are unchanged, the profile carries no extra attributes,
-            // and no profile properties are queued up via setProfileProperty.
-            if !identifiersChanged, !profile.hasNonIdentifierData, state.pendingProfile == nil {
+            // identifiers are unchanged and the profile carries no extra attributes.
+            // Staged profile properties ship independently via `ProfilePropertyBuffer`/`willDrain`.
+            if !identifiersChanged, !profile.hasNonIdentifierData {
                 return .none
             }
             guard let anonymousId = state.anonymousId else { return .none }
@@ -431,8 +432,7 @@ struct KlaviyoReducer: ReducerProtocol {
         case let .setProfileProperty(key, value):
             // Stage into the KlaviyoSwift-side buffer; the Core `RequestQueue` folds staged props
             // into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
-            // just before each drain. `state.pendingProfile` is no longer written here (the field
-            // remains for now; removed in a later task).
+            // just before each drain.
             ProfilePropertyBuffer.shared.stage(key, value)
             return .none
 
@@ -480,9 +480,10 @@ struct KlaviyoReducer: ReducerProtocol {
     /// Applies an identifier change (`setEmail`/`setPhoneNumber`/`setExternalId`) against the
     /// canonical `IdentityStore`, then enqueues the follow-up sync request:
     /// - **Post-init + token present:** enqueues a token re-association request via
-    ///   `state.enqueueRequest` (→ `QueueStore.shared`), folding any pending profile.
-    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`,
-    ///   folding any pending profile.
+    ///   `state.enqueueRequest` (→ `QueueStore.shared`).
+    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`.
+    ///
+    /// Staged profile properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
     ///
     /// Seeds the FULL identity from `IdentityStore` first so the setter folds onto the persisted
     /// profile (update replaces wholesale).
@@ -495,10 +496,8 @@ struct KlaviyoReducer: ReducerProtocol {
         IdentityStore.shared.update(state.identity)
         guard let anonymousId = state.anonymousId else { return }
 
-        // The identifier changed, so re-register the profile under the new identity. Two paths,
-        // and both fold in + consume any staged `pendingProfile` so those properties ship now
-        // instead of waiting for a later flush. (This is the one behavior change from the legacy
-        // `setPreInitIdentifier`, which left `pendingProfile` staged.)
+        // The identifier changed, so re-register the profile under the new identity. Two paths.
+        // Staged profile properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
         //
         // Gate on `state.apiKey`, not `SDKConfigStore`: on a warm start `initialize` may not have
         // run through the reducer yet, so `state.apiKey` is the source of truth for "post-init".
@@ -521,16 +520,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 from: Profile(),
                 anonymousId: anonymousId
             ))
-            RequestEnqueuer.enqueueProfile(
-                payload: state.updateRequestAndStateWithPendingProfile(profile: payload)
-            )
+            RequestEnqueuer.enqueueProfile(payload: payload)
         }
     }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
-        initialState: KlaviyoState(requestsInFlight: []),
+        initialState: KlaviyoState(),
         reducer: KlaviyoReducer()
     )
 }

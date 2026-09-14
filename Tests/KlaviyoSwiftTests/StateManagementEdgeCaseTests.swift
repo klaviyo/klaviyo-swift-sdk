@@ -36,7 +36,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // busy-loop and starve the test. The spy records lifecycle calls without spawning a loop.
         klaviyoSwiftEnvironment.requestQueue = SpyRequestQueue()
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
         return (readQueue, store)
@@ -50,7 +50,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: apiKey, requestsInFlight: [], initalizationState: .initialized, flushing: false
+                apiKey: apiKey, initalizationState: .initialized
             ),
             reducer: KlaviyoReducer()
         )
@@ -62,7 +62,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testInitializeWhileInitializing() async throws {
-        let initialState = KlaviyoState(requestsInFlight: [])
+        let initialState = KlaviyoState()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -177,7 +177,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let (readQueue, store) = makeColdStartCompanySwitchFixture(pushToken: token)
         await store.send(.initialize("new-key"))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
+            .completeInitialization(KlaviyoState()),
             timeout: TIMEOUT_NANOSECONDS
         )
 
@@ -236,7 +236,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let (readQueue, store) = makeColdStartCompanySwitchFixture()
         await store.send(.initialize("new-key-no-token"))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
+            .completeInitialization(KlaviyoState()),
             timeout: TIMEOUT_NANOSECONDS
         )
 
@@ -265,14 +265,11 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testCompleteInitializationWhileAlreadyInitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initialized,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initialized), reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.completeInitialization(initialState))
     }
@@ -290,14 +287,12 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // resulting state's anonymousId is the expected "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
@@ -317,7 +312,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // the pre-init setter must push the just-set identifier to IdentityStore BEFORE
         // enqueueProfile reads it, so the buffered profile carries the email (not a stale/empty one).
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -384,7 +379,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetExternalIdUninitializedBuffersProfileWithExternalId() async throws {
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -448,7 +443,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberUninitializedBuffersProfileWithPhoneNumber() async throws {
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -466,9 +461,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
@@ -495,9 +488,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberWithTrailingWhiteSpace() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u        ")) {
@@ -510,9 +501,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPushTokenUninitializedRoutesToBuffer() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
+                                        initalizationState: .uninitialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData
 
@@ -524,9 +513,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testAutomaticPushTokenUninitializedRoutesToBuffer() async throws {
         let initialState = KlaviyoState(
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .uninitialized,
-            flushing: false
+            initalizationState: .uninitialized
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -541,9 +528,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // anonymousId is minted on first IdentityStore access, so "missing" is defensive coverage.
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -566,14 +551,12 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
@@ -598,14 +581,12 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
@@ -622,9 +603,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testTokenRequestMissingApiKey() async {
         let initialState = KlaviyoState(
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: false
+            initalizationState: .initialized
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData

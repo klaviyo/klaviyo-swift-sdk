@@ -50,7 +50,6 @@ final class GeofenceEventDispatchTests: XCTestCase {
     ) -> (state: KlaviyoState, readQueue: () -> [KlaviyoRequest]) {
         var state = INITIALIZED_TEST_STATE()
         state.apiKey = apiKey
-        state.flushing = false
         let request1 = state.buildProfileRequest(apiKey: apiKey, anonymousId: state.anonymousId!)
         let request2 = state.buildTokenRequest(
             apiKey: apiKey,
@@ -128,7 +127,6 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Given: SDK is initialized with a different API key
         var initialState = INITIALIZED_TEST_STATE()
         initialState.apiKey = "EXISTING_KEY"
-        initialState.flushing = false
         let readQueue = seedTestQueueStore()
         let testStore = makeTestStore(initialState: initialState)
 

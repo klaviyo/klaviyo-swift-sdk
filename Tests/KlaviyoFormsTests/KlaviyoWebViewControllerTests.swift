@@ -100,7 +100,6 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         seedCoreStores()
         let testState = KlaviyoState(
             apiKey: "abc123",
-            requestsInFlight: [],
             initalizationState: .initialized
         )
         let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
