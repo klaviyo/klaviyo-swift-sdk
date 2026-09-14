@@ -9,21 +9,6 @@ import Combine
 import Foundation
 import KlaviyoCore
 
-extension LifeCycleEvents {
-    var transformToKlaviyoAction: KlaviyoAction {
-        switch self {
-        case .terminated:
-            return .stop
-        case .foregrounded:
-            return .start
-        case .backgrounded:
-            return .stop
-        case let .reachabilityChanged(status):
-            return .networkConnectivityChanged(status)
-        }
-    }
-}
-
 extension Publisher where Output == LifeCycleEvents, Failure == Never {
     /// Bridges the lifecycle publisher to an `AsyncStream` for consumption by the long-lived
     /// `completeInitialization` effect. `AnyPublisher.values` requires iOS 15; this `sink`-based

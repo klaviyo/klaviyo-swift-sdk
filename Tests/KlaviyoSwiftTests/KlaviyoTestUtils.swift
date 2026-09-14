@@ -13,6 +13,9 @@ import XCTest
 
 let ARCHIVED_RETURNED_DATA = Data()
 
+/// Shared receive/fulfillment timeout for async reducer effects in the state-management suites.
+let TIMEOUT_NANOSECONDS: UInt64 = 10_000_000_000 // 10 seconds
+
 /// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
 ///
 /// The KlaviyoSwift reducer read/write-throughs `IdentityStore.shared` and

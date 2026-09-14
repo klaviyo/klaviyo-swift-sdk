@@ -60,30 +60,6 @@ enum KlaviyoAction: Equatable {
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
-    /// dequeues requests that completed and contuinues to flush other requests if they exist.
-    case deQueueCompletedResults(KlaviyoRequest)
-
-    /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
-    case networkConnectivityChanged(Reachability.NetworkStatus)
-
-    /// flushes the queue say when the app is foregrounded or we come back to having network from not having
-    case flushQueue
-
-    /// picks up in flight requests and sends them out. handles errors and if no errors emits a `dequeCompletedResults`
-    case sendRequest
-
-    /// call when the app is backgrounded or terminated
-    case stop
-
-    /// call after initialization or when the app is foregrounded. This action will  flush the queue at some predefined intervals
-    case start
-
-    /// cancels any in flight requests. this can be called when there is no network or from `stop` when app is going to be backgrounded
-    case cancelInFlightRequests
-
-    /// called when there is a network or rate limit error
-    case requestFailed(KlaviyoRequest, RetryState)
-
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
 
@@ -99,11 +75,6 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
-    /// resets the state for profile properties before dequeing the request
-    /// this is done in the case where there is http request failure due to
-    /// the data that was passed to the client endpoint
-    case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
-
     /// when the host app receives a Klaviyo tracking link that should be resolved to a destination link.
     /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
     case trackingLinkReceived(URL)
@@ -112,9 +83,6 @@ enum KlaviyoAction: Equatable {
     /// This action will enqueue a request that, when delivered, will log the click via the engtrack service.
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 }
-
-struct RequestId {}
-struct FlushTimer {}
 
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
@@ -370,210 +338,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 await send(KlaviyoAction.setPushToken(pushToken, enablement))
             }
 
-        case .flushQueue:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            if state.flushing {
-                return .none
-            }
-            // The priority path can dispatch `.flushQueue` while offline, where `flushInterval` is
-            // `.infinity` — the backoff below would trap on `Int()`, and draining is pointless.
-            guard state.flushInterval.isFinite else {
-                return .none
-            }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
-                let newBackOff = max(backOff - Int(state.flushInterval), 0)
-                if newBackOff > 0 {
-                    state.retryState = .retryWithBackoff(
-                        requestCount: requestCount,
-                        totalRetryCount: totalCount,
-                        currentBackoff: newBackOff
-                    )
-                    return .none
-                } else {
-                    state.retryState = .retry(requestCount)
-                }
-            }
-            if state.pendingProfile != nil {
-                state.enqueueProfileOrTokenRequest()
-            }
-            guard state.apiKey != nil else {
-                return .none
-            }
-            // Lease the durable pending queue into the in-memory in-flight set: `drainAll` atomically
-            // snapshots + clears the store (parity with the former `append(contentsOf:)` +
-            // `removeAll`). In-flight stays an in-memory reducer field.
-            let batch = QueueStore.shared.drainAll()
-            if batch.isEmpty {
-                return .none
-            }
-            state.requestsInFlight.append(contentsOf: batch)
-            state.flushing = true
-            return .task {
-                .sendRequest
-            }
-
-        case .stop:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                .concatenate(with: .run(operation: { send in
-                    await send(.cancelInFlightRequests)
-                    await MainActor.run { BadgeManager.syncBadgeCount() }
-                }))
-
-        case .start:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-
-            return .merge([
-                .run { send in
-                    let settings = await environment.getNotificationSettings()
-                    await send(KlaviyoAction.setPushEnablement(settings))
-                    let autoclearing = await environment.getBadgeAutoClearingSetting()
-                    if autoclearing {
-                        await BadgeManager.setBadgeCount(0)
-                    } else {
-                        await MainActor.run { BadgeManager.syncBadgeCount() }
-                    }
-                },
-                environment.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }
-                    .eraseToEffect()
-                    .cancellable(id: FlushTimer.self, cancelInFlight: true)
-            ])
-
-        case let .deQueueCompletedResults(completedRequest):
-            if case let .registerPushToken(_, payload) = completedRequest.endpoint {
-                let requestData = payload.data.attributes
-                let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
-                let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = PushTokenData(
-                    pushToken: requestData.token,
-                    pushEnablement: enablement,
-                    pushBackground: backgroundStatus,
-                    deviceData: requestData.deviceMetadata
-                )
-            }
-            state.requestsInFlight.removeAll { inflightRequest in
-                completedRequest.id == inflightRequest.id
-            }
-            state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
-            if state.requestsInFlight.isEmpty {
-                state.flushing = false
-                return .none
-            }
-            return .task { .sendRequest }.cancellable(id: RequestId.self)
-
-        case .sendRequest:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            guard state.flushing else {
-                return .none
-            }
-
-            guard let request = state.requestsInFlight.first else {
-                state.flushing = false
-                return .none
-            }
-            let retryState = state.retryState
-            var numAttempts = 1
-            if case let .retry(attempts) = retryState {
-                numAttempts = attempts
-            }
-
-            return .run { [numAttempts] send in
-                let requestAttemptInfo: RequestAttemptInfo
-                do {
-                    requestAttemptInfo = try RequestAttemptInfo(
-                        attemptNumber: numAttempts,
-                        maxAttempts: request.endpoint.maxRetries
-                    )
-                } catch {
-                    environment.emitDeveloperWarning("Invalid RequestAttemptInfo parameters: \(error)")
-                    await send(.cancelInFlightRequests)
-                    return
-                }
-
-                let result = await environment.klaviyoAPI.send(request, requestAttemptInfo)
-                switch result {
-                case .success:
-                    await send(.deQueueCompletedResults(request))
-                case let .failure(error):
-                    await send(handleRequestError(request: request, error: error, retryState: retryState))
-                }
-            } catch: { error, send in
-                // For now assuming this is cancellation since nothing else can throw AFAICT
-                environment.emitDeveloperWarning("Unknown error thrown during request processing \(error)")
-                await send(.cancelInFlightRequests)
-            }.cancellable(id: RequestId.self)
-
-        case .cancelInFlightRequests:
-            state.flushing = false
-            // Restore the leased in-flight requests to the front of the durable pending queue.
-            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
-            // the process ends within a debounce window (this runs on `.stop`/background) the batch
-            // would be lost from both memory and disk. Write it before returning.
-            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
-                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
-            }
-            state.requestsInFlight = []
-            return .none
-
-        case let .networkConnectivityChanged(networkStatus):
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            switch networkStatus {
-            case .notReachable:
-                state.flushInterval = Double.infinity
-                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                    .concatenate(with: .run { send in
-                        await send(.cancelInFlightRequests)
-                    })
-            case .reachableViaWiFi:
-                state.flushInterval = StateManagementConstants.wifiFlushInterval
-            case .reachableViaWWAN:
-                state.flushInterval = StateManagementConstants.cellularFlushInterval
-            }
-            return environment.timer(state.flushInterval)
-                .map { _ in
-                    KlaviyoAction.flushQueue
-                }.eraseToEffect()
-                .cancellable(id: FlushTimer.self, cancelInFlight: true)
-
-        case let .requestFailed(request, retryState):
-            var exceededRetries = false
-            switch retryState {
-            case let .retry(count):
-                exceededRetries = count > request.endpoint.maxRetries
-                state.retryState = .retry(exceededRetries ? 1 : count)
-            case let .retryWithBackoff(requestCount, totalCount, backOff):
-                exceededRetries = requestCount > request.endpoint.maxRetries
-                state.retryState = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
-            }
-            if exceededRetries {
-                state.requestsInFlight.removeAll { inflightRequest in
-                    request.id == inflightRequest.id
-                }
-            }
-            state.flushing = false
-            // Restore the leased in-flight requests to the front of the durable pending queue.
-            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
-            // the process ends within a debounce window (this runs on `.stop`/background) the batch
-            // would be lost from both memory and disk. Write it before returning.
-            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
-                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
-            }
-            state.requestsInFlight = []
-            return .none
-
         case let .enqueueEvent(event):
             RequestEnqueuer.enqueueEvent(event)
             // Post-init only, matching today: publish to the EventBus (drives event-triggered in-app
@@ -671,18 +435,6 @@ struct KlaviyoReducer: ReducerProtocol {
             // remains for now; removed in a later task).
             ProfilePropertyBuffer.shared.stage(key, value)
             return .none
-
-        case let .resetStateAndDequeue(request, invalidFields):
-            for invalidField in invalidFields {
-                switch invalidField {
-                case .email:
-                    state.email = nil
-                case .phone:
-                    state.phoneNumber = nil
-                }
-            }
-
-            return .task { .deQueueCompletedResults(request) }
 
         case let .trackingLinkReceived(trackingLinkURL):
             // Thin entry point: the resolution work lives in `TrackingLinkManager`.
