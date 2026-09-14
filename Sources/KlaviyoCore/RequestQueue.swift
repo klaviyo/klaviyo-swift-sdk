@@ -124,6 +124,7 @@ public actor RequestQueue {
 
         // Let the owner enqueue last-minute requests, then lease everything (incl. those).
         await willDrain?()
+        guard !Task.isCancelled else { return }
         requestsInFlight = QueueStore.shared.drainAll()
         guard !requestsInFlight.isEmpty else { return }
 

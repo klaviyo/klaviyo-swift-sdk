@@ -22,6 +22,7 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
 
     private let lock = NSLock()
     private var staged: [Profile.ProfileKey: AnyEncodable] = [:]
+    private var generation = 0
 
     // MARK: - API
 
@@ -34,16 +35,15 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
     /// enqueues it. No-op when the buffer is empty or when `apiKey` is not yet configured.
     func flushIntoQueue() async {
         // Snapshot-and-clear under the lock so a concurrent `stage` call cannot race.
-        let snapshot = lock.withLock {
-            let snap = staged
-            staged = [:]
-            return snap
+        let (snapshot, capturedGeneration) = lock.withLock {
+            defer { staged = [:] }
+            return (staged, generation)
         }
 
         guard !snapshot.isEmpty else { return }
 
         guard let apiKey = SDKConfigStore.shared.current.apiKey else {
-            restore(snapshot)
+            restore(snapshot, generation: capturedGeneration)
             environment.emitDeveloperWarning(
                 "ProfilePropertyBuffer.flushIntoQueue: apiKey not set; staged properties retained"
             )
@@ -55,12 +55,14 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         let identity = IdentityStore.shared.current
         let pushTokenData = IdentityStore.shared.pushToken
         guard let anonymousId = identity.anonymousId else {
-            restore(snapshot)
+            restore(snapshot, generation: capturedGeneration)
             environment.emitDeveloperWarning(
                 "ProfilePropertyBuffer.flushIntoQueue: missing anonymousId; staged properties retained"
             )
             return
         }
+
+        guard lock.withLock({ generation == capturedGeneration }) else { return }
 
         if let tokenData = pushTokenData {
             enqueueTokenRequest(
@@ -74,8 +76,11 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
 
     /// Restores a snapshot into `staged` so retained props aren't dropped, without clobbering any
     /// props staged since the flush began.
-    private func restore(_ snapshot: [Profile.ProfileKey: AnyEncodable]) {
-        lock.withLock { staged = snapshot.merging(staged) { _, newer in newer } }
+    private func restore(_ snapshot: [Profile.ProfileKey: AnyEncodable], generation capturedGeneration: Int) {
+        lock.withLock {
+            guard generation == capturedGeneration else { return }
+            staged = snapshot.merging(staged) { _, newer in newer }
+        }
     }
 
     /// Push-token path: fold staged props into a `Profile` → `ProfilePayload` → `tokenRequest`.
@@ -132,6 +137,9 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
     /// switch / profile-clobber) so staged props never leak onto a new identity — parity with the
     /// old reducer clearing `pendingProfile`. Also used for test isolation.
     func reset() {
-        lock.withLock { staged = [:] }
+        lock.withLock {
+            staged = [:]
+            generation &+= 1
+        }
     }
 }
