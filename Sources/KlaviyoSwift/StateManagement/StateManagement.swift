@@ -98,6 +98,14 @@ struct KlaviyoReducer: ReducerProtocol {
         let previousApiKey = state.apiKey
         let previousIdentity = state.identity
         let previousPushTokenData = state.pushTokenData
+        // KNOWN COEXISTENCE LIMITATION (resolved by MAGE-904): this defer persists the reducer's
+        // `state.identity` PROJECTION wholesale. The `RequestQueue` actor can now clear a rejected
+        // identifier (4xx field-clear) directly on `IdentityStore` out of band; because the projection
+        // is not re-read from `IdentityStore` here, a subsequent identity-mutating action can persist
+        // the stale projection and resurrect the cleared value. This exists only while both writers
+        // (reducer projection + actor) coexist. MAGE-904 deletes this reducer / projection entirely,
+        // making `IdentityStore` the sole source of truth and removing the divergence — do not patch
+        // it here (any fix lives in code 904 removes).
         defer {
             if state.apiKey != previousApiKey {
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey))

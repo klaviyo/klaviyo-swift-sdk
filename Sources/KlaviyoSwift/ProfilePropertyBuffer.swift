@@ -113,10 +113,10 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         }
     }
 
-    // MARK: - Test support
-
-    /// Clears all staged properties. For test isolation only.
-    package func reset() {
+    /// Drops all staged properties. Called from `KlaviyoState.reset()` (profile reset / company
+    /// switch / profile-clobber) so staged properties never leak onto a new identity — parity with
+    /// the old reducer, whose `reset()` cleared `pendingProfile`. Also used for test isolation.
+    func reset() {
         lock.withLock { staged = [:] }
     }
 }

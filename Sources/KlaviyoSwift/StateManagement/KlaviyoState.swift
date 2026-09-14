@@ -118,6 +118,10 @@ struct KlaviyoState: Equatable {
             anonymousId = IdentityStore.shared.mintNewAnonymousId()
         }
         let previousPushTokenData = pushTokenData
+        // Drop staged profile properties along with the identity being cleared — parity with the old
+        // reducer, which cleared `pendingProfile` here. Without this, properties staged via
+        // `setProfileProperty` survive a reset and leak onto the next identity on the next flush.
+        ProfilePropertyBuffer.shared.reset()
         email = nil
         externalId = nil
         phoneNumber = nil
