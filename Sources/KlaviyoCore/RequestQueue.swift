@@ -24,7 +24,8 @@ public actor RequestQueue {
 
     private let clock: SleepClock
     private let send: Send
-    /// Optional hook invoked before each drain; wired by a later task.
+    /// Optional hook invoked before each drain; wired at bootstrap to
+    /// `ProfilePropertyBuffer.flushIntoQueue` so staged profile properties fold in before the drain.
     private let willDrain: (@Sendable () async -> Void)?
 
     // MARK: - Owned state
@@ -32,7 +33,8 @@ public actor RequestQueue {
     /// Requests leased out of `QueueStore` for the current flush. Restored to the store on `stop()`
     /// so a shutdown mid-flush never drops them.
     private var requestsInFlight: [KlaviyoRequest] = []
-    /// Current cadence between flushes. Defaults to the wifi interval; adjusted by a later task.
+    /// Current cadence between flushes. Defaults to the wifi interval; adjusted by
+    /// `networkConnectivityChanged` (wifi/cellular interval, or `.infinity` when offline).
     private var flushInterval: TimeInterval = FlushConstants.wifiFlushInterval
     /// Retry bookkeeping for the request currently being sent.
     private var retryState: RetryState = .retry(FlushConstants.initialAttempt)
@@ -254,18 +256,14 @@ public actor RequestQueue {
         case let .clearInvalidFieldsAndDequeue(fields):
             // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
             // canonical store so the next request to the API won't carry a stale bad value.
-            // NOTE: read-modify-write is a TOCTOU vs any other IdentityStore writer. Safe here
-            // only because the actor is unwired in this PR. The request-queue cutover must make
-            // IdentityStore concurrent-writer-safe and give it an atomic field-clear; see
-            // IdentityStore's SINGLE WRITER note.
-            var identity = IdentityStore.shared.current
-            for field in fields {
-                switch field {
-                case .email: identity.email = nil
-                case .phone: identity.phoneNumber = nil
+            IdentityStore.shared.mutate { identity in
+                for field in fields {
+                    switch field {
+                    case .email: identity.email = nil
+                    case .phone: identity.phoneNumber = nil
+                    }
                 }
             }
-            IdentityStore.shared.update(identity)
             requestsInFlight.removeFirst()
             retryState = .retry(FlushConstants.initialAttempt)
             return .continueSending

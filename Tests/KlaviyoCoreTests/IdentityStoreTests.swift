@@ -127,6 +127,73 @@ final class IdentityStoreTests: XCTestCase {
         XCTAssertEqual(resultA, expected)
         XCTAssertEqual(resultB, expected)
     }
+
+    // `mutate` reads-modifies-persists-emits atomically: clearing one field leaves the others intact,
+    // persists to disk, and emits exactly one new value. This is the primitive the RequestQueue's 4xx
+    // field-clear uses instead of a read-then-`update` (which is a TOCTOU across concurrent writers).
+    func testMutateAtomicallyClearsSelectedFieldOnly() {
+        let store = IdentityStore()
+        let seeded = ProfileData(
+            email: "a@b.com",
+            phoneNumber: "+15551234567",
+            externalId: "ext-1",
+            anonymousId: Self.mintedAnonId
+        )
+        store.update(seeded)
+
+        var received: [ProfileData] = []
+        let cancellable = store.publisher.sink { received.append($0) }
+        defer { cancellable.cancel() }
+
+        store.mutate { profile in
+            profile.email = nil
+        }
+
+        let expected = ProfileData(
+            email: nil,
+            phoneNumber: "+15551234567",
+            externalId: "ext-1",
+            anonymousId: Self.mintedAnonId
+        )
+        // In-memory current reflects the mutation; only `email` was cleared.
+        XCTAssertEqual(store.current, expected)
+        // A fresh store hydrates from disk — the mutation was persisted.
+        XCTAssertEqual(IdentityStore().current, expected)
+        // Exactly one emission for the mutate (after the sink's replay of the pre-mutate value).
+        XCTAssertEqual(received, [seeded, expected])
+    }
+
+    // Writer-vs-writer safety: under many concurrent writers, the value on disk must equal the last
+    // value emitted to subscribers. The pre-Task-0 store persisted under the data lock but emitted
+    // outside it, so two writers could persist in one order and emit in another — disk and last-emit
+    // diverge. Serializing each write (persist THEN emit) end-to-end closes that gap.
+    func testConcurrentWritesKeepDiskAndLastEmitInSync() {
+        let store = IdentityStore()
+
+        let emitLock = NSLock()
+        var received: [ProfileData] = []
+        let cancellable = store.publisher.sink { value in
+            emitLock.lock()
+            received.append(value)
+            emitLock.unlock()
+        }
+        defer { cancellable.cancel() }
+
+        DispatchQueue.concurrentPerform(iterations: 500) { i in
+            store.update(ProfileData(externalId: "id-\(i)", anonymousId: Self.mintedAnonId))
+        }
+
+        emitLock.lock()
+        let lastEmitted = received.last
+        emitLock.unlock()
+
+        // A fresh store hydrates from disk — this is the persisted (source-of-truth) value.
+        let reloadedFromDisk = IdentityStore().current
+
+        XCTAssertEqual(lastEmitted, reloadedFromDisk)
+        // The in-memory view agrees with disk too.
+        XCTAssertEqual(store.current, reloadedFromDisk)
+    }
 }
 
 // Compile-time proof that a consumer can conform to the read interface alone,
