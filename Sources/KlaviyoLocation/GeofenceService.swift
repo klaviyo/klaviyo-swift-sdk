@@ -7,7 +7,6 @@
 
 import CoreLocation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 
 protocol GeofenceServiceProvider {

@@ -19,6 +19,12 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
+// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+private final class SpyDispatcher: EventDispatching {
+    private(set) var received: [InboundCommand] = []
+    func dispatch(_ command: InboundCommand) { received.append(command) }
+}
+
 final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Properties
 
@@ -42,8 +48,7 @@ final class IAFWebViewModelTests: XCTestCase {
             return components
         }
 
-        KlaviyoInternal.resetAPIKeySubject()
-        KlaviyoInternal.resetProfileDataSubject()
+        seedCoreStores()
 
         // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
         let testState = KlaviyoState(
@@ -57,9 +62,9 @@ final class IAFWebViewModelTests: XCTestCase {
             testStore.state.eraseToAnyPublisher()
         }
 
-        // Now fetch profile data with clean state
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
-        let profileData = try await KlaviyoInternal.fetchProfileData()
+        // Read the seeded config/identity from the canonical Core stores
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        let profileData = IdentityStore.shared.current
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
@@ -111,7 +116,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let apiKey = try await KlaviyoInternal.fetchAPIKey()
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
 
         // When
@@ -150,7 +155,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":2},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -178,19 +183,6 @@ final class IAFWebViewModelTests: XCTestCase {
 
     @MainActor
     func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Form will appear should yield present lifecycle event")
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .present = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a form will appear script message
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -208,25 +200,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
+            if case .present = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
-        // Given
-        let expectation = XCTestExpectation(description: "Form disappeared should yield dismiss lifecycle event")
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .dismiss = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a form disappeared script message with formId and formName
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -244,25 +225,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
+            if case .dismiss = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
-        // Given
-        let expectation = XCTestExpectation(
-            description: "formWillAppear with missing metadata should still yield .present")
-
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .present = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a formWillAppear with empty data (no formId/formName)
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -277,25 +247,14 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .present should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
+            if case .present = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
-        // Given
-        let expectation = XCTestExpectation(
-            description: "formDisappeared with missing metadata should still yield .dismiss")
-
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .dismiss = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
-
         // When - simulate a formDisappeared with empty data
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -310,25 +269,16 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then - .dismiss should still be yielded
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
+            if case .dismiss = event { return true }
+            return false
+        }
     }
 
     @MainActor
     func testAbortEventYieldsAbortLifecycleEvent() async throws {
         // Given
-        let expectation = XCTestExpectation(description: "Abort event should yield abort lifecycle event")
         let abortReason = "test abort reason"
-
-        // Create a task to listen for lifecycle events
-        let lifecycleTask = Task {
-            for await event in viewModel.formLifecycleStream {
-                if case .abort = event {
-                    expectation.fulfill()
-                    break
-                }
-            }
-        }
 
         // When - simulate an abort script message
         let scriptMessage = MockWKScriptMessage(
@@ -346,8 +296,150 @@ final class IAFWebViewModelTests: XCTestCase {
         viewModel.handleScriptMessage(scriptMessage)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 5.0)
-        lifecycleTask.cancel()
+        await assertLifecycleEvent("abort", from: viewModel.formLifecycleStream) { event in
+            if case .abort = event { return true }
+            return false
+        }
+    }
+
+    // MARK: - External URL Tests (openDeepLink with openExternally: true)
+
+    private func makeOpenExternalUrlMessage(
+        url: String? = "https://example.com",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Learn More"
+    ) -> MockWKScriptMessage {
+        // External web URLs ride the openDeepLink message with openExternally: true;
+        // the URL is sent in the platform-split `ios`/`android` keys.
+        var data: [String: String] = [:]
+        data["ios"] = url
+        data["android"] = url
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        let dataBody = dataJson.isEmpty ? "\"openExternally\": true" : "\(dataJson), \"openExternally\": true"
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataBody) } }"
+        )
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlFiresLifecycleEvent() async throws {
+        // Given
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // A spurious dispatch through EventDispatcher would mean the deep-link path ran
+        // instead. IAFWebViewModel's deep-link branch calls EventDispatcher.shared.dispatch
+        // synchronously (no Task), so checking immediately after is reliable — no race.
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage())
+
+        // Then — the handler path is synchronous, so assert immediately.
+        // External URL clicks surface through the same formCtaClicked event as deep links.
+        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Learn More")
+        XCTAssertEqual(url, URL(string: "https://example.com"))
+        XCTAssertTrue(
+            spyDispatcher.received.isEmpty,
+            "openExternally: true must not route through EventDispatcher's deep-link path"
+        )
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(formId: nil, formName: nil))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire without form metadata")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: nil))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Lifecycle event should not fire with nil URL")
+    }
+
+    @MainActor
+    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() async throws {
+        // Given
+        var lifecycleEventFired = false
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
+            lifecycleEventFired = true
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeOpenExternalUrlMessage(url: "javascript://alert(1)"))
+
+        // Then
+        XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
+    }
+
+    @MainActor
+    func testTrackProfileEventDispatchesCreateEvent() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // When - JS sends a trackProfileEvent bridge message
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "trackProfileEvent",
+              "data": {
+                "metric": "Viewed Product",
+                "foo": "bar"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
+        guard spyDispatcher.received.count == 1 else {
+            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        }
+        guard case let .createEvent(event) = spyDispatcher.received[0] else {
+            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
+        }
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertEqual(event.properties["foo"] as? String, "bar")
     }
 }
 

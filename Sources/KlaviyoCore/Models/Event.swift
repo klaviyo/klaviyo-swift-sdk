@@ -7,7 +7,6 @@
 
 import AnyCodable
 import Foundation
-import KlaviyoCore
 
 public struct Event: Equatable {
     public enum EventName: Equatable, Hashable {
@@ -18,7 +17,7 @@ public struct Event: Equatable {
         case locationEvent(LocationEvent)
         case customEvent(String)
 
-        internal static var _openedPush: EventName {
+        package static var _openedPush: EventName {
             EventName.customEvent("_openedPush")
         }
 
@@ -42,13 +41,13 @@ public struct Event: Equatable {
         }
     }
 
-    struct Identifiers: Equatable {
-        public let email: String?
-        public let phoneNumber: String?
-        public let externalId: String?
-        public init(email: String? = nil,
-                    phoneNumber: String? = nil,
-                    externalId: String? = nil) {
+    package struct Identifiers: Equatable {
+        package let email: String?
+        package let phoneNumber: String?
+        package let externalId: String?
+        package init(email: String? = nil,
+                     phoneNumber: String? = nil,
+                     externalId: String? = nil) {
             self.email = email
             self.phoneNumber = phoneNumber
             self.externalId = externalId
@@ -64,14 +63,14 @@ public struct Event: Equatable {
     public let time: Date
     public let value: Double?
     public let uniqueId: String
-    let identifiers: Identifiers?
+    package let identifiers: Identifiers?
 
-    init(name: EventName,
-         properties: [String: Any]? = nil,
-         identifiers: Identifiers? = nil,
-         value: Double? = nil,
-         time: Date = environment.date(),
-         uniqueId: String = environment.uuid().uuidString) {
+    package init(name: EventName,
+                 properties: [String: Any]? = nil,
+                 identifiers: Identifiers? = nil,
+                 value: Double? = nil,
+                 time: Date = environment.date(),
+                 uniqueId: String = environment.uuid().uuidString) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.time = time

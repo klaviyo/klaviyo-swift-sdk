@@ -48,23 +48,11 @@ sed -i '' "s/__klaviyoSwiftVersion = \"$currentVersion\"/__klaviyoSwiftVersion =
 # 2. Update podspecs
 echo "Updating podspecs..."
 
-# KlaviyoCore.podspec - version only
-sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoCore.podspec"
-
-# KlaviyoSwift.podspec - version and dependency
-sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoSwift.podspec"
-sed -i '' "s/'KlaviyoCore', '~> $currentVersion'/'KlaviyoCore', '~> $newVersion'/" "KlaviyoSwift.podspec"
-
-# KlaviyoForms.podspec - version and dependency
-sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoForms.podspec"
-sed -i '' "s/'KlaviyoSwift', '~> $currentVersion'/'KlaviyoSwift', '~> $newVersion'/" "KlaviyoForms.podspec"
-
-# KlaviyoSwiftExtension.podspec - version only
-sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoSwiftExtension.podspec"
-
-# KlaviyoLocation.podspec - version and dependency
-sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "KlaviyoLocation.podspec"
-sed -i '' "s/'KlaviyoSwift', '~> $currentVersion'/'KlaviyoSwift', '~> $newVersion'/" "KlaviyoLocation.podspec"
+for podspec in *.podspec; do
+  sed -i '' "s/s.version          = \"$currentVersion\"/s.version          = \"$newVersion\"/" "$podspec"
+  # matches any s.dependency 'Klaviyo<Module>', '~> <version>' pin
+  sed -i '' "s/'Klaviyo\([A-Za-z]*\)', '~> $currentVersion'/'Klaviyo\1', '~> $newVersion'/g" "$podspec"
+done
 
 # 3. Update test files/snapshots with hardcoded versions
 echo "Updating test files..."

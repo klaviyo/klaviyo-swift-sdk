@@ -14,4 +14,5 @@ import Foundation
 enum ActionType: String, Equatable {
     case openApp = "open_app"
     case deepLink = "deep_link"
+    case openUrl = "open_url"
 }

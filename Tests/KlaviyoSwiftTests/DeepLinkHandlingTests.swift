@@ -16,80 +16,23 @@ final class DeepLinkHandlingTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
 
-        // Ensure clean deep link handler state for each test
+        // Ensure clean deep link handler + coordinator state for each test.
         environment.linkHandler.unregisterCustomHandler()
-
-        // Reset TCA state to ensure clean slate for each test
-        // This is crucial because previous tests might leave isProcessingDeepLink = true
-        klaviyoSwiftEnvironment.state = {
-            KlaviyoState(queue: [], requestsInFlight: [])
-        }
+        DeepLinkManager.resetToProduction()
     }
 
     @MainActor
     override func tearDown() async throws {
-        // Ensure each test cleans up after itself
         environment.linkHandler.unregisterCustomHandler()
+        DeepLinkManager.resetToProduction()
 
-        // Reset TCA state to clean slate after each test
-        klaviyoSwiftEnvironment.state = {
-            KlaviyoState(queue: [], requestsInFlight: [])
-        }
-
-        // Reset environments to ensure clean state
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
 
         try await super.tearDown()
     }
 
-    @MainActor
-    func testOpenDeepLinkActionCallsLinkHandler() async throws {
-        let expectedURL = URL(string: "https://example.com/path")!
-        let called = expectation(description: "linkHandler.openURL called")
-        var handlerCalled = false
-
-        environment.linkHandler.registerCustomHandler { url in
-            XCTAssertEqual(url, expectedURL)
-            handlerCalled = true
-            called.fulfill()
-        }
-
-        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
-
-        await store.send(.openDeepLink(expectedURL)) {
-            $0.isProcessingDeepLink = true
-        }
-
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
-
-        await fulfillment(of: [called], timeout: 1.0)
-        XCTAssertTrue(handlerCalled)
-    }
-
-    @MainActor
-    func testRegisterDeepLinkHandlerOverridesEnvironmentFallback() async throws {
-        let expectedURL = URL(string: "https://example.com/override")!
-
-        let customCalled = expectation(description: "custom handler called")
-        KlaviyoSDK().registerDeepLinkHandler { url in
-            XCTAssertEqual(url, expectedURL)
-            customCalled.fulfill()
-        }
-
-        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
-        await store.send(.openDeepLink(expectedURL)) {
-            $0.isProcessingDeepLink = true
-        }
-
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
-
-        await fulfillment(of: [customCalled], timeout: 1.0)
-    }
+    // MARK: - handle(notificationResponse:) → DeepLinkManager
 
     @MainActor
     func testHandleNotificationResponseUsesRegisteredDeepLinkHandler() async throws {
@@ -104,17 +47,12 @@ final class DeepLinkHandlingTests: XCTestCase {
         let completionCalled = expectation(description: "completion handler called")
 
         let sdk = KlaviyoSDK()
-
-        // Verify clean starting state
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered, "Should start with no handler registered")
 
-        // Use the modern approach: register the handler first
         _ = sdk.registerDeepLinkHandler { url in
             XCTAssertEqual(url.absoluteString, urlString)
             handlerCalled.fulfill()
         }
-
-        // Verify the handler was registered
         XCTAssertTrue(sdk.isDeepLinkHandlerRegistered, "Handler should be registered")
 
         let result = sdk.handle(notificationResponse: response, withCompletionHandler: {
@@ -126,7 +64,7 @@ final class DeepLinkHandlingTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleNotificationResponseDispatchesOpenDeepLinkWhenNoHandler() async throws {
+    func testHandleNotificationResponseInvokesDeepLinkManagerWhenNoHandler() async throws {
         let urlString = "https://example.com/deeplink2"
         let expectedURL = try XCTUnwrap(URL(string: urlString))
         let userInfo: [AnyHashable: Any] = [
@@ -135,25 +73,14 @@ final class DeepLinkHandlingTests: XCTestCase {
         ]
         let response = try UNNotificationResponse.with(userInfo: userInfo)
 
-        // Ensure no custom handler is registered (testing the "no handler" scenario)
+        // No custom handler registered — the facade should route the URL to DeepLinkManager.
         environment.linkHandler.unregisterCustomHandler()
-        XCTAssertFalse(environment.linkHandler.hasCustomHandler, "Should have no custom handler registered")
 
         let completionCalled = expectation(description: "completion handler called")
-
-        // Set up action tracking through the test environment
-        let actionReceived = expectation(description: "openDeepLink action received")
-        let originalSend = klaviyoSwiftEnvironment.send
-        klaviyoSwiftEnvironment.send = { action in
-            if case let .openDeepLink(url) = action {
-                XCTAssertEqual(url, expectedURL, "Should dispatch openDeepLink with correct URL")
-                actionReceived.fulfill()
-
-                // Return nil to prevent the actual async processing that could interfere
-                // This test is only verifying that the action is dispatched, not the full processing
-                return nil
-            }
-            return originalSend(action)
+        let deepLinkInvoked = expectation(description: "DeepLinkManager.openDeepLink invoked")
+        DeepLinkManager.openDeepLinkSpy = { url in
+            XCTAssertEqual(url, expectedURL, "Should invoke openDeepLink with the notification's URL")
+            deepLinkInvoked.fulfill()
         }
 
         let sdk = KlaviyoSDK()
@@ -161,85 +88,87 @@ final class DeepLinkHandlingTests: XCTestCase {
             completionCalled.fulfill()
         })
 
-        // Verify the notification was processed successfully
         XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with deep links")
-
-        // Verify that both the completion handler was called AND the deep link action was dispatched
-        await fulfillment(of: [completionCalled, actionReceived], timeout: 1.0)
-
-        // Restore original send function
-        klaviyoSwiftEnvironment.send = originalSend
+        await fulfillment(of: [completionCalled, deepLinkInvoked], timeout: 1.0)
     }
 
-    // MARK: - TCA State Management Tests
+    // MARK: - open_url with allowlisted non-web schemes
 
     @MainActor
-    func testOpenDeepLinkActionSetsProcessingState() async throws {
-        let url = URL(string: "https://example.com/test")!
-        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
+    func testHandleNotificationResponseDispatchesOpenWebUrlForMailtoWebUrl() async throws {
+        let urlString = "mailto:support@example.com"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
 
-        environment.linkHandler.registerCustomHandler { _ in }
+        environment.linkHandler.unregisterCustomHandler()
 
-        await store.send(.openDeepLink(url)) {
-            $0.isProcessingDeepLink = true
+        let completionCalled = expectation(description: "completion handler called")
+        let externalUrlInvoked = expectation(description: "DeepLinkManager.openExternalURL invoked for mailto:")
+        DeepLinkManager.openExternalURLSpy = { url in
+            XCTAssertEqual(url, expectedURL, "Should invoke openExternalURL with mailto: URL")
+            externalUrlInvoked.fulfill()
         }
 
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
-    }
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
 
-    @MainActor
-    func testOpenDeepLinkActionIgnoredWhenAlreadyProcessing() async throws {
-        let url = URL(string: "https://example.com/test")!
-        var initialState = KlaviyoState(queue: [], requestsInFlight: [])
-        initialState.isProcessingDeepLink = true
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        await store.send(.openDeepLink(url))
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, externalUrlInvoked], timeout: 1.0)
     }
 
     @MainActor
-    func testDeepLinkProcessingCompletedResetsState() async throws {
-        var initialState = KlaviyoState(queue: [], requestsInFlight: [])
-        initialState.isProcessingDeepLink = true
+    func testHandleNotificationResponseDispatchesOpenWebUrlForTelWebUrl() async throws {
+        let urlString = "tel:+15551234567"
+        let expectedURL = try XCTUnwrap(URL(string: urlString))
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": urlString
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
 
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        environment.linkHandler.unregisterCustomHandler()
 
-        await store.send(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
+        let completionCalled = expectation(description: "completion handler called")
+        let externalUrlInvoked = expectation(description: "DeepLinkManager.openExternalURL invoked for tel:")
+        DeepLinkManager.openExternalURLSpy = { url in
+            XCTAssertEqual(url, expectedURL, "Should invoke openExternalURL with tel: URL")
+            externalUrlInvoked.fulfill()
         }
+
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {
+            completionCalled.fulfill()
+        })
+
+        XCTAssertTrue(result, "SDK should return true for Klaviyo notifications with web_url")
+        await fulfillment(of: [completionCalled, externalUrlInvoked], timeout: 1.0)
     }
 
     @MainActor
-    func testSequentialDeepLinkProcessing() async throws {
-        let url1 = URL(string: "https://example.com/test1")!
-        let url2 = URL(string: "https://example.com/test2")!
+    func testHandleNotificationResponseDropsBlockedSchemeWebUrl() throws {
+        // javascript: is a blocked scheme — the gate is the synchronous klaviyoWebUrl
+        // property, and resolveOpenAction only calls openExternalURL when it is non-nil
+        // (positive dispatch coverage in the mailto:/tel: tests above). handle still
+        // returns true: it is a valid Klaviyo notification, it just takes no open action.
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": "1"],
+            "web_url": "javascript:alert(1)"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: userInfo)
 
-        let store = TestStore(initialState: KlaviyoState(queue: [], requestsInFlight: []), reducer: KlaviyoReducer())
+        environment.linkHandler.unregisterCustomHandler()
 
-        // Register a simple handler
-        environment.linkHandler.registerCustomHandler { _ in }
+        XCTAssertNil(response.klaviyoWebUrl, "Blocked scheme must not produce a web URL")
 
-        // Send first action - should be processed
-        await store.send(.openDeepLink(url1)) {
-            $0.isProcessingDeepLink = true
-        }
-
-        // Complete first processing
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
-
-        // Now that processing is complete, a new action should work
-        await store.send(.openDeepLink(url2)) {
-            $0.isProcessingDeepLink = true
-        }
-
-        await store.receive(.deepLinkProcessingCompleted) {
-            $0.isProcessingDeepLink = false
-        }
+        let klaviyoSDK = KlaviyoSDK()
+        let result = klaviyoSDK.handle(notificationResponse: response, withCompletionHandler: {})
+        XCTAssertTrue(result, "Klaviyo notification is still handled; it just takes no open action")
     }
 
     // MARK: - isDeepLinkHandlerRegistered Property Tests
@@ -248,14 +177,11 @@ final class DeepLinkHandlingTests: XCTestCase {
     func testIsDeepLinkHandlerRegisteredProperty() {
         let sdk = KlaviyoSDK()
 
-        // Initial state should be false
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)
 
-        // After registering a handler
         sdk.registerDeepLinkHandler { _ in }
         XCTAssertTrue(sdk.isDeepLinkHandlerRegistered)
 
-        // After unregistering the handler
         sdk.unregisterDeepLinkHandler()
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)
     }
@@ -265,14 +191,12 @@ final class DeepLinkHandlingTests: XCTestCase {
         let sdk1 = KlaviyoSDK()
         let sdk2 = KlaviyoSDK()
 
-        // Both should start as false
         XCTAssertFalse(sdk1.isDeepLinkHandlerRegistered)
         XCTAssertFalse(sdk2.isDeepLinkHandlerRegistered)
 
-        // Register handler on first instance
         _ = sdk1.registerDeepLinkHandler { _ in }
 
-        // Both should reflect the same underlying state (shared environment)
+        // Both should reflect the same underlying state (shared environment).
         XCTAssertTrue(sdk1.isDeepLinkHandlerRegistered)
         XCTAssertTrue(sdk2.isDeepLinkHandlerRegistered)
     }
@@ -281,14 +205,11 @@ final class DeepLinkHandlingTests: XCTestCase {
     func testIsDeepLinkHandlerRegisteredAfterEnvironmentReset() {
         let sdk = KlaviyoSDK()
 
-        // Register a handler
         _ = sdk.registerDeepLinkHandler { _ in }
         XCTAssertTrue(sdk.isDeepLinkHandlerRegistered)
 
-        // Reset the environment (simulating what happens in test tearDown)
         environment.linkHandler.unregisterCustomHandler()
 
-        // SDK should reflect the new state
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)
     }
 
@@ -296,15 +217,12 @@ final class DeepLinkHandlingTests: XCTestCase {
     func testIsDeepLinkHandlerRegisteredConsistencyWithEnvironment() {
         let sdk = KlaviyoSDK()
 
-        // Should match environment state
         XCTAssertEqual(sdk.isDeepLinkHandlerRegistered, environment.linkHandler.hasCustomHandler)
 
-        // Register through SDK
         _ = sdk.registerDeepLinkHandler { _ in }
         XCTAssertEqual(sdk.isDeepLinkHandlerRegistered, environment.linkHandler.hasCustomHandler)
         XCTAssertTrue(sdk.isDeepLinkHandlerRegistered)
 
-        // Unregister through environment directly
         environment.linkHandler.unregisterCustomHandler()
         XCTAssertEqual(sdk.isDeepLinkHandlerRegistered, environment.linkHandler.hasCustomHandler)
         XCTAssertFalse(sdk.isDeepLinkHandlerRegistered)

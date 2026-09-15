@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 import OSLog
 import WebKit
 
@@ -201,11 +200,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func subscribeToProfileUpdates() {
-        profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
+        profileUpdatesCancellable = IdentityStore.shared.publisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] result in
+            .sink { [weak self] newProfileData in
                 guard let self else { return }
-                guard case let .success(newProfileData) = result else { return }
 
                 if newProfileData != self.profileData {
                     if #available(iOS 14.0, *) {
@@ -327,53 +325,77 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case let .trackProfileEvent(data):
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
-                KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
+                EventDispatcher.shared.dispatch(
+                    .createEvent(Event(name: .customEvent(metricName), properties: jsonEventData))
+                )
             }
         case let .trackAggregateEvent(data):
-            KlaviyoInternal.create(aggregateEvent: data)
-        case let .openDeepLink(url, formId, formName, buttonLabel):
+            EventDispatcher.shared.dispatch(.aggregateEvent(data))
+        case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Received 'openDeepLink' event from KlaviyoJS with url: \(url?.absoluteString ?? "nil", privacy: .public)")
+                Logger.webViewLogger.info(
+                    """
+                    Received 'openDeepLink' event from KlaviyoJS with url: \
+                    \(url?.absoluteString ?? "nil", privacy: .private), \
+                    openExternally: \(openExternally, privacy: .public)
+                    """
+                )
             }
 
             // 1. Check URL exists and is non-empty — no URL means no navigation and no lifecycle event
             guard let url = url, !url.absoluteString.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "CTA clicked but no deep link URL configured — skipping navigation"
+                        "CTA clicked but no URL configured — skipping navigation"
                     )
                 }
                 return
             }
 
-            // 2. Handle deep link navigation before validating lifecycle metadata
-            if UIApplication.shared.canOpenURL(url) {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .public)'")
+            // 2. Route by `openExternally`. Deep links and external URLs ride the same
+            //    bridge message (onsite openDeepLink v3); the flag — not the scheme —
+            //    decides how to open, preserving the marketer's chosen action.
+            if openExternally {
+                // External web/system URL: open via the system, bypassing any registered
+                // deep link handler, gated by the on-device scheme allowlist.
+                guard let scheme = url.scheme?.lowercased(), openUrlAllowedSchemes.contains(scheme) else {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.warning(
+                            "Blocked external URL with disallowed scheme: \(url.scheme ?? "nil", privacy: .public)"
+                        )
+                    }
+                    return
                 }
-                KlaviyoInternal.handleDeepLink(url: url)
+                Task {
+                    await environment.linkHandler.openExternalURL(url)
+                }
             } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .public)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
+                // In-app deep link: route to the host app's registered deep link handler.
+                if UIApplication.shared.canOpenURL(url) {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
+                    }
+                    EventDispatcher.shared.dispatch(.deepLink(url))
+                } else {
+                    if #available(iOS 14.0, *) {
+                        Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .private)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
+                    }
+                    // No navigation occurred — skip the formCtaClicked lifecycle event below,
+                    // consistent with its "fired after the SDK has initiated navigation" contract.
+                    return
                 }
             }
 
-            // 3. Invoke lifecycle handler when form identity fields are present
-            //    buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click
-            if let formId, !formId.isEmpty,
-               let formName, !formName.isEmpty {
-                IAFPresentationManager.shared.invokeLifecycleHandler(for: .formCtaClicked(
-                    formId: formId,
-                    formName: formName,
+            // 3. Invoke lifecycle handler when form identity fields are present. Both deep
+            //    links and external URLs surface through the same formCtaClicked event; the
+            //    URL rides in the deepLinkUrl field.
+            invokeCtaLifecycleHandler(eventName: "openDeepLink", formId: formId, formName: formName) {
+                .formCtaClicked(
+                    formId: $0,
+                    formName: $1,
                     buttonLabel: buttonLabel ?? "",
                     deepLinkUrl: url
-                ))
-            } else {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning(
-                        "openDeepLink missing metadata — skipping lifecycle callback"
-                    )
-                }
+                )
             }
         case let .abort(reason):
             if #available(iOS 14.0, *) {
@@ -396,5 +418,26 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case .profileMutation:
             ()
         }
+    }
+
+    /// Invokes the form lifecycle handler for a CTA tap when form identity fields are present.
+    /// buttonLabel is allowed to be nil/empty — a CTA with no text is still a valid click.
+    @MainActor
+    private func invokeCtaLifecycleHandler(
+        eventName: String,
+        formId: String?,
+        formName: String?,
+        makeEvent: (_ formId: String, _ formName: String) -> FormLifecycleEvent
+    ) {
+        guard let formId, !formId.isEmpty,
+              let formName, !formName.isEmpty else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "\(eventName, privacy: .public) missing metadata — skipping lifecycle callback"
+                )
+            }
+            return
+        }
+        IAFPresentationManager.shared.invokeLifecycleHandler(for: makeEvent(formId, formName))
     }
 }

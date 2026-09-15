@@ -16,13 +16,9 @@ import Foundation
 /// `private`/`internal` enum would fail to compile on every toolchain.
 public enum HTTPStatusCode {
     public static let rateLimited = 429
-    public static let notImplemented = 501
-    public static let httpVersionNotSupported = 505
     public static let retryableServerErrorRange = 500...599
 }
 
-/// Public because it is referenced from `KlaviyoAPI.init`'s public default-argument closure;
-/// Swift 5.9 (Xcode 15.2/15.4) requires such symbols to be `public` (not just `@usableFromInline`).
 public enum RetryBackoffConstants {
     /// Ceiling on the SDK's exponential backoff interval, in seconds (5 minutes).
     ///
@@ -71,17 +67,16 @@ public struct KlaviyoAPI {
         }
 
         // Consolidated retryable error handling (429 rate limit + transient 5xx server errors).
-        // The 5xx range (500–599) is treated as transient so we also retry CDN/edge failures
-        // such as Cloudflare's 520–527 codes, which originate in front of the origin servers
-        // and were the codes observed during the cannot-access-klaviyo-com incident.
-        // 501 (Not Implemented) and 505 (HTTP Version Not Supported) are excluded because they
-        // are permanent/deterministic errors — retrying them cannot succeed, so they fall
-        // through to the non-retryable .httpError path.
+        // The entire 5xx range (500–599) is treated as transient and retried — including CDN/edge
+        // failures such as Cloudflare's 520–527 codes, which originate in front of the origin
+        // servers and were the codes observed during the cannot-access-klaviyo-com incident.
+        // We deliberately retry even 501 (Not Implemented) and 505 (HTTP Version Not Supported):
+        // for the SDK's fixed request shapes a genuine origin 501/505 is effectively unreachable,
+        // so any 5xx we actually see is edge/CDN noise during an incident — exactly what we want
+        // to retry (incident data-retention outweighs the negligible cost of a wasted retry).
         // 403 and other 4xx codes are intentionally excluded so the backend can shed load.
         let code = httpResponse.statusCode
         let isRetryableServerError = HTTPStatusCode.retryableServerErrorRange.contains(code)
-            && code != HTTPStatusCode.notImplemented
-            && code != HTTPStatusCode.httpVersionNotSupported
         if code == HTTPStatusCode.rateLimited || isRetryableServerError {
             // Cap our exponential backoff at the max retry interval so it can't grow unbounded
             // across a long rate-limit storm. A server-provided Retry-After may still exceed this.

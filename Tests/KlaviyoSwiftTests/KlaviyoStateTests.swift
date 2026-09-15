@@ -131,7 +131,7 @@ final class KlaviyoStateTests: XCTestCase {
         let eventRequest = KlaviyoRequest(endpoint: .createEvent("foo", createEventPayload))
 
         let profile = Profile.test
-        let payload = CreateProfilePayload(data: profile.toAPIModel(anonymousId: "foo"))
+        let payload = CreateProfilePayload(data: ProfilePayload(profile, anonymousId: "foo"))
 
         let profileRequest = KlaviyoRequest(endpoint: .createProfile("foo", payload))
         let tokenPayload = PushTokenPayload(
@@ -319,6 +319,35 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(state.queue.last?.id, "new", "New request must be appended at the tail")
     }
 
+    func testEnqueueRequestDrainsQueueAlreadyOverCapacity() {
+        // Arrange: a queue that is already ABOVE capacity — reachable via init-time queue
+        // merging or in-flight requests reinserted at the front. A single eviction per enqueue
+        // would never restore the bound; eviction must drain all the way down in one call.
+        let maxSize = StateManagementConstants.maxQueueSize
+        let overCapacity = maxSize + 25
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let requests = (0..<overCapacity).map { index in
+            makeTokenRequest(id: "req-\(index)", enqueuedAt: base.addingTimeInterval(TimeInterval(index)))
+        }
+        var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: requests)
+
+        // Act: one enqueue.
+        let newRequest = makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(999_999))
+        state.enqueueRequest(request: newRequest)
+
+        // Assert the exact resulting contents: the oldest 26 (req-0…req-25) are evicted, the
+        // rest survive in their original order, and the newcomer is at the tail. Comparing the
+        // full id list proves oldest-first draining — a spot-check could pass while removing
+        // arbitrary entries.
+        let expectedIds = (26..<overCapacity).map { "req-\($0)" } + ["new"]
+        XCTAssertEqual(
+            state.queue.map(\.id),
+            expectedIds,
+            "One enqueue must drain an over-capacity queue to the cap, evicting the oldest first"
+        )
+        XCTAssertEqual(state.queue.count, maxSize)
+    }
+
     func testEnqueuePriorityRequestInsertsAtFrontAndStaysBounded() {
         // Arrange: a full queue of older requests.
         let maxSize = StateManagementConstants.maxQueueSize
@@ -333,10 +362,14 @@ final class KlaviyoStateTests: XCTestCase {
         state.enqueuePriorityRequest(request: priority)
 
         // Assert: cap is held, priority event is at the front and survived, oldest was evicted.
-        XCTAssertEqual(state.queue.count, maxSize, "Priority path must keep the queue bounded at maxQueueSize")
+        XCTAssertEqual(
+            state.queue.count, maxSize, "Priority path must keep the queue bounded at maxQueueSize"
+        )
         XCTAssertEqual(state.queue.first?.id, "priority", "Prioritized request must be inserted at the front")
         XCTAssertTrue(state.queue.contains { $0.id == "priority" }, "Prioritized request must not be evicted")
-        XCTAssertFalse(state.queue.contains { $0.id == "old-0" }, "Oldest request must be evicted to make room")
+        XCTAssertFalse(
+            state.queue.contains { $0.id == "old-0" }, "Oldest request must be evicted to make room"
+        )
     }
 
     func testFreshPriorityRequestSurvivesSubsequentNormalOverflow() {
@@ -355,7 +388,9 @@ final class KlaviyoStateTests: XCTestCase {
         XCTAssertEqual(state.queue.count, maxSize)
 
         // Act: a normal enqueue now overflows the queue.
-        state.enqueueRequest(request: makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(20_000)))
+        state.enqueueRequest(
+            request: makeTokenRequest(id: "new", enqueuedAt: base.addingTimeInterval(20_000))
+        )
 
         // Assert: the freshly front-inserted priority event is protected; an older request is evicted.
         XCTAssertEqual(state.queue.count, maxSize)
@@ -378,7 +413,9 @@ final class KlaviyoStateTests: XCTestCase {
         let decoded = try decoder.decode(KlaviyoRequest.self, from: data)
 
         XCTAssertEqual(decoded.id, "current")
-        XCTAssertEqual(decoded.enqueuedAt, Date(timeIntervalSince1970: 999), "Present enqueuedAt must round-trip")
+        XCTAssertEqual(
+            decoded.enqueuedAt, Date(timeIntervalSince1970: 999), "Present enqueuedAt must round-trip"
+        )
     }
 
     func testKlaviyoRequestDecodesMissingEnqueuedAtAsDistantPast() throws {
@@ -419,7 +456,9 @@ final class KlaviyoStateTests: XCTestCase {
             KlaviyoRequest.self,
             from: JSONSerialization.data(withJSONObject: seedJSON)
         )
-        XCTAssertEqual(legacyRequest.enqueuedAt, .distantPast, "Precondition: legacy request decodes to distantPast")
+        XCTAssertEqual(
+            legacyRequest.enqueuedAt, .distantPast, "Precondition: legacy request decodes to distantPast"
+        )
 
         // Fill the queue to capacity with newer, real-timestamped requests, placing the legacy
         // request at an interior position (not the front) to prove eviction keys on timestamp.
@@ -434,7 +473,9 @@ final class KlaviyoStateTests: XCTestCase {
         var state = KlaviyoState(apiKey: TEST_API_KEY, anonymousId: "anon", queue: requests)
 
         // Act: a normal enqueue overflows the queue.
-        state.enqueueRequest(request: makeTokenRequest(id: "newest", enqueuedAt: base.addingTimeInterval(99_999)))
+        state.enqueueRequest(
+            request: makeTokenRequest(id: "newest", enqueuedAt: base.addingTimeInterval(99_999))
+        )
 
         // Assert: the legacy (distantPast) request is evicted before any newer request.
         XCTAssertEqual(state.queue.count, maxSize)
@@ -444,5 +485,72 @@ final class KlaviyoStateTests: XCTestCase {
         )
         XCTAssertTrue(state.queue.contains { $0.id == "new-0" }, "Real-timestamped requests must survive")
         XCTAssertEqual(state.queue.last?.id, "newest")
+    }
+
+    // MARK: - ProfileData migration
+
+    func testDecodesLegacyFlatIdentityJSON() throws {
+        let jsonString = """
+        {
+          "apiKey": "company-id",
+          "email": "a@b.com",
+          "phoneNumber": "+15555555555",
+          "externalId": "ext-1",
+          "anonymousId": "anon-1",
+          "queue": []
+        }
+        """
+        let json = Data(jsonString.utf8)
+
+        let state = try JSONDecoder().decode(KlaviyoState.self, from: json)
+
+        XCTAssertEqual(state.identity.email, "a@b.com")
+        XCTAssertEqual(state.identity.phoneNumber, "+15555555555")
+        XCTAssertEqual(state.identity.externalId, "ext-1")
+        XCTAssertEqual(state.identity.anonymousId, "anon-1")
+        XCTAssertEqual(state.apiKey, "company-id")
+    }
+
+    func testDecodesNewNestedIdentityJSON() throws {
+        let jsonString = """
+        {
+          "apiKey": "company-id",
+          "identity": {
+            "email": "a@b.com",
+            "phoneNumber": "+15555555555",
+            "externalId": "ext-1",
+            "anonymousId": "anon-1"
+          },
+          "queue": []
+        }
+        """
+        let json = Data(jsonString.utf8)
+
+        let state = try JSONDecoder().decode(KlaviyoState.self, from: json)
+
+        XCTAssertEqual(state.identity.email, "a@b.com")
+        XCTAssertEqual(state.identity.phoneNumber, "+15555555555")
+        XCTAssertEqual(state.identity.externalId, "ext-1")
+        XCTAssertEqual(state.identity.anonymousId, "anon-1")
+    }
+
+    func testEncodesIdentityAsNestedObject() throws {
+        let state = KlaviyoState(
+            apiKey: "company-id",
+            email: "a@b.com",
+            anonymousId: "anon-1",
+            queue: []
+        )
+
+        let data = try JSONEncoder().encode(state)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertNil(object["email"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["phoneNumber"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["externalId"], "identity fields must not be encoded at the top level")
+        XCTAssertNil(object["anonymousId"], "identity fields must not be encoded at the top level")
+        let identity = try XCTUnwrap(object["identity"] as? [String: Any])
+        XCTAssertEqual(identity["email"] as? String, "a@b.com")
+        XCTAssertEqual(identity["anonymousId"] as? String, "anon-1")
     }
 }

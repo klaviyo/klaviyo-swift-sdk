@@ -26,6 +26,11 @@ final class KlaviyoLocationManagerTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
+        // Migrated observers read identity/config from KlaviyoCore's process-wide singleton stores;
+        // reset them so each test starts from a clean, known state.
+        SDKConfigStore.shared.update(KlaviyoConfig())
+        IdentityStore.shared.update(ProfileData())
+
         mockLocationManager = MockLocationManager()
         mockLocationManager.location = CLLocation(latitude: 0, longitude: 0)
         mockApiKeyPublisher = PassthroughSubject<String?, Never>()
@@ -40,6 +45,9 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         mockApiKeyPublisher
             .compactMap { $0 }
             .sink { apiKey in
+                // Drive the KlaviyoCore config store (what the migrated observer reads) alongside the
+                // TCA store, so api-key-change tests exercise the real observation path.
+                SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
                 _ = testStore.send(.initialize(apiKey))
             }
             .store(in: &cancellables)
@@ -58,7 +66,8 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         mockLocationManager = nil
         mockApiKeyPublisher = nil
         cancellables.removeAll()
-        KlaviyoInternal.resetAPIKeySubject()
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
 
         super.tearDown()
     }

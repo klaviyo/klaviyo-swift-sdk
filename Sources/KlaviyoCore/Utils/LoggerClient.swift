@@ -16,7 +16,10 @@ public struct LoggerClient {
     }
 
     public var error: (String) -> Void
-    public static let production = Self(error: { message in os_log("%{public}s", type: .error, message) })
+    public static let production = Self(error: { message in
+        guard KlaviyoLogConfig.shared.isLoggingEnabled else { return }
+        os_log("%{public}s", type: .error, message)
+    })
 }
 
 @usableFromInline
@@ -28,6 +31,7 @@ func runtimeWarn(
     line: UInt? = nil
 ) {
     #if DEBUG
+    guard KlaviyoLogConfig.shared.isLoggingEnabled else { return }
     let message = message()
     let category = category ?? "Runtime Warning"
     #if canImport(os)

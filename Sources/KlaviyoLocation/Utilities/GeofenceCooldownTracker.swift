@@ -7,7 +7,6 @@
 
 import Foundation
 import KlaviyoCore
-import KlaviyoSwift
 
 /// Manages geofence transition cooldown periods to prevent duplicate
 /// events emitted from CoreLocation.

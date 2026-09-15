@@ -15,6 +15,15 @@ enum FakeFileError: Error {
     case fake
 }
 
+// MARK: - Core store fixtures
+
+/// Seeds the shared Core stores into a known state for Forms tests:
+/// empty identity plus a config carrying the given API key.
+func seedCoreStores(apiKey: String = "abc123") {
+    IdentityStore.shared.reset()
+    SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+}
+
 let ARCHIVED_RETURNED_DATA = Data()
 let SAMPLE_DATA: NSMutableArray = [
     [

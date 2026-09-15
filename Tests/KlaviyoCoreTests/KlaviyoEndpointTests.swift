@@ -57,6 +57,122 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertNotNil(request.httpBody)
     }
 
+    func testRegisterPushTokenAttachesSdkFeaturesHeaderWhenPresent() throws {
+        // Given the host has opted into push tracking but not token forwarding
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: false)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+            "auto_push_tracking=1; auto_push_token_forwarding=0;"
+        )
+    }
+
+    func testRegisterPushTokenHeaderOmitsForwardingWhenForwardingKeyAbsent() throws {
+        // Given the tracking key is set but the forwarding key is absent from Info.plist
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: nil)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then only the master field is present; token forwarding is omitted entirely
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+            "auto_push_tracking=1;"
+        )
+    }
+
+    func testRegisterPushTokenHeaderForForwardingWithoutTracking() throws {
+        // Given only the forwarding key is set and enabled — the newly valid independent
+        // configuration where token forwarding is opted into without push tracking
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: nil, autoTokenForwarding: true)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then only the forwarding field is present, reporting enabled
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+            "auto_push_token_forwarding=1;"
+        )
+    }
+
+    func testRegisterPushTokenOmitsSdkFeaturesHeaderWhenAbsent() throws {
+        // Given the host has not set the Info.plist flag (legacy/manual integration)
+        environment.sdkFeatures = { nil }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertNil(request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"])
+    }
+
+    func testRegisterPushTokenOmitsSdkFeaturesHeaderWhenNoScopedFieldsConfigured() throws {
+        // Given a non-nil SdkFeatures whose scope yields no fields (both keys absent), exercising
+        // the guard-let path where headerValue(for:) itself returns nil rather than sdkFeatures().
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: nil, autoTokenForwarding: nil)
+        }
+        let endpoint = KlaviyoEndpoint.registerPushToken("test_api_key", PushTokenPayload.test)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertNil(request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"])
+    }
+
+    func testSdkFeaturesHeaderOnlyAttachesToRegisterPushToken() throws {
+        // Given the host has opted in, so the header would be produced where applicable
+        environment.sdkFeatures = {
+            SdkFeatures(autoPushTracking: true, autoTokenForwarding: true)
+        }
+
+        // Then no other endpoint carries the SDK-features header (some set their own
+        // headers, so only the SDK-features key is asserted absent)
+        let trackingLink = URL(string: "https://email.klaviyo.com/ct/test")!
+        let otherEndpoints: [KlaviyoEndpoint] = [
+            .createProfile("test_api_key", CreateProfilePayload(data: ProfilePayload.test)),
+            .createEvent(
+                "test_api_key",
+                CreateEventPayload(data: CreateEventPayload.Event(name: "test_event"))
+            ),
+            .unregisterPushToken(
+                "test_api_key",
+                UnregisterPushTokenPayload(pushToken: "test_token", anonymousId: "anon-id")
+            ),
+            .aggregateEvent("test_api_key", Data("test_payload".utf8)),
+            .fetchGeofences("test_api_key", latitude: 42.0, longitude: -71.0),
+            .resolveDestinationURL(trackingLink: trackingLink, profileInfo: ProfilePayload.test),
+            .logTrackingLinkClicked(
+                trackingLink: trackingLink,
+                clickTime: Date(),
+                profileInfo: ProfilePayload.test
+            )
+        ]
+        for endpoint in otherEndpoints {
+            let request = try endpoint.urlRequest()
+            XCTAssertNil(
+                request.allHTTPHeaderFields?["X-Klaviyo-Sdk-Features"],
+                "Unexpected SDK-features header on \(endpoint)"
+            )
+        }
+    }
+
     func testUnregisterPushTokenEndpointUrlRequest() throws {
         // Given
         let apiKey = "test_api_key"
@@ -282,5 +398,139 @@ final class KlaviyoEndpointTests: XCTestCase {
         let geofenceEventRequest = KlaviyoRequest(endpoint: geofenceEventEndpoint)
         let geofenceEventUrlRequest = try geofenceEventRequest.urlRequest(attemptInfo: attemptInfo)
         XCTAssertEqual(geofenceEventUrlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
+    }
+
+    // MARK: - Create Subscription Tests
+
+    func testCreateSubscriptionEndpointUrlRequest() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+
+        let body = try XCTUnwrap(request.httpBody)
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        XCTAssertNil(attributes["custom_source"])
+
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        XCTAssertNil(
+            profileAttrs["subscriptions"],
+            "omitting channels must omit subscriptions so the API can default to MARKETING"
+        )
+    }
+
+    func testCreateSubscriptionEndpointWithChannels() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.testWithChannels
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/client/subscriptions")
+        XCTAssertEqual(request.url?.query, "company_id=test_api_key")
+        XCTAssertNotNil(request.httpBody)
+
+        let body = try XCTUnwrap(request.httpBody, "createSubscription request must include an httpBody")
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+
+        let relationships = try XCTUnwrap(data["relationships"] as? [String: Any])
+        let list = try XCTUnwrap(relationships["list"] as? [String: Any])
+        let listData = try XCTUnwrap(list["data"] as? [String: Any])
+        XCTAssertEqual(listData["type"] as? String, "list")
+        XCTAssertEqual(listData["id"] as? String, "test-list-id")
+
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        XCTAssertNil(attributes["list_id"], "list must be a relationship, not a flat attribute")
+        XCTAssertNil(
+            attributes["subscriptions"],
+            "consent must be nested inside the profile, not at top level"
+        )
+        XCTAssertEqual(attributes["custom_source"] as? String, "unit-test")
+
+        // attributes.profile.data.attributes.subscriptions.email.marketing.consent == "SUBSCRIBED"
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        let subscriptions = try XCTUnwrap(profileAttrs["subscriptions"] as? [String: Any])
+
+        // Email: marketing + open_tracking.
+        let email = try XCTUnwrap(subscriptions["email"] as? [String: Any])
+        XCTAssertEqual((email["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((email["open_tracking"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+
+        // SMS: marketing + transactional.
+        let sms = try XCTUnwrap(subscriptions["sms"] as? [String: Any])
+        XCTAssertEqual((sms["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((sms["transactional"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+
+        // WhatsApp: marketing + transactional.
+        let whatsapp = try XCTUnwrap(subscriptions["whatsapp"] as? [String: Any])
+        XCTAssertEqual((whatsapp["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertEqual((whatsapp["transactional"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+    }
+
+    func testCreateSubscriptionEndpointWithPartialChannels() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.testWithPartialChannels
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+
+        // When
+        let request = try endpoint.urlRequest()
+
+        // Then
+        let body = try XCTUnwrap(request.httpBody, "createSubscription request must include an httpBody")
+        let jsonObject = try JSONSerialization.jsonObject(with: body, options: [])
+        let json = try XCTUnwrap(jsonObject as? [String: Any])
+        let data = try XCTUnwrap(json["data"] as? [String: Any])
+        let attributes = try XCTUnwrap(data["attributes"] as? [String: Any])
+        let profile = try XCTUnwrap(attributes["profile"] as? [String: Any])
+        let profileData = try XCTUnwrap(profile["data"] as? [String: Any])
+        let profileAttrs = try XCTUnwrap(profileData["attributes"] as? [String: Any])
+        let subscriptions = try XCTUnwrap(profileAttrs["subscriptions"] as? [String: Any])
+
+        // Only the requested sub-type is present.
+        let sms = try XCTUnwrap(subscriptions["sms"] as? [String: Any])
+        XCTAssertEqual((sms["marketing"] as? [String: Any])?["consent"] as? String, "SUBSCRIBED")
+        XCTAssertNil(sms["transactional"], "unrequested sms.transactional must be absent from the payload")
+
+        // Unrequested channels are entirely absent.
+        XCTAssertNil(subscriptions["email"], "unrequested email channel must be absent from the payload")
+        XCTAssertNil(subscriptions["whatsapp"], "unrequested whatsapp channel must be absent from the payload")
+    }
+
+    func testCreateSubscriptionEndpointRevision() throws {
+        // Given
+        let apiKey = "test_api_key"
+        let payload = CreateSubscriptionPayload.test
+        let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
+        let attemptInfo = try RequestAttemptInfo(attemptNumber: 1, maxAttempts: 50)
+        let request = KlaviyoRequest(endpoint: endpoint)
+
+        // When
+        let urlRequest = try request.urlRequest(attemptInfo: attemptInfo)
+
+        // Then
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "revision"), "2026-01-15")
     }
 }

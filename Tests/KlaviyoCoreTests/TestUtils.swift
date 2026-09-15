@@ -209,3 +209,39 @@ extension ProfilePayload {
         anonymousId: "foo"
     )
 }
+
+extension CreateSubscriptionPayload {
+    static let test = CreateSubscriptionPayload(
+        listId: "test-list-id",
+        profile: ProfilePayload(email: "test@example.com", anonymousId: "anon-id")
+    )
+
+    static let testWithChannels = CreateSubscriptionPayload(
+        listId: "test-list-id",
+        profile: ProfilePayload(
+            email: "test@example.com",
+            phoneNumber: "+15005550006",
+            subscriptions: SubscriptionChannels(
+                email: EmailConsent(marketing: .subscribed, openTracking: .subscribed),
+                sms: MarketingTransactionalConsent(marketing: .subscribed, transactional: .subscribed),
+                whatsapp: MarketingTransactionalConsent(marketing: .subscribed, transactional: .subscribed)
+            ),
+            anonymousId: "anon-id"
+        ),
+        customSource: "unit-test"
+    )
+
+    /// A single sub-type on a single channel, to verify partial combinations serialize correctly:
+    /// the requested sub-type is present and every unrequested channel/sub-type is absent.
+    static let testWithPartialChannels = CreateSubscriptionPayload(
+        listId: "test-list-id",
+        profile: ProfilePayload(
+            email: "test@example.com",
+            phoneNumber: "+15005550006",
+            subscriptions: SubscriptionChannels(
+                sms: MarketingTransactionalConsent(marketing: .subscribed)
+            ),
+            anonymousId: "anon-id"
+        )
+    )
+}

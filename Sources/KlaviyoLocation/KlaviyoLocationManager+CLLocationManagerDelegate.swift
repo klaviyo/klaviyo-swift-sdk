@@ -57,18 +57,18 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
 
     public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         Task { @MainActor in
-            await handleGeofenceEvent(region: region, eventType: .geofenceEnter)
+            handleGeofenceEvent(region: region, eventType: .geofenceEnter)
         }
     }
 
     public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         Task { @MainActor in
-            await handleGeofenceEvent(region: region, eventType: .geofenceExit)
+            handleGeofenceEvent(region: region, eventType: .geofenceExit)
         }
     }
 
     @MainActor
-    private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) async {
+    private func handleGeofenceEvent(region: CLRegion, eventType: Event.EventName.LocationEvent) {
         guard let region = region as? CLCircularRegion,
               let klaviyoGeofence = try? region.toKlaviyoGeofence(),
               !klaviyoGeofence.companyId.isEmpty else {
@@ -96,7 +96,7 @@ extension KlaviyoLocationManager: CLLocationManagerDelegate {
             properties: ["$geofence_id": klaviyoLocationId]
         )
 
-        await KlaviyoInternal.createGeofenceEvent(event: event, for: klaviyoGeofence.companyId)
+        GeofenceEventDispatch.dispatch(event: event, apiKey: klaviyoGeofence.companyId)
     }
 
     public func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {

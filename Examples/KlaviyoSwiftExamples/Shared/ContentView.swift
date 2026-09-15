@@ -71,6 +71,8 @@ class AppState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "email")
         UserDefaults.standard.removeObject(forKey: "zip")
         UserDefaults.standard.removeObject(forKey: "cartItems")
+
+        KlaviyoSDK().resetProfile()
     }
 
     func addToCart(_ item: MenuItem) {
@@ -81,6 +83,15 @@ class AppState: ObservableObject {
             "Items in Cart": cartItems.map(\.name)
         ]
         KlaviyoSDK().create(event: .init(name: .addedToCartMetric, properties: propertiesDictionary))
+    }
+
+    /// Grants marketing consent on every channel the tracked profile has an identifier for.
+    func subscribeToList(listId: String) {
+        KlaviyoSDK().create(
+            subscription: .allAvailableMarketing(
+                listId: listId
+            )
+        )
     }
 
     func removeFromCart(_ item: MenuItem) {

@@ -36,8 +36,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "KlaviyoAutomaticPushBootstrap",
+            path: "Sources/KlaviyoAutomaticPushBootstrap",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("UIKit")]
+        ),
+        .target(
             name: "KlaviyoCore",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable")],
+            dependencies: [
+                .product(name: "AnyCodable", package: "AnyCodable")
+            ],
             path: "Sources/KlaviyoCore"
         ),
         .testTarget(
@@ -51,7 +59,11 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwift",
-            dependencies: [.product(name: "AnyCodable", package: "AnyCodable"), "KlaviyoCore"],
+            dependencies: [
+                .product(name: "AnyCodable", package: "AnyCodable"),
+                "KlaviyoCore",
+                "KlaviyoAutomaticPushBootstrap"
+            ],
             path: "Sources/KlaviyoSwift",
             resources: [.copy("PrivacyInfo.xcprivacy")]
         ),
@@ -63,7 +75,8 @@ let package = Package(
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "CasePaths", package: "swift-case-paths"),
                 .product(name: "CombineSchedulers", package: "combine-schedulers"),
-                "KlaviyoCore"
+                "KlaviyoCore",
+                "KlaviyoAutomaticPushBootstrap"
             ],
             exclude: [
                 "__Snapshots__"
@@ -71,7 +84,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoForms",
-            dependencies: ["KlaviyoSwift"],
+            dependencies: ["KlaviyoCore"],
             path: "Sources/KlaviyoForms",
             resources: [
                 .process("InAppForms/Assets"),
@@ -99,7 +112,9 @@ let package = Package(
         .testTarget(
             name: "KlaviyoSwiftExtensionTests",
             dependencies: [
-                "KlaviyoSwiftExtension"
+                "KlaviyoSwiftExtension",
+                // Test-only: lets the allowlist parity test compare against the KlaviyoCore copy.
+                "KlaviyoCore"
             ]
         ),
         .target(

@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import KlaviyoSwift
+import KlaviyoCore
 
-extension KlaviyoSDK {
+extension KlaviyoSDKModule {
     /// Registers app to receive and display In-App Forms from Klaviyo.
     ///
     /// This will load forms data and establish ongoing listeners to present a form to the user
@@ -21,7 +21,7 @@ extension KlaviyoSDK {
     /// - Note: a public API key is required, so ``KlaviyoSDK().initialize(with:)`` must be called first. If the API key changes, the session will be re-initialized automatically with the new key.
     @MainActor
     @discardableResult
-    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> KlaviyoSDK {
+    public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
@@ -33,7 +33,7 @@ extension KlaviyoSDK {
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
     @discardableResult
-    public func unregisterFromInAppForms() -> KlaviyoSDK {
+    public func unregisterFromInAppForms() -> Self {
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.destroyWebviewAndListeners()
@@ -48,7 +48,8 @@ extension KlaviyoSDK {
     /// The handler will be invoked when:
     /// - A form is shown (``FormLifecycleEvent/formShown(formId:formName:)``)
     /// - A form is dismissed (``FormLifecycleEvent/formDismissed(formId:formName:)``)
-    /// - A user taps a CTA in a form (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
+    /// - A user taps a CTA in a form, whether it opens an in-app deep link or an external/system
+    ///   URL (``FormLifecycleEvent/formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``)
     ///
     /// Each event case carries contextual data including `formId`, `formName`, and
     /// CTA-specific fields (`buttonLabel`, `deepLinkUrl`) where applicable.
@@ -66,7 +67,8 @@ extension KlaviyoSDK {
     ///     case .formCtaClicked(let formId, let formName, let buttonLabel, let deepLinkUrl):
     ///         Analytics.track("Form CTA Clicked", properties: [
     ///             "formId": formId,
-    ///             "buttonLabel": buttonLabel
+    ///             "buttonLabel": buttonLabel,
+    ///             "url": deepLinkUrl.absoluteString
     ///         ])
     ///     }
     /// }
@@ -76,7 +78,7 @@ extension KlaviyoSDK {
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> KlaviyoSDK {
+    public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> Self {
         IAFPresentationManager.shared.registerFormLifecycleHandler(handler)
         return self
     }
@@ -86,7 +88,7 @@ extension KlaviyoSDK {
     /// - Returns: A KlaviyoSDK instance for chaining.
     @MainActor
     @discardableResult
-    public func unregisterFormLifecycleHandler() -> KlaviyoSDK {
+    public func unregisterFormLifecycleHandler() -> Self {
         IAFPresentationManager.shared.unregisterFormLifecycleHandler()
         return self
     }
