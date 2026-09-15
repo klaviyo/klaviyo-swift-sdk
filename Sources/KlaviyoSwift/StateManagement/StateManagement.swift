@@ -275,7 +275,9 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 let replacement = KlaviyoState.PendingRequest.automaticPushToken(pushToken, enablement)
                 if let index = state.pendingRequests.firstIndex(where: {
-                    if case .automaticPushToken = $0 { return true }
+                    if case .automaticPushToken = $0 {
+                        return true
+                    }
                     return false
                 }) {
                     state.pendingRequests[index] = replacement
@@ -323,18 +325,17 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            if state.pendingProfile != nil {
-                state.enqueueProfileOrTokenRequest()
-            }
-
-            if state.queue.isEmpty {
-                return .none
-            }
-
+            // Gate on the circuit breaker and per-request backoff *before* materializing a
+            // pending profile. `enqueueProfileOrTokenRequest()` consumes `pendingProfile` and can
+            // nil out `pushTokenData` (when it folds the pending profile into a token request
+            // instead), so calling it on a flush that's about to bail out early would silently
+            // drop that pending state — later `setProfileProperty` calls stop coalescing, and
+            // `setPushEnablement` no-ops until a subsequent token request happens to succeed.
             let circuitBreakerState = state.currentCircuitBreakerState()
             if circuitBreakerState == .open {
                 let remainingOpenInterval = state.circuitBreakerRemainingOpenInterval
                 return environment.timer(remainingOpenInterval)
+                    .first()
                     .map { _ in KlaviyoAction.flushQueue }
                     .eraseToEffect()
                     .cancellable(id: CircuitBreakerTimer.self, cancelInFlight: true)
@@ -353,6 +354,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 } else {
                     state.retryState = .retry(requestCount)
                 }
+            }
+
+            if state.pendingProfile != nil {
+                state.enqueueProfileOrTokenRequest()
+            }
+
+            if state.queue.isEmpty {
+                return .none
             }
 
             let requestCount = circuitBreakerState == .halfOpen ? 1 : state.queue.count
@@ -538,7 +547,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken
-                ))
+                )
+            )
 
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
             let request = KlaviyoRequest(endpoint: endpoint)

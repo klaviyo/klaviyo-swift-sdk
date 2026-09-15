@@ -384,6 +384,72 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
+    func testFlushQueueDoesNotConsumePendingProfileWhenCircuitBreakerOpen() throws {
+        // A pending profile property must survive a flush that bails out early because the
+        // breaker is open — enqueueProfileOrTokenRequest() consumes pendingProfile (and can nil
+        // out pushTokenData), so calling it before the breaker gate would silently drop that
+        // pending state on every gated flush until the breaker eventually closes.
+        //
+        // The default test `environment.timer` resolves immediately (`Just(Date())`), which for
+        // an *open* breaker would otherwise resend `.flushQueue` through TestStore over and over
+        // (each pass sees the same still-open breaker state) — so this drives the reducer
+        // directly instead, the same way the timer test below does, and never lets the resulting
+        // effect run.
+        var state = INITIALIZED_TEST_STATE()
+        state.flushing = false
+        let request = state.buildProfileRequest(apiKey: state.apiKey!, anonymousId: state.anonymousId!)
+        state.queue = [request]
+        state.pendingProfile = [.firstName: AnyEncodable("Klaviyo")]
+        state.circuitBreakerState = .open
+        state.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        state.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+
+        _ = KlaviyoReducer().reduce(into: &state, action: .flushQueue)
+
+        XCTAssertNotNil(
+            state.pendingProfile,
+            "A pending profile must not be consumed while the breaker is open"
+        )
+        XCTAssertEqual(state.queue, [request], "The queue must stay untouched while the breaker is open")
+    }
+
+    @MainActor
+    func testFlushQueueCircuitBreakerTimerFiresOnlyOnce() throws {
+        // `environment.timer` wraps a repeating `Timer.publish`, so a near-zero open interval (or
+        // any misbehaving publisher) can tick multiple times. The circuit-breaker effect must
+        // apply `.first()` so only the first tick redispatches `.flushQueue` — without it, every
+        // extra tick would redispatch `.flushQueue` again and hammer the reducer for as long as
+        // the breaker stays open.
+        //
+        // This drives the reducer directly (bypassing TestStore) because feeding a second
+        // `.flushQueue` back through TestStore would re-run this same effect-producing branch and
+        // recurse — the point here is only to count how many actions one `.flushQueue` effect
+        // itself emits, not to process what it sends.
+        environment.timer = { _ in [Date(), Date()].publisher.eraseToAnyPublisher() }
+
+        var state = INITIALIZED_TEST_STATE()
+        state.flushing = false
+        let request = state.buildProfileRequest(apiKey: state.apiKey!, anonymousId: state.anonymousId!)
+        state.queue = [request]
+        state.circuitBreakerState = .open
+        state.circuitBreakerFailureCount = StateManagementConstants.circuitBreakerFailureThreshold
+        state.circuitBreakerOpenUntil = environment.date().addingTimeInterval(30)
+
+        let effect = KlaviyoReducer().reduce(into: &state, action: .flushQueue)
+
+        var receivedActions: [KlaviyoAction] = []
+        let cancellable = effect.sink { receivedActions.append($0) }
+        defer { cancellable.cancel() }
+
+        // Combine delivers synchronously here (no async scheduler in play), so both mocked ticks
+        // have already been processed by the time `sink` returns.
+        XCTAssertEqual(
+            receivedActions, [.flushQueue],
+            "The circuit-breaker timer effect must emit exactly one `.flushQueue`, not one per tick"
+        )
+    }
+
+    @MainActor
     func testFlushQueueHoldsQueueAndReschedulesWhenCircuitBreakerOpen() async throws {
         let timerSubscribed = expectation(description: "circuit breaker timer subscribed")
         var requestedInterval: Double?
