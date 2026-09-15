@@ -5,18 +5,23 @@
 //  Created by Noah Durell on 12/21/22.
 //
 
+@testable import KlaviyoCore
 import Combine
-import CombineSchedulers
 import Foundation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
-import KlaviyoCore
 
 final class StateChangePublisherTests: XCTestCase {
     @MainActor
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
+        LifecycleState.shared.reset()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        LifecycleState.shared.reset()
     }
 
     // NOTE: the former `testStateChangePublisher`, `testStateChangeDuplicateAreRemoved`, and
@@ -29,25 +34,28 @@ final class StateChangePublisherTests: XCTestCase {
     func testInternalStatePublisherEmitsAfterInitialization() throws {
         let expectation = XCTestExpectation(description: "internalStatePublisher emits state")
 
-        // `KlaviyoState.test` starts initialized with `email: "test@test.com"`.
-        // Wire the testStore's state as the source so `internalStatePublisher` sees it.
-        let testStore = Store(initialState: KlaviyoState.test, reducer: KlaviyoTestReducer())
-        let previousStatePublisher = klaviyoSwiftEnvironment.statePublisher
-        defer { klaviyoSwiftEnvironment.statePublisher = previousStatePublisher }
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
+        // Seed the canonical identity store, then advance the lifecycle to `.initialized` so the
+        // publisher (gated on `.initialized`) emits.
+        IdentityStore.shared.update(ProfileData(
+            email: "test@test.com",
+            anonymousId: environment.uuid().uuidString
+        ))
+        LifecycleState.shared.beginInitializing()
 
         var cancellables = Set<AnyCancellable>()
         StateChangePublisher.internalStatePublisher()
             .first()
             .sink { privateState in
-                // Verify the publisher projects state correctly.
-                XCTAssertEqual(privateState.email, KlaviyoState.test.email)
+                // Verify the publisher projects identity correctly.
+                XCTAssertEqual(privateState.email, "test@test.com")
                 XCTAssertNotNil(privateState.anonymousId)
                 expectation.fulfill()
             }
             .store(in: &cancellables)
+
+        // Transition to `.initialized` after subscribing so the `.filter { $0.2 == .initialized }`
+        // gate opens and the CombineLatest3 delivers.
+        LifecycleState.shared.completeInitialization()
 
         wait(for: [expectation], timeout: 1.0)
     }

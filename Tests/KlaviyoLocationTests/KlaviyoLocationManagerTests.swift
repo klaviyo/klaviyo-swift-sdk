@@ -38,25 +38,16 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         // Set up environment with mock authorization status BEFORE creating location manager
         environment = createMockEnvironment()
 
-        // Set up state publisher BEFORE creating location manager
-        let initialState = KlaviyoState()
-        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
-
+        // Drive the KlaviyoCore config store (what the migrated observer reads) so api-key-change
+        // tests exercise the real observation path.
         mockApiKeyPublisher
             .compactMap { $0 }
             .sink { apiKey in
-                // Drive the KlaviyoCore config store (what the migrated observer reads) alongside the
-                // TCA store, so api-key-change tests exercise the real observation path.
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-                _ = testStore.send(.initialize(apiKey))
             }
             .store(in: &cancellables)
 
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
-
-        // Create location manager AFTER setting up environment and state publisher
+        // Create location manager AFTER setting up environment and config store
         locationManager = MockKlaviyoLocationManager(locationManager: mockLocationManager)
         locationManager.reset()
     }

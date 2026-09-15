@@ -7,15 +7,31 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 import UIKit
 
 @_spi(KlaviyoPrivate)
 public enum StateChangePublisher {
-    private static func createStatePublisher() -> AnyPublisher<KlaviyoState, Never> {
-        klaviyoSwiftEnvironment.statePublisher()
-            .filter { state in state.initalizationState == .initialized }
-            .removeDuplicates()
-            .eraseToAnyPublisher()
+    /// Assembles the private state feed from the canonical Core publishers (identity + token) gated
+    /// on the SDK having reached `.initialized`. Replaces the old TCA `statePublisher()` seam.
+    private static func createStatePublisher() -> AnyPublisher<PrivateState, Never> {
+        Publishers.CombineLatest3(
+            IdentityStore.shared.publisher,
+            IdentityStore.shared.tokenPublisher,
+            LifecycleState.shared.publisher
+        )
+        .filter { $0.2 == .initialized }
+        .map { profile, token, _ in
+            PrivateState(
+                email: profile.email,
+                anonymousId: profile.anonymousId,
+                phoneNumber: profile.phoneNumber,
+                externalId: profile.externalId,
+                pushToken: token?.pushToken
+            )
+        }
+        .removeDuplicates()
+        .eraseToAnyPublisher()
     }
 
     @_spi(KlaviyoPrivate)
@@ -30,15 +46,5 @@ public enum StateChangePublisher {
     @_spi(KlaviyoPrivate)
     public static func internalStatePublisher() -> AnyPublisher<PrivateState, Never> {
         createStatePublisher()
-            .map { state in
-                PrivateState(
-                    email: state.email,
-                    anonymousId: state.anonymousId,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId,
-                    pushToken: state.pushTokenData?.pushToken
-                )
-            }
-            .eraseToAnyPublisher()
     }
 }

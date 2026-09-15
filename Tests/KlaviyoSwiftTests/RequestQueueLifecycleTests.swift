@@ -4,9 +4,9 @@
 //
 //  Created by Isobelle Lim on 9/11/26.
 //
-//  Wiring coverage for the MAGE-1197 cutover: every reducer flush/lifecycle trigger drives the Core
-//  `RequestQueue` actor (via `klaviyoSwiftEnvironment.requestQueue`) rather than dispatching the (now
-//  dead) reducer flush-engine actions. A `SpyRequestQueue` double records the actor interactions;
+//  Wiring coverage for the MAGE-904 cutover: every flush/lifecycle trigger drives the Core
+//  `RequestQueue` actor (via `klaviyoSwiftEnvironment.requestQueue`) through the direct
+//  `KlaviyoOrchestration` functions. A `SpyRequestQueue` double records the actor interactions;
 //  because it never touches `QueueStore`, tests that assert queue contents stay deterministic.
 //
 
@@ -22,28 +22,38 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        LifecycleState.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         spyQueue = SpyRequestQueue()
         klaviyoSwiftEnvironment.requestQueue = spyQueue
     }
 
     override func tearDown() async throws {
+        LifecycleState.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         try await super.tearDown()
     }
 
-    /// Installs a finite lifecycle publisher so the long-lived `completeInitialization` effect
-    /// iterates the given events and then terminates (letting `store.finish()` complete).
+    /// Installs a finite lifecycle publisher so the long-lived `runLifecycle` loop iterates the
+    /// given events and then terminates (letting `completeInitialization` return).
     private func installLifecycle(_ events: [LifeCycleEvents]) {
         environment.appLifeCycle.lifeCycleEvents = {
             Publishers.Sequence(sequence: events).eraseToAnyPublisher()
         }
     }
 
+    /// Seeds a `.initializing` lifecycle + apiKey/identity so `completeInitialization` runs its
+    /// launch kickoff + lifecycle loop exactly as production would after `initialize()`.
+    private func seedInitializing(apiKey: String, anonymousId: String) {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(ProfileData(anonymousId: anonymousId))
+        LifecycleState.shared.beginInitializing()
+    }
+
     // MARK: - completeInitialization launch + lifecycle
 
-    /// Launch kickoff (no further lifecycle events): actor `start` called, `.setPushEnablement`
-    /// dispatched, and the badge side effect runs (autoclearing → setBadgeCount(0)).
+    /// Launch kickoff (no further lifecycle events): actor `start` called, push enablement synced,
+    /// and the badge side effect runs (autoclearing → setBadgeCount(0)).
     func testCompleteInitializationLaunchStartsQueueAndSyncsPush() async throws {
         let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) on launch")
         BadgeManager.setBadgeCountSpy = { count in
@@ -52,21 +62,8 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         environment.getBadgeAutoClearingSetting = { true }
         installLifecycle([]) // finite empty stream → loop ends immediately after launch kickoff
 
-        IdentityStore.shared.update(ProfileData(anonymousId: "anon-launch"))
-        let store = TestStore(
-            initialState: KlaviyoState(
-                apiKey: "fake-key", initalizationState: .initializing
-            ),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
-
-        _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-launch")
-        ))
-        // Long-lived effect: launch kickoff → setPushEnablement → badge, then the finite stream ends.
-        await store.receive(.setPushEnablement(.authorized))
-        await store.finish()
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-launch")
+        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
 
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 1, "launch kickoff starts the actor once")
@@ -81,19 +78,8 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         environment.getBadgeAutoClearingSetting = { true }
         installLifecycle([.foregrounded])
 
-        IdentityStore.shared.update(ProfileData(anonymousId: "anon-fg"))
-        let store = TestStore(
-            initialState: KlaviyoState(
-                apiKey: "fake-key", initalizationState: .initializing
-            ),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
-
-        _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-fg")
-        ))
-        await store.finish()
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-fg")
+        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
 
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 2, "launch + one foreground → two start calls")
@@ -107,19 +93,8 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         environment.getBadgeAutoClearingSetting = { true }
         installLifecycle([.backgrounded, .terminated])
 
-        IdentityStore.shared.update(ProfileData(anonymousId: "anon-bg"))
-        let store = TestStore(
-            initialState: KlaviyoState(
-                apiKey: "fake-key", initalizationState: .initializing
-            ),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
-
-        _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-bg")
-        ))
-        await store.finish()
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-bg")
+        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
 
         let stopCount = await spyQueue.getStopCount()
         XCTAssertEqual(stopCount, 2, "background + terminate → two stop calls")
@@ -136,19 +111,8 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
             .reachabilityChanged(status: .notReachable)
         ])
 
-        IdentityStore.shared.update(ProfileData(anonymousId: "anon-reach"))
-        let store = TestStore(
-            initialState: KlaviyoState(
-                apiKey: "fake-key", initalizationState: .initializing
-            ),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
-
-        _ = await store.send(.completeInitialization(
-            KlaviyoState(apiKey: "fake-key", anonymousId: "anon-reach")
-        ))
-        await store.finish()
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-reach")
+        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
 
         let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.reachableViaWWAN, .notReachable])
@@ -156,22 +120,26 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
     // MARK: - Company switch
 
-    /// A runtime company switch prompts an immediate actor flush (instead of dispatching `.flushQueue`).
+    /// A runtime company switch prompts an immediate actor flush.
     func testCompanySwitchTriggersFlushNow() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
+        let apiKey = TEST_API_KEY
         let newApiKey = "new-api-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "blob_token",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
         seedTestQueueStore()
+        // Advance to `.initialized` so `initialize` takes the runtime-company-switch branch.
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
 
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.initialize(newApiKey)) {
-            $0.apiKey = newApiKey
-        }
-        await store.finish()
+        KlaviyoOrchestration.initialize(newApiKey)
+        // The flush is dispatched on an unstructured Task; give it a beat to reach the spy.
+        try await waitFor { await self.spyQueue.getFlushNowCount() == 1 }
 
         let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "company switch prompts one immediate actor flush")
@@ -181,44 +149,34 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
     /// A high-priority event prompts an immediate actor flush; a standard event does NOT.
     func testHighPriorityEventTriggersFlushNowStandardDoesNot() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
-        IdentityStore.shared.update(initialState.identity)
-        IdentityStore.shared.updatePushToken(initialState.pushTokenData)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
         seedTestQueueStore()
-
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
 
         // Standard event: no flush.
-        _ = await store.send(.enqueueEvent(Event(name: .customEvent("standard"))))
-        await store.finish()
+        KlaviyoOrchestration.enqueueEvent(Event(name: .customEvent("standard")))
+        try await Task.sleep(nanoseconds: 100_000_000)
         var flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 0, "standard event does not trigger an immediate flush")
 
         // High-priority event: one flush.
-        _ = await store.send(.enqueueEvent(Event(name: ._openedPush, priority: .high)))
-        await store.finish()
+        KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
+        try await waitFor { await self.spyQueue.getFlushNowCount() == 1 }
         flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate flush")
     }
 
     // MARK: - setProfileProperty staging
 
-    /// `setProfileProperty` stages into `ProfilePropertyBuffer` (the reducer holds no pending-profile).
+    /// `setProfileProperty` stages into `ProfilePropertyBuffer`.
     func testSetProfilePropertyStagesIntoBuffer() async throws {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-stage" }
         seedTestQueueStore()
 
-        let store = TestStore(
-            initialState: INITIALIZED_TEST_STATE(),
-            reducer: KlaviyoReducer()
-        )
-        store.exhaustivity = .off
-
-        // The reducer no longer holds a pending-profile field; staging lands in the buffer only.
-        _ = await store.send(.setProfileProperty(.firstName, AnyEncodable("Blob")))
+        KlaviyoOrchestration.setProfileProperty(.firstName, AnyEncodable("Blob"))
 
         // `flushIntoQueue` only ENQUEUES (it never calls `klaviyoAPI.send`), so inspect the QueueStore
         // directly and assert the staged property was folded into the enqueued request's payload.
@@ -237,5 +195,18 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
             firstNames.contains("Blob"),
             "staged firstName must be folded into a queued createProfile/registerPushToken payload"
         )
+    }
+
+    /// Polls `condition` until true or a short timeout, then returns. Bridges the async unstructured
+    /// `Task { flushNow() }` hops the orchestration launches for high-priority/company-switch flushes.
+    private func waitFor(
+        timeout: TimeInterval = 2.0,
+        _ condition: @escaping () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await condition() { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
     }
 }

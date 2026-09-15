@@ -8,7 +8,7 @@ import Foundation
 import KlaviyoCore
 import XCTest
 
-/// Regression coverage for out-of-order action dispatch through `dispatchOnMainThread`.
+/// Regression coverage for out-of-order work dispatch through `dispatchOnMainThread`.
 @MainActor
 final class DispatchOrderingTests: XCTestCase {
     private var savedCoreEnvironment: KlaviyoEnvironment!
@@ -20,38 +20,39 @@ final class DispatchOrderingTests: XCTestCase {
         savedEnvironment = klaviyoSwiftEnvironment
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
+        LifecycleState.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
     }
 
     override func tearDown() {
         environment = savedCoreEnvironment
         klaviyoSwiftEnvironment = savedEnvironment
+        LifecycleState.shared.reset()
         super.tearDown()
     }
 
-    /// Consecutive dispatches must reduce in call order. Iterated because the pre-fix
-    /// implementation inverted probabilistically (~8% per pair on device).
+    /// Consecutive dispatches must run in call order. Iterated because the pre-fix implementation
+    /// inverted probabilistically (~8% per pair on device).
     func testConsecutiveDispatchesPreserveCallOrder() async {
         let iterations = 250
 
         for iteration in 0..<iterations {
-            let bothReduced = expectation(description: "both actions reduced (iteration \(iteration))")
+            let bothRan = expectation(description: "both closures ran (iteration \(iteration))")
             let lock = NSLock()
             var observed: [String] = []
 
-            klaviyoSwiftEnvironment.send = { action in
+            func record(_ label: String) {
                 lock.lock()
-                observed.append(action.orderingLabel)
+                observed.append(label)
                 let isComplete = observed.count == 2
                 lock.unlock()
-                if isComplete { bothReduced.fulfill() }
-                return nil
+                if isComplete { bothRan.fulfill() }
             }
 
-            dispatchOnMainThread(action: .setEmail("first@example.com"))
-            dispatchOnMainThread(action: .setPhoneNumber("+15005550006"))
+            dispatchOnMainThread { record("setEmail") }
+            dispatchOnMainThread { record("setPhoneNumber") }
 
-            await fulfillment(of: [bothReduced], timeout: 2.0)
+            await fulfillment(of: [bothRan], timeout: 2.0)
 
             lock.lock()
             let result = observed
@@ -60,49 +61,33 @@ final class DispatchOrderingTests: XCTestCase {
             XCTAssertEqual(
                 result,
                 ["setEmail", "setPhoneNumber"],
-                "actions must reduce in call order (iteration \(iteration))"
+                "closures must run in call order (iteration \(iteration))"
             )
         }
     }
 
-    /// `initialize` and `dispatchOnMainThread` share `DispatchQueue.main`, so FIFO ordering
-    /// keeps `.initialize` ahead of a following `set(email:)`, which requires initialization.
+    /// `initialize` and `dispatchOnMainThread` share `DispatchQueue.main`, so FIFO ordering keeps the
+    /// `initialize` work ahead of a following `set(email:)`, which depends on initialization. After
+    /// both public calls settle, the SDK is initialized and the email has been applied to the
+    /// canonical identity store.
     func testDispatchAfterInitializeIsNotReorderedBeforeInitialize() async {
-        let bothReduced = expectation(description: "initialize and setEmail both reduced")
-        let lock = NSLock()
-        var observed: [String] = []
-
-        klaviyoSwiftEnvironment.send = { action in
-            lock.lock()
-            switch action {
-            case .initialize: observed.append("initialize")
-            case .setEmail: observed.append("setEmail")
-            default: break
-            }
-            let done = observed.count == 2
-            lock.unlock()
-            if done { bothReduced.fulfill() }
-            return nil
-        }
-
         _ = KlaviyoSDK().initialize(with: "test-key")
         _ = KlaviyoSDK().set(email: "a@b.com")
 
-        await fulfillment(of: [bothReduced], timeout: 2.0)
-
-        lock.lock()
-        let result = observed
-        lock.unlock()
-        XCTAssertEqual(result, ["initialize", "setEmail"], "setEmail must not reduce before initialize")
-    }
-}
-
-extension KlaviyoAction {
-    fileprivate var orderingLabel: String {
-        switch self {
-        case .setEmail: return "setEmail"
-        case .setPhoneNumber: return "setPhoneNumber"
-        default: return "other"
+        // Both closures hop through the shared main queue; wait for them to drain and for the async
+        // initialize tail to settle the lifecycle + identity.
+        let settled = expectation(description: "email applied after initialize")
+        func poll() {
+            if IdentityStore.shared.current.email == "a@b.com" {
+                settled.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { poll() }
+            }
         }
+        poll()
+        await fulfillment(of: [settled], timeout: 2.0)
+
+        XCTAssertEqual(IdentityStore.shared.current.email, "a@b.com")
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "test-key")
     }
 }

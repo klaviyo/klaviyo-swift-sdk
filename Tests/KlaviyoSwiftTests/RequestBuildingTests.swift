@@ -9,31 +9,35 @@
 @testable import KlaviyoSwift
 import XCTest
 
-/// Parity tests: each free function in `RequestBuilding.swift` must produce the same output as the
-/// corresponding `KlaviyoState` method for identical inputs.
+/// Coverage for the free functions in `RequestBuilding.swift`. The `KlaviyoState`-method parity
+/// comparison (Task 3) was retired with the type in Task 5; these now assert the builders against
+/// the production `RequestFactory` construction path directly.
 class RequestBuildingTests: StateManagementTestCase {
     private let apiKey = "test-api-key"
     private let anonymousId = "test-anon-id"
 
     // MARK: - requestIdentity
 
-    func testRequestIdentityMatchesLegacy() {
+    func testRequestIdentityCarriesAllIdentifiers() {
         let identity = ProfileData(
             email: "a@b.com",
             phoneNumber: "+15005550006",
             externalId: "ext-1",
             anonymousId: anonymousId
         )
-        let newResult = requestIdentity(identity, apiKey: apiKey, anonymousId: anonymousId)
-        var legacyState = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId)
-        legacyState.identity = identity
-        let legacyResult = legacyState.requestIdentity(apiKey: apiKey, anonymousId: anonymousId)
-        XCTAssertEqual(newResult, legacyResult)
+        let result = requestIdentity(identity, apiKey: apiKey, anonymousId: anonymousId)
+        XCTAssertEqual(result, RequestIdentity(
+            apiKey: apiKey,
+            anonymousId: anonymousId,
+            email: "a@b.com",
+            phoneNumber: "+15005550006",
+            externalId: "ext-1"
+        ))
     }
 
     // MARK: - profilePayload
 
-    func testProfilePayloadMatchesLegacy() {
+    func testProfilePayloadReadsIdentifiersFromIdentity() {
         let identity = ProfileData(
             email: "a@b.com",
             phoneNumber: "+15005550006",
@@ -41,46 +45,54 @@ class RequestBuildingTests: StateManagementTestCase {
             anonymousId: anonymousId
         )
         let profile = Profile.test
-        let newResult = profilePayload(from: profile, identity: identity, anonymousId: anonymousId)
-        var legacyState = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId)
-        legacyState.identity = identity
-        let legacyResult = legacyState.profilePayload(from: profile, anonymousId: anonymousId)
-        XCTAssertEqual(newResult, legacyResult)
+        let result = profilePayload(from: profile, identity: identity, anonymousId: anonymousId)
+        let expected = ProfilePayload(
+            profile,
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
+            anonymousId: anonymousId
+        )
+        XCTAssertEqual(result, expected)
     }
 
     // MARK: - resolvedTokenRequest
 
-    func testResolvedTokenRequestMatchesLegacy() {
+    func testResolvedTokenRequestMatchesFactory() {
         let identity = ProfileData(
             email: "a@b.com",
             phoneNumber: nil,
             externalId: nil,
             anonymousId: anonymousId
         )
-        let newResult = resolvedTokenRequest(
+        let result = resolvedTokenRequest(
             identity: identity,
             apiKey: apiKey,
             anonymousId: anonymousId,
             pushToken: "tok",
             enablement: .authorized
         )
-        var legacyState = KlaviyoState(apiKey: apiKey, email: "a@b.com", anonymousId: anonymousId)
-        legacyState.identity = identity
-        let legacyResult = legacyState.resolvedTokenRequest(
+        let identityProfile = Profile(
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId
+        )
+        let expected = RequestFactory.tokenRequest(
             apiKey: apiKey,
-            anonymousId: anonymousId,
             pushToken: "tok",
-            enablement: .authorized
+            enablement: .authorized,
+            background: environment.getBackgroundSetting().rawValue,
+            profile: ProfilePayload(identityProfile, anonymousId: anonymousId)
         )
         // KlaviyoRequest.== compares id + endpoint. Both ids are the deterministic test UUID
         // (environment.uuid() is stubbed), so this asserts full-request parity including the
         // embedded PushTokenPayload — stronger than endpoint-only comparison.
-        XCTAssertEqual(newResult, legacyResult)
+        XCTAssertEqual(result, expected)
     }
 
     // MARK: - buildSubscriptionPayload
 
-    func testBuildSubscriptionPayloadMatchesLegacy() {
+    func testBuildSubscriptionPayloadBuildsWhenIdentified() {
         let identity = ProfileData(
             email: "a@b.com",
             phoneNumber: "+15005550006",
@@ -91,18 +103,12 @@ class RequestBuildingTests: StateManagementTestCase {
             listId: "list-123",
             channels: .init(email: .marketing, sms: .marketing)
         )
-        let newResult = buildSubscriptionPayload(
+        let result = buildSubscriptionPayload(
             identity: identity,
             anonymousId: anonymousId,
             subscription: subscription
         )
-        var legacyState = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId)
-        legacyState.identity = identity
-        let legacyResult = legacyState.buildSubscriptionPayload(
-            anonymousId: anonymousId,
-            subscription: subscription
-        )
-        XCTAssertEqual(newResult, legacyResult)
+        XCTAssertNotNil(result, "an identified profile builds a subscription payload")
     }
 
     func testBuildSubscriptionPayloadNilWhenNoIdentifiers() {
@@ -113,13 +119,6 @@ class RequestBuildingTests: StateManagementTestCase {
             anonymousId: anonymousId,
             subscription: subscription
         )
-        var legacyState = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId)
-        legacyState.identity = identity
-        let legacyResult = legacyState.buildSubscriptionPayload(
-            anonymousId: anonymousId,
-            subscription: subscription
-        )
-        XCTAssertNil(result)
-        XCTAssertEqual(result, legacyResult)
+        XCTAssertNil(result, "no identifiers → no subscription payload")
     }
 }
