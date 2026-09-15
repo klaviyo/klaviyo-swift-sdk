@@ -113,7 +113,6 @@ public actor RequestQueue {
     private func flush() async {
         // Gate: pre-init or offline.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
-        // Reentrancy guard: a `flushNow()` must not interleave with an in-progress flush.
         guard !isFlushing else { return }
         isFlushing = true
         defer { isFlushing = false }
@@ -264,11 +263,10 @@ public actor RequestQueue {
             return .stopFlush
 
         case let .retryWithBackoff(newState):
-            // Rate-limit / server error. Record the backoff; the countdown gate waits it out then
+            // Rate-limit / server error: record the backoff; the countdown gate waits it out, then
             // resends. If past `maxRetries`, drop the head and reset to `.retry(initialAttempt)`.
-            // This DELIBERATELY diverges from the reducer's `.retryWithBackoff(requestCount: 0)`
-            // reset — under the countdown gate that promotes to `.retry(0)`, which
-            // `RequestAttemptInfo` rejects → a permanent stall. Do NOT restore that parity.
+            // The count is used raw as the attempt number, so the reset must be `initialAttempt`,
+            // never `0` — `.retry(0)` is rejected by `RequestAttemptInfo` → permanent stall.
             retryState = newState
             if case let .retryWithBackoff(requestCount, _, _) = newState,
                requestCount > head.endpoint.maxRetries {

@@ -44,9 +44,6 @@ struct KlaviyoState: Equatable {
     }
 
     var pushTokenData: PushTokenData?
-
-    // The durable pending queue lives in the shared Core `QueueStore`; the flush/retry engine is
-    // the Core `RequestQueue` actor. `KlaviyoState` no longer holds any queueing/flush fields.
     var initalizationState = InitializationState.uninitialized
 
     init(
@@ -118,9 +115,6 @@ struct KlaviyoState: Equatable {
             anonymousId = IdentityStore.shared.mintNewAnonymousId()
         }
         let previousPushTokenData = pushTokenData
-        // Drop staged profile properties along with the identity being cleared — parity with the old
-        // reducer, which cleared `pendingProfile` here. Without this, properties staged via
-        // `setProfileProperty` survive a reset and leak onto the next identity on the next flush.
         ProfilePropertyBuffer.shared.reset()
         email = nil
         externalId = nil
