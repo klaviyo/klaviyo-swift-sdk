@@ -19,6 +19,7 @@
 import AnyCodable
 import Foundation
 import KlaviyoCore
+import OSLog
 
 /// Namespace for direct orchestration functions that mirror the identity-setter reducer cases.
 enum KlaviyoOrchestration {
@@ -258,6 +259,85 @@ enum KlaviyoOrchestration {
               )
         else { return }
         RequestEnqueuer.enqueueSubscription(payload: payload)
+    }
+
+    // MARK: - Event & tracking-link orchestration
+
+    /// Enqueues an event via `RequestEnqueuer` (always, even pre-init).
+    ///
+    /// Post-`initialized` only: stamps the current canonical identity onto a copy of the event,
+    /// then publishes it to `EventBus` (drives event-triggered in-app forms). High-priority events
+    /// additionally trigger an immediate `flushNow()` on the Core request-queue actor.
+    ///
+    /// ⚠️ Gate distinction: the publish + flush are gated on STRICT `.initialized`
+    /// (`LifecycleState.shared.current == .initialized`), NOT the `.initializing` boundary used by
+    /// the identity setters. This matches the old reducer's `guard case .initialized = state`.
+    static func enqueueEvent(_ event: Event) {
+        RequestEnqueuer.enqueueEvent(event)
+        guard LifecycleState.shared.current == .initialized else { return }
+        let identity = IdentityStore.shared.current
+        let publishedEvent = event.updateEventWithIdentifiers(
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
+            pushToken: IdentityStore.shared.pushToken?.pushToken
+        )
+        // Preserve fireAndForget semantics: publish asynchronously so an EventBus subscriber
+        // cannot re-enter this call synchronously. `enrichAndPublishEvent` is a plain function
+        // (no actor isolation), so `Task.detached` is the right async boundary.
+        if event.priority == .high {
+            Task { await klaviyoSwiftEnvironment.requestQueue.flushNow() }
+        }
+        Task.detached { enrichAndPublishEvent(publishedEvent) }
+    }
+
+    /// Enqueues an aggregate-event payload directly via `RequestEnqueuer`. No init gate.
+    static func enqueueAggregateEvent(_ payload: Data) {
+        RequestEnqueuer.enqueueAggregateEvent(payload)
+    }
+
+    /// Receives a Klaviyo click-tracking URL, resolves it to its destination via
+    /// `TrackingLinkManager`, and either opens the destination or enqueues a click-log.
+    ///
+    /// - Stamps `clickTime` before the async network call (parity with reducer's `environment.date()`).
+    /// - Reads identity from `IdentityStore.shared.current` (parity: reducer read from state).
+    /// - Resolution is NOT init-gated (matches the reducer — tracking-link opens can happen
+    ///   even before `initialize()` completes).
+    static func trackingLinkReceived(_ url: URL) {
+        let clickTime = environment.date()
+        if #available(iOS 14.0, *) {
+            Logger.stateLogger.info(
+                "Attempting to resolve tracking link destination from tracking URL '\(url.absoluteString)'"
+            )
+        }
+        let identity = IdentityStore.shared.current
+        let profileInfo = ProfilePayload(
+            email: identity.email,
+            phoneNumber: identity.phoneNumber,
+            externalId: identity.externalId,
+            anonymousId: identity.anonymousId ?? ""
+        )
+        Task {
+            let outcome = await TrackingLinkManager.resolveDestination(
+                trackingLink: url,
+                profileInfo: profileInfo
+            )
+            switch outcome {
+            case let .resolved(destinationURL):
+                await DeepLinkManager.openDeepLink(destinationURL)
+            case .failed:
+                trackingLinkResolutionFailed(trackingLink: url, clickTime: clickTime)
+            }
+        }
+    }
+
+    /// Enqueues a tracking-link click-log request via `RequestEnqueuer`.
+    ///
+    /// Identity is resolved inside `RequestEnqueuer.enqueueTrackingLinkClicked` from the canonical
+    /// `IdentityStore`. Uses the ungated enqueuer: routes to `QueueStore` when an apiKey is present,
+    /// or buffers durably pre-init.
+    static func trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date) {
+        RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
     }
 
     // MARK: - Private helpers
