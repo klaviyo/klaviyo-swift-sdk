@@ -100,7 +100,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
     /// Initialized: event must be enqueued into QueueStore via `RequestEnqueuer`.
     @MainActor
     func testEnqueueEventPostInitRoutesToQueueStore() {
-        let (apiKey, anonymousId, _) = seedPostInit()
+        let (apiKey, _, _) = seedPostInit()
         let readQueue = seedTestQueueStore()
 
         let event = Event(name: .customEvent("test-event"))
@@ -113,7 +113,6 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             return XCTFail("expected createEvent, got \(queued.first?.endpoint as Any)")
         }
         XCTAssertEqual(queuedApiKey, apiKey)
-        _ = anonymousId // used indirectly by RequestEnqueuer reading IdentityStore
     }
 
     // MARK: - enqueueEvent: strict .initialized gate (publish + flush)
@@ -278,7 +277,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
 
     /// On success, the destination URL must be forwarded to `DeepLinkManager.openDeepLink`.
     @MainActor
-    func testTrackingLinkReceivedResolutionSuccessOpensDeeepLink() async throws {
+    func testTrackingLinkReceivedResolutionSuccessOpensDeepLink() async throws {
         seedPreInit()
         seedTestQueueStore()
 
@@ -309,7 +308,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
     /// On failure, a tracking-link click-log request must be enqueued via `RequestEnqueuer`.
     @MainActor
     func testTrackingLinkReceivedResolutionFailureEnqueuesClickLog() async throws {
-        let _ = seedPostInit()
+        seedPostInit()
         let readQueue = seedTestQueueStore()
 
         let trackingURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
@@ -321,18 +320,27 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .failure(.networkError(NSError(domain: "test", code: NSURLErrorCancelled)))
         }
 
+        // Call BEFORE starting the poll so the async Task has been enqueued in the cooperative
+        // thread pool and cannot fulfill the expectation vacuously before trackingLinkReceived fires.
+        KlaviyoOrchestration.trackingLinkReceived(trackingURL)
+
         let clickLogged = expectation(description: "click-log request enqueued")
-        // Poll via Task.sleep since async assertion must happen after Task inside trackingLinkReceived.
+        // Poll until QueueStore is non-empty. trackingLinkResolutionFailed → RequestEnqueuer →
+        // QueueStore.enqueue is synchronous once the Task body runs; the poll just waits for
+        // the cooperative scheduler to run the Task. Guard before fulfill so a timeout is a
+        // loud failure instead of a vacuous pass.
         Task {
             var waited = 0
             while readQueue().isEmpty, waited < 40 {
                 try? await Task.sleep(nanoseconds: 50_000_000)
                 waited += 1
             }
+            guard !readQueue().isEmpty else {
+                XCTFail("click-log not enqueued within timeout — trackingLinkResolutionFailed path broken")
+                return
+            }
             clickLogged.fulfill()
         }
-
-        KlaviyoOrchestration.trackingLinkReceived(trackingURL)
 
         await fulfillment(of: [clickLogged], timeout: 3.0)
 
