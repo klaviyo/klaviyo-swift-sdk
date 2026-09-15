@@ -72,13 +72,15 @@ enum KlaviyoOrchestration {
                 // is distinct from the prior identified one.
                 profile.anonymousId = IdentityStore.shared.mintNewAnonymousId()
             }
-            // Clear staged profile properties (mirrors KlaviyoState.reset).
-            ProfilePropertyBuffer.shared.reset()
             // Clear all PII. anonymousId stays (freshly minted or was already anonymous).
             profile.email = nil
             profile.phoneNumber = nil
             profile.externalId = nil
         }
+        // Clear staged profile properties (mirrors KlaviyoState.reset).
+        // Must run AFTER mutate returns — keep the mutate closure purely identity-focused
+        // and avoid an unrelated side effect running while the write-lock is held.
+        ProfilePropertyBuffer.shared.reset()
 
         guard let tokenData = tokenBeforeReset else { return }
         // Re-register the token under the new anonymous identity. Uses the ungated

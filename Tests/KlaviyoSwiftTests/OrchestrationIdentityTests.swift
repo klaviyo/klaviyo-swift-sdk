@@ -325,22 +325,42 @@ class OrchestrationIdentityTests: StateManagementTestCase {
     @MainActor
     func testResetProfileClearsStagedProfileProperties() {
         seedPostInitWithToken()
-        seedTestQueueStore()
+        let readQueue = seedTestQueueStore()
         ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bob"))
 
         KlaviyoOrchestration.resetProfile()
 
-        // Flush the buffer (simulating willDrain) — should produce nothing because reset cleared it.
+        // resetProfile enqueues exactly one token re-registration request.
+        let countAfterReset = readQueue().count
+        XCTAssertEqual(countAfterReset, 1, "resetProfile must enqueue exactly one token re-register")
+
+        // Flush the buffer (simulating willDrain). Because reset cleared the staged property,
+        // the flush must not enqueue any additional request.
         let expect = XCTestExpectation(description: "flush completes")
         Task {
             await ProfilePropertyBuffer.shared.flushIntoQueue()
             expect.fulfill()
         }
         wait(for: [expect], timeout: 2)
-        // Nothing was added from the buffer after reset.
-        // We can't read QueueStore after flush without a token, but we verify the buffer is empty.
-        // The actual implementation calls ProfilePropertyBuffer.shared.reset() inside mutate,
-        // so a subsequent stage check suffices for the behavioural assertion.
+
+        XCTAssertEqual(readQueue().count, countAfterReset,
+                       "buffer flush after resetProfile must not add any request — staged props were cleared")
+    }
+
+    /// resetProfile on an already-anonymous profile (no email/phone/externalId) must NOT mint a
+    /// fresh anonymousId — the existing anonymousId must be preserved.
+    ///
+    /// Parity: `KlaviyoState.reset` only calls `environment.uuid()` when `isIdentified` is true.
+    @MainActor
+    func testResetProfileOnAnonymousProfilePreservesAnonymousId() {
+        let anonId = "anon-already-anonymous"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(anonymousId: anonId)) // no email/phone/externalId
+
+        KlaviyoOrchestration.resetProfile()
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, anonId,
+                       "resetProfile on an anonymous profile must preserve anonymousId")
     }
 
     // MARK: - setProfileProperty
