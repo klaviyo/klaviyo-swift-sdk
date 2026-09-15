@@ -5,8 +5,6 @@
 //  Created by Isobelle Lim on 9/14/26.
 //
 //  Direct orchestration functions that replace the identity-setter cases in `KlaviyoReducer`.
-//  These are ADDITIVE and UNWIRED — the reducer still runs; nothing calls these functions yet.
-//  A later task flips production over by replacing the reducer dispatch sites.
 //
 //  Design contract:
 //  - Each public setter is a direct call, not a TCA action dispatch.
@@ -130,7 +128,7 @@ enum KlaviyoOrchestration {
         if LifecycleState.shared.current != .uninitialized,
            let apiKey = SDKConfigStore.shared.current.apiKey {
             // Post-init: register the token against the current identity.
-            let request = resolvedTokenRequest(
+            let request = RequestBuilding.resolvedTokenRequest(
                 identity: IdentityStore.shared.current,
                 apiKey: apiKey,
                 anonymousId: anonymousId,
@@ -237,7 +235,11 @@ enum KlaviyoOrchestration {
         // Enqueue the profile via ungated RequestEnqueuer (parity: reducer used RequestEnqueuer here).
         RequestEnqueuer.enqueueProfile(
             payload: CreateProfilePayload(
-                data: profilePayload(from: profile, identity: updated, anonymousId: anonymousId)
+                data: RequestBuilding.profilePayload(
+                    from: profile,
+                    identity: updated,
+                    anonymousId: anonymousId
+                )
             )
         )
 
@@ -252,7 +254,7 @@ enum KlaviyoOrchestration {
     /// emits a developer warning (returning early) when required identifiers are missing.
     static func enqueueSubscription(_ subscription: Subscription) {
         guard let anonymousId = IdentityStore.shared.current.anonymousId,
-              let payload = buildSubscriptionPayload(
+              let payload = RequestBuilding.buildSubscriptionPayload(
                   identity: IdentityStore.shared.current,
                   anonymousId: anonymousId,
                   subscription: subscription
@@ -374,7 +376,7 @@ enum KlaviyoOrchestration {
            let apiKey = SDKConfigStore.shared.current.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
             // Post-init with a token: re-associate the token to the new identity.
-            let request = resolvedTokenRequest(
+            let request = RequestBuilding.resolvedTokenRequest(
                 identity: updated,
                 apiKey: apiKey,
                 anonymousId: anonymousId,
@@ -384,12 +386,16 @@ enum KlaviyoOrchestration {
             QueueStore.shared.enqueue(request)
         } else {
             // Pre-init or post-init with no token: send a profile via the ungated RequestEnqueuer.
-            // Empty `Profile()` is intentional — `profilePayload(from:identity:anonymousId:)` reads
+            // Empty `Profile()` is intentional — `RequestBuilding.profilePayload` reads
             // all identifiers from `identity`, so the argument only carries redundant values.
             // On warm start (pre-init, SDKConfigStore has persisted apiKey), RequestEnqueuer
             // re-gates on SDKConfigStore and routes directly to QueueStore — no buffer needed.
             let payload = CreateProfilePayload(
-                data: profilePayload(from: Profile(), identity: updated, anonymousId: anonymousId)
+                data: RequestBuilding.profilePayload(
+                    from: Profile(),
+                    identity: updated,
+                    anonymousId: anonymousId
+                )
             )
             RequestEnqueuer.enqueueProfile(payload: payload)
         }

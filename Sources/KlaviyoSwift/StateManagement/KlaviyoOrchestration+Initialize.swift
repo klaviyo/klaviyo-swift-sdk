@@ -8,9 +8,6 @@
 //  Ports `KlaviyoReducer.reduce(.initialize)` + `reduce(.completeInitialization)` into
 //  direct actor/store calls with no TCA dispatch.
 //
-//  ADDITIVE and UNWIRED — the reducer still runs; nothing calls these functions yet.
-//  A later task flips production over by replacing the reducer dispatch sites.
-//
 
 import Combine
 import Foundation

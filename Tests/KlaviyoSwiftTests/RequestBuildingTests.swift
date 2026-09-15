@@ -9,7 +9,7 @@
 @testable import KlaviyoSwift
 import XCTest
 
-/// Coverage for the free functions in `RequestBuilding.swift`. The `KlaviyoState`-method parity
+/// Coverage for the builders in `RequestBuilding`. The `KlaviyoState`-method parity
 /// comparison (Task 3) was retired with the type in Task 5; these now assert the builders against
 /// the production `RequestFactory` construction path directly.
 class RequestBuildingTests: StateManagementTestCase {
@@ -25,7 +25,7 @@ class RequestBuildingTests: StateManagementTestCase {
             externalId: "ext-1",
             anonymousId: anonymousId
         )
-        let result = requestIdentity(identity, apiKey: apiKey, anonymousId: anonymousId)
+        let result = RequestBuilding.requestIdentity(identity, apiKey: apiKey, anonymousId: anonymousId)
         XCTAssertEqual(result, RequestIdentity(
             apiKey: apiKey,
             anonymousId: anonymousId,
@@ -45,7 +45,11 @@ class RequestBuildingTests: StateManagementTestCase {
             anonymousId: anonymousId
         )
         let profile = Profile.test
-        let result = profilePayload(from: profile, identity: identity, anonymousId: anonymousId)
+        let result = RequestBuilding.profilePayload(
+            from: profile,
+            identity: identity,
+            anonymousId: anonymousId
+        )
         let expected = ProfilePayload(
             profile,
             email: identity.email,
@@ -65,7 +69,7 @@ class RequestBuildingTests: StateManagementTestCase {
             externalId: nil,
             anonymousId: anonymousId
         )
-        let result = resolvedTokenRequest(
+        let result = RequestBuilding.resolvedTokenRequest(
             identity: identity,
             apiKey: apiKey,
             anonymousId: anonymousId,
@@ -103,7 +107,7 @@ class RequestBuildingTests: StateManagementTestCase {
             listId: "list-123",
             channels: .init(email: .marketing, sms: .marketing)
         )
-        let result = buildSubscriptionPayload(
+        let result = RequestBuilding.buildSubscriptionPayload(
             identity: identity,
             anonymousId: anonymousId,
             subscription: subscription
@@ -114,7 +118,7 @@ class RequestBuildingTests: StateManagementTestCase {
     func testBuildSubscriptionPayloadNilWhenNoIdentifiers() {
         let identity = ProfileData(anonymousId: anonymousId)
         let subscription = Subscription.allAvailableMarketing(listId: "list-123")
-        let result = buildSubscriptionPayload(
+        let result = RequestBuilding.buildSubscriptionPayload(
             identity: identity,
             anonymousId: anonymousId,
             subscription: subscription

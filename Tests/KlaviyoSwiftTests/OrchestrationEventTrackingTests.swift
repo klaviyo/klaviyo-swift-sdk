@@ -324,25 +324,13 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         // thread pool and cannot fulfill the expectation vacuously before trackingLinkReceived fires.
         KlaviyoOrchestration.trackingLinkReceived(trackingURL)
 
-        let clickLogged = expectation(description: "click-log request enqueued")
         // Poll until QueueStore is non-empty. trackingLinkResolutionFailed → RequestEnqueuer →
         // QueueStore.enqueue is synchronous once the Task body runs; the poll just waits for
-        // the cooperative scheduler to run the Task. Guard before fulfill so a timeout is a
-        // loud failure instead of a vacuous pass.
-        Task {
-            var waited = 0
-            while readQueue().isEmpty, waited < 40 {
-                try? await Task.sleep(nanoseconds: 50_000_000)
-                waited += 1
-            }
-            guard !readQueue().isEmpty else {
-                XCTFail("click-log not enqueued within timeout — trackingLinkResolutionFailed path broken")
-                return
-            }
-            clickLogged.fulfill()
-        }
-
-        await fulfillment(of: [clickLogged], timeout: 3.0)
+        // the cooperative scheduler to run the Task. Fails loudly on timeout (not a vacuous pass).
+        try await waitForConditionOrFail(
+            timeout: 3.0,
+            "click-log not enqueued within timeout — trackingLinkResolutionFailed path broken"
+        ) { !readQueue().isEmpty }
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1, "failed tracking link resolution must enqueue one click-log")

@@ -32,6 +32,23 @@ func resetCanonicalCoreStores() {
     QueueStore.resetShared()
 }
 
+/// Bounded async poll: waits until `condition` holds or `timeout` elapses. FAILS (XCTFail) on
+/// timeout rather than spinning forever, so a broken async path surfaces loudly.
+func waitForConditionOrFail(
+    timeout: TimeInterval = 2.0,
+    _ message: @autoclosure () -> String = "condition not met within timeout",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ condition: @escaping () async -> Bool
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if await condition() { return }
+        try await Task.sleep(nanoseconds: 20_000_000)
+    }
+    XCTFail(message(), file: file, line: line)
+}
+
 /// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide
 /// singletons (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`)
 /// before each test. Subclasses that need extra setup should call `super` first.

@@ -18,6 +18,15 @@ final class IdentityStoreTests: XCTestCase {
         ProfileData(anonymousId: Self.mintedAnonId)
     }
 
+    private func makePushToken(_ token: String = "tok") -> PushTokenData {
+        PushTokenData(
+            pushToken: token,
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: .test)
+        )
+    }
+
     override func setUp() {
         super.setUp()
         fileIO = FileIODouble()
@@ -199,12 +208,7 @@ final class IdentityStoreTests: XCTestCase {
         let store = IdentityStore()
         var received: [PushTokenData?] = []
         let c = store.tokenPublisher.sink { received.append($0) }
-        let token = PushTokenData(
-            pushToken: "tok",
-            pushEnablement: .authorized,
-            pushBackground: .available,
-            deviceData: DeviceMetadata(context: .test)
-        )
+        let token = makePushToken()
         store.updatePushToken(token)
         XCTAssertEqual(received.last??.pushToken, "tok")
         c.cancel()
@@ -213,12 +217,7 @@ final class IdentityStoreTests: XCTestCase {
     // tokenPublisher emits nil after reset().
     func testResetEmitsNilOnTokenPublisher() {
         let store = IdentityStore()
-        let token = PushTokenData(
-            pushToken: "tok",
-            pushEnablement: .authorized,
-            pushBackground: .available,
-            deviceData: DeviceMetadata(context: .test)
-        )
+        let token = makePushToken()
         store.updatePushToken(token)
 
         var received: [PushTokenData?] = []
@@ -236,7 +235,6 @@ private struct MockIdentityReader: IdentityReading {
     var current: ProfileData
     var pushToken: PushTokenData?
     var publisher: AnyPublisher<ProfileData, Never>
-    var tokenPublisher: AnyPublisher<PushTokenData?, Never>
     func stream() -> AsyncStream<ProfileData> {
         AsyncStream { $0.finish() }
     }

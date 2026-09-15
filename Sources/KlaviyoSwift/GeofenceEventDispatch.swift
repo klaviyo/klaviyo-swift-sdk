@@ -12,8 +12,9 @@ import KlaviyoCore
 /// KlaviyoSwift loads at `.initialize` (`StateManagement` `.enqueueEvent` guards on it).
 package enum GeofenceEventDispatch {
     /// Enqueue a geofence event, bootstrapping the SDK from the geofence's apiKey if needed.
-    /// - initialized with a non-empty apiKey: ignore the event unless it matches; else enqueue.
-    /// - not initialized: initialize with the geofence apiKey, then enqueue.
+    /// - once initialization has started (non-empty stored apiKey): ignore the event unless it
+    ///   matches the stored key; else enqueue.
+    /// - not started: initialize with the geofence apiKey, then enqueue.
     ///
     /// Calls the orchestration functions directly (not via `dispatchOnMainThread`): this method is
     /// already `@MainActor`, so a direct call keeps the state check and the resulting
@@ -22,7 +23,7 @@ package enum GeofenceEventDispatch {
     /// both observe `.uninitialized` (double `initialize`) or to reorder relative to each other.
     @MainActor
     package static func dispatch(event: Event, apiKey: String) {
-        if LifecycleState.shared.current == .initialized,
+        if LifecycleState.shared.current != .uninitialized,
            let storedApiKey = SDKConfigStore.shared.current.apiKey, !storedApiKey.isEmpty {
             guard storedApiKey == apiKey else { return }
             KlaviyoOrchestration.enqueueEvent(event)

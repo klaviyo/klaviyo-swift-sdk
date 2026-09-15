@@ -413,21 +413,7 @@ class OrchestrationIdentityTests: StateManagementTestCase {
     @MainActor
     func testSetEmailAfter4xxFieldClearDoesNotResurrectClearedIdentifier() {
         // Arrange: start with a post-init state that has an email.
-        let anonId = environment.uuid().uuidString
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(
-            email: "stale@x.com",
-            anonymousId: anonId
-        ))
-        IdentityStore.shared.updatePushToken(PushTokenData(
-            pushToken: "tok-r4",
-            pushEnablement: .authorized,
-            pushBackground: .available,
-            deviceData: DeviceMetadata(context: environment.appContextInfo())
-        ))
-        // Advance lifecycle: this is a post-init (4xx happens after initialization).
-        LifecycleState.shared.beginInitializing()
-        LifecycleState.shared.completeInitialization()
+        seedPostInitWithToken(email: "stale@x.com")
         let readQueue = seedTestQueueStore()
 
         // Simulate a 4xx field-clear: the RequestQueue handler clears the email directly on

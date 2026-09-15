@@ -57,29 +57,6 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         return (apiKey, resolvedAnon, pushToken)
     }
 
-    /// Builds the identity-only `registerPushToken` request expected after an identifier change.
-    private func expectedIdentityOnlyTokenRequest(
-        apiKey: String = TEST_API_KEY,
-        anonymousId: String,
-        email: String? = nil,
-        phoneNumber: String? = nil,
-        externalId: String? = nil,
-        tokenData: PushTokenData
-    ) -> KlaviyoRequest {
-        let payload = RequestFactory.tokenPayload(
-            identity: PayloadIdentity(
-                anonymousId: anonymousId,
-                email: email,
-                phoneNumber: phoneNumber,
-                externalId: externalId
-            ),
-            pushToken: tokenData.pushToken,
-            enablement: tokenData.pushEnablement,
-            background: environment.getBackgroundSetting()
-        )
-        return KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
-    }
-
     /// Default push token data used in helpers.
     private var defaultTokenData: PushTokenData {
         PushTokenData(
@@ -283,7 +260,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
     /// Identical profile with no extra attributes → must not enqueue anything.
     @MainActor
     func testEnqueueProfileUnchangedIdentifiersAndNoExtraAttrsIsNoOp() {
-        let _ = seedPostInitWithToken(email: "same@x.com")
+        _ = seedPostInitWithToken(email: "same@x.com")
         let readQueue = seedTestQueueStore()
 
         KlaviyoOrchestration.enqueueProfile(Profile(email: "same@x.com"))

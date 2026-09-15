@@ -39,8 +39,4 @@ final class LifecycleStateTests: XCTestCase {
         s.completeInitialization()
         XCTAssertEqual(s.current, .uninitialized)
     }
-
-    func testSharedInstanceExists() {
-        XCTAssertNotNil(LifecycleState.shared)
-    }
 }

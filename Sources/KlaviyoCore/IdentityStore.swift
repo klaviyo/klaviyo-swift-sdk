@@ -17,6 +17,10 @@ public protocol IdentityReading {
     func stream() -> AsyncStream<ProfileData>
 }
 
+extension IdentityReading {
+    public var tokenPublisher: AnyPublisher<PushTokenData?, Never> { Just(pushToken).eraseToAnyPublisher() }
+}
+
 /// Write access to profile identity. Intended for `KlaviyoSwift` only.
 public protocol IdentityWriting {
     /// Wholesale replacement: overwrites the entire profile with a value you already hold in full.

@@ -139,7 +139,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
         KlaviyoOrchestration.initialize(newApiKey)
         // The flush is dispatched on an unstructured Task; give it a beat to reach the spy.
-        try await waitFor { await self.spyQueue.getFlushNowCount() == 1 }
+        try await waitForConditionOrFail { await self.spyQueue.getFlushNowCount() == 1 }
 
         let flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "company switch prompts one immediate actor flush")
@@ -163,7 +163,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
 
         // High-priority event: one flush.
         KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
-        try await waitFor { await self.spyQueue.getFlushNowCount() == 1 }
+        try await waitForConditionOrFail { await self.spyQueue.getFlushNowCount() == 1 }
         flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate flush")
     }
@@ -195,18 +195,5 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
             firstNames.contains("Blob"),
             "staged firstName must be folded into a queued createProfile/registerPushToken payload"
         )
-    }
-
-    /// Polls `condition` until true or a short timeout, then returns. Bridges the async unstructured
-    /// `Task { flushNow() }` hops the orchestration launches for high-priority/company-switch flushes.
-    private func waitFor(
-        timeout: TimeInterval = 2.0,
-        _ condition: @escaping () async -> Bool
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if await condition() { return }
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
     }
 }

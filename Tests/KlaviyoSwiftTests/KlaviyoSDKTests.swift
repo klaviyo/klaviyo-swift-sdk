@@ -895,17 +895,15 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: - Poll helpers
 
-    /// Polls `condition` on a background loop until true or timeout (bridges the facade's main-queue
-    /// hop + orchestration's unstructured tasks).
+    /// Polls `condition` until true or timeout (bridges the facade's main-queue hop +
+    /// orchestration's unstructured tasks). Fails loudly on timeout via the shared helper.
     private func waitForCondition(
         timeout: TimeInterval = 1.0,
+        file: StaticString = #filePath,
+        line: UInt = #line,
         _ condition: @escaping () -> Bool
     ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        try await waitForConditionOrFail(timeout: timeout, file: file, line: line) { condition() }
     }
 
     /// Fulfills `expectation` once `condition` holds, re-scheduling on the main queue.

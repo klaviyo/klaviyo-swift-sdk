@@ -31,6 +31,7 @@ public enum StateChangePublisher {
             )
         }
         .removeDuplicates()
+        .receive(on: DispatchQueue.main)
         .eraseToAnyPublisher()
     }
 

@@ -62,7 +62,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
             let requestIdentity = RequestIdentity(apiKey: apiKey, anonymousId: anonymousId)
             initial = [
                 RequestFactory.profileRequest(identity: requestIdentity, properties: [:]),
-                resolvedTokenRequest(
+                RequestBuilding.resolvedTokenRequest(
                     identity: identity,
                     apiKey: apiKey,
                     anonymousId: anonymousId,
@@ -138,6 +138,24 @@ final class GeofenceEventDispatchTests: XCTestCase {
         try await Task.sleep(nanoseconds: 200_000_000)
 
         // Then: SDK was not re-initialized and the event was not enqueued
+        XCTAssertEqual(
+            SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
+        )
+        XCTAssertEqual(readQueue().count, 0, "Queue should remain empty")
+    }
+
+    func testCreateGeofenceEvent_ignoresEventWhenAPIKeyDoesNotMatchDuringInitializing() async throws {
+        // Given: init has STARTED for key A but not completed (`.initializing`, apiKey A stored)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "EXISTING_KEY"))
+        LifecycleState.shared.beginInitializing()
+        let readQueue = seedTestQueueStore()
+
+        // When: dispatch a geofence event with a non-matching API key
+        GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: "DIFFERENT_KEY")
+        // Give any (unexpected) async work a beat.
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        // Then: SDK was not re-initialized to B and the event was not enqueued
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
         )

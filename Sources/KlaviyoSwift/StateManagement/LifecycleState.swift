@@ -34,7 +34,7 @@ final class LifecycleState {
     // MARK: - Shared singleton
 
     /// Process-lifetime shared instance. Later tasks wire SDK entry points to this instance.
-    static var shared = LifecycleState()
+    static let shared = LifecycleState()
 
     // MARK: - Private storage
 
