@@ -1,6 +1,9 @@
 ▿ KlaviyoState
   ▿ apiKey: Optional<String>
     - some: "foo"
+  - circuitBreakerFailureCount: 0
+  - circuitBreakerOpenUntil: Optional<Date>.none
+  - circuitBreakerState: CircuitBreakerState.closed
   - flushInterval: 10.0
   - flushing: true
   ▿ identity: ProfileData

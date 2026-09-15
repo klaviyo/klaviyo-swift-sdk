@@ -19,8 +19,10 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     public let endpoint: KlaviyoEndpoint
 
     /// The time at which this request was added to the send queue.
-    /// Used to evict the oldest request when the queue reaches capacity.
-    /// Defaults to the current time when the request is created.
+    ///
+    /// Used to evict the oldest request when the queue reaches capacity. This mirrors
+    /// the Android SDK's `queuedTime`. Defaults to the current time when the request
+    /// is created.
     public let enqueuedAt: Date
 
     /// Creates a new request to the Klaviyo API.
@@ -45,11 +47,12 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
         case enqueuedAt
     }
 
-    /// Custom decoding for backward compatibility with queues persisted before
-    /// `enqueuedAt` existed (e.g. requests carried across an app upgrade).
-    ///
-    /// A missing timestamp defaults to `Date.distantPast` so legacy requests sort as the
-    /// oldest and are evicted first under overflow.
+    /// Custom decoding that stays backward compatible with queues persisted before
+    /// `enqueuedAt` existed (e.g. requests carried across an app upgrade). A missing
+    /// timestamp defaults to `Date.distantPast` so these legacy requests sort as the
+    /// oldest and are evicted first under overflow. Because `min(by:)` returns the first
+    /// minimal element, legacy entries tie-break by queue position (front-most first),
+    /// which preserves their original age order.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
@@ -61,7 +64,8 @@ public struct KlaviyoRequest: Identifiable, Equatable, Codable {
     /// `id` + `endpoint` exactly as before this field existed. This is safe rather than a footgun
     /// for value-equality consumers: `id` is a unique per-request identifier and `enqueuedAt` is
     /// set once at creation and never mutated, so any two requests that compare equal already
-    /// carry the same `enqueuedAt`
+    /// carry the same `enqueuedAt` — there is no reachable state where excluding it hides a real
+    /// difference (e.g. a diff that would otherwise trigger a view update).
     public static func ==(lhs: KlaviyoRequest, rhs: KlaviyoRequest) -> Bool {
         lhs.id == rhs.id && lhs.endpoint == rhs.endpoint
     }

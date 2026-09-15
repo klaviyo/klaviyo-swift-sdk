@@ -31,6 +31,12 @@ struct KlaviyoState: Equatable, Codable {
         case subscription(Subscription)
     }
 
+    enum CircuitBreakerState: Equatable {
+        case closed
+        case open
+        case halfOpen
+    }
+
     struct PushTokenData: Equatable, Codable {
         var pushToken: String
         var pushEnablement: PushEnablement
@@ -81,6 +87,9 @@ struct KlaviyoState: Equatable, Codable {
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
+    var circuitBreakerState = CircuitBreakerState.closed
+    var circuitBreakerFailureCount = 0
+    var circuitBreakerOpenUntil: Date?
 
     enum CodingKeys: CodingKey {
         case apiKey
@@ -113,6 +122,8 @@ struct KlaviyoState: Equatable, Codable {
                 anonymousId: legacy.decodeIfPresent(String.self, forKey: .anonymousId)
             )
         }
+        // Circuit breaker fields are intentionally excluded from CodingKeys (see below) and
+        // always start closed/fresh on decode, matching their non-persisted, in-memory-only design.
     }
 
     init(
@@ -129,7 +140,10 @@ struct KlaviyoState: Equatable, Codable {
         flushInterval: Double = StateManagementConstants.wifiFlushInterval,
         retryState: RetryState = .retry(StateManagementConstants.initialAttempt),
         pendingRequests: [PendingRequest] = [],
-        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil,
+        circuitBreakerState: CircuitBreakerState = .closed,
+        circuitBreakerFailureCount: Int = 0,
+        circuitBreakerOpenUntil: Date? = nil
     ) {
         self.apiKey = apiKey
         identity = ProfileData(
@@ -147,6 +161,9 @@ struct KlaviyoState: Equatable, Codable {
         self.retryState = retryState
         self.pendingRequests = pendingRequests
         self.pendingProfile = pendingProfile
+        self.circuitBreakerState = circuitBreakerState
+        self.circuitBreakerFailureCount = circuitBreakerFailureCount
+        self.circuitBreakerOpenUntil = circuitBreakerOpenUntil
     }
 
     mutating func enqueueRequest(request: KlaviyoRequest) {
@@ -156,14 +173,17 @@ struct KlaviyoState: Equatable, Codable {
 
     /// Enqueues a high-priority request at the front of the queue (e.g. opened-push or
     /// geofence events that should flush immediately), enforcing the same capacity cap as
-    /// ``enqueueRequest(request:)``.
+    /// ``enqueueRequest(request:)``. The oldest request is evicted first (when full) so this
+    /// prioritized request — which carries the newest timestamp — is never the one dropped.
     mutating func enqueuePriorityRequest(request: KlaviyoRequest) {
         evictOldestIfAtCapacity()
         queue.insert(request, at: 0)
     }
 
     /// Evicts the oldest queued request (by `enqueuedAt`) when the queue is at or above
-    /// capacity, making room for one more.
+    /// capacity, making room for one more. Call this *before* adding a new request so the
+    /// request being added is never the one evicted. Prioritized events are inserted at the
+    /// front but carry the newest timestamp, so they are never selected as the oldest.
     private mutating func evictOldestIfAtCapacity() {
         guard queue.count >= StateManagementConstants.maxQueueSize else { return }
         let maxSize = StateManagementConstants.maxQueueSize
@@ -477,6 +497,71 @@ struct KlaviyoState: Equatable, Codable {
 
         let endpoint = KlaviyoEndpoint.createSubscription(apiKey, payload)
         return KlaviyoRequest(endpoint: endpoint)
+    }
+}
+
+extension KlaviyoState {
+    var circuitBreakerRemainingOpenInterval: TimeInterval {
+        guard circuitBreakerState == .open,
+              let circuitBreakerOpenUntil else {
+            return 0
+        }
+
+        return max(circuitBreakerOpenUntil.timeIntervalSince(environment.date()), 0)
+    }
+
+    mutating func currentCircuitBreakerState() -> CircuitBreakerState {
+        guard StateManagementConstants.circuitBreakerFailureThreshold > 0 else {
+            resetCircuitBreaker()
+            return .closed
+        }
+
+        guard circuitBreakerState == .open else {
+            return circuitBreakerState
+        }
+
+        guard let circuitBreakerOpenUntil else {
+            resetCircuitBreaker()
+            return .closed
+        }
+
+        if environment.date() >= circuitBreakerOpenUntil {
+            circuitBreakerState = .halfOpen
+        }
+
+        return circuitBreakerState
+    }
+
+    mutating func recordCircuitBreakerFailure() {
+        guard StateManagementConstants.circuitBreakerFailureThreshold > 0 else {
+            resetCircuitBreaker()
+            return
+        }
+
+        circuitBreakerFailureCount += 1
+        if circuitBreakerFailureCount >= StateManagementConstants.circuitBreakerFailureThreshold {
+            openCircuitBreaker()
+        }
+    }
+
+    mutating func resetCircuitBreaker() {
+        circuitBreakerState = .closed
+        circuitBreakerFailureCount = 0
+        circuitBreakerOpenUntil = nil
+    }
+
+    private mutating func openCircuitBreaker() {
+        let threshold = StateManagementConstants.circuitBreakerFailureThreshold
+        let failuresPastThreshold = max(circuitBreakerFailureCount - threshold, 0)
+        let exponentialInterval = StateManagementConstants.circuitBreakerBaseOpenInterval
+            * pow(2.0, Double(failuresPastThreshold))
+        let openInterval = min(
+            exponentialInterval,
+            StateManagementConstants.circuitBreakerMaxOpenInterval
+        ) + TimeInterval(environment.randomInt())
+
+        circuitBreakerState = .open
+        circuitBreakerOpenUntil = environment.date().addingTimeInterval(openInterval)
     }
 }
 

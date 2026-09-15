@@ -22,6 +22,12 @@ enum StateManagementConstants {
     static let wifiFlushInterval = 10.0
     static let maxQueueSize = 200
     static let initialAttempt = 1
+    static let defaultCircuitBreakerFailureThreshold = 5
+    static let defaultCircuitBreakerBaseOpenInterval = 30.0
+    static let defaultCircuitBreakerMaxOpenInterval = 300.0
+    static var circuitBreakerFailureThreshold = defaultCircuitBreakerFailureThreshold
+    static var circuitBreakerBaseOpenInterval = defaultCircuitBreakerBaseOpenInterval
+    static var circuitBreakerMaxOpenInterval = defaultCircuitBreakerMaxOpenInterval
 }
 
 /// Describes how the state machine should handle retrying a request after a failure.
@@ -78,6 +84,8 @@ enum KlaviyoAction: Equatable {
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
+    /// dequeues a request after a successful API response.
+    case requestSucceeded(KlaviyoRequest)
 
     /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
     case networkConnectivityChanged(Reachability.NetworkStatus)
@@ -137,7 +145,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
+        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .requestSucceeded, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -145,6 +153,7 @@ enum KlaviyoAction: Equatable {
 
 struct RequestId {}
 struct FlushTimer {}
+struct CircuitBreakerTimer {}
 
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
@@ -266,7 +275,9 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 let replacement = KlaviyoState.PendingRequest.automaticPushToken(pushToken, enablement)
                 if let index = state.pendingRequests.firstIndex(where: {
-                    if case .automaticPushToken = $0 { return true }
+                    if case .automaticPushToken = $0 {
+                        return true
+                    }
                     return false
                 }) {
                     state.pendingRequests[index] = replacement
@@ -313,7 +324,25 @@ struct KlaviyoReducer: ReducerProtocol {
             guard state.flushInterval.isFinite else {
                 return .none
             }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
+
+            // Gate on the circuit breaker and per-request backoff *before* materializing a
+            // pending profile. `enqueueProfileOrTokenRequest()` consumes `pendingProfile` and can
+            // nil out `pushTokenData` (when it folds the pending profile into a token request
+            // instead), so calling it on a flush that's about to bail out early would silently
+            // drop that pending state — later `setProfileProperty` calls stop coalescing, and
+            // `setPushEnablement` no-ops until a subsequent token request happens to succeed.
+            let circuitBreakerState = state.currentCircuitBreakerState()
+            if circuitBreakerState == .open {
+                let remainingOpenInterval = state.circuitBreakerRemainingOpenInterval
+                return environment.timer(remainingOpenInterval)
+                    .first()
+                    .map { _ in KlaviyoAction.flushQueue }
+                    .eraseToEffect()
+                    .cancellable(id: CircuitBreakerTimer.self, cancelInFlight: true)
+            }
+
+            if circuitBreakerState != .halfOpen,
+               case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
                 let newBackOff = max(backOff - Int(state.flushInterval), 0)
                 if newBackOff > 0 {
                     state.retryState = .retryWithBackoff(
@@ -326,6 +355,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     state.retryState = .retry(requestCount)
                 }
             }
+
             if state.pendingProfile != nil {
                 state.enqueueProfileOrTokenRequest()
             }
@@ -334,8 +364,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
-            state.requestsInFlight.append(contentsOf: state.queue)
-            state.queue.removeAll()
+            let requestCount = circuitBreakerState == .halfOpen ? 1 : state.queue.count
+            state.requestsInFlight.append(contentsOf: state.queue.prefix(requestCount))
+            state.queue.removeFirst(requestCount)
             state.flushing = true
             return .task {
                 .sendRequest
@@ -345,7 +376,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 return .none
             }
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self, CircuitBreakerTimer.self])
                 .concatenate(with: .run(operation: { send in
                     await send(.cancelInFlightRequests)
                     await MainActor.run { BadgeManager.syncBadgeCount() }
@@ -375,22 +406,20 @@ struct KlaviyoReducer: ReducerProtocol {
                     .cancellable(id: FlushTimer.self, cancelInFlight: true)
             ])
 
+        case let .requestSucceeded(completedRequest):
+            state.dequeueCompletedRequest(completedRequest)
+            state.resetCircuitBreaker()
+            if state.requestsInFlight.isEmpty {
+                state.flushing = false
+                if state.queue.isEmpty {
+                    return .none
+                }
+                return .task { .flushQueue }
+            }
+            return .task { .sendRequest }.cancellable(id: RequestId.self)
+
         case let .deQueueCompletedResults(completedRequest):
-            if case let .registerPushToken(_, payload) = completedRequest.endpoint {
-                let requestData = payload.data.attributes
-                let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
-                let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = KlaviyoState.PushTokenData(
-                    pushToken: requestData.token,
-                    pushEnablement: enablement,
-                    pushBackground: backgroundStatus,
-                    deviceData: requestData.deviceMetadata
-                )
-            }
-            state.requestsInFlight.removeAll { inflightRequest in
-                completedRequest.id == inflightRequest.id
-            }
-            state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
+            state.dequeueCompletedRequest(completedRequest)
             if state.requestsInFlight.isEmpty {
                 state.flushing = false
                 return .none
@@ -431,7 +460,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 let result = await environment.klaviyoAPI.send(request, requestAttemptInfo)
                 switch result {
                 case .success:
-                    await send(.deQueueCompletedResults(request))
+                    await send(.requestSucceeded(request))
                 case let .failure(error):
                     await send(handleRequestError(request: request, error: error, retryState: retryState))
                 }
@@ -454,7 +483,7 @@ struct KlaviyoReducer: ReducerProtocol {
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = Double.infinity
-                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self, CircuitBreakerTimer.self])
                     .concatenate(with: .run { send in
                         await send(.cancelInFlightRequests)
                     })
@@ -484,6 +513,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     request.id == inflightRequest.id
                 }
             }
+            state.recordCircuitBreakerFailure()
             state.flushing = false
             state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
             state.requestsInFlight = []
@@ -517,7 +547,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     time: event.time,
                     uniqueId: event.uniqueId,
                     pushToken: state.pushTokenData?.pushToken
-                ))
+                )
+            )
 
             let endpoint = KlaviyoEndpoint.createEvent(apiKey, payload)
             let request = KlaviyoRequest(endpoint: endpoint)
@@ -726,6 +757,26 @@ struct KlaviyoReducer: ReducerProtocol {
 
             return .none
         }
+    }
+}
+
+extension KlaviyoState {
+    fileprivate mutating func dequeueCompletedRequest(_ completedRequest: KlaviyoRequest) {
+        if case let .registerPushToken(_, payload) = completedRequest.endpoint {
+            let requestData = payload.data.attributes
+            let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
+            let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
+            pushTokenData = KlaviyoState.PushTokenData(
+                pushToken: requestData.token,
+                pushEnablement: enablement,
+                pushBackground: backgroundStatus,
+                deviceData: requestData.deviceMetadata
+            )
+        }
+        requestsInFlight.removeAll { inflightRequest in
+            completedRequest.id == inflightRequest.id
+        }
+        retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     }
 }
 
