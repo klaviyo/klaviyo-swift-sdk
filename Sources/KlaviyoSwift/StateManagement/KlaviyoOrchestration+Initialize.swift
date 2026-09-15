@@ -4,7 +4,7 @@
 //
 //  Created by Isobelle Lim on 9/15/26.
 //
-//  Initialize + lifecycle orchestration for the MAGE-904 TCA teardown.
+//  Initialize + lifecycle orchestration for the TCA teardown.
 //  Ports `KlaviyoReducer.reduce(.initialize)` + `reduce(.completeInitialization)` into
 //  direct actor/store calls with no TCA dispatch.
 //

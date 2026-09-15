@@ -10,7 +10,7 @@ import Foundation
 /// Ungated Core enqueue entry point. Reads identity + apiKey from the shared stores itself,
 /// so callers never thread identity or check for an apiKey. apiKey present → build + enqueue
 /// to `QueueStore`; apiKey absent → build an apiKey-free payload → `UnattributedBuffer`.
-/// No reducer routing. See MAGE-951; caller cutover is MAGE-952.
+/// No reducer routing.
 public enum RequestEnqueuer {
     static let missingAnonymousIdWarning = "RequestEnqueuer: missing anonymousId"
 
@@ -115,7 +115,7 @@ public enum RequestEnqueuer {
     /// so the queue is durable before the buffer is trimmed. A crash in the gap re-drains next launch
     /// (a dedup-able duplicate, never silent loss). Removing the exact drained prefix — rather than
     /// clearing wholesale — means a request appended concurrently during the drain survives instead
-    /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)` in MAGE-952.
+    /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)`.
     ///
     /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey`. If they diverge
     ///   the drain is skipped so buffered requests aren't stamped with a key that no longer matches

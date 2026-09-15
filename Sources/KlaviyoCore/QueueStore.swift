@@ -146,7 +146,7 @@ public final class QueueStore {
     /// Merges an authoritative legacy backlog into the queue: prepends `requests`
     /// — the older, pre-upgrade backlog — ahead of whatever is already queued, skipping any id
     /// already present so a re-run can't duplicate. Prepend-not-replace is deliberate: a request
-    /// that raced into the queue during the init window (MAGE-952) must survive migration rather
+    /// that raced into the queue during the init window must survive migration rather
     /// than be wiped by a wholesale overwrite. Writes disk-first and throws on failure, since a
     /// read-back can't tell "persisted empty" from "load failed" (`hydrated()` folds both into
     /// `[]`); a failed restore leaves memory untouched so migration retries. Only supersedes a

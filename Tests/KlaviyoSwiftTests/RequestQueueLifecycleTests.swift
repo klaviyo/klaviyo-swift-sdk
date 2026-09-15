@@ -4,7 +4,7 @@
 //
 //  Created by Isobelle Lim on 9/11/26.
 //
-//  Wiring coverage for the MAGE-904 cutover: every flush/lifecycle trigger drives the Core
+//  Wiring coverage for the TCA cutover: every flush/lifecycle trigger drives the Core
 //  `RequestQueue` actor (via `klaviyoSwiftEnvironment.requestQueue`) through the direct
 //  `KlaviyoOrchestration` functions. A `SpyRequestQueue` double records the actor interactions;
 //  because it never touches `QueueStore`, tests that assert queue contents stay deterministic.

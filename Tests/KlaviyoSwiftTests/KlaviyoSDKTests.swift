@@ -4,7 +4,7 @@
 //
 //  Created by Noah Durell on 2/21/23.
 //
-//  Facade coverage for the public `KlaviyoSDK` surface. Post-MAGE-904 the public methods forward to
+//  Facade coverage for the public `KlaviyoSDK` surface. The public methods forward to
 //  `KlaviyoOrchestration` (via `dispatchOnMainThread`) instead of dispatching TCA actions, so these
 //  tests assert the resulting Core-store / QueueStore side effects rather than a captured action.
 //
