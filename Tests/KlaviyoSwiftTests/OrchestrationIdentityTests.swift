@@ -17,9 +17,24 @@ import Foundation
 import XCTest
 
 class OrchestrationIdentityTests: StateManagementTestCase {
+    // MARK: - Test lifecycle
+
+    @MainActor
+    override func setUp() async throws {
+        try await super.setUp()
+        // LifecycleState is a KlaviyoSwift singleton, not reset by `resetCanonicalCoreStores`.
+        // Reset it so each test starts from a known `.uninitialized` baseline.
+        LifecycleState.shared.reset()
+    }
+
     // MARK: - Helpers
 
     /// Seeds the canonical stores for a post-init state with a push token.
+    ///
+    /// Also advances `LifecycleState` to `.initialized` so `applyIdentifierChange`'s
+    /// `LifecycleState.shared.current != .uninitialized` gate fires (matching the old reducer's
+    /// `state.apiKey != nil` gate — both are true only after this session's `initialize()` runs).
+    ///
     /// Returns the apiKey, anonymousId, and pushToken seeded.
     @discardableResult
     private func seedPostInitWithToken(
@@ -44,10 +59,14 @@ class OrchestrationIdentityTests: StateManagementTestCase {
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
         ))
+        // Advance lifecycle so the post-init gate matches the old `state.apiKey != nil` condition.
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
         return (apiKey, resolvedAnonymousId, pushToken)
     }
 
     /// Seeds the canonical stores for a pre-init state (no apiKey, identity has anonymousId).
+    /// `LifecycleState` remains `.uninitialized` (the default after `setUp`).
     private func seedPreInit(anonymousId: String? = nil) {
         let resolvedAnonymousId = anonymousId ?? environment.uuid().uuidString
         IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnonymousId))
@@ -386,6 +405,9 @@ class OrchestrationIdentityTests: StateManagementTestCase {
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
         ))
+        // Advance lifecycle: this is a post-init (4xx happens after initialization).
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
         let readQueue = seedTestQueueStore()
 
         // Simulate a 4xx field-clear: the RequestQueue handler clears the email directly on
@@ -447,27 +469,33 @@ class OrchestrationIdentityTests: StateManagementTestCase {
         XCTAssertEqual(profiles.first?.data.attributes.email, "new@example.com")
     }
 
-    /// Warm-start variant: SDKConfigStore has a persisted apiKey but initialize() has not run
-    /// yet this session. Because orchestration gates on `SDKConfigStore.shared.current.apiKey`
-    /// (not `state.apiKey` which no longer exists), the token branch fires when a push token is
-    /// also stored — enqueuing a token re-association directly to QueueStore. This is an intentional
-    /// behavior improvement over the old reducer warm-start path (which fell through to createProfile
-    /// because `state.apiKey` was nil). Verified: the request reaches QueueStore and carries the
-    /// new email.
+    /// Warm-start before initialize: `SDKConfigStore` has a persisted apiKey from a prior launch,
+    /// a push token is stored in `IdentityStore`, but `initialize()` has NOT been called this
+    /// session — so `LifecycleState.shared.current == .uninitialized`.
+    ///
+    /// PARITY with old reducer: `state.apiKey` was nil until the `.initializing` transition, so the
+    /// old reducer fell through to `RequestEnqueuer.enqueueProfile` (profile branch), not the token
+    /// re-association branch. The new orchestration must reproduce this behavior by gating on
+    /// `LifecycleState`, not on `SDKConfigStore`.
+    ///
+    /// Expected: `setEmail` buffers a **profile** via `RequestEnqueuer` (lands in `UnattributedBuffer`
+    /// when `SDKConfigStore` has no apiKey, or routes to `QueueStore` when it does — either way NOT
+    /// a token re-association). QueueStore must be empty (no registerPushToken enqueued).
     @MainActor
-    func testSetEmailWarmStartWithStoredTokenEnqueuesTokenRequestToQueueStore() {
+    func testSetEmailWarmStartPreInitBuffersProfileNotTokenReassociation() {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
-        // Warm start: apiKey already in SDKConfigStore from a prior launch.
-        let apiKey = "persisted-key"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        // LifecycleState is .uninitialized (reset in setUp + not advanced here — warm start).
+        XCTAssertEqual(LifecycleState.shared.current, .uninitialized,
+                       "precondition: warm-start must start with LifecycleState == .uninitialized")
+        // Warm start: apiKey already persisted in SDKConfigStore from a prior launch.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "persisted-key"))
         let anonId = "anon-A"
         IdentityStore.shared.update(ProfileData(
             email: "old@example.com", externalId: "user-A", anonymousId: anonId
         ))
-        let storedToken = "tok-warmStart"
         IdentityStore.shared.updatePushToken(PushTokenData(
-            pushToken: storedToken,
+            pushToken: "tok-warmStart",
             pushEnablement: .authorized,
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
@@ -476,15 +504,49 @@ class OrchestrationIdentityTests: StateManagementTestCase {
 
         KlaviyoOrchestration.setEmail("new@example.com")
 
-        // Gate is SDKConfigStore.apiKey (present) + token (present) → token branch, not profile.
+        // PARITY: warm-start (LifecycleState == .uninitialized) must take the PROFILE branch,
+        // exactly as the old reducer did when state.apiKey was nil.
+        // The enqueued request must be a createProfile, NOT a registerPushToken.
+        // (RequestEnqueuer re-gates on SDKConfigStore: since "persisted-key" is present, the
+        // profile lands directly in QueueStore — consistent with old warm-start behavior.)
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1, "warm-start setEmail must enqueue exactly one request")
+        guard case .createProfile = queued.first?.endpoint else {
+            return XCTFail(
+                "warm-start setEmail must enqueue a createProfile (not registerPushToken), "
+                    + "got \(queued.first?.endpoint as Any)"
+            )
+        }
+        // Identity update must still be persisted.
+        XCTAssertEqual(IdentityStore.shared.current.email, "new@example.com",
+                       "warm-start setEmail must persist the new email to IdentityStore")
+    }
+
+    /// Post-init (LifecycleState == .initialized) + token present: setEmail must enqueue a TOKEN
+    /// re-association, NOT a profile. This is the parity boundary opposite to the warm-start case.
+    @MainActor
+    func testSetEmailPostInitWithTokenEnqueuesTokenReassociationNotProfile() {
+        UnattributedBuffer.shared.reset()
+        let (apiKey, _, pushToken) = seedPostInitWithToken() // advances LifecycleState to .initialized
+        XCTAssertNotEqual(LifecycleState.shared.current, .uninitialized,
+                          "precondition: post-init must have LifecycleState != .uninitialized")
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoOrchestration.setEmail("parity@x.com")
+
+        // Profile branch must NOT have fired.
+        let snap = UnattributedBuffer.shared.drainSnapshot().requests
+        XCTAssertTrue(snap.isEmpty, "post-init setEmail must NOT buffer a profile via UnattributedBuffer")
+
+        // Token branch must have fired.
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1, "post-init+token setEmail must enqueue exactly one request")
         guard case let .registerPushToken(queuedApiKey, payload) = queued.first?.endpoint else {
-            return XCTFail("expected registerPushToken in warm-start, got \(queued.first?.endpoint as Any)")
+            return XCTFail("expected registerPushToken, got \(queued.first?.endpoint as Any)")
         }
         XCTAssertEqual(queuedApiKey, apiKey)
-        XCTAssertEqual(payload.data.attributes.token, storedToken)
-        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "new@example.com",
+        XCTAssertEqual(payload.data.attributes.token, pushToken)
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "parity@x.com",
                        "token re-association must carry the updated email")
     }
 }

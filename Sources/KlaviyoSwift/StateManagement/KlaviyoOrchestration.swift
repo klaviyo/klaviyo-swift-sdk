@@ -13,7 +13,8 @@
 //  - The TOCTOU `state.identity = current; apply; update(state.identity)` is replaced by a single
 //    atomic `IdentityStore.shared.mutate { ... }`.
 //  - `IdentityStore.shared.pushToken` is read AFTER `mutate` returns (writeLock is non-reentrant).
-//  - The post-init gate reads `SDKConfigStore.shared.current.apiKey` (no projection from state).
+//  - The post-init gate checks `LifecycleState.shared.current != .uninitialized` (session-fresh,
+//    equivalent to the old `state.apiKey != nil`); the apiKey VALUE is read from `SDKConfigStore`.
 
 import AnyCodable
 import Foundation
@@ -101,8 +102,14 @@ enum KlaviyoOrchestration {
     /// enqueues the appropriate follow-up sync request:
     ///
     /// - **Post-init + token present:** enqueues a token re-association request via `QueueStore`.
+    ///   "Post-init" means `LifecycleState.shared.current != .uninitialized` — i.e. `initialize()`
+    ///   has been called this session. This matches the old reducer's `state.apiKey != nil` gate:
+    ///   `state.apiKey` was set at the `.initializing` transition and was nil on warm-start before
+    ///   `initialize()` ran, even if `SDKConfigStore` already held a persisted key.
+    ///
     /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer` (lands in
-    ///   the durable `UnattributedBuffer` pre-init, or directly in `QueueStore` on warm-start).
+    ///   the durable `UnattributedBuffer` pre-init, or directly in `QueueStore` on warm-start after
+    ///   `RequestEnqueuer` re-gates on `SDKConfigStore`).
     ///
     /// The `apply` closure must be pure and must NOT call back into `IdentityStore` — the store's
     /// `writeLock` is non-reentrant.
@@ -115,7 +122,12 @@ enum KlaviyoOrchestration {
         guard let anonymousId = updated.anonymousId else { return }
 
         // Read the token AFTER mutate returns (non-reentrant writeLock).
-        if let apiKey = SDKConfigStore.shared.current.apiKey,
+        // Gate on LifecycleState (session-fresh), not SDKConfigStore (persisted across launches).
+        // On a warm start, SDKConfigStore may already hold the prior session's apiKey even before
+        // initialize() runs — matching state.apiKey requires checking that this session's
+        // initialize() has started.
+        if LifecycleState.shared.current != .uninitialized,
+           let apiKey = SDKConfigStore.shared.current.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
             // Post-init with a token: re-associate the token to the new identity.
             let request = resolvedTokenRequest(
@@ -130,6 +142,8 @@ enum KlaviyoOrchestration {
             // Pre-init or post-init with no token: send a profile via the ungated RequestEnqueuer.
             // Empty `Profile()` is intentional — `profilePayload(from:identity:anonymousId:)` reads
             // all identifiers from `identity`, so the argument only carries redundant values.
+            // On warm start (pre-init, SDKConfigStore has persisted apiKey), RequestEnqueuer
+            // re-gates on SDKConfigStore and routes directly to QueueStore — no buffer needed.
             let payload = CreateProfilePayload(
                 data: profilePayload(from: Profile(), identity: updated, anonymousId: anonymousId)
             )
