@@ -52,24 +52,17 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
     /// `completeInitialization` directly — a pattern that avoids the race inherent in waiting
     /// on the fire-and-forget Task spawned inside `initialize`.
     ///
-    /// IMPORTANT: `initialize` internally spawns `Task { await completeInitialization(apiKey:) }`.
-    /// We deliberately do NOT await that internal Task; instead we immediately call
-    /// `completeInitialization` ourselves. Because `completeInitialization` guards on
-    /// `LifecycleState.shared.current == .initializing` (via `LifecycleState.completeInitialization`'s
-    /// no-op guard), the duplicate call is safe: whichever call transitions first wins, and the
-    /// second is a no-op. The internal Task's `runLifecycle` will also be a duplicate entry, but
-    /// since `runLifecycle` is pure (starts the actor, iterates the stream) and the stream is
-    /// finite, both invocations complete — producing at most one extra `start()` call. Tests that
-    /// care about exact start counts should call `completeInitialization` directly without
-    /// `callInitializeAndAwaitTail`.
+    /// Safety: `completeInitialization` is now top-guarded on `LifecycleState.current == .initializing`.
+    /// Whichever invocation (the internal Task or this explicit call) reaches the guard first wins;
+    /// the second early-returns before touching migration, the buffer, or the lifecycle loop.
+    /// migrate/drain/lifecycle therefore run EXACTLY ONCE regardless of scheduling order.
     private func callInitializeAndAwaitTail(apiKey: String) async {
         KlaviyoOrchestration.initialize(apiKey)
         // Give the internal Task a chance to begin (first yield) so LifecycleState.beginInitializing
         // is guaranteed to have run before we enter our own completeInitialization call.
         await Task.yield()
-        // Now directly await the full async tail. If LifecycleState already transitioned to
-        // .initialized (internal Task won), completeInitialization is a no-op; if not, this call
-        // drives it to completion. Either way assertions on `.initialized` are safe after return.
+        // Directly await the full async tail. The top guard in completeInitialization ensures
+        // that exactly one invocation does real work; the other is a no-op early return.
         await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
     }
 
@@ -98,9 +91,9 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
             LifecycleState.shared.current, .initialized,
             "async tail must transition LifecycleState to .initialized"
         )
-        // launch kickoff in runLifecycle calls start() at least once.
+        // launch kickoff in runLifecycle calls start() exactly once (top guard ensures single tail).
         let startCount = await spyQueue.getStartCount()
-        XCTAssertGreaterThanOrEqual(startCount, 1, "requestQueue.start() must be called on launch kickoff")
+        XCTAssertEqual(startCount, 1, "requestQueue.start() must be called exactly once on launch kickoff")
     }
 
     /// Same-key re-initialize: `initialize(_:)` is a no-op when LifecycleState is `.initialized`

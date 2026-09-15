@@ -75,13 +75,18 @@ final class LifecycleState {
     }
 
     /// Transitions `.initializing → .initialized`. No-op if not currently `.initializing`.
-    func completeInitialization() {
+    ///
+    /// - Returns: `true` if the transition occurred (this caller won the race);
+    ///   `false` if the state was already past `.initializing` (idempotent guard).
+    @discardableResult
+    func completeInitialization() -> Bool {
         let transitioned: Bool = lock.withLock {
             guard value == .initializing else { return false }
             value = .initialized
             return true
         }
         if transitioned { subject.send(.initialized) }
+        return transitioned
     }
 
     /// Resets to `.uninitialized`. Intended for test isolation only.

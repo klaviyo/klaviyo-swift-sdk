@@ -160,6 +160,12 @@ extension KlaviyoOrchestration {
     /// dropping the vestigial identity hydrate/carry-over (L211-224) — IdentityStore is already
     /// canonical and pre-init setters already wrote to it directly.
     static func completeInitialization(apiKey: String) async {
+        // TOP GUARD — mirrors the reducer's `guard case .initializing = state.initalizationState`
+        // (StateManagement.swift:203). Ensures migrate → drainBuffer → lifecycle run exactly once.
+        // Fast-path: if a concurrent call races in (e.g. the fire-and-forget Task vs. a direct
+        // test call), the non-winner sees a state past `.initializing` and early-returns without
+        // touching migration, the buffer, or the lifecycle loop.
+        guard LifecycleState.shared.current == .initializing else { return }
         // Must run before any QueueStore access; migrates the legacy per-apiKey queue blob
         // and identity into the canonical Core stores.
         migrateLegacyStateIfNeeded(apiKey: apiKey)
@@ -167,13 +173,13 @@ extension KlaviyoOrchestration {
         // now-resolvable QueueStore (at-least-once; the durable buffer is trimmed only after
         // the queue write persists). Runs after migration so a migrated queue is present.
         RequestEnqueuer.drainBuffer(apiKey: apiKey)
-        // Transition from .initializing → .initialized.
-        // Identity/apiKey/pushToken are already canonical in the Core stores:
-        // IdentityStore was populated either by migration (legacy data) or by pre-init setters,
-        // and the apiKey was written to SDKConfigStore by the sync head above.
+        // Atomically transition from .initializing → .initialized (NSLock-guarded inside).
+        // `completeInitialization` returns `true` only to the ONE caller that wins the transition;
+        // any concurrent call that also passed the top guard above loses here and returns `false`,
+        // preventing it from launching a second lifecycle loop.
         // (L211-224: the old hydrate/carry-over is dropped here — see design doc.)
-        LifecycleState.shared.completeInitialization()
-        // Start the long-lived lifecycle driver.
+        guard LifecycleState.shared.completeInitialization() else { return }
+        // Start the long-lived lifecycle driver (runs exactly once per process lifetime).
         await runLifecycle()
     }
 
