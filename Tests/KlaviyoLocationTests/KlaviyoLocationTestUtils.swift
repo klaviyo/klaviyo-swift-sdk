@@ -98,18 +98,6 @@ extension KlaviyoAPI {
     static let test = { KlaviyoAPI(send: { _, _ in .success(TEST_RETURN_DATA) }) }
 }
 
-extension KlaviyoState {
-    static let test = KlaviyoState(
-        apiKey: "ABC123",
-        email: "test@test.com",
-        anonymousId: "test-anonymous-id",
-        phoneNumber: "1234567890",
-        externalId: "test-external-id",
-        pushTokenData: nil,
-        initalizationState: .initialized
-    )
-}
-
 // MARK: - Test Data Helpers
 
 enum KlaviyoLocationTestUtils {
@@ -142,23 +130,10 @@ enum KlaviyoLocationTestUtils {
         return jsonString.data(using: .utf8)!
     }
 
-    /// Creates a test KlaviyoState with a specific API key
-    static func createTestState(apiKey: String) -> KlaviyoState {
-        var testState = KlaviyoState.test
-        testState.apiKey = apiKey
-        return testState
-    }
-
-    /// Sets up the test environment with a mocked API key
+    /// Sets up the test environment with a mocked API key. The migrated location observers read the
+    /// API key from KlaviyoCore's `SDKConfigStore`, so seeding that store is all that's required.
     static func setupTestEnvironment(apiKey: String) {
         environment = KlaviyoEnvironment.test()
-        // The migrated observers read the API key from KlaviyoCore's SDKConfigStore, so seed it here.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-
-        let testState = createTestState(apiKey: apiKey)
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
     }
 }

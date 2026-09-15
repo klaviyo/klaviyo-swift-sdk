@@ -14,9 +14,6 @@ import UserNotifications
 var klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.production
 
 struct KlaviyoSwiftEnvironment {
-    var send: (KlaviyoAction) -> Task<Void, Never>?
-    var state: () -> KlaviyoState
-    var statePublisher: () -> AnyPublisher<KlaviyoState, Never>
     var pruneCategory: (String) -> Void
     /// Called once from `KlaviyoSDK.initialize(with:)` to conditionally install
     /// `KlaviyoNotificationDelegate` as the active `UNUserNotificationCenter` delegate.
@@ -46,59 +43,50 @@ struct KlaviyoSwiftEnvironment {
     /// double to assert lifecycle wiring.
     var requestQueue: any RequestQueueProtocol
 
-    static let production: KlaviyoSwiftEnvironment = {
-        let store = Store.production
-
-        return KlaviyoSwiftEnvironment(
-            send: { action in
-                store.send(action)
-            },
-            state: { store.state.value },
-            statePublisher: { store.state.eraseToAnyPublisher() },
-            pruneCategory: { categoryIdentifier in
-                KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
-            },
-            injectNotificationDelegate: {
-                // `UNUserNotificationCenter.delegate` must be assigned before the app finishes
-                // launching. When called on the main thread (the common path from
-                // didFinishLaunchingWithOptions), we inject synchronously so the delegate is
-                // in place before initialize(with:) returns.
-                // On iOS 17+ `assumeIsolated` asserts main-thread execution to the type system.
-                // On earlier OS versions we fall back to a Task hop.
-                if #available(iOS 17.0, *), Thread.isMainThread {
-                    MainActor.assumeIsolated {
-                        KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
-                    }
-                } else {
-                    Task { @MainActor in
-                        KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
-                    }
+    static let production: KlaviyoSwiftEnvironment = .init(
+        pruneCategory: { categoryIdentifier in
+            KlaviyoCategoryManager.shared.pruneCategory(categoryIdentifier: categoryIdentifier)
+        },
+        injectNotificationDelegate: {
+            // `UNUserNotificationCenter.delegate` must be assigned before the app finishes
+            // launching. When called on the main thread (the common path from
+            // didFinishLaunchingWithOptions), we inject synchronously so the delegate is
+            // in place before initialize(with:) returns.
+            // On iOS 17+ `assumeIsolated` asserts main-thread execution to the type system.
+            // On earlier OS versions we fall back to a Task hop.
+            if #available(iOS 17.0, *), Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
                 }
-            },
-            installNotificationDelegateHook: {
-                KlaviyoNotificationCenterDelegateSwizzler.installIfNeeded()
-            },
-            installApplicationDelegateTokenHook: { applicationDelegate in
-                KlaviyoAppDelegateSwizzler.swizzleIfPossible(on: applicationDelegate)
-            },
-            isAutomaticPushOpenTrackingEnabled: {
-                Bundle.main.object(
-                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
-                ) as? Bool == true
-            },
-            isAutomaticPushTokenForwardingEnabled: {
-                Bundle.main.object(
-                    forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
-                ) as? Bool == true
-            },
-            notificationCenter: {
-                UNUserNotificationCenter.current()
-            },
-            requestQueue: RequestQueue(
-                clock: .production,
-                send: { req, info in await environment.klaviyoAPI.send(req, info) },
-                willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
-            )
+            } else {
+                Task { @MainActor in
+                    KlaviyoAutomaticPushInstaller.install(for: UIApplication.shared.delegate)
+                }
+            }
+        },
+        installNotificationDelegateHook: {
+            KlaviyoNotificationCenterDelegateSwizzler.installIfNeeded()
+        },
+        installApplicationDelegateTokenHook: { applicationDelegate in
+            KlaviyoAppDelegateSwizzler.swizzleIfPossible(on: applicationDelegate)
+        },
+        isAutomaticPushOpenTrackingEnabled: {
+            Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
+            ) as? Bool == true
+        },
+        isAutomaticPushTokenForwardingEnabled: {
+            Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
+            ) as? Bool == true
+        },
+        notificationCenter: {
+            UNUserNotificationCenter.current()
+        },
+        requestQueue: RequestQueue(
+            clock: .production,
+            send: { req, info in await environment.klaviyoAPI.send(req, info) },
+            willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
         )
-    }()
+    )
 }

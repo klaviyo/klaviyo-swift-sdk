@@ -256,16 +256,15 @@ final class ProfilePropertyBufferTests: XCTestCase {
     // MARK: - Reset clears staged properties
 
     // Regression guard: staged properties must NOT survive a profile reset (resetProfile / company
-    // switch / profile-clobber). `KlaviyoState.reset()` clears the buffer; without that, staged
-    // properties leak onto the next identity on the following flush.
-    func testKlaviyoStateResetDropsStagedProperties() async {
+    // switch / profile-clobber). `KlaviyoOrchestration.resetProfile()` clears the buffer; without
+    // that, staged properties leak onto the next identity on the following flush.
+    func testResetProfileDropsStagedProperties() async {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
         ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Ghost"))
 
         // Reset the profile — this must drop the staged property.
-        var state = KlaviyoState(apiKey: "pk-test", anonymousId: "anon-1", initalizationState: .initialized)
-        state.reset()
+        KlaviyoOrchestration.resetProfile()
 
         // A drain now finds an empty buffer, so nothing carrying the staged property is enqueued.
         await ProfilePropertyBuffer.shared.flushIntoQueue()

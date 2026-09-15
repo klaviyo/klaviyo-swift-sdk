@@ -13,7 +13,12 @@ public protocol IdentityReading {
     var current: ProfileData { get }
     var pushToken: PushTokenData? { get }
     var publisher: AnyPublisher<ProfileData, Never> { get }
+    var tokenPublisher: AnyPublisher<PushTokenData?, Never> { get }
     func stream() -> AsyncStream<ProfileData>
+}
+
+extension IdentityReading {
+    public var tokenPublisher: AnyPublisher<PushTokenData?, Never> { Just(pushToken).eraseToAnyPublisher() }
 }
 
 /// Write access to profile identity. Intended for `KlaviyoSwift` only.
@@ -51,7 +56,10 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     //
     // `subject` (CurrentValueSubject) is internally synchronized. Hydration may assign `subject.value`
     // under `lock` only because a fresh store has no subscribers yet.
+    // `tokenSubject` follows the same invariant: seeded under `lock` on a fresh store only; emitted
+    // outside `lock` (inside `writeLock`) in all write paths.
     private let subject: CurrentValueSubject<ProfileData, Never>
+    private let tokenSubject: CurrentValueSubject<PushTokenData?, Never>
     private let writeLock = UnfairLock()
     private let lock = UnfairLock()
     private var hydrated = false
@@ -59,6 +67,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
 
     init(initialIdentity: ProfileData = ProfileData()) {
         subject = CurrentValueSubject(initialIdentity)
+        tokenSubject = CurrentValueSubject(nil)
     }
 
     /// Hydrate from disk once; lazily mint + persist an `anonymousId` if none is on disk.
@@ -77,6 +86,8 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
             }
             // Assign directly rather than `send` — no subscribers exist on a fresh store.
             subject.value = profile
+            // Seed token subject; safe to assign directly (no subscribers on a fresh store).
+            tokenSubject.value = pushTokenValue
         }
     }
 
@@ -105,6 +116,11 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     public var publisher: AnyPublisher<ProfileData, Never> {
         hydrateIfNeeded()
         return subject.eraseToAnyPublisher()
+    }
+
+    public var tokenPublisher: AnyPublisher<PushTokenData?, Never> {
+        hydrateIfNeeded()
+        return tokenSubject.eraseToAnyPublisher()
     }
 
     public func stream() -> AsyncStream<ProfileData> {
@@ -160,6 +176,8 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
                 // Persist the combined DTO; the profile side is unchanged, so no emission.
                 persistLocked(profile: subject.value)
             }
+            // Emit outside `lock` (INVARIANT), inside `writeLock` so persist+emit stay one unit.
+            tokenSubject.send(token)
         }
     }
 
@@ -175,6 +193,8 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
                 removePersisted(fileName: StoreFile.identity)
             }
             subject.send(ProfileData())
+            // Emit nil outside `lock` (INVARIANT), inside `writeLock`.
+            tokenSubject.send(nil)
         }
     }
 }

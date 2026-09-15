@@ -18,6 +18,15 @@ final class IdentityStoreTests: XCTestCase {
         ProfileData(anonymousId: Self.mintedAnonId)
     }
 
+    private func makePushToken(_ token: String = "tok") -> PushTokenData {
+        PushTokenData(
+            pushToken: token,
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: .test)
+        )
+    }
+
     override func setUp() {
         super.setUp()
         fileIO = FileIODouble()
@@ -193,6 +202,30 @@ final class IdentityStoreTests: XCTestCase {
         XCTAssertEqual(lastEmitted, reloadedFromDisk)
         // The in-memory view agrees with disk too.
         XCTAssertEqual(store.current, reloadedFromDisk)
+    }
+
+    func testUpdatePushTokenEmitsOnTokenPublisher() {
+        let store = IdentityStore()
+        var received: [PushTokenData?] = []
+        let c = store.tokenPublisher.sink { received.append($0) }
+        let token = makePushToken()
+        store.updatePushToken(token)
+        XCTAssertEqual(received.last??.pushToken, "tok")
+        c.cancel()
+    }
+
+    // tokenPublisher emits nil after reset().
+    func testResetEmitsNilOnTokenPublisher() {
+        let store = IdentityStore()
+        let token = makePushToken()
+        store.updatePushToken(token)
+
+        var received: [PushTokenData?] = []
+        let c = store.tokenPublisher.sink { received.append($0) }
+        store.reset()
+        // received.last is `Optional<PushTokenData?>` — the inner value is nil after reset.
+        XCTAssertTrue(received.last == .some(nil))
+        c.cancel()
     }
 }
 

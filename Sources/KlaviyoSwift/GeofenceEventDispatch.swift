@@ -12,24 +12,24 @@ import KlaviyoCore
 /// KlaviyoSwift loads at `.initialize` (`StateManagement` `.enqueueEvent` guards on it).
 package enum GeofenceEventDispatch {
     /// Enqueue a geofence event, bootstrapping the SDK from the geofence's apiKey if needed.
-    /// - initialized with a non-empty apiKey: ignore the event unless it matches; else enqueue.
-    /// - not initialized: initialize with the geofence apiKey, then enqueue.
+    /// - once initialization has started (non-empty stored apiKey): ignore the event unless it
+    ///   matches the stored key; else enqueue.
+    /// - not started: initialize with the geofence apiKey, then enqueue.
     ///
-    /// Sends go directly to `klaviyoSwiftEnvironment` (not via `dispatchOnMainThread`): this method
-    /// is already `@MainActor`, so a direct send keeps the state check and the resulting
-    /// `.initialize`/`.enqueueEvent` sequence atomic. Routing through `dispatchOnMainThread` would
-    /// defer each send to a separate unstructured task, allowing two near-simultaneous events to
-    /// both observe `.uninitialized` (double `.initialize`) or to reorder relative to each other.
+    /// Calls the orchestration functions directly (not via `dispatchOnMainThread`): this method is
+    /// already `@MainActor`, so a direct call keeps the state check and the resulting
+    /// `initialize`/`enqueueEvent` sequence atomic. Routing through `dispatchOnMainThread` would
+    /// defer each call to a separate unstructured task, allowing two near-simultaneous events to
+    /// both observe `.uninitialized` (double `initialize`) or to reorder relative to each other.
     @MainActor
     package static func dispatch(event: Event, apiKey: String) {
-        let state = klaviyoSwiftEnvironment.state()
-        if state.initalizationState == .initialized,
-           let storedApiKey = state.apiKey, !storedApiKey.isEmpty {
+        if LifecycleState.shared.current != .uninitialized,
+           let storedApiKey = SDKConfigStore.shared.current.apiKey, !storedApiKey.isEmpty {
             guard storedApiKey == apiKey else { return }
-            _ = klaviyoSwiftEnvironment.send(.enqueueEvent(event))
+            KlaviyoOrchestration.enqueueEvent(event)
         } else {
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-            _ = klaviyoSwiftEnvironment.send(.enqueueEvent(event))
+            KlaviyoOrchestration.initialize(apiKey)
+            KlaviyoOrchestration.enqueueEvent(event)
         }
     }
 }
