@@ -1,0 +1,221 @@
+//
+//  KlaviyoOrchestration+Initialize.swift
+//
+//
+//  Created by Isobelle Lim on 9/15/26.
+//
+//  Initialize + lifecycle orchestration for the MAGE-904 TCA teardown.
+//  Ports `KlaviyoReducer.reduce(.initialize)` + `reduce(.completeInitialization)` into
+//  direct actor/store calls with no TCA dispatch.
+//
+//  ADDITIVE and UNWIRED — the reducer still runs; nothing calls these functions yet.
+//  A later task flips production over by replacing the reducer dispatch sites.
+//
+
+import Combine
+import Foundation
+import KlaviyoCore
+import OSLog
+
+extension KlaviyoOrchestration {
+    // MARK: - Initialize (sync head + async tail)
+
+    /// Confirms or sets the API key, handles company switches, and kicks the async tail.
+    ///
+    /// Ports `KlaviyoReducer.reduce(.initialize)` (StateManagement.swift:119-200).
+    ///
+    /// Three branches:
+    ///  1. **Already initialized** — runtime company switch (L119-136).
+    ///  2. **Cold-start company switch** — uninitialized + persisted prior key differs (L137-182).
+    ///  3. **Fall-through** — normal cold-start init (L183-200).
+    static func initialize(_ apiKey: String) {
+        // ── Branch 1: ALREADY INITIALIZED — runtime company switch ───────────────────────────────
+        if LifecycleState.shared.current == .initialized {
+            let currentKey = SDKConfigStore.shared.current.apiKey
+            guard apiKey != currentKey else {
+                // Same key: no-op.
+                return
+            }
+            // Unregister the OLD company's token BEFORE switching.
+            if let oldKey = currentKey,
+               let anonymousId = IdentityStore.shared.current.anonymousId,
+               let tokenData = IdentityStore.shared.pushToken {
+                let request = RequestFactory.unregisterRequest(
+                    identity: RequestIdentity(
+                        apiKey: oldKey,
+                        anonymousId: anonymousId,
+                        email: IdentityStore.shared.current.email,
+                        phoneNumber: IdentityStore.shared.current.phoneNumber,
+                        externalId: IdentityStore.shared.current.externalId
+                    ),
+                    pushToken: tokenData.pushToken
+                )
+                QueueStore.shared.enqueue(request)
+            }
+
+            // Switch the config to the new company.
+            SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+
+            // Reset identity with preserveTokenData:true (port of KlaviyoState.reset(true)):
+            //  - If identified → mint a fresh anonymousId.
+            //  - Clear PII. Token untouched inside mutate (lives in IdentityStore separately).
+            //  - Clear staged profile properties.
+            //  - Re-enqueue the token under the NEW apiKey.
+            let previousPushTokenData = IdentityStore.shared.pushToken
+            IdentityStore.shared.mutate { profile in
+                if profile.email != nil || profile.phoneNumber != nil || profile.externalId != nil {
+                    profile.anonymousId = IdentityStore.shared.mintNewAnonymousId()
+                }
+                profile.email = nil
+                profile.phoneNumber = nil
+                profile.externalId = nil
+            }
+            ProfilePropertyBuffer.shared.reset()
+
+            // Re-register the token under the NEW apiKey (gated: apiKey + anonymousId + tokenData).
+            if let newAnon = IdentityStore.shared.current.anonymousId,
+               let tokenData = previousPushTokenData {
+                let profile = ProfilePayload(
+                    email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
+                )
+                let request = RequestFactory.tokenRequest(
+                    apiKey: apiKey,
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement,
+                    background: tokenData.pushBackground.rawValue,
+                    profile: profile
+                )
+                QueueStore.shared.enqueue(request)
+            }
+
+            // Prompt an immediate flush so the unregister drains promptly.
+            Task { await klaviyoSwiftEnvironment.requestQueue.flushNow() }
+            return
+        }
+
+        // ── Branch 2: COLD-START COMPANY SWITCH ──────────────────────────────────────────────────
+        // Uninitialized + a prior key is persisted and differs from the incoming one.
+        // Identity + push token are device-scoped in the Core stores and still hold the PREVIOUS
+        // company's profile. Mirror the runtime branch so a fresh launch under a new apiKey does
+        // not bleed prior PII into the new company or leave its push token registered.
+        // Sourced from the stores (not from state, which is empty on cold start).
+        if LifecycleState.shared.current == .uninitialized,
+           let previousApiKey = SDKConfigStore.shared.current.apiKey,
+           previousApiKey != apiKey {
+            let previous = IdentityStore.shared.current
+            if let anonymousId = previous.anonymousId, let tokenData = IdentityStore.shared.pushToken {
+                let request = RequestFactory.unregisterRequest(
+                    identity: RequestIdentity(
+                        apiKey: previousApiKey,
+                        anonymousId: anonymousId,
+                        email: previous.email,
+                        phoneNumber: previous.phoneNumber,
+                        externalId: previous.externalId
+                    ),
+                    pushToken: tokenData.pushToken
+                )
+                // Appended so it sends after any queued old-company requests; persisted
+                // synchronously so it survives a crash before the first flush.
+                QueueStore.shared.enqueue(request, persist: .synchronous)
+            }
+            // NOTE: do NOT clear the push token here — the switch must preserve it so the
+            // token can be re-registered under the new company immediately below.
+            // Give the new company a clean identity: mint a fresh anon and drop any PII so
+            // `completeInitialization` hydrates it. Unconditional (matches the runtime switch
+            // path's reset()) so an anonymous-only switch does not carry the old company's anon.
+            IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+            // Re-register the preserved token under the new company (identity-only, fresh anon).
+            if let tokenData = IdentityStore.shared.pushToken,
+               let newAnon = IdentityStore.shared.current.anonymousId {
+                let request = RequestFactory.tokenRequest(
+                    apiKey: apiKey,
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement,
+                    background: tokenData.pushBackground.rawValue,
+                    profile: ProfilePayload(
+                        email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
+                    )
+                )
+                QueueStore.shared.enqueue(request)
+            }
+        }
+
+        // ── Branch 3: FALL-THROUGH — normal cold-start init ──────────────────────────────────────
+        // Guard: if already past `.uninitialized` (either `.initializing` or `.initialized`),
+        // do nothing (handles double-call race — the cold-start-switch block above may have
+        // adjusted identity but `beginInitializing` still guards the init seq).
+        guard LifecycleState.shared.beginInitializing() else { return }
+        // Confirm the apiKey in the canonical config store.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        // Kick the async tail: migration + drainBuffer + lifecycle loop.
+        Task { await completeInitialization(apiKey: apiKey) }
+    }
+
+    // MARK: - completeInitialization (async tail)
+
+    /// Runs migration, drains the UnattributedBuffer, transitions to `.initialized`, and starts
+    /// the long-lived lifecycle loop.
+    ///
+    /// Ports `KlaviyoReducer.reduce(.completeInitialization)` (StateManagement.swift:202-267),
+    /// dropping the vestigial identity hydrate/carry-over (L211-224) — IdentityStore is already
+    /// canonical and pre-init setters already wrote to it directly.
+    static func completeInitialization(apiKey: String) async {
+        // Must run before any QueueStore access; migrates the legacy per-apiKey queue blob
+        // and identity into the canonical Core stores.
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+        // Drain any request-generating calls buffered before an apiKey was known into the
+        // now-resolvable QueueStore (at-least-once; the durable buffer is trimmed only after
+        // the queue write persists). Runs after migration so a migrated queue is present.
+        RequestEnqueuer.drainBuffer(apiKey: apiKey)
+        // Transition from .initializing → .initialized.
+        // Identity/apiKey/pushToken are already canonical in the Core stores:
+        // IdentityStore was populated either by migration (legacy data) or by pre-init setters,
+        // and the apiKey was written to SDKConfigStore by the sync head above.
+        // (L211-224: the old hydrate/carry-over is dropped here — see design doc.)
+        LifecycleState.shared.completeInitialization()
+        // Start the long-lived lifecycle driver.
+        await runLifecycle()
+    }
+
+    // MARK: - runLifecycle (long-lived lifecycle loop)
+
+    /// Drives the Core `RequestQueue` actor for the lifetime of the SDK session.
+    ///
+    /// Ports `KlaviyoReducer.reduce(.completeInitialization)` effect (StateManagement.swift:237-267)
+    /// verbatim. Replaces `send(.setPushEnablement(settings))` with a direct `setPushEnablement`
+    /// call (no TCA dispatch).
+    private static func runLifecycle() async {
+        @Sendable
+        func handleForeground() async {
+            await klaviyoSwiftEnvironment.requestQueue.start()
+            let settings = await environment.getNotificationSettings()
+            // Direct call instead of `send(.setPushEnablement(settings))`.
+            setPushEnablement(settings)
+            let autoclearing = await environment.getBadgeAutoClearingSetting()
+            if autoclearing {
+                await BadgeManager.setBadgeCount(0)
+            } else {
+                await MainActor.run { BadgeManager.syncBadgeCount() }
+            }
+        }
+
+        @Sendable
+        func handleBackground() async {
+            await klaviyoSwiftEnvironment.requestQueue.stop()
+            await MainActor.run { BadgeManager.syncBadgeCount() }
+        }
+
+        // Launch kickoff — parity with the old completeInit → `.start`.
+        await handleForeground()
+        for await event in environment.lifecycleEventsWithReachability().lifecycleEventStream() {
+            switch event {
+            case .foregrounded:
+                await handleForeground()
+            case .backgrounded, .terminated:
+                await handleBackground()
+            case let .reachabilityChanged(status):
+                await klaviyoSwiftEnvironment.requestQueue.networkConnectivityChanged(status)
+            }
+        }
+    }
+}
