@@ -257,9 +257,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             apiKey: TEST_API_KEY,
             email: "same@email.com",
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
+            initalizationState: .initialized
         )
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(initialState.identity)
@@ -389,7 +387,6 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             $0.email = nil
             $0.phoneNumber = nil
             $0.externalId = nil
-            $0.pendingProfile = nil
         }
         // ONE request: identity-only registerPushToken under the fresh anon (no profile request
         // for resetProfile — only the token re-register is needed to rebind under new identity).
@@ -408,7 +405,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             ProfileData(email: "user@email.com", externalId: "ext-123", anonymousId: "anon-old")
         )
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -436,7 +433,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             )
         )
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -497,9 +494,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
                     deviceData: .init(context: environment.appContextInfo())
                 )
             },
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: true
+            initalizationState: .initialized
         )
     }
 
@@ -514,7 +509,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let previousAnon = "previous-user-anon"
         IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.enqueueProfile(Profile(email: "new@user.com")))
@@ -534,7 +529,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         let anon = "stable-anon"
         IdentityStore.shared.update(ProfileData(email: "same@user.com", anonymousId: anon))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.enqueueProfile(Profile(email: "same@user.com")))
@@ -554,7 +549,7 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
             phoneNumber: "+15555550100", externalId: "ext-1", anonymousId: anon
         ))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.setEmail("new@user.com"))
@@ -566,37 +561,56 @@ class StateManagementEnqueueEdgeCaseTests: StateManagementTestCase {
         XCTAssertEqual(stored.anonymousId, anon)
     }
 
-    /// A pre-init identifier setter folds AND consumes any staged `pendingProfile` into its buffered
-    /// profile request — unlike the pre-init `set(profile:)` path, which leaves the property staged
-    /// (see `testEnqueueProfilePayloadParityWithLegacyBuilder`). Pins the `applyIdentifierChange`
-    /// fold+consume behavior that diverges from the legacy `setPreInitIdentifier`.
+    /// After the MAGE-1197 cutover, `setProfileProperty` stages into `ProfilePropertyBuffer` rather
+    /// than `state.pendingProfile`, so an identifier setter no longer folds the staged property into
+    /// its request. The staged property instead ships when the Core `RequestQueue` actor drains the
+    /// buffer via `willDrain`. This pins both halves: `setEmail` does NOT carry the staged property,
+    /// and the buffer drain DOES ship it.
     @MainActor
-    func testPreInitSetProfilePropertyThenSetEmailShipsPropertyInBufferedProfile() async throws {
+    func testPreInitSetProfilePropertyShipsViaBufferDrainNotIdentifierSetter() async throws {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-preinit"))
         IdentityStore.shared.update(ProfileData(anonymousId: "stable-anon"))
 
-        let store = TestStore(initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer())
+        let store = TestStore(initialState: KlaviyoState(), reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        let key = Profile.ProfileKey.custom(customKey: "loyalty_tier")
-        _ = await store.send(.setProfileProperty(key, "gold"))
+        let profileKey = Profile.ProfileKey.custom(customKey: "loyalty_tier")
+        _ = await store.send(.setProfileProperty(profileKey, "gold"))
+        // Staged in the buffer, not on state (the reducer no longer holds a pending-profile field).
+
         _ = await store.send(.setEmail("new@user.com"))
 
-        // The staged property is consumed onto the buffered profile request, not left pending.
-        XCTAssertNil(store.state.pendingProfile, "setEmail must consume the staged pendingProfile")
-
-        let profiles: [CreateProfilePayload] = UnattributedBuffer.shared.drainSnapshot().requests
-            .compactMap {
-                if case let .profile(payload) = $0 { return payload }
-                return nil
-            }
-        guard let payload = profiles.last else {
-            return XCTFail("expected a buffered profile request carrying the staged property")
+        // setEmail's createProfile (enqueued to the QueueStore since an apiKey is set) must NOT carry
+        // the staged property — the identifier setter no longer folds it in. Read before the buffer
+        // drain below, since `seedTestQueueStore()` clears the queue.
+        let setEmailProfiles: [CreateProfilePayload] = QueueStore.shared.requests.compactMap { request in
+            if case let .createProfile(_, payload) = request.endpoint { return payload }
+            return nil
         }
-        let customProps = payload.data.attributes.properties.value as? [String: Any]
         XCTAssertEqual(
-            customProps?["loyalty_tier"] as? String, "gold",
-            "the staged property must ship in the buffered profile request built by setEmail"
+            setEmailProfiles.count, 1,
+            "setEmail enqueues exactly one createProfile (no extra fold-in request)"
         )
+        let setEmailProps = setEmailProfiles.first?.data.attributes.properties.value as? [String: Any]
+        XCTAssertNil(
+            setEmailProps?["loyalty_tier"],
+            "identifier setter must not fold the staged property after the cutover"
+        )
+
+        // The staged property ships when the buffer drains into the queue.
+        seedTestQueueStore()
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+        let queued = QueueStore.shared.requests
+        let carriedProperty = queued.contains { request in
+            switch request.endpoint {
+            case let .createProfile(_, payload):
+                let props = payload.data.attributes.properties.value as? [String: Any]
+                return props?["loyalty_tier"] as? String == "gold"
+            default:
+                return false
+            }
+        }
+        XCTAssertTrue(carriedProperty, "the staged property ships via the buffer drain")
     }
 }
 

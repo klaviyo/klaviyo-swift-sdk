@@ -22,7 +22,7 @@ class StateManagementTests: StateManagementTestCase {
             if count == 0 { setBadgeExpectation.fulfill() }
         }
 
-        let initialState = KlaviyoState(requestsInFlight: [])
+        let initialState = KlaviyoState()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         let apiKey = "fake-key"
@@ -36,15 +36,19 @@ class StateManagementTests: StateManagementTestCase {
         // loaded from disk carries NO identity (anonymousId nil). The reducer then hydrates the
         // anonymousId from `IdentityStore.shared.current` (minted deterministically to the test
         // uuid), which is what lands in the resulting state.
-        let expectedState = KlaviyoState(requestsInFlight: [])
+        let expectedState = KlaviyoState()
+        store.exhaustivity = .off
+
         await store.receive(.completeInitialization(expectedState)) {
             $0.anonymousId = environment.uuid().uuidString
             $0.initalizationState = .initialized
         }
 
-        await store.receive(.start)
-        await store.receive(.flushQueue)
+        // completeInitialization now drives the Core RequestQueue actor directly (start on launch)
+        // and runs the push-enablement + badge side effects; it no longer dispatches `.start`/
+        // `.flushQueue`. The finite test lifecycle stream lets the long-lived effect complete.
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
@@ -58,7 +62,7 @@ class StateManagementTests: StateManagementTestCase {
             })
             .eraseToAnyPublisher()
         }
-        let initialState = KlaviyoState(requestsInFlight: [])
+        let initialState = KlaviyoState()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -104,12 +108,16 @@ class StateManagementTests: StateManagementTestCase {
             return .success(TEST_RETURN_DATA)
         }
 
-        let initialState = KlaviyoState(requestsInFlight: [])
+        let initialState = KlaviyoState()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
         _ = await store.send(.initialize(apiKey))
         await store.finish(timeout: 2_000_000_000)
+
+        // The timed run loop is a no-op under the test clock, so drive the post-init flush explicitly
+        // (`flushNow` bypasses the loop) to prove the migrated backlog drains through the QueueStore.
+        await klaviyoSwiftEnvironment.requestQueue.flushNow()
 
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, apiKey)
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "legacy-anon")
@@ -223,7 +231,6 @@ class StateManagementTests: StateManagementTestCase {
     func testSetPushToken() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
-        initialState.flushing = true // keep the queue observable (no drain)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
         IdentityStore.shared.update(initialState.identity)
         IdentityStore.shared.updatePushToken(nil)
@@ -248,7 +255,6 @@ class StateManagementTests: StateManagementTestCase {
     func testSetPushTokenEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
-        initialState.flushing = true // keep the queue observable (no drain)
         seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -275,7 +281,6 @@ class StateManagementTests: StateManagementTestCase {
     func testSetPushTokenMultipleTimes() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData = nil
-        initialState.flushing = true // keep the queue observable (no drain)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
         IdentityStore.shared.update(initialState.identity)
         IdentityStore.shared.updatePushToken(nil)
@@ -315,7 +320,6 @@ class StateManagementTests: StateManagementTestCase {
     func testSetPushEnablementChanged() async throws {
         var initialState = INITIALIZED_TEST_STATE()
         initialState.pushTokenData?.pushEnablement = .denied
-        initialState.flushing = true // keep the queue observable (no drain)
         seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -349,7 +353,6 @@ class StateManagementTests: StateManagementTestCase {
             pushToken: staleToken, pushEnablement: .authorized, pushBackground: .available,
             deviceData: .init(context: environment.appContextInfo())
         )
-        initialState.flushing = true // keep the queue observable (no drain)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: initialState.apiKey!))
         IdentityStore.shared.update(initialState.identity)
         IdentityStore.shared.updatePushToken(PushTokenData(
@@ -369,228 +372,16 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .denied)
     }
 
-    // MARK: - flush
-
-    @MainActor
-    func testFlushQueueLeasesFromQueueStoreIntoInFlight() async throws {
-        let apiKey = "fake-key"
-        let payload = CreateProfilePayload(data: ProfilePayload(Profile.test, anonymousId: "anon"))
-        let request = KlaviyoRequest(endpoint: .createProfile(apiKey, payload))
-        resetCanonicalCoreStores()
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        // Seed AFTER resetting the canonical stores — `resetCanonicalCoreStores` clears the
-        // shared QueueStore, which would otherwise drop the spy injected here.
-        let readQueue = seedTestQueueStore(initial: [request])
-
-        var initialState = KlaviyoState(requestsInFlight: [])
-        initialState.apiKey = apiKey
-        initialState.initalizationState = .initialized
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        await store.send(.flushQueue) {
-            $0.requestsInFlight = [request]
-            $0.flushing = true
-        }
-        XCTAssertEqual(readQueue(), [], "queue is drained into in-flight on flush")
-        await store.receive(.sendRequest)
-    }
-
-    @MainActor
-    func testFlushUninitializedQueueDoesNotFlush() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        _ = await store.send(.flushQueue)
-    }
-
-    @MainActor
-    func testQueueThatIsFlushingDoesNotFlush() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        _ = await store.send(.flushQueue)
-    }
-
-    @MainActor
-    func testEmptyQueueDoesNotFlush() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        _ = await store.send(.flushQueue)
-    }
-
-    @MainActor
-    func testFlushQueueWithMultipleRequests() async throws {
-        var count = 0
-        // request uuids need to be unique :)
-        environment.uuid = {
-            count += 1
-            switch count {
-            case 1:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
-            case 2:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
-            default:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
-            }
-        }
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
-        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        let readQueue = seedTestQueueStore(initial: [request, request2])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.flushQueue) {
-            $0.flushing = true
-            $0.requestsInFlight = [request, request2]
-        }
-        XCTAssertEqual(readQueue(), [], "queue is drained into in-flight on flush")
-        await store.receive(.sendRequest)
-
-        await store.receive(.deQueueCompletedResults(request)) {
-            $0.flushing = true
-            $0.requestsInFlight = [request2]
-        }
-        await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request2)) {
-            $0.pushTokenData = PushTokenData(pushToken: "blob_token", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo()))
-            $0.flushing = false
-            $0.requestsInFlight = []
-        }
-    }
-
-    @MainActor
-    func testFlushQueueDuringExponentialBackoff() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200)
-        initialState.flushing = false
-        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        seedTestQueueStore(initial: [request, request2])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.flushQueue) {
-            $0.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: 200 - Int(initialState.flushInterval))
-        }
-    }
-
-    @MainActor
-    func testFlushQueueExponentialBackoffGoesToSize() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryState = .retryWithBackoff(requestCount: 23, totalRetryCount: 23, currentBackoff: Int(initialState.flushInterval) - 2)
-        initialState.flushing = false
-        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        seedTestQueueStore(initial: [request, request2])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.flushQueue) {
-            $0.retryState = .retry(23)
-            $0.flushing = true
-            $0.requestsInFlight = [request, request2]
-        }
-        await store.receive(.sendRequest)
-
-        // didn't fake uuid since we are not testing this.
-        await store.receive(.deQueueCompletedResults(request)) {
-            $0.flushing = false
-            $0.retryState = .retry(1)
-            $0.requestsInFlight = []
-        }
-    }
-
-    @MainActor
-    func testSendRequestWhenNotFlushing() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        // Shouldn't really happen but getting more coverage...
-        _ = await store.send(.sendRequest)
-    }
-
-    // MARK: - send request
-
-    @MainActor
-    func testSendRequestWithNoRequestsInFlight() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        // Shouldn't really happen but getting more coverage...
-        _ = await store.send(.sendRequest) {
-            $0.flushing = false
-        }
-    }
-
-    // MARK: - Network Connectivity Changed
-
-    @MainActor
-    func testNetworkConnectivityChanges() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        // Shouldn't really happen but getting more coverage...
-        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
-            $0.flushInterval = Double.infinity
-        }
-        _ = await store.receive(.cancelInFlightRequests) {
-            $0.flushing = false
-        }
-        _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
-            $0.flushing = false
-            $0.flushInterval = StateManagementConstants.wifiFlushInterval
-        }
-        await store.receive(.flushQueue)
-        _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN)) {
-            $0.flushInterval = StateManagementConstants.cellularFlushInterval
-        }
-        await store.receive(.flushQueue)
-    }
-
-    // MARK: - Stop
-
-    @MainActor
-    func testStopWithRequestsInFlight() async throws {
-        // This test is a little convoluted but essentially want to make when we stop
-        // that we save our state.
-        let syncExpectation = expectation(description: "BadgeManager.syncBadgeCount called on stop")
-        BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
-
-        var initialState = INITIALIZED_TEST_STATE()
-        let request = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
-        let request2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "blob_token", enablement: .authorized)
-        initialState.requestsInFlight = [request, request2]
-        let readQueue = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.stop)
-
-        await store.receive(.cancelInFlightRequests) {
-            $0.flushing = false
-            $0.requestsInFlight = []
-        }
-        // cancelInFlightRequests restores the in-flight lease to the front of the durable queue.
-        XCTAssertEqual(readQueue(), [request, request2])
-        await fulfillment(of: [syncExpectation], timeout: 1)
-    }
-
     // MARK: - Test pending profile
 
+    /// Properties staged via `setProfileProperty` are folded into the outbound request by
+    /// `ProfilePropertyBuffer.flushIntoQueue` (the Core actor's `willDrain` hook), NOT by the reducer.
+    /// With a push token present the buffer folds them into a `registerPushToken` request. This is the
+    /// staging→fold path that replaced the old `setProfileProperty` → `pendingProfile` → `flushQueue`.
     @MainActor
-    func testFlushWithPendingProfile() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
+    func testStagedProfilePropertiesFoldIntoTokenRequest() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -612,24 +403,17 @@ class StateManagementTests: StateManagementTestCase {
             (.custom(customKey: "foo"), 20)
         ]
 
-        var pendingProfile = [Profile.ProfileKey: AnyEncodable]()
-
         for (key, value) in profileAttributes {
-            pendingProfile[key] = AnyEncodable(value)
-            _ = await store.send(.setProfileProperty(key, AnyEncodable(value))) {
-                $0.pendingProfile = pendingProfile
-            }
+            // setProfileProperty stages into the buffer only (the reducer no longer holds a
+            // pending-profile field).
+            _ = await store.send(.setProfileProperty(key, AnyEncodable(value)))
         }
 
-        // flushQueue enqueues the pending profile/token request into the store, then drains it into
-        // the in-memory in-flight lease.
-        _ = await store.send(.flushQueue) {
-            $0.flushing = true
-            $0.pendingProfile = nil
-        }
-        XCTAssertEqual(readQueue(), [], "pending profile/token request is drained into in-flight")
-        guard let request = store.state.requestsInFlight.first else {
-            return XCTFail("expected at least one request in flight after flushQueue")
+        // The Core actor's willDrain hook folds the staged props into a request and enqueues it.
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+
+        guard let request = readQueue().first else {
+            return XCTFail("expected a request enqueued by the buffer drain")
         }
         switch request.endpoint {
         case let .registerPushToken(_, payload):
@@ -658,44 +442,6 @@ class StateManagementTests: StateManagementTestCase {
                 "Wrong endpoint called, expected token update when store's initial state contains token data"
             )
         }
-
-        await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request)) {
-            $0.requestsInFlight = []
-            $0.flushing = false
-            $0.pendingProfile = nil
-            $0.pushTokenData = initialState.pushTokenData
-        }
-    }
-
-    /// Regression: `flushQueue` with a staged `pendingProfile` calls
-    /// `enqueueProfileOrTokenRequest`, which must not leave `state.pushTokenData` nil — otherwise the
-    /// write-through `defer` persists nil into `IdentityStore`, wiping the canonical/persisted token
-    /// until the in-flight register completes (a crash in that window loses the token on disk).
-    @MainActor
-    func testFlushWithPendingProfileKeepsCanonicalToken() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
-        initialState.pendingProfile = [.custom(customKey: "foo"): AnyEncodable("bar")]
-        seedCanonicalStores(from: initialState) // seeds IdentityStore.pushToken = the token
-        _ = seedTestQueueStore()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        store.exhaustivity = .off
-
-        _ = await store.send(.flushQueue)
-
-        // The flush must not have wiped the canonical token via the write-through defer.
-        XCTAssertEqual(
-            IdentityStore.shared.pushToken?.pushToken, initialState.pushTokenData?.pushToken,
-            "flush with a pending profile must not wipe the canonical push token"
-        )
-
-        // Drain the follow-up effects.
-        guard let request = store.state.requestsInFlight.first else {
-            return XCTFail("expected a request in flight after flushQueue")
-        }
-        await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(request))
     }
 
     // MARK: - Test set profile
@@ -717,18 +463,16 @@ class StateManagementTests: StateManagementTestCase {
 
         let pendingKey = Profile.ProfileKey.custom(customKey: "pending_key")
 
-        // Stage a profile property via the reducer (this is how pendingProfile gets populated).
-        _ = await store.send(.setProfileProperty(pendingKey, AnyEncodable("pending_val"))) {
-            $0.pendingProfile = [pendingKey: AnyEncodable("pending_val")]
-        }
+        // Stage a profile property via the reducer. It goes into the ProfilePropertyBuffer now
+        // (the reducer no longer holds a pending-profile field).
+        _ = await store.send(.setProfileProperty(pendingKey, AnyEncodable("pending_val")))
 
         // Now send a set(profile:) call with Profile.test (which has email, firstName, etc.).
-        // Production path: `state.profilePayload(from:anonymousId:)` — NO pendingProfile fold.
+        // Production path: `state.profilePayload(from:anonymousId:)` — NO staged-property fold.
         _ = await store.send(.enqueueProfile(Profile.test)) {
             $0.email = Profile.test.email
             $0.phoneNumber = Profile.test.phoneNumber
             $0.externalId = Profile.test.externalId
-            // pendingProfile stays staged — enqueueProfile does NOT consume it.
         }
 
         // Extract the createProfile request from the queue.
@@ -750,18 +494,12 @@ class StateManagementTests: StateManagementTestCase {
         XCTAssertEqual(attrs.firstName, Profile.test.firstName,
                        "profile firstName must be present in the createProfile payload")
 
-        // The separately-staged pendingProfile property is NOT in this createProfile payload —
-        // it remains staged for the next flush (matching legacy enqueueProfile behavior).
+        // The separately-staged property is NOT in this createProfile payload — it stays in the
+        // ProfilePropertyBuffer for the next actor drain (matching legacy enqueueProfile behavior).
         let customProps = attrs.properties.value as? [String: Any]
         XCTAssertNil(
             customProps?["pending_key"],
-            "staged-only pendingProfile key must NOT appear in the enqueueProfile createProfile payload"
-        )
-
-        // pendingProfile is still staged on state (not consumed by enqueueProfile).
-        XCTAssertNotNil(
-            store.state.pendingProfile,
-            "pendingProfile must remain staged after enqueueProfile (only flush/setter consumes it)"
+            "staged-only property key must NOT appear in the enqueueProfile createProfile payload"
         )
     }
 
@@ -982,6 +720,9 @@ class StateManagementTests: StateManagementTestCase {
         // and reads the correct identity (phone number, push token) when building the payload.
         seedCanonicalStores(from: initialState)
         let readQueue = seedTestQueueStore()
+        // Spy queue: records the high-priority `flushNow` without draining, so the per-event
+        // queue-position assertions below stay deterministic.
+        installSpyRequestQueue()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -1012,10 +753,11 @@ class StateManagementTests: StateManagementTestCase {
                 priority: expectedPriority
             )
             await store.send(.enqueueEvent(event))
-            // High-priority requests are front-inserted inside QueueStore.enqueue.
+            // High-priority requests are front-inserted inside QueueStore.enqueue. The immediate
+            // flush is now driven on the Core actor (fire-and-forget) instead of dispatching
+            // `.flushQueue`; the request itself is enqueued synchronously by RequestEnqueuer.
             if isHighPriority {
                 XCTAssertEqual(readQueue().first, request, "high-priority event is front-inserted")
-                await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
             } else {
                 XCTAssertEqual(readQueue().last, request, "standard event is appended")
             }
@@ -1028,7 +770,7 @@ class StateManagementTests: StateManagementTestCase {
         UnattributedBuffer.shared.reset() // no apiKey set → buffer path
         // Exhaustive: any spurious `.flushQueue` or publish-triggered action would fail this test.
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []),
+            initialState: KlaviyoState(),
             reducer: KlaviyoReducer()
         )
         // exhaustivity = .on (default) — pre-init enqueueEvent must return .none (no downstream
@@ -1062,15 +804,15 @@ class StateManagementTests: StateManagementTestCase {
         let recorded = registerRecordingQueueStore()
 
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []),
+            initialState: KlaviyoState(),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
         await store.send(.initialize(TEST_API_KEY))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()),
+            timeout: timeoutNanoseconds
         )
 
         // drainBuffer (run inside .initialize) enqueued the buffered request into the QueueStore for
@@ -1110,7 +852,7 @@ class StateManagementTests: StateManagementTestCase {
         }
 
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
         return store
@@ -1142,7 +884,7 @@ class StateManagementTests: StateManagementTestCase {
         let recorded = registerRecordingQueueStore()
         await store.send(.initialize(TEST_API_KEY))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])), timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()), timeout: timeoutNanoseconds
         )
         let createsToNewIdentity = recorded().filter {
             if case let .createProfile(_, payload) = $0.endpoint {
@@ -1292,7 +1034,6 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testPrioritizedEventsAreInsertedAtFrontOfQueue() async throws {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
 
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity (push token) when building the geofence event payload.
@@ -1301,7 +1042,10 @@ class StateManagementTests: StateManagementTestCase {
         // Add some existing requests to the queue
         let existingRequest1 = initialState.buildProfileRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!)
         let existingRequest2 = initialState.buildTokenRequest(apiKey: initialState.apiKey!, anonymousId: initialState.anonymousId!, pushToken: "token1", enablement: .authorized)
-        seedTestQueueStore(initial: [existingRequest1, existingRequest2])
+        let readQueue = seedTestQueueStore(initial: [existingRequest1, existingRequest2])
+        // Spy queue: records the immediate flush without draining, so front-insertion order in the
+        // QueueStore is observable (the actor is the real drain path, covered elsewhere).
+        let spyQueue = installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -1331,39 +1075,31 @@ class StateManagementTests: StateManagementTestCase {
             priority: .high
         )
         await store.send(.enqueueEvent(geofenceEvent))
+        await store.finish()
 
-        var actualGeofenceRequest: KlaviyoRequest?
-        await store.receive(.flushQueue) {
-            $0.flushing = true
-            // Geofence event is prioritized → front-inserted by QueueStore, then drained first.
-            XCTAssertEqual($0.requestsInFlight.count, 3, "Should have 3 requests in flight")
-            guard $0.requestsInFlight.count == 3 else {
-                XCTFail("Expected 3 requests in flight, got \($0.requestsInFlight.count) — skipping index assertions")
-                return
-            }
-            actualGeofenceRequest = $0.requestsInFlight[0]
-            if case let .createEvent(_, payload) = actualGeofenceRequest!.endpoint {
-                XCTAssertEqual(
-                    payload.data.attributes.metric.data.attributes.name,
-                    "$geofence_enter",
-                    "First request in flight should be geofence event"
-                )
-            } else {
-                XCTFail("First request in flight should be geofence event")
-            }
+        // Geofence event is prioritized → front-inserted by QueueStore ahead of the seeded requests,
+        // and prompts an immediate flush on the Core actor (no `.flushQueue`/`.sendRequest` dispatch;
+        // the actor owns the drain). Assert the durable queue order and the flush trigger.
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 3, "Should have 3 requests queued")
+        guard queued.count == 3 else {
+            return XCTFail("Expected 3 requests queued, got \(queued.count)")
+        }
+        if case let .createEvent(_, payload) = queued[0].endpoint {
             XCTAssertEqual(
-                $0.requestsInFlight[0].id, geofenceRequest.id,
-                "First request should be the geofence event"
+                payload.data.attributes.metric.data.attributes.name,
+                "$geofence_enter",
+                "First queued request should be geofence event"
             )
-            XCTAssertEqual($0.requestsInFlight[1].id, existingRequest1.id, "Second request should be existing request 1")
-            XCTAssertEqual($0.requestsInFlight[2].id, existingRequest2.id, "Third request should be existing request 2")
+        } else {
+            XCTFail("First queued request should be geofence event")
         }
-        await store.receive(.sendRequest)
-        await store.receive(.deQueueCompletedResults(actualGeofenceRequest!)) {
-            $0.requestsInFlight.removeAll { $0.id == actualGeofenceRequest!.id }
-            $0.retryState = .retry(1)
-            $0.flushing = false
-        }
+        XCTAssertEqual(queued[0].id, geofenceRequest.id, "First request should be the geofence event")
+        XCTAssertEqual(queued[1].id, existingRequest1.id, "Second request should be existing request 1")
+        XCTAssertEqual(queued[2].id, existingRequest2.id, "Third request should be existing request 2")
+
+        let flushCount = await spyQueue.getFlushNowCount()
+        XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
     // MARK: - enqueueSubscription
@@ -1463,7 +1199,7 @@ class StateManagementTests: StateManagementTestCase {
         // warn + drop. Mirrors the initialized path against the canonical persisted identity.
         IdentityStore.shared.update(ProfileData(email: "test@example.com", anonymousId: "anon-1"))
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -1614,7 +1350,6 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     private func makePriorityTestStore() -> PriorityTestScaffold {
         var initialState = INITIALIZED_TEST_STATE()
-        initialState.flushing = false
         // Seed Core stores so RequestEnqueuer routes to QueueStore (not UnattributedBuffer)
         // and reads the correct identity when building event payloads.
         seedCanonicalStores(from: initialState)
@@ -1629,34 +1364,33 @@ class StateManagementTests: StateManagementTestCase {
 
     @MainActor
     func testOpenedPushEventProducesHighPriorityRequestAtQueueFront() async throws {
+        // Spy queue: records the immediate flush without draining, so the front-insert is observable.
+        let spyQueue = installSpyRequestQueue()
         let scaffold = makePriorityTestStore()
-        // Assert only the priority/front-insert/flush contract; the full network flush
-        // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
         scaffold.store.exhaustivity = .off
 
         let event = Event(name: ._openedPush, properties: ["foo": "bar"], priority: .high)
         await scaffold.store.send(.enqueueEvent(event))
+        await scaffold.store.finish()
 
-        // The high-priority event is front-inserted into the QueueStore and immediately flushed,
-        // leasing the queue into `requestsInFlight` with the opened-push request at the front.
-        await scaffold.store.receive(.flushQueue)
+        // The high-priority event is front-inserted into the QueueStore ahead of the seeded standard
+        // request, and prompts an immediate flush on the Core actor (no `.flushQueue` dispatch).
+        let queued = scaffold.readQueue()
+        XCTAssertEqual(queued.count, 2, "Existing + new request should be queued")
+        let front = try XCTUnwrap(queued.first)
         XCTAssertEqual(
-            scaffold.store.state.requestsInFlight.count, 2,
-            "Existing + new request should be in flight"
-        )
-        let front = try XCTUnwrap(scaffold.store.state.requestsInFlight.first)
-        XCTAssertEqual(
-            front.priority,
-            .high,
+            front.priority, .high,
             "Opened-push request must carry .high priority and be inserted at the front"
         )
+        let flushCount = await spyQueue.getFlushNowCount()
+        XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
     @MainActor
     func testGeofenceEventProducesHighPriorityRequestAtQueueFront() async throws {
+        // Spy queue: records the immediate flush without draining, so the front-insert is observable.
+        let spyQueue = installSpyRequestQueue()
         let scaffold = makePriorityTestStore()
-        // Assert only the priority/front-insert/flush contract; the full network flush
-        // chain is exercised by testPrioritizedEventsAreInsertedAtFrontOfQueue.
         scaffold.store.exhaustivity = .off
 
         let event = Event(
@@ -1665,20 +1399,19 @@ class StateManagementTests: StateManagementTestCase {
             priority: .high
         )
         await scaffold.store.send(.enqueueEvent(event))
+        await scaffold.store.finish()
 
-        // The high-priority event is front-inserted into the QueueStore and immediately flushed,
-        // leasing the queue into `requestsInFlight` with the geofence request at the front.
-        await scaffold.store.receive(.flushQueue)
+        // The high-priority event is front-inserted into the QueueStore ahead of the seeded standard
+        // request, and prompts an immediate flush on the Core actor (no `.flushQueue` dispatch).
+        let queued = scaffold.readQueue()
+        XCTAssertEqual(queued.count, 2, "Existing + new request should be queued")
+        let front = try XCTUnwrap(queued.first)
         XCTAssertEqual(
-            scaffold.store.state.requestsInFlight.count, 2,
-            "Existing + new request should be in flight"
-        )
-        let front = try XCTUnwrap(scaffold.store.state.requestsInFlight.first)
-        XCTAssertEqual(
-            front.priority,
-            .high,
+            front.priority, .high,
             "Geofence request must carry .high priority and be inserted at the front"
         )
+        let flushCount = await spyQueue.getFlushNowCount()
+        XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate actor flush")
     }
 
     @MainActor
@@ -1719,7 +1452,7 @@ class StateManagementTests: StateManagementTestCase {
     @MainActor
     func testInitializeWritesApiKeyThroughToConfigStore() async throws {
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -1803,7 +1536,7 @@ class StateManagementTests: StateManagementTestCase {
         let recorded = registerRecordingQueueStore()
 
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []),
+            initialState: KlaviyoState(),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -1845,8 +1578,8 @@ class StateManagementTests: StateManagementTestCase {
 
         // Let the initialization effect settle so the store finishes cleanly.
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()),
+            timeout: timeoutNanoseconds
         )
     }
 
@@ -1961,7 +1694,7 @@ class StateManagementTests: StateManagementTestCase {
         ))
 
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 
@@ -2006,7 +1739,7 @@ class StateManagementTests: StateManagementTestCase {
 
         // Uninitialized state: state.apiKey is nil even though SDKConfigStore has one.
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
 

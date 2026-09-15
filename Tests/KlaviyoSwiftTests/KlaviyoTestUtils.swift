@@ -13,6 +13,9 @@ import XCTest
 
 let ARCHIVED_RETURNED_DATA = Data()
 
+/// Shared receive/fulfillment timeout for async reducer effects in the state-management suites.
+let timeoutNanoseconds: UInt64 = 10_000_000_000 // 10 seconds
+
 /// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
 ///
 /// The KlaviyoSwift reducer read/write-throughs `IdentityStore.shared` and
@@ -38,13 +41,25 @@ class StateManagementTestCase: XCTestCase {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        ProfilePropertyBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
     }
 
     @MainActor
     override func tearDown() async throws {
+        ProfilePropertyBuffer.shared.reset()
         BadgeManager.resetToProduction()
+    }
+
+    /// Installs a `SpyRequestQueue` as the environment request queue and returns it. The spy records
+    /// lifecycle/flush calls without draining `QueueStore`, so queue-content assertions stay
+    /// deterministic (and the real run loop never spins under the immediate test clock).
+    @discardableResult
+    func installSpyRequestQueue() -> SpyRequestQueue {
+        let spyQueue = SpyRequestQueue()
+        klaviyoSwiftEnvironment.requestQueue = spyQueue
+        return spyQueue
     }
 }
 
@@ -89,7 +104,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },

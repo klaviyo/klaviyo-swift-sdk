@@ -31,8 +31,11 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             IdentityStore.shared.updatePushToken(pushToken)
         }
         let readQueue = registerRecordingQueueStore()
+        // Spy queue: the real RequestQueue with the immediate test clock would busy-loop under the
+        // long-lived `completeInitialization` effect (which calls `start()`) and starve the test.
+        installSpyRequestQueue()
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
         return (readQueue, store)
@@ -46,7 +49,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let store = TestStore(
             initialState: KlaviyoState(
-                apiKey: apiKey, requestsInFlight: [], initalizationState: .initialized, flushing: false
+                apiKey: apiKey, initalizationState: .initialized
             ),
             reducer: KlaviyoReducer()
         )
@@ -58,7 +61,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
     @MainActor
     func testInitializeWhileInitializing() async throws {
-        let initialState = KlaviyoState(requestsInFlight: [])
+        let initialState = KlaviyoState()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
@@ -87,6 +90,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Single shared queue: both the unregister (built while state.apiKey is still the old key)
         // and the token-register (built after the switch to the new key) land in the same queue.
         let readQueue = seedTestQueueStore()
+        // Spy queue: records `flushNow` without draining, so the enqueued unregister/register
+        // survive for the assertions below.
+        installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -99,8 +105,9 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         _ = await store.send(.initialize(newApiKey)) {
             $0.apiKey = newApiKey
         }
-        // Company switch prompts an immediate flush so the unregister drains promptly.
-        await store.receive(.flushQueue)
+        // Company switch prompts an immediate actor flush (no `.flushQueue` dispatch); the requests
+        // are enqueued synchronously in the reducer before that fire-and-forget effect.
+        await store.finish()
         let unregister = mutableState.buildUnregisterRequest(
             apiKey: oldApiKey, anonymousId: store.state.anonymousId!,
             pushToken: initialState.pushTokenData!.pushToken
@@ -133,11 +140,15 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
             enablement: initialState.pushTokenData!.pushEnablement
         )
         let readQueue = seedTestQueueStore(initial: [leftoverRegister])
+        // Spy queue: records `flushNow` without draining, so the queued requests survive for the
+        // ordering assertions below.
+        installSpyRequestQueue()
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
         _ = await store.send(.initialize(newApiKey)) { $0.apiKey = newApiKey }
-        await store.receive(.flushQueue)
+        // Company switch prompts an immediate actor flush (no `.flushQueue` dispatch).
+        await store.finish()
 
         // Expected order: leftover old-company register → unregister(old) → new-company register.
         let endpoints = readQueue().map(\.endpoint)
@@ -165,8 +176,8 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let (readQueue, store) = makeColdStartCompanySwitchFixture(pushToken: token)
         await store.send(.initialize("new-key"))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()),
+            timeout: timeoutNanoseconds
         )
 
         // Token PRESERVED (regression: today it is cleared).
@@ -224,8 +235,8 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         let (readQueue, store) = makeColdStartCompanySwitchFixture()
         await store.send(.initialize("new-key-no-token"))
         await store.receive(
-            .completeInitialization(KlaviyoState(requestsInFlight: [])),
-            timeout: TIMEOUT_NANOSECONDS
+            .completeInitialization(KlaviyoState()),
+            timeout: timeoutNanoseconds
         )
 
         XCTAssertEqual(
@@ -247,34 +258,17 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         )
     }
 
-    // MARK: - Send Request
-
-    @MainActor
-    func testSendRequestBeforeInitialization() async throws {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: true)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-        // Shouldn't really happen but getting more coverage...
-        _ = await store.send(.sendRequest)
-    }
-
     // MARK: - Complete Initialization
 
     @MainActor
     func testCompleteInitializationWhileAlreadyInitialized() async throws {
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initialized,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initialized), reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.completeInitialization(initialState))
     }
@@ -292,22 +286,21 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // resulting state's anonymousId is the expected "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
+        // completeInitialization drives the Core RequestQueue actor (start on launch) and runs the
+        // push-enablement + badge side effects; it no longer dispatches `.start`/`.flushQueue`.
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
@@ -318,7 +311,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // the pre-init setter must push the just-set identifier to IdentityStore BEFORE
         // enqueueProfile reads it, so the buffered profile carries the email (not a stale/empty one).
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -385,7 +378,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetExternalIdUninitializedBuffersProfileWithExternalId() async throws {
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -449,7 +442,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberUninitializedBuffersProfileWithPhoneNumber() async throws {
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: [], initalizationState: .uninitialized),
+            initialState: KlaviyoState(initalizationState: .uninitialized),
             reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
@@ -467,9 +460,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberMissingApiKeyStillSetsPhoneNumber() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u")) {
@@ -496,9 +487,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPhoneNumberWithTrailingWhiteSpace() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
         _ = await store.send(.setPhoneNumber("1-800-Blobs4u        ")) {
@@ -511,9 +500,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     @MainActor
     func testSetPushTokenUninitializedRoutesToBuffer() async throws {
         let initialState = KlaviyoState(anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
+                                        initalizationState: .uninitialized)
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData
 
@@ -525,9 +512,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testAutomaticPushTokenUninitializedRoutesToBuffer() async throws {
         let initialState = KlaviyoState(
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .uninitialized,
-            flushing: false
+            initalizationState: .uninitialized
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
@@ -542,9 +527,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // anonymousId is minted on first IdentityStore access, so "missing" is defensive coverage.
         let apiKey = "fake-key"
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: false)
+                                        initalizationState: .initialized)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         let readQueue = seedTestQueueStore()
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
@@ -552,49 +535,6 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
 
         _ = await store.send(.setPushToken("blob_token", .authorized))
         XCTAssertEqual(readQueue().count, 1)
-    }
-
-    // MARK: - Stop
-
-    @MainActor
-    func testStopUninitialized() async {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.stop)
-    }
-
-    @MainActor
-    func testStopInitializing() async {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .initializing,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.stop)
-    }
-
-    // MARK: - Start
-
-    @MainActor
-    func testStartUninitialized() async {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.start)
     }
 
     // MARK: - Default Badge Clearing
@@ -610,22 +550,19 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [setBadgeExpectation], timeout: 1, enforceOrder: true)
     }
 
@@ -643,91 +580,20 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
         // Seed the canonical IdentityStore so `.completeInitialization` hydrates anonymousId "foo".
         IdentityStore.shared.update(ProfileData(anonymousId: "foo"))
         let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: "foo", requestsInFlight: [],
-                                        initalizationState: .initialized,
-                                        flushing: true)
+                                        anonymousId: "foo",
+                                        initalizationState: .initialized)
         let store = TestStore(initialState: KlaviyoState(apiKey: apiKey,
                                                          email: "foo@foo.com", phoneNumber: "1800-blobs4u",
-                                                         externalId: "external-id", requestsInFlight: [],
-                                                         initalizationState: .initializing,
-                                                         flushing: true), reducer: KlaviyoReducer())
+                                                         externalId: "external-id",
+                                                         initalizationState: .initializing), reducer: KlaviyoReducer())
         // Attempting to get more coverage
         _ = await store.send(.completeInitialization(initialState)) {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
-        await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
+        await store.finish()
         await fulfillment(of: [notCalledExpectation, syncExpectation], timeout: 1, enforceOrder: true)
-    }
-
-    // MARK: - Network Status Changed
-
-    @MainActor
-    func testNetworkStatusChangedUninitialized() async {
-        let apiKey = "fake-key"
-        let initialState = KlaviyoState(apiKey: apiKey,
-                                        anonymousId: environment.uuid().uuidString,
-                                        requestsInFlight: [],
-                                        initalizationState: .uninitialized,
-                                        flushing: false)
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.networkConnectivityChanged(.reachableViaWWAN))
-    }
-
-    // MARK: - Flush queue while offline during retry backoff
-
-    @MainActor
-    func testFlushQueueWhileOfflineDuringBackoffDoesNotTrap() async {
-        // Offline + backoff: the priority path can dispatch `.flushQueue` while `flushInterval` is
-        // `.infinity`, where the backoff countdown used to trap converting it to `Int`.
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryState = .retryWithBackoff(
-            requestCount: 1,
-            totalRetryCount: 1,
-            currentBackoff: 30
-        )
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
-            $0.flushInterval = Double.infinity
-        }
-        // Also clears `flushing` — otherwise `.flushQueue` bails early and this test is vacuous.
-        _ = await store.receive(.cancelInFlightRequests) {
-            $0.flushing = false
-        }
-
-        // No state mutation and no follow-on effect: notably `retryState` keeps its backoff.
-        _ = await store.send(.flushQueue)
-    }
-
-    @MainActor
-    func testFlushQueueWhileOfflineWithoutBackoffDoesNotDrainQueue() async {
-        // The guard sits above the backoff block, so it also stops the non-backoff `.retry` path —
-        // which never crashed, but draining while offline only burns attempts. Pins that half:
-        // the queue must stay put rather than moving into requestsInFlight.
-        var initialState = INITIALIZED_TEST_STATE()
-        initialState.retryState = .retry(1)
-        let request = initialState.buildProfileRequest(
-            apiKey: initialState.apiKey!,
-            anonymousId: initialState.anonymousId!
-        )
-        let readQueue = seedTestQueueStore(initial: [request])
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        _ = await store.send(.networkConnectivityChanged(.notReachable)) {
-            $0.flushInterval = Double.infinity
-        }
-        _ = await store.receive(.cancelInFlightRequests) {
-            $0.flushing = false
-        }
-
-        // Queue is non-empty on purpose — with an empty queue `.flushQueue` returns early anyway
-        // and this test would pass with or without the guard.
-        _ = await store.send(.flushQueue)
-        XCTAssertEqual(readQueue(), [request], "queue must not drain while offline")
     }
 
     // MARK: - Missing api key for token request
@@ -736,9 +602,7 @@ class StateManagementEdgeCaseTests: StateManagementTestCase {
     func testTokenRequestMissingApiKey() async {
         let initialState = KlaviyoState(
             anonymousId: environment.uuid().uuidString,
-            requestsInFlight: [],
-            initalizationState: .initialized,
-            flushing: false
+            initalizationState: .initialized
         )
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off // setPushToken now write-throughs state.pushTokenData

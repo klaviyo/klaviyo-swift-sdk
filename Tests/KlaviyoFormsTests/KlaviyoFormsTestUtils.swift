@@ -116,7 +116,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
@@ -200,7 +199,5 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
+                                   initalizationState: .initialized)
 }

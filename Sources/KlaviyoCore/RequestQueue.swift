@@ -7,14 +7,12 @@
 
 import Foundation
 
-/// Core-owned flush engine that drains `QueueStore.shared` on a timed cadence and sends requests
-/// through an injected transport. Owns its state and lifecycle (`start`/`stop`), runs the timed run
-/// loop, and implements the drain/send happy path: `flush()` leases the pending batch and sends it
-/// head-first in FIFO order, writing a registered push token back to `IdentityStore` on success.
-/// On failure it classifies the error and either dequeues + continues (non-retryable), stops and
-/// restores the lease so retries resume next tick (transient), or records a durable countdown
-/// backoff and restores the request to the queue (rate-limit / server error) — the request stays
-/// on disk while the countdown gate at the top of `flush()` waits it out over ticks, then resends.
+/// Core-owned flush engine: drains `QueueStore.shared` on a timed cadence and sends through an
+/// injected transport. `flush()` leases the pending batch and sends it head-first (FIFO), writing a
+/// registered push token back to `IdentityStore` on success. On failure it classifies the error and
+/// either dequeues + continues (non-retryable), restores the lease and stops so retries resume next
+/// tick (transient), or records a durable countdown backoff and restores the request so the
+/// countdown gate in `flush()` waits it out over ticks before resending (rate-limit / server error).
 public actor RequestQueue {
     /// Transport seam: sends one request with its per-attempt retry metadata and reports the result.
     public typealias Send = @Sendable (KlaviyoRequest, RequestAttemptInfo)
@@ -24,7 +22,8 @@ public actor RequestQueue {
 
     private let clock: SleepClock
     private let send: Send
-    /// Optional hook invoked before each drain; wired by a later task.
+    /// Optional hook invoked before each drain; wired at bootstrap to
+    /// `ProfilePropertyBuffer.flushIntoQueue` so staged profile properties fold in before the drain.
     private let willDrain: (@Sendable () async -> Void)?
 
     // MARK: - Owned state
@@ -32,7 +31,8 @@ public actor RequestQueue {
     /// Requests leased out of `QueueStore` for the current flush. Restored to the store on `stop()`
     /// so a shutdown mid-flush never drops them.
     private var requestsInFlight: [KlaviyoRequest] = []
-    /// Current cadence between flushes. Defaults to the wifi interval; adjusted by a later task.
+    /// Current cadence between flushes. Defaults to the wifi interval; adjusted by
+    /// `networkConnectivityChanged` (wifi/cellular interval, or `.infinity` when offline).
     private var flushInterval: TimeInterval = FlushConstants.wifiFlushInterval
     /// Retry bookkeeping for the request currently being sent.
     private var retryState: RetryState = .retry(FlushConstants.initialAttempt)
@@ -59,9 +59,9 @@ public actor RequestQueue {
         runLoop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                // If `stop()` cancels the loop while it is parked here, exit instead of running a
-                // trailing `flush()` — otherwise a cancelled idle wait would still drain+send (and
-                // on backgrounding the interval is still finite, so the guard wouldn't catch it).
+                // If `stop()` cancels the loop while parked here, exit instead of running a trailing
+                // `flush()` (on backgrounding the interval is still finite, so the guard alone wouldn't
+                // catch it).
                 do {
                     try await self.clock.sleep(self.flushInterval)
                 } catch {
@@ -73,13 +73,11 @@ public actor RequestQueue {
         }
     }
 
-    /// Cancels the run loop and restores any in-flight lease to `QueueStore` so requests leased for a
-    /// flush survive shutdown. Parity with `cancelInFlightRequests` in the legacy reducer.
+    /// Cancels the run loop and restores any in-flight lease to `QueueStore` so it survives shutdown.
     ///
     /// NOTE: `stop()`/`restoreLease()` use `QueueStore.prepend`, which (unlike `QueueStore.restore`)
-    /// does NOT dedup by id. That is safe today only because exactly one path owns the in-flight
-    /// lease at a time — the lease is drained once and restored once, so no id can be re-inserted
-    /// while it is still present in the store.
+    /// does NOT dedup by id. Safe only because exactly one path owns the lease at a time — drained
+    /// once, restored once — so no id can be re-inserted while still present in the store.
     public func stop() {
         runLoop?.cancel()
         runLoop = nil
@@ -110,35 +108,25 @@ public actor RequestQueue {
 
     // MARK: - Flush
 
-    /// Drains `QueueStore.shared` and sends its requests sequentially through `send`.
-    /// Runs the `willDrain` seam so the owner can enqueue last-minute requests before the drain,
-    /// leases the whole batch, and sends head-first in FIFO order. On `.success` a registered push
-    /// token is written back to the canonical `IdentityStore`. On `.failure` the error is classified
-    /// (`classifyFailure`) and handled: non-retryable → dequeue + continue; transient → stop + lease
-    /// restore (retries next tick); rate-limit/server → record a durable countdown backoff + restore
-    /// the request, which the countdown gate below waits out over ticks before resending.
+    /// Runs `willDrain`, leases the whole `QueueStore` batch, and sends head-first (FIFO). See the
+    /// type doc for the success/failure handling.
     private func flush() async {
-        // 1. Gate: pre-init or offline. Do not flush.
+        // Gate: pre-init or offline.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
         guard !isFlushing else { return }
         isFlushing = true
         defer { isFlushing = false }
 
-        // Durable countdown backoff gate. Advances the countdown once per flush; if a backoff is still
-        // outstanding, skip this flush (the failing request stays durable in `QueueStore` during the
-        // wait). See `advanceBackoffGate`.
+        // Advance the durable countdown backoff once per flush; skip while one is outstanding (the
+        // failing request stays durable in `QueueStore` during the wait). See `advanceBackoffGate`.
         if case .wait = advanceBackoffGate() { return }
 
-        // 2. Let the owner enqueue any last-minute requests before we take the snapshot.
+        // Let the owner enqueue last-minute requests, then lease everything (incl. those).
         await willDrain?()
-
-        // 3. Lease the whole pending batch. Anything enqueued by `willDrain` above is already in the
-        //    store, so it is included in this drain.
+        guard !Task.isCancelled else { return }
         requestsInFlight = QueueStore.shared.drainAll()
         guard !requestsInFlight.isEmpty else { return }
 
-        // 4. Send head-first, FIFO, dequeuing each on success. `sendHead` reports whether to keep
-        //    draining the batch or stop and let the run loop retry on a later tick.
         while let head = requestsInFlight.first {
             switch await sendHead(head) {
             case .continueSending:
@@ -149,11 +137,9 @@ public actor RequestQueue {
         }
     }
 
-    /// Sends one head request with its per-attempt metadata and applies the result, reporting whether
-    /// the flush loop should continue with the next request or stop. On `.success` a registered push
-    /// token is written back to `IdentityStore` and the head is dequeued; on `.failure` the error is
-    /// classified by `handleSendFailure`. Stops early if the attempt metadata is invalid or the lease
-    /// was cleared mid-send (e.g. by `stop()`).
+    /// Sends the head request and applies the result, reporting whether the flush loop should
+    /// continue or stop. Stops early if the attempt metadata is invalid or the lease was cleared
+    /// mid-send (e.g. by `stop()`).
     private func sendHead(_ head: KlaviyoRequest) async -> FailureOutcome {
         // Source `numAttempts` from `.retry(count)` ONLY. The countdown gate always promotes
         // `.retryWithBackoff` to `.retry` before any send, so retryState is `.retry` here. Reading
@@ -208,12 +194,11 @@ public actor RequestQueue {
     }
 
     /// Advances the durable countdown backoff by one flush interval and reports whether `flush()`
-    /// should skip this pass. Called once per flush — from a scheduled run-loop tick OR an immediate
-    /// `flushNow()` — which mirrors the reducer, whose `flushQueue` decremented the backoff on every
-    /// dispatch (timer and high-priority paths alike). Timing is therefore approximate in both
-    /// directions: a backoff fires at most one interval late on the tick path, and a burst of
-    /// immediate flushes can expire it early. That imprecision is the accepted cost of reducer parity.
-    /// The failing request is already restored to the durable `QueueStore`, so it survives the wait.
+    /// should skip this pass. Called once per flush (tick OR `flushNow()`), mirroring the reducer's
+    /// `flushQueue`, which decremented on every dispatch. Timing is therefore approximate — a backoff
+    /// can fire one interval late (tick path) or expire early (a burst of immediate flushes); that
+    /// imprecision is the accepted cost of reducer parity. The failing request stays durable in
+    /// `QueueStore`, so it survives the wait.
     private func advanceBackoffGate() -> BackoffGate {
         guard case let .retryWithBackoff(requestCount, totalCount, backoff) = retryState else {
             return .proceed
@@ -237,11 +222,9 @@ public actor RequestQueue {
         case stopFlush
     }
 
-    /// Classifies a send failure and applies it, returning whether `flush()` should continue with
-    /// the next request or stop. Extracted from `flush()`. Mirrors `handleRequestError` +
-    /// `requestFailed`/`deQueueCompletedResults` in the legacy reducer: non-retryable errors dequeue
-    /// the head and CONTINUE; retryable errors set `retryState`, drop the head if it exceeded
-    /// `maxRetries`, then STOP; any backoff is waited out over ticks by the countdown gate in `flush()`.
+    /// Classifies a send failure and applies it. Mirrors `handleRequestError` +
+    /// `requestFailed`/`deQueueCompletedResults` in the legacy reducer: non-retryable → dequeue +
+    /// CONTINUE; retryable → set `retryState`, drop the head if past `maxRetries`, then STOP.
     private func handleSendFailure(_ error: KlaviyoAPIError, head: KlaviyoRequest) async -> FailureOutcome {
         switch classifyFailure(error: error, retryState: retryState) {
         case .dequeue:
@@ -254,18 +237,14 @@ public actor RequestQueue {
         case let .clearInvalidFieldsAndDequeue(fields):
             // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
             // canonical store so the next request to the API won't carry a stale bad value.
-            // NOTE: read-modify-write is a TOCTOU vs any other IdentityStore writer. Safe here
-            // only because the actor is unwired in this PR. The request-queue cutover must make
-            // IdentityStore concurrent-writer-safe and give it an atomic field-clear; see
-            // IdentityStore's SINGLE WRITER note.
-            var identity = IdentityStore.shared.current
-            for field in fields {
-                switch field {
-                case .email: identity.email = nil
-                case .phone: identity.phoneNumber = nil
+            IdentityStore.shared.mutate { identity in
+                for field in fields {
+                    switch field {
+                    case .email: identity.email = nil
+                    case .phone: identity.phoneNumber = nil
+                    }
                 }
             }
-            IdentityStore.shared.update(identity)
             requestsInFlight.removeFirst()
             retryState = .retry(FlushConstants.initialAttempt)
             return .continueSending
@@ -284,13 +263,10 @@ public actor RequestQueue {
             return .stopFlush
 
         case let .retryWithBackoff(newState):
-            // Rate-limit / server error. Record the backoff on `retryState` and put the request back
-            // on the durable `QueueStore`; the countdown gate at the top of `flush()` waits it out
-            // over ticks, then resends. If it already exceeded `maxRetries`, drop the head and reset
-            // to a fresh `.retry(initialAttempt)`. This DELIBERATELY diverges from the reducer's
-            // `.retryWithBackoff(requestCount: 0)` reset — under the countdown gate that would promote
-            // to `.retry(0)`, which `RequestAttemptInfo` rejects → a permanent stall. Do NOT restore
-            // that parity.
+            // Rate-limit / server error: record the backoff; the countdown gate waits it out, then
+            // resends. If past `maxRetries`, drop the head and reset to `.retry(initialAttempt)`.
+            // The count is used raw as the attempt number, so the reset must be `initialAttempt`,
+            // never `0` — `.retry(0)` is rejected by `RequestAttemptInfo` → permanent stall.
             retryState = newState
             if case let .retryWithBackoff(requestCount, _, _) = newState,
                requestCount > head.endpoint.maxRetries {

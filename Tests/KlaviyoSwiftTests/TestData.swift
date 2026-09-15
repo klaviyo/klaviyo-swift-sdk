@@ -20,9 +20,7 @@ let INITIALIZED_TEST_STATE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -30,9 +28,7 @@ let INITILIZING_TEST_STATE = {
     KlaviyoState(
         apiKey: TEST_API_KEY,
         anonymousId: environment.uuid().uuidString,
-        requestsInFlight: [],
-        initalizationState: .initializing,
-        flushing: true
+        initalizationState: .initializing
     )
 }
 
@@ -45,9 +41,7 @@ let INITIALIZED_TEST_STATE_INVALID_PHONE = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -60,9 +54,7 @@ let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
                              pushEnablement: .authorized,
                              pushBackground: .available,
                              deviceData: .init(context: environment.appContextInfo())),
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
+        initalizationState: .initialized
     )
 }
 
@@ -136,9 +128,7 @@ extension KlaviyoState {
                                        pushBackground: .available,
                                        deviceData: DeviceMetadata(context: environment.appContextInfo())
                                    ),
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
+                                   initalizationState: .initialized)
 
     // MARK: - Request fixtures
 
@@ -252,6 +242,16 @@ extension KlaviyoSwiftEnvironment {
             false
         }, notificationCenter: {
             MockNotificationCenter()
-        })
+        }, requestQueue: RequestQueue(
+            // The timed run loop is a NO-OP in tests: the clock throws, so a `start()`ed loop exits on
+            // its first sleep instead of periodically draining `QueueStore` in the background (which
+            // caused cross-test nondeterminism now that `completeInitialization` drives `start()`).
+            // `flushNow()` bypasses the loop, so tests that need a real drain still work.
+            clock: SleepClock { _ in throw CancellationError() },
+            // Mirror the production wiring so the env-reachable queue is observable through the
+            // standard `environment.klaviyoAPI.send` stub and exercises the real `willDrain`.
+            send: { request, info in await environment.klaviyoAPI.send(request, info) },
+            willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
+        ))
     }
 }

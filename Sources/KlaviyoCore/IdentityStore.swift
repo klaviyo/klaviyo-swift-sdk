@@ -18,8 +18,16 @@ public protocol IdentityReading {
 
 /// Write access to profile identity. Intended for `KlaviyoSwift` only.
 public protocol IdentityWriting {
+    /// Wholesale replacement: overwrites the entire profile with a value you already hold in full.
     func update(_ identity: ProfileData)
+
     func updatePushToken(_ token: PushTokenData?)
+
+    /// Partial edit: `transform` receives the current profile; the read-modify-persist-emit is one
+    /// serialized write, so a concurrent writer cannot clobber it (no TOCTOU). Prefer over
+    /// `current` + `update` for any field-level change. `transform` must be pure and must not call
+    /// back into the store (re-enters the non-recursive write lock).
+    func mutate(_ transform: (inout ProfileData) -> Void)
 
     /// Returns a fresh `anonymousId`. Pure — mutates no store state and neither persists nor emits;
     @discardableResult
@@ -29,24 +37,22 @@ public protocol IdentityWriting {
 public final class IdentityStore: IdentityReading, IdentityWriting {
     public static let shared = IdentityStore()
 
-    // INVARIANT: never hold `lock` across `subject.send`. `lock` is a non-recursive `UnfairLock`;
-    // Combine delivers synchronously, so a subscriber that reads a lock-guarded accessor (e.g.
-    // `pushToken`) during delivery would deadlock. Always mutate under the lock, then emit outside it.
+    // TWO LOCKS (mirrors `QueueStore`'s `persistLock`/`queueLock` split):
     //
-    // SINGLE WRITER: all writes (`update`/`updatePushToken`) come from the TCA reducer's write-through
-    // defer, which runs serially, so persist-then-emit is never interleaved by a second writer. The
-    // lock therefore guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a
-    // write — not writer-vs-writer. If a concurrent writer is ever introduced, persist and emit could
-    // reorder across threads; revisit this the way `QueueStore.persistCurrent` handles it.
-    // The request-queue cutover introduces a second writer (the Core RequestQueue actor: push-token
-    // write-back and 4xx field-clear). It is UNWIRED until that cutover, which must make writes
-    // writer-vs-writer safe (serialize persist+emit without reintroducing the send-under-lock
-    // deadlock) and add an atomic field-clear to close the read-modify-write TOCTOU.
+    // `writeLock` serializes a whole write (persist THEN emit) so two writers can't persist in one
+    // order but emit in another, diverging disk from the last-emitted value. Only writers take it.
     //
-    // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
-    // need no external lock. `lock` guards only `hydrated`, `pushTokenValue`, and disk I/O. Hydration
-    // may assign `subject.value` under the lock only because a fresh store has no subscribers yet.
+    // `lock` (non-recursive `UnfairLock`) guards `hydrated`, `pushTokenValue`, and disk I/O for short
+    // critical sections. INVARIANT: never hold `lock` across `subject.send` — Combine delivers
+    // synchronously, so a subscriber reading a `lock`-guarded accessor (e.g. `pushToken`) during
+    // delivery would deadlock. Mutate/persist under `lock`, release, then emit.
+    //
+    // LOCK ORDERING: `writeLock` is always outer, `lock` inner — never the reverse.
+    //
+    // `subject` (CurrentValueSubject) is internally synchronized. Hydration may assign `subject.value`
+    // under `lock` only because a fresh store has no subscribers yet.
     private let subject: CurrentValueSubject<ProfileData, Never>
+    private let writeLock = UnfairLock()
     private let lock = UnfairLock()
     private var hydrated = false
     private var pushTokenValue: PushTokenData?
@@ -113,11 +119,32 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         }
     }
 
+    /// Wholesale replacement — see `IdentityWriting.update`. For a field-level edit derived from the
+    /// current profile, use `mutate` instead (a `current` + `update` is a TOCTOU under concurrent
+    /// writers).
     public func update(_ identity: ProfileData) {
         hydrateIfNeeded()
-        lock.withLock { persistLocked(profile: identity) }
-        // Emit OUTSIDE the lock — Combine delivers synchronously to subscribers.
-        subject.send(identity)
+        writeLock.withLock {
+            lock.withLock { persistLocked(profile: identity) }
+            // Emit outside `lock` (INVARIANT), inside `writeLock` so persist+emit stay one unit.
+            subject.send(identity)
+        }
+    }
+
+    /// Partial, atomic edit — see `IdentityWriting.mutate`. Read-modify-persist-emit runs under
+    /// `writeLock` so a concurrent writer can't clobber it. `transform` must be pure and must not
+    /// call back into the store (re-enters the non-recursive `writeLock`).
+    public func mutate(_ transform: (inout ProfileData) -> Void) {
+        hydrateIfNeeded()
+        writeLock.withLock {
+            let updated: ProfileData = lock.withLock {
+                var profile = subject.value
+                transform(&profile)
+                persistLocked(profile: profile)
+                return profile
+            }
+            subject.send(updated)
+        }
     }
 
     @discardableResult
@@ -127,21 +154,27 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
 
     public func updatePushToken(_ token: PushTokenData?) {
         hydrateIfNeeded()
-        lock.withLock {
-            pushTokenValue = token
-            // Persist the combined DTO; the profile side is unchanged, so no emission.
-            persistLocked(profile: subject.value)
+        writeLock.withLock {
+            lock.withLock {
+                pushTokenValue = token
+                // Persist the combined DTO; the profile side is unchanged, so no emission.
+                persistLocked(profile: subject.value)
+            }
         }
     }
 
     /// Clears persisted state, in-memory cache, and re-arms hydration (test isolation only).
     /// A subsequent read re-hydrates and re-mints a fresh `anonymousId`.
     package func reset() {
-        lock.withLock {
-            hydrated = false
-            pushTokenValue = nil
+        writeLock.withLock {
+            lock.withLock {
+                hydrated = false
+                pushTokenValue = nil
+                // Delete under `lock` so the file removal can't interleave with a concurrent
+                // hydrate/persist. Emit stays outside `lock` (INVARIANT), inside `writeLock`.
+                removePersisted(fileName: StoreFile.identity)
+            }
+            subject.send(ProfileData())
         }
-        removePersisted(fileName: StoreFile.identity)
-        subject.send(ProfileData())
     }
 }

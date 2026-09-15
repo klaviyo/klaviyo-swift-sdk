@@ -41,6 +41,10 @@ struct KlaviyoSwiftEnvironment {
     /// Injected so tests can substitute a mock without the app-bundle context that
     /// `UNUserNotificationCenter.current()` requires.
     var notificationCenter: @MainActor () -> any UserNotificationCenterProtocol
+    /// The shared flush engine, wired with production collaborators. Tests substitute a queue
+    /// built with an immediate `SleepClock` and a stub `send` closure, or a `SpyRequestQueue`
+    /// double to assert lifecycle wiring.
+    var requestQueue: any RequestQueueProtocol
 
     static let production: KlaviyoSwiftEnvironment = {
         let store = Store.production
@@ -89,7 +93,12 @@ struct KlaviyoSwiftEnvironment {
             },
             notificationCenter: {
                 UNUserNotificationCenter.current()
-            }
+            },
+            requestQueue: RequestQueue(
+                clock: .production,
+                send: { req, info in await environment.klaviyoAPI.send(req, info) },
+                willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
+            )
         )
     }()
 }

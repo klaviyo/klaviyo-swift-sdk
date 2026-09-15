@@ -178,7 +178,7 @@ final class ResolveTrackingLinkTests: XCTestCase {
         // click-log in the durable buffer instead of dropping it via the apiKey-gated
         // `state.enqueueRequest`.
         let store = TestStore(
-            initialState: KlaviyoState(requestsInFlight: []), reducer: KlaviyoReducer()
+            initialState: KlaviyoState(), reducer: KlaviyoReducer()
         )
         store.exhaustivity = .off
         let clickTime = environment.date()

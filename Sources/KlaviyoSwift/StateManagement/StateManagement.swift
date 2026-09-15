@@ -60,30 +60,6 @@ enum KlaviyoAction: Equatable {
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
-    /// dequeues requests that completed and contuinues to flush other requests if they exist.
-    case deQueueCompletedResults(KlaviyoRequest)
-
-    /// when the network connectivity change we want to use a different flush interval to flush out the pending requests
-    case networkConnectivityChanged(Reachability.NetworkStatus)
-
-    /// flushes the queue say when the app is foregrounded or we come back to having network from not having
-    case flushQueue
-
-    /// picks up in flight requests and sends them out. handles errors and if no errors emits a `dequeCompletedResults`
-    case sendRequest
-
-    /// call when the app is backgrounded or terminated
-    case stop
-
-    /// call after initialization or when the app is foregrounded. This action will  flush the queue at some predefined intervals
-    case start
-
-    /// cancels any in flight requests. this can be called when there is no network or from `stop` when app is going to be backgrounded
-    case cancelInFlightRequests
-
-    /// called when there is a network or rate limit error
-    case requestFailed(KlaviyoRequest, RetryState)
-
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
 
@@ -99,11 +75,6 @@ enum KlaviyoAction: Equatable {
     /// when setting individual profile props
     case setProfileProperty(Profile.ProfileKey, AnyEncodable)
 
-    /// resets the state for profile properties before dequeing the request
-    /// this is done in the case where there is http request failure due to
-    /// the data that was passed to the client endpoint
-    case resetStateAndDequeue(KlaviyoRequest, [InvalidField])
-
     /// when the host app receives a Klaviyo tracking link that should be resolved to a destination link.
     /// This action makes a call to an engtrack service that will return the destination link *and* log the click.
     case trackingLinkReceived(URL)
@@ -113,23 +84,25 @@ enum KlaviyoAction: Equatable {
     case trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date)
 }
 
-struct RequestId {}
-struct FlushTimer {}
-
 struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
 
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
-        // Write-through choke point: `apiKey` / `identity` / `pushTokenData` are canonical in the
-        // KlaviyoCore stores; `KlaviyoState` holds an in-memory projection. Capture the projection
-        // before the action runs and, on any mutation, write it back so identity/apiKey/pushToken
-        // are persisted synchronously (the debounced state save is queue-only). `defer` fires on
-        // every return path, so no mutation site can silently drop a write. Value-equality guards
-        // avoid redundant emits (e.g. hydration reading its own value).
+        // Write-through choke point: `apiKey`/`identity`/`pushTokenData` are canonical in the
+        // KlaviyoCore stores; `KlaviyoState` holds a projection. Capture it before the action, then on
+        // any change write it back on the `defer` (fires on every return path) so no mutation site
+        // drops a write. Value-equality guards avoid redundant emits.
         let previousApiKey = state.apiKey
         let previousIdentity = state.identity
         let previousPushTokenData = state.pushTokenData
+        // KNOWN COEXISTENCE LIMITATION (resolved by MAGE-904): this defer persists the reducer's
+        // `state.identity` PROJECTION wholesale. The `RequestQueue` actor can clear a rejected
+        // identifier (4xx field-clear) directly on `IdentityStore` out of band; since the projection
+        // is not re-read here, a later identity-mutating action can persist the stale projection and
+        // resurrect the cleared value. Exists only while both writers (reducer projection + actor)
+        // coexist. MAGE-904 deletes this reducer / projection, making `IdentityStore` the sole source
+        // of truth — do not patch it here (any fix lives in code 904 removes).
         defer {
             if state.apiKey != previousApiKey {
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: state.apiKey))
@@ -159,7 +132,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 }
                 state.apiKey = apiKey
                 state.reset()
-                return .task { .flushQueue }
+                // Prompt an immediate flush on the Core actor so the unregister drains promptly.
+                return .run { _ in await klaviyoSwiftEnvironment.requestQueue.flushNow() }
             } else if case .uninitialized = state.initalizationState,
                       let previousApiKey = SDKConfigStore.shared.current.apiKey,
                       previousApiKey != apiKey {
@@ -222,7 +196,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 RequestEnqueuer.drainBuffer(apiKey: apiKey)
                 // Identity/apiKey/pushToken are hydrated from the Core stores in
                 // `.completeInitialization`; no disk load needed.
-                await send(.completeInitialization(KlaviyoState(requestsInFlight: [])))
+                await send(.completeInitialization(KlaviyoState()))
             }
 
         case var .completeInitialization(initialState):
@@ -253,10 +227,44 @@ struct KlaviyoReducer: ReducerProtocol {
             // Any request-generating calls made before init were routed to the durable
             // `UnattributedBuffer` and already drained into the QueueStore by `.initialize`
             // (before this action fires), so there is nothing to replay here.
+            //
+            // Long-lived lifecycle driver: the Core `RequestQueue` actor is the sole flush engine, so
+            // this effect drives its `start`/`stop`/`networkConnectivityChanged` directly instead of
+            // dispatching the (now dead) reducer flush-engine actions. It also runs the KEEP side
+            // effects that used to live in `.start` — push-enablement sync + badge handling — at
+            // launch and on every `.foregrounded`, preserving behavior parity with the old
+            // completeInit → `.start` + lifecycle→action mapping.
             return .run { send in
-                await send(.start)
+                @Sendable
+                func handleForeground() async {
+                    await klaviyoSwiftEnvironment.requestQueue.start()
+                    let settings = await environment.getNotificationSettings()
+                    await send(.setPushEnablement(settings))
+                    let autoclearing = await environment.getBadgeAutoClearingSetting()
+                    if autoclearing {
+                        await BadgeManager.setBadgeCount(0)
+                    } else {
+                        await MainActor.run { BadgeManager.syncBadgeCount() }
+                    }
+                }
+                @Sendable
+                func handleBackground() async {
+                    await klaviyoSwiftEnvironment.requestQueue.stop()
+                    await MainActor.run { BadgeManager.syncBadgeCount() }
+                }
+                // Launch kickoff — parity with the old completeInit → `.start`.
+                await handleForeground()
+                for await event in environment.lifecycleEventsWithReachability().lifecycleEventStream() {
+                    switch event {
+                    case .foregrounded:
+                        await handleForeground()
+                    case .backgrounded, .terminated:
+                        await handleBackground()
+                    case let .reachabilityChanged(status):
+                        await klaviyoSwiftEnvironment.requestQueue.networkConnectivityChanged(status)
+                    }
+                }
             }
-            .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
 
         case let .setEmail(email):
             guard email.isNotEmptyOrSame(as: IdentityStore.shared.current.email, identifier: "email") else {
@@ -314,7 +322,8 @@ struct KlaviyoReducer: ReducerProtocol {
             // via `enqueueRequest` then would be dropped. The else branch re-gates on
             // `SDKConfigStore`, so a warm-start token still reaches `QueueStore` (not the buffer).
             if let apiKey = state.apiKey {
-                // Post-init: fold + consume any pending profile into the registration.
+                // Post-init: register the token against the current identity. Staged profile
+                // properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
                 state.identity = IdentityStore.shared.current
                 let request = state.resolvedTokenRequest(
                     apiKey: apiKey, anonymousId: anonymousId, pushToken: pushToken, enablement: enablement
@@ -335,210 +344,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 await send(KlaviyoAction.setPushToken(pushToken, enablement))
             }
 
-        case .flushQueue:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            if state.flushing {
-                return .none
-            }
-            // The priority path can dispatch `.flushQueue` while offline, where `flushInterval` is
-            // `.infinity` — the backoff below would trap on `Int()`, and draining is pointless.
-            guard state.flushInterval.isFinite else {
-                return .none
-            }
-            if case let .retryWithBackoff(requestCount, totalCount, backOff) = state.retryState {
-                let newBackOff = max(backOff - Int(state.flushInterval), 0)
-                if newBackOff > 0 {
-                    state.retryState = .retryWithBackoff(
-                        requestCount: requestCount,
-                        totalRetryCount: totalCount,
-                        currentBackoff: newBackOff
-                    )
-                    return .none
-                } else {
-                    state.retryState = .retry(requestCount)
-                }
-            }
-            if state.pendingProfile != nil {
-                state.enqueueProfileOrTokenRequest()
-            }
-            guard state.apiKey != nil else {
-                return .none
-            }
-            // Lease the durable pending queue into the in-memory in-flight set: `drainAll` atomically
-            // snapshots + clears the store (parity with the former `append(contentsOf:)` +
-            // `removeAll`). In-flight stays an in-memory reducer field.
-            let batch = QueueStore.shared.drainAll()
-            if batch.isEmpty {
-                return .none
-            }
-            state.requestsInFlight.append(contentsOf: batch)
-            state.flushing = true
-            return .task {
-                .sendRequest
-            }
-
-        case .stop:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                .concatenate(with: .run(operation: { send in
-                    await send(.cancelInFlightRequests)
-                    await MainActor.run { BadgeManager.syncBadgeCount() }
-                }))
-
-        case .start:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-
-            return .merge([
-                .run { send in
-                    let settings = await environment.getNotificationSettings()
-                    await send(KlaviyoAction.setPushEnablement(settings))
-                    let autoclearing = await environment.getBadgeAutoClearingSetting()
-                    if autoclearing {
-                        await BadgeManager.setBadgeCount(0)
-                    } else {
-                        await MainActor.run { BadgeManager.syncBadgeCount() }
-                    }
-                },
-                environment.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }
-                    .eraseToEffect()
-                    .cancellable(id: FlushTimer.self, cancelInFlight: true)
-            ])
-
-        case let .deQueueCompletedResults(completedRequest):
-            if case let .registerPushToken(_, payload) = completedRequest.endpoint {
-                let requestData = payload.data.attributes
-                let enablement = PushEnablement(rawValue: requestData.enablementStatus) ?? .authorized
-                let backgroundStatus = PushBackground(rawValue: requestData.backgroundStatus) ?? .available
-                state.pushTokenData = PushTokenData(
-                    pushToken: requestData.token,
-                    pushEnablement: enablement,
-                    pushBackground: backgroundStatus,
-                    deviceData: requestData.deviceMetadata
-                )
-            }
-            state.requestsInFlight.removeAll { inflightRequest in
-                completedRequest.id == inflightRequest.id
-            }
-            state.retryState = RetryState.retry(StateManagementConstants.initialAttempt)
-            if state.requestsInFlight.isEmpty {
-                state.flushing = false
-                return .none
-            }
-            return .task { .sendRequest }.cancellable(id: RequestId.self)
-
-        case .sendRequest:
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            guard state.flushing else {
-                return .none
-            }
-
-            guard let request = state.requestsInFlight.first else {
-                state.flushing = false
-                return .none
-            }
-            let retryState = state.retryState
-            var numAttempts = 1
-            if case let .retry(attempts) = retryState {
-                numAttempts = attempts
-            }
-
-            return .run { [numAttempts] send in
-                let requestAttemptInfo: RequestAttemptInfo
-                do {
-                    requestAttemptInfo = try RequestAttemptInfo(
-                        attemptNumber: numAttempts,
-                        maxAttempts: request.endpoint.maxRetries
-                    )
-                } catch {
-                    environment.emitDeveloperWarning("Invalid RequestAttemptInfo parameters: \(error)")
-                    await send(.cancelInFlightRequests)
-                    return
-                }
-
-                let result = await environment.klaviyoAPI.send(request, requestAttemptInfo)
-                switch result {
-                case .success:
-                    await send(.deQueueCompletedResults(request))
-                case let .failure(error):
-                    await send(handleRequestError(request: request, error: error, retryState: retryState))
-                }
-            } catch: { error, send in
-                // For now assuming this is cancellation since nothing else can throw AFAICT
-                environment.emitDeveloperWarning("Unknown error thrown during request processing \(error)")
-                await send(.cancelInFlightRequests)
-            }.cancellable(id: RequestId.self)
-
-        case .cancelInFlightRequests:
-            state.flushing = false
-            // Restore the leased in-flight requests to the front of the durable pending queue.
-            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
-            // the process ends within a debounce window (this runs on `.stop`/background) the batch
-            // would be lost from both memory and disk. Write it before returning.
-            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
-                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
-            }
-            state.requestsInFlight = []
-            return .none
-
-        case let .networkConnectivityChanged(networkStatus):
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
-            switch networkStatus {
-            case .notReachable:
-                state.flushInterval = Double.infinity
-                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                    .concatenate(with: .run { send in
-                        await send(.cancelInFlightRequests)
-                    })
-            case .reachableViaWiFi:
-                state.flushInterval = StateManagementConstants.wifiFlushInterval
-            case .reachableViaWWAN:
-                state.flushInterval = StateManagementConstants.cellularFlushInterval
-            }
-            return environment.timer(state.flushInterval)
-                .map { _ in
-                    KlaviyoAction.flushQueue
-                }.eraseToEffect()
-                .cancellable(id: FlushTimer.self, cancelInFlight: true)
-
-        case let .requestFailed(request, retryState):
-            var exceededRetries = false
-            switch retryState {
-            case let .retry(count):
-                exceededRetries = count > request.endpoint.maxRetries
-                state.retryState = .retry(exceededRetries ? 1 : count)
-            case let .retryWithBackoff(requestCount, totalCount, backOff):
-                exceededRetries = requestCount > request.endpoint.maxRetries
-                state.retryState = .retryWithBackoff(requestCount: exceededRetries ? 0 : requestCount, totalRetryCount: totalCount, currentBackoff: backOff)
-            }
-            if exceededRetries {
-                state.requestsInFlight.removeAll { inflightRequest in
-                    request.id == inflightRequest.id
-                }
-            }
-            state.flushing = false
-            // Restore the leased in-flight requests to the front of the durable pending queue.
-            // `.synchronous`: the in-flight set is in-memory only and is cleared just below, so if
-            // the process ends within a debounce window (this runs on `.stop`/background) the batch
-            // would be lost from both memory and disk. Write it before returning.
-            if state.apiKey != nil, !state.requestsInFlight.isEmpty {
-                QueueStore.shared.prepend(state.requestsInFlight, persist: .synchronous)
-            }
-            state.requestsInFlight = []
-            return .none
-
         case let .enqueueEvent(event):
             RequestEnqueuer.enqueueEvent(event)
             // Post-init only, matching today: publish to the EventBus (drives event-triggered in-app
@@ -558,7 +363,9 @@ struct KlaviyoReducer: ReducerProtocol {
             // `.fireAndForget` keeps publish async and reentrancy-safe, matching the pre-cutover
             // semantics: an EventBus subscriber cannot dispatch back into the store synchronously.
             let publish = EffectTask<KlaviyoAction>.fireAndForget { enrichAndPublishEvent(publishedEvent) }
-            return event.priority == .high ? .merge([.task { .flushQueue }, publish]) : publish
+            return event.priority == .high
+                ? .merge([.run { _ in await klaviyoSwiftEnvironment.requestQueue.flushNow() }, publish])
+                : publish
 
         case let .enqueueAggregateEvent(payload):
             RequestEnqueuer.enqueueAggregateEvent(payload)
@@ -585,9 +392,9 @@ struct KlaviyoReducer: ReducerProtocol {
             state.updateStateWithProfile(profile: profile)
             IdentityStore.shared.update(state.identity)
             // Skip the API call entirely when there is nothing new to sync:
-            // identifiers are unchanged, the profile carries no extra attributes,
-            // and no profile properties are queued up via setProfileProperty.
-            if !identifiersChanged, !profile.hasNonIdentifierData, state.pendingProfile == nil {
+            // identifiers are unchanged and the profile carries no extra attributes.
+            // Staged profile properties ship independently via `ProfilePropertyBuffer`/`willDrain`.
+            if !identifiersChanged, !profile.hasNonIdentifierData {
                 return .none
             }
             guard let anonymousId = state.anonymousId else { return .none }
@@ -628,25 +435,11 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setProfileProperty(key, value):
-            guard var pendingProfile = state.pendingProfile else {
-                state.pendingProfile = [key: value]
-                return .none
-            }
-            pendingProfile[key] = value
-            state.pendingProfile = pendingProfile
+            // Stage into the KlaviyoSwift-side buffer; the Core `RequestQueue` folds staged props
+            // into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
+            // just before each drain.
+            ProfilePropertyBuffer.shared.stage(key, value)
             return .none
-
-        case let .resetStateAndDequeue(request, invalidFields):
-            for invalidField in invalidFields {
-                switch invalidField {
-                case .email:
-                    state.email = nil
-                case .phone:
-                    state.phoneNumber = nil
-                }
-            }
-
-            return .task { .deQueueCompletedResults(request) }
 
         case let .trackingLinkReceived(trackingLinkURL):
             // Thin entry point: the resolution work lives in `TrackingLinkManager`.
@@ -692,9 +485,10 @@ struct KlaviyoReducer: ReducerProtocol {
     /// Applies an identifier change (`setEmail`/`setPhoneNumber`/`setExternalId`) against the
     /// canonical `IdentityStore`, then enqueues the follow-up sync request:
     /// - **Post-init + token present:** enqueues a token re-association request via
-    ///   `state.enqueueRequest` (→ `QueueStore.shared`), folding any pending profile.
-    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`,
-    ///   folding any pending profile.
+    ///   `state.enqueueRequest` (→ `QueueStore.shared`).
+    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`.
+    ///
+    /// Staged profile properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
     ///
     /// Seeds the FULL identity from `IdentityStore` first so the setter folds onto the persisted
     /// profile (update replaces wholesale).
@@ -707,10 +501,8 @@ struct KlaviyoReducer: ReducerProtocol {
         IdentityStore.shared.update(state.identity)
         guard let anonymousId = state.anonymousId else { return }
 
-        // The identifier changed, so re-register the profile under the new identity. Two paths,
-        // and both fold in + consume any staged `pendingProfile` so those properties ship now
-        // instead of waiting for a later flush. (This is the one behavior change from the legacy
-        // `setPreInitIdentifier`, which left `pendingProfile` staged.)
+        // The identifier changed, so re-register the profile under the new identity. Two paths.
+        // Staged profile properties ship separately via `ProfilePropertyBuffer`/`willDrain`.
         //
         // Gate on `state.apiKey`, not `SDKConfigStore`: on a warm start `initialize` may not have
         // run through the reducer yet, so `state.apiKey` is the source of truth for "post-init".
@@ -733,16 +525,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 from: Profile(),
                 anonymousId: anonymousId
             ))
-            RequestEnqueuer.enqueueProfile(
-                payload: state.updateRequestAndStateWithPendingProfile(profile: payload)
-            )
+            RequestEnqueuer.enqueueProfile(payload: payload)
         }
     }
 }
 
 extension Store where State == KlaviyoState, Action == KlaviyoAction {
     static let production = Store(
-        initialState: KlaviyoState(requestsInFlight: []),
+        initialState: KlaviyoState(),
         reducer: KlaviyoReducer()
     )
 }

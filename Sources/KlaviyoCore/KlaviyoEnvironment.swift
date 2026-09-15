@@ -41,7 +41,6 @@ public struct KlaviyoEnvironment {
         timeZone: @escaping () -> String,
         appContextInfo: @escaping () -> AppContextInfo,
         klaviyoAPI: KlaviyoAPI,
-        timer: @escaping (Double) -> AnyPublisher<Date, Never>,
         SDKName: @escaping () -> String,
         SDKVersion: @escaping () -> String,
         formsDataEnvironment: @escaping () -> FormEnvironment?,
@@ -74,7 +73,6 @@ public struct KlaviyoEnvironment {
         self.timeZone = timeZone
         self.appContextInfo = appContextInfo
         self.klaviyoAPI = klaviyoAPI
-        self.timer = timer
         sdkName = SDKName
         sdkVersion = SDKVersion
         self.formsDataEnvironment = formsDataEnvironment
@@ -143,7 +141,6 @@ public struct KlaviyoEnvironment {
     public var timeZone: () -> String
     public var appContextInfo: () -> AppContextInfo
     public var klaviyoAPI: KlaviyoAPI
-    public var timer: (Double) -> AnyPublisher<Date, Never>
     public var formsDataEnvironment: () -> FormEnvironment?
     public var linkHandler: DeepLinkHandler
 
@@ -298,11 +295,6 @@ public struct KlaviyoEnvironment {
         timeZone: { TimeZone.autoupdatingCurrent.identifier },
         appContextInfo: { AppContextInfo() },
         klaviyoAPI: KlaviyoAPI(),
-        timer: { interval in
-            Timer.publish(every: interval, on: .main, in: .default)
-                .autoconnect()
-                .eraseToAnyPublisher()
-        },
         SDKName: KlaviyoEnvironment.getSDKName,
         SDKVersion: KlaviyoEnvironment.getSDKVersion,
         formsDataEnvironment: { nil },

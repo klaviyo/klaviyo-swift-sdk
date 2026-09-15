@@ -126,7 +126,7 @@ class BadgeManagerTests: XCTestCase {
         // that would race the async `initialize(with:)`.
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        klaviyoSwiftEnvironment.state = { KlaviyoState(requestsInFlight: []) } // .uninitialized
+        klaviyoSwiftEnvironment.state = { KlaviyoState() } // .uninitialized
 
         var warningEmitted = false
         environment.emitDeveloperWarning = { _ in warningEmitted = true }

@@ -50,7 +50,6 @@ final class GeofenceEventDispatchTests: XCTestCase {
     ) -> (state: KlaviyoState, readQueue: () -> [KlaviyoRequest]) {
         var state = INITIALIZED_TEST_STATE()
         state.apiKey = apiKey
-        state.flushing = false
         let request1 = state.buildProfileRequest(apiKey: apiKey, anonymousId: state.anonymousId!)
         let request2 = state.buildTokenRequest(
             apiKey: apiKey,
@@ -94,21 +93,41 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Given: SDK is initialized with items in the queue
         let apiKey = "MATCHING_KEY"
         let (state, readQueue) = initializedStateWithQueuedItems(apiKey: apiKey)
-        let testStore = makeTestStore(initialState: state)
+        // Seed the canonical stores so the env RequestQueue's flush gate (apiKey) passes and the
+        // enqueued geofence event resolves against a real identity.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(state.identity)
+        IdentityStore.shared.updatePushToken(state.pushTokenData)
+        _ = makeTestStore(initialState: state)
 
-        // Expect: the prioritized geofence event forces a flush, draining the queue into in-flight.
-        let flushed = XCTestExpectation(description: "queue flushed after geofence event")
-        flushed.assertForOverFulfill = false
-        let cancellable = testStore.state.sink { state in
-            if !state.requestsInFlight.isEmpty, readQueue().isEmpty { flushed.fulfill() }
+        // Capture what the actor sends through the transport.
+        let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
+        environment.klaviyoAPI.send = { request, _ in
+            sentRequests.mutate { $0.append(request) }
+            return .success(Data())
         }
-        defer { cancellable.cancel() }
 
-        // When: dispatch a geofence event with matching API key
+        // When: dispatch a geofence event with matching API key. The prioritized event forces an
+        // immediate flush on the Core RequestQueue actor, which drains the durable QueueStore and
+        // sends through the test transport.
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
-        await fulfillment(of: [flushed], timeout: 1.0)
 
-        // Then: the durable queue is drained (items leased into the in-flight set on flush).
+        // Then: the durable queue drains (the actor flush is async/off-store, so poll it).
+        try await waitUntilQueueEmpty(readQueue)
+        assertGeofenceEventSent(sentRequests.value)
+    }
+
+    /// Polls the durable QueueStore until it drains, since the Core `RequestQueue` actor's flush runs
+    /// asynchronously off the reducer store (no reducer state change to observe).
+    private func waitUntilQueueEmpty(
+        _ readQueue: () -> [KlaviyoRequest],
+        timeout: TimeInterval = 2.0
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if readQueue().isEmpty { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
     }
 
@@ -116,7 +135,6 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Given: SDK is initialized with a different API key
         var initialState = INITIALIZED_TEST_STATE()
         initialState.apiKey = "EXISTING_KEY"
-        initialState.flushing = false
         let readQueue = seedTestQueueStore()
         let testStore = makeTestStore(initialState: initialState)
 
@@ -143,28 +161,43 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Given: SDK is initialized with matching API key and items in the queue
         let apiKey = "MATCHING_KEY"
         let (state, readQueue) = initializedStateWithQueuedItems(apiKey: apiKey)
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(state.identity)
+        IdentityStore.shared.updatePushToken(state.pushTokenData)
         let testStore = makeTestStore(initialState: state)
 
-        // Expect: the event is processed — the forced flush drains the queue into requestsInFlight.
-        let processed = XCTestExpectation(description: "geofence event processed (queued then flushed)")
-        processed.assertForOverFulfill = false
-        let cancellable = testStore.state.sink { state in
-            if readQueue().isEmpty || !state.requestsInFlight.isEmpty {
-                processed.fulfill()
-            }
+        // Capture what the actor sends through the transport.
+        let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
+        environment.klaviyoAPI.send = { request, _ in
+            sentRequests.mutate { $0.append(request) }
+            return .success(Data())
         }
-        defer { cancellable.cancel() }
 
-        // When: dispatch a geofence event with matching API key
+        // When: dispatch a geofence event with matching API key. The prioritized event is enqueued
+        // and forces an immediate flush on the Core RequestQueue actor, which drains the queue.
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
-        await fulfillment(of: [processed], timeout: 1.0)
 
-        // Then: event was processed (either still queued behind the flush or already in flight)
-        let currentState = testStore.state.value
-        XCTAssertEqual(currentState.apiKey, "MATCHING_KEY", "API key should remain unchanged")
+        // Then: the event was processed — the forced flush drains the durable queue (async/off-store).
+        try await waitUntilQueueEmpty(readQueue)
+        assertGeofenceEventSent(sentRequests.value)
+        XCTAssertEqual(testStore.state.value.apiKey, "MATCHING_KEY", "API key should remain unchanged")
+    }
+
+    /// Asserts the sent requests include the geofence event carrying `$geofence_id`.
+    private func assertGeofenceEventSent(
+        _ sent: [KlaviyoRequest],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let geofenceIds: [String] = sent.compactMap { request in
+            guard case let .createEvent(_, payload) = request.endpoint else { return nil }
+            let props = payload.data.attributes.properties.value as? [String: Any]
+            return props?["$geofence_id"] as? String
+        }
         XCTAssertTrue(
-            readQueue().isEmpty || !currentState.requestsInFlight.isEmpty,
-            "Event should be processed (either in queue or in flight)"
+            geofenceIds.contains("test-location-id"),
+            "the drained batch must send the geofence event with its $geofence_id",
+            file: file, line: line
         )
     }
 }
