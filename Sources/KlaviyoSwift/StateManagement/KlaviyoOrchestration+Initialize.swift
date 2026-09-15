@@ -141,45 +141,25 @@ extension KlaviyoOrchestration {
         }
 
         // ── Branch 3: FALL-THROUGH — normal cold-start init ──────────────────────────────────────
-        // Guard: if already past `.uninitialized` (either `.initializing` or `.initialized`),
-        // do nothing (handles double-call race — the cold-start-switch block above may have
-        // adjusted identity but `beginInitializing` still guards the init seq).
         guard LifecycleState.shared.beginInitializing() else { return }
-        // Confirm the apiKey in the canonical config store.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        // Kick the async tail: migration + drainBuffer + lifecycle loop.
+        // Migrate synchronously, before any identity read can hydrate a fresh anonymousId over the
+        // persisted identity (and before a racing host setter could be clobbered by the migration).
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
         Task { await completeInitialization(apiKey: apiKey) }
     }
 
     // MARK: - completeInitialization (async tail)
 
-    /// Runs migration, drains the UnattributedBuffer, transitions to `.initialized`, and starts
-    /// the long-lived lifecycle loop.
-    ///
-    /// Ports `KlaviyoReducer.reduce(.completeInitialization)` (StateManagement.swift:202-267),
-    /// dropping the vestigial identity hydrate/carry-over (L211-224) — IdentityStore is already
-    /// canonical and pre-init setters already wrote to it directly.
+    /// Drains the buffer, transitions to `.initialized`, and starts the lifecycle loop. `@MainActor`
+    /// so the transition (and its `@_spi` emit) stay on the main funnel; migration already ran in the
+    /// synchronous head of `initialize`.
+    @MainActor
     static func completeInitialization(apiKey: String) async {
-        // TOP GUARD — mirrors the reducer's `guard case .initializing = state.initalizationState`
-        // (StateManagement.swift:203). Ensures migrate → drainBuffer → lifecycle run exactly once.
-        // Fast-path: if a concurrent call races in (e.g. the fire-and-forget Task vs. a direct
-        // test call), the non-winner sees a state past `.initializing` and early-returns without
-        // touching migration, the buffer, or the lifecycle loop.
+        // Idempotency: drain + transition + lifecycle run exactly once even if two callers race here.
         guard LifecycleState.shared.current == .initializing else { return }
-        // Must run before any QueueStore access; migrates the legacy per-apiKey queue blob
-        // and identity into the canonical Core stores.
-        migrateLegacyStateIfNeeded(apiKey: apiKey)
-        // Drain any request-generating calls buffered before an apiKey was known into the
-        // now-resolvable QueueStore (at-least-once; the durable buffer is trimmed only after
-        // the queue write persists). Runs after migration so a migrated queue is present.
         RequestEnqueuer.drainBuffer(apiKey: apiKey)
-        // Atomically transition from .initializing → .initialized (NSLock-guarded inside).
-        // `completeInitialization` returns `true` only to the ONE caller that wins the transition;
-        // any concurrent call that also passed the top guard above loses here and returns `false`,
-        // preventing it from launching a second lifecycle loop.
-        // (L211-224: the old hydrate/carry-over is dropped here — see design doc.)
         guard LifecycleState.shared.completeInitialization() else { return }
-        // Start the long-lived lifecycle driver (runs exactly once per process lifetime).
         await runLifecycle()
     }
 

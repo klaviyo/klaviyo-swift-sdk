@@ -391,4 +391,47 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.reachableViaWWAN, .notReachable])
     }
+
+    // MARK: - Migration-launch ordering (regression)
+
+    /// On a migration launch, `initialize()` immediately followed by `set(email:)` must keep the set
+    /// email and the migrated anonymousId. Migration runs in the sync head, so it can't clobber the
+    /// later setter (the old deferred-tail migration could overwrite it and orphan a fresh anon).
+    func testInitializeThenSetEmailOnMigrationLaunchKeepsSetEmailAndMigratedAnon() async throws {
+        let apiKey = "migration-race-key"
+        let legacyAnon = "legacy-anon-id"
+
+        let inMemory = InMemoryEnvironment(
+            libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-migration-race/library"),
+            appSupportRoot: URL(fileURLWithPath: "/tmp/klaviyo-migration-race/app-support")
+        )
+        environment = inMemory.makeEnvironment()
+        environment.appLifeCycle.lifeCycleEvents = {
+            Empty<LifeCycleEvents, Never>().eraseToAnyPublisher()
+        }
+        resetCanonicalCoreStores()
+        QueueStore.resetShared()
+        LifecycleState.shared.reset()
+
+        let legacyIdentity = ProfileData(
+            email: "legacy@example.com", phoneNumber: nil, externalId: nil, anonymousId: legacyAnon
+        )
+        let fixture = LegacyNestedFixture(
+            apiKey: apiKey, identity: legacyIdentity, pushTokenData: nil, queue: []
+        )
+        inMemory[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
+
+        KlaviyoOrchestration.initialize(apiKey)
+        KlaviyoOrchestration.setEmail("new@example.com")
+        await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
+
+        XCTAssertEqual(
+            IdentityStore.shared.current.email, "new@example.com",
+            "set(email:) after initialize() must survive the migration launch"
+        )
+        XCTAssertEqual(
+            IdentityStore.shared.current.anonymousId, legacyAnon,
+            "migrated anonymousId must be preserved, not replaced by a freshly-minted one"
+        )
+    }
 }
