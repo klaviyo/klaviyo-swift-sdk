@@ -98,6 +98,168 @@ enum KlaviyoOrchestration {
         ProfilePropertyBuffer.shared.stage(key, value)
     }
 
+    // MARK: - Push token
+
+    /// Registers or updates the push token. Deduplicates against the canonical `IdentityStore` token;
+    /// no-ops when token + enablement + background + device metadata all match.
+    ///
+    /// Post-init (this session's `initialize()` has started): builds a push-token registration request
+    /// and enqueues it directly via `QueueStore`.
+    /// Pre-init / warm-start: routes through the ungated `RequestEnqueuer` path which re-gates on
+    /// `SDKConfigStore` — preserving the old warm-start behavior (token reaches `QueueStore` when
+    /// the apiKey is already persisted, buffers otherwise).
+    static func setPushToken(_ pushToken: String, _ enablement: PushEnablement) {
+        let newTokenData = PushTokenData(
+            pushToken: pushToken,
+            pushEnablement: enablement,
+            pushBackground: environment.getBackgroundSetting(),
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        )
+        // Dedup against the canonical token: skip when all fields match.
+        guard IdentityStore.shared.pushToken != newTokenData else { return }
+        // Write the new token directly to the canonical store (replaces old write-through-defer).
+        IdentityStore.shared.updatePushToken(newTokenData)
+        guard let anonymousId = IdentityStore.shared.current.anonymousId else {
+            environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
+            return
+        }
+        // Gate on LifecycleState (session-fresh), not SDKConfigStore (persisted across launches).
+        // Same boundary as applyIdentifierChange: `state.apiKey` was nil until `.initializing`,
+        // even when SDKConfigStore already held a persisted key from a prior launch.
+        if LifecycleState.shared.current != .uninitialized,
+           let apiKey = SDKConfigStore.shared.current.apiKey {
+            // Post-init: register the token against the current identity.
+            let request = resolvedTokenRequest(
+                identity: IdentityStore.shared.current,
+                apiKey: apiKey,
+                anonymousId: anonymousId,
+                pushToken: pushToken,
+                enablement: enablement
+            )
+            QueueStore.shared.enqueue(request)
+        } else {
+            // Pre-init or warm start: RequestEnqueuer re-gates on SDKConfigStore.
+            RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
+        }
+    }
+
+    /// Forwards an automatic (APNs-delivered) token to `setPushToken`. Identical routing semantics:
+    /// post-init → `QueueStore`; pre-init/warm-start → `RequestEnqueuer`.
+    ///
+    /// In the old reducer this was an async re-dispatch (`.run { send(.setPushToken(...)) }`);
+    /// here it is a direct synchronous call — more deterministic, same observable behavior.
+    static func setAutomaticPushToken(_ pushToken: String, _ enablement: PushEnablement) {
+        setPushToken(pushToken, enablement)
+    }
+
+    /// Updates the push-enablement on the canonical token. Reads the token from `IdentityStore`
+    /// (not a stale local copy) so a prior `setPushToken` rotation is not silently reverted.
+    /// No-ops if no token has been registered yet.
+    static func setPushEnablement(_ enablement: PushEnablement) {
+        guard let pushToken = IdentityStore.shared.pushToken?.pushToken else { return }
+        setPushToken(pushToken, enablement)
+    }
+
+    // MARK: - Profile & subscription
+
+    /// Syncs a `Profile` to Klaviyo. Reproduces the conditional-reset logic of the
+    /// `enqueueProfile` reducer case (StateManagement.swift:374-410):
+    ///
+    /// 1. Detect identifier changes vs. the canonical `IdentityStore` identity.
+    /// 2. If the profile *was* identified AND identifiers changed → mint a fresh `anonymousId`
+    ///    and clear prior PII (prevents two users merging onto one profile).
+    ///    Also clears `ProfilePropertyBuffer` (mirrors `KlaviyoState.reset`).
+    /// 3. Apply `updateStateWithProfile`-equivalent field logic.
+    /// 4. Skip the API call if identifiers are unchanged and the profile carries no extra attrs.
+    /// 5. Enqueue a `createProfile` via `RequestEnqueuer` (ungated — parity with the reducer).
+    /// 6. If a push token existed before the reset → enqueue a separate identity-only token
+    ///    re-registration so FIFO keeps the profile ahead.
+    ///
+    /// NOTE: both enqueues use `RequestEnqueuer` (not the `LifecycleState`/`QueueStore` gate)
+    /// for parity with the existing reducer case.
+    static func enqueueProfile(_ profile: Profile) {
+        // Capture the canonical token BEFORE any identity mutation so a reset can't lose it.
+        let tokenData = IdentityStore.shared.pushToken
+
+        // Compute identifier change against the current canonical identity.
+        let current = IdentityStore.shared.current
+        let currentIds: [String?] = [current.email, current.phoneNumber, current.externalId]
+        let incomingIds: [String?] = [
+            profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty()
+        ]
+        let identifiersChanged = currentIds != incomingIds
+
+        // Atomically apply the identity update to IdentityStore.
+        var updated = ProfileData()
+        IdentityStore.shared.mutate { profile in
+            if profile.email != nil || profile.phoneNumber != nil || profile.externalId != nil,
+               identifiersChanged {
+                // Identified → identifier change: mint a fresh anonymousId and drop prior PII
+                // so this call does not merge two people onto one Klaviyo profile.
+                // The canonical push token lives outside ProfileData — do NOT touch it here.
+                profile.anonymousId = IdentityStore.shared.mintNewAnonymousId()
+                profile.email = nil
+                profile.phoneNumber = nil
+                profile.externalId = nil
+            }
+            // Apply updateStateWithProfile-equivalent field logic: set each identifier from the
+            // incoming profile when non-empty and changed relative to the (possibly just-reset) value.
+            if let incomingEmail = incomingIds[0],
+               incomingEmail.isNotEmptyOrSame(as: profile.email, identifier: "email") {
+                profile.email = incomingEmail
+            }
+            if let incomingPhone = incomingIds[1],
+               incomingPhone.isNotEmptyOrSame(as: profile.phoneNumber, identifier: "phone number") {
+                profile.phoneNumber = incomingPhone
+            }
+            if let incomingExtId = incomingIds[2],
+               incomingExtId.isNotEmptyOrSame(as: profile.externalId, identifier: "external id") {
+                profile.externalId = incomingExtId
+            }
+            updated = profile // capture post-mutation identity for enqueue below
+        }
+
+        // Clear staged profile properties — mirrors KlaviyoState.reset.
+        // Must run OUTSIDE mutate (writeLock is non-reentrant) and only when reset actually fired.
+        let wasIdentified = current.email != nil || current.phoneNumber != nil || current.externalId != nil
+        if wasIdentified, identifiersChanged {
+            ProfilePropertyBuffer.shared.reset()
+        }
+
+        // Skip API call when there is nothing new to sync.
+        if !identifiersChanged, !profile.hasNonIdentifierData { return }
+
+        guard let anonymousId = updated.anonymousId else { return }
+
+        // Enqueue the profile via ungated RequestEnqueuer (parity: reducer used RequestEnqueuer here).
+        RequestEnqueuer.enqueueProfile(
+            payload: CreateProfilePayload(
+                data: profilePayload(from: profile, identity: updated, anonymousId: anonymousId)
+            )
+        )
+
+        // Re-register the token under the (potentially new) identity as a SEPARATE identity-only
+        // request, enqueued AFTER the createProfile so FIFO keeps the profile ahead.
+        if let tokenData {
+            RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
+        }
+    }
+
+    /// Enqueues a channel-subscription request. Validates channels against the current identity and
+    /// emits a developer warning (returning early) when required identifiers are missing.
+    static func enqueueSubscription(_ subscription: Subscription) {
+        guard let anonymousId = IdentityStore.shared.current.anonymousId,
+              let payload = buildSubscriptionPayload(
+                  identity: IdentityStore.shared.current,
+                  anonymousId: anonymousId,
+                  subscription: subscription
+              )
+        else { return }
+        RequestEnqueuer.enqueueSubscription(payload: payload)
+    }
+
     // MARK: - Private helpers
 
     /// Applies a field-level change to the profile atomically via `IdentityStore.mutate`, then
