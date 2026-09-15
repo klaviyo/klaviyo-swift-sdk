@@ -19,7 +19,7 @@ public enum StateChangePublisher {
     }
 
     @_spi(KlaviyoPrivate)
-    public struct PrivateState {
+    public struct PrivateState: Equatable {
         public var email: String?
         public var anonymousId: String?
         public var phoneNumber: String?

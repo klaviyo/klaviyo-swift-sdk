@@ -194,6 +194,40 @@ final class IdentityStoreTests: XCTestCase {
         // The in-memory view agrees with disk too.
         XCTAssertEqual(store.current, reloadedFromDisk)
     }
+
+    func testUpdatePushTokenEmitsOnTokenPublisher() {
+        let store = IdentityStore()
+        var received: [PushTokenData?] = []
+        let c = store.tokenPublisher.sink { received.append($0) }
+        let token = PushTokenData(
+            pushToken: "tok",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: .test)
+        )
+        store.updatePushToken(token)
+        XCTAssertEqual(received.last??.pushToken, "tok")
+        c.cancel()
+    }
+
+    // tokenPublisher emits nil after reset().
+    func testResetEmitsNilOnTokenPublisher() {
+        let store = IdentityStore()
+        let token = PushTokenData(
+            pushToken: "tok",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: .test)
+        )
+        store.updatePushToken(token)
+
+        var received: [PushTokenData?] = []
+        let c = store.tokenPublisher.sink { received.append($0) }
+        store.reset()
+        // received.last is `Optional<PushTokenData?>` — the inner value is nil after reset.
+        XCTAssertTrue(received.last == .some(nil))
+        c.cancel()
+    }
 }
 
 // Compile-time proof that a consumer can conform to the read interface alone,
@@ -202,6 +236,7 @@ private struct MockIdentityReader: IdentityReading {
     var current: ProfileData
     var pushToken: PushTokenData?
     var publisher: AnyPublisher<ProfileData, Never>
+    var tokenPublisher: AnyPublisher<PushTokenData?, Never>
     func stream() -> AsyncStream<ProfileData> {
         AsyncStream { $0.finish() }
     }
