@@ -72,7 +72,10 @@ class RequestBuildingTests: StateManagementTestCase {
             pushToken: "tok",
             enablement: .authorized
         )
-        XCTAssertEqual(newResult.endpoint, legacyResult.endpoint)
+        // KlaviyoRequest.== compares id + endpoint. Both ids are the deterministic test UUID
+        // (environment.uuid() is stubbed), so this asserts full-request parity including the
+        // embedded PushTokenPayload — stronger than endpoint-only comparison.
+        XCTAssertEqual(newResult, legacyResult)
     }
 
     // MARK: - buildSubscriptionPayload
@@ -110,6 +113,13 @@ class RequestBuildingTests: StateManagementTestCase {
             anonymousId: anonymousId,
             subscription: subscription
         )
+        var legacyState = KlaviyoState(apiKey: apiKey, anonymousId: anonymousId)
+        legacyState.identity = identity
+        let legacyResult = legacyState.buildSubscriptionPayload(
+            anonymousId: anonymousId,
+            subscription: subscription
+        )
         XCTAssertNil(result)
+        XCTAssertEqual(result, legacyResult)
     }
 }
