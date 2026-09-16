@@ -8,7 +8,7 @@ import Foundation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
-/// Legacy shape with nested `identity`. Not `private` — reused by `OrchestrationInitializeTests`.
+/// Legacy shape with nested `identity`. Not `private` — reused by `KlaviyoCommandsInitializeTests`.
 struct LegacyNestedFixture: Encodable {
     var apiKey: String?
     var identity: ProfileData

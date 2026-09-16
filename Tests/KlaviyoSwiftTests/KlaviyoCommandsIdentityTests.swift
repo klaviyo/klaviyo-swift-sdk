@@ -1,5 +1,5 @@
 //
-//  OrchestrationIdentityTests.swift
+//  KlaviyoCommandsIdentityTests.swift
 //  KlaviyoSwiftTests
 //
 //  Created by Isobelle Lim on 9/14/26.
@@ -13,7 +13,7 @@ import AnyCodable
 import Foundation
 import XCTest
 
-class OrchestrationIdentityTests: KlaviyoBaseTestCase {
+class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     // MARK: - Test lifecycle
 
     @MainActor
