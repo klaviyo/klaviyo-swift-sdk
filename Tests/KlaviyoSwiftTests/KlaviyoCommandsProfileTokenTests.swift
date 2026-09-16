@@ -1,5 +1,5 @@
 //
-//  OrchestrationProfileTokenTests.swift
+//  KlaviyoCommandsProfileTokenTests.swift
 //  KlaviyoSwiftTests
 //
 //  Created by Isobelle Lim on 9/14/26.
@@ -13,7 +13,7 @@ import AnyCodable
 import Foundation
 import XCTest
 
-class OrchestrationProfileTokenTests: KlaviyoBaseTestCase {
+class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     // MARK: - Test lifecycle
 
     @MainActor

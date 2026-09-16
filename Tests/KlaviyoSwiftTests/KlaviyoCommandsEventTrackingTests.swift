@@ -1,5 +1,5 @@
 //
-//  OrchestrationEventTrackingTests.swift
+//  KlaviyoCommandsEventTrackingTests.swift
 //  KlaviyoSwiftTests
 //
 //  Created by Isobelle Lim on 9/15/26.
@@ -13,7 +13,7 @@ import Combine
 import Foundation
 import XCTest
 
-class OrchestrationEventTrackingTests: KlaviyoBaseTestCase {
+class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     // MARK: - Test lifecycle
 
     @MainActor

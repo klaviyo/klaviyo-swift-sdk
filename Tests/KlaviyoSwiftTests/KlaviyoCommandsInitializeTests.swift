@@ -1,5 +1,5 @@
 //
-//  OrchestrationInitializeTests.swift
+//  KlaviyoCommandsInitializeTests.swift
 //  KlaviyoSwiftTests
 //
 //  Created by Isobelle Lim on 9/15/26.
@@ -20,7 +20,7 @@ import Foundation
 import XCTest
 
 @MainActor
-final class OrchestrationInitializeTests: KlaviyoBaseTestCase {
+final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
     private var spyQueue: SpyRequestQueue!
 
     override func setUp() async throws {
