@@ -12,9 +12,9 @@ final class ThreadSafeBox<Value>: @unchecked Sendable {
     }
 }
 
-/// Backs the shared `QueueStore` with an in-memory queue for reducer tests, since the reducer
-/// resolves the production disk-backed store and `.test` file stubs are no-ops. Returns the
-/// live backing array getter so tests can assert queue contents.
+/// Backs the shared `QueueStore` with an in-memory queue for orchestration tests, since the
+/// production disk-backed store and `.test` file stubs are no-ops. Returns the live backing
+/// array getter so tests can assert queue contents.
 @discardableResult
 func seedTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
     QueueStore.resetShared()

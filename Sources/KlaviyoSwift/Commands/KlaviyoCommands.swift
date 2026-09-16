@@ -1,26 +1,26 @@
 //
-//  KlaviyoOrchestration.swift
+//  KlaviyoCommands.swift
 //
 //
 //  Created by Isobelle Lim on 9/14/26.
 //
-//  Direct orchestration functions that replace the identity-setter cases in `KlaviyoReducer`.
+//  Direct orchestration functions for SDK identity, profile, push-token, and event operations.
 //
 //  Design contract:
-//  - Each public setter is a direct call, not a TCA action dispatch.
-//  - The TOCTOU `state.identity = current; apply; update(state.identity)` is replaced by a single
-//    atomic `IdentityStore.shared.mutate { ... }`.
+//  - Each setter is a direct call into the Core stores (no async dispatch).
+//  - Identity mutations use `IdentityStore.shared.mutate { ... }` for atomicity.
 //  - `IdentityStore.shared.pushToken` is read AFTER `mutate` returns (writeLock is non-reentrant).
-//  - The post-init gate checks `LifecycleState.shared.current != .uninitialized` (session-fresh,
-//    equivalent to the old `state.apiKey != nil`); the apiKey VALUE is read from `SDKConfigStore`.
+//  - The post-init gate checks `LifecycleState.shared.current != .uninitialized` (session-fresh);
+//    the apiKey VALUE is read from `SDKConfigStore`.
 
 import AnyCodable
 import Foundation
 import KlaviyoCore
 import OSLog
 
-/// Namespace for direct orchestration functions that mirror the identity-setter reducer cases.
-enum KlaviyoOrchestration {
+/// Namespace for SDK orchestration functions: identity setters, profile reset, push-token
+/// management, and event/tracking-link enqueue.
+enum KlaviyoCommands {
     // MARK: - Identity setters
 
     /// Sets the profile email. Guards against empty strings and same-value re-sets (no-op).
@@ -58,8 +58,6 @@ enum KlaviyoOrchestration {
     /// Resets the profile to an anonymous state. If the profile was identified, mints a fresh
     /// `anonymousId`. Clears all PII and staged profile properties. Re-registers the push token
     /// (if one exists) under the new anonymous identity.
-    ///
-    /// Ports `KlaviyoState.reset(preserveTokenData: false)` + the surrounding `.resetProfile` case.
     static func resetProfile() {
         // Capture the token BEFORE the mutate so we can re-register after.
         // (We must not call IdentityStore inside the mutate closure — writeLock is non-reentrant.)
@@ -76,15 +74,14 @@ enum KlaviyoOrchestration {
             profile.phoneNumber = nil
             profile.externalId = nil
         }
-        // Clear staged profile properties (mirrors KlaviyoState.reset).
+        // Clear staged profile properties.
         // Must run AFTER mutate returns — keep the mutate closure purely identity-focused
         // and avoid an unrelated side effect running while the write-lock is held.
         ProfilePropertyBuffer.shared.reset()
 
         guard let tokenData = tokenBeforeReset else { return }
-        // Re-register the token under the new anonymous identity. Uses the ungated
-        // `RequestEnqueuer` path — matching the reducer — so it routes to QueueStore when apiKey
-        // is present, and buffers otherwise.
+        // Re-register the token under the new anonymous identity via the ungated `RequestEnqueuer`
+        // path: routes to QueueStore when apiKey is present, and buffers otherwise.
         RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
     }
 
@@ -142,15 +139,6 @@ enum KlaviyoOrchestration {
         }
     }
 
-    /// Forwards an automatic (APNs-delivered) token to `setPushToken`. Identical routing semantics:
-    /// post-init → `QueueStore`; pre-init/warm-start → `RequestEnqueuer`.
-    ///
-    /// In the old reducer this was an async re-dispatch (`.run { send(.setPushToken(...)) }`);
-    /// here it is a direct synchronous call — more deterministic, same observable behavior.
-    static func setAutomaticPushToken(_ pushToken: String, _ enablement: PushEnablement) {
-        setPushToken(pushToken, enablement)
-    }
-
     /// Updates the push-enablement on the canonical token. Reads the token from `IdentityStore`
     /// (not a stale local copy) so a prior `setPushToken` rotation is not silently reverted.
     /// No-ops if no token has been registered yet.
@@ -161,21 +149,19 @@ enum KlaviyoOrchestration {
 
     // MARK: - Profile & subscription
 
-    /// Syncs a `Profile` to Klaviyo. Reproduces the conditional-reset logic of the
-    /// `enqueueProfile` reducer case (StateManagement.swift:374-410):
+    /// Syncs a `Profile` to Klaviyo:
     ///
     /// 1. Detect identifier changes vs. the canonical `IdentityStore` identity.
     /// 2. If the profile *was* identified AND identifiers changed → mint a fresh `anonymousId`
     ///    and clear prior PII (prevents two users merging onto one profile).
-    ///    Also clears `ProfilePropertyBuffer` (mirrors `KlaviyoState.reset`).
-    /// 3. Apply `updateStateWithProfile`-equivalent field logic.
+    ///    Also clears `ProfilePropertyBuffer`.
+    /// 3. Apply field logic equivalent to `updateStateWithProfile`.
     /// 4. Skip the API call if identifiers are unchanged and the profile carries no extra attrs.
-    /// 5. Enqueue a `createProfile` via `RequestEnqueuer` (ungated — parity with the reducer).
+    /// 5. Enqueue a `createProfile` via `RequestEnqueuer` (ungated).
     /// 6. If a push token existed before the reset → enqueue a separate identity-only token
     ///    re-registration so FIFO keeps the profile ahead.
     ///
-    /// NOTE: both enqueues use `RequestEnqueuer` (not the `LifecycleState`/`QueueStore` gate)
-    /// for parity with the existing reducer case.
+    /// NOTE: both enqueues use `RequestEnqueuer` (not the `LifecycleState`/`QueueStore` gate).
     static func enqueueProfile(_ profile: Profile) {
         // Capture the canonical token BEFORE any identity mutation so a reset can't lose it.
         let tokenData = IdentityStore.shared.pushToken
@@ -220,7 +206,7 @@ enum KlaviyoOrchestration {
             updated = profile // capture post-mutation identity for enqueue below
         }
 
-        // Clear staged profile properties — mirrors KlaviyoState.reset.
+        // Clear staged profile properties.
         // Must run OUTSIDE mutate (writeLock is non-reentrant) and only when reset actually fired.
         let wasIdentified = current.email != nil || current.phoneNumber != nil || current.externalId != nil
         if wasIdentified, identifiersChanged {
@@ -232,7 +218,7 @@ enum KlaviyoOrchestration {
 
         guard let anonymousId = updated.anonymousId else { return }
 
-        // Enqueue the profile via ungated RequestEnqueuer (parity: reducer used RequestEnqueuer here).
+        // Enqueue the profile via ungated RequestEnqueuer.
         RequestEnqueuer.enqueueProfile(
             payload: CreateProfilePayload(
                 data: RequestBuilding.profilePayload(
@@ -273,7 +259,7 @@ enum KlaviyoOrchestration {
     ///
     /// ⚠️ Gate distinction: the publish + flush are gated on STRICT `.initialized`
     /// (`LifecycleState.shared.current == .initialized`), NOT the `.initializing` boundary used by
-    /// the identity setters. This matches the old reducer's `guard case .initialized = state`.
+    /// the identity setters.
     static func enqueueEvent(_ event: Event) {
         RequestEnqueuer.enqueueEvent(event)
         guard LifecycleState.shared.current == .initialized else { return }
@@ -301,10 +287,10 @@ enum KlaviyoOrchestration {
     /// Receives a Klaviyo click-tracking URL, resolves it to its destination via
     /// `TrackingLinkManager`, and either opens the destination or enqueues a click-log.
     ///
-    /// - Stamps `clickTime` before the async network call (parity with reducer's `environment.date()`).
-    /// - Reads identity from `IdentityStore.shared.current` (parity: reducer read from state).
-    /// - Resolution is NOT init-gated (matches the reducer — tracking-link opens can happen
-    ///   even before `initialize()` completes).
+    /// - Stamps `clickTime` before the async network call.
+    /// - Reads identity from `IdentityStore.shared.current`.
+    /// - Resolution is NOT init-gated — tracking-link opens can happen even before
+    ///   `initialize()` completes.
     static func trackingLinkReceived(_ url: URL) {
         let clickTime = environment.date()
         if #available(iOS 14.0, *) {
@@ -349,9 +335,7 @@ enum KlaviyoOrchestration {
     ///
     /// - **Post-init + token present:** enqueues a token re-association request via `QueueStore`.
     ///   "Post-init" means `LifecycleState.shared.current != .uninitialized` — i.e. `initialize()`
-    ///   has been called this session. This matches the old reducer's `state.apiKey != nil` gate:
-    ///   `state.apiKey` was set at the `.initializing` transition and was nil on warm-start before
-    ///   `initialize()` ran, even if `SDKConfigStore` already held a persisted key.
+    ///   has been called this session.
     ///
     /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer` (lands in
     ///   the durable `UnattributedBuffer` pre-init, or directly in `QueueStore` on warm-start after
@@ -370,8 +354,7 @@ enum KlaviyoOrchestration {
         // Read the token AFTER mutate returns (non-reentrant writeLock).
         // Gate on LifecycleState (session-fresh), not SDKConfigStore (persisted across launches).
         // On a warm start, SDKConfigStore may already hold the prior session's apiKey even before
-        // initialize() runs — matching state.apiKey requires checking that this session's
-        // initialize() has started.
+        // initialize() runs — gating on LifecycleState confirms this session's initialize() has started.
         if LifecycleState.shared.current != .uninitialized,
            let apiKey = SDKConfigStore.shared.current.apiKey,
            let tokenData = IdentityStore.shared.pushToken {

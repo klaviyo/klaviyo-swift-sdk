@@ -36,10 +36,10 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     // `current`, via `hydrateIfNeeded`) during delivery would deadlock. Always mutate under the lock,
     // then emit outside it.
     //
-    // SINGLE WRITER: all writes (`update`) come from the TCA reducer's write-through defer, which runs
-    // serially, so persist-then-emit is never interleaved by a second writer. The lock therefore
-    // guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a write — not
-    // writer-vs-writer.
+    // SINGLE WRITER: all writes (`update`) come from `KlaviyoCommands`, which coordinates
+    // initialization serially, so persist-then-emit is never interleaved by a second writer. The lock
+    // therefore guards reads (accessors, publisher/stream delivery on arbitrary threads) racing a
+    // write — not writer-vs-writer.
     //
     // `subject` (CurrentValueSubject) is internally synchronized, so `.value` reads and `.send`
     // need no external lock. `lock` guards only `hydrated` and disk I/O. Hydration may assign

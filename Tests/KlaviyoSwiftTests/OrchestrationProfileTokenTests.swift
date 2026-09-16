@@ -4,10 +4,8 @@
 //
 //  Created by Isobelle Lim on 9/14/26.
 //
-//  Parity coverage for the push-token, profile, and subscription reducer cases being ported into
-//  `KlaviyoOrchestration` (Task 4b). These tests exercise the NEW orchestration functions directly,
-//  reproducing the coverage that will be removed from `StateManagementTests` /
-//  `StateManagementEnqueueEdgeCaseTests` when those files are deleted in a later task.
+//  Coverage for the push-token, profile, and subscription orchestration functions in
+//  `KlaviyoCommands`.
 
 @testable import KlaviyoCore
 @testable import KlaviyoSwift
@@ -15,7 +13,7 @@ import AnyCodable
 import Foundation
 import XCTest
 
-class OrchestrationProfileTokenTests: StateManagementTestCase {
+class OrchestrationProfileTokenTests: KlaviyoBaseTestCase {
     // MARK: - Test lifecycle
 
     @MainActor
@@ -26,36 +24,6 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
     }
 
     // MARK: - Helpers
-
-    /// Seeds a post-init state: apiKey in SDKConfigStore, identity + push token in IdentityStore,
-    /// LifecycleState advanced to `.initialized`.
-    @discardableResult
-    private func seedPostInitWithToken(
-        apiKey: String = TEST_API_KEY,
-        anonymousId: String? = nil,
-        email: String? = nil,
-        phoneNumber: String? = nil,
-        externalId: String? = nil,
-        pushToken: String = "blob_token"
-    ) -> (apiKey: String, anonymousId: String, pushToken: String) {
-        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        IdentityStore.shared.update(ProfileData(
-            email: email,
-            phoneNumber: phoneNumber,
-            externalId: externalId,
-            anonymousId: resolvedAnon
-        ))
-        IdentityStore.shared.updatePushToken(PushTokenData(
-            pushToken: pushToken,
-            pushEnablement: .authorized,
-            pushBackground: .available,
-            deviceData: DeviceMetadata(context: environment.appContextInfo())
-        ))
-        LifecycleState.shared.beginInitializing()
-        LifecycleState.shared.completeInitialization()
-        return (apiKey, resolvedAnon, pushToken)
-    }
 
     /// Default push token data used in helpers.
     private var defaultTokenData: PushTokenData {
@@ -79,7 +47,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(tokenData)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushToken(tokenData.pushToken, tokenData.pushEnablement)
+        KlaviyoCommands.setPushToken(tokenData.pushToken, tokenData.pushEnablement)
 
         XCTAssertTrue(readQueue().isEmpty,
                       "identical setPushToken must be deduped — nothing enqueued")
@@ -95,7 +63,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(nil)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushToken("new-tok", .authorized)
+        KlaviyoCommands.setPushToken("new-tok", .authorized)
 
         XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "new-tok",
                        "new token must be persisted to IdentityStore")
@@ -124,7 +92,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         ))
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushToken(pushTok, .authorized)
+        KlaviyoCommands.setPushToken(pushTok, .authorized)
 
         XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .authorized,
                        "updated enablement must be persisted")
@@ -142,7 +110,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
     // MARK: - setPushToken: warm-start (LifecycleState == .uninitialized)
 
     /// Warm-start: SDKConfigStore has a persisted apiKey but initialize() has NOT been called →
-    /// falls through to `RequestEnqueuer` (parity with old reducer's `state.apiKey == nil` branch).
+    /// falls through to `RequestEnqueuer` (LifecycleState == .uninitialized gate).
     @MainActor
     func testSetPushTokenWarmStartPreInitRoutesToRequestEnqueuer() {
         resetCanonicalCoreStores()
@@ -155,7 +123,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-warm"))
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushToken("warm-tok", .authorized)
+        KlaviyoCommands.setPushToken("warm-tok", .authorized)
 
         // RequestEnqueuer re-gates on SDKConfigStore: since apiKey is present, the token lands
         // directly in QueueStore (not the UnattributedBuffer). The endpoint must be a push-token
@@ -180,7 +148,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
         seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushToken("pre-tok", .authorized)
+        KlaviyoCommands.setPushToken("pre-tok", .authorized)
 
         let snap = UnattributedBuffer.shared.drainSnapshot().requests
         let hasToken = snap.contains {
@@ -189,28 +157,6 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         }
         XCTAssertTrue(hasToken,
                       "pre-init setPushToken with no apiKey must buffer in UnattributedBuffer")
-    }
-
-    // MARK: - setAutomaticPushToken
-
-    /// setAutomaticPushToken must forward to setPushToken with identical semantics.
-    @MainActor
-    func testSetAutomaticPushTokenForwardsToPushToken() {
-        let (apiKey, _, _) = seedPostInitWithToken()
-        IdentityStore.shared.updatePushToken(nil) // ensure no dedup
-        let readQueue = seedTestQueueStore()
-
-        KlaviyoOrchestration.setAutomaticPushToken("auto-tok", .authorized)
-
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "auto-tok",
-                       "setAutomaticPushToken must persist the token")
-
-        let queued = readQueue()
-        XCTAssertEqual(queued.count, 1)
-        guard case let .registerPushToken(queuedApiKey, _) = queued.first?.endpoint else {
-            return XCTFail("expected registerPushToken from setAutomaticPushToken")
-        }
-        XCTAssertEqual(queuedApiKey, apiKey)
     }
 
     // MARK: - setPushEnablement
@@ -228,7 +174,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         ))
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushEnablement(.authorized)
+        KlaviyoCommands.setPushEnablement(.authorized)
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1,
@@ -249,7 +195,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(nil) // clear token
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.setPushEnablement(.authorized)
+        KlaviyoCommands.setPushEnablement(.authorized)
 
         XCTAssertTrue(readQueue().isEmpty,
                       "setPushEnablement with no token must not enqueue")
@@ -263,7 +209,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         _ = seedPostInitWithToken(email: "same@x.com")
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "same@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "same@x.com"))
 
         XCTAssertTrue(readQueue().isEmpty,
                       "enqueueProfile with unchanged identifiers and no extra attrs must not enqueue")
@@ -281,7 +227,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(nil) // no token → only a createProfile
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "same@x.com", firstName: "Alice"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "same@x.com", firstName: "Alice"))
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, anonBefore,
                        "unchanged identifiers must NOT mint a new anonymousId")
@@ -309,7 +255,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(tokenData)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(
+        KlaviyoCommands.enqueueProfile(
             Profile(email: "new@x.com", phoneNumber: "+19999999999", externalId: "new-ext")
         )
 
@@ -342,7 +288,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bob"))
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "new@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
 
         // Flush the buffer: because reset cleared the staged property, no additional request added.
         let countAfterEnqueue = readQueue().count
@@ -366,7 +312,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(tokenData)
         seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "new@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
 
         XCTAssertNotNil(IdentityStore.shared.pushToken,
                         "identifier-change enqueueProfile must not clear the canonical push token")
@@ -383,7 +329,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(nil)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "new@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1, "no token → only createProfile enqueued")
@@ -401,7 +347,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         // No LifecycleState advance, no apiKey in SDKConfigStore.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "buf@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "buf@x.com"))
 
         let snap = UnattributedBuffer.shared.drainSnapshot().requests
         let profiles: [CreateProfilePayload] = snap.compactMap {
@@ -418,7 +364,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         let previousAnon = "prev-anon"
         IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "new@user.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@user.com"))
 
         XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, previousAnon,
                           "pre-init identifier change must mint a new anonymousId")
@@ -437,7 +383,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(nil)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(
+        KlaviyoCommands.enqueueProfile(
             Profile(email: "trim@x.com ", phoneNumber: "+10000000000   ", externalId: "ext  ")
         )
 
@@ -467,7 +413,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         let readQueue = seedTestQueueStore()
 
         let subscription = Subscription.allAvailableMarketing(listId: "list-abc")
-        KlaviyoOrchestration.enqueueSubscription(subscription)
+        KlaviyoCommands.enqueueSubscription(subscription)
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1, "valid subscription must enqueue exactly one request")
@@ -487,7 +433,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData()) // anonymousId nil
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueSubscription(
+        KlaviyoCommands.enqueueSubscription(
             Subscription.allAvailableMarketing(listId: "list-xyz")
         )
 
@@ -505,7 +451,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-sub")) // no email/phone
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueSubscription(
+        KlaviyoCommands.enqueueSubscription(
             Subscription.allAvailableMarketing(listId: "list-noident")
         )
 
@@ -520,7 +466,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         let (apiKey, anonymousId, _) = seedPostInitWithToken(email: "ch@x.com")
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueSubscription(
+        KlaviyoCommands.enqueueSubscription(
             Subscription(listId: "list-ch", channels: .init(email: .marketing))
         )
 
@@ -545,7 +491,7 @@ class OrchestrationProfileTokenTests: StateManagementTestCase {
         IdentityStore.shared.updatePushToken(defaultTokenData)
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueProfile(Profile(email: "new@x.com"))
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 2)

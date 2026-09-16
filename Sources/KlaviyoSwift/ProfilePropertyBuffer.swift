@@ -133,9 +133,9 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         RequestEnqueuer.enqueueProfile(payload: basePayload)
     }
 
-    /// Drops all staged properties. Called from `KlaviyoState.reset()` (profile reset / company
-    /// switch / profile-clobber) so staged props never leak onto a new identity — parity with the
-    /// old reducer clearing `pendingProfile`. Also used for test isolation.
+    /// Drops all staged properties. Called from `KlaviyoCommands.resetProfile()`,
+    /// `KlaviyoCommands.enqueueProfile()`, and `KlaviyoCommands.initialize()` so
+    /// staged props never leak onto a new identity. Also used for test isolation.
     func reset() {
         lock.withLock {
             staged = [:]

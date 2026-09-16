@@ -9,10 +9,6 @@ import Combine
 import Foundation
 import UIKit
 
-public enum LifeCycleErrors: Error {
-    case invalidReachaibilityStatus
-}
-
 public enum LifeCycleEvents {
     case terminated
     case foregrounded

@@ -5,8 +5,6 @@
 //  Created by Aahil Nishad on 7/7/26.
 //
 
-import Foundation
-
 /// Represents a subscription request to subscribe a profile to a Klaviyo list.
 public struct Subscription: Equatable, Sendable {
     /// The ID of the Klaviyo list to subscribe the profile to.

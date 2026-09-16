@@ -194,11 +194,10 @@ public actor RequestQueue {
     }
 
     /// Advances the durable countdown backoff by one flush interval and reports whether `flush()`
-    /// should skip this pass. Called once per flush (tick OR `flushNow()`), mirroring the reducer's
-    /// `flushQueue`, which decremented on every dispatch. Timing is therefore approximate — a backoff
-    /// can fire one interval late (tick path) or expire early (a burst of immediate flushes); that
-    /// imprecision is the accepted cost of reducer parity. The failing request stays durable in
-    /// `QueueStore`, so it survives the wait.
+    /// should skip this pass. Called once per flush (tick OR `flushNow()`). Timing is therefore
+    /// approximate — a backoff can fire one interval late (tick path) or expire early (a burst of
+    /// immediate flushes); that imprecision is the accepted cost of interval-granularity counting.
+    /// The failing request stays durable in `QueueStore`, so it survives the wait.
     private func advanceBackoffGate() -> BackoffGate {
         guard case let .retryWithBackoff(requestCount, totalCount, backoff) = retryState else {
             return .proceed
@@ -222,8 +221,7 @@ public actor RequestQueue {
         case stopFlush
     }
 
-    /// Classifies a send failure and applies it. Mirrors `handleRequestError` +
-    /// `requestFailed`/`deQueueCompletedResults` in the legacy reducer: non-retryable → dequeue +
+    /// Classifies a send failure and applies it: non-retryable → dequeue +
     /// CONTINUE; retryable → set `retryState`, drop the head if past `maxRetries`, then STOP.
     private func handleSendFailure(_ error: KlaviyoAPIError, head: KlaviyoRequest) async -> FailureOutcome {
         switch classifyFailure(error: error, retryState: retryState) {
@@ -235,7 +233,7 @@ public actor RequestQueue {
             return .continueSending
 
         case let .clearInvalidFieldsAndDequeue(fields):
-            // Mirror `resetStateAndDequeue` in the reducer: nil the rejected field(s) on the
+            // Clear the rejected field(s) on the
             // canonical store so the next request to the API won't carry a stale bad value.
             IdentityStore.shared.mutate { identity in
                 for field in fields {

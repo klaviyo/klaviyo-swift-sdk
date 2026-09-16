@@ -96,7 +96,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         }
         environment = testEnvironment
 
-        // Reset Klaviyo state (the Forms view model observes IdentityStore / SDKConfigStore directly).
+        // Seed canonical Core stores for this test.
         seedCoreStores()
 
         // Create view model

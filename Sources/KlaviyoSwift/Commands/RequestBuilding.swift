@@ -12,8 +12,6 @@ import KlaviyoCore
 
 enum RequestBuilding {
     /// Builds a `RequestIdentity` from the given identity, apiKey, and anonymousId.
-    /// Pure equivalent of `KlaviyoState.requestIdentity(apiKey:anonymousId:)` — reads from
-    /// an explicit `ProfileData` instead of `self`.
     static func requestIdentity(
         _ identity: ProfileData,
         apiKey: String,
@@ -29,8 +27,7 @@ enum RequestBuilding {
     }
 
     /// Builds a `ProfilePayload` from the incoming profile, overriding its identifiers with
-    /// the canonical values from `identity`. Pure equivalent of
-    /// `KlaviyoState.profilePayload(from:anonymousId:)`.
+    /// the canonical values from `identity`.
     static func profilePayload(
         from profile: Profile,
         identity: ProfileData,
@@ -45,8 +42,7 @@ enum RequestBuilding {
         )
     }
 
-    /// Builds a push-token registration request from the given identity. Pure equivalent of
-    /// `KlaviyoState.resolvedTokenRequest(apiKey:anonymousId:pushToken:enablement:)`.
+    /// Builds a push-token registration request from the given identity.
     static func resolvedTokenRequest(
         identity: ProfileData,
         apiKey: String,
@@ -70,8 +66,7 @@ enum RequestBuilding {
 
     /// Validates the requested channels against the profile's identifiers and builds the
     /// `CreateSubscriptionPayload`. Emits a developer warning and returns `nil` when the request
-    /// should not be enqueued. Pure equivalent of
-    /// `KlaviyoState.buildSubscriptionPayload(anonymousId:subscription:)`.
+    /// should not be enqueued.
     static func buildSubscriptionPayload(
         identity: ProfileData,
         anonymousId: String,

@@ -18,7 +18,7 @@ enum DeepLinkManager {
 
     /// Opens `url` via the shared environment link handler, guarding against
     /// overlapping opens. If a deep link is already being processed this is a
-    /// no-op (matching the reducer's "already processing" guard).
+    /// no-op.
     ///
     /// The guard and its `true` assignment run synchronously before the
     /// `await`, so on the main actor overlapping calls are reliably skipped.
@@ -58,7 +58,7 @@ enum DeepLinkManager {
 
 // MARK: - Test-only hooks
 
-// TEST-ONLY. The members below exist solely so the reducer / facade test suites
+// TEST-ONLY. The members below exist solely so orchestration and facade test suites
 // can observe deep-link invocations and restore state between tests.
 extension DeepLinkManager {
     /// When non-nil, called by `openDeepLink(_:)` instead of the production path.

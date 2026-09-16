@@ -10,20 +10,11 @@ import Foundation
 import KlaviyoCore
 import OSLog
 
-/// Owns the tracking-link (click-tracking) resolution flow.
+/// Owns the network layer of the tracking-link (click-tracking) resolution flow.
 ///
-/// Today this manager holds only the state-free work — the network resolve,
-/// decode, logging, and navigation. The reducer keeps two thin cases
-/// (`trackingLinkReceived`, `trackingLinkResolutionFailed`) solely
-/// because they touch reducer-owned state: reading identity to build the
-/// `ProfilePayload`, and enqueuing the click-log request on failure.
-///
-/// Once identity and the request queue become canonical in `KlaviyoCore` (an
-/// `IdentityStore` that is the source of truth and a queue that can be enqueued
-/// into from anywhere), both of those reducer cases can be folded into this
-/// manager: it will read identity from `IdentityStore`, enqueue the failure
-/// request directly, and be invoked straight from the SDK entry point — at which
-/// point the two reducer cases are deleted.
+/// Performs the async resolve: sends the tracking link to the engtrack service, decodes
+/// the destination, and returns an `Outcome`. Identity stamping, click-log enqueuing on
+/// failure, and deep-link navigation are handled by the caller (`KlaviyoCommands`).
 enum TrackingLinkManager {
     /// The result of resolving a Klaviyo tracking link to its destination.
     enum Outcome: Equatable {

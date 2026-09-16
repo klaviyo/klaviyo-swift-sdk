@@ -86,7 +86,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
 
         // Then: SDK begins initializing with the geofence api key (the async tail completes it).
-        try await waitFor { LifecycleState.shared.current != .uninitialized }
+        try await waitForConditionOrFail { LifecycleState.shared.current != .uninitialized }
         XCTAssertNotEqual(
             LifecycleState.shared.current, .uninitialized, "SDK should begin initializing"
         )
@@ -110,34 +110,28 @@ final class GeofenceEventDispatchTests: XCTestCase {
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
 
         // Then: the durable queue drains (the actor flush is async/off-store, so poll it).
-        try await waitUntilQueueEmpty(readQueue)
+        try await waitForConditionOrFail(
+            "Queue should be empty after a geofence event forces a flush"
+        ) { readQueue().isEmpty }
         assertGeofenceEventSent(sentRequests.value)
-    }
-
-    /// Polls the durable QueueStore until it drains, since the Core `RequestQueue` actor's flush runs
-    /// asynchronously off the caller (no synchronous state change to observe).
-    private func waitUntilQueueEmpty(
-        _ readQueue: () -> [KlaviyoRequest],
-        timeout: TimeInterval = 2.0
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if readQueue().isEmpty { return }
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
     }
 
     func testCreateGeofenceEvent_ignoresEventWhenAPIKeyDoesNotMatch() async throws {
         // Given: SDK is initialized with a different API key
         let readQueue = seedInitialized(apiKey: "EXISTING_KEY")
 
+        // Arm an inverted expectation BEFORE the dispatch so it can never be fulfilled vacuously.
+        let unexpectedEnqueue = expectation(description: "queue must not grow")
+        unexpectedEnqueue.isInverted = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if !readQueue().isEmpty { unexpectedEnqueue.fulfill() }
+        }
+
         // When: dispatch a geofence event with a non-matching API key
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: "DIFFERENT_KEY")
-        // Give any (unexpected) async work a beat.
-        try await Task.sleep(nanoseconds: 200_000_000)
 
         // Then: SDK was not re-initialized and the event was not enqueued
+        await fulfillment(of: [unexpectedEnqueue], timeout: 0.3)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
         )
@@ -150,12 +144,18 @@ final class GeofenceEventDispatchTests: XCTestCase {
         LifecycleState.shared.beginInitializing()
         let readQueue = seedTestQueueStore()
 
+        // Arm an inverted expectation BEFORE the dispatch.
+        let unexpectedEnqueue = expectation(description: "queue must not grow during .initializing")
+        unexpectedEnqueue.isInverted = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if !readQueue().isEmpty { unexpectedEnqueue.fulfill() }
+        }
+
         // When: dispatch a geofence event with a non-matching API key
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: "DIFFERENT_KEY")
-        // Give any (unexpected) async work a beat.
-        try await Task.sleep(nanoseconds: 200_000_000)
 
         // Then: SDK was not re-initialized to B and the event was not enqueued
+        await fulfillment(of: [unexpectedEnqueue], timeout: 0.3)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
         )
@@ -179,7 +179,9 @@ final class GeofenceEventDispatchTests: XCTestCase {
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
 
         // Then: the event was processed — the forced flush drains the durable queue (async/off-store).
-        try await waitUntilQueueEmpty(readQueue)
+        try await waitForConditionOrFail(
+            "Queue should be empty after a geofence event forces a flush"
+        ) { readQueue().isEmpty }
         assertGeofenceEventSent(sentRequests.value)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "MATCHING_KEY", "API key should remain unchanged"
@@ -202,17 +204,5 @@ final class GeofenceEventDispatchTests: XCTestCase {
             "the drained batch must send the geofence event with its $geofence_id",
             file: file, line: line
         )
-    }
-
-    /// Polls `condition` until true or timeout.
-    private func waitFor(
-        timeout: TimeInterval = 2.0,
-        _ condition: @escaping () -> Bool
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
     }
 }

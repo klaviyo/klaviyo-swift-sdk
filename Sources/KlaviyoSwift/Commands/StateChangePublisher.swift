@@ -8,12 +8,11 @@
 import Combine
 import Foundation
 import KlaviyoCore
-import UIKit
 
 @_spi(KlaviyoPrivate)
 public enum StateChangePublisher {
     /// Assembles the private state feed from the canonical Core publishers (identity + token) gated
-    /// on the SDK having reached `.initialized`. Replaces the old TCA `statePublisher()` seam.
+    /// on the SDK having reached `.initialized`.
     private static func createStatePublisher() -> AnyPublisher<PrivateState, Never> {
         Publishers.CombineLatest3(
             IdentityStore.shared.publisher,
