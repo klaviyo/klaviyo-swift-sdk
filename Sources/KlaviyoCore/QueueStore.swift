@@ -172,7 +172,7 @@ public final class QueueStore {
 
     /// Drains oldest-by-`enqueuedAt` while at/over capacity, leaving room for one insert.
     /// Loops (not a single removal) so an over-capacity queue produced by `prepend`/restore
-    /// self-heals on the next enqueue. Parity with `KlaviyoState.evictOldestIfAtCapacity`.
+    /// self-heals on the next enqueue.
     private func evictIfAtCapacity(_ queue: inout [KlaviyoRequest]) {
         guard queue.count >= Self.maxQueueSize else { return }
         emitWarning(

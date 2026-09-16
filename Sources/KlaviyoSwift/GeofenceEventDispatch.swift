@@ -9,7 +9,7 @@ import KlaviyoCore
 /// KlaviyoSwift entry point for geofence event dispatch, called directly by KlaviyoLocation.
 /// Kept in KlaviyoSwift (not on the Core EventDispatching contract) because correct cold/
 /// background-launch attribution needs persisted state — anchored by `anonymousId` — that only
-/// KlaviyoSwift loads at `.initialize` (`StateManagement` `.enqueueEvent` guards on it).
+/// KlaviyoSwift loads at `.initialize` (`KlaviyoCommands.enqueueEvent` guards on it).
 package enum GeofenceEventDispatch {
     /// Enqueue a geofence event, bootstrapping the SDK from the geofence's apiKey if needed.
     /// - once initialization has started (non-empty stored apiKey): ignore the event unless it
@@ -26,10 +26,10 @@ package enum GeofenceEventDispatch {
         if LifecycleState.shared.current != .uninitialized,
            let storedApiKey = SDKConfigStore.shared.current.apiKey, !storedApiKey.isEmpty {
             guard storedApiKey == apiKey else { return }
-            KlaviyoOrchestration.enqueueEvent(event)
+            KlaviyoCommands.enqueueEvent(event)
         } else {
-            KlaviyoOrchestration.initialize(apiKey)
-            KlaviyoOrchestration.enqueueEvent(event)
+            KlaviyoCommands.initialize(apiKey)
+            KlaviyoCommands.enqueueEvent(event)
         }
     }
 }

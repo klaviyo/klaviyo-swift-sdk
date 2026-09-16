@@ -6,10 +6,10 @@
 //
 
 @testable import KlaviyoCore
+@testable import KlaviyoSwift
 import Combine
 import CoreLocation
 import Foundation
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 // MARK: - Test Constants
 
@@ -21,7 +21,6 @@ private let TEST_URL = URL(string: "file:///test")!
 extension KlaviyoEnvironment {
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.production,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,

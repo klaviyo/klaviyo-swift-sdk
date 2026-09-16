@@ -6,7 +6,7 @@
 import KlaviyoCore
 
 /// Enriches an event with device/SDK metadata and pushes it to the `KlaviyoCore` `EventBus`.
-/// KlaviyoSwift's write-side push of observed events into KlaviyoCore. Called from the reducer.
+/// Called from `KlaviyoCommands.enqueueEvent` via `Task.detached`.
 func enrichAndPublishEvent(_ event: Event) {
     EventBus.shared.publish(enrichEventWithMetadata(event))
 }

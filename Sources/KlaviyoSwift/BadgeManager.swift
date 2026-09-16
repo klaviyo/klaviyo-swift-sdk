@@ -99,7 +99,7 @@ enum BadgeManager {
 
 // MARK: - Test-only hooks
 
-// TEST-ONLY. The members below exist solely so the reducer / facade test suites
+// TEST-ONLY. The members below exist solely so orchestration and facade test suites
 // can observe badge invocations and restore state between tests.
 extension BadgeManager {
     /// When non-nil, called by `setBadgeCount(_:)` instead of the production path.

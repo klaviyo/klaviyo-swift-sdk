@@ -27,8 +27,8 @@ final class StateChangePublisherTests: XCTestCase {
     // NOTE: the former `testStateChangePublisher`, `testStateChangeDuplicateAreRemoved`, and
     // `testQuickStateUpdatesTriggerOnlyOneSaves` tests exercised the debounced save `publisher`
     // path (`StateChangePublisher.debouncedPublisher` + `saveKlaviyoState`). All three were
-    // deleted in Task 5: the save path (`debouncedPublisher`, `var publisher`) no longer exists
-    // and `KlaviyoState` is non-Codable. `internalStatePublisher` coverage is below.
+    // deleted when the save path (`debouncedPublisher`, `var publisher`) was removed.
+    // `internalStatePublisher` coverage is below.
 
     @MainActor
     func testInternalStatePublisherEmitsAfterInitialization() throws {

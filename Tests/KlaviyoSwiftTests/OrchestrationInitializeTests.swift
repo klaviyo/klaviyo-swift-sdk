@@ -5,8 +5,8 @@
 //  Created by Isobelle Lim on 9/15/26.
 //
 //  Parity coverage for the `initialize` + lifecycle orchestration cases ported into
-//  `KlaviyoOrchestration`. Tests exercise `KlaviyoOrchestration.initialize(_:)` and
-//  `KlaviyoOrchestration.completeInitialization(apiKey:)` directly.
+//  `KlaviyoCommands`. Tests exercise `KlaviyoCommands.initialize(_:)` and
+//  `KlaviyoCommands.completeInitialization(apiKey:)` directly.
 //
 //  Async tail is driven deterministically by installing a finite lifecycle publisher (via
 //  `environment.appLifeCycle.lifeCycleEvents`) that terminates after a fixed sequence,
@@ -20,7 +20,7 @@ import Foundation
 import XCTest
 
 @MainActor
-final class OrchestrationInitializeTests: StateManagementTestCase {
+final class OrchestrationInitializeTests: KlaviyoBaseTestCase {
     private var spyQueue: SpyRequestQueue!
 
     override func setUp() async throws {
@@ -44,7 +44,7 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         }
     }
 
-    /// Calls `KlaviyoOrchestration.initialize(_:)` then awaits `completeInitialization` directly,
+    /// Calls `KlaviyoCommands.initialize(_:)` then awaits `completeInitialization` directly,
     /// so the full async tail (migration + drainBuffer + lifecycle loop) completes before we assert.
     ///
     /// We call `initialize` for its sync-head side effects (LifecycleState transition,
@@ -57,13 +57,13 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
     /// the second early-returns before touching migration, the buffer, or the lifecycle loop.
     /// migrate/drain/lifecycle therefore run EXACTLY ONCE regardless of scheduling order.
     private func callInitializeAndAwaitTail(apiKey: String) async {
-        KlaviyoOrchestration.initialize(apiKey)
+        KlaviyoCommands.initialize(apiKey)
         // Give the internal Task a chance to begin (first yield) so LifecycleState.beginInitializing
         // is guaranteed to have run before we enter our own completeInitialization call.
         await Task.yield()
         // Directly await the full async tail. The top guard in completeInitialization ensures
         // that exactly one invocation does real work; the other is a no-op early return.
-        await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: apiKey)
     }
 
     // MARK: - Cold-start fresh init
@@ -78,14 +78,14 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         // (LifecycleState.initializing is observable in production but racy in tests because the
         // async tail may complete between the `initialize` call and the next test line on a fast
         // test executor. We assert `.initialized` after awaiting the tail instead.)
-        KlaviyoOrchestration.initialize(apiKey)
+        KlaviyoCommands.initialize(apiKey)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, apiKey,
             "initialize() sync head must set SDKConfigStore.apiKey"
         )
 
         // Drive the async tail to completion and assert the terminal state.
-        await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: apiKey)
 
         XCTAssertEqual(
             LifecycleState.shared.current, .initialized,
@@ -103,12 +103,12 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         // Drive to .initialized via direct path.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: apiKey)
         XCTAssertEqual(LifecycleState.shared.current, .initialized)
         let startCount1 = await spyQueue.getStartCount()
 
         // Re-initialize with the same key: must be a no-op (guard apiKey != currentKey → return).
-        KlaviyoOrchestration.initialize(apiKey)
+        KlaviyoCommands.initialize(apiKey)
 
         let startCount2 = await spyQueue.getStartCount()
         XCTAssertEqual(
@@ -132,7 +132,7 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         // Second call while still .initializing: guard in initialize() sees `.initializing` (not
         // `.uninitialized`) and the cold-start-switch block doesn't apply (no prior apiKey), so
         // `beginInitializing()` returns false → no Task spawned, state remains `.initializing`.
-        KlaviyoOrchestration.initialize(apiKey)
+        KlaviyoCommands.initialize(apiKey)
         XCTAssertEqual(
             LifecycleState.shared.current, .initializing,
             "second initialize while .initializing must not change state"
@@ -164,14 +164,14 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         // Drive to .initialized via direct completeInitialization call.
         LifecycleState.shared.beginInitializing()
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: oldApiKey))
-        await KlaviyoOrchestration.completeInitialization(apiKey: oldApiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: oldApiKey)
         XCTAssertEqual(LifecycleState.shared.current, .initialized)
 
         // Register a recording QueueStore (resets prior enqueues from the init tail).
         let readQueue = seedTestQueueStore()
 
         // Runtime switch to new key: synchronous, all enqueues happen before `flushNow` Task.
-        KlaviyoOrchestration.initialize(newApiKey)
+        KlaviyoCommands.initialize(newApiKey)
 
         // SDKConfigStore must be updated to the new key.
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, newApiKey)
@@ -215,10 +215,10 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-notoken"))
         // Drive to .initialized via direct path.
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: oldApiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: oldApiKey)
 
         let readQueue = seedTestQueueStore()
-        KlaviyoOrchestration.initialize(newApiKey)
+        KlaviyoCommands.initialize(newApiKey)
 
         let endpoints = readQueue().map(\.endpoint)
         XCTAssertFalse(
@@ -258,10 +258,10 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
 
         // Drive to .initialized via direct path.
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: oldApiKey)
+        await KlaviyoCommands.completeInitialization(apiKey: oldApiKey)
         seedTestQueueStore() // reset recording after init
 
-        KlaviyoOrchestration.initialize(newApiKey)
+        KlaviyoCommands.initialize(newApiKey)
 
         let identity = IdentityStore.shared.current
         XCTAssertNil(identity.email, "email must be cleared on runtime company switch reset")
@@ -366,7 +366,7 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
     func testForegroundedEventCallsStart() async throws {
         installLifecycle([.foregrounded])
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: "fg-test")
+        await KlaviyoCommands.completeInitialization(apiKey: "fg-test")
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 2, "launch kickoff + one foreground = two start calls")
     }
@@ -375,7 +375,7 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
     func testBackgroundedAndTerminatedCallStop() async throws {
         installLifecycle([.backgrounded, .terminated])
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: "bg-test")
+        await KlaviyoCommands.completeInitialization(apiKey: "bg-test")
         let stopCount = await spyQueue.getStopCount()
         XCTAssertEqual(stopCount, 2, "background + terminate = two stop calls")
     }
@@ -387,7 +387,7 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
             .reachabilityChanged(status: .notReachable)
         ])
         LifecycleState.shared.beginInitializing()
-        await KlaviyoOrchestration.completeInitialization(apiKey: "reach-test")
+        await KlaviyoCommands.completeInitialization(apiKey: "reach-test")
         let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.reachableViaWWAN, .notReachable])
     }
@@ -421,9 +421,9 @@ final class OrchestrationInitializeTests: StateManagementTestCase {
         )
         inMemory[klaviyoStateFile(apiKey: apiKey).path] = try JSONEncoder().encode(fixture)
 
-        KlaviyoOrchestration.initialize(apiKey)
-        KlaviyoOrchestration.setEmail("new@example.com")
-        await KlaviyoOrchestration.completeInitialization(apiKey: apiKey)
+        KlaviyoCommands.initialize(apiKey)
+        KlaviyoCommands.setEmail("new@example.com")
+        await KlaviyoCommands.completeInitialization(apiKey: apiKey)
 
         XCTAssertEqual(
             IdentityStore.shared.current.email, "new@example.com",

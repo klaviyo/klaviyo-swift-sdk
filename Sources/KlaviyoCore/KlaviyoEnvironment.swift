@@ -14,7 +14,6 @@ public var environment = KlaviyoEnvironment.production
 
 public struct KlaviyoEnvironment {
     public init(
-        archiverClient: ArchiverClient,
         fileClient: FileClient,
         dataFromUrl: @escaping (URL) throws -> Data,
         logger: LoggerClient,
@@ -46,7 +45,6 @@ public struct KlaviyoEnvironment {
         formsDataEnvironment: @escaping () -> FormEnvironment?,
         linkHandler: DeepLinkHandler
     ) {
-        self.archiverClient = archiverClient
         self.fileClient = fileClient
         self.dataFromUrl = dataFromUrl
         self.logger = logger
@@ -107,7 +105,6 @@ public struct KlaviyoEnvironment {
 
     private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
 
-    public var archiverClient: ArchiverClient
     public var fileClient: FileClient
     public var dataFromUrl: (URL) throws -> Data
 
@@ -228,7 +225,6 @@ public struct KlaviyoEnvironment {
     }
 
     public static var production = KlaviyoEnvironment(
-        archiverClient: ArchiverClient.production,
         fileClient: FileClient.production,
         dataFromUrl: { url in try Data(contentsOf: url) },
         logger: LoggerClient.production,
@@ -313,10 +309,6 @@ public func createNetworkSession() -> NetworkSession {
         networkSession = NetworkSession.production
     }
     return networkSession
-}
-
-public enum KlaviyoDecodingError: Error {
-    case invalidType
 }
 
 public enum FormEnvironment: String, Equatable, Codable, CaseIterable {

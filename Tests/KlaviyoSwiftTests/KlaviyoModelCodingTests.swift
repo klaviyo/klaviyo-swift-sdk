@@ -1,5 +1,5 @@
 //
-//  KlaviyoStateTests.swift
+//  KlaviyoModelCodingTests.swift
 //
 //
 //  Created by Noah Durell on 12/1/22.
@@ -10,7 +10,7 @@ import Foundation
 import KlaviyoCore
 import XCTest
 
-final class KlaviyoStateTests: XCTestCase {
+final class KlaviyoModelCodingTests: XCTestCase {
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         resetCanonicalCoreStores()

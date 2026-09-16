@@ -4,11 +4,8 @@
 //
 //  Created by Isobelle Lim on 9/15/26.
 //
-//  Parity coverage for the event-enqueue and tracking-link reducer cases being ported into
-//  `KlaviyoOrchestration` (Task 4c). Reproduces the coverage from `StateManagementTests`
-//  (`testEnqueueEvents`, `testPreInitEventRoutesToUnattributedBuffer`, priority/flush tests)
-//  and the relevant scenarios from `ResolveTrackingLinkTests` (resolved → openDeepLink,
-//  failed → enqueueTrackingLinkClicked, pre-init → UnattributedBuffer).
+//  Coverage for the event-enqueue and tracking-link orchestration functions in
+//  `KlaviyoCommands`.
 
 @testable import KlaviyoCore
 @testable import KlaviyoSwift
@@ -16,7 +13,7 @@ import Combine
 import Foundation
 import XCTest
 
-class OrchestrationEventTrackingTests: StateManagementTestCase {
+class OrchestrationEventTrackingTests: KlaviyoBaseTestCase {
     // MARK: - Test lifecycle
 
     @MainActor
@@ -67,12 +64,6 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         return (apiKey, resolvedAnon, pushToken)
     }
 
-    /// Seeds a pre-init state: anonymousId only, LifecycleState stays `.uninitialized`.
-    private func seedPreInit(anonymousId: String? = nil) {
-        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
-        IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnon))
-    }
-
     /// Seeds an `.initializing` state (between begin and complete).
     private func seedInitializing(anonymousId: String? = nil) {
         let resolvedAnon = anonymousId ?? environment.uuid().uuidString
@@ -90,7 +81,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
-        KlaviyoOrchestration.enqueueEvent(.test)
+        KlaviyoCommands.enqueueEvent(.test)
 
         let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
         XCTAssertEqual(buffered.count, 1,
@@ -104,7 +95,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         let readQueue = seedTestQueueStore()
 
         let event = Event(name: .customEvent("test-event"))
-        KlaviyoOrchestration.enqueueEvent(event)
+        KlaviyoCommands.enqueueEvent(event)
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1,
@@ -132,7 +123,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .store(in: &cancellables)
         defer { cancellables.forEach { $0.cancel() } }
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
+        KlaviyoCommands.enqueueEvent(Event(name: ._openedPush, priority: .high))
 
         await fulfillment(of: [published], timeout: 2.0)
         let flushCount = await spyQueue.getFlushNowCount()
@@ -153,7 +144,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .store(in: &cancellables)
         defer { cancellables.forEach { $0.cancel() } }
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: .openedAppMetric))
+        KlaviyoCommands.enqueueEvent(Event(name: .openedAppMetric))
 
         await fulfillment(of: [published], timeout: 2.0)
         let flushCount = await spyQueue.getFlushNowCount()
@@ -176,7 +167,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .store(in: &cancellables)
         defer { cancellables.forEach { $0.cancel() } }
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
+        KlaviyoCommands.enqueueEvent(Event(name: ._openedPush, priority: .high))
 
         // Give async Tasks enough time to fire if the gate were absent.
         await fulfillment(of: [unexpected], timeout: 0.5)
@@ -201,7 +192,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .store(in: &cancellables)
         defer { cancellables.forEach { $0.cancel() } }
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
+        KlaviyoCommands.enqueueEvent(Event(name: ._openedPush, priority: .high))
 
         // Give time for any spurious publish/flush to fire.
         await fulfillment(of: [unexpected], timeout: 0.5)
@@ -217,7 +208,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         seedInitializing()
         let readQueue = seedTestQueueStore()
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: .customEvent("init-event")))
+        KlaviyoCommands.enqueueEvent(Event(name: .customEvent("init-event")))
 
         XCTAssertEqual(readQueue().count, 1,
                        ".initializing enqueueEvent must still enqueue via RequestEnqueuer")
@@ -241,7 +232,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             .store(in: &cancellables)
         defer { cancellables.forEach { $0.cancel() } }
 
-        KlaviyoOrchestration.enqueueEvent(Event(name: .customEvent("stamped-test")))
+        KlaviyoCommands.enqueueEvent(Event(name: .customEvent("stamped-test")))
 
         await fulfillment(of: [published], timeout: 2.0)
         XCTAssertEqual(received?.identifiers?.email, "me@x.com",
@@ -262,7 +253,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-agg"))
 
         let data = Data("aggregate-payload".utf8)
-        KlaviyoOrchestration.enqueueAggregateEvent(data)
+        KlaviyoCommands.enqueueAggregateEvent(data)
 
         let (buffered, _) = UnattributedBuffer.shared.drainSnapshot()
         let hasAggregate = buffered.contains {
@@ -298,7 +289,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
             opened.fulfill()
         }
 
-        KlaviyoOrchestration.trackingLinkReceived(trackingURL)
+        KlaviyoCommands.trackingLinkReceived(trackingURL)
 
         await fulfillment(of: [opened], timeout: 2.0)
     }
@@ -322,7 +313,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
 
         // Call BEFORE starting the poll so the async Task has been enqueued in the cooperative
         // thread pool and cannot fulfill the expectation vacuously before trackingLinkReceived fires.
-        KlaviyoOrchestration.trackingLinkReceived(trackingURL)
+        KlaviyoCommands.trackingLinkReceived(trackingURL)
 
         // Poll until QueueStore is non-empty. trackingLinkResolutionFailed → RequestEnqueuer →
         // QueueStore.enqueue is synchronous once the Task body runs; the poll just waits for
@@ -352,7 +343,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         let trackingURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
         let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
 
-        KlaviyoOrchestration.trackingLinkResolutionFailed(
+        KlaviyoCommands.trackingLinkResolutionFailed(
             trackingLink: trackingURL,
             clickTime: clickTime
         )
@@ -377,7 +368,7 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         let trackingURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
         let clickTime = environment.date()
 
-        KlaviyoOrchestration.trackingLinkResolutionFailed(
+        KlaviyoCommands.trackingLinkResolutionFailed(
             trackingLink: trackingURL,
             clickTime: clickTime
         )
@@ -390,5 +381,82 @@ class OrchestrationEventTrackingTests: StateManagementTestCase {
         }
         XCTAssertEqual(link, trackingURL)
         XCTAssertEqual(time, clickTime)
+    }
+
+    // MARK: - trackingLinkReceived: pre-init success (endpoint assertion)
+
+    /// Pre-init: resolution can succeed even before `initialize()` completes; the destination URL
+    /// must be forwarded to DeepLinkManager. Also asserts the request endpoint matches the identity.
+    @MainActor
+    func testTrackingLinkReceivedPreInitSuccessOpensDeepLinkWithEndpointAssertion() async throws {
+        let anonymousId = environment.uuid().uuidString
+        IdentityStore.shared.update(ProfileData(anonymousId: anonymousId))
+        let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        let destinationURL = try XCTUnwrap(URL(string: "https://example.com/destination"))
+
+        let responseJSON = """
+        {"original_destination": "\(destinationURL.absoluteString)"}
+        """
+        let responseData = try XCTUnwrap(responseJSON.data(using: .utf8))
+        environment.decoder = DataDecoder(jsonDecoder: JSONDecoder())
+
+        environment.klaviyoAPI.send = { request, _ in
+            XCTAssertEqual(request.endpoint, KlaviyoEndpoint.resolveDestinationURL(
+                trackingLink: trackingLinkURL,
+                profileInfo: ProfilePayload(
+                    email: nil,
+                    phoneNumber: nil,
+                    externalId: nil,
+                    anonymousId: anonymousId
+                )
+            ))
+            return .success(responseData)
+        }
+
+        let opened = expectation(description: "openDeepLink invoked with destination")
+        DeepLinkManager.openDeepLinkSpy = { url in
+            XCTAssertEqual(url, destinationURL)
+            opened.fulfill()
+        }
+
+        KlaviyoCommands.trackingLinkReceived(trackingLinkURL)
+        await fulfillment(of: [opened], timeout: 2.0)
+    }
+
+    // MARK: - trackingLinkReceived: decode failure → click-log (full endpoint equality)
+
+    /// A decode failure (invalid JSON) is treated as a resolution failure: a click-log request must
+    /// be enqueued with the correct endpoint, including the stamped identity.
+    @MainActor
+    func testTrackingLinkReceivedDecodeFailureEnqueuesClickLogWithEndpointAssertion() async throws {
+        _ = seedPostInit()
+        let readQueue = seedTestQueueStore()
+        let clickTime = Date(timeIntervalSince1970: 1_735_707_600)
+        environment.date = { clickTime }
+
+        let trackingLinkURL = try XCTUnwrap(URL(string: "https://email.klaviyo.com/tracking/link"))
+        environment.decoder = DataDecoder(jsonDecoder: InvalidJSONDecoder())
+
+        KlaviyoCommands.trackingLinkReceived(trackingLinkURL)
+
+        let anonymousId = try XCTUnwrap(IdentityStore.shared.current.anonymousId)
+        let expected = KlaviyoRequest(
+            endpoint: .logTrackingLinkClicked(
+                trackingLink: trackingLinkURL,
+                clickTime: clickTime,
+                profileInfo: ProfilePayload(
+                    email: IdentityStore.shared.current.email,
+                    phoneNumber: IdentityStore.shared.current.phoneNumber,
+                    externalId: IdentityStore.shared.current.externalId,
+                    anonymousId: anonymousId
+                )
+            )
+        )
+        try await waitForConditionOrFail(
+            timeout: 3.0,
+            "click-log not enqueued within timeout — decode-failure path broken"
+        ) { readQueue() == [expected] }
+        XCTAssertEqual(readQueue(), [expected],
+                       "decode failure must enqueue a click-log with the correct endpoint")
     }
 }

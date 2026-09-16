@@ -3,7 +3,7 @@
 //  klaviyo-swift-sdk
 //
 //  Codable DTO for the pre-split legacy `klaviyo-{apiKey}-state.json` blob. Owned by the
-//  migration; decoupled from the runtime `KlaviyoState` so that type can be non-Codable.
+//  migration path in `LegacyStateMigration.swift`. The current runtime stores are non-Codable.
 //
 
 import Foundation

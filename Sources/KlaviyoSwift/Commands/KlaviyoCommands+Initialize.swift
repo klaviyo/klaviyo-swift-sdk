@@ -1,12 +1,11 @@
 //
-//  KlaviyoOrchestration+Initialize.swift
+//  KlaviyoCommands+Initialize.swift
 //
 //
 //  Created by Isobelle Lim on 9/15/26.
 //
-//  Initialize + lifecycle orchestration for the TCA teardown.
-//  Ports `KlaviyoReducer.reduce(.initialize)` + `reduce(.completeInitialization)` into
-//  direct actor/store calls with no TCA dispatch.
+//  Initialize + lifecycle orchestration. Drives the SDK's uninitialized→initializing→initialized
+//  state machine and the long-lived Core RequestQueue loop.
 //
 
 import Combine
@@ -14,17 +13,15 @@ import Foundation
 import KlaviyoCore
 import OSLog
 
-extension KlaviyoOrchestration {
+extension KlaviyoCommands {
     // MARK: - Initialize (sync head + async tail)
 
     /// Confirms or sets the API key, handles company switches, and kicks the async tail.
     ///
-    /// Ports `KlaviyoReducer.reduce(.initialize)` (StateManagement.swift:119-200).
-    ///
     /// Three branches:
-    ///  1. **Already initialized** — runtime company switch (L119-136).
-    ///  2. **Cold-start company switch** — uninitialized + persisted prior key differs (L137-182).
-    ///  3. **Fall-through** — normal cold-start init (L183-200).
+    ///  1. **Already initialized** — runtime company switch.
+    ///  2. **Cold-start company switch** — uninitialized + persisted prior key differs.
+    ///  3. **Fall-through** — normal cold-start init.
     static func initialize(_ apiKey: String) {
         // ── Branch 1: ALREADY INITIALIZED — runtime company switch ───────────────────────────────
         if LifecycleState.shared.current == .initialized {
@@ -53,7 +50,7 @@ extension KlaviyoOrchestration {
             // Switch the config to the new company.
             SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
 
-            // Reset identity with preserveTokenData:true (port of KlaviyoState.reset(true)):
+            // Reset identity, preserving the push token:
             //  - If identified → mint a fresh anonymousId.
             //  - Clear PII. Token untouched inside mutate (lives in IdentityStore separately).
             //  - Clear staged profile properties.
@@ -162,12 +159,8 @@ extension KlaviyoOrchestration {
 
     // MARK: - runLifecycle (long-lived lifecycle loop)
 
-    /// Drives the Core `RequestQueue` actor for the lifetime of the SDK session.
-    ///
-    /// Ports `KlaviyoReducer.reduce(.completeInitialization)` effect (StateManagement.swift:237-267)
-    /// verbatim. Replaces `send(.setPushEnablement(settings))` with a direct `setPushEnablement`
-    /// call (no TCA dispatch). `@MainActor` so `setPushEnablement` rejoins the main funnel and can't
-    /// race host identity/token writes.
+    /// Drives the Core `RequestQueue` actor for the lifetime of the SDK session. `@MainActor` so
+    /// `setPushEnablement` rejoins the main funnel and can't race host identity/token writes.
     @MainActor
     private static func runLifecycle() async {
         @Sendable
@@ -190,7 +183,7 @@ extension KlaviyoOrchestration {
             await MainActor.run { BadgeManager.syncBadgeCount() }
         }
 
-        // Launch kickoff — parity with the old completeInit → `.start`.
+        // Launch kickoff — start the queue and sync push enablement immediately on init.
         await handleForeground()
         for await event in environment.lifecycleEventsWithReachability().lifecycleEventStream() {
             switch event {

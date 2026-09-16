@@ -11,7 +11,7 @@ import Foundation
 
 /// Identity inputs required to construct a Klaviyo API request.
 ///
-/// Supplied by the caller (today: the reducer / `KlaviyoState`; later: `IdentityStore`).
+/// Supplied by the caller; sourced from `IdentityStore` in current production code.
 public struct RequestIdentity: Equatable {
     public let apiKey: String
     public let anonymousId: String
