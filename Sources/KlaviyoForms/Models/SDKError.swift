@@ -5,7 +5,7 @@
 //  Created by Andrew Balmer on 5/28/25.
 //
 
-public enum SDKError: Error {
+enum SDKError: Error {
     /// The SDK has not been initialized
     case notInitialized
 
