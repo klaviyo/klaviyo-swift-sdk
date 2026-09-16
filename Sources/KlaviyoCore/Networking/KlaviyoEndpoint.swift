@@ -152,12 +152,10 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         }
     }
 
+    // One revision for every endpoint. Geofences pinned a `.pre` revision until
+    // GET /client/geofences went GA on 2026-04-15.
     var revision: String {
-        if case .fetchGeofences = self {
-            return "2026-01-15.pre"
-        } else {
-            return "2026-01-15"
-        }
+        "2026-07-15"
     }
 
     func body() throws -> Data? {
