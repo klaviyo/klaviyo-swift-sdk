@@ -142,6 +142,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init (no apiKey anywhere) → token ends up in UnattributedBuffer.
     @MainActor
     func testSetPushTokenPreInitNoApiKeyBuffersInUnattributedBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
         // LifecycleState stays .uninitialized, SDKConfigStore has NO apiKey.
@@ -343,6 +344,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init profile → buffered in UnattributedBuffer (RequestEnqueuer ungated path).
     @MainActor
     func testEnqueueProfilePreInitBuffersInUnattributedBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No LifecycleState advance, no apiKey in SDKConfigStore.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
@@ -360,6 +362,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init identifier change → mint fresh anon AND buffer the profile.
     @MainActor
     func testEnqueueProfilePreInitChangedIdentifiersMintsAnonAndBuffers() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         let previousAnon = "prev-anon"
         IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))

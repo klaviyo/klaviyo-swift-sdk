@@ -78,6 +78,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Pre-init: event must still land in the durable buffer via `RequestEnqueuer`.
     @MainActor
     func testEnqueueEventPreInitBuffersViaRequestEnqueuer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -248,6 +249,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Aggregate event is always forwarded to `RequestEnqueuer` with no init gate.
     @MainActor
     func testEnqueueAggregateEventRoutesToRequestEnqueuer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No SDKConfigStore apiKey → lands in UnattributedBuffer.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-agg"))
@@ -361,6 +363,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Pre-init (no apiKey): failed tracking-link resolution must buffer in `UnattributedBuffer`.
     @MainActor
     func testTrackingLinkResolutionFailedPreInitBuffers() throws {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No apiKey in SDKConfigStore → ungated path buffers in UnattributedBuffer.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
