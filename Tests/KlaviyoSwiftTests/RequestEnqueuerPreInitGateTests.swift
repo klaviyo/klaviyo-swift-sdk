@@ -61,6 +61,29 @@ final class RequestEnqueuerPreInitGateTests: KlaviyoBaseTestCase {
         }
     }
 
+    /// Full-profile token entry: post-init enqueues a registerPushToken whose nested profile carries
+    /// the passed identifiers (proves the fold path carries a full profile, not identifiers-only).
+    @MainActor
+    func testEnqueuePushTokenWithFullProfileCarriesProfile() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        let readQueue = seedTestQueueStore()
+        let profile = ProfilePayload(
+            email: "fold@x.com", phoneNumber: nil, externalId: nil,
+            properties: ["tier": "gold"], anonymousId: "anon-fold"
+        )
+
+        RequestEnqueuer.enqueuePushToken(token: "tok-fold", enablement: .authorized, profile: profile)
+
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1)
+        guard case let .registerPushToken(_, payload) = queued.first?.endpoint else {
+            return XCTFail("expected registerPushToken")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "tok-fold")
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "fold@x.com",
+                       "folded token must carry the full profile's email")
+    }
+
     /// Capture ON: all pre-init calls land in the durable UnattributedBuffer (current behavior).
     @MainActor
     func testCaptureOnBuffersRegularEventToDisk() {

@@ -100,6 +100,25 @@ public enum RequestEnqueuer {
         }
     }
 
+    /// Enqueues a `registerPushToken` carrying a FULL profile (attributes + properties), used by the
+    /// Android-parity fold path where a profile update rides on the token request instead of a
+    /// separate createProfile. Routes buffer/queue like the identity-only overload.
+    public static func enqueuePushToken(
+        token: String,
+        enablement: PushEnablement,
+        profile: ProfilePayload
+    ) {
+        let payload = RequestFactory.tokenPayload(
+            pushToken: token,
+            enablement: enablement,
+            background: environment.getBackgroundSetting(),
+            profile: profile
+        )
+        route(buffered: .pushToken(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
+        }
+    }
+
     /// Mirrors `enqueueProfile`: the caller supplies the built payload (channel validation lives in
     /// the KlaviyoSwift `Subscription` → payload mapping).
     public static func enqueueSubscription(payload: CreateSubscriptionPayload) {
