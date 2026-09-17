@@ -54,6 +54,7 @@ class KlaviyoBaseTestCase: XCTestCase {
         featureFlags = .production
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
@@ -61,6 +62,7 @@ class KlaviyoBaseTestCase: XCTestCase {
 
     @MainActor
     override func tearDown() async throws {
+        PreInitMemoryBuffer.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         BadgeManager.resetToProduction()
     }
