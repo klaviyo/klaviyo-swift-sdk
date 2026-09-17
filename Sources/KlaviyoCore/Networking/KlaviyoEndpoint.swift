@@ -152,8 +152,6 @@ public enum KlaviyoEndpoint: Equatable, Codable {
         }
     }
 
-    // One revision for every endpoint. Geofences pinned a `.pre` revision until
-    // GET /client/geofences went GA on 2026-04-15.
     var revision: String {
         "2026-07-15"
     }
