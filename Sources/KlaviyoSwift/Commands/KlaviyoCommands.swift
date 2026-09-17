@@ -219,21 +219,19 @@ enum KlaviyoCommands {
 
         guard let anonymousId = updated.anonymousId else { return }
 
-        // Enqueue the profile via ungated RequestEnqueuer.
-        RequestEnqueuer.enqueueProfile(
-            payload: CreateProfilePayload(
-                data: RequestBuilding.profilePayload(
-                    from: profile,
-                    identity: updated,
-                    anonymousId: anonymousId
-                )
-            )
+        let profilePayload = RequestBuilding.profilePayload(
+            from: profile, identity: updated, anonymousId: anonymousId
         )
 
-        // Re-register the token under the (potentially new) identity as a SEPARATE identity-only
-        // request, enqueued AFTER the createProfile so FIFO keeps the profile ahead.
         if let tokenData {
-            RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
+            // Fold the full profile into ONE registerPushToken; no separate createProfile.
+            RequestEnqueuer.enqueuePushToken(
+                token: tokenData.pushToken,
+                enablement: tokenData.pushEnablement,
+                profile: profilePayload
+            )
+        } else {
+            RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
         }
     }
 
@@ -359,14 +357,17 @@ enum KlaviyoCommands {
         if LifecycleState.shared.current != .uninitialized,
            let apiKey = SDKConfigStore.shared.current.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
-            // Post-init with a token: re-associate the token to the new identity.
-            let request = RequestBuilding.resolvedTokenRequest(
-                identity: updated,
+            // Post-init with a token: re-associate the token to the new identity by carrying the
+            // full profile on the token request (one request).
+            let profilePayload = RequestBuilding.profilePayload(
+                from: Profile(), identity: updated, anonymousId: anonymousId
+            )
+            let request = RequestFactory.tokenRequest(
                 apiKey: apiKey,
-                anonymousId: anonymousId,
                 pushToken: tokenData.pushToken,
                 enablement: tokenData.pushEnablement,
-                background: tokenData.pushBackground
+                background: tokenData.pushBackground.rawValue,
+                profile: profilePayload
             )
             QueueStore.shared.enqueue(request)
         } else {
