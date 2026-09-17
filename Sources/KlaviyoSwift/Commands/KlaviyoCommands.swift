@@ -218,21 +218,21 @@ enum KlaviyoCommands {
 
         guard let anonymousId = updated.anonymousId else { return }
 
-        // Enqueue the profile via ungated RequestEnqueuer.
-        RequestEnqueuer.enqueueProfile(
-            payload: CreateProfilePayload(
-                data: RequestBuilding.profilePayload(
-                    from: profile,
-                    identity: updated,
-                    anonymousId: anonymousId
-                )
-            )
-        )
+        let profilePayload = RequestBuilding.profilePayload(
+            from: profile, identity: updated, anonymousId: anonymousId)
 
-        // Re-register the token under the (potentially new) identity as a SEPARATE identity-only
-        // request, enqueued AFTER the createProfile so FIFO keeps the profile ahead.
-        if let tokenData {
-            RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
+        if let tokenData, !featureFlags.enableProfileTokenSplit {
+            // Android parity: fold the full profile into ONE registerPushToken; no createProfile.
+            RequestEnqueuer.enqueuePushToken(
+                token: tokenData.pushToken,
+                enablement: tokenData.pushEnablement,
+                profile: profilePayload)
+        } else {
+            // Split (flag ON): createProfile, then a separate identity-only token re-register (FIFO).
+            RequestEnqueuer.enqueueProfile(payload: CreateProfilePayload(data: profilePayload))
+            if let tokenData {
+                RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
+            }
         }
     }
 
@@ -359,13 +359,23 @@ enum KlaviyoCommands {
            let apiKey = SDKConfigStore.shared.current.apiKey,
            let tokenData = IdentityStore.shared.pushToken {
             // Post-init with a token: re-associate the token to the new identity.
-            let request = RequestBuilding.resolvedTokenRequest(
-                identity: updated,
-                apiKey: apiKey,
-                anonymousId: anonymousId,
-                pushToken: tokenData.pushToken,
-                enablement: tokenData.pushEnablement
-            )
+            // Android parity (split OFF): carry the full profile on the token request (one request).
+            // Split ON: identity-only token (matches legacy behavior).
+            let profilePayload = RequestBuilding.profilePayload(
+                from: Profile(), identity: updated, anonymousId: anonymousId)
+            let request = featureFlags.enableProfileTokenSplit
+                ? RequestBuilding.resolvedTokenRequest(
+                    identity: updated,
+                    apiKey: apiKey,
+                    anonymousId: anonymousId,
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement)
+                : RequestFactory.tokenRequest(
+                    apiKey: apiKey,
+                    pushToken: tokenData.pushToken,
+                    enablement: tokenData.pushEnablement,
+                    background: environment.getBackgroundSetting().rawValue,
+                    profile: profilePayload)
             QueueStore.shared.enqueue(request)
         } else {
             // Pre-init or post-init with no token: send a profile via the ungated RequestEnqueuer.
