@@ -8,7 +8,7 @@
 // NOTE: pruneCategory is intentionally not duplicated in KlaviyoSwiftExtension.
 // That target carries a separate register-only KlaviyoCategoryManager
 // (Sources/KlaviyoSwiftExtension/KlaviyoCategoryManager.swift) because it cannot
-// depend on KlaviyoCore (NSE/share-extension sandbox restriction). Pruning is
+// depend on the main app (NSE/share-extension sandbox restriction). Pruning is
 // only needed in the main app (KlaviyoSwift) and lives exclusively here.
 
 import Foundation
@@ -20,11 +20,11 @@ import UserNotifications
 /// Registration is handled by KlaviyoSwiftExtension's copy of this class (NSE context).
 /// This class is responsible only for pruning stale categories after a notification is
 /// opened or dismissed from the main app.
-public class KlaviyoCategoryManager {
-    public static let shared = KlaviyoCategoryManager()
+class KlaviyoCategoryManager {
+    static let shared = KlaviyoCategoryManager()
 
     /// Prefix used for all Klaviyo notification category identifiers
-    public static let categoryIdentifierPrefix = "com.klaviyo.button."
+    static let categoryIdentifierPrefix = "com.klaviyo.button."
 
     /// Serial queue to ensure thread-safe category updates
     private let queue = DispatchQueue(label: "com.klaviyo.category.registration", qos: .userInitiated)
@@ -42,7 +42,7 @@ public class KlaviyoCategoryManager {
     /// 4. Updates the registered categories, preserving all other categories
     ///
     /// - Parameter categoryIdentifier: The identifier of the category to remove
-    public func pruneCategory(categoryIdentifier: String) {
+    func pruneCategory(categoryIdentifier: String) {
         queue.sync {
             let (existingCategories, categoriesFetchTimedOut) = fetchExistingCategories()
             if categoriesFetchTimedOut {
