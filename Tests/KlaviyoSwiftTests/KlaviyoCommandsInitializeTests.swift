@@ -139,6 +139,18 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         )
     }
 
+    // MARK: - Helpers for company-switch tests
+
+    /// Default push token used in company-switch tests.
+    private var defaultTokenData: PushTokenData {
+        PushTokenData(
+            pushToken: "blob_token",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        )
+    }
+
     // MARK: - Runtime company switch (already .initialized, new key)
 
     /// Runtime company switch with a push token: must enqueue unregister(old) + re-register(new)
@@ -238,6 +250,7 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
     /// Runtime company switch: after reset(preserveTokenData: true), the identity is anonymous
     /// (no PII) and a fresh anonymousId is minted for identified profiles.
     func testRuntimeCompanySwitchResetsProfileToAnonymous() async throws {
+        featureFlags.enableCompanySwitchReset = true
         let oldApiKey = "old-rt-reset"
         let newApiKey = "new-rt-reset"
         let oldAnon = "anon-old-reset"
@@ -278,6 +291,7 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
     /// Cold-start company switch with a push token: synchronous unregister(prior) + fresh anon +
     /// token re-register(new) — all before `completeInitialization` runs.
     func testColdStartCompanySwitchWithTokenEnqueuesUnregisterAndReRegister() async throws {
+        featureFlags.enableCompanySwitchReset = true
         let priorApiKey = "prior-cs-key"
         let newApiKey = "new-cs-key"
         let priorAnon = "anon-cs"
@@ -350,6 +364,56 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
                 if case .registerPushToken = $0 { return true } else { return false }
             },
             "cold-start no-token: must not enqueue register"
+        )
+    }
+
+    // MARK: - Gate 3: company-switch reset (parity default)
+
+    /// Parity (reset OFF): a RUNTIME company switch keeps PII + anon; re-register carries the profile.
+    @MainActor
+    func testSwitchParityRuntimeKeepsProfileAndReregistersWithProfile() {
+        featureFlags.enableCompanySwitchReset = false
+        // Already-initialized under the OLD key with an identified profile + token.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
+        IdentityStore.shared.update(ProfileData(email: "keep@x.com", anonymousId: "anon-keep"))
+        IdentityStore.shared.updatePushToken(defaultTokenData)
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.initialize("new-parity-rt-key")
+
+        // Identity is preserved: same anon, PII intact.
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-keep",
+                       "parity: anon ID must not be re-minted on a switch")
+        XCTAssertEqual(IdentityStore.shared.current.email, "keep@x.com",
+                       "parity: PII must be preserved on a switch")
+        // Queue: unregister (old key) + re-register (new key) carrying the profile.
+        let queued = readQueue()
+        guard case let .registerPushToken(_, payload) = queued.last?.endpoint else {
+            return XCTFail("expected a re-register, got \(queued.last?.endpoint as Any)")
+        }
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "keep@x.com",
+                       "parity: re-register must carry the existing profile (Android getAsProfile)")
+    }
+
+    /// Parity (reset OFF): a COLD-START company switch keeps the persisted identity, no re-mint.
+    @MainActor
+    func testSwitchParityColdStartKeepsPersistedIdentity() {
+        featureFlags.enableCompanySwitchReset = false
+        // Uninitialized, but a prior key + identified profile + token are persisted.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(email: "cold@x.com", anonymousId: "anon-cold"))
+        IdentityStore.shared.updatePushToken(defaultTokenData)
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.initialize("new-parity-cs-key")
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-cold")
+        XCTAssertEqual(IdentityStore.shared.current.email, "cold@x.com")
+        XCTAssertTrue(
+            readQueue().contains { if case .registerPushToken = $0.endpoint { return true }; return false },
+            "parity: token is re-registered under the new company"
         )
     }
 

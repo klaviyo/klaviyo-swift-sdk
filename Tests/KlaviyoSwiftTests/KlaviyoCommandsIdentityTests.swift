@@ -54,6 +54,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// a createProfile payload in the UnattributedBuffer.
     @MainActor
     func testSetEmailPreInitEnqueuesProfileViaRequestEnqueuerBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -120,6 +121,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// Pre-init: new phone must buffer a profile.
     @MainActor
     func testSetPhoneNumberPreInitEnqueuesProfileBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -182,6 +184,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// Pre-init: new externalId must buffer a profile.
     @MainActor
     func testSetExternalIdPreInitEnqueuesProfileBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -401,6 +404,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// profile (not drop silently).
     @MainActor
     func testSetEmailPreInitWithStoredTokenBuffersProfile() {
+        featureFlags.enablePreInitDiskCapture = true
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
         // No apiKey in SDKConfigStore (pre-init).

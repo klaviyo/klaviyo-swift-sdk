@@ -142,6 +142,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init (no apiKey anywhere) → token ends up in UnattributedBuffer.
     @MainActor
     func testSetPushTokenPreInitNoApiKeyBuffersInUnattributedBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
         // LifecycleState stays .uninitialized, SDKConfigStore has NO apiKey.
@@ -246,6 +247,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// enqueues createProfile followed by a separate registerPushToken (FIFO order).
     @MainActor
     func testEnqueueProfileChangedIdentifiersMintsAnonAndEnqueuesBothRequests() {
+        featureFlags.enableProfileTokenSplit = true
         let tokenData = defaultTokenData
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(
@@ -343,6 +345,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init profile → buffered in UnattributedBuffer (RequestEnqueuer ungated path).
     @MainActor
     func testEnqueueProfilePreInitBuffersInUnattributedBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No LifecycleState advance, no apiKey in SDKConfigStore.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
@@ -360,6 +363,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Pre-init identifier change → mint fresh anon AND buffer the profile.
     @MainActor
     func testEnqueueProfilePreInitChangedIdentifiersMintsAnonAndBuffers() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         let previousAnon = "prev-anon"
         IdentityStore.shared.update(ProfileData(email: "old@user.com", anonymousId: previousAnon))
@@ -486,6 +490,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// Two requests enqueued in order: createProfile at index 0, registerPushToken at index 1.
     @MainActor
     func testEnqueueProfileTokenReregisterIsAfterCreateProfile() {
+        featureFlags.enableProfileTokenSplit = true
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-order"))
         IdentityStore.shared.updatePushToken(defaultTokenData)
@@ -500,6 +505,43 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         }
         if case .registerPushToken = queued[1].endpoint {} else {
             XCTFail("registerPushToken must be second (FIFO order)")
+        }
+    }
+
+    // MARK: - Gate 2: fold (parity default)
+
+    /// Parity (split OFF): identifier change WITH a token → ONE registerPushToken carrying the full
+    /// (new) identity, NO createProfile.
+    @MainActor func testFoldParityChangedIdentifiersWithTokenEnqueuesSingleFoldedToken() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
+        IdentityStore.shared.updatePushToken(defaultTokenData)
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com", firstName: "Alice"))
+
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1, "parity fold: exactly one request when a token exists")
+        guard case let .registerPushToken(_, payload) = queued.first?.endpoint else {
+            return XCTFail("parity fold: expected registerPushToken, got \(queued.first?.endpoint as Any)")
+        }
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "new@x.com",
+                       "folded token must carry the new identity")
+    }
+
+    /// Parity: no token → createProfile only (unchanged).
+    @MainActor func testFoldParityNoTokenEnqueuesCreateProfileOnly() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
+        IdentityStore.shared.updatePushToken(nil)
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
+
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1)
+        guard case .createProfile = queued.first?.endpoint else {
+            return XCTFail("no token → createProfile only")
         }
     }
 }

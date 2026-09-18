@@ -18,6 +18,10 @@ final class RequestEnqueuerTests: XCTestCase {
         super.setUp()
         fileIO = FileIODouble()
         environment = fileIO.makeEnvironment()
+        // Enable durable disk capture so these unit tests remain a spec for the
+        // capture-ON code path (UnattributedBuffer). Parity tests live in
+        // RequestEnqueuerPreInitGateTests.
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
@@ -29,6 +33,7 @@ final class RequestEnqueuerTests: XCTestCase {
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
         QueueStore.resetShared()
+        featureFlags = .production
         environment = KlaviyoEnvironment.test()
         fileIO = nil
         super.tearDown()

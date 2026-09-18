@@ -51,6 +51,7 @@ class KlaviyoBaseTestCase: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        featureFlags = .production
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
         ProfilePropertyBuffer.shared.reset()

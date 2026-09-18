@@ -29,18 +29,37 @@ public enum RequestEnqueuer {
         )
     }
 
-    /// The single routing rule: apiKey present → build a request and enqueue it to `QueueStore`;
-    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`. The captured
-    /// apiKey stamps the endpoint (`build(apiKey)`); the queue itself is the single shared store.
+    /// Routes a pre-init request to the appropriate buffer (or drops it), or enqueues post-init.
+    ///
+    /// - apiKey present → build a request and enqueue it directly to `QueueStore`.
+    /// - apiKey absent + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
+    /// - apiKey absent + `enablePreInitDiskCapture` OFF (parity) → if the request is a high-priority
+    ///   event (push-open), hold it in the non-durable `PreInitMemoryBuffer`; otherwise drop it with
+    ///   a developer warning (mirrors Android: pre-init calls are dropped except push-opens).
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
     ) {
         if let apiKey = SDKConfigStore.shared.current.apiKey {
             QueueStore.shared.enqueue(build(apiKey))
-        } else {
+        } else if featureFlags.enablePreInitDiskCapture {
             UnattributedBuffer.shared.append(buffered)
+        } else if isHighPriorityEvent(buffered) {
+            // Android parity: hold pre-init push-opens in a non-durable in-memory buffer; drop the
+            // rest (Android drops all pre-init calls except in-memory push-opens).
+            PreInitMemoryBuffer.shared.append(buffered)
+        } else {
+            environment.emitDeveloperWarning(
+                "Klaviyo SDK not initialized; dropping pre-init request")
         }
+    }
+
+    /// A buffered request is a high-priority push-open iff it is a `.high`-priority event. On this
+    /// branch the only `.high` events are Klaviyo-prioritized events (`$opened_push`), mirroring
+    /// Android's `isKlaviyoMetric` high-priority lane.
+    private static func isHighPriorityEvent(_ request: UnattributedRequest) -> Bool {
+        if case let .event(_, priority) = request { return priority == .high }
+        return false
     }
 
     public static func enqueueEvent(_ event: Event) {
@@ -81,6 +100,25 @@ public enum RequestEnqueuer {
         }
     }
 
+    /// Enqueues a `registerPushToken` carrying a FULL profile (attributes + properties), used by the
+    /// Android-parity fold path where a profile update rides on the token request instead of a
+    /// separate createProfile. Routes buffer/queue like the identity-only overload.
+    public static func enqueuePushToken(
+        token: String,
+        enablement: PushEnablement,
+        profile: ProfilePayload
+    ) {
+        let payload = RequestFactory.tokenPayload(
+            pushToken: token,
+            enablement: enablement,
+            background: environment.getBackgroundSetting(),
+            profile: profile
+        )
+        route(buffered: .pushToken(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
+        }
+    }
+
     /// Mirrors `enqueueProfile`: the caller supplies the built payload (channel validation lives in
     /// the KlaviyoSwift `Subscription` → payload mapping).
     public static func enqueueSubscription(payload: CreateSubscriptionPayload) {
@@ -111,11 +149,14 @@ public enum RequestEnqueuer {
     }
 
     /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
-    /// removes only the drained FIFO prefix. At-least-once: the final enqueue persists synchronously
-    /// so the queue is durable before the buffer is trimmed. A crash in the gap re-drains next launch
-    /// (a dedup-able duplicate, never silent loss). Removing the exact drained prefix — rather than
-    /// clearing wholesale — means a request appended concurrently during the drain survives instead
-    /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)`.
+    /// removes only the drained FIFO prefix from the durable buffer. Drains BOTH the durable disk
+    /// buffer (`UnattributedBuffer`) and the non-durable in-memory buffer (`PreInitMemoryBuffer`);
+    /// in each operating mode one is empty, so draining both is always safe.
+    ///
+    /// At-least-once: the final enqueue persists synchronously so the queue is durable before the
+    /// disk buffer is trimmed. A crash in the gap re-drains next launch (a dedup-able duplicate,
+    /// never silent loss). Removing the exact drained prefix — rather than clearing wholesale — means
+    /// a request appended concurrently during the drain survives instead of being wiped.
     ///
     /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey`. If they diverge
     ///   the drain is skipped so buffered requests aren't stamped with a key that no longer matches
@@ -128,45 +169,50 @@ public enum RequestEnqueuer {
             )
             return
         }
-        let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
-        guard !buffered.isEmpty else { return }
-        // Single shared queue. The `apiKey` validated above is what stamps each
-        // endpoint below, so every drained request carries the active company.
+
         let queue = QueueStore.shared
 
-        for (index, request) in buffered.enumerated() {
-            let isLast = index == buffered.count - 1
+        // Durable disk buffer (populated when enablePreInitDiskCapture is on).
+        let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
+        // Non-durable in-memory buffer (populated in Android-parity mode).
+        let memory = PreInitMemoryBuffer.shared.drain()
+
+        let all = buffered + memory
+        guard !all.isEmpty else { return }
+
+        for (index, request) in all.enumerated() {
+            let isLast = index == all.count - 1
             let policy: PersistPolicy = isLast ? .synchronous : .debounced
-            switch request {
-            case let .event(payload, priority):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: priority),
-                    persist: policy
-                )
-            case let .aggregateEvent(payload):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .aggregateEvent(apiKey, payload)), persist: policy
-                )
-            case let .profile(payload):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .createProfile(apiKey, payload)), persist: policy
-                )
-            case let .pushToken(payload):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy
-                )
-            case let .trackingLinkClick(trackingLink, clickTime, profileInfo):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .logTrackingLinkClicked(
-                        trackingLink: trackingLink, clickTime: clickTime, profileInfo: profileInfo
-                    )), persist: policy
-                )
-            case let .subscription(payload):
-                queue.enqueue(
-                    KlaviyoRequest(endpoint: .createSubscription(apiKey, payload)), persist: policy
-                )
-            }
+            enqueueDrained(request, apiKey: apiKey, into: queue, policy: policy)
         }
         UnattributedBuffer.shared.removeDrained(throughCursor: cursor)
+    }
+
+    private static func enqueueDrained(
+        _ request: UnattributedRequest,
+        apiKey: String,
+        into queue: QueueStore,
+        policy: PersistPolicy
+    ) {
+        switch request {
+        case let .event(payload, priority):
+            queue.enqueue(
+                KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: priority),
+                persist: policy
+            )
+        case let .aggregateEvent(payload):
+            queue.enqueue(KlaviyoRequest(endpoint: .aggregateEvent(apiKey, payload)), persist: policy)
+        case let .profile(payload):
+            queue.enqueue(KlaviyoRequest(endpoint: .createProfile(apiKey, payload)), persist: policy)
+        case let .pushToken(payload):
+            queue.enqueue(KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy)
+        case let .trackingLinkClick(trackingLink, clickTime, profileInfo):
+            queue.enqueue(KlaviyoRequest(endpoint: .logTrackingLinkClicked(
+                trackingLink: trackingLink, clickTime: clickTime, profileInfo: profileInfo
+            )),
+            persist: policy)
+        case let .subscription(payload):
+            queue.enqueue(KlaviyoRequest(endpoint: .createSubscription(apiKey, payload)), persist: policy)
+        }
     }
 }
