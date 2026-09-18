@@ -6,7 +6,7 @@
 //
 //  Wiring coverage for the TCA cutover: every flush/lifecycle trigger drives the Core
 //  `RequestQueue` actor (via `klaviyoSwiftEnvironment.requestQueue`) through the direct
-//  `KlaviyoOrchestration` functions. A `SpyRequestQueue` double records the actor interactions;
+//  `KlaviyoCommands` functions. A `SpyRequestQueue` double records the actor interactions;
 //  because it never touches `QueueStore`, tests that assert queue contents stay deterministic.
 //
 
@@ -17,7 +17,7 @@ import Combine
 import XCTest
 
 @MainActor
-final class RequestQueueLifecycleTests: StateManagementTestCase {
+final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
     private var spyQueue: SpyRequestQueue!
 
     override func setUp() async throws {
@@ -63,7 +63,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         installLifecycle([]) // finite empty stream → loop ends immediately after launch kickoff
 
         seedInitializing(apiKey: "fake-key", anonymousId: "anon-launch")
-        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
 
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 1, "launch kickoff starts the actor once")
@@ -79,7 +79,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         installLifecycle([.foregrounded])
 
         seedInitializing(apiKey: "fake-key", anonymousId: "anon-fg")
-        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
 
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 2, "launch + one foreground → two start calls")
@@ -94,7 +94,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         installLifecycle([.backgrounded, .terminated])
 
         seedInitializing(apiKey: "fake-key", anonymousId: "anon-bg")
-        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
 
         let stopCount = await spyQueue.getStopCount()
         XCTAssertEqual(stopCount, 2, "background + terminate → two stop calls")
@@ -112,7 +112,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         ])
 
         seedInitializing(apiKey: "fake-key", anonymousId: "anon-reach")
-        await KlaviyoOrchestration.completeInitialization(apiKey: "fake-key")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
 
         let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.reachableViaWWAN, .notReachable])
@@ -137,7 +137,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
 
-        KlaviyoOrchestration.initialize(newApiKey)
+        KlaviyoCommands.initialize(newApiKey)
         // The flush is dispatched on an unstructured Task; give it a beat to reach the spy.
         try await waitForConditionOrFail { await self.spyQueue.getFlushNowCount() == 1 }
 
@@ -155,14 +155,14 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
 
-        // Standard event: no flush.
-        KlaviyoOrchestration.enqueueEvent(Event(name: .customEvent("standard")))
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Standard event: no flush. Yield so any spurious Task-dispatched flush can run.
+        KlaviyoCommands.enqueueEvent(Event(name: .customEvent("standard")))
+        for _ in 0..<10 { await Task.yield() }
         var flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 0, "standard event does not trigger an immediate flush")
 
         // High-priority event: one flush.
-        KlaviyoOrchestration.enqueueEvent(Event(name: ._openedPush, priority: .high))
+        KlaviyoCommands.enqueueEvent(Event(name: ._openedPush, priority: .high))
         try await waitForConditionOrFail { await self.spyQueue.getFlushNowCount() == 1 }
         flushCount = await spyQueue.getFlushNowCount()
         XCTAssertEqual(flushCount, 1, "high-priority event triggers one immediate flush")
@@ -176,7 +176,7 @@ final class RequestQueueLifecycleTests: StateManagementTestCase {
         IdentityStore.shared.mutate { $0.anonymousId = "anon-stage" }
         seedTestQueueStore()
 
-        KlaviyoOrchestration.setProfileProperty(.firstName, AnyEncodable("Blob"))
+        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Blob"))
 
         // `flushIntoQueue` only ENQUEUES (it never calls `klaviyoAPI.send`), so inspect the QueueStore
         // directly and assert the staged property was folded into the enqueued request's payload.

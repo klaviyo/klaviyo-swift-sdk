@@ -504,8 +504,7 @@ final class RequestQueueTests: XCTestCase {
                        "cancelled loop must not request additional sleeps after .notReachable")
     }
 
-    /// `.notReachable` restores any in-flight lease to `QueueStore` (parity with
-    /// `cancelInFlightRequests` in the reducer's connectivity handler).
+    /// `.notReachable` restores any in-flight lease to `QueueStore`.
     /// Strategy: park a flush mid-send so `requestsInFlight` is populated, then call
     /// `networkConnectivityChanged(.notReachable)` — which runs `stop()` — and verify the
     /// synchronous prepend hit the disk spy BEFORE the parked send is released. This confirms the
@@ -646,7 +645,7 @@ final class RequestQueueTests: XCTestCase {
     // MARK: - Invalid-field clear
 
     /// A 422 with `/data/attributes/email` pointer must nil `IdentityStore.current.email` and
-    /// dequeue the request (not restore/resend). Parity: `resetStateAndDequeue` in the reducer.
+    /// dequeue the request (not restore/resend).
     /// Seeds externalId + email to verify the read-modify-write clears ONLY the targeted field.
     func testInvalidEmailClearsCanonicalEmailAndDequeues() async {
         QueueStore.register(makeQueueStore())

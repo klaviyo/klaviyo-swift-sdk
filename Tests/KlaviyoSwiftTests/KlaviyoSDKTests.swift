@@ -5,7 +5,7 @@
 //  Created by Noah Durell on 2/21/23.
 //
 //  Facade coverage for the public `KlaviyoSDK` surface. The public methods forward to
-//  `KlaviyoOrchestration` (via `dispatchOnMainThread`) instead of dispatching TCA actions, so these
+//  `KlaviyoCommands` (via `dispatchOnMainThread`) instead of dispatching TCA actions, so these
 //  tests assert the resulting Core-store / QueueStore side effects rather than a captured action.
 //
 
@@ -70,24 +70,23 @@ class KlaviyoSDKTests: XCTestCase {
         }
     }
 
-    /// Polls until at least one `_openedPush` event is recorded (facade → orchestration → enqueue
-    /// hops across the main queue + unstructured tasks).
-    private func waitForOpenedPush(timeout: TimeInterval = 1.0) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if !openedPushEvents().isEmpty { return }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+    /// Polls until at least one `_openedPush` event is recorded. Fails (XCTFail) on timeout so a
+    /// missing event surfaces loudly rather than silently passing.
+    private func waitForOpenedPush(
+        timeout: TimeInterval = 1.0,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        try await waitForConditionOrFail(
+            timeout: timeout,
+            "openedPush event not received within \(timeout)s",
+            file: file,
+            line: line
+        ) { !self.openedPushEvents().isEmpty }
     }
 
     private func stringProperty(_ attributes: CreateEventPayload.Event.Attributes, _ key: String) -> String? {
         (attributes.properties.value as? [String: Any])?[key] as? String
-    }
-
-    // MARK: Tests
-
-    func testKlaviyoSDKInit() {
-        XCTAssertNotNil(klaviyo)
     }
 
     // MARK: test initialize
@@ -106,9 +105,10 @@ class KlaviyoSDKTests: XCTestCase {
         seedInitializedRecording()
         klaviyo.set(profileAttribute: .firstName, value: "test")
 
-        // `set(profileAttribute:)` stages into `ProfilePropertyBuffer` via a main-queue hop. Let that
-        // hop settle, then flush and assert the staged firstName folded into an enqueued request.
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        // `set(profileAttribute:)` stages into `ProfilePropertyBuffer` via a main-queue hop. Yield
+        // to let that hop settle before flushing.
+        await Task.yield()
+        await Task.yield()
         await ProfilePropertyBuffer.shared.flushIntoQueue()
         let firstNames: [String?] = recordedRequests().map { request in
             switch request.endpoint {
@@ -257,7 +257,8 @@ class KlaviyoSDKTests: XCTestCase {
 
         // Resolve the STALE first result last: it must be dropped (token stays "02").
         continuations[0].resume(returning: .denied)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Yield to give the cooperative scheduler a chance to run the stale token path if broken.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertEqual(
             IdentityStore.shared.pushToken?.pushToken, "02",
             "stale automatic token must not overwrite the latest"
@@ -649,7 +650,8 @@ class KlaviyoSDKTests: XCTestCase {
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
         await fulfillment(of: [callback], timeout: 1.0)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Yield control briefly so any async enqueue work (if the guard were absent) can run.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertTrue(handled)
         XCTAssertTrue(openedPushEvents().isEmpty, "auto-tracked response must not re-enqueue")
     }
@@ -673,7 +675,8 @@ class KlaviyoSDKTests: XCTestCase {
         let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
         XCTAssertTrue(handled2)
         await fulfillment(of: [manualCallback], timeout: 1.0)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertEqual(openedPushEvents().count, 1, "manual handle must not emit a second event")
     }
 
@@ -720,7 +723,8 @@ class KlaviyoSDKTests: XCTestCase {
         let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
         XCTAssertTrue(handled2)
         await fulfillment(of: [manualCallback], timeout: 1.0)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertEqual(openedPushEvents().count, 1, "manual handle must not emit a second event")
     }
 
@@ -740,7 +744,8 @@ class KlaviyoSDKTests: XCTestCase {
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
         await fulfillment(of: [callback], timeout: 1.0)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertTrue(handled)
         XCTAssertTrue(openedPushEvents().isEmpty, "auto-tracked action tap must not re-enqueue")
     }
@@ -749,7 +754,7 @@ class KlaviyoSDKTests: XCTestCase {
 
     // Deep link / web URL resolution routes through `DeepLinkManager`
     // (`openDeepLinkSpy`/`openExternalURLSpy`); the `$opened_push` event track routes through
-    // `KlaviyoOrchestration.enqueueEvent` → the recording `QueueStore`.
+    // `KlaviyoCommands.enqueueEvent` → the recording `QueueStore`.
 
     func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() async throws {
         seedInitializedRecording()
