@@ -2,9 +2,8 @@
 //  InMemoryEnvironment.swift
 //  klaviyo-swift-sdk
 //
-//  Shared in-memory KlaviyoEnvironment builder for tests exercising real JSON round-trips —
-//  the shared KlaviyoEnvironment.test() decoder force-substitutes any KlaviyoState decode with a
-//  canned fixture, which this bypasses. Each instance owns its own backing store.
+//  Shared in-memory KlaviyoEnvironment builder for tests exercising real JSON round-trips.
+//  Each instance owns its own backing store.
 //
 
 @testable import KlaviyoCore

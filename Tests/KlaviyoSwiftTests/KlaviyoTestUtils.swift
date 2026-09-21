@@ -11,15 +11,10 @@ import CoreLocation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
-let ARCHIVED_RETURNED_DATA = Data()
-
-/// Shared receive/fulfillment timeout for async reducer effects in the state-management suites.
-let timeoutNanoseconds: UInt64 = 10_000_000_000 // 10 seconds
-
 /// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
 ///
-/// The KlaviyoSwift reducer read/write-throughs `IdentityStore.shared` and
-/// `SDKConfigStore.shared`, which are process-wide singletons that persist across tests. Call this
+/// `IdentityStore.shared` and `SDKConfigStore.shared` are process-wide singletons that persist
+/// across tests. Call this
 /// in `setUp` — AFTER installing the test `environment` — so hydration/minting use the test
 /// `fileClient` (whose `fileExists` closure decides whether `loadPersisted` reads or returns nil)
 /// and the deterministic test `uuid`, and so state never leaks between tests.
@@ -49,10 +44,10 @@ func waitForConditionOrFail(
     XCTFail(message(), file: file, line: line)
 }
 
-/// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide
-/// singletons (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`)
-/// before each test. Subclasses that need extra setup should call `super` first.
-class StateManagementTestCase: XCTestCase {
+/// Shared base for KlaviyoSwift test suites. Resets the same process-wide singletons
+/// (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`) before each
+/// test. Subclasses that need extra setup should call `super` first.
+class KlaviyoBaseTestCase: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
@@ -78,13 +73,43 @@ class StateManagementTestCase: XCTestCase {
         klaviyoSwiftEnvironment.requestQueue = spyQueue
         return spyQueue
     }
-}
 
-extension ArchiverClient {
-    static let test = ArchiverClient(
-        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
+    /// Seeds a post-init state: apiKey in `SDKConfigStore`, identity + push token in `IdentityStore`,
+    /// `LifecycleState` advanced to `.initialized`. Returns (apiKey, anonymousId, pushToken).
+    @discardableResult
+    func seedPostInitWithToken(
+        apiKey: String = TEST_API_KEY,
+        anonymousId: String? = nil,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        pushToken: String = "blob_token"
+    ) -> (apiKey: String, anonymousId: String, pushToken: String) {
+        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(ProfileData(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: resolvedAnon
+        ))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: pushToken,
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
+        return (apiKey, resolvedAnon, pushToken)
+    }
+
+    /// Seeds a pre-init state: anonymousId only in `IdentityStore`, `LifecycleState` stays
+    /// `.uninitialized`.
+    func seedPreInit(anonymousId: String? = nil) {
+        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
+        IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnon))
+    }
 }
 
 extension AppLifeCycleEvents {
@@ -95,7 +120,6 @@ extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.test,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
@@ -132,8 +156,9 @@ extension KlaviyoEnvironment {
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {}
 
 class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
+    private struct DecodingFailure: Error {}
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        throw KlaviyoDecodingError.invalidType
+        throw DecodingFailure()
     }
 }
 

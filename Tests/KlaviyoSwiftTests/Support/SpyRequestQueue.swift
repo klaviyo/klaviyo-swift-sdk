@@ -9,7 +9,7 @@
 import Foundation
 
 /// Test double for `RequestQueueProtocol` that records lifecycle/flush invocations so wiring tests
-/// can assert the reducer drives the actor without exercising the real flush engine. Injected via
+/// can assert orchestration drives the actor without exercising the real flush engine. Injected via
 /// `klaviyoSwiftEnvironment.requestQueue = spy`. Because it does NOT touch `QueueStore`, tests that
 /// also assert queue contents stay deterministic.
 actor SpyRequestQueue: RequestQueueProtocol {

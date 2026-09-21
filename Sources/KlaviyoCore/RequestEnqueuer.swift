@@ -10,7 +10,7 @@ import Foundation
 /// Ungated Core enqueue entry point. Reads identity + apiKey from the shared stores itself,
 /// so callers never thread identity or check for an apiKey. apiKey present → build + enqueue
 /// to `QueueStore`; apiKey absent → build an apiKey-free payload → `UnattributedBuffer`.
-/// No reducer routing.
+/// Routes pre-init calls to `UnattributedBuffer`; post-init calls to `QueueStore`.
 public enum RequestEnqueuer {
     static let missingAnonymousIdWarning = "RequestEnqueuer: missing anonymousId"
 

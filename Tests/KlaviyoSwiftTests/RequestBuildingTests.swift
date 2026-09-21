@@ -9,10 +9,9 @@
 @testable import KlaviyoSwift
 import XCTest
 
-/// Coverage for the builders in `RequestBuilding`. The `KlaviyoState`-method parity
-/// comparison (Task 3) was retired with the type in Task 5; these now assert the builders against
-/// the production `RequestFactory` construction path directly.
-class RequestBuildingTests: StateManagementTestCase {
+/// Coverage for the builders in `RequestBuilding`. Asserts the builders against the production
+/// `RequestFactory` construction path directly.
+class RequestBuildingTests: KlaviyoBaseTestCase {
     private let apiKey = "test-api-key"
     private let anonymousId = "test-anon-id"
 

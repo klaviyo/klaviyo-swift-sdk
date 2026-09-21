@@ -6,11 +6,11 @@
 //
 
 @testable import KlaviyoLocation
+@testable import KlaviyoSwift
+import Combine
 import CoreLocation
 import Foundation
 import KlaviyoCore
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
-import Combine
 import XCTest
 
 // MARK: - Test Class

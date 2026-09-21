@@ -14,14 +14,6 @@ enum FakeFileError: Error {
     case fake
 }
 
-let ARCHIVED_RETURNED_DATA = Data()
-let SAMPLE_DATA: NSMutableArray = [
-    [
-        "properties": [
-            "foo": "bar"
-        ]
-    ]
-]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
 
@@ -69,18 +61,10 @@ let SAMPLE_PROPERTIES = [
     ]
 ] as [String: Any]
 
-extension ArchiverClient {
-    static let test = ArchiverClient(
-        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
-}
-
 extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.test,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,

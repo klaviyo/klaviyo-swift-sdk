@@ -425,7 +425,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         let pushBody = ["body": ["_k": ["foo": "bar"]]]
         let response = try UNNotificationResponse.with(userInfo: pushBody)
         let completionCount = CallbackBox(0)
-        // An `_openedPush` track routes through `create(event:)` → `KlaviyoOrchestration.enqueueEvent`
+        // An `_openedPush` track routes through `create(event:)` → `KlaviyoCommands.enqueueEvent`
         // → `RequestEnqueuer`. Seed an apiKey + record the QueueStore so the enqueued createEvent is
         // observable, then assert exactly one `_openedPush` lands.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))

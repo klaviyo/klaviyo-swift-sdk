@@ -70,13 +70,6 @@ extension Event.Metric {
     static let test = Self(name: .customEvent("blob"))
 }
 
-let SAMPLE_DATA: NSMutableArray = [
-    [
-        "properties": [
-            "foo": "bar"
-        ]
-    ]
-]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
 
