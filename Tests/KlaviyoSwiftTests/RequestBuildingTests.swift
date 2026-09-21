@@ -74,7 +74,8 @@ class RequestBuildingTests: StateManagementTestCase {
             apiKey: apiKey,
             anonymousId: anonymousId,
             pushToken: "tok",
-            enablement: .authorized
+            enablement: .authorized,
+            background: environment.getBackgroundSetting()
         )
         let identityProfile = Profile(
             email: identity.email,

@@ -133,7 +133,8 @@ enum KlaviyoOrchestration {
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: pushToken,
-                enablement: enablement
+                enablement: enablement,
+                background: newTokenData.pushBackground
             )
             QueueStore.shared.enqueue(request)
         } else {
@@ -381,7 +382,8 @@ enum KlaviyoOrchestration {
                 apiKey: apiKey,
                 anonymousId: anonymousId,
                 pushToken: tokenData.pushToken,
-                enablement: tokenData.pushEnablement
+                enablement: tokenData.pushEnablement,
+                background: tokenData.pushBackground
             )
             QueueStore.shared.enqueue(request)
         } else {

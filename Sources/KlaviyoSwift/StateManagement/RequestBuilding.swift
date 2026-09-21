@@ -52,7 +52,8 @@ enum RequestBuilding {
         apiKey: String,
         anonymousId: String,
         pushToken: String,
-        enablement: PushEnablement
+        enablement: PushEnablement,
+        background: PushBackground
     ) -> KlaviyoRequest {
         let identityProfile = Profile(
             email: identity.email,
@@ -63,7 +64,7 @@ enum RequestBuilding {
             apiKey: apiKey,
             pushToken: pushToken,
             enablement: enablement,
-            background: environment.getBackgroundSetting().rawValue,
+            background: background.rawValue,
             profile: ProfilePayload(identityProfile, anonymousId: anonymousId)
         )
     }

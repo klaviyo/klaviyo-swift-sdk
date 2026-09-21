@@ -67,7 +67,8 @@ final class GeofenceEventDispatchTests: XCTestCase {
                     apiKey: apiKey,
                     anonymousId: anonymousId,
                     pushToken: tokenData.pushToken,
-                    enablement: tokenData.pushEnablement
+                    enablement: tokenData.pushEnablement,
+                    background: tokenData.pushBackground
                 )
             ]
         }

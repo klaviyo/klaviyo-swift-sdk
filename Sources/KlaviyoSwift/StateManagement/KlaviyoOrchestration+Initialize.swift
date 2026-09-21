@@ -166,7 +166,9 @@ extension KlaviyoOrchestration {
     ///
     /// Ports `KlaviyoReducer.reduce(.completeInitialization)` effect (StateManagement.swift:237-267)
     /// verbatim. Replaces `send(.setPushEnablement(settings))` with a direct `setPushEnablement`
-    /// call (no TCA dispatch).
+    /// call (no TCA dispatch). `@MainActor` so `setPushEnablement` rejoins the main funnel and can't
+    /// race host identity/token writes.
+    @MainActor
     private static func runLifecycle() async {
         @Sendable
         func handleForeground() async {
