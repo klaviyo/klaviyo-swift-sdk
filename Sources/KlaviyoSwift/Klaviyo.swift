@@ -14,9 +14,11 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
-func dispatchOnMainThread(action: KlaviyoAction) {
+/// Funnels SDK entry-point work onto the main queue. Matches the prior main-async semantics of the
+/// TCA `send` dispatch (always hops to main; no inline-on-main fast path) so ordering is unchanged.
+func dispatchOnMainThread(_ work: @escaping () -> Void) {
     DispatchQueue.main.async {
-        _ = klaviyoSwiftEnvironment.send(action)
+        work()
     }
 }
 
@@ -58,28 +60,24 @@ public struct KlaviyoSDK {
         _ = Self.registerEventDispatcher
     }
 
-    private var state: KlaviyoState {
-        klaviyoSwiftEnvironment.state()
-    }
-
     /// Returns the email for the current user, if any.
     public var email: String? {
-        state.email
+        IdentityStore.shared.current.email
     }
 
     /// Returns the phoneNumber for the current user, if any.
     public var phoneNumber: String? {
-        state.phoneNumber
+        IdentityStore.shared.current.phoneNumber
     }
 
     /// Returns the external id for the current user, if any.
     public var externalId: String? {
-        state.externalId
+        IdentityStore.shared.current.externalId
     }
 
     /// Returns the push token for the current user, if any.
     public var pushToken: String? {
-        state.pushTokenData?.pushToken
+        IdentityStore.shared.pushToken?.pushToken
     }
 
     /// Whether logging is currently enabled for the Klaviyo SDK.
@@ -115,7 +113,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        dispatchOnMainThread(action: .initialize(apiKey))
+        dispatchOnMainThread { KlaviyoOrchestration.initialize(apiKey) }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
@@ -126,7 +124,7 @@ public struct KlaviyoSDK {
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
-        dispatchOnMainThread(action: .enqueueProfile(profile))
+        dispatchOnMainThread { KlaviyoOrchestration.enqueueProfile(profile) }
     }
 
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
@@ -134,7 +132,7 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        dispatchOnMainThread { KlaviyoOrchestration.resetProfile() }
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
@@ -156,7 +154,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setEmail(email))
+        dispatchOnMainThread { KlaviyoOrchestration.setEmail(email) }
         return self
     }
 
@@ -168,7 +166,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
+        dispatchOnMainThread { KlaviyoOrchestration.setPhoneNumber(phoneNumber) }
         return self
     }
 
@@ -180,7 +178,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setExternalId(externalId))
+        dispatchOnMainThread { KlaviyoOrchestration.setExternalId(externalId) }
         return self
     }
 
@@ -191,14 +189,16 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
-        dispatchOnMainThread(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        dispatchOnMainThread {
+            KlaviyoOrchestration.setProfileProperty(profileAttribute, AnyEncodable(value))
+        }
         return self
     }
 
     /// Create and send an event for the current user.
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
-        dispatchOnMainThread(action: .enqueueEvent(event))
+        dispatchOnMainThread { KlaviyoOrchestration.enqueueEvent(event) }
     }
 
     /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
@@ -215,7 +215,7 @@ public struct KlaviyoSDK {
     /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
     ///   for, and an optional `customSource` label.
     public func create(subscription: Subscription) {
-        dispatchOnMainThread(action: .enqueueSubscription(subscription))
+        dispatchOnMainThread { KlaviyoOrchestration.enqueueSubscription(subscription) }
     }
 
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
@@ -230,7 +230,7 @@ public struct KlaviyoSDK {
     public func set(pushToken: String) {
         Task {
             let enablement = await environment.getNotificationSettings()
-            dispatchOnMainThread(action: .setPushToken(pushToken, enablement))
+            dispatchOnMainThread { KlaviyoOrchestration.setPushToken(pushToken, enablement) }
         }
     }
 
@@ -243,7 +243,7 @@ public struct KlaviyoSDK {
             let enablement = await environment.getNotificationSettings()
             DispatchQueue.main.async {
                 Self.automaticPushTokenSequence.performIfLatest(generation) {
-                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                    KlaviyoOrchestration.setAutomaticPushToken(apnDeviceToken, enablement)
                 }
             }
         }
@@ -261,7 +261,7 @@ public struct KlaviyoSDK {
             return false
         }
 
-        dispatchOnMainThread(action: .trackingLinkReceived(url))
+        dispatchOnMainThread { KlaviyoOrchestration.trackingLinkReceived(url) }
         return true
     }
 

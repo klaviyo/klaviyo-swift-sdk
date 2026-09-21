@@ -96,16 +96,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         }
         environment = testEnvironment
 
-        // Reset Klaviyo state
+        // Reset Klaviyo state (the Forms view model observes IdentityStore / SDKConfigStore directly).
         seedCoreStores()
-        let testState = KlaviyoState(
-            apiKey: "abc123",
-            initalizationState: .initialized
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
 
         // Create view model
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)

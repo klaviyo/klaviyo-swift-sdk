@@ -34,9 +34,6 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Enriched event is received")
         var receivedEvent: Event?
 
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         // Subscribe to events
         EventBus.shared.eventPublisher()
             .sink { event in
@@ -82,9 +79,6 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Event received with preserved attributes")
         var receivedEvent: Event?
 
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
@@ -129,9 +123,6 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Enriched event preserves .high priority")
         var receivedEvent: Event?
 
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
@@ -158,16 +149,13 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Event received with push token")
         var receivedEvent: Event?
 
-        // Set up state with push token
-        var testState = KlaviyoState.test
-        testState.pushTokenData = PushTokenData(
+        // Seed a push token on the canonical identity store.
+        IdentityStore.shared.updatePushToken(PushTokenData(
             pushToken: "test_push_token_abc123",
             pushEnablement: .authorized,
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        ))
 
         EventBus.shared.eventPublisher()
             .sink { event in
@@ -195,12 +183,7 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Event received with empty push token")
         var receivedEvent: Event?
 
-        // Set up state without push token
-        var testState = KlaviyoState.test
-        testState.pushTokenData = nil
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
+        // No push token on the canonical identity store (reset in setUp).
         EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
@@ -222,9 +205,6 @@ final class EventPublishTests: XCTestCase {
 
     func testPublishEvent_BuffersEnrichedEvent() {
         // Given
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         // When - publish an event
         let originalEvent = Event(
             name: .customEvent("buffered_event"),

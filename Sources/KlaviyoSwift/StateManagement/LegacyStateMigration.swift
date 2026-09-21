@@ -9,6 +9,13 @@
 import Foundation
 import KlaviyoCore
 
+/// Resolves the on-disk path of the legacy per-apiKey state file. Only caller is the migration below.
+func klaviyoStateFile(apiKey: String) -> URL {
+    let fileName = "klaviyo-\(apiKey)-state.json"
+    let directory = environment.fileClient.libraryDirectory()
+    return directory.appendingPathComponent(fileName, isDirectory: false)
+}
+
 /// Lifts a pre-split legacy state file into the canonical Core stores, then retires it.
 ///
 /// Must run before `IdentityStore` is first hydrated, or the real identity gets clobbered by a

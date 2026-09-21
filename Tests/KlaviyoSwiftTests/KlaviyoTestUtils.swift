@@ -32,6 +32,23 @@ func resetCanonicalCoreStores() {
     QueueStore.resetShared()
 }
 
+/// Bounded async poll: waits until `condition` holds or `timeout` elapses. FAILS (XCTFail) on
+/// timeout rather than spinning forever, so a broken async path surfaces loudly.
+func waitForConditionOrFail(
+    timeout: TimeInterval = 2.0,
+    _ message: @autoclosure () -> String = "condition not met within timeout",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ condition: @escaping () async -> Bool
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if await condition() { return }
+        try await Task.sleep(nanoseconds: 20_000_000)
+    }
+    XCTFail(message(), file: file, line: line)
+}
+
 /// Shared base for the `StateManagement*Tests` suites, which all reset the same process-wide
 /// singletons (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`)
 /// before each test. Subclasses that need extra setup should call `super` first.
@@ -112,40 +129,12 @@ extension KlaviyoEnvironment {
     }
 }
 
-class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T: Decodable {
-        // Only the KlaviyoState queue-only blob is force-substituted with the test fixture.
-        // Other decodable types (notably the KlaviyoCore `PersistedIdentity` / `PersistedConfig`
-        // DTOs read during IdentityStore / SDKConfigStore hydration under this test environment)
-        // must NOT be coerced into a KlaviyoState — decode them normally so `loadPersisted` can
-        // fall back to nil (and the store mints/stays-empty) instead of crashing on a bad cast.
-        if let fixture = KlaviyoState.test as? T {
-            return fixture
-        }
-        return try super.decode(type, from: data)
-    }
-}
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {}
 
 class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
         throw KlaviyoDecodingError.invalidType
     }
-}
-
-struct KlaviyoTestReducer: ReducerProtocol {
-    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
-
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
-        reducer(&state, action)
-    }
-
-    typealias State = KlaviyoState
-
-    typealias Action = KlaviyoAction
-}
-
-extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
 extension FileClient {

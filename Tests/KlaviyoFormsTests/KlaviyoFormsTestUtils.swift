@@ -160,19 +160,7 @@ extension NetworkSession {
     }
 }
 
-class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_ type: T.Type, from data: Data) throws -> T where T: Decodable {
-        // Only the KlaviyoState queue-only blob is force-substituted with the test fixture.
-        // Other decodable types (notably the KlaviyoCore `PersistedIdentity` / `PersistedConfig`
-        // DTOs read during IdentityStore / SDKConfigStore hydration under this test environment)
-        // must NOT be coerced into a KlaviyoState — decode them normally so `loadPersisted` can
-        // fall back to nil (and the store mints/stays-empty) instead of crashing on a bad cast.
-        if let fixture = KlaviyoState.test as? T {
-            return fixture
-        }
-        return try super.decode(type, from: data)
-    }
-}
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {}
 
 extension AppContextInfo {
     static let test = Self(executable: "FooApp",
@@ -185,19 +173,4 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
-}
-
-extension KlaviyoState {
-    static let test = KlaviyoState(apiKey: "foo",
-                                   email: "test@test.com",
-                                   anonymousId: environment.uuid().uuidString,
-                                   phoneNumber: "phoneNumber",
-                                   externalId: "externalId",
-                                   pushTokenData: PushTokenData(
-                                       pushToken: "blob_token",
-                                       pushEnablement: .authorized,
-                                       pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
-                                   ),
-                                   initalizationState: .initialized)
 }
