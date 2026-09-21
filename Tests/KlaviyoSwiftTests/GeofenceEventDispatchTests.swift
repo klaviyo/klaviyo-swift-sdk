@@ -127,12 +127,20 @@ final class GeofenceEventDispatchTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if !readQueue().isEmpty { unexpectedEnqueue.fulfill() }
         }
+        // Also catch a wrongly-dispatched high-priority event that enqueues AND flushes before the
+        // queue sample (which would leave the queue empty and evade the check above).
+        let unexpectedSend = expectation(description: "no request must reach the transport")
+        unexpectedSend.isInverted = true
+        environment.klaviyoAPI.send = { _, _ in
+            unexpectedSend.fulfill()
+            return .success(Data())
+        }
 
         // When: dispatch a geofence event with a non-matching API key
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: "DIFFERENT_KEY")
 
         // Then: SDK was not re-initialized and the event was not enqueued
-        await fulfillment(of: [unexpectedEnqueue], timeout: 0.3)
+        await fulfillment(of: [unexpectedEnqueue, unexpectedSend], timeout: 0.3)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
         )
@@ -151,12 +159,20 @@ final class GeofenceEventDispatchTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if !readQueue().isEmpty { unexpectedEnqueue.fulfill() }
         }
+        // Also catch a wrongly-dispatched high-priority event that enqueues AND flushes before the
+        // queue sample (which would leave the queue empty and evade the check above).
+        let unexpectedSend = expectation(description: "no request must reach the transport")
+        unexpectedSend.isInverted = true
+        environment.klaviyoAPI.send = { _, _ in
+            unexpectedSend.fulfill()
+            return .success(Data())
+        }
 
         // When: dispatch a geofence event with a non-matching API key
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: "DIFFERENT_KEY")
 
         // Then: SDK was not re-initialized to B and the event was not enqueued
-        await fulfillment(of: [unexpectedEnqueue], timeout: 0.3)
+        await fulfillment(of: [unexpectedEnqueue, unexpectedSend], timeout: 0.3)
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "EXISTING_KEY", "API key should remain unchanged"
         )

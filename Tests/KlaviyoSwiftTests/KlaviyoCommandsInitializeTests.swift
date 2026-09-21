@@ -58,11 +58,12 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
     /// migrate/drain/lifecycle therefore run EXACTLY ONCE regardless of scheduling order.
     private func callInitializeAndAwaitTail(apiKey: String) async {
         KlaviyoCommands.initialize(apiKey)
-        // Give the internal Task a chance to begin (first yield) so LifecycleState.beginInitializing
-        // is guaranteed to have run before we enter our own completeInitialization call.
-        await Task.yield()
-        // Directly await the full async tail. The top guard in completeInitialization ensures
-        // that exactly one invocation does real work; the other is a no-op early return.
+        // No yield: `initialize`'s sync head already ran `beginInitializing()`, and both this call
+        // and the internal Task run on MainActor. Calling completeInitialization directly reaches the
+        // `.initializing` guard first, so THIS invocation owns the tail (drain + `.initialized` +
+        // `runLifecycle`) and the awaited work actually completes before we return; the internal Task
+        // then early-returns at the guard. (A yield lets the Task win, so our await returns at its
+        // guard before lifecycle completes.)
         await KlaviyoCommands.completeInitialization(apiKey: apiKey)
     }
 
