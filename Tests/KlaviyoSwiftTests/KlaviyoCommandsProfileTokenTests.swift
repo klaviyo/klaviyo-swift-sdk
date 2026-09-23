@@ -65,8 +65,8 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setPushToken("new-tok", .authorized)
 
-        XCTAssertNil(IdentityStore.shared.pushToken,
-                     "token must not be persisted until a successful register")
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "new-tok",
+                       "post-init token must be persisted as it is routed to QueueStore")
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1,
@@ -94,8 +94,8 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setPushToken(pushTok, .authorized)
 
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .denied,
-                       "enablement must not be persisted until a successful register")
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .authorized,
+                       "updated enablement must be persisted as the token is routed")
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1)
@@ -107,6 +107,28 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         XCTAssertEqual(payload.data.attributes.enablementStatus, PushEnablement.authorized.rawValue,
                        "enqueued request must carry the new enablement")
         XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, anonymousId)
+    }
+
+    /// Rotation then enablement change: `setPushToken(B)` persists B immediately (as it is routed),
+    /// so a following `setPushEnablement` re-registers B — never the stale prior token. Guards the
+    /// pending-vs-registered token window (CR-2 / consequence #1).
+    @MainActor
+    func testTokenRotationThenEnablementTargetsNewToken() {
+        seedPostInitWithToken(pushToken: "tok-A")
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.setPushToken("tok-B", .authorized) // rotation → persists B
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "tok-B",
+                       "rotation must persist the new token immediately")
+
+        KlaviyoCommands.setPushEnablement(.denied) // reads canonical token → B, not stale A
+
+        let tokens: [String] = readQueue().compactMap {
+            if case let .registerPushToken(_, payload) = $0.endpoint { return payload.data.attributes.token }
+            return nil
+        }
+        XCTAssertEqual(tokens, ["tok-B", "tok-B"],
+                       "rotation + enablement must both target the new token, never the stale one")
     }
 
     // MARK: - setPushToken: warm-start (LifecycleState == .uninitialized)
@@ -284,6 +306,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(tokenData)
         ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bob"))
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
@@ -528,6 +551,36 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         XCTAssertEqual(queued.count, 1)
         guard case .createProfile = queued.first?.endpoint else {
             return XCTFail("no token → createProfile only")
+        }
+    }
+
+    /// Regression (default parity): a pre-init `set(profile:)` is dropped WITHOUT persisting identity,
+    /// so the same profile after `initialize()` still syncs instead of being treated as unchanged.
+    @MainActor
+    func testEnqueueProfilePreInitDropThenPostInitSends() {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+        let readQueue = seedTestQueueStore()
+
+        // Pre-init (uninitialized, default parity): dropped, not persisted.
+        KlaviyoCommands.enqueueProfile(Profile(email: "p@x.com"))
+        XCTAssertNil(IdentityStore.shared.current.email, "pre-init profile must not be persisted")
+        XCTAssertTrue(readQueue().isEmpty, "pre-init profile must not enqueue")
+
+        // Simulate initialize().
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        markSessionInitialized()
+
+        // The SAME profile post-init must now sync (not treated as unchanged).
+        KlaviyoCommands.enqueueProfile(Profile(email: "p@x.com"))
+        XCTAssertEqual(IdentityStore.shared.current.email, "p@x.com")
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1,
+                       "post-init enqueueProfile must send after a pre-init drop of the same profile")
+        guard case .createProfile = queued.first?.endpoint else {
+            return XCTFail("expected createProfile, got \(queued.first?.endpoint as Any)")
         }
     }
 }

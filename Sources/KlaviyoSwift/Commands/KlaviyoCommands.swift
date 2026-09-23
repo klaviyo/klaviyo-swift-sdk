@@ -59,8 +59,12 @@ enum KlaviyoCommands {
     /// `anonymousId`. Clears all PII and staged profile properties. Re-registers the push token
     /// (if one exists) under the new anonymous identity.
     static func resetProfile() {
-        // Capture the token BEFORE the mutate so we can re-register after.
-        // (We must not call IdentityStore inside the mutate closure — writeLock is non-reentrant.)
+        // Parity gate: a pre-init reset is a no-op unless durable capture is on.
+        if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
+            environment.emitDeveloperWarning("Klaviyo SDK not initialized; dropping pre-init resetProfile")
+            return
+        }
+        // Capture the token BEFORE the mutate (IdentityStore writeLock is non-reentrant).
         let tokenBeforeReset = IdentityStore.shared.pushToken
 
         IdentityStore.shared.mutate { profile in
@@ -80,8 +84,8 @@ enum KlaviyoCommands {
         ProfilePropertyBuffer.shared.reset()
 
         guard let tokenData = tokenBeforeReset else { return }
-        // Re-register the token under the new anonymous identity via the ungated `RequestEnqueuer`
-        // path: routes to QueueStore when apiKey is present, and buffers otherwise.
+        // Re-register the token under the new anonymous identity via `RequestEnqueuer` (SessionState
+        // gated: post-init → QueueStore, pre-init → buffer/drop).
         RequestEnqueuer.enqueuePushToken(tokenData.pushToken, enablement: tokenData.pushEnablement)
     }
 
@@ -91,9 +95,7 @@ enum KlaviyoCommands {
     /// props into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
     /// just before each drain. Does NOT enqueue directly.
     static func setProfileProperty(_ key: Profile.ProfileKey, _ value: AnyEncodable) {
-        // Parity gate: drop pre-init profile attributes unless durable pre-init capture is on, so
-        // nothing is staged before `initialize()`. Gate on LifecycleState (session-fresh), NOT the
-        // disk-hydrated apiKey — otherwise a warm start would stage instead of drop.
+        // Parity gate: drop a pre-init profile property unless durable capture is on.
         if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
             environment.emitDeveloperWarning(
                 "Klaviyo SDK not initialized; dropping pre-init profile property")
@@ -107,8 +109,8 @@ enum KlaviyoCommands {
     /// Registers or updates the push token. Deduplicates against the canonical `IdentityStore` token;
     /// no-ops when token + enablement + background + device metadata all match.
     ///
-    /// Post-init (this session's `initialize()` has started): builds a push-token registration request
-    /// and enqueues it directly via `QueueStore`.
+    /// Post-init (this session's `initialize()` has started): persists the token to `IdentityStore`
+    /// and enqueues a push-token registration request directly via `QueueStore`.
     /// Pre-init (incl. warm start): routes through the ungated `RequestEnqueuer`, which gates on
     /// `SessionState` — so a token set before `initialize()` buffers (capture on) or drops (parity),
     /// then registers once `initialize()` runs. It is NOT stamped under a disk-hydrated apiKey.
@@ -121,18 +123,14 @@ enum KlaviyoCommands {
         )
         // Dedup against the canonical token: skip when all fields match.
         guard IdentityStore.shared.pushToken != newTokenData else { return }
-        // Persist only after a successful register (RequestQueue writes it back), not here — an
-        // eager write would strand a dropped pre-init token by deduping out every later identical call.
         guard let anonymousId = IdentityStore.shared.current.anonymousId else {
             environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
             return
         }
-        // Gate on LifecycleState (session-fresh), not SDKConfigStore (persisted across launches).
-        // Same boundary as applyIdentifierChange: `state.apiKey` was nil until `.initializing`,
-        // even when SDKConfigStore already held a persisted key from a prior launch.
         if LifecycleState.shared.current != .uninitialized,
            let apiKey = SDKConfigStore.shared.current.apiKey {
-            // Post-init: register the token against the current identity.
+            // Post-init: persist the token as it is routed, then enqueue the registration.
+            IdentityStore.shared.updatePushToken(newTokenData)
             let request = RequestBuilding.resolvedTokenRequest(
                 identity: IdentityStore.shared.current,
                 apiKey: apiKey,
@@ -143,7 +141,8 @@ enum KlaviyoCommands {
             )
             QueueStore.shared.enqueue(request)
         } else {
-            // Pre-init (incl. warm start): RequestEnqueuer gates on SessionState → buffers or drops.
+            // Pre-init (incl. warm start): route via RequestEnqueuer (SessionState gated → buffer/drop),
+            // without persisting.
             RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
         }
     }
@@ -172,6 +171,12 @@ enum KlaviyoCommands {
     ///
     /// NOTE: both enqueues use `RequestEnqueuer` (not the `LifecycleState`/`QueueStore` gate).
     static func enqueueProfile(_ profile: Profile) {
+        // Parity gate: drop a pre-init profile (no store write) unless durable capture is on.
+        if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
+            environment.emitDeveloperWarning("Klaviyo SDK not initialized; dropping pre-init profile")
+            return
+        }
+
         // Capture the canonical token BEFORE any identity mutation so a reset can't lose it.
         let tokenData = IdentityStore.shared.pushToken
 
@@ -329,8 +334,7 @@ enum KlaviyoCommands {
     /// Enqueues a tracking-link click-log request via `RequestEnqueuer`.
     ///
     /// Identity is resolved inside `RequestEnqueuer.enqueueTrackingLinkClicked` from the canonical
-    /// `IdentityStore`. Uses the ungated enqueuer: routes to `QueueStore` when an apiKey is present,
-    /// or buffers durably pre-init.
+    /// `IdentityStore`. Uses the ungated enqueuer: post-init → `QueueStore`, pre-init → buffer/drop.
     static func trackingLinkResolutionFailed(trackingLink: URL, clickTime: Date) {
         RequestEnqueuer.enqueueTrackingLinkClicked(trackingLink: trackingLink, clickTime: clickTime)
     }
@@ -351,9 +355,7 @@ enum KlaviyoCommands {
     /// The `apply` closure must be pure and must NOT call back into `IdentityStore` — the store's
     /// `writeLock` is non-reentrant.
     private static func applyIdentifierChange(_ apply: (inout ProfileData) -> Void) {
-        // Parity: drop a pre-init identifier entirely (don't persist) so the same setter after
-        // initialize() still sends instead of dedup-no-oping. Gate on LifecycleState (session), NOT
-        // the disk-hydrated apiKey. Matches Android; capture-on still buffers via the path below.
+        // Parity gate: drop a pre-init identifier (no store write) unless durable capture is on.
         if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
             environment.emitDeveloperWarning("Klaviyo SDK not initialized; dropping pre-init identifier")
             return

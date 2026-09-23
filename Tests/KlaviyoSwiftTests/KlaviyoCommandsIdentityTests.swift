@@ -268,6 +268,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         // No push token.
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.resetProfile()
@@ -311,11 +312,39 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         let anonId = "anon-already-anonymous"
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: anonId)) // no email/phone/externalId
+        markSessionInitialized()
 
         KlaviyoCommands.resetProfile()
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, anonId,
                        "resetProfile on an anonymous profile must preserve anonymousId")
+    }
+
+    /// Parity: a pre-init `resetProfile` is a no-op — no identity mutation, no request. Matches
+    /// Swift/Android, and avoids a warm-start reset that logs the device out locally while the server
+    /// keeps the token on the old profile.
+    @MainActor
+    func testResetProfilePreInitIsNoOpUnderParity() {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        // Warm start: persisted identity + token, but initialize() has not run this session.
+        IdentityStore.shared.update(ProfileData(email: "id@x.com", anonymousId: "anon-keep"))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "tok",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.resetProfile()
+
+        XCTAssertEqual(IdentityStore.shared.current.email, "id@x.com",
+                       "pre-init reset must not clear PII")
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-keep",
+                       "pre-init reset must not mint a new anonymousId")
+        XCTAssertTrue(readQueue().isEmpty, "pre-init reset must not enqueue")
     }
 
     // MARK: - setProfileProperty

@@ -29,20 +29,14 @@ public enum RequestEnqueuer {
         )
     }
 
-    /// Routes a pre-init request to the appropriate buffer (or drops it), or enqueues post-init.
+    /// Routes a request based on `SessionState.isInitialized` (whether `initialize()` has started this
+    /// process):
     ///
-    /// Gates on `SessionState.isInitialized` — whether `initialize()` has started THIS process — not
-    /// on `SDKConfigStore.apiKey`, which is hydrated from disk and so is non-nil on a warm start
-    /// before `initialize()` runs. Gating on the disk apiKey would stamp pre-init calls under the
-    /// prior launch's key (and, on a company switch, the wrong company). Both released SDKs avoid
-    /// that: iOS defers pre-init calls to `initialize()`, Android drops them.
-    ///
-    /// - Post-init (initialize started this session) → build a request and enqueue directly to
-    ///   `QueueStore`. `apiKey` is always set by the time `initialize()` marks the session.
+    /// - Post-init → build a request and enqueue directly to `QueueStore` (`apiKey` is set by the time
+    ///   the session is marked).
     /// - Pre-init + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
-    /// - Pre-init + `enablePreInitDiskCapture` OFF (parity) → if the request is a high-priority event
-    ///   (push-open), hold it in the non-durable `PreInitMemoryBuffer`; otherwise drop it with a
-    ///   developer warning (mirrors Android: pre-init calls are dropped except push-opens).
+    /// - Pre-init + `enablePreInitDiskCapture` OFF → hold a high-priority event (push-open) in the
+    ///   non-durable `PreInitMemoryBuffer`; drop everything else with a developer warning.
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
@@ -88,8 +82,8 @@ public enum RequestEnqueuer {
     /// supplies the full payload — profiles carry structured attributes (firstName/lastName/title/
     /// organization/image/location) that only the KlaviyoSwift `Profile` → `ProfilePayload` mapping
     /// can populate, so building here (with just identity + flat properties) would drop them. The
-    /// payload already embeds identifiers + anonymousId; routing is the same as every other request:
-    /// apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`.
+    /// payload already embeds identifiers + anonymousId; routing is the same as every other request
+    /// (see `route`).
     public static func enqueueProfile(payload: CreateProfilePayload) {
         route(buffered: .profile(payload)) { apiKey in
             KlaviyoRequest(endpoint: .createProfile(apiKey, payload))
