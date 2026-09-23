@@ -294,6 +294,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
+    @MainActor
+    func clearAuthToken() async {
+        do {
+            _ = try await delegate?.evaluateJavaScript(
+                "document.head.removeAttribute('data-klaviyo-jwt');"
+            )
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Error removing auth token from In-App Forms HTML; error: \(error)"
+                )
+            }
+        }
+    }
+
     // MARK: - handle WKWebView events
 
     @MainActor

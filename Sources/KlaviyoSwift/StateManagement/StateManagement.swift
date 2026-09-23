@@ -82,6 +82,8 @@ enum KlaviyoAction: Equatable {
     /// called when the user wants to reset the existing profile from state
     case resetProfile
 
+    case completeProfileReset
+
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
 
@@ -149,7 +151,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .completeProfileReset, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -184,6 +186,16 @@ struct KlaviyoReducer: ReducerProtocol {
                 return beginCompanyChange(to: apiKey, state: &state)
             case .initializing:
                 return .none
+            case .resettingProfile:
+                guard apiKey != state.apiKey else {
+                    return .none
+                }
+                state.initalizationState = .changingCompany(apiKey)
+                return .run { send in
+                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                    await command.value
+                    await send(.completeCompanyChange(apiKey))
+                }
             case .uninitialized:
                 break
             }
@@ -256,6 +268,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.enqueueProfile(profile))
                     case let .pushToken(token, enablement):
                         await send(.setPushToken(token, enablement))
+                    case .resetProfile:
+                        await send(.resetProfile)
                     case let .setEmail(email):
                         await send(.setEmail(email))
                     case let .setExternalId(externalId):
@@ -635,18 +649,28 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case .resetProfile:
             guard case .initialized = state.initalizationState else {
-                if case .changingCompany = state.initalizationState {
-                    state.pendingRequests.append(.resetProfile)
+                if case .uninitialized = state.initalizationState {
+                    return .none
                 }
+                state.pendingRequests.append(.resetProfile)
                 return .none
             }
-            state.reset()
+            state.initalizationState = .resettingProfile
+            return .run { send in
+                let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                await command.value
+                await send(.completeProfileReset)
+            }
 
-            // Clear the auth-token cache and cancel any scheduled refresh tied
-            // to the outgoing profile. The provider is retained — see
-            // ``AuthTokenManager/clearTokenState()``.
-            AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-            return .none
+        case .completeProfileReset:
+            guard case .resettingProfile = state.initalizationState else {
+                return .none
+            }
+            let pendingRequests = state.pendingRequests
+            state.pendingRequests = []
+            state.reset()
+            state.initalizationState = .initialized
+            return replayPendingRequests(pendingRequests, into: &state)
 
         case let .setProfileProperty(key, value):
             guard case .initialized = state.initalizationState else {
@@ -819,6 +843,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 action = .enqueueProfile(profile)
             case let .pushToken(token, enablement):
                 action = .setPushToken(token, enablement)
+            case .resetProfile:
+                action = .resetProfile
             case let .setEmail(email):
                 action = .setEmail(email)
             case let .setExternalId(externalId):
