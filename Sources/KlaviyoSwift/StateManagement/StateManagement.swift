@@ -53,6 +53,8 @@ enum KlaviyoAction: Equatable {
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
     case initialize(String)
 
+    case completeCompanyChange(String)
+
     /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
     case completeInitialization(KlaviyoState)
 
@@ -147,7 +149,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -169,16 +171,51 @@ struct KlaviyoReducer: ReducerProtocol {
 
         switch action {
         case let .initialize(apiKey):
-            if case .initialized = state.initalizationState {
+            switch state.initalizationState {
+            case .initialized:
                 guard apiKey != state.apiKey else {
                     return .none
                 }
-                // Since we are moving the token to a new company lets remove the token from the old company first.
-                if let apiKey = state.apiKey,
+                state.initalizationState = .changingCompany(apiKey)
+                return .run { send in
+                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                    await command.value
+                    await send(.completeCompanyChange(apiKey))
+                }
+            case let .changingCompany(targetAPIKey):
+                guard apiKey != targetAPIKey else {
+                    return .none
+                }
+                state.initalizationState = .changingCompany(apiKey)
+                return .run { send in
+                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                    await command.value
+                    await send(.completeCompanyChange(apiKey))
+                }
+            case .initializing:
+                return .none
+            case .uninitialized:
+                break
+            }
+            state.initalizationState = .initializing
+            state.apiKey = apiKey
+            return .run { send in
+                let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
+                await send(.completeInitialization(initialState))
+            }
+
+        case let .completeCompanyChange(apiKey):
+            guard case .changingCompany(apiKey) = state.initalizationState else {
+                return .none
+            }
+            let pendingRequests = state.pendingRequests
+            state.pendingRequests = []
+            if apiKey != state.apiKey {
+                if let previousAPIKey = state.apiKey,
                    let anonymousId = state.anonymousId,
                    let tokenData = state.pushTokenData {
                     let request = state.buildUnregisterRequest(
-                        apiKey: apiKey,
+                        apiKey: previousAPIKey,
                         anonymousId: anonymousId,
                         pushToken: tokenData.pushToken
                     )
@@ -187,15 +224,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.apiKey = apiKey
                 state.reset()
             }
-            guard case .uninitialized = state.initalizationState else {
-                return .none
-            }
-            state.initalizationState = .initializing
-            state.apiKey = apiKey
-            return .run { send in
-                let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
-                await send(.completeInitialization(initialState))
-            }
+            state.initalizationState = .initialized
+            return replayPendingRequests(pendingRequests, into: &state)
 
         case var .completeInitialization(initialState):
             guard case .initializing = state.initalizationState else {
@@ -745,6 +775,34 @@ struct KlaviyoReducer: ReducerProtocol {
             state.isProcessingDeepLink = false
             return .none
         }
+    }
+
+    private func replayPendingRequests(
+        _ pendingRequests: [KlaviyoState.PendingRequest],
+        into state: inout KlaviyoState
+    ) -> EffectTask<KlaviyoAction> {
+        var effects: [EffectTask<KlaviyoAction>] = []
+        for request in pendingRequests {
+            let action: KlaviyoAction
+            switch request {
+            case let .event(event):
+                action = .enqueueEvent(event)
+            case let .aggregateEvent(payload):
+                action = .enqueueAggregateEvent(payload)
+            case let .profile(profile):
+                action = .enqueueProfile(profile)
+            case let .pushToken(token, enablement):
+                action = .setPushToken(token, enablement)
+            case let .setEmail(email):
+                action = .setEmail(email)
+            case let .setExternalId(externalId):
+                action = .setExternalId(externalId)
+            case let .setPhoneNumber(phoneNumber):
+                action = .setPhoneNumber(phoneNumber)
+            }
+            effects.append(reduce(into: &state, action: action))
+        }
+        return .merge(effects)
     }
 }
 
