@@ -69,6 +69,10 @@ package actor AuthTokenManager {
     /// detects that the wall-clock target has already passed.
     private var refreshTask: Task<Void, Never>?
 
+    /// Clears a cached token at its validity boundary, including while a
+    /// replacement fetch is still running.
+    private var expiryBoundaryTask: (id: UUID, task: Task<Void, Never>)?
+
     /// Absolute wall-clock target for the next proactive refresh, or `nil` when
     /// no refresh is scheduled. Stored as an absolute `Date` rather than a
     /// duration so the sleep loop can re-check against the *current* clock on
@@ -122,6 +126,8 @@ package actor AuthTokenManager {
     /// — see ``clearTokenState()`` for why a live subscription survives a reset.
     private let refreshSubject = PassthroughSubject<String, Never>()
 
+    private let tokenUpdateSubject = PassthroughSubject<AuthTokenUpdate, Never>()
+
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
     private let lifeCycle: AppLifeCycleEvents
@@ -141,6 +147,9 @@ package actor AuthTokenManager {
     /// swallows the `CancellationError` `Task.sleep` throws.
     private let sleeper: @Sendable (UInt64) async -> Void
 
+    /// Sleep primitive backing the cached-token validity boundary task.
+    private let expirySleeper: @Sendable (UInt64) async -> Void
+
     /// Current network reachability, consulted when arming a connectivity wait so a
     /// retry armed *after* the offline→online transition already passed isn't
     /// stranded (see ``armConnectivityRetry()``). Injected for testability; defaults
@@ -157,6 +166,7 @@ package actor AuthTokenManager {
         self.lifeCycle = lifeCycle
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        expirySleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
         currentReachability = { environment.reachabilityStatus() }
         Task { await self.startLifecycleObserver() }
     }
@@ -178,10 +188,14 @@ package actor AuthTokenManager {
     ///   - sleep: Sleep primitive for the refresh loop, taking a duration in
     ///     nanoseconds. See ``sleeper`` for its cancellation contract. Defaults
     ///     to `Task.sleep(nanoseconds:)`.
+    ///   - expirySleep: Sleep primitive for cached-token expiry boundaries.
     init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
         currentDate: @escaping () -> Date,
         sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        },
+        expirySleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
             try? await Task.sleep(nanoseconds: nanoseconds)
         },
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
@@ -189,6 +203,7 @@ package actor AuthTokenManager {
         self.lifeCycle = lifeCycle
         self.currentDate = currentDate
         sleeper = sleep
+        expirySleeper = expirySleep
         currentReachability = reachabilityStatus
         Task { await self.startLifecycleObserver() }
     }
@@ -263,6 +278,7 @@ package actor AuthTokenManager {
         if let cachedToken, isCachedTokenValid(cachedToken) {
             return cachedToken.rawToken
         }
+        discardStaleCachedToken()
 
         guard provider != nil else {
             throw AuthTokenError.noProviderRegistered
@@ -300,6 +316,21 @@ package actor AuthTokenManager {
         }
     }
 
+    package func tokenUpdates() -> AsyncStream<AuthTokenUpdate> {
+        discardStaleCachedToken()
+        let initialUpdate: AuthTokenUpdate
+        if let cachedToken, isCachedTokenValid(cachedToken) {
+            initialUpdate = .token(cachedToken.rawToken)
+        } else {
+            initialUpdate = .cleared
+        }
+        return AsyncStream { [tokenUpdateSubject] continuation in
+            let cancellable = tokenUpdateSubject.sink { continuation.yield($0) }
+            continuation.yield(initialUpdate)
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
+    }
+
     /// Clears all token-acquisition state tied to the current user, called from
     /// `KlaviyoSDK().resetProfile()` (e.g. on logout). Discards the cached
     /// token, cancels the scheduled proactive refresh and its wall-clock
@@ -333,10 +364,13 @@ package actor AuthTokenManager {
         inFlight = nil
         refreshTask?.cancel()
         refreshTask = nil
+        expiryBoundaryTask?.task.cancel()
+        expiryBoundaryTask = nil
         refreshAtWallClock = nil
         activeScheduledRefreshID = nil
         isAwaitingConnectivityRetry = false
         cachedToken = nil
+        tokenUpdateSubject.send(.cleared)
     }
 
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
@@ -395,12 +429,14 @@ package actor AuthTokenManager {
             switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
+                scheduleExpiryBoundary(for: validated)
                 // A fresh token from any path obsoletes a pending connectivity
                 // wait: nothing left to retry, and the next refresh is scheduled
                 // below. Leaving it armed would fire a redundant retry on the next
                 // reachability transition.
                 isAwaitingConnectivityRetry = false
                 scheduleRefresh(for: validated)
+                tokenUpdateSubject.send(.token(validated.rawToken))
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(
                         """
@@ -547,6 +583,7 @@ package actor AuthTokenManager {
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
         guard activeScheduledRefreshID == nil else { return }
+        discardStaleCachedToken()
         let refreshID = UUID()
         activeScheduledRefreshID = refreshID
         defer {
@@ -708,8 +745,7 @@ package actor AuthTokenManager {
     ///    cancel the stuck refresh task and fire the refresh immediately.
     /// 3. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
-        if let cached = cachedToken, !isCachedTokenValid(cached) {
-            cachedToken = nil
+        if discardStaleCachedToken() {
             refreshTask?.cancel()
             refreshTask = nil
             refreshAtWallClock = nil
@@ -796,5 +832,42 @@ package actor AuthTokenManager {
     private func isCachedTokenValid(_ token: ValidatedToken) -> Bool {
         let expiresAtSeconds = token.expiresAt.timeIntervalSince1970
         return currentDate().timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
+    }
+
+    @discardableResult
+    private func discardStaleCachedToken() -> Bool {
+        guard let cachedToken, !isCachedTokenValid(cachedToken) else { return false }
+        expiryBoundaryTask?.task.cancel()
+        expiryBoundaryTask = nil
+        self.cachedToken = nil
+        tokenUpdateSubject.send(.cleared)
+        return true
+    }
+
+    private func scheduleExpiryBoundary(for token: ValidatedToken) {
+        expiryBoundaryTask?.task.cancel()
+        let taskID = UUID()
+        let task = Task<Void, Never> { [weak self] in
+            guard let self else { return }
+            await self.sleepUntilExpiryBoundary(for: token, taskID: taskID)
+        }
+        expiryBoundaryTask = (taskID, task)
+    }
+
+    private func sleepUntilExpiryBoundary(for token: ValidatedToken, taskID: UUID) async {
+        defer {
+            if expiryBoundaryTask?.id == taskID {
+                expiryBoundaryTask = nil
+            }
+        }
+
+        let boundary = token.expiresAt.addingTimeInterval(-JWTParser.defaultLeeway)
+        while !Task.isCancelled {
+            let remaining = boundary.timeIntervalSince(currentDate())
+            if remaining <= 0 { break }
+            await expirySleeper(UInt64(remaining * 1_000_000_000))
+        }
+        guard !Task.isCancelled, cachedToken?.rawToken == token.rawToken else { return }
+        discardStaleCachedToken()
     }
 }

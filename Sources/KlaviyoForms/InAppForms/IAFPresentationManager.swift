@@ -191,10 +191,15 @@ class IAFPresentationManager {
     private func startTokenRefreshObservation() {
         tokenRefreshTask?.cancel()
         tokenRefreshTask = Task { [weak self] in
-            let stream = await AuthTokenManager.shared.refreshes()
-            for await token in stream {
+            let stream = await AuthTokenManager.shared.tokenUpdates()
+            for await update in stream {
                 guard let self else { return }
-                await self.viewModel?.pushAuthToken(token)
+                switch update {
+                case .cleared:
+                    await self.viewModel?.clearAuthToken()
+                case let .token(token):
+                    await self.viewModel?.pushAuthToken(token)
+                }
             }
         }
     }

@@ -132,6 +132,133 @@ struct AuthTokenManagerRefreshTests {
         #expect(cached == secondToken)
     }
 
+    @Test
+    func nearExpiryTokenClearsExistingSubscriberBeforeRefreshStarts() async throws {
+        let token = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 33)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let expiryGate = SleepGate()
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(),
+            clock: clock,
+            gate: gate,
+            expiryGate: expiryGate
+        )
+        let counter = CallCounter()
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        await gate.waitUntilSleeping()
+        let updates = await manager.tokenUpdates()
+
+        clock.set(referenceDate.addingTimeInterval(2))
+        let current = try await manager.currentToken()
+        #expect(current == token)
+        clock.set(referenceDate.addingTimeInterval(3))
+        await expiryGate.release()
+
+        let received = await firstUpdates(2, from: updates)
+        #expect(received == [.token(token), .cleared])
+        let invocations = await counter.value
+        #expect(invocations == 1)
+        await manager.unregisterProvider()
+        await gate.release()
+    }
+
+    @Test
+    func scheduledRefreshCrossingExpiryClearsExistingSubscriberWithoutCancellingReplacement() async throws {
+        let expiringToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 540,
+            extraClaims: ["sub": "expiring"]
+        )
+        let replacementToken = try makeJWT(
+            issuedAt: refSeconds + 480,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "replacement"]
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let expiryGate = SleepGate()
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(),
+            clock: clock,
+            gate: gate,
+            expiryGate: expiryGate
+        )
+        let counter = CallCounter()
+        let refreshStarted = Latch()
+        let releaseRefresh = Latch()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            guard invocation > 1 else { return expiringToken }
+            await refreshStarted.open()
+            await releaseRefresh.wait()
+            return replacementToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        let updates = await manager.tokenUpdates()
+        clock.set(referenceDate.addingTimeInterval(480))
+        await gate.release()
+        await refreshStarted.wait()
+        await expiryGate.waitUntilSleeping()
+
+        clock.set(referenceDate.addingTimeInterval(510))
+        await expiryGate.release()
+
+        let received = await firstUpdates(2, from: updates)
+        #expect(received == [.token(expiringToken), .cleared])
+
+        await releaseRefresh.open()
+        let current = try await manager.currentToken(mode: .background)
+        #expect(current == replacementToken)
+    }
+
+    @Test
+    func replacedTokenExpiryDoesNotClearValidReplacement() async throws {
+        let original = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 540)
+        let replacement = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let expiryGate = SleepGate()
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(),
+            clock: clock,
+            gate: gate,
+            expiryGate: expiryGate
+        )
+        let counter = CallCounter()
+        await manager.registerProvider {
+            await counter.increment() == 1 ? original : replacement
+        }
+        await gate.waitUntilSleeping()
+        await expiryGate.waitUntilSleeping()
+        let updates = await manager.tokenUpdates()
+
+        clock.set(referenceDate.addingTimeInterval(480))
+        await gate.release()
+        await gate.waitUntilSleeping(atLeast: 2)
+        await expiryGate.waitUntilSleeping(atLeast: 2)
+        let received = await firstUpdates(2, from: updates)
+        #expect(received == [.token(original), .token(replacement)])
+
+        clock.set(referenceDate.addingTimeInterval(510))
+        await expiryGate.release()
+        let staleUpdate = await firstUpdate(of: updates)
+        #expect(staleUpdate == nil)
+        let current = try await manager.currentToken()
+        #expect(current == replacement)
+        let invocations = await counter.value
+        #expect(invocations == 2)
+        await manager.unregisterProvider()
+        await gate.release()
+        await expiryGate.release()
+    }
+
     // MARK: - Foreground transitions
 
     @Test
@@ -245,6 +372,37 @@ struct AuthTokenManagerRefreshTests {
 
         let resolved = try await manager.currentToken(mode: .background)
         #expect(resolved == freshToken)
+    }
+
+    @Test
+    func existingSubscriberReceivesClearedWhenForegroundReplacementFails() async throws {
+        let expiringToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 31,
+            extraClaims: ["sub": "expiring"]
+        )
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: lifecycle, clock: clock, gate: gate)
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            guard invocation == 1 else { throw ProviderTestError.network }
+            return expiringToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+
+        let updates = await manager.tokenUpdates()
+        clock.set(referenceDate.addingTimeInterval(2))
+        lifecycleSubject.send(.foregrounded)
+        try await counter.waitFor(atLeast: 2)
+
+        let received = await firstUpdates(2, from: updates)
+        #expect(received == [.token(expiringToken), .cleared])
     }
 
     @Test
@@ -672,6 +830,35 @@ struct AuthTokenManagerRefreshTests {
             afterReset == second,
             "cleared cache should re-fetch via the retained provider, not serve the old token"
         )
+    }
+
+    @Test
+    func clearTokenStatePublishesClearedUpdate() async {
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let updates = await manager.tokenUpdates()
+        let received = Task {
+            await updates.first { _ in true }
+        }
+
+        await manager.clearTokenState()
+
+        let update = await received.value
+        #expect(update == .cleared)
+    }
+
+    @Test
+    func subscriberAfterClearReceivesClearedSnapshot() async {
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+
+        await manager.clearTokenState()
+        let updates = await manager.tokenUpdates()
+
+        let update = await firstUpdate(of: updates)
+        #expect(update == .cleared)
     }
 
     @Test
@@ -1676,6 +1863,45 @@ struct AuthTokenManagerRefreshTests {
         return await iterator.next()
     }
 
+    private func firstUpdate(of stream: AsyncStream<AuthTokenUpdate>) async -> AuthTokenUpdate? {
+        await withTaskGroup(of: AuthTokenUpdate?.self) { group in
+            group.addTask {
+                var iterator = stream.makeAsyncIterator()
+                return await iterator.next()
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                return nil
+            }
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func firstUpdates(
+        _ count: Int,
+        from stream: AsyncStream<AuthTokenUpdate>
+    ) async -> [AuthTokenUpdate] {
+        await withTaskGroup(of: [AuthTokenUpdate].self) { group in
+            group.addTask {
+                var iterator = stream.makeAsyncIterator()
+                var updates: [AuthTokenUpdate] = []
+                while updates.count < count, let update = await iterator.next() {
+                    updates.append(update)
+                }
+                return updates
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                return []
+            }
+            let result = await group.next() ?? []
+            group.cancelAll()
+            return result
+        }
+    }
+
     /// Lifecycle source that emits nothing, for tests that don't exercise the
     /// foreground transition path. Uses an `Empty` publisher so the observer
     /// task simply parks on the await without ever firing.
@@ -1714,12 +1940,20 @@ struct AuthTokenManagerRefreshTests {
         lifeCycle: AppLifeCycleEvents,
         clock: TestClock,
         gate: SleepGate,
+        expiryGate: SleepGate? = nil,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
     ) -> AuthTokenManager {
         AuthTokenManager(
             lifeCycle: lifeCycle,
             currentDate: { clock.now() },
             sleep: { await gate.sleep($0) },
+            expirySleep: { nanoseconds in
+                if let expiryGate {
+                    await expiryGate.sleep(nanoseconds)
+                } else {
+                    try? await Task.sleep(nanoseconds: nanoseconds)
+                }
+            },
             reachabilityStatus: reachabilityStatus
         )
     }
