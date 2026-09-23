@@ -7,6 +7,7 @@
 
 @testable import KlaviyoForms
 @testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 import WebKit
 import XCTest
@@ -197,6 +198,21 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNil(authTokenScript, "Auth token script should not be injected when authToken is nil")
+    }
+
+    @MainActor
+    func testInitialProfileUsesOrderedDocumentStartScript() async throws {
+        let profile = ProfileData(email: "initial@example.com", anonymousId: "anon")
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profile)
+
+        let scripts: [WKUserScript] = try XCTUnwrap(model.loadScripts)
+        let profileScript = try XCTUnwrap(scripts.first { $0.source.contains("data-klaviyo-profile") })
+        let profileIndex = try XCTUnwrap(scripts.firstIndex(of: profileScript))
+        let klaviyoIndex = try XCTUnwrap(scripts.firstIndex { $0.source.contains("klaviyoJS") })
+
+        XCTAssertEqual(profileScript.injectionTime, .atDocumentStart)
+        XCTAssertLessThan(profileIndex, klaviyoIndex)
     }
 
     // MARK: - Klaviyo JS Tests
@@ -434,6 +450,108 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let script = try XCTUnwrap(tokenScripts(delegate).first)
         XCTAssertEqual(script, "document.head.removeAttribute('data-klaviyo-jwt');")
+    }
+
+    @MainActor
+    func testProfileChangeAppliesProfileBeforeReplacementToken() async throws {
+        let tokenA = try makeFormsJWT(subject: "profile-A")
+        let tokenB = try makeFormsJWT(subject: "profile-B")
+        let tokenSource = FormsTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        await tokenSource.set(tokenB)
+
+        let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-b")
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileA.email,
+                anonymousId: profileA.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profileA)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        let replacementApplied = expectation(description: "replacement token applied")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(tokenB) {
+                replacementApplied.fulfill()
+            }
+        }
+
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        stateSubject.send(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileB.email,
+                anonymousId: profileB.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        await fulfillment(of: [replacementApplied], timeout: 1)
+
+        let profileIndex = try XCTUnwrap(
+            delegate.evaluatedScripts.firstIndex { $0.contains("b@example.com") }
+        )
+        let tokenIndex = try XCTUnwrap(
+            delegate.evaluatedScripts.firstIndex { $0.contains(tokenB) }
+        )
+        XCTAssertLessThan(profileIndex, tokenIndex)
+
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
+    @MainActor
+    func testProfileChangeToAnonymousClearsAuthWithoutRefetching() async throws {
+        let token = try makeFormsJWT(subject: "identified")
+        let tokenSource = FormsTokenSource(token)
+        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+
+        let profile = ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profile.email,
+                anonymousId: profile.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profile)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        let authCleared = expectation(description: "auth cleared")
+        delegate.onEvaluateJavaScript = { script in
+            if script == "document.head.removeAttribute('data-klaviyo-jwt');" {
+                authCleared.fulfill()
+            }
+        }
+
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        stateSubject.send(
+            KlaviyoState(
+                apiKey: "abc123",
+                anonymousId: "anon-b",
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        await fulfillment(of: [authCleared], timeout: 1)
+
+        await AuthTokenManager.shared.unregisterProvider()
     }
 }
 

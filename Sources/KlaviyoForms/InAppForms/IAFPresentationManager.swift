@@ -36,6 +36,7 @@ class IAFPresentationManager {
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
+    private var initialTokenTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
@@ -127,29 +128,11 @@ class IAFPresentationManager {
 
     func createFormWebViewAndListen(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
-        let authToken = await fetchAuthTokenBestEffort()
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: nil)
         setupFormLifecycleListener()
-    }
-
-    /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
-    /// injection. Returns `nil` on any failure — the form proceeds without a token
-    /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort() async -> String? {
-        // `currentToken()` defaults to `.interactive` mode, which applies the
-        // 500ms latency budget appropriate for form display. No external timeout
-        // is needed here.
-        do {
-            let token = try await AuthTokenManager.shared.currentToken()
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token injected at load")
-            }
-            return token
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token unavailable at load — proceeding without token")
-            }
-            return nil
+        initialTokenTask?.cancel()
+        initialTokenTask = Task {
+            _ = try? await AuthTokenManager.shared.currentToken()
         }
     }
 
@@ -503,6 +486,8 @@ class IAFPresentationManager {
         // still running, so gating the cancel on `viewController` would leak it.
         tokenRefreshTask?.cancel()
         tokenRefreshTask = nil
+        initialTokenTask?.cancel()
+        initialTokenTask = nil
 
         guard let viewController else { return }
 

@@ -862,6 +862,25 @@ struct AuthTokenManagerRefreshTests {
     }
 
     @Test
+    func subscriberAfterWarmCacheReceivesValidTokenSnapshot() async throws {
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "warm"]
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        await manager.registerProvider { token }
+        _ = try await manager.currentToken(mode: .background)
+
+        let updates = await manager.tokenUpdates()
+
+        let update = await firstUpdate(of: updates)
+        #expect(update == .token(token))
+    }
+
+    @Test
     func clearTokenStateCancelsScheduledRefresh() async throws {
         // Acquire a short-lived token whose refresh would fire at ref+10, then
         // immediately clear token state. Drive virtual time past where the

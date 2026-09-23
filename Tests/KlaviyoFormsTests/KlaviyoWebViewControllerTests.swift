@@ -35,7 +35,7 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 
     var url: URL
     weak var delegate: KlaviyoWebViewDelegate?
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: [WKUserScript]?
 
     init(url: URL) {
         self.url = url
