@@ -70,6 +70,15 @@ class KlaviyoSDKTests: XCTestCase {
         }
     }
 
+    /// Returns the token + enablement of every recorded `registerPushToken` request. Under deferred
+    /// persistence, `set(pushToken:)` enqueues here rather than writing `IdentityStore` up front.
+    private func recordedTokenRequests() -> [(token: String, enablementStatus: String)] {
+        recordedRequests().compactMap { request in
+            guard case let .registerPushToken(_, payload) = request.endpoint else { return nil }
+            return (payload.data.attributes.token, payload.data.attributes.enablementStatus)
+        }
+    }
+
     /// Polls until at least one `_openedPush` event is recorded. Fails (XCTFail) on timeout so a
     /// missing event surfaces loudly rather than silently passing.
     private func waitForOpenedPush(
@@ -194,15 +203,18 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set push token
 
+    /// The token is not persisted to `IdentityStore` until a register succeeds; `set(pushToken:)`
+    /// instead enqueues a `registerPushToken` request, which the recording queue captures.
     func testSetPushToken() async throws {
         seedInitializedRecording()
         let tokenData = "mytoken".data(using: .utf8)!
         let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
         klaviyo.set(pushToken: tokenData)
 
-        try await waitForCondition { IdentityStore.shared.pushToken?.pushToken == strToken }
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, strToken)
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .authorized)
+        try await waitForCondition { self.recordedTokenRequests().contains { $0.token == strToken } }
+        let tokenReq = recordedTokenRequests().last { $0.token == strToken }
+        XCTAssertEqual(tokenReq?.token, strToken)
+        XCTAssertEqual(tokenReq?.enablementStatus, PushEnablement.authorized.rawValue)
     }
 
     func testSetAutomaticPushTokenUsesAutomaticAction() async throws {
@@ -211,8 +223,8 @@ class KlaviyoSDKTests: XCTestCase {
         let stringToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
         klaviyo.setAutomatic(pushToken: tokenData)
 
-        try await waitForCondition { IdentityStore.shared.pushToken?.pushToken == stringToken }
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, stringToken)
+        try await waitForCondition { self.recordedTokenRequests().contains { $0.token == stringToken } }
+        XCTAssertEqual(recordedTokenRequests().last?.token, stringToken)
     }
 
     func testSetAutomaticPushTokenDiscardsOlderSettingsResultThatFinishesLast() async {
@@ -249,19 +261,19 @@ class KlaviyoSDKTests: XCTestCase {
         continuationsLock.unlock()
         XCTAssertEqual(continuations.count, 2)
 
-        // Resolve the SECOND (latest) settings result first: its token must be applied.
+        // Resolve the SECOND (latest) settings result first: its token must be enqueued.
         continuations[1].resume(returning: .authorized)
-        let latestApplied = expectation(description: "latest automatic token applied")
-        pollOnMain(latestApplied) { IdentityStore.shared.pushToken?.pushToken == "02" }
-        await fulfillment(of: [latestApplied], timeout: 1.0)
+        let latestEnqueued = expectation(description: "latest automatic token enqueued")
+        pollOnMain(latestEnqueued) { self.recordedTokenRequests().contains { $0.token == "02" } }
+        await fulfillment(of: [latestEnqueued], timeout: 1.0)
 
-        // Resolve the STALE first result last: it must be dropped (token stays "02").
+        // Resolve the STALE first result last: it must be dropped (no registerPushToken for "01").
         continuations[0].resume(returning: .denied)
         // Yield to give the cooperative scheduler a chance to run the stale token path if broken.
         for _ in 0..<5 { await Task.yield() }
-        XCTAssertEqual(
-            IdentityStore.shared.pushToken?.pushToken, "02",
-            "stale automatic token must not overwrite the latest"
+        XCTAssertFalse(
+            recordedTokenRequests().contains { $0.token == "01" },
+            "stale automatic token must not be enqueued"
         )
     }
 

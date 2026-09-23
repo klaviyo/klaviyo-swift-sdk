@@ -91,6 +91,13 @@ enum KlaviyoCommands {
     /// props into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
     /// just before each drain. Does NOT enqueue directly.
     static func setProfileProperty(_ key: Profile.ProfileKey, _ value: AnyEncodable) {
+        // Parity gate (mirrors `RequestEnqueuer.route`): drop pre-init profile attributes unless
+        // durable pre-init capture is on, so nothing is staged before an apiKey exists.
+        if SDKConfigStore.shared.current.apiKey == nil, !featureFlags.enablePreInitDiskCapture {
+            environment.emitDeveloperWarning(
+                "Klaviyo SDK not initialized; dropping pre-init profile property")
+            return
+        }
         ProfilePropertyBuffer.shared.stage(key, value)
     }
 
@@ -101,9 +108,9 @@ enum KlaviyoCommands {
     ///
     /// Post-init (this session's `initialize()` has started): builds a push-token registration request
     /// and enqueues it directly via `QueueStore`.
-    /// Pre-init / warm-start: routes through the ungated `RequestEnqueuer` path which re-gates on
-    /// `SDKConfigStore` — preserving the old warm-start behavior (token reaches `QueueStore` when
-    /// the apiKey is already persisted, buffers otherwise).
+    /// Pre-init (incl. warm start): routes through the ungated `RequestEnqueuer`, which gates on
+    /// `SessionState` — so a token set before `initialize()` buffers (capture on) or drops (parity),
+    /// then registers once `initialize()` runs. It is NOT stamped under a disk-hydrated apiKey.
     static func setPushToken(_ pushToken: String, _ enablement: PushEnablement) {
         let newTokenData = PushTokenData(
             pushToken: pushToken,
@@ -113,8 +120,8 @@ enum KlaviyoCommands {
         )
         // Dedup against the canonical token: skip when all fields match.
         guard IdentityStore.shared.pushToken != newTokenData else { return }
-        // Write the new token directly to the canonical store (replaces old write-through-defer).
-        IdentityStore.shared.updatePushToken(newTokenData)
+        // Persist only after a successful register (RequestQueue writes it back), not here — an
+        // eager write would strand a dropped pre-init token by deduping out every later identical call.
         guard let anonymousId = IdentityStore.shared.current.anonymousId else {
             environment.emitDeveloperWarning("SDK internal error: missing anonymousId")
             return
@@ -135,7 +142,7 @@ enum KlaviyoCommands {
             )
             QueueStore.shared.enqueue(request)
         } else {
-            // Pre-init or warm start: RequestEnqueuer re-gates on SDKConfigStore.
+            // Pre-init (incl. warm start): RequestEnqueuer gates on SessionState → buffers or drops.
             RequestEnqueuer.enqueuePushToken(pushToken, enablement: enablement)
         }
     }
@@ -336,9 +343,9 @@ enum KlaviyoCommands {
     ///   "Post-init" means `LifecycleState.shared.current != .uninitialized` — i.e. `initialize()`
     ///   has been called this session.
     ///
-    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer` (lands in
-    ///   the durable `UnattributedBuffer` pre-init, or directly in `QueueStore` on warm-start after
-    ///   `RequestEnqueuer` re-gates on `SDKConfigStore`).
+    /// - **Pre-init or no token:** enqueues a profile via the ungated `RequestEnqueuer`, which gates
+    ///   on `SessionState`: pre-init (incl. warm start) buffers or drops; post-init lands in
+    ///   `QueueStore`.
     ///
     /// The `apply` closure must be pure and must NOT call back into `IdentityStore` — the store's
     /// `writeLock` is non-reentrant.
@@ -374,8 +381,8 @@ enum KlaviyoCommands {
             // Pre-init or post-init with no token: send a profile via the ungated RequestEnqueuer.
             // Empty `Profile()` is intentional — `RequestBuilding.profilePayload` reads
             // all identifiers from `identity`, so the argument only carries redundant values.
-            // On warm start (pre-init, SDKConfigStore has persisted apiKey), RequestEnqueuer
-            // re-gates on SDKConfigStore and routes directly to QueueStore — no buffer needed.
+            // RequestEnqueuer gates on SessionState: pre-init (incl. warm start) buffers or drops;
+            // post-init routes directly to QueueStore.
             let payload = CreateProfilePayload(
                 data: RequestBuilding.profilePayload(
                     from: Profile(),

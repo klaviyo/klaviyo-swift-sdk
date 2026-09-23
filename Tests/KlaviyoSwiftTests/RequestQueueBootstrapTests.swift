@@ -48,6 +48,8 @@ final class RequestQueueBootstrapTests: XCTestCase {
         // apiKey + anonymousId so flushIntoQueue doesn't no-op.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-bootstrap-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-bootstrap" }
+        // Post-init: the drain loop runs post-init, so route targets QueueStore.
+        markSessionInitialized()
 
         // Stage a profile property so the buffer is non-empty before the drain.
         ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bootstrap"))

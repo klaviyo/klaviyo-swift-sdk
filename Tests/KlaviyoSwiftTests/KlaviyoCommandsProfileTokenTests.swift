@@ -65,8 +65,8 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setPushToken("new-tok", .authorized)
 
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "new-tok",
-                       "new token must be persisted to IdentityStore")
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "token must not be persisted until a successful register")
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1,
@@ -94,8 +94,8 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setPushToken(pushTok, .authorized)
 
-        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .authorized,
-                       "updated enablement must be persisted")
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .denied,
+                       "enablement must not be persisted until a successful register")
 
         let queued = readQueue()
         XCTAssertEqual(queued.count, 1)
@@ -104,39 +104,35 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         }
         XCTAssertEqual(queuedApiKey, apiKey)
         XCTAssertEqual(payload.data.attributes.token, pushTok)
+        XCTAssertEqual(payload.data.attributes.enablementStatus, PushEnablement.authorized.rawValue,
+                       "enqueued request must carry the new enablement")
         XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, anonymousId)
     }
 
     // MARK: - setPushToken: warm-start (LifecycleState == .uninitialized)
 
-    /// Warm-start: SDKConfigStore has a persisted apiKey but initialize() has NOT been called →
-    /// falls through to `RequestEnqueuer` (LifecycleState == .uninitialized gate).
+    /// Warm-start parity: SDKConfigStore has a persisted apiKey but initialize() has NOT run this
+    /// session (SessionState == false). Under default parity flags a pre-init token is dropped — NOT
+    /// stamped under the disk-hydrated apiKey — matching how both released SDKs defer/drop pre-init.
     @MainActor
-    func testSetPushTokenWarmStartPreInitRoutesToRequestEnqueuer() {
+    func testSetPushTokenWarmStartPreInitDroppedUnderParity() {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
         // LifecycleState stays .uninitialized (reset in setUp, not advanced here).
         XCTAssertEqual(LifecycleState.shared.current, .uninitialized,
                        "precondition: warm-start requires LifecycleState == .uninitialized")
-        // Persist apiKey in SDKConfigStore (warm start: prior launch left it behind).
+        // Persisted apiKey from a prior launch, but initialize() has not run this session.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-warm"))
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.setPushToken("warm-tok", .authorized)
 
-        // RequestEnqueuer re-gates on SDKConfigStore: since apiKey is present, the token lands
-        // directly in QueueStore (not the UnattributedBuffer). The endpoint must be a push-token
-        // registration, NOT a createProfile (that's the key parity boundary).
-        let queued = readQueue()
-        XCTAssertEqual(queued.count, 1,
-                       "warm-start setPushToken must enqueue exactly one request")
-        guard case .registerPushToken = queued.first?.endpoint else {
-            return XCTFail(
-                "warm-start setPushToken must enqueue registerPushToken (via RequestEnqueuer), "
-                    + "got \(queued.first?.endpoint as Any)"
-            )
-        }
+        XCTAssertTrue(readQueue().isEmpty,
+                      "warm-start pre-init token must NOT be stamped under the persisted apiKey")
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "dropped token must not be persisted")
     }
 
     /// Pre-init (no apiKey anywhere) → token ends up in UnattributedBuffer.
@@ -158,6 +154,42 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         }
         XCTAssertTrue(hasToken,
                       "pre-init setPushToken with no apiKey must buffer in UnattributedBuffer")
+    }
+
+    /// Regression (default parity flags): a pre-init `setPushToken` is dropped WITHOUT persisting to
+    /// `IdentityStore`, so the identical token after init is not deduped out and registers. Guards
+    /// against the "pre-init token never registers" bug.
+    @MainActor
+    func testSetPushTokenPreInitDropThenPostInitRegisters() {
+        // Default parity: enablePreInitDiskCapture == false (base setUp resets featureFlags).
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+        let readQueue = seedTestQueueStore()
+
+        // Pre-init (LifecycleState .uninitialized, no apiKey): the token request is dropped and,
+        // critically, NOT persisted — so the dedup can't later swallow the same token.
+        KlaviyoCommands.setPushToken("tok-A", .authorized)
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "pre-init dropped token must not be persisted")
+        XCTAssertTrue(readQueue().isEmpty,
+                      "pre-init token must not reach QueueStore under default parity flags")
+
+        // Simulate initialize(): apiKey known + LifecycleState advanced.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
+
+        // The SAME token, now post-init, must register (not dedup out against a stale disk copy).
+        KlaviyoCommands.setPushToken("tok-A", .authorized)
+
+        let queued = readQueue()
+        XCTAssertEqual(queued.count, 1,
+                       "post-init setPushToken must register after a pre-init drop of the same token")
+        guard case .registerPushToken = queued.first?.endpoint else {
+            return XCTFail("expected registerPushToken, got \(queued.first?.endpoint as Any)")
+        }
     }
 
     // MARK: - setPushEnablement
@@ -226,6 +258,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "same@x.com", anonymousId: anonBefore))
         IdentityStore.shared.updatePushToken(nil) // no token → only a createProfile
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "same@x.com", firstName: "Alice"))
@@ -292,6 +325,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(nil)
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
@@ -348,6 +382,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-ws"))
         IdentityStore.shared.updatePushToken(nil)
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(
@@ -457,6 +492,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(defaultTokenData)
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com", firstName: "Alice"))
@@ -466,10 +502,15 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         guard case let .registerPushToken(_, payload) = queued.first?.endpoint else {
             return XCTFail("fold: expected registerPushToken, got \(queued.first?.endpoint as Any)")
         }
-        XCTAssertEqual(payload.data.attributes.profile.data.attributes.email, "new@x.com",
+        let foldedProfile = payload.data.attributes.profile.data.attributes
+        XCTAssertEqual(foldedProfile.email, "new@x.com",
                        "folded token must carry the new identity")
+        XCTAssertEqual(foldedProfile.firstName, "Alice",
+                       "folded token must carry the profile attributes, not just identifiers")
         XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, "anon-old",
                           "identifier change must mint a fresh anonymousId")
+        XCTAssertEqual(foldedProfile.anonymousId, IdentityStore.shared.current.anonymousId,
+                       "folded token must carry the freshly-minted anonymousId")
     }
 
     /// Parity: no token → createProfile only (unchanged).
@@ -478,6 +519,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(nil)
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))

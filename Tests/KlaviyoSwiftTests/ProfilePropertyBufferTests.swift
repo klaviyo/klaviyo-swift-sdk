@@ -22,12 +22,17 @@ final class ProfilePropertyBufferTests: XCTestCase {
         getRequests = seedTestQueueStore()
         // Ensure the buffer itself is empty before each test.
         ProfilePropertyBuffer.shared.reset()
+        // `flushIntoQueue` is a post-init operation (driven by the RequestQueue drain loop), so run
+        // these as post-init — otherwise `RequestEnqueuer.route` gates the profile path to a buffer.
+        LifecycleState.shared.reset()
+        markSessionInitialized()
     }
 
     override func tearDown() {
         ProfilePropertyBuffer.shared.reset()
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        LifecycleState.shared.reset()
         environment = KlaviyoEnvironment.test()
         super.tearDown()
     }

@@ -31,16 +31,23 @@ public enum RequestEnqueuer {
 
     /// Routes a pre-init request to the appropriate buffer (or drops it), or enqueues post-init.
     ///
-    /// - apiKey present → build a request and enqueue it directly to `QueueStore`.
-    /// - apiKey absent + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
-    /// - apiKey absent + `enablePreInitDiskCapture` OFF (parity) → if the request is a high-priority
-    ///   event (push-open), hold it in the non-durable `PreInitMemoryBuffer`; otherwise drop it with
-    ///   a developer warning (mirrors Android: pre-init calls are dropped except push-opens).
+    /// Gates on `SessionState.isInitialized` — whether `initialize()` has started THIS process — not
+    /// on `SDKConfigStore.apiKey`, which is hydrated from disk and so is non-nil on a warm start
+    /// before `initialize()` runs. Gating on the disk apiKey would stamp pre-init calls under the
+    /// prior launch's key (and, on a company switch, the wrong company). Both released SDKs avoid
+    /// that: iOS defers pre-init calls to `initialize()`, Android drops them.
+    ///
+    /// - Post-init (initialize started this session) → build a request and enqueue directly to
+    ///   `QueueStore`. `apiKey` is always set by the time `initialize()` marks the session.
+    /// - Pre-init + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
+    /// - Pre-init + `enablePreInitDiskCapture` OFF (parity) → if the request is a high-priority event
+    ///   (push-open), hold it in the non-durable `PreInitMemoryBuffer`; otherwise drop it with a
+    ///   developer warning (mirrors Android: pre-init calls are dropped except push-opens).
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
     ) {
-        if let apiKey = SDKConfigStore.shared.current.apiKey {
+        if SessionState.isInitialized, let apiKey = SDKConfigStore.shared.current.apiKey {
             QueueStore.shared.enqueue(build(apiKey))
         } else if featureFlags.enablePreInitDiskCapture {
             UnattributedBuffer.shared.append(buffered)

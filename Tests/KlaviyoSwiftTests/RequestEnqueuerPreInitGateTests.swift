@@ -66,6 +66,7 @@ final class RequestEnqueuerPreInitGateTests: KlaviyoBaseTestCase {
     @MainActor
     func testEnqueuePushTokenWithFullProfileCarriesProfile() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
         let profile = ProfilePayload(
             email: "fold@x.com", phoneNumber: nil, externalId: nil,

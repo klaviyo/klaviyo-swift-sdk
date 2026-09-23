@@ -430,6 +430,7 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         // observable, then assert exactly one `_openedPush` lands.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
+        markSessionInitialized()
         let recorded = registerRecordingQueueStore()
 
         // The system always calls the proxy — the setter hook keeps it as the effective

@@ -19,11 +19,17 @@ final class PreInitMemoryBuffer {
 
     /// Appends a request, evicting the oldest when at capacity (FIFO drop-oldest).
     func append(_ request: UnattributedRequest) {
-        lock.withLock {
-            if requests.count >= Self.maxBufferSize {
+        let didEvict = lock.withLock { () -> Bool in
+            let evicting = requests.count >= Self.maxBufferSize
+            if evicting {
                 requests.removeFirst()
             }
             requests.append(request)
+            return evicting
+        }
+        if didEvict {
+            environment.emitDeveloperWarning(
+                "PreInitMemoryBuffer full (\(Self.maxBufferSize)); dropping oldest pre-init request")
         }
     }
 

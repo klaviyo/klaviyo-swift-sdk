@@ -358,6 +358,30 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         }
     }
 
+    /// Parity gate: pre-init `setProfileProperty` (default flags, no apiKey) is dropped — nothing is
+    /// staged, so a later flush enqueues nothing. Mirrors Android/Swift dropping pre-init attributes.
+    @MainActor
+    func testSetProfilePropertyPreInitDropsUnderParityFlags() {
+        // Default parity flags: base setUp resets featureFlags → enablePreInitDiskCapture == false.
+        resetCanonicalCoreStores()
+        ProfilePropertyBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+        let readQueue = seedTestQueueStore()
+
+        // Pre-init: no apiKey in SDKConfigStore → the property must be dropped, not staged.
+        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Alice"))
+
+        let flushExpect = XCTestExpectation(description: "flush")
+        Task {
+            await ProfilePropertyBuffer.shared.flushIntoQueue()
+            flushExpect.fulfill()
+        }
+        wait(for: [flushExpect], timeout: 2)
+
+        XCTAssertTrue(readQueue().isEmpty,
+                      "pre-init profile property must be dropped, not staged for a later flush")
+    }
+
     // MARK: - R4 Regression: 4xx field-clear must not be resurrected by a subsequent setter
 
     /// R4: if a `RequestQueue` 4xx handler clears an identifier directly on `IdentityStore` (e.g.
@@ -433,14 +457,15 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// a push token is stored in `IdentityStore`, but `initialize()` has NOT been called this
     /// session — so `LifecycleState.shared.current == .uninitialized`.
     ///
-    /// `LifecycleState` is the gate (not `SDKConfigStore`), so a warm-start falls through to the
-    /// profile branch via `RequestEnqueuer` rather than the token re-association branch.
-    ///
-    /// Expected: `setEmail` routes to `QueueStore` as a `createProfile` (not `registerPushToken`).
+    /// `LifecycleState`/`SessionState` is the gate (not the disk-hydrated `SDKConfigStore.apiKey`),
+    /// so a warm-start `setEmail` is treated as pre-init: under default parity flags it is DROPPED —
+    /// NOT stamped under the persisted key — matching how both released SDKs defer/drop pre-init.
+    /// The identifier is still written to `IdentityStore`, so it rides the next post-init request.
     @MainActor
-    func testSetEmailWarmStartPreInitBuffersProfileNotTokenReassociation() {
+    func testSetEmailWarmStartPreInitDroppedUnderParity() {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
         // LifecycleState is .uninitialized (reset in setUp + not advanced here — warm start).
         XCTAssertEqual(LifecycleState.shared.current, .uninitialized,
                        "precondition: warm-start must start with LifecycleState == .uninitialized")
@@ -460,19 +485,10 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setEmail("new@example.com")
 
-        // Warm-start (LifecycleState == .uninitialized) must take the PROFILE branch.
-        // The enqueued request must be a createProfile, NOT a registerPushToken.
-        // (RequestEnqueuer re-gates on SDKConfigStore: since "persisted-key" is present, the
-        // profile lands directly in QueueStore — consistent with old warm-start behavior.)
-        let queued = readQueue()
-        XCTAssertEqual(queued.count, 1, "warm-start setEmail must enqueue exactly one request")
-        guard case .createProfile = queued.first?.endpoint else {
-            return XCTFail(
-                "warm-start setEmail must enqueue a createProfile (not registerPushToken), "
-                    + "got \(queued.first?.endpoint as Any)"
-            )
-        }
-        // Identity update must still be persisted.
+        // Warm-start pre-init: the request must NOT be stamped under the persisted key.
+        XCTAssertTrue(readQueue().isEmpty,
+                      "warm-start setEmail must not enqueue under the disk-hydrated apiKey")
+        // The identity update is still persisted so it rides the next post-init request.
         XCTAssertEqual(IdentityStore.shared.current.email, "new@example.com",
                        "warm-start setEmail must persist the new email to IdentityStore")
     }
