@@ -15,7 +15,7 @@ protocol KlaviyoWebViewModeling: AnyObject {
     var delegate: KlaviyoWebViewDelegate? { get set }
 
     /// Scripts & message handlers to be injected into the ``WKWebView`` when the website loads.
-    var loadScripts: Set<WKUserScript>? { get }
+    var loadScripts: [WKUserScript]? { get }
     var messageHandlers: Set<String>? { get }
 
     @MainActor

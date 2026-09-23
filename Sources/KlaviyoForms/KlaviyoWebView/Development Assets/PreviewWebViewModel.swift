@@ -21,7 +21,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
     weak var delegate: KlaviyoWebViewDelegate?
 
     let url: URL
-    var loadScripts: Set<WKUserScript>? = PreviewWebViewModel.initializeLoadScripts()
+    var loadScripts: [WKUserScript]? = PreviewWebViewModel.initializeLoadScripts()
     var messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     private let (navEventStream, navEventContinuation) = AsyncStream.makeStream(of: WKNavigationEvent.self)
@@ -30,17 +30,17 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
         self.url = url
     }
 
-    private static func initializeLoadScripts() -> Set<WKUserScript> {
-        var scripts = Set<WKUserScript>()
+    private static func initializeLoadScripts() -> [WKUserScript] {
+        var scripts: [WKUserScript] = []
 
         if let toggleHandlerScript = try? ResourceLoader.getResourceContents(path: "toggleHandler", type: "js") {
             let script = WKUserScript(source: toggleHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-            scripts.insert(script)
+            scripts.append(script)
         }
 
         if let closeHandlerScript = try? ResourceLoader.getResourceContents(path: "closeHandler", type: "js") {
             let script = WKUserScript(source: closeHandlerScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-            scripts.insert(script)
+            scripts.append(script)
         }
 
         return scripts

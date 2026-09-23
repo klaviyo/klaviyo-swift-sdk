@@ -24,6 +24,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     /// Records every script passed to ``evaluateJavaScript(_:)``, in call order,
     /// so tests can assert both that an update fired and what it contained.
     var evaluatedScripts: [String] = []
+    var onEvaluateJavaScript: ((String) -> Void)?
     var evaluateJavaScriptCalled: Bool {
         !evaluatedScripts.isEmpty
     }
@@ -71,6 +72,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
             throw javaScriptEvaluationError
         }
         evaluatedScripts.append(script)
+        onEvaluateJavaScript?(script)
         return true
     }
 

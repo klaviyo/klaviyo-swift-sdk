@@ -296,24 +296,27 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setEmail(email))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updateEmail(email: email)
-            return .none
+            return invalidateAuthIfIdentityChanged(from: previousIdentity, to: state)
 
         case let .setPhoneNumber(phoneNumber):
             guard case .initialized = state.initalizationState else {
                 state.pendingRequests.append(.setPhoneNumber(phoneNumber))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updatePhoneNumber(phoneNumber: phoneNumber)
-            return .none
+            return invalidateAuthIfIdentityChanged(from: previousIdentity, to: state)
 
         case let .setExternalId(externalId):
             guard case .initialized = state.initalizationState else {
                 state.pendingRequests.append(.setExternalId(externalId))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updateExternalId(externalId: externalId)
-            return .none
+            return invalidateAuthIfIdentityChanged(from: previousIdentity, to: state)
 
         case let .setPushToken(pushToken, enablement):
             guard case .initialized = state.initalizationState, let apiKey = state.apiKey, let anonymousId = state.anonymousId else {
@@ -579,6 +582,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
 
+            let previousIdentity = identity(in: state)
             let pushTokenData = state.pushTokenData
             let currentIds = [state.email, state.phoneNumber, state.externalId]
             let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
@@ -599,18 +603,22 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)
+            let authInvalidation = invalidateAuthIfIdentityChanged(
+                from: previousIdentity,
+                to: state
+            )
 
             // Skip the API call entirely when there is nothing new to sync:
             // identifiers are unchanged, the profile carries no extra attributes,
             // and no profile properties are queued up via setProfileProperty.
             if !identifiersChanged, !profile.hasNonIdentifierData, state.pendingProfile == nil {
-                return .none
+                return authInvalidation
             }
 
             guard let anonymousId = state.anonymousId,
                   let apiKey = state.apiKey
             else {
-                return .none
+                return authInvalidation
             }
             let request: KlaviyoRequest!
 
@@ -638,7 +646,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.enqueueRequest(request: request)
 
-            return .none
+            return authInvalidation
 
         case let .setBadgeCount(count):
             return .run { _ in
@@ -701,6 +709,7 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .resetStateAndDequeue(request, invalidFields):
+            let previousIdentity = identity(in: state)
             for invalidField in invalidFields {
                 switch invalidField {
                 case .email:
@@ -711,6 +720,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             return .task { .deQueueCompletedResults(request) }
+                .merge(with: invalidateAuthIfIdentityChanged(from: previousIdentity, to: state))
 
         case let .trackingLinkReceived(trackingLinkURL):
             let clickTime = environment.date()
@@ -872,6 +882,19 @@ struct KlaviyoReducer: ReducerProtocol {
             effects.append(reduce(into: &state, action: action))
         }
         return .merge(effects)
+    }
+
+    private func identity(in state: KlaviyoState) -> [String?] {
+        [state.email, state.phoneNumber, state.externalId]
+    }
+
+    private func invalidateAuthIfIdentityChanged(
+        from previousIdentity: [String?],
+        to state: KlaviyoState
+    ) -> EffectTask<KlaviyoAction> {
+        guard previousIdentity != identity(in: state) else { return .none }
+        let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        return .run { _ in await command.value }
     }
 }
 
